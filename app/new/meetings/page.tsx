@@ -448,7 +448,7 @@ export default function MeetingsPage() {
   const { data: clientsData, isLoading: isLoadingClients } = useSWR(
     "/api/clients",
     jsonFetcher,
-    { keepPreviousData: true, dedupingInterval: 30_000, revalidateOnFocus: true },
+    { keepPreviousData: true, dedupingInterval: 60_000, revalidateOnFocus: false },
   );
   const clients: Client[] = useMemo(
     () => (clientsData?.data ?? []).filter((c: Client) => c.status !== "Archived"),
@@ -467,7 +467,7 @@ export default function MeetingsPage() {
   const { data: meetingsData, isLoading: meetingsLoading, mutate: refreshMeetings } = useSWR(
     meetingsKey,
     jsonFetcher,
-    { keepPreviousData: true, dedupingInterval: 15_000, revalidateOnFocus: true },
+    { keepPreviousData: true, dedupingInterval: 60_000, revalidateOnFocus: false },
   );
   const meetings: Meeting[] = meetingsData?.data ?? [];
   const [datePickerOpen, setDatePickerOpen] = useState(false);

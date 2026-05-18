@@ -179,8 +179,8 @@ export default function DocumentsPage() {
   const clientsKey = "/api/clients?status=all&limit=500&sortColumn=companyName&sortDirection=asc";
   const { data: clientsData, mutate: refreshClientsSWR } = useSWR(clientsKey, jsonFetcher, {
     keepPreviousData: true,
-    dedupingInterval: 30_000,
-    revalidateOnFocus: true,
+    dedupingInterval: 60_000,
+    revalidateOnFocus: false,
   });
   const clients: Client[] = useMemo(
     () => ((clientsData?.data as Client[]) ?? []).filter((c) => (c.status ?? "Active") !== "Archived"),
@@ -201,8 +201,8 @@ export default function DocumentsPage() {
     jsonFetcher,
     {
       keepPreviousData: true,
-      dedupingInterval: 15_000,
-      revalidateOnFocus: true,
+      dedupingInterval: 60_000,
+      revalidateOnFocus: false,
       onSuccess: () => setIsLoading(false),
       onError: () => {
         toast.error("Failed to fetch documents");

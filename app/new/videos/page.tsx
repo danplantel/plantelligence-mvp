@@ -170,12 +170,12 @@ export default function ContentLibraryPage() {
   const { data: clientsData } = useSWR(
     "/api/clients?search=&status=all",
     jsonFetcher,
-    { keepPreviousData: true, dedupingInterval: 30_000, revalidateOnFocus: true },
+    { keepPreviousData: true, dedupingInterval: 60_000, revalidateOnFocus: false },
   );
   const { data: plansData } = useSWR(
     "/api/plans/get-list-plan",
     jsonFetcher,
-    { keepPreviousData: true, dedupingInterval: 30_000, revalidateOnFocus: true },
+    { keepPreviousData: true, dedupingInterval: 60_000, revalidateOnFocus: false },
   );
 
   // Helper function to fetch ALL videos for a plan (NO CACHING)
