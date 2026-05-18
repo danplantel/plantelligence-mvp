@@ -42,8 +42,9 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import { useDebounceValue } from "usehooks-ts";
+import useSWR from "swr";
 import {
   Search,
   FileText,
@@ -97,11 +98,11 @@ type SortColumn = "companyName" | "createdAt" | "updatedAt" | "status" | "type";
 type SortDirection = "asc" | "desc";
 type StatusFilter = "all" | "active" | "draft";
 
+const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
+
 export function ClientsListDashboardPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchDebounce] = useDebounceValue(searchQuery, 300);
-  const [clients, setClients] = useState<Client[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [sortColumn, setSortColumn] = useState<SortColumn>("status");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -111,8 +112,35 @@ export function ClientsListDashboardPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
-  const [totalClients, setTotalClients] = useState(0);
   const isInitialLoad = useRef(true);
+
+  // Build the SWR key from current filter/sort/page state.
+  // SWR caches each unique key — navigating back shows cached data instantly.
+  const swrKey = useMemo(() => {
+    const params = new URLSearchParams({
+      search: searchDebounce,
+      status: statusFilter === "all" ? "all" : statusFilter,
+      type: planTypeFilter,
+      page: currentPage.toString(),
+      limit: itemsPerPage.toString(),
+      sortColumn,
+      sortDirection,
+    });
+    return `/api/clients?${params.toString()}`;
+  }, [searchDebounce, statusFilter, planTypeFilter, currentPage, itemsPerPage, sortColumn, sortDirection]);
+
+  const { data: swrData, isLoading, isValidating, mutate: refreshClients } = useSWR(
+    swrKey,
+    jsonFetcher,
+    {
+      keepPreviousData: true,   // show stale data while revalidating — no blank flash
+      dedupingInterval: 30_000,
+      revalidateOnFocus: true,
+    },
+  );
+
+  const clients: Client[] = swrData?.data ?? [];
+  const totalClients: number = swrData?.pagination?.total ?? 0;
 
   const { data: session } = useSession();
   const router = useRouter();
@@ -144,45 +172,6 @@ export function ClientsListDashboardPage() {
     };
   };
 
-  const handleGetClients = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const params = new URLSearchParams({
-        search: searchDebounce,
-        status: statusFilter === "all" ? "all" : statusFilter,
-        type: planTypeFilter,
-        page: currentPage.toString(),
-        limit: itemsPerPage.toString(),
-        sortColumn: sortColumn,
-        sortDirection: sortDirection,
-      });
-
-      const response = await fetch(`/api/clients?${params.toString()}`);
-      const data = await response.json();
-
-      if (data.success) {
-        setClients(data.data);
-        if (data.pagination) {
-          setTotalClients(data.pagination.total);
-        }
-        if (isInitialLoad.current) {
-          isInitialLoad.current = false;
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching clients:", error);
-    }
-    setIsLoading(false);
-  }, [
-    searchDebounce,
-    statusFilter,
-    planTypeFilter,
-    currentPage,
-    itemsPerPage,
-    sortColumn,
-    sortDirection,
-  ]);
-
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
@@ -197,14 +186,18 @@ export function ClientsListDashboardPage() {
   const totalPages = Math.ceil(totalClients / itemsPerPage);
 
   // Reset to page 1 when filters change
-  useEffect(() => {
-    setCurrentPage(1);
+  const prevFiltersRef = useRef({ planTypeFilter, statusFilter, searchDebounce });
+  useMemo(() => {
+    const prev = prevFiltersRef.current;
+    if (
+      prev.planTypeFilter !== planTypeFilter ||
+      prev.statusFilter !== statusFilter ||
+      prev.searchDebounce !== searchDebounce
+    ) {
+      setCurrentPage(1);
+      prevFiltersRef.current = { planTypeFilter, statusFilter, searchDebounce };
+    }
   }, [planTypeFilter, statusFilter, searchDebounce]);
-
-  // Fetch clients when any parameter changes
-  useEffect(() => {
-    handleGetClients();
-  }, [handleGetClients]);
 
   const handleDeleteClient = (client: Client) => {
     setClientToDelete(client);
@@ -227,10 +220,8 @@ export function ClientsListDashboardPage() {
       const result = await response.json();
       if (result.success) {
         toast.success("Client deleted successfully");
-        // Remove the deleted client from the list
-        setClients((prev) =>
-          prev.filter((client) => client.id !== clientToDelete.id),
-        );
+        // Revalidate SWR cache so the list refreshes without a full reload
+        refreshClients();
       } else {
         throw new Error("Failed to delete client");
       }
@@ -270,7 +261,7 @@ export function ClientsListDashboardPage() {
       <div className="flex items-center justify-between space-y-2">
         <h2 className="text-3xl font-bold tracking-tight">Plans</h2>
         <div className="flex items-center space-x-2">
-          <Button onClick={handleGetClients} variant="outline">
+          <Button onClick={() => refreshClients()} variant="outline">
             <RefreshCw className="mr-2 h-4 w-4" />
             Refresh
           </Button>

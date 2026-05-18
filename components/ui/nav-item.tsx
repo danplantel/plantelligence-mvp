@@ -1,15 +1,19 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Icons } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import type { NavItem } from "@/types";
-import { useState, useEffect, useTransition, useCallback, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface NavItemProps {
   item: NavItem;
   isOpen: boolean;
+  /** Reserved for future use — always null now that navigation is immediate */
+  pendingHref: string | null;
+  /** Shared navigate function from DashboardNav */
+  onNavigate: (href: string) => void;
   onHover?: () => void;
   onLeave?: () => void;
 }
@@ -27,57 +31,34 @@ function hrefMatches(
   if (!href || href === "#") return false;
   const qIdx = href.indexOf("?");
   if (qIdx !== -1) {
-    // href has query — compare full path+query
     const hrefPath = href.slice(0, qIdx);
     const hrefQuery = href.slice(qIdx + 1);
     return hrefPath === pathname && hrefQuery === search;
   }
-  // href has no query — pathname-only match
   return href === pathname;
 }
 
 export function NavItemComponent({
   item,
   isOpen,
+  onNavigate,
   onHover,
   onLeave,
 }: NavItemProps) {
   const Icon =
     item.icon && Icons[item.icon] ? Icons[item.icon] : Icons.arrowRight;
   const [isExpanded, setIsExpanded] = useState(false);
-  // Optimistic href: set immediately on click so active style shows before pathname updates
-  const [pendingHref, setPendingHref] = useState<string | null>(null);
   const pathname = usePathname();
-  // useSearchParams gives us the current query string without the "?"
   const searchParams = useSearchParams();
-  const search = searchParams.toString(); // e.g. "tab=preview"
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const search = searchParams.toString();
 
-  // While a transition is pending, derive pathname+search from the optimistic pendingHref
-  const effectivePathname = useMemo(() => {
-    if (isPending && pendingHref) {
-      const qIdx = pendingHref.indexOf("?");
-      return qIdx !== -1 ? pendingHref.slice(0, qIdx) : pendingHref;
-    }
-    return pathname;
-  }, [isPending, pendingHref, pathname]);
-
-  const effectiveSearch = useMemo(() => {
-    if (isPending && pendingHref) {
-      const qIdx = pendingHref.indexOf("?");
-      return qIdx !== -1 ? pendingHref.slice(qIdx + 1) : "";
-    }
-    return search;
-  }, [isPending, pendingHref, search]);
-
-  const isActive = hrefMatches(item.href, effectivePathname, effectiveSearch);
+  const isActive = hrefMatches(item.href, pathname, search);
   const hasActiveChild = useMemo(
     () =>
       item.items?.some((subItem) =>
-        hrefMatches(subItem.href, effectivePathname, effectiveSearch),
+        hrefMatches(subItem.href, pathname, search),
       ) ?? false,
-    [item.items, effectivePathname, effectiveSearch],
+    [item.items, pathname, search],
   );
 
   // Expand if parent is active or has active child
@@ -87,35 +68,10 @@ export function NavItemComponent({
     }
   }, [isActive, hasActiveChild]);
 
-  // Clear pending href once the transition completes
-  useEffect(() => {
-    if (!isPending) {
-      setPendingHref(null);
-    }
-  }, [isPending]);
-
-  // Eagerly prefetch all nav routes on mount — works in both dev and production
-  useEffect(() => {
-    if (item.href) router.prefetch(item.href);
-    item.items?.forEach((subItem) => {
-      if (subItem.href) router.prefetch(subItem.href);
-    });
-  }, [item, router]);
-
-  const navigate = useCallback(
-    (href: string) => {
-      // Don't re-navigate if already on this exact href
-      const qIdx = href.indexOf("?");
-      const hrefPath = qIdx !== -1 ? href.slice(0, qIdx) : href;
-      const hrefQuery = qIdx !== -1 ? href.slice(qIdx + 1) : "";
-      if (hrefPath === effectivePathname && hrefQuery === effectiveSearch) return;
-      setPendingHref(href);
-      startTransition(() => {
-        router.push(href);
-      });
-    },
-    [effectivePathname, effectiveSearch, router],
-  );
+  const handleNavigate = (href: string) => {
+    if (href === "#") return;
+    onNavigate(href);
+  };
 
   return (
     <div className="space-y-1">
@@ -146,11 +102,11 @@ export function NavItemComponent({
           </div>
         </button>
       ) : (
-        // Leaf items: navigate with optimistic active state via useTransition
+        // Leaf items: navigate immediately via onNavigate
         <button
           onMouseEnter={onHover}
           onMouseLeave={onLeave}
-          onClick={() => navigate(item.href ?? "#")}
+          onClick={() => handleNavigate(item.href ?? "#")}
           className={cn(
             "w-full text-left px-4 py-3 rounded-md transition-colors duration-200",
             isActive
@@ -181,16 +137,12 @@ export function NavItemComponent({
                   subItem.icon && Icons[subItem.icon]
                     ? Icons[subItem.icon]
                     : null;
-                const isSubActive = hrefMatches(
-                  subItem.href,
-                  effectivePathname,
-                  effectiveSearch,
-                );
+                const isSubActive = hrefMatches(subItem.href, pathname, search);
 
                 return (
                   <button
                     key={subIndex}
-                    onClick={() => navigate(subItem.href ?? "#")}
+                    onClick={() => handleNavigate(subItem.href ?? "#")}
                     className={cn(
                       "w-full text-left px-3 py-2 rounded-md transition-colors duration-200",
                       isSubActive

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import useSWR from "swr";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -147,6 +148,8 @@ const VIDEO_TYPES = [
   { id: "custom", name: "Custom" },
 ];
 
+const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
+
 export default function ContentLibraryPage() {
   const [selectedPlan, setSelectedPlan] = useState<string>("all");
   const [selectedType, setSelectedType] = useState<string>("all");
@@ -162,6 +165,18 @@ export default function ContentLibraryPage() {
   const prevSelectedPlanForCheckingRef = useRef<string>("all");
   // Keep current summaryVideos in ref to access latest value without dependency
   const summaryVideosRef = useRef<PlanVideo[]>([]);
+
+  // SWR: clients + plans — cached so revisiting the page shows data instantly
+  const { data: clientsData } = useSWR(
+    "/api/clients?search=&status=all",
+    jsonFetcher,
+    { keepPreviousData: true, dedupingInterval: 30_000, revalidateOnFocus: true },
+  );
+  const { data: plansData } = useSWR(
+    "/api/plans/get-list-plan",
+    jsonFetcher,
+    { keepPreviousData: true, dedupingInterval: 30_000, revalidateOnFocus: true },
+  );
 
   // Helper function to fetch ALL videos for a plan (NO CACHING)
   const fetchVideoForPlan = useCallback(async (planId: string) => {
@@ -306,39 +321,27 @@ export default function ContentLibraryPage() {
     }
   }, []);
 
+  // Process SWR data whenever clients or plans data arrives/updates
   useEffect(() => {
+    // Wait until both SWR responses are available
+    if (!clientsData || !plansData) return;
+
     let isMounted = true;
 
     const fetchPlans = async () => {
       setIsFetchingPlans(true);
       try {
-        // Fetch clients from /api/clients (same as /new/clients page)
-        const clientsResponse = await fetch(
-          `/api/clients?search=${encodeURIComponent("")}&status=all`,
-        );
-        if (!clientsResponse.ok) {
-          throw new Error("Failed to fetch clients");
-        }
-        const clientsData = await clientsResponse.json();
-
         if (!clientsData.success || !Array.isArray(clientsData.data)) {
           throw new Error("Invalid clients data");
         }
 
-        // Filter out clients with "Draft" status
+        // Filter out clients with "Draft" status (use SWR cached data)
         const activeClients = clientsData.data.filter(
           (client: any) => (client.status || "").toLowerCase() !== "draft",
         );
 
-        // Fetch all plans to match with clients
-        const plansResponse = await fetch("/api/plans/get-list-plan");
-        if (!plansResponse.ok) {
-          throw new Error("Failed to fetch plans");
-        }
-        const plansPayload = await plansResponse.json();
-
-        // Filter out plans with "Draft" status
-        const allPlans = (plansPayload?.data || []).filter(
+        // Filter out plans with "Draft" status (use SWR cached data)
+        const allPlans = (plansData?.data || []).filter(
           (plan: any) => (plan.status || "").toLowerCase() !== "draft",
         );
 
@@ -523,7 +526,7 @@ export default function ContentLibraryPage() {
     return () => {
       isMounted = false;
     };
-  }, [fetchVideoForPlan]);
+  }, [fetchVideoForPlan, clientsData, plansData]);
 
   // Update ref when summaryVideos changes
   useEffect(() => {

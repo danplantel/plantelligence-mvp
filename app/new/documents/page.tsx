@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import useSWR from "swr";
 import { useSearchParams, useRouter } from "next/navigation";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -110,6 +111,8 @@ function DocumentsPreviewEmptyState(props: {
   return null;
 }
 
+const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
+
 export default function DocumentsPage() {
   const { setTitle } = usePageTitleContext();
   const searchParams = useSearchParams();
@@ -120,8 +123,6 @@ export default function DocumentsPage() {
   const [clientFilter, setClientFilter] = useState("all");
   const [sortColumn, setSortColumn] = useState<SortColumn>("uploadedAt");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
-  const [documents, setDocuments] = useState<Document[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState<{
@@ -173,120 +174,47 @@ export default function DocumentsPage() {
     },
   });
 
-  // Set page title
-  useEffect(() => {
-    setTitle("Documents");
-  }, [setTitle]);
+  // SWR: clients list — cached, shows instantly on revisit
+  // Declared before useEffects that depend on `clients`
+  const clientsKey = "/api/clients?status=all&limit=500&sortColumn=companyName&sortDirection=asc";
+  const { data: clientsData, mutate: refreshClientsSWR } = useSWR(clientsKey, jsonFetcher, {
+    keepPreviousData: true,
+    dedupingInterval: 30_000,
+    revalidateOnFocus: true,
+  });
+  const clients: Client[] = useMemo(
+    () => ((clientsData?.data as Client[]) ?? []).filter((c) => (c.status ?? "Active") !== "Archived"),
+    [clientsData],
+  );
 
-  // Sync URL params with filters on mount
-  useEffect(() => {
-    const companyParam = searchParams.get("company");
-    const searchParam = searchParams.get("search");
-    const typeParam = searchParams.get("type");
-    const tabParam = searchParams.get("tab");
+  // SWR: documents — key changes with filters so each combo is cached separately
+  const docsKey = useMemo(() => {
+    const params = new URLSearchParams();
+    if (searchTerm) params.append("search", searchTerm);
+    if (typeFilter !== "all") params.append("type", typeFilter);
+    if (clientFilter !== "all") params.append("clientId", clientFilter);
+    return `/api/documents?${params.toString()}`;
+  }, [searchTerm, typeFilter, clientFilter]);
 
-    if (searchParam) setSearchTerm(searchParam);
-    if (typeParam) setTypeFilter(typeParam);
-
-    // Set active tab from URL parameter
-    if (tabParam && ["preview", "upload", "list"].includes(tabParam)) {
-      setActiveTab(tabParam);
-    }
-
-    // If company param exists, find the client and set filter and selected plan
-    if (companyParam && clients.length > 0) {
-      // Decode URL-encoded parameter (e.g., "Soft+Development" -> "Soft Development")
-      const decodedCompany = decodeURIComponent(
-        companyParam.replace(/\+/g, " "),
-      );
-
-      // Try exact match first
-      let client = clients.find(
-        (c) => c.companyName.toLowerCase() === decodedCompany.toLowerCase(),
-      );
-
-      // If no exact match, try partial match
-      if (!client) {
-        client = clients.find(
-          (c) =>
-            c.companyName
-              .toLowerCase()
-              .includes(decodedCompany.toLowerCase()) ||
-            decodedCompany.toLowerCase().includes(c.companyName.toLowerCase()),
-        );
-      }
-
-      if (client) {
-        setClientFilter(client.id);
-        setSelectedPlan(client.id);
-      }
-    }
-  }, [searchParams, clients]);
-
-  // Per-module sticky plan + ?planId= override (see Dev Notes — Plan Selector UX)
-  useEffect(() => {
-    if (clients.length === 0) return;
-    const urlPlanId = searchParams.get("planId")?.trim() || null;
-    const resolved = resolveStickyPlanId(clients, "documents", urlPlanId);
-    if (!resolved) return;
-    setSelectedPlan((prev) => (urlPlanId ? resolved : prev || resolved));
-    setClientFilter((prev) => {
-      if (urlPlanId) return resolved;
-      if (!prev || prev === "all") return resolved;
-      return prev;
-    });
-    if (urlPlanId && resolved === urlPlanId) {
-      persistPlanSelection("documents", resolved);
-    }
-  }, [clients, searchParams]);
-
-  const fetchDocuments = async () => {
-    setIsLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (searchTerm) params.append("search", searchTerm);
-      if (typeFilter !== "all") params.append("type", typeFilter);
-      if (clientFilter !== "all") params.append("clientId", clientFilter);
-
-      const response = await fetch(`/api/documents?${params.toString()}`);
-      const result = await response.json();
-
-      if (result.success) {
-        setDocuments(result.data);
-      } else {
+  const { data: docsData, isLoading: docsLoading, mutate: refreshDocsSWR } = useSWR(
+    docsKey,
+    jsonFetcher,
+    {
+      keepPreviousData: true,
+      dedupingInterval: 15_000,
+      revalidateOnFocus: true,
+      onSuccess: () => setIsLoading(false),
+      onError: () => {
         toast.error("Failed to fetch documents");
-      }
-    } catch (error) {
-      toast.error("An error occurred while fetching documents");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+        setIsLoading(false);
+      },
+    },
+  );
+  const documents: Document[] = docsData?.data ?? [];
 
-  const fetchClients = async () => {
-    try {
-      // Paginated default (25/page). Request enough rows; include Draft so uploads work before activation.
-      const params = new URLSearchParams({
-        status: "all",
-        limit: "500",
-        sortColumn: "companyName",
-        sortDirection: "asc",
-      });
-      const response = await fetch(`/api/clients?${params.toString()}`);
-      const result = await response.json();
-      if (result.success && Array.isArray(result.data)) {
-        const rows = result.data as Client[];
-        setClients(
-          rows.filter((c) => (c.status ?? "Active") !== "Archived"),
-        );
-      } else {
-        toast.error("Failed to load plans");
-      }
-    } catch (error) {
-      console.error("Error fetching clients:", error);
-      toast.error("Failed to load plans");
-    }
-  };
+  const fetchDocuments = useCallback(() => {
+    refreshDocsSWR();
+  }, [refreshDocsSWR]);
 
   // Update URL when filters change
   const updateURL = (search: string, type: string, client: string) => {
@@ -310,22 +238,69 @@ export default function DocumentsPage() {
     router.replace(newURL);
   };
 
+  // Set page title
   useEffect(() => {
-    // Avoid one fetch with clientFilter "all" after clients load — sticky plan resolves on the next
-    // microtask; fetching too early mixes every plan's documents and looks like wrong recall.
-    if (clients.length > 0 && clientFilter === "all") {
-      return;
+    setTitle("Documents");
+  }, [setTitle]);
+
+  // Sync URL params with filters on mount
+  useEffect(() => {
+    const companyParam = searchParams.get("company");
+    const searchParam = searchParams.get("search");
+    const typeParam = searchParams.get("type");
+    const tabParam = searchParams.get("tab");
+
+    if (searchParam) setSearchTerm(searchParam);
+    if (typeParam) setTypeFilter(typeParam);
+
+    // Set active tab from URL parameter
+    if (tabParam && ["preview", "upload", "list"].includes(tabParam)) {
+      setActiveTab(tabParam);
     }
-    fetchDocuments();
-    // Update URL when filters change
+
+    // If company param exists, find the client and set filter and selected plan
+    if (companyParam && clients.length > 0) {
+      const decodedCompany = decodeURIComponent(companyParam.replace(/\+/g, " "));
+      let client = clients.find(
+        (c) => c.companyName.toLowerCase() === decodedCompany.toLowerCase(),
+      );
+      if (!client) {
+        client = clients.find(
+          (c) =>
+            c.companyName.toLowerCase().includes(decodedCompany.toLowerCase()) ||
+            decodedCompany.toLowerCase().includes(c.companyName.toLowerCase()),
+        );
+      }
+      if (client) {
+        setClientFilter(client.id);
+        setSelectedPlan(client.id);
+      }
+    }
+  }, [searchParams, clients]);
+
+  // Per-module sticky plan + ?planId= override
+  useEffect(() => {
+    if (clients.length === 0) return;
+    const urlPlanId = searchParams.get("planId")?.trim() || null;
+    const resolved = resolveStickyPlanId(clients, "documents", urlPlanId);
+    if (!resolved) return;
+    setSelectedPlan((prev) => (urlPlanId ? resolved : prev || resolved));
+    setClientFilter((prev) => {
+      if (urlPlanId) return resolved;
+      if (!prev || prev === "all") return resolved;
+      return prev;
+    });
+    if (urlPlanId && resolved === urlPlanId) {
+      persistPlanSelection("documents", resolved);
+    }
+  }, [clients, searchParams]);
+
+  // Update URL when filters change (clients must be loaded first)
+  useEffect(() => {
     if (clients.length > 0) {
       updateURL(searchTerm, typeFilter, clientFilter);
     }
   }, [searchTerm, typeFilter, clientFilter, selectedPlan, clients.length, searchParams]);
-
-  useEffect(() => {
-    fetchClients();
-  }, []);
 
   const handlePlanChange = (clientId: string) => {
     setSelectedPlan(clientId);

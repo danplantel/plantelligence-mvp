@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { flushSync } from "react-dom";
+import useSWR from "swr";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -410,6 +411,8 @@ interface MeetingSaveType {
 type SortColumn = "meeting" | "client" | "date" | "status";
 type SortDirection = "asc" | "desc";
 
+const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
+
 export default function MeetingsPage() {
   const router = useRouter();
   const { setTitle } = usePageTitleContext();
@@ -434,15 +437,39 @@ export default function MeetingsPage() {
   const [sortColumn, setSortColumn] = useState<SortColumn>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [activeTab, setActiveTab] = useState("upcoming");
-  const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   // Form state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const meetingFormRef = useRef<HTMLFormElement | null>(null);
   const isSubmittingRef = useRef(false);
-  const [clients, setClients] = useState<Client[]>([]);
-  const [isLoadingClients, setIsLoadingClients] = useState(true);
+
+  // SWR: clients — cached, shows instantly on revisit
+  const { data: clientsData, isLoading: isLoadingClients } = useSWR(
+    "/api/clients",
+    jsonFetcher,
+    { keepPreviousData: true, dedupingInterval: 30_000, revalidateOnFocus: true },
+  );
+  const clients: Client[] = useMemo(
+    () => (clientsData?.data ?? []).filter((c: Client) => c.status !== "Archived"),
+    [clientsData],
+  );
+
+  // SWR: meetings — key changes with filters so each combo is cached
+  const meetingsKey = useMemo(() => {
+    const params = new URLSearchParams();
+    if (searchTerm) params.append("search", searchTerm);
+    if (typeFilter !== "all") params.append("type", typeFilter);
+    if (statusFilter !== "all") params.append("status", statusFilter);
+    return `/api/meetings?${params.toString()}`;
+  }, [searchTerm, typeFilter, statusFilter]);
+
+  const { data: meetingsData, isLoading: meetingsLoading, mutate: refreshMeetings } = useSWR(
+    meetingsKey,
+    jsonFetcher,
+    { keepPreviousData: true, dedupingInterval: 15_000, revalidateOnFocus: true },
+  );
+  const meetings: Meeting[] = meetingsData?.data ?? [];
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [timePickerOpen, setTimePickerOpen] = useState(false);
   const [durationPickerOpen, setDurationPickerOpen] = useState(false);
@@ -537,24 +564,6 @@ export default function MeetingsPage() {
 
   const addCustomMeeting = useMeetingStore((state) => state.addCustomMeeting);
 
-  const fetchClients = useCallback(async () => {
-    try {
-      setIsLoadingClients(true);
-      const response = await fetch("/api/clients");
-      const result = await response.json();
-
-      if (result.success) {
-        const list = (result.data || []).filter(
-          (c: Client) => c.status !== "Archived",
-        );
-        setClients(list);
-      }
-    } catch (error) {
-      console.error("Error fetching clients:", error);
-    } finally {
-      setIsLoadingClients(false);
-    }
-  }, []);
 
   // Sync URL params with filters on mount
   useEffect(() => {
@@ -657,37 +666,8 @@ export default function MeetingsPage() {
   }, [updateURL]);
 
   const fetchMeetings = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (searchTerm) params.append("search", searchTerm);
-      if (typeFilter !== "all") params.append("type", typeFilter);
-      if (statusFilter !== "all") params.append("status", statusFilter);
-
-      const response = await fetch(`/api/meetings?${params.toString()}`);
-      const result = await response.json();
-
-      if (result.success) {
-        setMeetings(result.data);
-      } else {
-        toast.error("Failed to fetch meetings");
-      }
-    } catch (error) {
-      toast.error("An error occurred while fetching meetings");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [searchTerm, typeFilter, statusFilter]);
-
-  // Fetch clients only once on mount
-  useEffect(() => {
-    fetchClients();
-  }, [fetchClients]);
-
-  // Fetch meetings when filters change
-  useEffect(() => {
-    fetchMeetings();
-  }, [fetchMeetings]);
+    refreshMeetings();
+  }, [refreshMeetings]);
 
   const handlePlanClientChange = (clientId: string) => {
     const c = clients.find((x) => x.id === clientId);
