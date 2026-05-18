@@ -335,7 +335,7 @@ export function StickyPlanCombobox({
           type="button"
           variant="outline"
           disabled={disabled || plans.length === 0}
-          className="w-full justify-between h-9 px-3 bg-white"
+          className="w-full justify-between h-9 px-3 bg-white dark:bg-gray-800"
           onClick={() => setOpen(!open)}
           aria-expanded={open}
           aria-haspopup="listbox"

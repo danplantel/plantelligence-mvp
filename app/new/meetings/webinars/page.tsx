@@ -418,7 +418,7 @@ export default function WebinarsPage() {
   };
 
   return (
-    <div className="p-6 bg-gray-50">
+    <div className="p-6 bg-background">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left Panel: Add New Webinar Form */}
         <Card className="shadow-sm">

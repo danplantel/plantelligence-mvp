@@ -1386,7 +1386,7 @@ export default function EditClientPage() {
       </div>
 
       {/* Fixed Save Button Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-white shadow-lg">
+      <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background shadow-lg">
         <div className="mx-auto px-8 py-4 flex justify-end gap-3">
           <Button
             variant="outline"

@@ -1172,33 +1172,33 @@ export function BenefitsStep1a() {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full mx-auto pb-20">
       {/* 1. Selection Card */}
-      <Card className="border-none shadow-md overflow-hidden bg-white">
-        <CardHeader className="pb-4 border-b bg-gray-50/50">
-          <CardTitle className="text-xl text-gray-900 font-bold">
+      <Card className="border-none shadow-md overflow-hidden bg-card dark:bg-gray-800">
+        <CardHeader className="pb-4 border-b bg-gray-50/50 dark:bg-gray-700">
+          <CardTitle className="text-xl text-gray-900 font-bold dark:text-gray-100">
             Step 1: Plan & Benefit Selection
           </CardTitle>
-          <CardDescription className="text-sm text-gray-600">
+          <CardDescription className="text-sm text-gray-600 dark:text-gray-300">
             Select the plan and specific benefit category you want to create.
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-6 space-y-6">
           <div className="text-center space-y-2 mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
               Choose a Plan & Benefit
             </h1>
-            <p className="text-gray-600">
+            <p className="text-gray-600 dark:text-gray-300">
               Select which benefit you&apos;re configuring and for which plan.
             </p>
           </div>
           <div className="space-y-2">
-            <Label className="text-sm font-semibold text-gray-700">
+            <Label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
               Select Plan <span className="text-red-500">*</span>
             </Label>
             <Select
               value={resolvedPlanId}
               onValueChange={handlePlanChange}
             >
-              <SelectTrigger className="w-full bg-white border-gray-200">
+              <SelectTrigger className="w-full bg-white border-gray-200 dark:bg-gray-700 dark:border-gray-600">
                 <SelectValue placeholder="Choose a plan..." />
               </SelectTrigger>
               <SelectContent>
@@ -1453,7 +1453,7 @@ export function BenefitsStep1a() {
             {/* 1. Branding Section */}
             <AccordionItem
               value="branding"
-              className="border-none shadow-md overflow-hidden bg-white rounded-xl"
+              className="border-none shadow-md overflow-hidden bg-card rounded-xl"
             >
               <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-gray-50/50 group border-b bg-gray-50/30">
                 <div className="flex items-center justify-between w-full pr-4 text-left">
@@ -1578,7 +1578,7 @@ export function BenefitsStep1a() {
             {/* 2. Messaging Section */}
             <AccordionItem
               value="messaging"
-              className="border-none shadow-md overflow-hidden bg-white rounded-xl"
+              className="border-none shadow-md overflow-hidden bg-card rounded-xl"
             >
               <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-gray-50/50 group border-b bg-gray-50/30">
                 <div className="flex items-center justify-between w-full pr-4 text-left">
@@ -1687,7 +1687,7 @@ export function BenefitsStep1a() {
             {/* 3. Key Contact Section */}
             <AccordionItem
               value="contacts"
-              className="border-none shadow-md overflow-hidden bg-white rounded-xl"
+              className="border-none shadow-md overflow-hidden bg-card rounded-xl"
             >
               <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-gray-50/50 group border-b bg-gray-50/30">
                 <div className="flex items-center justify-between w-full pr-4 text-left">
@@ -1876,7 +1876,7 @@ export function BenefitsStep1a() {
             {/* 4. Documents Section */}
             <AccordionItem
               value="documents"
-              className="border-none shadow-md overflow-hidden bg-white rounded-xl"
+              className="border-none shadow-md overflow-hidden bg-card rounded-xl"
             >
               <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-gray-50/50 group border-b bg-gray-50/30">
                 <div className="flex items-center justify-between w-full pr-4 text-left">

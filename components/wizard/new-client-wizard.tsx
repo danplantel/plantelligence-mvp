@@ -468,7 +468,7 @@ export function NewClientWizard({
         </div>
 
         <div
-          className="fixed bottom-0 bg-white border-t z-50"
+          className="fixed bottom-0 bg-background border-t z-50"
           style={{
             left: "var(--sidebar-width, 0)",
             width: "calc(100% - var(--sidebar-width, 0))",

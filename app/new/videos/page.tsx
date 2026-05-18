@@ -867,10 +867,10 @@ export default function ContentLibraryPage() {
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                 All Videos
               </h1>
-              <p className="text-gray-600">
+              <p className="text-gray-600 dark:text-gray-400">
                 View and manage all available videos across all plans
               </p>
             </div>
@@ -1202,7 +1202,7 @@ export default function ContentLibraryPage() {
                     return (
                       <div
                         key={video.id} // ✅ Always use database ID as key
-                        className="relative overflow-hidden rounded-3xl border bg-white shadow-sm"
+                        className="relative overflow-hidden rounded-3xl border bg-card shadow-sm"
                       >
                         {/* Menu button in top right corner */}
                         <div className="absolute right-2 top-2 z-10">
@@ -1334,7 +1334,7 @@ export default function ContentLibraryPage() {
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                 Educational content
               </p>
-              <h3 className="text-xl font-semibold text-gray-900">
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
                 Available videos
               </h3>
             </div>
@@ -1342,7 +1342,7 @@ export default function ContentLibraryPage() {
               {filteredVideos.map((video) => (
                 <div
                   key={video.id}
-                  className="overflow-hidden rounded-3xl border bg-white shadow-sm"
+                  className="overflow-hidden rounded-3xl border bg-card shadow-sm"
                 >
                   <div className="relative aspect-video w-full bg-gray-100">
                     <img
@@ -1352,7 +1352,7 @@ export default function ContentLibraryPage() {
                     />
                   </div>
                   <div className="border-t px-4 py-3">
-                    <p className="text-sm font-medium text-gray-900">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
                       {video.title}
                     </p>
                   </div>

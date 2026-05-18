@@ -535,7 +535,7 @@ export function OnboardingWizard({
         </div>
 
         {/* Footer with navigation - sticky to bottom */}
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-50">
+        <div className="fixed bottom-0 left-0 right-0 bg-background border-t shadow-lg z-50">
           <div className="mx-10">
             <Card className="shadow-none border-0">
               <CardContent className="flex justify-between p-4">

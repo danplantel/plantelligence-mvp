@@ -133,7 +133,7 @@ export function BenefitsWizard({
             </div>
 
             <div
-                className="fixed bottom-0 bg-white border-t z-50 transition-all duration-300 ease-in-out"
+                className="fixed bottom-0 bg-background border-t z-50 transition-all duration-300 ease-in-out"
                 style={{
                     left: "var(--sidebar-width, 0)",
                     width: "calc(100% - var(--sidebar-width, 0))",

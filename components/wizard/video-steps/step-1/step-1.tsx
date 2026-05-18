@@ -1229,7 +1229,7 @@ export function VideoStep1({ errorFields = [] }: VideoStep1Props) {
                       : "focus:ring-0 focus:ring-offset-0"
                   }
                 >
-                  <SelectValue placeholder="Select a plan type" />
+                  <SelectValue placeholder="Choose a plan type..." />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="401k">401(k)</SelectItem>

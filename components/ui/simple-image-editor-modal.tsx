@@ -1376,7 +1376,7 @@ export function SimpleImageEditorModal({
         }}
         className={`w-full h-9 border rounded-lg px-3 py-1 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 flex items-center relative ${
           disabled
-            ? "cursor-not-allowed opacity-50 bg-gray-100 border-gray-300"
+            ? "cursor-not-allowed opacity-50 bg-gray-100 border-gray-300 dark:bg-gray-700 dark:border-gray-600"
             : value
             ? "border-accent-blue bg-[#23919C]/10 focus-visible:ring-ring cursor-pointer"
             : "border-input bg-background focus-visible:ring-ring cursor-pointer"

@@ -120,7 +120,7 @@ export function MeetingsPanel() {
         )}
 
         <Button
-          className="w-full bg-accent-blue font-semibold text-white mt-4"
+          className="w-full bg-accent-blue font-semibold text-white mt-4 dark:bg-accent-blue"
           asChild
         >
           <a href="/new/meetings/create">

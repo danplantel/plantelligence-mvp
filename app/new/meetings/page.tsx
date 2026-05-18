@@ -1508,7 +1508,7 @@ export default function MeetingsPage() {
   });
 
   return (
-    <div className="p-6 bg-gray-50">
+    <div className="p-6 bg-background">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left Panel: Add New Meeting Form */}
         <Card className="shadow-sm">
@@ -1539,7 +1539,7 @@ export default function MeetingsPage() {
                     </p>
                     <Button
                       onClick={() => router.push("/new/new-client")}
-                      className="bg-amber-600 hover:bg-amber-700 text-white"
+                      className="bg-amber-600 hover:bg-amber-700 dark:bg-amber-600 dark:hover:bg-amber-700 dark:text-white"
                     >
                       <UserPlus className="mr-2 h-4 w-4" />
                       Add Plan
@@ -1585,7 +1585,7 @@ export default function MeetingsPage() {
                       key={type.id ?? `${type.value}-${Math.random()}`}
                       className={`relative p-3 border rounded-lg transition-colors group ${
                         !formData.clientId
-                          ? "opacity-50 cursor-not-allowed bg-gray-100"
+                          ? "opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-800"
                           : formData.meetingType === type.value
                           ? "border-primary bg-primary/5 cursor-pointer"
                           : errors.meetingType
@@ -2105,7 +2105,7 @@ export default function MeetingsPage() {
                       type="button"
                       onClick={() => handleInputChange("format", format)}
                       disabled={!formData.clientId}
-                      className={`flex items-center space-x-2 px-4 py-2 rounded-lg border transition-colors ${
+                      className={`flex items-center space-x-2 px-4 py-2 rounded-lg border transition-colors dark:bg-gray-800 ${
                         !formData.clientId
                           ? "opacity-50 cursor-not-allowed bg-gray-100"
                           : formData.format === format
@@ -2323,7 +2323,7 @@ export default function MeetingsPage() {
                   className={`${editingMeetingId ? "flex-1" : "w-full"} ${
                     timeConflictWarning && !hasConfirmedConflict
                       ? "bg-amber-600 hover:bg-amber-700"
-                      : "bg-primary hover:bg-primary/90"
+                      : "bg-primary hover:bg-primary/90 dark:bg-accent-blue dark:text-white dark:hover:bg-accent-blue/90"
                   }`}
                   disabled={isSubmitting || !formData.clientId}
                 >

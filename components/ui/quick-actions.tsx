@@ -29,7 +29,7 @@ export function QuickActions({
             <Button
               key={action.label}
               variant="outline"
-              className="flex flex-col items-center gap-2 w-full h-[112px] p-0"
+              className="flex flex-col items-center gap-2 w-full h-[112px] p-0 dark:hover:border-accent-blue"
               asChild
             >
               <a href={action.href}>

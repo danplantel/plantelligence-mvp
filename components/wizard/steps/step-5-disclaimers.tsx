@@ -25,7 +25,7 @@ interface DisclaimerCardProps {
 
 function DisclaimerCard({ disclaimer, onEdit, onDelete }: DisclaimerCardProps) {
   return (
-    <div className="border border-gray-200 rounded p-4 bg-white relative">
+    <div className="border border-gray-200 rounded p-4 bg-card relative">
       <div className="flex justify-between items-start mb-3">
         <div className="flex-1 pr-2">
           <span className="text-xs font-semibold text-gray-700">

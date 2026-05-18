@@ -201,7 +201,7 @@ export function BenefitsStep3() {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full mx-auto pb-20">
       {/* FAQ Section */}
-      <Card className="border-none shadow-md overflow-hidden bg-white">
+      <Card className="border-none shadow-md overflow-hidden bg-card">
         <CardHeader className="py-2 border-b bg-gray-50/50">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-2">
@@ -263,7 +263,7 @@ export function BenefitsStep3() {
       </Card>
 
       {/* Support Contacts Section */}
-      <Card className="border-none shadow-md overflow-hidden bg-white">
+      <Card className="border-none shadow-md overflow-hidden bg-card">
         <CardHeader className="py-2 border-b bg-gray-50/50">
           <CardTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
             <Users className="w-5 h-5 text-accent-blue" />
