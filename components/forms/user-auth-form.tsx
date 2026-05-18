@@ -21,6 +21,7 @@ import * as z from "zod";
 import GoogleSignInButton from "../google-auth-button";
 import { useFormWithLoading } from "@/hooks/useFormWithLoading";
 import { LoadingButton } from "@/components/ui/loading-button";
+import { Eye, EyeOff } from "lucide-react";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Enter a valid email address" }),
@@ -39,6 +40,7 @@ export default function UserAuthForm() {
   const callbackUrl = searchParams.get("callbackUrl");
   const { isLoading, handleSubmit } = useFormWithLoading();
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const form = useForm<UserFormValue>({
@@ -129,12 +131,26 @@ export default function UserAuthForm() {
                   <FormItem>
                     <FormLabel>Password</FormLabel>
                     <FormControl>
-                      <Input
-                        type="password"
-                        placeholder="Enter your password"
-                        disabled={isLoading}
-                        {...field}
-                      />
+                      <div className="relative">
+                        <Input
+                          type={showPassword ? "text" : "password"}
+                          placeholder="Enter your password"
+                          disabled={isLoading}
+                          {...field}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                          disabled={isLoading}
+                        >
+                          {showPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
