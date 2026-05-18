@@ -1,6 +1,6 @@
 "use client";
 
-import { memo } from "react";
+import { memo, Suspense } from "react";
 import type { NavItem } from "@/types";
 import { NavItemComponent } from "./nav-item";
 
@@ -20,7 +20,10 @@ export const DashboardNav = memo(function DashboardNav({
   return (
     <nav className="space-y-2">
       {items.map((item, index) => (
-        <NavItemComponent key={index} item={item} isOpen={isOpen} />
+        // Suspense is required because NavItemComponent uses useSearchParams()
+        <Suspense key={index} fallback={null}>
+          <NavItemComponent item={item} isOpen={isOpen} />
+        </Suspense>
       ))}
     </nav>
   );
