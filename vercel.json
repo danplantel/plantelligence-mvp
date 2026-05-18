@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/plans/check-video-status",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/mail/send-mail-task",
+      "schedule": "* * * * *"
+    }
+  ]
+}

@@ -1,0 +1,2100 @@
+"use client";
+
+import { useState, useEffect, useMemo, useRef } from "react";
+import {
+  BenefitsStep1Data,
+  useBenefitsWizardStore,
+} from "@/lib/benefits-wizard-store";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
+import { persistPlanSelection } from "@/lib/plan-selector-storage";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Loader2,
+  Activity,
+  Coins,
+  ShieldCheck,
+  User,
+  Building2,
+  Image as ImageIcon,
+  CheckCircle2,
+  Plus,
+  Pencil,
+  Search,
+  Check,
+  ChevronsUpDown,
+  FileText,
+  Mail,
+  Info,
+  Layout,
+  AlertCircle,
+} from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { ContactFormFields } from "@/components/wizard/new-client-steps/step-3-key-contacts/components/contact-form-fields";
+import {
+  BenefitsCategory,
+  KeyContact,
+  CompanyLogoData,
+  BrandImageData,
+  BrandImagesData,
+} from "@/types/new-client-wizard";
+import { BrandImageUpload } from "@/components/ui/brand-image-upload";
+import { BrandingImage } from "@/components/ui/branding-image";
+import {
+  formatPhoneNumber,
+  normalizePhoneNumber,
+} from "@/components/wizard/steps/sections/user-setup-section/user-setup-section.funcs";
+import { normalizeExtension } from "@/lib/phone-utils";
+import { toast } from "sonner";
+import { AddContactModal } from "@/components/wizard/new-client-steps/step-3-key-contacts/components/add-contact-modal";
+import {
+  getBenefitCompleteness,
+  normalizeBenefitsCategoryForCompleteness,
+} from "@/lib/benefit-completeness";
+import { convertToDocumentFormat } from "@/lib/compliance-document-utils";
+import { resolvePersistedDocumentCategory } from "@/lib/document-category";
+import { persistNewDocumentsToApi } from "@/lib/benefits-document-persist";
+import { fetchPlanDocumentsForClient } from "@/lib/fetch-plan-documents-client";
+import { ComplianceDocumentsUpload } from "@/components/pages/documents/components/compliance-documents-upload";
+
+/** Wizard order — matches accordion below (Branding → Messaging → Contacts → Documents). */
+const BENEFIT_SETUP_SECTION_ORDER = [
+  { key: "branding" as const, label: "Branding" },
+  { key: "messaging" as const, label: "Messaging" },
+  { key: "contacts" as const, label: "Contacts" },
+  { key: "documents" as const, label: "Documents" },
+];
+
+export function BenefitsStep1a() {
+  const { stepData, saveStepData } = useBenefitsWizardStore();
+  const accordionRef = useRef<HTMLDivElement>(null);
+  const [plans, setPlans] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedPlanContacts, setSelectedPlanContacts] = useState<
+    KeyContact[]
+  >([]);
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
+  const [modalCategory, setModalCategory] =
+    useState<BenefitsCategory>("Retirement");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [activeAccordions, setActiveAccordions] = useState<string[]>([]);
+
+  // Contact form state
+  const [contactForm, setContactForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    phoneExtension: "",
+    title: "",
+    headshot: "",
+    headshotFileName: "",
+  });
+
+  const currentStepData = stepData.step1 || {
+    planId: "",
+    benefitCategory: "",
+    contactId: "",
+    benefitTitle: "",
+    companyLogo: null,
+    brandImages: {
+      header: null,
+      thumbnail: null,
+      secondaryBanner: null,
+      favicon: null,
+    },
+  };
+
+  /** Only a value that exists in `plans` — Radix Select shows a blank trigger if `value` has no matching item. */
+  const resolvedPlanId = useMemo(() => {
+    const id = (currentStepData.planId || "").trim();
+    if (!id || plans.length === 0) return "";
+    return plans.some((p) => p.id === id) ? id : "";
+  }, [currentStepData.planId, plans]);
+
+  // Filter and sort contacts for the dropdown
+  const filteredContacts = useMemo(() => {
+    const target = (currentStepData.benefitCategory || "").toLowerCase();
+
+    const matchingCategory = selectedPlanContacts.filter((contact) => {
+      if (!currentStepData.benefitCategory) return true;
+
+      const cat = (contact.benefitsCategory || "").toLowerCase();
+      const cats = (contact.benefitsCategories || []).map((s: string) =>
+        s.toLowerCase(),
+      );
+      const catOther = (contact as any).benefitsCategoryOther || "";
+
+      const matches =
+        cat === target ||
+        cats.includes(target) ||
+        catOther.toLowerCase() === target;
+
+      return matches;
+    });
+
+    const sorted = [...matchingCategory].sort((a, b) => {
+      const nameA = (
+        a.name ||
+        `${a.firstName} ${a.lastName}` ||
+        a.email
+      ).toLowerCase();
+      const nameB = (
+        b.name ||
+        `${b.firstName} ${b.lastName}` ||
+        b.email
+      ).toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+
+    if (!searchTerm) return sorted;
+
+    return sorted.filter((contact) => {
+      const searchStr = searchTerm.toLowerCase();
+      const name = (
+        contact.name ||
+        `${contact.firstName} ${contact.lastName}` ||
+        ""
+      ).toLowerCase();
+      const email = (contact.email || "").toLowerCase();
+      const company = (contact.companyName || "").toLowerCase();
+      return (
+        name.includes(searchStr) ||
+        email.includes(searchStr) ||
+        company.includes(searchStr)
+      );
+    });
+  }, [selectedPlanContacts, currentStepData.benefitCategory, searchTerm]);
+
+  const activeContact = selectedPlanContacts.find(
+    (c) => c.id === currentStepData.contactId,
+  );
+
+  // Merged client data for completeness checks
+  const getMergedClientData = useMemo(() => {
+    const basePlan =
+      currentStepData.selectedPlan ||
+      (currentStepData.planId
+        ? plans.find((p) => p.id === currentStepData.planId)
+        : null);
+    if (!basePlan) return null;
+
+    const merged = { ...basePlan };
+
+    // Sync current wizard state to employeePortalPreview.benefits
+    if (currentStepData.benefitCategory) {
+      const benefits = merged.employeePortalPreview?.benefits || [];
+      const canonicalCategory = normalizeBenefitsCategoryForCompleteness(
+        currentStepData.benefitCategory,
+      );
+      const existingIdx = benefits.findIndex((b: any) => {
+        const bKey = normalizeBenefitsCategoryForCompleteness(
+          String(b?.category ?? ""),
+        );
+        return bKey === canonicalCategory;
+      });
+
+      const currentBenefitData = {
+        category: canonicalCategory,
+        title:
+          currentStepData.benefitTitle ||
+          currentStepData.benefitCategory,
+        shortDescription: currentStepData.shortDescription || "",
+        partnerLogo: currentStepData.companyLogo?.url || "",
+        image: currentStepData.brandImages?.header?.url || "",
+        contactId: currentStepData.contactId || "",
+      };
+
+      if (existingIdx !== -1) {
+        benefits[existingIdx] = {
+          ...benefits[existingIdx],
+          ...currentBenefitData,
+        };
+      } else {
+        benefits.push(currentBenefitData);
+      }
+
+      merged.employeePortalPreview = {
+        ...merged.employeePortalPreview,
+        benefits,
+      };
+    }
+
+    // Merge Step 4 documents into the client data for completeness checks
+    if (stepData.step4?.documents) {
+      merged.documents = stepData.step4.documents;
+    }
+
+    return merged;
+  }, [currentStepData, stepData.step4, plans]);
+
+  // Calculate completeness for current category
+  const currentCompleteness = useMemo(() => {
+    if (!currentStepData.benefitCategory || !getMergedClientData) return null;
+    return getBenefitCompleteness(
+      currentStepData.benefitCategory as BenefitsCategory,
+      getMergedClientData,
+    );
+  }, [currentStepData.benefitCategory, getMergedClientData]);
+
+  // Auto-expand incomplete sections
+  useEffect(() => {
+    if (!currentCompleteness?.sections) return;
+
+    const incomplete = Object.entries(currentCompleteness.sections)
+      .filter(([_, isDone]) => !isDone)
+      .map(([name]) => name);
+
+    if (incomplete.length > 0) {
+      setActiveAccordions(incomplete);
+    } else {
+      // All complete, collapse all
+      setActiveAccordions([]);
+    }
+  }, [currentStepData.benefitCategory, currentCompleteness?.isComplete]);
+
+  // Debounced auto-save to database
+  useEffect(() => {
+    if (
+      !getMergedClientData ||
+      !currentStepData.planId ||
+      !currentStepData.benefitCategory
+    )
+      return;
+
+    const timer = setTimeout(async () => {
+      try {
+        // We only want to save the benefits part of employeePortalPreview
+        await fetch(`/api/clients/${currentStepData.planId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            employeePortalPreview: getMergedClientData.employeePortalPreview,
+          }),
+        });
+      } catch (error) {
+        console.error("Auto-save error:", error);
+      }
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [getMergedClientData, currentStepData.planId]);
+
+  useEffect(() => {
+    async function fetchPlans() {
+      try {
+        // Include Draft — most in-progress setups are not Active yet; Archived stays out of the picker.
+        const response = await fetch(
+          "/api/clients?status=all&limit=500&sortColumn=companyName&sortDirection=asc",
+          { credentials: "same-origin", cache: "no-store" },
+        );
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          const msg =
+            typeof (result as { error?: string }).error === "string"
+              ? (result as { error: string }).error
+              : `Could not load plans (${response.status})`;
+          toast.error(
+            msg === "Unauthorized"
+              ? "Please sign in to load your plans."
+              : msg,
+          );
+          setPlans([]);
+          return;
+        }
+
+        if (result.success && Array.isArray(result.data)) {
+          const selectable = result.data.filter(
+            (p: any) => p.status !== "Archived",
+          );
+          setPlans(selectable);
+        } else {
+          toast.error("Failed to load plans");
+          setPlans([]);
+        }
+      } catch (error) {
+        console.error("Error fetching plans:", error);
+        toast.error("An error occurred while loading plans");
+        setPlans([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchPlans();
+  }, []);
+
+  /** Drop persisted planId that isn’t in the loaded list (archived, other account, stale storage). */
+  useEffect(() => {
+    if (loading) return;
+    const pid = (currentStepData.planId || "").trim();
+    if (!pid || plans.length === 0) return;
+    if (plans.some((p) => p.id === pid)) return;
+
+    const s1 = useBenefitsWizardStore.getState().stepData.step1;
+    if (!s1) return;
+
+    toast.message("Pick a plan", {
+      description:
+        "Your saved selection isn’t in this list anymore (for example archived).",
+    });
+
+    saveStepData(1, {
+      ...s1,
+      planId: "",
+      selectedPlan: null,
+      benefitCategory: "",
+      contactId: "",
+      benefitTitle: "",
+      shortDescription: "",
+      companyLogo: null,
+      brandImages: {
+        header: null,
+        thumbnail: null,
+        secondaryBanner: null,
+        favicon: null,
+      },
+    });
+  }, [loading, plans, currentStepData.planId, saveStepData]);
+
+  // Portal deep link sets planId + benefitCategory before `selectedPlan` exists — fetch full client so
+  // completeness, contacts, and merged preview data work without re-picking the plan in the dropdown.
+  useEffect(() => {
+    const planId = currentStepData.planId;
+    if (!planId?.trim() || plans.length === 0) return;
+    if (currentStepData.selectedPlan?.id === planId) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch(`/api/clients/${planId}`);
+        const result = await response.json();
+        if (cancelled) return;
+        const latest = useBenefitsWizardStore.getState().stepData.step1;
+        if (!latest?.planId || latest.planId !== planId) return;
+
+        if (result.success && result.data) {
+          const fullPlan = result.data;
+          let convertedDocs: any[] = [];
+          if (fullPlan.documents && Array.isArray(fullPlan.documents)) {
+            convertedDocs = await Promise.all(
+              fullPlan.documents.map((doc: any, index: number) =>
+                convertToDocumentFormat(
+                  {
+                    ...doc,
+                    name: doc.title,
+                    fileUrl: doc.fileUrl,
+                    storageKey: doc.storageKey,
+                  },
+                  index,
+                ),
+              ),
+            );
+          }
+          saveStepData(4, { documents: convertedDocs });
+
+          const planBackground =
+            fullPlan.brandImages?.secondaryBanner ||
+            (fullPlan.secondaryBannerImg
+              ? {
+                  url: fullPlan.secondaryBannerImg,
+                  fileName:
+                    fullPlan.secondaryBannerImgName || "background.png",
+                  fileSize: 0,
+                  width: 0,
+                  height: 0,
+                  recommendedSize: "1920×1080 px",
+                  status: "ok" as const,
+                  warnings: [],
+                }
+              : null);
+
+          saveStepData(1, {
+            ...latest,
+            planId,
+            selectedPlan: fullPlan,
+            brandImages: {
+              ...(latest.brandImages || {
+                header: null,
+                thumbnail: null,
+                secondaryBanner: null,
+                favicon: null,
+              }),
+              header:
+                planBackground ?? latest.brandImages?.header ?? null,
+            },
+          });
+        } else {
+          const plan = plans.find((p: any) => p.id === planId);
+          if (plan && !cancelled) {
+            const latest2 = useBenefitsWizardStore.getState().stepData.step1;
+            saveStepData(1, { ...latest2, planId, selectedPlan: plan });
+          }
+        }
+      } catch {
+        if (cancelled) return;
+        const plan = plans.find((p: any) => p.id === planId);
+        if (plan) {
+          const latest3 = useBenefitsWizardStore.getState().stepData.step1;
+          saveStepData(1, { ...latest3, planId, selectedPlan: plan });
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    currentStepData.planId,
+    currentStepData.selectedPlan?.id,
+    plans,
+    saveStepData,
+  ]);
+
+  // Conversion helpers
+  const convertBrandImageToLogo = (
+    brandImage: BrandImageData | null,
+  ): CompanyLogoData | null => {
+    if (!brandImage) return null;
+    return {
+      url: brandImage.url,
+      originalUrl: brandImage.originalUrl || brandImage.cropData?.originalImage,
+      fileName: brandImage.fileName,
+      fileSize: brandImage.fileSize,
+      width: brandImage.width,
+      height: brandImage.height,
+      hasTransparency:
+        brandImage.url.includes("data:image/png") ||
+        brandImage.url.includes("data:image/svg"),
+      warnings: brandImage.warnings || [],
+      cropData: brandImage.cropData,
+    };
+  };
+
+  const convertLogoToBrandImage = (
+    logoData: CompanyLogoData | null,
+  ): BrandImageData | undefined => {
+    if (!logoData) return undefined;
+    return {
+      url: logoData.url,
+      originalUrl: logoData.originalUrl || logoData.cropData?.originalImage,
+      fileName: logoData.fileName,
+      fileSize: logoData.fileSize,
+      width: logoData.width,
+      height: logoData.height,
+      recommendedSize: "900×900 px",
+      status:
+        logoData.warnings && logoData.warnings.length > 0 ? "warning" : "ok",
+      warnings: logoData.warnings || [],
+      cropData: logoData.cropData,
+    };
+  };
+
+  const convertToBrandImage = (url?: string): BrandImageData | undefined => {
+    if (!url) return undefined;
+    return {
+      url,
+      fileName: "contact-photo.png",
+      fileSize: 0,
+      width: 0,
+      height: 0,
+      recommendedSize: "900×900 px",
+      status: "ok",
+      warnings: [],
+    };
+  };
+
+  const prefillFromContact = (
+    contact: KeyContact,
+    category: string,
+    baseData: BenefitsStep1Data,
+  ): BenefitsStep1Data => {
+    return {
+      ...baseData,
+      benefitTitle:
+        baseData.benefitTitle || (category === "Custom" ? "" : category),
+      contactId: contact.id,
+    };
+  };
+
+  useEffect(() => {
+    if (currentStepData.planId) {
+      // First, check if the store already has a selectedPlan with contacts (might be local unsaved ones)
+      const storePlan = currentStepData.selectedPlan;
+      const apiPlan = plans.find((p) => p.id === currentStepData.planId);
+
+      let contactsToSet: KeyContact[] = [];
+
+      if (storePlan && storePlan.id === currentStepData.planId) {
+        // Prioritize store plan contacts as it might contain local new contacts
+        contactsToSet = Array.isArray(storePlan.keyContacts)
+          ? storePlan.keyContacts
+          : storePlan.keyContacts?.contacts || [];
+      } else if (apiPlan && apiPlan.keyContacts) {
+        // Fallback to API plan contacts
+        contactsToSet = Array.isArray(apiPlan.keyContacts)
+          ? apiPlan.keyContacts
+          : apiPlan.keyContacts.contacts || [];
+      }
+
+      if (contactsToSet.length > 0) {
+        setSelectedPlanContacts(contactsToSet);
+
+        // Always re-prefill when category changes to ensure correct primary contact is selected
+        if (currentStepData.benefitCategory) {
+          const newData = prefillContact(
+            currentStepData.benefitCategory,
+            contactsToSet,
+            currentStepData,
+          );
+          // Only save if different to avoid cycles
+          if (newData.contactId !== currentStepData.contactId) {
+            saveStepData(1, newData);
+          }
+        }
+      }
+    } else {
+      setSelectedPlanContacts([]);
+    }
+  }, [currentStepData.planId, plans, currentStepData.benefitCategory]);
+
+  const prefillContact = (
+    category: string,
+    contacts: KeyContact[],
+    baseData: BenefitsStep1Data,
+  ): BenefitsStep1Data => {
+    const target = (category || "").toLowerCase();
+
+    // Helper to check if contact matches category
+    const matchesCategory = (c: KeyContact) => {
+      const cat = (c.benefitsCategory || "").toLowerCase();
+      const cats = (c.benefitsCategories || []).map((s: string) =>
+        s.toLowerCase(),
+      );
+      const catOther = (c as any).benefitsCategoryOther || "";
+      return (
+        cat === target ||
+        cats.includes(target) ||
+        catOther.toLowerCase() === target
+      );
+    };
+
+    // 1. General primary (isPrimary or isPrimaryOverall)
+    let contact = contacts.find(
+      (c) => matchesCategory(c) && (c.isPrimary || c.isPrimaryOverall),
+    );
+
+    // 2. Any matching category
+    if (!contact) {
+      contact = contacts.find(matchesCategory);
+    }
+
+    if (contact) {
+      let newData = { ...baseData, contactId: contact.id };
+
+      // Explicitly set thumbnail if contact has a photo (check multiple possible fields)
+      const photoUrl =
+        (contact as any).headshot ||
+        (contact as any).avatar ||
+        (contact as any).photo ||
+        (contact as any).teamImage;
+      if (photoUrl) {
+        newData.brandImages = {
+          ...(newData.brandImages || {
+            header: null,
+            thumbnail: null,
+            secondaryBanner: null,
+            favicon: null,
+          }),
+          thumbnail: {
+            url: photoUrl,
+            fileName: "contact-photo.png",
+            fileSize: 0,
+            width: 0,
+            height: 0,
+            recommendedSize: "900×900 px",
+            status: "ok" as const,
+            warnings: [],
+          },
+        };
+      }
+
+      return prefillFromContact(contact, category, newData);
+    }
+
+    return baseData;
+  };
+
+  const getCategoryStatus = (catId: string) => {
+    const selectedPlan =
+      currentStepData.selectedPlan ||
+      plans.find((p) => p.id === currentStepData.planId);
+    if (!selectedPlan) return null;
+
+    // Start with the raw plan data
+    const mergedBaseData = { ...selectedPlan };
+
+    // Use step 4 documents when we have any (user has been to step 4 or plan was just selected).
+    // Do not overwrite with empty array — that would hide plan documents from list/fetch and show "Plan documents missing".
+    if (stepData.step4?.documents?.length) {
+      mergedBaseData.documents = stepData.step4.documents;
+    }
+
+    // Use merged data for the active category to account for live edits (logo, title, etc.)
+    const dataForCompleteness =
+      catId === currentStepData.benefitCategory && getMergedClientData
+        ? getMergedClientData
+        : mergedBaseData;
+
+    // Use central completeness logic
+    const completeness = getBenefitCompleteness(
+      catId as BenefitsCategory,
+      dataForCompleteness,
+    );
+
+    // Check if benefit exists in employeePortalPreview (original or merged)
+    const benefits = dataForCompleteness.employeePortalPreview?.benefits || [];
+    const catKey = normalizeBenefitsCategoryForCompleteness(catId);
+    const existingBenefit = benefits.find((b: any) => {
+      const bKey = normalizeBenefitsCategoryForCompleteness(
+        String(b?.category ?? ""),
+      );
+      return bKey === catKey;
+    });
+
+    // For logo, prioritize local edits if currently editing
+    const isCurrentlyBeingEdited = currentStepData.benefitCategory === catId;
+    const logo =
+      existingBenefit?.partnerLogo ||
+      (isCurrentlyBeingEdited ? currentStepData.companyLogo?.url : null);
+
+    const pendingSectionLabels = BENEFIT_SETUP_SECTION_ORDER.filter(
+      ({ key }) => !completeness.sections[key],
+    ).map(({ label }) => label);
+
+    return {
+      exists: !!existingBenefit,
+      missing: completeness.missingInfo,
+      isComplete: completeness.isComplete,
+      sections: completeness.sections,
+      pendingSectionLabels,
+      logo: logo,
+    };
+  };
+
+  const handleCreateContact = (category: BenefitsCategory) => {
+    setModalCategory(category);
+    setContactForm({
+      firstName: "",
+      lastName: "",
+      email: "",
+      phone: "",
+      phoneExtension: "",
+      title: "",
+      headshot: "",
+      headshotFileName: "",
+    });
+    setIsFormDialogOpen(true);
+  };
+
+  const handleFormSubmit = () => {
+    if (!contactForm.firstName || !contactForm.lastName || !contactForm.title) {
+      toast.error("Please fill in all required fields (Name and Title)");
+      return;
+    }
+
+    // Create a new contact object
+    const newContact: KeyContact = {
+      id: `new-contact-${Date.now()}`,
+      contactType: "individual",
+      firstName: contactForm.firstName,
+      lastName: contactForm.lastName,
+      email: contactForm.email,
+      phone: contactForm.phone,
+      phoneExtension: contactForm.phoneExtension,
+      title: contactForm.title,
+      headshot: contactForm.headshot,
+      benefitsCategory: modalCategory as BenefitsCategory,
+      benefitsCategories: [modalCategory as BenefitsCategory],
+      showOnPortal: true,
+      isPrimary: true, // Mark as primary for this wizard flow
+      isPrimaryByCategory: {
+        [modalCategory as string]: true,
+      } as any,
+      name: `${contactForm.firstName} ${contactForm.lastName}`,
+    };
+
+    // Add to local state
+    const updatedContacts = [...selectedPlanContacts, newContact];
+    setSelectedPlanContacts(updatedContacts);
+
+    // Update selected plan in store to include this contact
+    const currentPlan =
+      currentStepData.selectedPlan ||
+      plans.find((p) => p.id === currentStepData.planId);
+
+    if (currentPlan) {
+      const updatedPlan = {
+        ...currentPlan,
+        keyContacts: Array.isArray(currentPlan.keyContacts)
+          ? [...currentPlan.keyContacts, newContact]
+          : {
+              ...(currentPlan.keyContacts || {}),
+              contacts: [
+                ...((currentPlan.keyContacts as any)?.contacts || []),
+                newContact,
+              ],
+            },
+      };
+
+      const updatedData = {
+        ...currentStepData,
+        selectedPlan: updatedPlan,
+        contactId: newContact.id,
+      };
+
+      // If new contact has a headshot, set it as the thumbnail for the step
+      if (newContact.headshot) {
+        updatedData.brandImages = {
+          ...(updatedData.brandImages || {
+            header: null,
+            thumbnail: null,
+            secondaryBanner: null,
+            favicon: null,
+          }),
+          thumbnail: {
+            url: newContact.headshot,
+            fileName: contactForm.headshotFileName || "contact-photo.png",
+            fileSize: 0,
+            width: 0,
+            height: 0,
+            recommendedSize: "900×900 px",
+            status: "ok",
+            warnings: [],
+          },
+        };
+      }
+
+      saveStepData(1, updatedData);
+    } else {
+      // Fallback if no plan is selected/found
+      saveStepData(1, {
+        ...currentStepData,
+        contactId: newContact.id,
+      });
+    }
+
+    setIsFormDialogOpen(false);
+    toast.success("New contact placeholder created. Please fill in details.");
+  };
+
+  const handlePlanChange = async (planId: string) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/clients/${planId}`);
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        const fullPlan = result.data;
+
+        // Sync documents to Step 4 storage
+        let convertedDocs: any[] = [];
+        if (fullPlan.documents && Array.isArray(fullPlan.documents)) {
+          convertedDocs = await Promise.all(
+            fullPlan.documents.map((doc: any, index: number) =>
+              convertToDocumentFormat(
+                {
+                  ...doc,
+                  name: doc.title,
+                  fileUrl: doc.fileUrl,
+                  storageKey: doc.storageKey,
+                },
+                index,
+              ),
+            ),
+          );
+        }
+        // Always update step 4 to ensure we clear documents if the new plan has none
+        saveStepData(4, { documents: convertedDocs });
+
+        const planBackground =
+          fullPlan.brandImages?.secondaryBanner ||
+          (fullPlan.secondaryBannerImg
+            ? {
+                url: fullPlan.secondaryBannerImg,
+                fileName: fullPlan.secondaryBannerImgName || "background.png",
+                fileSize: 0,
+                width: 0,
+                height: 0,
+                recommendedSize: "1920×1080 px",
+                status: "ok",
+                warnings: [],
+              }
+            : null);
+
+        saveStepData(1, {
+          ...currentStepData,
+          planId,
+          selectedPlan: fullPlan,
+          contactId: "",
+          benefitTitle: "",
+          companyLogo: null,
+          brandImages: {
+            ...currentStepData.brandImages,
+            header: planBackground,
+            thumbnail: null,
+            secondaryBanner: null,
+            favicon: null,
+          },
+        });
+      } else {
+        const plan = plans.find((p) => p.id === planId);
+        saveStepData(1, {
+          ...currentStepData,
+          planId,
+          selectedPlan: plan,
+          contactId: "",
+          benefitTitle: "",
+          companyLogo: null,
+          brandImages: {
+            header: null,
+            thumbnail: null,
+            secondaryBanner: null,
+            favicon: null,
+          },
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching plan details:", error);
+      const plan = plans.find((p) => p.id === planId);
+      saveStepData(1, {
+        ...currentStepData,
+        planId,
+        selectedPlan: plan,
+        contactId: "",
+        benefitTitle: "",
+        companyLogo: null,
+        brandImages: {
+          header: null,
+          thumbnail: null,
+          secondaryBanner: null,
+          favicon: null,
+        },
+      });
+    } finally {
+      persistPlanSelection("benefits", planId);
+      setLoading(false);
+    }
+  };
+
+  const handleCategoryChange = (benefitCategory: string) => {
+    const selectedPlan =
+      currentStepData.selectedPlan ||
+      plans.find((p) => p.id === currentStepData.planId);
+    const benefits = selectedPlan?.employeePortalPreview?.benefits || [];
+    const catKey = normalizeBenefitsCategoryForCompleteness(benefitCategory);
+    const existingBenefit = benefits.find((b: any) => {
+      const bKey = normalizeBenefitsCategoryForCompleteness(
+        String(b?.category ?? ""),
+      );
+      return bKey === catKey;
+    });
+
+    let newData: BenefitsStep1Data = {
+      ...currentStepData,
+      benefitCategory,
+      contactId: existingBenefit?.contactId || "",
+      benefitTitle: existingBenefit?.title || benefitCategory,
+      shortDescription: existingBenefit?.shortDescription || "",
+      // Reset or load images for the new category
+      companyLogo: existingBenefit?.partnerLogo
+        ? ({
+            url: existingBenefit.partnerLogo,
+            fileName: "logo.png",
+            fileSize: 0,
+            width: 0,
+            height: 0,
+            hasTransparency: false,
+            warnings: [],
+          } as CompanyLogoData)
+        : null,
+      brandImages: {
+        header: existingBenefit?.image
+          ? ({
+              url: existingBenefit.image,
+              fileName: "background.png",
+              fileSize: 0,
+              width: 0,
+              height: 0,
+              recommendedSize: "1920×1080 px",
+              status: "ok" as const,
+              warnings: [],
+            } as BrandImageData)
+          : null,
+        thumbnail: null,
+        secondaryBanner: null,
+        favicon: null,
+      },
+    };
+
+    // Always prefill contact when category changes to ensure correct primary contact is selected
+    if (selectedPlanContacts.length > 0) {
+      newData = prefillContact(benefitCategory, selectedPlanContacts, newData);
+    }
+    saveStepData(1, newData);
+
+    // Auto-scroll and auto-open first section
+    setActiveAccordions(["branding"]);
+    setTimeout(() => {
+      accordionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 100);
+  };
+
+  const handleContinue = (nextSection: string) => {
+    setActiveAccordions([nextSection]);
+  };
+
+  const handleContactChange = (contactId: string) => {
+    const contact = selectedPlanContacts.find((c) => c.id === contactId);
+    if (contact && currentStepData.selectedPlan) {
+      // Update the plan in store to mark this contact as primary for this category
+      const curContacts = Array.isArray(
+        currentStepData.selectedPlan.keyContacts,
+      )
+        ? currentStepData.selectedPlan.keyContacts
+        : currentStepData.selectedPlan.keyContacts?.contacts || [];
+
+      const updatedContacts = curContacts.map((c: any) => {
+        const contactCategories = c.benefitsCategories || [];
+        const sharesCategory = (contact.benefitsCategories || []).some(
+          (cat: string) => contactCategories.includes(cat),
+        );
+
+        if (c.id === contactId) {
+          return {
+            ...c,
+            isPrimary: true,
+            isPrimaryOverall: true,
+          };
+        } else if (sharesCategory) {
+          // Unmark primary for physical others in the SAME category
+          return {
+            ...c,
+            isPrimary: false,
+            isPrimaryOverall: false,
+          };
+        }
+        return c;
+      });
+
+      const updatedPlan = {
+        ...currentStepData.selectedPlan,
+        keyContacts: Array.isArray(currentStepData.selectedPlan.keyContacts)
+          ? updatedContacts
+          : {
+              ...currentStepData.selectedPlan.keyContacts,
+              contacts: updatedContacts,
+            },
+      };
+
+      const newData = {
+        ...currentStepData,
+        contactId,
+        selectedPlan: updatedPlan,
+      };
+
+      // Explicitly set thumbnail if contact has a photo (check multiple fields)
+      const photoUrl =
+        (contact as any).headshot ||
+        (contact as any).avatar ||
+        (contact as any).photo ||
+        (contact as any).teamImage;
+      if (photoUrl) {
+        newData.brandImages = {
+          ...(newData.brandImages || {
+            header: null,
+            thumbnail: null,
+            secondaryBanner: null,
+            favicon: null,
+          }),
+          thumbnail: {
+            url: photoUrl,
+            fileName: "contact-photo.png",
+            fileSize: 0,
+            width: 0,
+            height: 0,
+            recommendedSize: "900×900 px",
+            status: "ok" as const,
+            warnings: [],
+          },
+        };
+      }
+
+      const finalData = prefillFromContact(
+        contact,
+        currentStepData.benefitCategory,
+        newData,
+      );
+      saveStepData(1, finalData);
+      setSelectedPlanContacts(updatedContacts);
+    } else if (contact) {
+      // Fallback for missing selectedPlan (shouldn't happen)
+      const newData = { ...currentStepData, contactId };
+      const finalData = prefillFromContact(
+        contact,
+        currentStepData.benefitCategory,
+        newData,
+      );
+      saveStepData(1, finalData);
+    }
+  };
+
+  const handleLogoChange = (imageData: BrandImageData) => {
+    saveStepData(1, {
+      ...currentStepData,
+      companyLogo: convertBrandImageToLogo(imageData),
+    });
+  };
+
+  const handleBackgroundImageChange = (imageData: BrandImageData) => {
+    saveStepData(1, {
+      ...currentStepData,
+      brandImages: { ...currentStepData.brandImages, header: imageData },
+    });
+  };
+
+  const handleThumbnailChange = (brandImage: BrandImageData | null) => {
+    const thumbnail = brandImage
+      ? {
+          ...brandImage,
+          status: "ok" as const,
+          warnings: [],
+        }
+      : null;
+
+    const updatedStepData = {
+      ...currentStepData,
+      brandImages: {
+        ...currentStepData.brandImages,
+        thumbnail,
+      },
+    };
+
+    // Also update the headshot ON THE CONTACT ITSELF in selectedPlan
+    if (currentStepData.contactId && currentStepData.selectedPlan) {
+      const curContacts = Array.isArray(
+        currentStepData.selectedPlan.keyContacts,
+      )
+        ? currentStepData.selectedPlan.keyContacts
+        : currentStepData.selectedPlan.keyContacts?.contacts || [];
+
+      const updatedContacts = curContacts.map((c: any) =>
+        c.id === currentStepData.contactId
+          ? {
+              ...c,
+              headshot: brandImage?.url,
+              // Ensure this contact is primary for this category
+              isPrimary: true,
+              isPrimaryOverall: true,
+            }
+          : c,
+      );
+
+      updatedStepData.selectedPlan = {
+        ...currentStepData.selectedPlan,
+        keyContacts: Array.isArray(currentStepData.selectedPlan.keyContacts)
+          ? updatedContacts
+          : {
+              ...currentStepData.selectedPlan.keyContacts,
+              contacts: updatedContacts,
+            },
+      };
+
+      // Sync local state too
+      setSelectedPlanContacts(updatedContacts);
+    }
+
+    saveStepData(1, updatedStepData);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 space-y-4">
+        <Loader2 className="w-8 h-8 animate-spin text-accent-blue" />
+        <p className="text-sm text-muted-foreground font-medium">
+          Loading your plans...
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full mx-auto pb-20">
+      {/* 1. Selection Card */}
+      <Card className="border-none shadow-md overflow-hidden bg-white">
+        <CardHeader className="pb-4 border-b bg-gray-50/50">
+          <CardTitle className="text-xl text-gray-900 font-bold">
+            Step 1: Plan & Benefit Selection
+          </CardTitle>
+          <CardDescription className="text-sm text-gray-600">
+            Select the plan and specific benefit category you want to create.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-6 space-y-6">
+          <div className="text-center space-y-2 mb-8">
+            <h1 className="text-3xl font-bold text-gray-900">
+              Choose a Plan & Benefit
+            </h1>
+            <p className="text-gray-600">
+              Select which benefit you&apos;re configuring and for which plan.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold text-gray-700">
+              Select Plan <span className="text-red-500">*</span>
+            </Label>
+            <Select
+              value={resolvedPlanId}
+              onValueChange={handlePlanChange}
+            >
+              <SelectTrigger className="w-full bg-white border-gray-200">
+                <SelectValue placeholder="Choose a plan..." />
+              </SelectTrigger>
+              <SelectContent>
+                {plans.map((plan) => {
+                  const allBenefits = (plan.employeePortalPreview?.benefits ||
+                    []) as any[];
+                  const completedCount = allBenefits.filter((b: any) => {
+                    if (!b.category) return false;
+                    const completeness = getBenefitCompleteness(
+                      b.category as BenefitsCategory,
+                      plan,
+                    );
+                    return completeness.isComplete;
+                  }).length;
+
+                  return (
+                    <SelectItem key={plan.id} value={plan.id}>
+                      <div className="flex items-center justify-between w-full gap-2">
+                        <span>{plan.companyName}</span>
+                        {completedCount > 0 && (
+                          <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
+                            {completedCount} categories completed
+                          </span>
+                        )}
+                      </div>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+            {plans.length === 0 ? (
+              <p className="text-sm text-muted-foreground pt-1">
+                No plans found for your account yet, or loading failed. Create a
+                client plan first from the dashboard, then refresh this page.
+              </p>
+            ) : null}
+          </div>
+
+          {resolvedPlanId && (
+            <div className="space-y-4 animate-in fade-in duration-300">
+              <Label className="text-sm font-semibold text-gray-700">
+                Benefit Category <span className="text-red-500">*</span>
+              </Label>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {(() => {
+                  const categoryConfigs = [
+                    {
+                      id: "Retirement",
+                      label: "Retirement",
+                      icon: Coins,
+                      description: "401(k), 403(b), and pension plans",
+                    },
+                    {
+                      id: "Group Health",
+                      label: "Group Health",
+                      icon: Activity,
+                      description: "Medical, dental, and vision coverage",
+                    },
+                    {
+                      id: "Group Life",
+                      label: "Group Life",
+                      icon: ShieldCheck,
+                      description: "Life, AD&D, and disability plans",
+                    },
+                    {
+                      id: "Custom",
+                      label: "Custom Benefit",
+                      icon: Plus,
+                      description: "Other custom benefits category",
+                    },
+                  ];
+
+                  return categoryConfigs.map((cat) => {
+                    const status = getCategoryStatus(cat.id);
+                    const isSelected =
+                      currentStepData.benefitCategory === cat.id;
+
+                    return (
+                      <div
+                        key={cat.id}
+                        className={`relative flex flex-col h-full border rounded-xl transition-all duration-200 shadow-sm overflow-hidden ${
+                          isSelected
+                            ? "border-[#23919C] ring-1 ring-[#23919C]/20"
+                            : "border-gray-200 bg-white hover:border-gray-300"
+                        }`}
+                      >
+                        {/* Header */}
+                        <div
+                          className={`p-4 flex flex-col items-center justify-center border-b ${
+                            isSelected ? "bg-[#23919C]/5" : "bg-gray-50/50"
+                          }`}
+                        >
+                          <div className="size-16 rounded-full bg-accent-blue/10 flex items-center justify-center text-accent-blue mb-4 transition-colors group-hover:bg-accent-blue group-hover:text-white">
+                            <cat.icon className="size-8" />
+                          </div>
+                          <h3 className="font-bold text-gray-900 mb-2 truncate w-full text-center">
+                            {cat.label}
+                          </h3>
+                          <p className="text-xs text-center text-gray-500 line-clamp-2">
+                            {cat.description}
+                          </p>
+                        </div>
+
+                        {/* Status Body */}
+                        <div className="p-4 flex-1 flex flex-col gap-3 min-h-[140px]">
+                          {status?.logo ? (
+                            <div className="flex flex-col items-center justify-center py-2">
+                              <div className="w-16 h-16 rounded-lg border border-gray-100 flex items-center justify-center p-2 bg-white shadow-sm overflow-hidden">
+                                <BrandingImage
+                                  src={status.logo}
+                                  alt="Benefit Logo"
+                                  className="max-w-full max-h-full object-contain"
+                                />
+                              </div>
+                              <span className="text-xs text-gray-400 mt-2 uppercase tracking-wider font-bold">
+                                Benefit Provider
+                              </span>
+                            </div>
+                          ) : (
+                            <p className="text-xs text-gray-500 italic">
+                              {cat.description}
+                            </p>
+                          )}
+
+                          <div className="mt-auto pt-2 border-t border-gray-50">
+                            {!status?.isComplete ? (
+                              <div className="space-y-2">
+                                <p className="text-xs font-bold text-amber-700 uppercase tracking-tight">
+                                  {status?.missing && status.missing.length > 0
+                                    ? "Missing"
+                                    : "Still needed"}
+                                </p>
+                                {status?.missing && status.missing.length > 0 ? (
+                                  <ul className="space-y-1">
+                                    {status.missing.map((item, idx) => (
+                                      <li
+                                        key={idx}
+                                        className="flex items-start gap-2 text-xs text-gray-600 leading-snug"
+                                      >
+                                        <span className="mt-1.5 inline-block size-1.5 shrink-0 rounded-full bg-amber-400" />
+                                        <span>{item}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                ) : (status?.pendingSectionLabels?.length ??
+                                  0) > 0 ? (
+                                  <ol className="space-y-1 text-xs text-gray-600 leading-snug list-decimal list-inside marker:text-amber-600 marker:font-semibold">
+                                    {(status?.pendingSectionLabels ?? []).map(
+                                      (label) => (
+                                        <li key={label}>{label}</li>
+                                      ),
+                                    )}
+                                  </ol>
+                                ) : status?.sections ? (
+                                  <p className="text-xs text-gray-500 leading-snug">
+                                    Open this benefit below and complete each
+                                    section in order.
+                                  </p>
+                                ) : (
+                                  <p className="text-xs text-gray-500 leading-snug">
+                                    Open this benefit below and complete each
+                                    section in order.
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2 text-sm text-green-600 font-medium">
+                                <CheckCircle2 className="w-4 h-4" />
+                                <span>All details added</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Action Footer */}
+                        <div
+                          className={`p-3 border-t mt-auto ${
+                            isSelected ? "bg-[#23919C]/10" : "bg-gray-50/50"
+                          }`}
+                        >
+                          <button
+                            onClick={() => handleCategoryChange(cat.id)}
+                            className={`w-full py-2.5 px-3 rounded-lg text-xs font-black transition-all duration-300 flex items-center justify-center gap-2 shadow-sm tracking-tight ${
+                              isSelected
+                                ? "bg-[#23919C] text-white hover:bg-[#1b727a] scale-[1.02]"
+                                : "bg-white border border-gray-200 text-[#0D315F] hover:border-[#23919C] hover:text-[#23919C] hover:shadow-md"
+                            }`}
+                          >
+                            {status?.exists ? (
+                              <>
+                                <Pencil className="w-4 h-4" />
+                                EDIT BENEFIT DETAILS
+                              </>
+                            ) : (
+                              <>
+                                <Plus className="w-4 h-4" />
+                                ADD BENEFIT DETAILS
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+
+              {/* Custom Category Title Input */}
+              {currentStepData.benefitCategory === "Custom" && (
+                <div className="space-y-2 pt-4 animate-in slide-in-from-top-2 duration-300 px-6 pb-6">
+                  <Label className="text-sm font-semibold text-gray-700">
+                    Custom Category Name <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    value={
+                      currentStepData.benefitTitle === "Custom"
+                        ? ""
+                        : currentStepData.benefitTitle
+                    }
+                    onChange={(e) =>
+                      saveStepData(1, {
+                        ...currentStepData,
+                        benefitTitle: e.target.value,
+                      })
+                    }
+                    placeholder="e.g. Disability Insurance, Wellness Program, HSA..."
+                    className="bg-white border-gray-200 focus-visible:ring-[#23919C] h-11"
+                  />
+                  <p className="text-xs text-gray-500 italic">
+                    Enter the name for this custom benefit as you want it to
+                    appear on the portal.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {resolvedPlanId && currentStepData.benefitCategory && (
+        <div
+          ref={accordionRef}
+          className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-500"
+        >
+          <Accordion
+            type="multiple"
+            value={activeAccordions}
+            onValueChange={setActiveAccordions}
+            className="space-y-4"
+          >
+            {/* 1. Branding Section */}
+            <AccordionItem
+              value="branding"
+              className="border-none shadow-md overflow-hidden bg-white rounded-xl"
+            >
+              <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-gray-50/50 group border-b bg-gray-50/30">
+                <div className="flex items-center justify-between w-full pr-4 text-left">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={cn(
+                        "p-2 rounded-lg transition-colors",
+                        currentCompleteness?.sections.branding
+                          ? "bg-green-100 text-green-700"
+                          : "bg-teal-50 text-[#23919C]",
+                      )}
+                    >
+                      <ImageIcon className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900 group-hover:text-[#23919C]">
+                        Branding
+                      </h3>
+                      <p className="text-xs text-gray-500 font-normal">
+                        Provider logos and portal header assets
+                      </p>
+                    </div>
+                  </div>
+                  {currentCompleteness?.sections.branding ? (
+                    <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none px-3 font-bold">
+                      COMPLETED
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant="outline"
+                      className="text-amber-600 border-amber-200 bg-amber-50 font-bold"
+                    >
+                      INCOMPLETE
+                    </Badge>
+                  )}
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="p-6 space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                      Benefit Provider Logo
+                    </Label>
+                    <BrandImageUpload
+                      slotKey="companyLogo"
+                      slot={{
+                        title: "Benefit Logo",
+                        description:
+                          "Upload a logo for this specific benefit provider.",
+                        recommendedSize: "900×900 px",
+                        accept: ".svg,.png,.jpg,.jpeg",
+                        required: true,
+                        previewAspectRatio: 1,
+                        previewLabel: "Logo preview",
+                        defaultPhoteButton: false,
+                      }}
+                      currentImage={convertLogoToBrandImage(
+                        currentStepData.companyLogo || null,
+                      )}
+                      onImageChange={handleLogoChange}
+                      onImageRemove={() =>
+                        saveStepData(1, {
+                          ...currentStepData,
+                          companyLogo: null,
+                        })
+                      }
+                      hideButtons={true}
+                      useUniversalModal={true}
+                      universalModalType="normalizer"
+                      maxFileSize={10}
+                    />
+                  </div>
+                  <div className="space-y-4">
+                    <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                      Branded Header Image
+                    </Label>
+                    <BrandImageUpload
+                      slotKey="header"
+                      slot={{
+                        title: "Background Header Image (Hero)",
+                        description:
+                          "This image displays in the header background of your Employee Benefits Hub. Upload a wide hero image for best results. If not uploading a picture, the Square Thumbnail will be used.",
+                        recommendedSize: "1920×1080 px",
+                        defaultPhoteButton: true,
+                        required: true,
+                        accept: ".png,.jpg,.jpeg",
+                        previewAspectRatio: 2.75,
+                        previewLabel: "Hero preview (2.75:1)",
+                      }}
+                      currentImage={
+                        currentStepData.brandImages?.header || undefined
+                      }
+                      onImageChange={handleBackgroundImageChange}
+                      onImageRemove={() =>
+                        saveStepData(1, {
+                          ...currentStepData,
+                          brandImages: {
+                            ...currentStepData.brandImages,
+                            header: null,
+                          },
+                        })
+                      }
+                      hideButtons={true}
+                      useUniversalModal={true}
+                      universalModalType="normalizer"
+                      maxFileSize={10}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-4 border-t border-gray-100">
+                  <Button
+                    onClick={() => handleContinue("messaging")}
+                    className="bg-[#23919C] hover:bg-[#1b727a] text-white font-bold h-11 px-8 rounded-xl shadow-lg shadow-[#23919C]/20 transition-all duration-300"
+                  >
+                    CONTINUE TO MESSAGING
+                  </Button>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+
+            {/* 2. Messaging Section */}
+            <AccordionItem
+              value="messaging"
+              className="border-none shadow-md overflow-hidden bg-white rounded-xl"
+            >
+              <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-gray-50/50 group border-b bg-gray-50/30">
+                <div className="flex items-center justify-between w-full pr-4 text-left">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={cn(
+                        "p-2 rounded-lg transition-colors",
+                        currentCompleteness?.sections.messaging
+                          ? "bg-green-100 text-green-700"
+                          : "bg-teal-50 text-[#23919C]",
+                      )}
+                    >
+                      <Layout className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900 group-hover:text-[#23919C]">
+                        Messaging
+                      </h3>
+                      <p className="text-xs text-gray-500 font-normal">
+                        Custom title and benefit description
+                      </p>
+                    </div>
+                  </div>
+                  {currentCompleteness?.sections.messaging ? (
+                    <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none px-3 font-bold">
+                      COMPLETED
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant="outline"
+                      className="text-amber-600 border-amber-200 bg-amber-50 font-bold"
+                    >
+                      INCOMPLETE
+                    </Badge>
+                  )}
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="p-6 space-y-6">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-bold text-gray-700">
+                      Custom Display Title
+                    </Label>
+                    <Input
+                      value={currentStepData.benefitTitle}
+                      onChange={(e) =>
+                        saveStepData(1, {
+                          ...currentStepData,
+                          benefitTitle: e.target.value,
+                        })
+                      }
+                      placeholder={`e.g., 401(k) Retirement Plan`}
+                      className="h-11 border-gray-200"
+                    />
+                    <p className="text-[10px] text-gray-400 italic">
+                      This title will override the default &quot;
+                      {currentStepData.benefitCategory}&quot; label in the
+                      portal.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-bold text-gray-700">
+                      Benefit Summary / Description
+                    </Label>
+                    <Textarea
+                      value={currentStepData.shortDescription || ""}
+                      onChange={(e) =>
+                        saveStepData(1, {
+                          ...currentStepData,
+                          shortDescription: e.target.value,
+                        })
+                      }
+                      placeholder="Provide a high-level overview of this benefit for employees..."
+                      className="min-h-[120px] border-gray-200 resize-none"
+                    />
+                    <div className="flex justify-between items-center">
+                      <p className="text-[10px] text-gray-400">
+                        Briefly explain what this benefit is and why it matters.
+                      </p>
+                      <span
+                        className={cn(
+                          "text-[10px] font-bold",
+                          (currentStepData.shortDescription?.length || 0) < 50
+                            ? "text-amber-500"
+                            : "text-green-500",
+                        )}
+                      >
+                        {currentStepData.shortDescription?.length || 0} / 50
+                        characters min
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-4 border-t border-gray-100">
+                  <Button
+                    onClick={() => handleContinue("contacts")}
+                    className="bg-[#23919C] hover:bg-[#1b727a] text-white font-bold h-11 px-8 rounded-xl shadow-lg shadow-[#23919C]/20 transition-all duration-300"
+                  >
+                    CONTINUE TO KEY CONTACTS
+                  </Button>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+
+            {/* 3. Key Contact Section */}
+            <AccordionItem
+              value="contacts"
+              className="border-none shadow-md overflow-hidden bg-white rounded-xl"
+            >
+              <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-gray-50/50 group border-b bg-gray-50/30">
+                <div className="flex items-center justify-between w-full pr-4 text-left">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={cn(
+                        "p-2 rounded-lg transition-colors",
+                        currentCompleteness?.sections.contacts
+                          ? "bg-green-100 text-green-700"
+                          : "bg-teal-50 text-[#23919C]",
+                      )}
+                    >
+                      <Mail className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900 group-hover:text-[#23919C]">
+                        Key Contact
+                      </h3>
+                      <p className="text-xs text-gray-500 font-normal">
+                        Assign a primary support contact
+                      </p>
+                    </div>
+                  </div>
+                  {currentCompleteness?.sections.contacts ? (
+                    <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none px-3 font-bold">
+                      ASSIGNED
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant="outline"
+                      className="text-amber-600 border-amber-200 bg-amber-50 font-bold"
+                    >
+                      UNASSIGNED
+                    </Badge>
+                  )}
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="p-6 space-y-6">
+                <div className="space-y-6">
+                  <div className="space-y-4">
+                    <Label className="text-sm font-bold text-gray-700">
+                      Primary Contact <span className="text-red-500">*</span>
+                    </Label>
+                    <Popover open={searchOpen} onOpenChange={setSearchOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={searchOpen}
+                          className="w-full justify-between bg-white border-gray-200 h-11 px-3"
+                        >
+                          <span className="truncate">
+                            {activeContact
+                              ? activeContact.name ||
+                                `${activeContact.firstName} ${activeContact.lastName}` ||
+                                activeContact.email
+                              : "Select a contact..."}
+                          </span>
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        className="w-[var(--radix-popover-trigger-width)] p-0"
+                        align="start"
+                      >
+                        <div className="flex items-center border-b px-3 h-11">
+                          <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                          <input
+                            className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
+                            placeholder="Search contacts..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                          />
+                        </div>
+                        <div className="max-h-[300px] overflow-y-auto p-1">
+                          {/* +Add New Contact - always first */}
+                          <button
+                            onClick={() => {
+                              handleCreateContact(
+                                currentStepData.benefitCategory as BenefitsCategory,
+                              );
+                              setSearchOpen(false);
+                            }}
+                            className="relative flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-2.5 text-sm outline-none hover:bg-accent text-[#23919C] font-bold border-b mb-1"
+                          >
+                            <Plus className="mr-2 h-4 w-4" />
+                            ADD NEW CONTACT
+                          </button>
+                          {filteredContacts.length === 0 ? (
+                            <div className="py-6 text-center text-sm text-muted-foreground">
+                              No contacts found.
+                            </div>
+                          ) : (
+                            filteredContacts.map((contact) => (
+                              <button
+                                key={contact.id}
+                                onClick={() => {
+                                  handleContactChange(contact.id);
+                                  setSearchOpen(false);
+                                  setSearchTerm("");
+                                }}
+                                className="relative flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-2 text-sm outline-none hover:bg-accent text-left"
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    currentStepData.contactId === contact.id
+                                      ? "opacity-100"
+                                      : "opacity-0",
+                                  )}
+                                />
+                                <div className="flex flex-col">
+                                  <span className="font-medium">
+                                    {contact.name ||
+                                      `${contact.firstName} ${contact.lastName}`}
+                                  </span>
+                                  {contact.email && (
+                                    <span className="text-xs text-muted-foreground">
+                                      {contact.email}
+                                    </span>
+                                  )}
+                                </div>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  {currentStepData.contactId && (
+                    <div className="pt-4 border-t border-gray-100 animate-in fade-in duration-300">
+                      <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 block">
+                        Contact Photo
+                      </Label>
+                      <BrandImageUpload
+                        slotKey="headshot"
+                        slot={{
+                          title: "Contact Photo",
+                          description: "Photo for portal display.",
+                          recommendedSize: "900×900 px",
+                          defaultPhoteButton: true,
+                          required: false,
+                          accept: ".png,.jpg,.jpeg",
+                          previewAspectRatio: 1,
+                          previewLabel: "Contact Photo preview",
+                        }}
+                        currentImage={
+                          currentStepData.brandImages?.thumbnail ||
+                          convertToBrandImage(
+                            (activeContact as any)?.headshot ||
+                              (activeContact as any)?.avatar ||
+                              (activeContact as any)?.photo ||
+                              (activeContact as any)?.teamImage,
+                          )
+                        }
+                        onImageChange={handleThumbnailChange}
+                        onImageRemove={() =>
+                          saveStepData(1, {
+                            ...currentStepData,
+                            brandImages: {
+                              ...currentStepData.brandImages,
+                              thumbnail: null,
+                            },
+                          })
+                        }
+                        hideButtons={true}
+                        useUniversalModal={true}
+                        universalModalType="headshot"
+                        maxFileSize={5}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end pt-4 border-t border-gray-100">
+                  <Button
+                    onClick={() => handleContinue("documents")}
+                    className="bg-[#23919C] hover:bg-[#1b727a] text-white font-bold h-11 px-8 rounded-xl shadow-lg shadow-[#23919C]/20 transition-all duration-300"
+                  >
+                    CONTINUE TO DOCUMENTS
+                  </Button>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+
+            {/* 4. Documents Section */}
+            <AccordionItem
+              value="documents"
+              className="border-none shadow-md overflow-hidden bg-white rounded-xl"
+            >
+              <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-gray-50/50 group border-b bg-gray-50/30">
+                <div className="flex items-center justify-between w-full pr-4 text-left">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={cn(
+                        "p-2 rounded-lg transition-colors",
+                        currentCompleteness?.sections.documents
+                          ? "bg-green-100 text-green-700"
+                          : "bg-teal-50 text-[#23919C]",
+                      )}
+                    >
+                      <FileText className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900 group-hover:text-[#23919C]">
+                        {currentStepData.benefitCategory
+                          ? `${currentStepData.benefitCategory} Plan Documents`
+                          : "Plan Documents"}
+                      </h3>
+                      <p className="text-xs text-gray-500 font-normal">
+                        Essential SPDs, SBCs, and guidebooks
+                      </p>
+                    </div>
+                  </div>
+                  {currentCompleteness?.sections.documents ? (
+                    <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none px-3 font-bold">
+                      READY
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant="outline"
+                      className="text-amber-600 border-amber-200 bg-amber-50 font-bold"
+                    >
+                      REQUIRED
+                    </Badge>
+                  )}
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="p-6">
+                <ComplianceDocumentsUpload
+                  clientId={resolvedPlanId}
+                  initialDocuments={stepData.step4?.documents || []}
+                  onDocumentsChange={(docs) => {
+                    saveStepData(4, { documents: docs });
+                    if (!resolvedPlanId) return;
+                    void (async () => {
+                      const id = resolvedPlanId;
+                      const merged = await persistNewDocumentsToApi(id, docs);
+                      const next = merged !== docs ? merged : docs;
+                      saveStepData(4, { documents: next });
+                      try {
+                        const rows = await fetchPlanDocumentsForClient(id);
+                        if (rows.length > 0) {
+                          const converted = await Promise.all(
+                            (rows as any[]).map((doc: any, index: number) =>
+                              convertToDocumentFormat(
+                                {
+                                  ...doc,
+                                  name: doc.title,
+                                  fileUrl: doc.fileUrl,
+                                  storageKey: doc.storageKey,
+                                },
+                                index,
+                              ),
+                            ),
+                          );
+                          saveStepData(4, { documents: converted });
+                        }
+                      } catch (e) {
+                        console.error(
+                          "Refetch plan documents after upload failed",
+                          e,
+                        );
+                      }
+                      if (typeof window !== "undefined") {
+                        window.dispatchEvent(
+                          new CustomEvent("plan-documents-persisted", {
+                            detail: { clientId: id },
+                          }),
+                        );
+                      }
+                    })();
+                  }}
+                  fixedCategory={
+                    currentStepData.benefitCategory as BenefitsCategory
+                  }
+                  filterDocuments={(doc) => {
+                    const b = currentStepData.benefitCategory;
+                    if (!b) return true;
+                    return (
+                      resolvePersistedDocumentCategory(
+                        "Document",
+                        doc.category,
+                        (doc as { storageKey?: string }).storageKey,
+                      ) ===
+                      resolvePersistedDocumentCategory("Document", b)
+                    );
+                  }}
+                  showInfoCard={false}
+                  showPreview={true}
+                />
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </div>
+      )}
+
+      <Dialog open={isFormDialogOpen} onOpenChange={setIsFormDialogOpen}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Create New Contact</DialogTitle>
+            <DialogDescription>
+              Enter the details for the primary contact of this benefit.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <ContactFormFields
+              contactType="individual"
+              firstName={contactForm.firstName}
+              lastName={contactForm.lastName}
+              title={contactForm.title}
+              onFirstNameChange={(val) =>
+                setContactForm((prev) => ({ ...prev, firstName: val }))
+              }
+              onLastNameChange={(val) =>
+                setContactForm((prev) => ({ ...prev, lastName: val }))
+              }
+              onTitleChange={(val) =>
+                setContactForm((prev) => ({ ...prev, title: val }))
+              }
+              displayName=""
+              departmentLabel=""
+              supportHours=""
+              onDisplayNameChange={() => {}}
+              onDepartmentLabelChange={() => {}}
+              onSupportHoursChange={() => {}}
+              headshot={contactForm.headshot}
+              headshotFileName={contactForm.headshotFileName}
+              onHeadshotChange={(val, name) =>
+                setContactForm((prev) => ({
+                  ...prev,
+                  headshot: val,
+                  headshotFileName: name,
+                }))
+              }
+              onHeadshotRemove={() =>
+                setContactForm((prev) => ({
+                  ...prev,
+                  headshot: "",
+                  headshotFileName: "",
+                }))
+              }
+            />
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input
+                  value={contactForm.email}
+                  onChange={(e) =>
+                    setContactForm((prev) => ({
+                      ...prev,
+                      email: e.target.value,
+                    }))
+                  }
+                  placeholder="email@example.com"
+                />
+              </div>
+              <div className="space-y-2 col-span-2">
+                <Label>Phone</Label>
+                <div className="flex gap-4">
+                  <div className="flex-grow">
+                    <Input
+                      value={formatPhoneNumber(contactForm.phone)}
+                      onChange={(e) => {
+                        const normalized = normalizePhoneNumber(e.target.value);
+                        if (normalized.length <= 11) {
+                          setContactForm((prev) => ({
+                            ...prev,
+                            phone: normalized,
+                          }));
+                        }
+                      }}
+                      placeholder="(555) 000-0000"
+                    />
+                  </div>
+                  <div className="w-24">
+                    <Input
+                      value={contactForm.phoneExtension}
+                      onChange={(e) => {
+                        const normalized = normalizeExtension(e.target.value);
+                        setContactForm((prev) => ({
+                          ...prev,
+                          phoneExtension: normalized,
+                        }));
+                      }}
+                      placeholder="Ext."
+                      maxLength={6}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsFormDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleFormSubmit}>Create Contact</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

@@ -1,0 +1,68 @@
+"use client";
+
+import { CardHeader } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { X } from "lucide-react";
+
+interface EditorPanelWrapperProps {
+  isOpen: boolean;
+  isAnimating: boolean;
+  editorScrollContainerRef?: React.RefObject<HTMLDivElement>;
+  onClose: () => void;
+  children: React.ReactNode;
+  /** Optional footer (e.g. Save button) — fixed at bottom of panel, always visible */
+  footer?: React.ReactNode;
+}
+
+export function EditorPanelWrapper({
+  isOpen,
+  isAnimating,
+  editorScrollContainerRef,
+  onClose,
+  children,
+  footer,
+}: EditorPanelWrapperProps) {
+  if (!isOpen && !isAnimating) return null;
+
+  return (
+    <div
+      className={`fixed left-0 top-0 bottom-4 w-full max-w-xl bg-white z-[51] flex flex-col rounded-lg overflow-hidden transition-transform ${
+        isAnimating
+          ? "translate-x-0 duration-300"
+          : "-translate-x-full duration-200"
+      }`}
+      style={{
+        marginTop: "0",
+      }}
+    >
+      <CardHeader className="flex flex-row items-center justify-between px-4 py-4 border-b shadow-md">
+        <div className="flex flex-col gap-1">
+          <Label className="text-xs uppercase text-muted-foreground tracking-wide font-medium">
+            Plan Branding & Messaging
+          </Label>
+          <Label className="text-lg font-semibold text-foreground mt-1">
+            Editing Panel
+          </Label>
+        </div>
+        <Button variant="ghost" size="icon" onClick={onClose}>
+          <X className="w-5 h-5" />
+        </Button>
+      </CardHeader>
+      <div
+        ref={editorScrollContainerRef}
+        className="flex-1 overflow-y-auto px-4 py-4 min-h-0"
+        data-lenis-wrapper
+      >
+        <div data-lenis-content className="space-y-4">
+          {children}
+        </div>
+      </div>
+      {footer != null ? (
+        <div className="flex-shrink-0 border-t bg-white px-4 py-3 flex justify-end">
+          {footer}
+        </div>
+      ) : null}
+    </div>
+  );
+}

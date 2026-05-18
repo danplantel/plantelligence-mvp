@@ -1,0 +1,873 @@
+// Base Prisma configuration
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// Auth Provider enum
+enum AuthProvider {
+  credentials
+  google
+}
+
+// Video Status enum
+enum VideoStatus {
+  in_progress
+  completed
+  failed
+}
+
+// User model
+model User {
+  id                          String                   @id @default(auto()) @map("_id") @db.ObjectId
+  provider                    AuthProvider             @default(credentials)
+  name                        String
+  email                       String                   @unique
+  password                    String?
+  resetCode                   String?
+  resetCodeExpiry             DateTime?
+  phone                       String?
+  phoneExtension              String?
+  company                     String?
+  advisorName                 String?
+  advisorEmail                String?
+  advisorPhone                String?
+  advisorPhoneExtension       String?
+  disclaimer                  String?
+  advisorLogoUrl              String?
+  complianceEmail             String?
+  advisorLink                 String?
+  additionalAdvisorLink       String?
+  recordkeeperContactLabel    String?
+  primaryServiceCategories    String[]
+  createdAt                   DateTime                 @default(now())
+  plans                       Plan[]
+  // resources                Resource[]
+  planAnalytic                PlanAnalytic[]
+  title                       String?
+  displayAdvisorInfoHeader    Boolean?
+  displayAdvisorContactButton Boolean?
+  advisorLogo                 String?
+  showAdvancedCompliance      Boolean?
+  wizardSessions              WizardSession[]
+  newClientWizardSessions     NewClientWizardSession[]
+  clients                     Client[]
+  meetings                    Meeting[]
+  webinars                    Webinar[]
+  marketingFlyers             MarketingFlyer[]
+  headshots                   Headshot[]
+
+  futureContacts    FutureContact[]   @relation("UserFutureContacts")
+  meetingCustomTypes MeetingCustomType[]
+}
+
+// Plan model
+model Plan {
+  id      String @id @default(auto()) @map("_id") @db.ObjectId
+  idIndex Int?   @unique
+  userId  String @db.ObjectId
+
+  videoStatus VideoStatus? @default(in_progress)
+
+  clientName           String?
+  clientLogo           String?
+  videoThemeColor      String?
+  videoAvatar          String?
+  videoBackgroundMusic String?
+  videoBackgroundImage String?
+  buildSpanishVideo    Boolean @default(false)
+
+  planType                           String?
+  entryDates                         String?
+  matchPlan                          String?
+  matchSafe                          String?
+  nonElective                        String?
+  deferrals                          String[]
+  investments                        String[]
+  advancedInvestments                String[]
+  advancedEntryDates                 String[]
+  advancedDeferrals                  String[]
+  vestingScheduleRadio               String?
+  vestingSchedules                   String[]
+  employerContribution               String?
+  automaticEnrollment                Boolean?
+  automaticIncrease                  Boolean?
+  customEntryDates                   String?
+  customEntryDateType                String?
+  customEntryDatesValue              String?
+  advancedEntryDatesValue            String?
+  mandatoryContribution              Float?
+  ageRequirement                     String?
+  matchType                          String?
+  matchPercentage                    Float?
+  safeHarborMatch                    String?
+  safeHarborMatchType                String?
+  nonElectiveEmployerContributions   Boolean?
+  employerProfitSharingContributions Boolean?
+  waitingPeriod                      Boolean?
+  automaticEnrollmentPercentage      String?
+  automaticEnrollmentWaitPeriod      String?
+  automaticIncreasePercentage        String?
+  automaticIncreaseCap               String?
+  waitingPeriodDuration              String?
+  waitingPeriodStart                 String?
+  waitingPeriodStartDate             String?
+  nonElectiveType                    String?
+  nonElectivePercentage              String?
+  profitSharingType                  String?
+  profitSharingPercentage            String?
+  useCustomText                      Boolean?
+  customText                         String?
+  useProfitSharingCustomText         Boolean?
+  profitSharingCustomText            String?
+
+  recordkeeper             String?
+  recordKeeperName         String?
+  recordKeeperPhone           String?
+  recordKeeperPhoneExtension  String?
+  recordKeeperWebsite         String?
+  companyName                 String?
+  onlineEnrollment            String?
+  isDisplayRecodeKeeper       Boolean?
+  title                       String?
+  contactName                 String?
+  email                       String?
+  phoneNumber                 String?
+  phoneNumberExtension        String?
+  planAdvisor                 String?
+  companyContact              String?
+  tpa                         String?
+  educationalVideos           String?
+  providerName                String?
+  providerLogo                String?
+  website                     String?
+  providerPhoneNumber         String?
+  providerPhoneNumberExtension String?
+  displayAdvisorInfoHeader    Boolean?
+  tpaName                     String?
+  tpaEmail                    String?
+  tpaPhoneNumber              String?
+  tpaPhoneNumberExtension     String?
+  planDocumentsLinks       String?
+  recordKeeperId           String?
+  addressCode              String?
+
+  rawData Json?
+
+  pageView      Int @default(0)
+  uniqueVisitor Int @default(0)
+  videoPlay     Int @default(0)
+  videoComplete Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  user  User   @relation(fields: [userId], references: [id])
+  videos Video[]
+
+  planAnalytic PlanAnalytic[]
+  PlanEvent    PlanEvent[]
+}
+
+model NewClientContactBuilder {
+  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId           String   @unique @db.ObjectId
+  fullName            String
+  title               String
+  companyName         String
+  orgType             String
+  customRole          String?
+  description         String?
+  showOnPortal        Boolean  @default(false)
+  enableContactButton Boolean  @default(false)
+  email               String?
+  phone               String?
+  phoneExtension      String?
+  meetingLink         String?
+  headshot            String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  session             NewClientWizardSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+// Video model
+model Video {
+  id              String       @id @default(auto()) @map("_id") @db.ObjectId
+  planId          String?      @db.ObjectId // Optional - for backward compatibility
+  clientId        String?      @db.ObjectId // ✅ Primary: Video belongs to Client (Benefits Hub)
+  videoUrl        String?
+  thumbnail       String?
+  title           String
+  description     String?
+  image           String?
+  videoProvider   String       @default("synthesia")
+  videoProviderId String?
+  videoStatus     VideoStatus? @default(in_progress)
+  pagePlacement   String?      // "retirement" | "health-insurance" | "life-insurance" | "wellness-programs" | null
+  pageIndex       Int?         // Index/order of video on the page (for sorting)
+  data            Json?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime?
+
+  plan   Plan?   @relation(fields: [planId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  client Client? @relation(fields: [clientId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+
+  @@index([planId])
+  @@index([clientId])
+}
+
+// Analytics models
+model PlanAnalytic {
+  id     String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId String? @db.ObjectId
+  planId String? @db.ObjectId
+  key    String  @unique
+
+  date          String
+  pageView      Int    @default(0)
+  uniqueVisitor Int    @default(0)
+  videoPlay     Int    @default(0)
+  videoComplete Int    @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  user User? @relation(fields: [userId], references: [id])
+  plan Plan? @relation(fields: [planId], references: [id])
+}
+
+model PlanEvent {
+  id           String  @id @default(auto()) @map("_id") @db.ObjectId
+  planId       String? @db.ObjectId
+  planStaticId String?
+  name         String
+  ip           String?
+
+  createdAt DateTime @default(now())
+
+  plan Plan? @relation(fields: [planId], references: [id])
+}
+
+// System models
+model KeyStorage {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  key       String   @unique
+  createdAt DateTime @default(now())
+}
+
+// model Resource {
+//   id                       String   @id @default(auto()) @map("_id") @db.ObjectId
+//   userId                   String   @db.ObjectId
+//   user                     User     @relation(fields: [userId], references: [id])
+//   recordkeeper             String
+//   onlineEnrollment         String
+//   isDisplayRecodeKeeper    Boolean
+//   title                    String
+//   contactName              String
+//   email                    String
+//   phoneNumber              String
+//   planAdvisor              String
+//   companyContact           String
+//   tpa                      String
+//   educationalVideos        String
+//   providerName             String
+//   clientLogo               String?
+//   providerLogo             String
+//   website                  String
+//   providerPhoneNumber      String
+//   displayAdvisorInfoHeader Boolean
+//   tpaName                  String
+//   tpaEmail                 String
+//   tpaPhoneNumber           String
+//   planDocumentsLinks       String
+//   recordKeeperId           String
+//   addressCode              String
+//   createdAt                DateTime @default(now())
+// }
+
+model MailTask {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  to        String
+  subject   String
+  html      String
+  sendAt    DateTime
+  createdAt DateTime @default(now())
+}
+
+model Setting {
+  id    String @id @default(auto()) @map("_id") @db.ObjectId
+  key   String @unique
+  value String
+}
+
+// Wizard Session model - User Onboarding (5 steps)
+model WizardSession {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @db.ObjectId
+  currentStep Int      @default(1)
+  completed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  // Wizard Steps - only the 5 steps used in onboarding
+  clientProfile      WizardClientProfile?
+  teamSize           WizardTeamSize?
+  services           WizardServices?
+  insuranceLicensing WizardInsuranceLicensing?
+  teamMembers        WizardTeamMembers?
+  branding           WizardBranding?
+  benefitTypes       WizardBenefitTypes?
+  userSetup          WizardUserSetup?
+  disclaimers        WizardDisclaimers?
+  employerScope      WizardEmployerScope?
+}
+
+// Wizard Step 1: Client Profile
+model WizardClientProfile {
+  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId          String   @unique @db.ObjectId
+  organizationType   String // independent, ria, hybrid, broker, insurance, recordkeeper, other
+  customOrganization String?
+  organizationName   String? // Organization name from branding
+  website            String? // Organization website from branding
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  session WizardSession @relation(fields: [sessionId], references: [id])
+
+  @@index([organizationType])
+}
+
+// Wizard Step 1B: Team Size
+model WizardTeamSize {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId String   @unique @db.ObjectId
+  teamSize  String // just_me, 2_5, 6_20, 21_100, 100_plus
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  session WizardSession @relation(fields: [sessionId], references: [id])
+
+  @@index([teamSize])
+}
+
+// Wizard Step 2: Services Provided
+model WizardServices {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId String   @unique @db.ObjectId
+  services  String[] // retirement, insurance, both
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  session WizardSession @relation(fields: [sessionId], references: [id])
+
+  @@index([services])
+}
+
+// Wizard Step 3: Insurance Licensing
+model WizardInsuranceLicensing {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId       String   @unique @db.ObjectId
+  offersInsurance Boolean  @default(false)
+  licenseTypes    String[] // life, health, disability, ltc, variable, other
+  statesLicensed  String[] // CA, NY, TX, etc.
+  licenseNumbers  Json // {state: licenseNumber}
+  attestation     Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  session WizardSession @relation(fields: [sessionId], references: [id])
+
+  @@index([offersInsurance])
+  @@index([licenseTypes])
+  @@index([statesLicensed])
+}
+
+// Wizard Step 4: Team Members
+model WizardTeamMembers {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId String   @unique @db.ObjectId
+  members   Json // [{name, email, role, isAdmin}]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  session WizardSession @relation(fields: [sessionId], references: [id])
+}
+
+model FutureContact {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  // Legacy fields
+  name          String
+  email         String
+  phone         String
+  role          String
+  customRole    String?
+  headshot      String?
+  showOnPortal  Boolean  @default(false)
+  enableContactButton Boolean @default(false)
+  isPrimary     Boolean  @default(false)
+  displayScope  String?  // "futureUse" | "thisPortal"
+  // New fields
+  benefitsCategory String?
+  benefitsCategoryOther String?
+  roleOther     String?
+  isPrimaryForCategory Boolean @default(false)
+  companyName   String?
+  companyLogo   String?
+  firstName     String?
+  lastName      String?
+  title         String?
+  phoneExtension String?
+  website       String?
+  userId        String   @db.ObjectId
+  user          User     @relation("UserFutureContacts", fields: [userId], references: [id])
+  createdAt     DateTime @default(now())
+}
+
+// Wizard Step 3: Branding Setup
+model WizardBranding {
+  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId          String   @unique @db.ObjectId
+  logo               String? // URL
+  logoFileName       String? // Original filename
+  backgroundImage    String? // URL
+  backgroundFileName String? // Original filename
+  organizationName   String? // Organization name
+  website            String? // Organization website
+  missionStatement   String? // Optional mission statement
+  brandColor         String // HEX color
+  aiAvatar           String? // URL
+  avatarFileName     String? // Original filename
+  subdomain          String // custom subdomain
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  session WizardSession @relation(fields: [sessionId], references: [id])
+
+  @@index([brandColor])
+  @@index([subdomain])
+}
+
+// Wizard Step 6: Benefit Types
+model WizardBenefitTypes {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId         String   @unique @db.ObjectId
+  benefitTypes      String[] // 401k, group_health, group_life, voluntary, other
+  customBenefitType String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  session WizardSession @relation(fields: [sessionId], references: [id])
+
+  @@index([benefitTypes])
+}
+
+// Wizard Step 7: Employer Scope
+model WizardEmployerScope {
+  id                      String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId               String   @unique @db.ObjectId
+  servesMultipleEmployers Boolean  @default(false)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  session WizardSession @relation(fields: [sessionId], references: [id])
+
+  @@index([servesMultipleEmployers])
+}
+
+// Wizard Step 4: User Setup
+model WizardUserSetup {
+  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId          String   @unique @db.ObjectId
+  name               String
+  email              String
+  phone              String
+  phoneExtension     String?
+  title              String
+  designations       String[] // Array of designation strings
+  headshot           String? // URL to headshot image
+  headshotData       Json? // Processed headshot data with crop parameters
+  backgroundImage    String? // URL to background image
+  backgroundFileName String? // Original filename for background image
+  primaryServiceCategories String[]
+  saveAsContact      Boolean? @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  session WizardSession @relation(fields: [sessionId], references: [id])
+
+  @@index([title])
+}
+
+// Wizard Step 5: Disclaimers
+model WizardDisclaimers {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId   String   @unique @db.ObjectId
+  disclaimers Json     // Stores full disclaimer objects (id, locations, text, etc.)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  session WizardSession @relation(fields: [sessionId], references: [id])
+}
+
+// New Client Wizard Session model
+model NewClientWizardSession {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @db.ObjectId
+  currentStep Int      @default(1)
+  completed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  // New Client Wizard Steps
+  companyBasics         NewClientCompanyBasics?
+  welcomeStatement      NewClientWelcomeStatement?
+  keyContacts           NewClientKeyContacts?
+  complianceDocuments   NewClientComplianceDocuments?
+  employeePortalPreview NewClientEmployeePortalPreview?
+
+  newClientContactBuilders NewClientContactBuilder[]
+}
+
+// New Client Wizard Step 1: Company Basics & Branding
+model NewClientCompanyBasics {
+  id        String @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId String @unique @db.ObjectId
+
+  // Company Information
+  companyName    String
+  companyWebsite String?
+  companyLogo    String? // Base64 or URL
+  logoFileName   String?
+  primaryColor   String  @default("#1F3A60")
+  secondaryColor String  @default("#6B7280")
+  brandImages    Json // Array of image URLs
+  planType       String  @default("client") // "client" (active plan) or "prospect" (draft plan for demos)
+
+  // Banner Overlay Settings
+  heroOverlayOpacity              Float? // Overlay opacity (0-1)
+  heroBackgroundOpacity           Float? // Background image opacity (0-1)
+  heroContainerOpacity            Float? // Container (text box) opacity (0-1) - DEPRECATED: use heroContainerBackgroundOpacity and heroContainerBlockOpacity
+  heroContainerBackgroundOpacity  Float? // Container background opacity (0-1)
+  heroContainerBlockOpacity       Float? // Container block opacity (0-1)
+  heroCompanyNameColor            String? // Company name color: "yellow" or "default"
+  heroContainerInverted            Boolean? @default(false) // Invert container colors (white container with dark text)
+  heroBackgroundInverted          Boolean? @default(false) // Invert background overlay colors (white overlay)
+  heroUseGradient                 Boolean? @default(false) // Use gradient from top (transparent) to bottom (opaque)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  session NewClientWizardSession @relation(fields: [sessionId], references: [id])
+
+  @@index([companyName])
+}
+
+// New Client Wizard Step 2: Welcome Statement
+model NewClientWelcomeStatement {
+  id        String @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId String @unique @db.ObjectId
+
+  headline      String
+  bodyText      String
+  isAIGenerated Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  session NewClientWizardSession @relation(fields: [sessionId], references: [id])
+}
+
+// New Client Wizard Step 3: Key Contacts
+model NewClientKeyContacts {
+  id        String @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId String @unique @db.ObjectId
+
+  contacts Json // Array of contact objects with all contact details
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  session NewClientWizardSession @relation(fields: [sessionId], references: [id])
+}
+
+// New Client Wizard Step 4: Compliance Documents
+model NewClientComplianceDocuments {
+  id        String @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId String @unique @db.ObjectId
+
+  spdFile                Json? // SPD document object
+  retirementPlanDocuments Json? // Array of retirement plan documents (from DocumentsUploadSection)
+  otherDocuments         Json? // Array of other document objects (from MultiFileUpload)
+  recordkeeper           String? // Recordkeeper name for retirement services
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  session NewClientWizardSession @relation(fields: [sessionId], references: [id])
+}
+
+// New Client Wizard Step 5: Employee Portal Preview
+model NewClientEmployeePortalPreview {
+  id        String @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId String @unique @db.ObjectId
+
+  previewData Json // Complete preview data for the employee portal
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  session NewClientWizardSession @relation(fields: [sessionId], references: [id])
+}
+
+// Client model - stores completed client data
+model Client {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+
+  // Company Information
+  companyName     String
+  companyWebsite  String?
+  companyLogo     String? // Base64 or URL
+  companyLogoCropData Json? // Crop metadata incl. originalImage for re-editing in modal
+  logoFileName    String?
+  brandColor      String  @default("#1F3A60")
+  secondaryColor  String  @default("#6B7280")
+  missionHeadline String?
+  missionBody     String?
+  appointmentLink String?
+  
+  // Benefits / Employee Portal Data
+  employeePortalPreview Json? // Stores benefits title, description, and other portal settings
+  categoryPortalVisibility Json? // { Retirement: true, Group Life: true, Group Health: true, Other: true } - Show/Hide per category in portal only
+
+  heroTitle       String? // Hero title for portal header
+  heroDescription String? // Hero description for portal header
+  heroOverlayOpacity              Float? // Overlay opacity (0-1)
+  heroBackgroundOpacity           Float? // Background image opacity (0-1)
+  heroContainerOpacity            Float? // Container (text box) opacity (0-1) - DEPRECATED: use heroContainerBackgroundOpacity and heroContainerBlockOpacity
+  heroContainerBackgroundOpacity  Float? // Container background opacity (0-1)
+  heroContainerBlockOpacity       Float? // Container block opacity (0-1)
+  heroCompanyNameColor            String? // Company name color: "yellow" or "default"
+  heroContainerInverted           Boolean? @default(false) // Invert container colors (white container with dark text)
+  heroBackgroundInverted          Boolean? @default(false) // Invert background overlay colors (white overlay)
+  heroUseGradient                 Boolean? @default(false) // Use gradient from top (transparent) to bottom (opaque)
+
+  // Brand Images
+  backgroundImg          String? // Base64 or URL (header/hero image)
+  backgroundImgName      String?
+  thumbnailImg           String? // Base64 or URL (square thumbnail)
+  thumbnailImgName       String?
+  secondaryBannerImg     String? // Base64 or URL (secondary banner)
+  secondaryBannerImgName String?
+  faviconImg             String? // Base64 or URL (favicon/icon)
+  faviconImgName         String?
+
+  brandImagesCropData    Json?
+
+  disclaimers Json? // DisclaimersData object: { disclaimers: [], disclosuresText: string, useDefaultDisclosures: boolean }
+
+  // Key Contacts
+  keyContacts Json // [{name, role, customRole, email, phone, headshot, headshotFileName, bio, displayEmail, displayPhone, contactButton, contactButtonType, contactUrl}]
+
+  // Recordkeeper (for retirement services)
+  recordkeeper String? // Recordkeeper name for retirement services
+
+  // Documents are now stored in separate Document table
+
+  // Status
+  status String @default("Active") // Draft, Active, Archived
+
+  // Type
+  type String @default("client") // client, prospect
+
+  // Wizard step tracking
+  currentStep Int @default(1) // Current step in the wizard when saved as draft
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id])
+  documents Document[]
+  webinars  Webinar[]
+  videos    Video[]    // ✅ Videos belong to Client (Benefits Hub)
+  meetings  Meeting[]
+  marketingFlyers MarketingFlyer[]
+
+  @@index([companyName])
+  @@index([userId])
+  @@index([status])
+}
+
+// Meeting model
+model Meeting {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String?  @db.ObjectId
+  clientId     String?  @db.ObjectId // Plan (Client) — set for Benefits Hub plan-scoped meetings
+  meeting      String // Meeting name/title
+  meetingType  String // Open Enrollment, Client Meeting, Training, etc. (plan meetings: 4 hub types)
+  client       String // Client name (denormalized; legacy meetings without clientId)
+  date         DateTime // Meeting date
+  time         String // Meeting time
+  timezone     String? // Meeting timezone (IANA preferred for plan meetings)
+  duration     String // Meeting duration
+  format       String // Virtual, In-Person, Hybrid
+  platform     String? // Platform for virtual meetings (Zoom, Teams, Google Meet, Phone)
+  meetingLink  String? // Meeting URL/link
+  maxAttendees Int? // Maximum number of attendees
+  attendees    Int      @default(0) // Current number of attendees
+  description  String? // Meeting description
+  status       String   @default("Scheduled") // Scheduled, Completed, Cancelled
+
+  // Address fields for In-Person meetings
+  address String? // Meeting address
+  city    String? // City
+  state   String? // State
+  zip     String? // ZIP code
+
+  // Plan / Benefits Hub (3b.1)
+  hubLocation      String? // Single location: join link or physical address
+  displayOnPortal  Boolean  @default(true)
+  archived         Boolean  @default(false)
+  registrationUrl  String?
+  replayUrl        String?
+  startAtUtc       DateTime? // Sort/compare instant; derived from date + time + timezone when possible
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user         User?   @relation(fields: [userId], references: [id])
+  clientRecord Client? @relation(fields: [clientId], references: [id])
+
+  @@index([userId])
+  @@index([clientId])
+  @@index([client])
+  @@index([date])
+  @@index([status])
+  @@index([meetingType])
+  @@index([archived])
+  @@index([displayOnPortal])
+  @@index([startAtUtc])
+}
+
+model MeetingCustomType {
+  id          String @id @default(auto()) @map("_id") @db.ObjectId
+  value       String
+  label       String
+  description String
+  userId      String @db.ObjectId
+  user        User   @relation(fields: [userId], references: [id])
+}
+
+// Webinar model for Webinars & Replays
+model Webinar {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String   @db.ObjectId
+  clientId     String   @db.ObjectId // Reference to Client (Plan)
+  clientName   String   // Client company name (denormalized for easier queries)
+  webinarTitle String   // Webinar title
+  eventDate    DateTime // Event date
+  sourceType   Json     // { upload: boolean, url: boolean }
+  videoFileUrl String?  // URL/path if uploaded file
+  videoUrl     String?  // URL if external link (YouTube/Vimeo)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id])
+  client Client @relation(fields: [clientId], references: [id])
+
+  @@index([userId])
+  @@index([clientId])
+  @@index([eventDate])
+  @@index([createdAt])
+}
+
+// Document model
+model Document {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  title           String // Document title
+  fileName        String // Original file name
+  fileUrl         String // Legacy: base64 data URL. When storageKey is set, may be empty; file is served from R2 via signed URL.
+  storageKey      String?   // R2 object key (org/.../documents/{category}/...) when file is in R2
+  type            String    @default("Document") // Document type: SPD, SBC, or Document
+  shortDescription String? // Optional short description for the document
+  language        String?  @default("EN") // Document language: EN or ES
+  clientId        String    @db.ObjectId // Reference to Client
+  category           String?  // Document category: Retirement, Group Health, etc. (BenefitsCategory / portal mapping)
+  categorySuggested  String?  // AI- or auto-detected suggested category (spec: aiSuggestedCategory)
+  categoryConfidence Int?      // 0–100 confidence for categorySuggested (spec: aiConfidence)
+  uploadedAt         DateTime  @default(now())
+  expirationDate     DateTime? // Optional expiration date for the document
+  showQrCode         Boolean   @default(true) // Whether to expose QR / quick-access affordances for this document
+  archivedAt         DateTime? // Soft-archive: null = active; set = hidden from Hub default lists
+
+  client Client @relation(fields: [clientId], references: [id])
+
+  @@index([clientId])
+  @@index([uploadedAt])
+  @@index([language])
+  @@index([expirationDate])
+  @@index([clientId, category])
+  @@index([clientId, archivedAt])
+}
+
+// Plan-scoped marketing flyers (Benefits Hub QR + co-brand snapshot + R2 assets)
+model MarketingFlyer {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  clientId        String    @db.ObjectId
+  userId          String    @db.ObjectId
+  mode            String // hub_promo_general | action_beneficiaries | meetings_invite | ...
+  modeOptions     Json? // { category?, openEnrollmentLabel?, meetingTitle?, ... }
+  headline        String
+  body            String
+  cta             String
+  hubUrlSnapshot  String // Absolute URL encoded in QR at generation time
+  brandSnapshot   Json // sponsor + organization branding at render time
+  pdfStorageKey   String
+  pngStorageKey   String
+  aiModel         String?
+  aiPromptVersion String?
+  generatedCopyAt DateTime?
+  title           String? // Optional library title (defaults to headline in UI)
+  archivedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([clientId])
+  @@index([userId])
+  @@index([clientId, archivedAt])
+  @@index([createdAt])
+}
+
+// Headshot model for processed user headshots
+model Headshot {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @db.ObjectId // Reference to User
+  originalUrl String // Original image URL/base64
+  square400   String // 400x400 square variant
+  square800   String // 800x800 square variant (retina)
+  circle400   String // 400x400 circle variant with transparent background
+  circle800   String // 800x800 circle variant (retina)
+  avatar64    String // 64x64 small avatar
+  cropData    Json // Crop coordinates and settings
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([createdAt])
+}

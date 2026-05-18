@@ -1,0 +1,191 @@
+"use client";
+
+import { motion } from "framer-motion";
+import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { signIn } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import Link from "next/link";
+import * as z from "zod";
+import GoogleSignInButton from "../google-auth-button";
+import { useFormWithLoading } from "@/hooks/useFormWithLoading";
+import { LoadingButton } from "@/components/ui/loading-button";
+
+const formSchema = z.object({
+  email: z.string().email({ message: "Enter a valid email address" }),
+  password: z
+    .string()
+    .min(6, { message: "Password must be at least 6 characters long" }),
+});
+
+type UserFormValue = z.infer<typeof formSchema>;
+interface SignInResult {
+  error?: string;
+}
+
+export default function UserAuthForm() {
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl");
+  const { isLoading, handleSubmit } = useFormWithLoading();
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const form = useForm<UserFormValue>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
+
+  const onSubmit = async (data: UserFormValue) => {
+    await handleSubmit(async () => {
+      setError(null);
+
+      const result = await signIn("credentials", {
+        redirect: false,
+        email: data.email,
+        password: data.password,
+        callbackUrl:
+          callbackUrl && callbackUrl !== null ? callbackUrl : "/new/dashboard",
+      });
+
+      if (result?.error) {
+        setError(result.error);
+      } else {
+        window.location.href =
+          callbackUrl && callbackUrl !== null ? callbackUrl : "/new/dashboard";
+      }
+    }, "Signing in...");
+  };
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setIsPasswordVisible(e.target.value !== "");
+    form.setValue("email", e.target.value);
+  };
+
+  return (
+    <>
+      <Form {...form}>
+        <form
+          onSubmit={form.handleSubmit(onSubmit)}
+          className={`w-full ${isPasswordVisible ? "space-y-2" : "space-y-1"}`}
+        >
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Email</FormLabel>
+                <FormControl>
+                  <Input
+                    type="email"
+                    placeholder="Enter your email"
+                    disabled={isLoading}
+                    {...field}
+                    onChange={(e) => {
+                      field.onChange(e);
+                      handleEmailChange(e);
+                    }}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <motion.div
+            initial={{ opacity: 0, height: 0, overflow: "hidden" }}
+            animate={{
+              opacity: isPasswordVisible ? 1 : 0,
+              height: isPasswordVisible ? "70px" : 0,
+            }}
+            transition={{ duration: 0.2 }}
+            className={`flex flex-col space-y-2 ${
+              isPasswordVisible ? "pb-2" : ""
+            }`}
+
+            // variants={{
+            //   open: { opacity: 1, height: "auto", marginBottom: "0rem" },
+            //   collapsed: { opacity: 0, height: 0, marginBottom: 0 }
+            // }}
+          >
+            {isPasswordVisible && (
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        placeholder="Enter your password"
+                        disabled={isLoading}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+          </motion.div>
+
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, height: 0, overflow: "hidden" }}
+              animate={{ opacity: error ? 1 : 0, height: error ? "auto" : 0 }}
+              transition={{ duration: 0.2 }}
+              className={`flex flex-col`}
+            >
+              {error && <span className="text-[red] text-sm">{error}</span>}
+            </motion.div>
+          )}
+          <LoadingButton
+            isLoading={isLoading}
+            loadingText="Signing in..."
+            className="w-full ml-auto !mt-3"
+            type="submit"
+          >
+            Continue with email
+          </LoadingButton>
+        </form>
+      </Form>
+      <div className="relative my-4">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="px-2 bg-background text-muted-foreground">Or</span>
+        </div>
+      </div>
+      <GoogleSignInButton />
+      <div className="flex flex-col">
+        <Link
+          href="/signup"
+          className="mx-auto text-sm underline text-muted-foreground"
+        >
+          Create New Account
+        </Link>
+        <Link
+          href="/forget"
+          className="mx-auto text-sm underline text-muted-foreground"
+        >
+          Forgot Password?
+        </Link>
+      </div>
+    </>
+  );
+}

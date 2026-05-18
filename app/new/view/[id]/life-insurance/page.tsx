@@ -1,0 +1,284 @@
+"use client";
+
+import { useState, useEffect, useMemo } from "react";
+import { useParams } from "next/navigation";
+import { useClientPortal } from "@/contexts/client-portal-context";
+import { VideoModal } from "@/components/video-modal";
+import { FAQSection } from "@/components/faq-section";
+import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
+import { PortalMaterialsHero } from "@/components/pages/client-portal/sections/portal-materials-hero";
+import {
+  RetirementJourneySection,
+  JourneyVideo,
+  FeaturedJourneyVideo,
+} from "@/components/pages/client-portal/sections/retirement-journey-section";
+import { HowCanWeHelpSection } from "@/components/pages/client-portal/sections/how-can-we-help-section";
+import { RetirementDocumentsAccordion } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
+import { CompletenessAutoTrigger } from "@/components/pages/client-portal/sections/completeness-auto-trigger";
+import {
+  HaveQuestionsSection,
+  ContactInfo,
+} from "@/components/pages/client-portal/sections/have-questions-section";
+import { Mail } from "lucide-react";
+import { BenefitsFAQAccordion } from "@/components/pages/client-portal/sections/benefits-faq-accordion";
+import { DocumentsSection } from "@/components/pages/client-portal/sections/documents-section";
+import { getCategoryHeroBackgroundUrl } from "@/lib/portal-category-hero-background";
+
+export default function LifeInsurancePage() {
+  const { clientData } = useClientPortal();
+  const params = useParams();
+  const clientId = params.id as string;
+  const [selectedVideo, setSelectedVideo] = useState<JourneyVideo | null>(null);
+  const [dbVideos, setDbVideos] = useState<JourneyVideo[]>([]);
+  const [dbFeaturedVideo, setDbFeaturedVideo] =
+    useState<FeaturedJourneyVideo | null>(null);
+
+  const brandColor = clientData?.brandColor || "#1F3A60";
+  const secondaryColor = clientData?.secondaryColor || "#6B7280";
+
+  const categoryHeroBg = useMemo(
+    () => getCategoryHeroBackgroundUrl(clientData ?? null),
+    [clientData],
+  );
+
+  // Filter and map real contacts from database
+  const contacts = useMemo(() => {
+    const rawContacts = Array.isArray(clientData?.keyContacts)
+      ? clientData?.keyContacts
+      : (clientData?.keyContacts as any)?.contacts || [];
+
+    // Filter contacts for this category
+    const relevantContacts = rawContacts.filter((c: any) =>
+      c.benefitsCategory === "Group Life" ||
+      c.benefitsCategories?.includes("Group Life")
+    );
+
+    if (relevantContacts.length === 0) return undefined;
+
+    return relevantContacts.map((c: any) => ({
+      id: c.id,
+      title: c.name || `${c.firstName} ${c.lastName}`,
+      description: c.customRole || c.title || "Life Insurance Representative",
+      icon: Mail,
+      email: c.email,
+      phone: c.phone,
+      iconType: c.headshot ? "image" : undefined,
+      iconSrc: c.headshot,
+      iconAlt: c.name
+    })) as ContactInfo[];
+  }, [clientData?.keyContacts]);
+
+  const featuredVideo: FeaturedJourneyVideo = {
+    id: "life-insurance-featured",
+    title: "Life Insurance: Protecting What Matters Most",
+    description:
+      "Understanding life insurance doesn't have to be complicated. This comprehensive guide covers the basics of term vs. whole life insurance, how much coverage you need, and how to make the right choice for your family's financial security.",
+    thumbnail:
+      "https://images.unsplash.com/photo-1511895426328-dc8714191300?w=800&q=80",
+    duration: "15:45",
+    rating: "4.9",
+    category: "Essential",
+    embedUrl: "https://www.youtube.com/embed/ysz5S6PUM-U?rel=0",
+  };
+
+  const retirementVideos: JourneyVideo[] = [
+    {
+      id: "life-insurance-basics",
+      title: "Life Insurance Do's & Don'ts",
+      thumbnail:
+        "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=400&q=80",
+      duration: "11:20",
+      tag: "Essential",
+    },
+    {
+      id: "term-vs-whole",
+      title: "Term vs. Whole Life: Which is Right for You?",
+      thumbnail:
+        "https://images.unsplash.com/photo-1554224311-beee910c1b8a?w=400&q=80",
+      duration: "13:30",
+      tag: "Popular",
+    },
+    {
+      id: "coverage-calculator",
+      title: "How Much Life Insurance Do You Need?",
+      thumbnail:
+        "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&q=80",
+      duration: "9:45",
+      tag: "New",
+    },
+  ];
+
+  // Load videos from database for this page placement
+  useEffect(() => {
+    const fetchVideos = async () => {
+      if (!clientId) return;
+
+      try {
+        const response = await fetch(
+          `/api/videos/get-by-placement?pagePlacement=life-insurance&clientId=${clientId}`,
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.videos) {
+            setDbVideos(data.videos);
+            if (data.featuredVideo) {
+              setDbFeaturedVideo(data.featuredVideo);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching videos:", error);
+      }
+    };
+
+    fetchVideos();
+  }, [clientId]);
+
+  const planningVideos: JourneyVideo[] = [
+    {
+      id: "beneficiary-basics",
+      title: "Choosing and Updating Beneficiaries",
+      thumbnail:
+        "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=400&q=80",
+      duration: "8:30",
+    },
+    {
+      id: "estate-planning",
+      title: "Life Insurance and Estate Planning",
+      thumbnail:
+        "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=400&q=80",
+      duration: "16:20",
+      tag: "Expert",
+    },
+    {
+      id: "claims-process",
+      title: "Understanding the Claims Process",
+      thumbnail:
+        "https://images.unsplash.com/photo-1521791136064-7986c2920216?w=400&q=80",
+      duration: "12:15",
+    },
+  ];
+
+  const handleVideoClick = (video: JourneyVideo) => {
+    setSelectedVideo({
+      id: video.id,
+      title: video.title,
+      thumbnail: video.thumbnail,
+      duration: video.duration,
+      description: video.description,
+    });
+  };
+
+  const handleFeaturedVideoClick = () => {
+    setSelectedVideo({
+      id: featuredVideo.id,
+      title: featuredVideo.title,
+      thumbnail: featuredVideo.thumbnail,
+      duration: featuredVideo.duration,
+      description: featuredVideo.description,
+    });
+  };
+
+  const closeModal = () => {
+    setSelectedVideo(null);
+  };
+
+  return (
+    <div className="min-h-screen bg-black">
+      <CompletenessAutoTrigger
+        category="Group Life"
+        clientData={clientData}
+        clientId={clientId}
+      />
+      <main>
+        <PortalWelcomeBanner
+          clientData={clientData}
+          brandColor={brandColor}
+          secondaryColor={secondaryColor}
+          category="Group Life"
+        />
+
+        <RetirementJourneySection
+          brandColor={brandColor}
+          featuredVideo={featuredVideo}
+          retirementVideos={retirementVideos}
+          planningVideos={planningVideos}
+          onVideoClick={handleVideoClick}
+          onFeaturedVideoClick={handleFeaturedVideoClick}
+          dbVideos={dbVideos}
+          dbFeaturedVideo={dbFeaturedVideo || undefined}
+          mainTitle="Life Insurance: Protecting What Matters Most"
+          subtitle="Secure your family's financial future with the right coverage."
+          firstCarouselTitle="Life Insurance Essentials"
+          secondCarouselTitle="Beneficiaries & Estate Planning"
+          backgroundImage={categoryHeroBg}
+          backgroundImageAlt="Life insurance and financial planning"
+        />
+
+        <HowCanWeHelpSection
+          brandColor={brandColor}
+          secondaryColor={secondaryColor}
+          clientId={clientId}
+        />
+
+        <BenefitsFAQAccordion
+          title="Frequently Asked Questions"
+          subtitle="Get quick answers to common benefits questions"
+          items={[
+            {
+              id: "life-1",
+              question: "What is life insurance?",
+              answer:
+                "Life insurance is a contract between an insurance company and a policyholder, where the insurer promises to pay a death benefit to named beneficiaries upon the death of the policyholder.",
+              linkLabel: "View Life Insurance Benefits >>",
+              linkHref: "/benefits/life-insurance",
+            },
+            {
+              id: "life-2",
+              question: "What is life insurance?",
+              answer:
+                "Life insurance is a contract between an insurance company and a policyholder, where the insurer promises to pay a death benefit to named beneficiaries upon the death of the policyholder.",
+              linkLabel: "View Life Insurance Benefits >>",
+              linkHref: "/benefits/life-insurance",
+            },
+            {
+              id: "life-3",
+              question: "What is life insurance?",
+              answer:
+                "Life insurance is a contract between an insurance company and a policyholder, where the insurer promises to pay a death benefit to named beneficiaries upon the death of the policyholder.",
+              linkLabel: "View Life Insurance Benefits >>",
+              linkHref: "/benefits/life-insurance",
+            },
+          ]}
+          brandColor={brandColor}
+          accentColor={secondaryColor}
+        />
+
+        <PortalMaterialsHero brandColor={brandColor} />
+
+        <DocumentsSection
+          brandColor={brandColor}
+          secondaryColor={secondaryColor}
+          clientId={clientId}
+          categoryPortalVisibility={(clientData as any)?.categoryPortalVisibility}
+          documentHubCategory="Group Life"
+        />
+
+        <HaveQuestionsSection
+          brandColor={brandColor}
+          secondaryColor={secondaryColor}
+          contacts={contacts}
+          cardWidth="390px"
+        />
+      </main>
+
+      <VideoModal
+        isOpen={!!selectedVideo}
+        onClose={closeModal}
+        videoTitle={selectedVideo?.title || ""}
+        videoDescription={selectedVideo?.description}
+      />
+    </div>
+  );
+}
