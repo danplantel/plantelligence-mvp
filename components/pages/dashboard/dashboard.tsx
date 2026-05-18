@@ -5,108 +5,83 @@ import { QuickActions } from "@/components/ui/quick-actions";
 import { DashboardPanels } from "@/components/ui/dashboard-panels";
 import { ResetOnboardingButton } from "@/components/ui/reset-onboarding-button";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { Headshot } from "@/components/ui/headshot";
 import { BrandingImage } from "@/components/ui/branding-image";
-import axios from "axios";
+import useSWR from "swr";
 import {
   demoStats as defaultDemoStats,
   quickActions,
   userInfo as defaultUserInfo,
 } from "./dashboard.funcs";
 
+const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
+
+const SWR_OPTS = {
+  keepPreviousData: true,
+  dedupingInterval: 60_000,   // profile/stats rarely change — cache for 60s
+  revalidateOnFocus: false,   // don't re-fetch just because user switched tabs
+} as const;
+
 export function Dashboard() {
   const { setTitle } = usePageTitleContext();
-
-  const [userInfo, setUserInfo] = useState(defaultUserInfo);
-  const [demoStats, setDemoStats] = useState(defaultDemoStats);
-  const [isLoadingStats, setIsLoadingStats] = useState(true);
-  const [isLoadingUserInfo, setIsLoadingUserInfo] = useState(true);
 
   useEffect(() => {
     setTitle("Dashboard");
   }, [setTitle]);
 
-  // Load user data from profile API
-  useEffect(() => {
-    const loadUserData = async () => {
-      try {
-        setIsLoadingUserInfo(true);
-        const response = await axios.get("/api/profile");
-        const profile = response.data;
+  // SWR: profile — cached, shows instantly on revisit
+  const { data: profileData, isLoading: isLoadingUserInfo } = useSWR(
+    "/api/profile",
+    jsonFetcher,
+    SWR_OPTS,
+  );
 
-        const wizardSession = profile.wizardSessions?.[0];
-        const userSetup = wizardSession?.userSetup;
-        const branding = wizardSession?.branding;
+  // SWR: dashboard stats — cached
+  const { data: statsData, isLoading: isLoadingStats } = useSWR(
+    "/api/dashboard/stats",
+    jsonFetcher,
+    SWR_OPTS,
+  );
 
-        const newUserInfo = {
-          name: userSetup?.name || profile.name || "User",
-          title: userSetup?.title || profile.title || "Advisor",
-          logo: branding?.logo || profile.advisorLogoUrl || "/logo-2.png",
-          avatar:
-            branding?.aiAvatar ||
-            userSetup?.headshotData?.avatar?.["64"] ||
-            userSetup?.headshotData?.circle?.["400"] ||
-            userSetup?.headshotData?.square?.["400"] ||
-            userSetup?.headshot ||
-            profile.headshot ||
-            "",
-        };
-
-        setUserInfo(newUserInfo);
-      } catch (error) {
-        console.error("Error loading user data:", error);
-      } finally {
-        setIsLoadingUserInfo(false);
-      }
+  const userInfo = useMemo(() => {
+    if (!profileData) return defaultUserInfo;
+    const wizardSession = profileData.wizardSessions?.[0];
+    const userSetup = wizardSession?.userSetup;
+    const branding = wizardSession?.branding;
+    return {
+      name: userSetup?.name || profileData.name || "User",
+      title: userSetup?.title || profileData.title || "Advisor",
+      logo: branding?.logo || profileData.advisorLogoUrl || "/logo-2.png",
+      avatar:
+        branding?.aiAvatar ||
+        userSetup?.headshotData?.avatar?.["64"] ||
+        userSetup?.headshotData?.circle?.["400"] ||
+        userSetup?.headshotData?.square?.["400"] ||
+        userSetup?.headshot ||
+        profileData.headshot ||
+        "",
     };
+  }, [profileData]);
 
-    loadUserData();
-  }, []);
-
-  // Fetch real dashboard stats
-  useEffect(() => {
-    async function fetchDashboardStats() {
-      try {
-        setIsLoadingStats(true);
-        const response = await axios.get("/api/dashboard/stats");
-        const stats = response.data.data;
-
-        // Filter out stats with 0 values (only for plans and meetings)
-        const filteredStats = defaultDemoStats.filter((stat) => {
-          switch (stat.title) {
-            case "Active Plans":
-              return stats.activePlans > 0;
-            case "Upcoming Meetings":
-              return stats.upcomingMeetings > 0;
-            default:
-              return true; // Keep all other stats
-          }
-        });
-
-        // Update stats with real values (only for plans and meetings)
-        const updatedStats = filteredStats.map((stat) => {
-          switch (stat.title) {
-            case "Active Plans":
-              return { ...stat, value: stats.activePlans };
-            case "Upcoming Meetings":
-              return { ...stat, value: stats.upcomingMeetings };
-            default:
-              return stat; // Keep original values for other stats
-          }
-        });
-
-        setDemoStats(updatedStats);
-      } catch (error) {
-        console.error("Failed to fetch dashboard stats", error);
-        // Keep default stats on error
-      } finally {
-        setIsLoadingStats(false);
+  const demoStats = useMemo(() => {
+    const stats = statsData?.data;
+    if (!stats) return defaultDemoStats;
+    const filtered = defaultDemoStats.filter((stat) => {
+      switch (stat.title) {
+        case "Active Plans": return stats.activePlans > 0;
+        case "Upcoming Meetings": return stats.upcomingMeetings > 0;
+        default: return true;
       }
-    }
-
-    fetchDashboardStats();
-  }, []);
+    });
+    return filtered.map((stat) => {
+      switch (stat.title) {
+        case "Active Plans": return { ...stat, value: stats.activePlans };
+        case "Upcoming Meetings": return { ...stat, value: stats.upcomingMeetings };
+        default: return stat;
+      }
+    });
+  }, [statsData]);
 
   return (
     <div className="px-10 py-4 space-y-6">

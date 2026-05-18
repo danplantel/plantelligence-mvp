@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import useSWR from "swr";
 import { useForm, FormProvider } from "react-hook-form";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
@@ -44,7 +45,10 @@ export default function SettingsPage() {
   const { stepData, loadAllWizardData, saveStepData, saveStepDataToServer } =
     useOnboardingWizardStore();
   const [isSaving, setIsSaving] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  // If the Zustand store already has data from a previous visit, skip the skeleton
+  const [isLoading, setIsLoading] = useState(
+    () => !useOnboardingWizardStore.getState().stepData?.userSetup,
+  );
   const [activeTab, setActiveTab] = useState("profile");
   const [pendingTab, setPendingTab] = useState<string | null>(null);
   const [showUnsavedChangesDialog, setShowUnsavedChangesDialog] =
@@ -125,12 +129,30 @@ export default function SettingsPage() {
   // User profile data (for branding fallback)
   const [userProfile, setUserProfile] = useState<any>(null);
 
+  // SWR: cache /api/profile so branding/organization tabs show instantly on revisit
+  const { data: cachedProfile } = useSWR(
+    "/api/profile",
+    (url: string) => fetch(url).then((r) => r.json()),
+    { keepPreviousData: true, dedupingInterval: 60_000, revalidateOnFocus: false },
+  );
+
+  // Sync cachedProfile into userProfile state when it arrives
+  const profileSyncedRef = useRef(false);
+  useEffect(() => {
+    if (cachedProfile && !profileSyncedRef.current) {
+      setUserProfile(cachedProfile);
+      profileSyncedRef.current = true;
+    }
+  }, [cachedProfile]);
+
   // Load data for specific tab (profile tab always refetches so Step 2 categories autofill without pressing Save)
   const loadTabData = async (tab: string) => {
     if (loadedTabs.has(tab) && tab !== "profile") return; // Already loaded (except profile: always refetch)
 
+    // Only show skeleton if there's no existing data — otherwise update silently in background
+    const hasExistingData = Boolean(useOnboardingWizardStore.getState().stepData?.userSetup);
     try {
-      setIsLoading(true);
+      if (!hasExistingData) setIsLoading(true);
       // Load only necessary data for this tab
       switch (tab) {
         case "profile": {
@@ -163,31 +185,37 @@ export default function SettingsPage() {
           break;
         }
         case "branding":
-          // Load both wizard data and user profile for branding
+          // Load wizard data; use SWR-cached profile if available to avoid extra fetch
           await loadAllWizardData();
-          // Also load user profile for fallback data (advisorLogo, brandColor, subdomain)
-          try {
-            const profileResponse = await fetch("/api/profile");
-            if (profileResponse.ok) {
-              const profile = await profileResponse.json();
-              setUserProfile(profile);
+          if (cachedProfile) {
+            setUserProfile(cachedProfile);
+          } else {
+            try {
+              const profileResponse = await fetch("/api/profile");
+              if (profileResponse.ok) {
+                const profile = await profileResponse.json();
+                setUserProfile(profile);
+              }
+            } catch (err) {
+              console.error("Failed to load user profile:", err);
             }
-          } catch (err) {
-            console.error("Failed to load user profile:", err);
           }
           break;
         case "organization":
-          // Load wizard data and user profile for organization settings
+          // Load wizard data; use SWR-cached profile if available
           await loadAllWizardData();
-          // Load user profile for fallback (company = organizationType)
-          try {
-            const profileResponse = await fetch("/api/profile");
-            if (profileResponse.ok) {
-              const profile = await profileResponse.json();
-              setUserProfile(profile);
+          if (cachedProfile) {
+            setUserProfile(cachedProfile);
+          } else {
+            try {
+              const profileResponse = await fetch("/api/profile");
+              if (profileResponse.ok) {
+                const profile = await profileResponse.json();
+                setUserProfile(profile);
+              }
+            } catch (err) {
+              console.error("Failed to load user profile:", err);
             }
-          } catch (err) {
-            console.error("Failed to load user profile:", err);
           }
           break;
         case "team":
