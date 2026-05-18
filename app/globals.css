@@ -43,6 +43,7 @@
     --accent: 240 4.8% 95.9%;
     --accent-foreground: 240 5.9% 10%;
     --accent-blue: #23919c;
+    --accent-blue-light: #d4eef0;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
@@ -80,6 +81,7 @@
     --accent: 240 3.7% 15.9%;
     --accent-foreground: 0 0% 98%;
     --accent-blue: #23919c;
+    --accent-blue-light: #1a3f43;
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;

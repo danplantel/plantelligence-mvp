@@ -127,10 +127,9 @@ export function NavItemComponent({
           onClick={() => setIsExpanded(!isExpanded)}
           className={cn(
             "w-full text-left px-4 py-3 rounded-md transition-colors duration-200",
-            "hover:bg-accent-blue hover:text-white",
             isActive || hasActiveChild
-              ? "bg-accent-blue text-white"
-              : "text-muted-foreground",
+              ? "bg-accent-blue text-white hover:bg-accent-blue hover:text-white"
+              : "text-muted-foreground hover:bg-accent-blue-light hover:text-accent-blue",
           )}
         >
           <div className="flex items-center">
@@ -154,8 +153,9 @@ export function NavItemComponent({
           onClick={() => navigate(item.href ?? "#")}
           className={cn(
             "w-full text-left px-4 py-3 rounded-md transition-colors duration-200",
-            "hover:bg-accent-blue hover:text-white",
-            isActive ? "bg-accent-blue text-white" : "text-muted-foreground",
+            isActive
+              ? "bg-accent-blue text-white hover:bg-accent-blue hover:text-white"
+              : "text-muted-foreground hover:bg-accent-blue-light hover:text-accent-blue",
           )}
         >
           <div className="flex items-center">
@@ -193,10 +193,9 @@ export function NavItemComponent({
                     onClick={() => navigate(subItem.href ?? "#")}
                     className={cn(
                       "w-full text-left px-3 py-2 rounded-md transition-colors duration-200",
-                      "hover:bg-accent-blue hover:text-white",
                       isSubActive
-                        ? "bg-accent-blue text-white"
-                        : "text-muted-foreground",
+                        ? "bg-accent-blue text-white hover:bg-accent-blue hover:text-white"
+                        : "text-muted-foreground hover:bg-accent-blue-light hover:text-accent-blue",
                     )}
                   >
                     <div className="flex items-center">
