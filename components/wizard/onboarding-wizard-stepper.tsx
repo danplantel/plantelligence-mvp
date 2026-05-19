@@ -121,7 +121,7 @@ export function OnboardingWizardStepper({
          </div>
 
          {/* Step Indicators */}
-         <div className="relative flex items-center w-1/2 mt-2">
+         <div className="relative right-16 flex items-center w-1/2 mt-2">
         {visibleSteps.map((step, index) => {
           const isLastVisible = index === visibleSteps.length - 1;
           const isCurrent = step.id === currentStep;
