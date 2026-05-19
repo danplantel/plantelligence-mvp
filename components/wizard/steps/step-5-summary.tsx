@@ -351,7 +351,7 @@ export function Step5Summary({
   // If showing next steps, render that view
   if (showNextSteps) {
     return (
-      <div className="space-y-6 max-w-6xl mx-auto">
+      <div className="space-y-6">
         {/* Success banner replacing the previous modal */}
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
           <div className="flex items-start space-x-3">
@@ -565,7 +565,7 @@ export function Step5Summary({
 
   // Otherwise, show the Setup Complete screen
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
+    <div className="space-y-6">
       {/* Hero Confirmation */}
       <div className="bg-green-50 border border-green-200 rounded-lg p-6">
         <div className="flex items-start space-x-4">

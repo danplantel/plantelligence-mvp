@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
 import { Button } from "@/components/ui/button";
-import { WizardStepper } from "./wizard-stepper";
+import { OnboardingWizardStepper } from "./onboarding-wizard-stepper";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { Card, CardContent } from "../ui/card";
@@ -515,10 +515,10 @@ export function OnboardingWizard({
 
   return (
     <>
-      <div className="mx-10 py-4 min-h-screen">
+      <div className="flex flex-col items-center min-h-screen py-4">
         {/* Header with stepper */}
-        <div className="mb-4">
-          <WizardStepper
+        <div className="mb-4 w-full max-w-4xl px-10">
+          <OnboardingWizardStepper
             currentStepTitle={currentStepTitle}
             steps={steps}
             currentStep={currentStep}
@@ -528,7 +528,7 @@ export function OnboardingWizard({
         </div>
 
         {/* Content area */}
-        <div ref={contentRef} className="mb-20">
+        <div ref={contentRef} className="mb-20 w-full max-w-4xl px-10">
           {React.cloneElement(children as React.ReactElement, {
             errorFields: errorFields,
           })}
@@ -536,15 +536,15 @@ export function OnboardingWizard({
 
         {/* Footer with navigation - sticky to bottom */}
         <div className="fixed bottom-0 left-0 right-0 bg-background border-t shadow-lg z-50">
-          <div className="mx-10">
-            <Card className="shadow-none border-0">
+          <div className="flex justify-center">
+            <Card className="shadow-none border-0 w-full max-w-4xl">
               <CardContent className="flex justify-between p-4">
                 <Button
                   variant="outline"
                   size="lg"
                   onClick={handlePreviousClick}
                   disabled={isFirstStep}
-                  className="flex items-center space-x-2 border-accent-blue text-accent-blue"
+                  className="flex items-center space-x-2 border-accent-blue text-accent-blue dark:text-gray-300 dark:border-gray-600 transition-colors duration-300 hover:bg-accent-blue hover:text-white dark:hover:bg-gray-600 disabled:border-gray-300 disabled:text-gray-300 disabled:cursor-not-allowed"
                 >
                   <ChevronLeft className="size-5" />
                   <span>Previous</span>
@@ -559,7 +559,7 @@ export function OnboardingWizard({
                       ? "Completing setup..."
                       : "Saving data..."
                   }
-                  className={`flex items-center space-x-2 text-white bg-accent-blue transition-all duration-300 ${
+                  className={`flex items-center space-x-2 text-white bg-accent-blue dark:bg-accent-blue-dark transition-all duration-300 ${
                     isPulsating
                       ? "animate-pulse ring-2 ring-accent-blue ring-opacity-50"
                       : ""

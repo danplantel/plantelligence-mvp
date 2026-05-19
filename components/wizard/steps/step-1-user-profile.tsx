@@ -68,7 +68,7 @@ export function Step1UserProfile({ errorFields = [] }: Step1UserProfileProps) {
     <TooltipProvider>
       <FormProvider {...methods}>
         <div
-          className={`grid gap-6 w-full transition-all duration-300 ${
+          className={`grid gap-6 transition-all duration-300 ${
             showTeamSize ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1"
           }`}
         >

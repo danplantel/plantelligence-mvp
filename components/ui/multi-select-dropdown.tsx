@@ -103,33 +103,71 @@ export function MultiSelectDropdown({
 
   return (
     <div className={cn("relative", className)}>
+      {/* Selected values as chips - show above when displayMode is "chips" */}
+      {selectedValues.length > 0 && displayMode === "chips" && (
+        <div className="mb-3">
+          <div className="flex flex-wrap gap-2">
+            {selectedValues.map((value) => (
+              <Badge
+                key={value}
+                variant="secondary"
+                className="flex items-center gap-1 px-2 py-1 text-xs"
+              >
+                {value}
+                <button
+                  type="button"
+                  onClick={() => handleRemoveValue(value)}
+                  className="ml-1 hover:bg-background rounded-full p-0.5 transition-colors"
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+
       <Popover open={isOpen && !disabled} onOpenChange={(open) => {
         if (!disabled) {
           setIsOpen(open);
         }
       }}>
         <PopoverTrigger asChild>
-          <button
-            type="button"
-            disabled={disabled}
-            className={cn(
-              "flex h-9 w-full max-w-md items-center justify-between rounded-lg border bg-transparent px-3 py-1 text-sm shadow-sm ring-offset-background focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-50 border-input",
-              className,
-            )}
-          >
-            <span
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={disabled}
               className={cn(
-                selectedValues.length === 0 && "text-muted-foreground",
+                "flex h-9 flex-1 items-center justify-between rounded-lg border bg-transparent px-3 py-1 text-sm shadow-sm ring-offset-background focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-50 border-input",
+                className,
               )}
             >
-              {selectedValues.length === 0
-                ? placeholder
-                : displayMode === "comma"
-                ? selectedValues.join(", ")
-                : `${selectedValues.length} selected`}
-            </span>
-            <CaretSortIcon className="h-4 w-4 opacity-50" />
-          </button>
+              <span
+                className={cn(
+                  selectedValues.length === 0 && "text-muted-foreground",
+                )}
+              >
+                {selectedValues.length === 0
+                  ? placeholder
+                  : displayMode === "comma"
+                  ? selectedValues.join(", ")
+                  : `${selectedValues.length} selected`}
+              </span>
+              <CaretSortIcon className="h-4 w-4 opacity-50" />
+            </button>
+            {selectedValues.length > 0 && displayMode === "chips" && (
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                onClick={handleDeselectAll}
+                className="text-xs h-9 px-3 font-medium flex-shrink-0"
+              >
+                Clear All
+              </Button>
+            )}
+          </div>
         </PopoverTrigger>
         <PopoverContent
           className="w-80 p-0"
@@ -214,46 +252,6 @@ export function MultiSelectDropdown({
           )}
         </PopoverContent>
       </Popover>
-
-      {/* Selected values as chips - only show when displayMode is "chips" */}
-      {selectedValues.length > 0 && displayMode === "chips" && (
-        <div className="mt-2">
-          <div className="flex items-center gap-4 mb-2">
-            <Button
-              type="button"
-              variant="destructive"
-              size="sm"
-              onClick={handleDeselectAll}
-              className="text-xs h-7 px-3 font-medium"
-            >
-              Clear All
-            </Button>
-            <span className="text-sm text-muted-foreground">
-              Selected ({selectedValues.length}
-              {maxSelections ? `/${maxSelections}` : ""}):
-            </span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {selectedValues.map((value) => (
-              <Badge
-                key={value}
-                variant="secondary"
-                className="flex items-center gap-1 px-2 py-1 text-xs"
-              >
-                {value}
-                <button
-                  type="button"
-                  onClick={() => handleRemoveValue(value)}
-                  className="ml-1 hover:bg-background rounded-full p-0.5 transition-colors"
-                  onMouseDown={(e) => e.stopPropagation()}
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </Badge>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

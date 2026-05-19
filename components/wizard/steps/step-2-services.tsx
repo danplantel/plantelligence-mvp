@@ -119,7 +119,7 @@ export function Step2Services({ errorFields = [] }: Step2ServicesProps) {
     <TooltipProvider>
       <div className="space-y-4">
         <div className="items-start gap-4 grid grid-cols-1">
-          {/* Services Section - Now full width */}
+          {/* Services Section */}
           <div>
             <ServicesSection
               selectedServices={selectedServices}
