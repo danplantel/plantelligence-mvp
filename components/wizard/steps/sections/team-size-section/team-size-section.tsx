@@ -92,7 +92,7 @@ export function TeamSizeSection({
     }
 
     return (
-      <Card className="flex-1 shadow-none">
+      <Card className="flex-1 shadow-none dark:bg-gray-800">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
             <Users className="w-5 h-5 text-accent-blue" />
@@ -144,7 +144,7 @@ export function TeamSizeSection({
   }
 
   return (
-    <Card className="flex-1 shadow-none">
+    <Card className="flex-1 shadow-none dark:bg-gray-800">
       <CardHeader className="pb-3">
         <div className="flex justify-between items-center gap-2">
           <CardTitle className="text-lg flex items-center gap-2">

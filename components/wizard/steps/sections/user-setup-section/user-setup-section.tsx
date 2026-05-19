@@ -489,7 +489,7 @@ export function UserSetupSection({
   }
 
   return (
-    <Card className="shadow-none">
+    <Card className="shadow-none dark:bg-gray-800">
       <CardHeader>
         <p className="text-muted-foreground">
           Tell us about yourself to personalize your experience

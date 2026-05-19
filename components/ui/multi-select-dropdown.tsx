@@ -159,10 +159,10 @@ export function MultiSelectDropdown({
             {selectedValues.length > 0 && displayMode === "chips" && (
               <Button
                 type="button"
-                variant="destructive"
+                variant="outline"
                 size="sm"
                 onClick={handleDeselectAll}
-                className="text-xs h-9 px-3 font-medium flex-shrink-0"
+                className="text-xs h-9 px-3 font-medium flex-shrink-0 text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700"
               >
                 Clear All
               </Button>

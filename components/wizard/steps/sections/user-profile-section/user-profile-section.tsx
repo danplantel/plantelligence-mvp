@@ -144,7 +144,7 @@ export function UserProfileSection({
   }
 
   return (
-    <Card className="flex-1 shadow-none">
+    <Card className="flex-1 shadow-none dark:bg-gray-800">
       <CardHeader className="pb-3">
         <div className="flex justify-between items-center gap-2">
           <CardTitle className="text-lg flex items-center gap-2">

@@ -375,7 +375,7 @@ export function BrandingSetupCard({
   }
 
   return (
-    <Card className="shadow-none h-full flex flex-col">
+    <Card className="shadow-none h-full flex flex-col dark:bg-gray-800">
       <CardHeader className="pb-3">
       </CardHeader>
       <CardContent className="flex-1 pt-0">{content}</CardContent>

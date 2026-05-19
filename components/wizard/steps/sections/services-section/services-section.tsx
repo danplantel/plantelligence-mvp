@@ -93,7 +93,7 @@ export function ServicesSection({
   }
 
   return (
-    <Card className="flex flex-col shadow-none h-full">
+    <Card className="flex flex-col shadow-none h-full dark:bg-gray-800">
       <CardHeader className="space-y-4">
         <p className="font-light text-muted-foreground">
           Which service categories do you offer? (Select all that apply)

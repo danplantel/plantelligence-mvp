@@ -395,7 +395,7 @@ export function Step5Summary({
             {!isTeamSizeJustMe ? (
               <AddTeamMembersSection isVisible={true} />
             ) : (
-              <Card>
+              <Card className="dark:bg-gray-800">
                 <CardHeader>
                   <CardTitle className="text-lg font-semibold">
                     Add Team Members
@@ -418,7 +418,7 @@ export function Step5Summary({
 
           {/* Right Column - Add Disclaimers */}
           <div>
-            <Card>
+            <Card className="dark:bg-gray-800">
               <CardContent className="pt-6">
                 <Step5Disclaimers
                   onValidationChange={handleDisclaimersValidation}
@@ -582,7 +582,7 @@ export function Step5Summary({
       {/* Summary Cards Grid */}
       <div className="grid grid-cols-1 gap-6">
         {/* Card 1: User Profile */}
-        <Card>
+        <Card className="dark:bg-gray-800">
           <CardHeader>
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -619,7 +619,7 @@ export function Step5Summary({
         </Card>
 
         {/* Card 2: Services Provided */}
-        <Card>
+        <Card className="dark:bg-gray-800">
           <CardHeader>
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -648,7 +648,7 @@ export function Step5Summary({
         </Card>
 
         {/* Card 3: Branding */}
-        <Card>
+        <Card className="dark:bg-gray-800">
           <CardHeader>
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -751,7 +751,7 @@ export function Step5Summary({
         </Card>
 
         {/* Card 4: User Setup */}
-        <Card>
+        <Card className="dark:bg-gray-800">
           <CardHeader>
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
