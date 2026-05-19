@@ -50,24 +50,26 @@ const isValidWebsite = (url: string): boolean => {
  };
 
 interface BrandingData {
-    organizationName: string;
-    logo: string;
-    logoFileName: string;
-    website: string;
-    missionStatement: string;
-    brandColor: string;
-    primaryColor?: string;
-    secondaryColor?: string;
-    isPrimaryColorPickerOpen: boolean;
-    isSecondaryColorPickerOpen: boolean;
-    isGenerating: boolean;
-    backgroundImage?: string;
-    backgroundFileName?: string;
-    aiAvatar?: string;
-    avatarFileName?: string;
-    subdomain: string;
-    useDefaultWelcomeStatement?: boolean;
-  }
+     organizationName: string;
+     logo: string;
+     logoFileName: string;
+     website: string;
+     missionStatement: string;
+     brandColor: string;
+     primaryColor?: string;
+     secondaryColor?: string;
+     isPrimaryColorPickerOpen: boolean;
+     isSecondaryColorPickerOpen: boolean;
+     isGenerating: boolean;
+     backgroundImage?: string;
+     backgroundFileName?: string;
+     aiAvatar?: string;
+     avatarFileName?: string;
+     subdomain: string;
+     useDefaultWelcomeStatement?: boolean;
+     logoPreview?: string;
+     backgroundImagePreview?: string;
+   }
 
 interface BrandingSetupCardProps {
    data: BrandingData;
@@ -223,36 +225,23 @@ export function BrandingSetupCard({
           placeholder="Upload Logo"
           destructive={errorFields.includes("logo")}
         />
-      </div>
-
-      {/* Background Image */}
-      <div>
-        <label className="block text-sm font-medium mb-1">
-          Background Image (Optional)
-        </label>
-        <UniversalImageEditorModal
-          type="custom"
-          icon={<ImageIcon className="w-4 h-4" />}
-          value={data.backgroundImage || ""}
-          fileName={data.backgroundFileName || ""}
-          onChange={(value, fileName) => {
-            onDataChange("backgroundImage", value);
-            onDataChange("backgroundFileName", fileName);
-          }}
-          onRemove={async () => {
-            if (data.backgroundImage) {
-              await deleteFromR2(data.backgroundImage);
-            }
-            onDataChange("backgroundImage", "");
-            onDataChange("backgroundFileName", "");
-            onFileRemove("backgroundImage");
-          }}
-          placeholder="Upload Background Image"
-          modalTitle="Background Image"
-          modalDescription="Upload a background image. Adjust and fit it into the preview dimensions for best results."
-          saveButtonText="Save Background Image"
-          autoSizeOnOpen={true}
-        />
+        {data.logoPreview && (
+          <div className="mt-4 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 rounded-lg p-4 flex flex-col items-center justify-center">
+            <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-3">
+              Logo Preview
+            </p>
+            <div className="flex items-center justify-center w-full">
+              <img
+                src={data.logoPreview}
+                alt="Organization Logo"
+                className="max-w-full max-h-40 object-contain"
+                onError={(e) => {
+                  console.error("Failed to load logo image:", e);
+                }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Primary Color */}
@@ -331,8 +320,53 @@ export function BrandingSetupCard({
         />
       </div>
 
-      {/* AI Generated Content */}
-      <div className="space-y-3">{/* Welcome Statement */}</div>
+      {/* Background Image */}
+      <div>
+        <label className="block text-sm font-medium mb-1">
+          Background Image (Optional)
+        </label>
+        <UniversalImageEditorModal
+          type="custom"
+          icon={<ImageIcon className="w-4 h-4" />}
+          value={data.backgroundImage || ""}
+          fileName={data.backgroundFileName || ""}
+          onChange={(value, fileName) => {
+            onDataChange("backgroundImage", value);
+            onDataChange("backgroundFileName", fileName);
+          }}
+          onRemove={async () => {
+            if (data.backgroundImage) {
+              await deleteFromR2(data.backgroundImage);
+            }
+            onDataChange("backgroundImage", "");
+            onDataChange("backgroundFileName", "");
+            onFileRemove("backgroundImage");
+          }}
+          placeholder="Upload Background Image"
+          modalTitle="Background Image"
+          modalDescription="Upload a background image. Adjust and fit it into the preview dimensions for best results."
+          saveButtonText="Save Background Image"
+          autoSizeOnOpen={true}
+        />
+        {data.backgroundImagePreview && (
+          <div className="mt-4 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 rounded-lg p-4 flex flex-col items-center justify-center min-h-80">
+            <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-3">
+              Background Image Preview
+            </p>
+            <div className="flex items-center justify-center w-full flex-1">
+              <img
+                src={data.backgroundImagePreview}
+                alt="Background Image"
+                className="max-w-full max-h-72 object-cover rounded"
+                onError={(e) => {
+                  console.error("Failed to load background image:", e);
+                }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
     </div>
   );
 

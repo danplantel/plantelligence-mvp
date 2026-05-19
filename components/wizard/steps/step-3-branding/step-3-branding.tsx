@@ -60,12 +60,15 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
    const [logoFileName, setLogoFileName] = useState(
      stepData.branding?.logoFileName || "",
    );
-  const [backgroundImage, setBackgroundImage] = useState(
-    stepData.branding?.backgroundImage || "",
-  );
-  const [backgroundFileName, setBackgroundFileName] = useState(
-    stepData.branding?.backgroundFileName || "",
-  );
+   const [backgroundImage, setBackgroundImage] = useState(
+     stepData.branding?.backgroundImage || "",
+   );
+   const [backgroundImagePreview, setBackgroundImagePreview] = useState(
+     stepData.branding?.backgroundImage || "",
+   );
+   const [backgroundFileName, setBackgroundFileName] = useState(
+     stepData.branding?.backgroundFileName || "",
+   );
   const [aiAvatar, setAiAvatar] = useState(stepData.branding?.aiAvatar || "");
   const [avatarFileName, setAvatarFileName] = useState(
     stepData.branding?.avatarFileName || "",
@@ -245,258 +248,230 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
 
   return (
     <FormProvider {...methods}>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column - Form Inputs */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="space-y-4">
-            <div className="w-full">
-              <BrandingSetupCard
-              data={{
-                organizationName,
+      <div className="space-y-4">
+        <div className="w-full">
+          <BrandingSetupCard
+            data={{
+              organizationName,
+              logo,
+              logoFileName,
+              website,
+              backgroundImage,
+              backgroundFileName,
+              missionStatement,
+              brandColor,
+              primaryColor,
+              secondaryColor,
+              subdomain,
+              aiAvatar,
+              avatarFileName,
+              isPrimaryColorPickerOpen,
+              isSecondaryColorPickerOpen,
+              isGenerating,
+              useDefaultWelcomeStatement,
+              logoPreview,
+              backgroundImagePreview,
+            }}
+            errorFields={errorFields}
+            onLogoPreview={async (dataUrl) => {
+              setLogoPreview(dataUrl);
+              try {
+                const colors = await extractColorsFromImage(dataUrl);
+                setPrimaryColor(colors.primary);
+                setSecondaryColor(colors.secondary);
+              } catch (error) {
+                console.error("Failed to extract colors from logo preview:", error);
+                setPrimaryColor("#1F3A60");
+                setSecondaryColor("#4A90E2");
+              }
+            }}
+            onDataChange={async (field: any, value: any) => {
+              const setters = createDataSetters({
+                setOrganizationName,
+                setLogo,
+                setLogoFileName,
+                setWebsite,
+                setBackgroundImage,
+                setBackgroundFileName,
+                setMissionStatement,
+                setBrandColor,
+                setPrimaryColor,
+                setSecondaryColor,
+                setSubdomain,
+                setAiAvatar,
+                setAvatarFileName,
+                setIsPrimaryColorPickerOpen,
+                setIsSecondaryColorPickerOpen,
+                setIsAvatarGeneratorOpen,
+                setIsGenerating,
+                setUseDefaultWelcomeStatement,
+              });
+
+              if (field !== "logoPreview" && field !== "backgroundImagePreview") {
+                const setter = setters[field as keyof typeof setters];
+                setter?.(value);
+              }
+
+              if (field === "logo") {
+                latestLogoRef.current = value;
+                setLogoPreview(value);
+              }
+
+              if (field === "backgroundImage") {
+                setBackgroundImagePreview(value);
+              }
+
+              const currentState = {
                 logo,
                 logoFileName,
-                website,
                 backgroundImage,
                 backgroundFileName,
+                organizationName,
+                website,
                 missionStatement,
                 brandColor,
                 primaryColor,
                 secondaryColor,
-                subdomain,
                 aiAvatar,
                 avatarFileName,
-                isPrimaryColorPickerOpen,
-                isSecondaryColorPickerOpen,
-                isGenerating,
-                useDefaultWelcomeStatement,
-              }}
-              errorFields={errorFields}
-              onLogoPreview={async (dataUrl) => {
-                setLogoPreview(dataUrl);
-                // Extract colors from the DataURL (never from the R2 key)
-                try {
-                  const colors = await extractColorsFromImage(dataUrl);
-                  setPrimaryColor(colors.primary);
-                  setSecondaryColor(colors.secondary);
-                } catch (error) {
-                  console.error("Failed to extract colors from logo preview:", error);
-                  setPrimaryColor("#1F3A60");
-                  setSecondaryColor("#4A90E2");
+                subdomain,
+              };
+
+              const brandingData = {
+                ...currentState,
+                [field]: value,
+              };
+
+              if (field === "logoFileName" && brandingData.logo === "") {
+                if (latestLogoRef.current) {
+                  brandingData.logo = latestLogoRef.current;
                 }
-              }}
-              onDataChange={async (field: keyof BrandingState, value: any) => {
-                const setters = createDataSetters({
-                  setOrganizationName,
-                  setLogo,
-                  setLogoFileName,
-                  setWebsite,
-                  setBackgroundImage,
-                  setBackgroundFileName,
-                  setMissionStatement,
-                  setBrandColor,
-                  setPrimaryColor,
-                  setSecondaryColor,
-                  setSubdomain,
-                  setAiAvatar,
-                  setAvatarFileName,
-                  setIsPrimaryColorPickerOpen,
-                  setIsSecondaryColorPickerOpen,
-                  setIsAvatarGeneratorOpen,
-                  setIsGenerating,
-                  setUseDefaultWelcomeStatement,
-                });
+              }
+              await saveStepDataLocally("branding", brandingData);
 
-                setters[field]?.(value);
+              if (field === "organizationName" || field === "website") {
+                const clientProfileData = {
+                  organizationType: stepData.clientProfile?.organizationType,
+                  customOrganization:
+                    stepData.clientProfile?.customOrganization,
+                  organizationName:
+                    field === "organizationName" ? value : organizationName,
+                  website: field === "website" ? value : website,
+                };
 
-                // Store logo value in ref when updating logo
+                await saveStepDataLocally("clientProfile", clientProfileData);
+              }
+
+              setTimeout(() => validateCurrentStepFields(), 100);
+            }}
+            onFileUpload={async (
+              field: "logo" | "backgroundImage",
+              file: File,
+            ) => {
+              const reader = new FileReader();
+              reader.onload = async (e) => {
+                const result = e.target?.result as string;
+
                 if (field === "logo") {
-                  latestLogoRef.current = value;
-                  // Also update preview when logo changes
-                  setLogoPreview(value);
+                  setLogoPreview(result);
+                } else if (field === "backgroundImage") {
+                  setBackgroundImagePreview(result);
                 }
 
-                // Create updated branding data with the new value
-                // Use current state values and update the specific field
-                const currentState = {
-                  logo,
-                  logoFileName,
-                  backgroundImage,
-                  backgroundFileName,
-                  organizationName,
-                  website,
-                  missionStatement,
-                  brandColor,
-                  primaryColor,
-                  secondaryColor,
-                  aiAvatar,
-                  avatarFileName,
-                  subdomain,
-                };
+                const fileHandlers = createFileHandlers(
+                  {
+                    setLogo,
+                    setLogoFileName,
+                    setBackgroundImage,
+                    setBackgroundFileName,
+                  },
+                  result,
+                  file,
+                );
 
-                const brandingData = {
-                  ...currentState,
-                  [field]: value,
-                };
-
-                // Special handling for logoFileName - preserve logo from previous update
-                if (field === "logoFileName" && brandingData.logo === "") {
-                  // If logo is empty but we're updating fileName, keep the previous logo value
-                  if (latestLogoRef.current) {
-                    brandingData.logo = latestLogoRef.current;
-                  }
+                if (field === "logo") {
+                  fileHandlers.logo?.();
+                } else if (field === "backgroundImage") {
+                  fileHandlers.backgroundImage?.();
                 }
-                // Save locally immediately and debounce server save
-                await saveStepDataLocally("branding", brandingData);
 
-                // Also save organizationName and website to clientProfile for persistence
-                if (field === "organizationName" || field === "website") {
-                  const clientProfileData = {
-                    organizationType: stepData.clientProfile?.organizationType,
-                    customOrganization:
-                      stepData.clientProfile?.customOrganization,
-                    organizationName:
-                      field === "organizationName" ? value : organizationName,
-                    website: field === "website" ? value : website,
+                try {
+                  await saveData();
+
+                  const brandingData = {
+                    logo: field === "logo" ? result : logo,
+                    logoFileName: field === "logo" ? file.name : logoFileName,
+                    backgroundImage: field === "backgroundImage" ? result : backgroundImage,
+                    backgroundFileName: field === "backgroundImage" ? file.name : backgroundFileName,
+                    organizationName,
+                    website,
+                    missionStatement,
+                    brandColor,
+                    primaryColor,
+                    secondaryColor,
+                    aiAvatar,
+                    avatarFileName,
+                    subdomain,
                   };
 
-                  await saveStepDataLocally("clientProfile", clientProfileData);
-                }
-
-                // Validate fields in real-time
-                setTimeout(() => validateCurrentStepFields(), 100);
-              }}
-              onFileUpload={async (
-                field: "logo" | "backgroundImage",
-                file: File,
-              ) => {
-                const reader = new FileReader();
-                reader.onload = async (e) => {
-                  const result = e.target?.result as string;
-
-                  // Set preview immediately with dataURL for instant display
-                  // Color extraction is handled by onLogoPreview callback
-                  if (field === "logo") {
-                    setLogoPreview(result);
-                  }
-
-                  const fileHandlers = createFileHandlers(
-                    {
-                      setLogo,
-                      setLogoFileName,
-                      setBackgroundImage,
-                      setBackgroundFileName,
-                    },
-                    result,
-                    file,
+                  await saveStepDataLocally("branding", brandingData);
+                } catch (error) {
+                  console.error(
+                    "Step 3 - Error saving data after file upload:",
+                    error,
                   );
-
-                  if (field === "logo") {
-                    fileHandlers.logo?.();
-                  } else if (field === "backgroundImage") {
-                    fileHandlers.backgroundImage?.();
-                  }
-
-                  try {
-                    await saveData();
-
-                    // Force save to store immediately after file upload
-                    const brandingData = {
-                      logo: field === "logo" ? result : logo,
-                      logoFileName: field === "logo" ? file.name : logoFileName,
-                      backgroundImage: field === "backgroundImage" ? result : backgroundImage,
-                      backgroundFileName: field === "backgroundImage" ? file.name : backgroundFileName,
-                      organizationName,
-                      website,
-                      missionStatement,
-                      brandColor,
-                      primaryColor,
-                      secondaryColor,
-                      aiAvatar,
-                      avatarFileName,
-                      subdomain,
-                    };
-
-                    await saveStepDataLocally("branding", brandingData);
-                  } catch (error) {
-                    console.error(
-                      "Step 3 - Error saving data after file upload:",
-                      error,
-                    );
-                  }
-                };
-                reader.readAsDataURL(file);
-              }}
-              onFileRemove={async (field: "logo" | "backgroundImage") => {
-                const removeHandlers = createRemoveHandlers({
-                  setLogo,
-                  setLogoFileName,
-                  setBackgroundImage,
-                  setBackgroundFileName,
-                });
-
-                if (field === "logo") {
-                  removeHandlers.logo?.();
-                } else if (field === "backgroundImage") {
-                  removeHandlers.background?.();
                 }
-                
-                await saveData();
+              };
+              reader.readAsDataURL(file);
+            }}
+            onFileRemove={async (field: "logo" | "backgroundImage") => {
+              const removeHandlers = createRemoveHandlers({
+                setLogo,
+                setLogoFileName,
+                setBackgroundImage,
+                setBackgroundFileName,
+              });
 
-                // Force save to store after file removal
-                const brandingData = {
-                  logo: field === "logo" ? "" : logo,
-                  logoFileName: field === "logo" ? "" : logoFileName,
-                  backgroundImage:
-                    field === "backgroundImage" ? "" : backgroundImage,
-                  backgroundFileName:
-                    field === "backgroundImage" ? "" : backgroundFileName,
-                  organizationName,
-                  website,
-                  missionStatement,
-                  brandColor,
-                  primaryColor,
-                  secondaryColor,
-                  aiAvatar,
-                  avatarFileName,
-                  subdomain,
-                };
+              if (field === "logo") {
+                removeHandlers.logo?.();
+              } else if (field === "backgroundImage") {
+                removeHandlers.background?.();
+                setBackgroundImagePreview("");
+              }
+              
+              await saveData();
 
-                await saveStepDataLocally("branding", brandingData);
-              }}
+              const brandingData = {
+                logo: field === "logo" ? "" : logo,
+                logoFileName: field === "logo" ? "" : logoFileName,
+                backgroundImage:
+                  field === "backgroundImage" ? "" : backgroundImage,
+                backgroundFileName:
+                  field === "backgroundImage" ? "" : backgroundFileName,
+                organizationName,
+                website,
+                missionStatement,
+                brandColor,
+                primaryColor,
+                secondaryColor,
+                aiAvatar,
+                avatarFileName,
+                subdomain,
+              };
+
+              await saveStepDataLocally("branding", brandingData);
+            }}
+          />
+        </div>
+
+        {isAvatarGeneratorOpen && (
+          <div className="flex-1">
+            <AvatarGeneratorCard
+              onGenerate={onAvatarGenerate}
+              onCancel={() => setIsAvatarGeneratorOpen(false)}
             />
           </div>
-
-          {isAvatarGeneratorOpen && (
-            <div className="flex-1">
-              <AvatarGeneratorCard
-                onGenerate={onAvatarGenerate}
-                onCancel={() => setIsAvatarGeneratorOpen(false)}
-              />
-            </div>
-          )}
-        </div>
-        </div>
-
-        {/* Right Column - Logo Preview */}
-        <div className="lg:col-span-1">
-          {logoPreview && (
-            <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 rounded-lg p-6 flex flex-col items-center justify-center min-h-96 sticky top-4">
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-4">
-                Logo Preview
-              </p>
-              <div className="flex items-center justify-center w-full flex-1">
-                <img
-                  src={logoPreview}
-                  alt="Organization Logo"
-                  className="max-w-full max-h-64 object-contain"
-                  onError={(e) => {
-                    console.error("Failed to load logo image:", e);
-                  }}
-                />
-              </div>
-            </div>
-          )}
-        </div>
+        )}
       </div>
     </FormProvider>
   );
