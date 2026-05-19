@@ -202,12 +202,16 @@ export function BrandingSetupCard({
           icon={<ImageIcon className="w-4 h-4" />}
           value={logo}
           fileName={logoFileName}
-          onChange={(value, fileName) => {
+          onChange={(value, fileName, headshotData) => {
             onDataChange("logo", value);
             onDataChange("logoFileName", fileName);
-            // Call preview callback if provided
-            if (onLogoPreview && value) {
-              onLogoPreview(value);
+            // Use the DataURL preview passed back from the modal (headshotData.previewDataUrl)
+            // so the preview and color extraction work even when value is an R2 key
+            const previewDataUrl: string | undefined =
+              (headshotData as any)?.previewDataUrl;
+            const previewSrc = previewDataUrl || (value?.startsWith("data:") ? value : undefined);
+            if (onLogoPreview && previewSrc) {
+              onLogoPreview(previewSrc);
             }
           }}
           onRemove={async () => {

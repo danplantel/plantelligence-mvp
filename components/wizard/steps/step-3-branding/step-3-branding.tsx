@@ -112,24 +112,9 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
     }
   }, [useDefaultWelcomeStatement, organizationName]);
 
-  // Extract colors from logo when it changes
-  useEffect(() => {
-    if (logo) {
-      console.log("Extracting colors from logo:", logo);
-      extractColorsFromImage(logo)
-        .then((colors) => {
-          console.log("Extracted colors:", colors);
-          setPrimaryColor(colors.primary);
-          setSecondaryColor(colors.secondary);
-        })
-        .catch((error) => {
-          console.error("Failed to extract colors from logo:", error);
-          // Fallback colors if extraction fails
-          setPrimaryColor("#1F3A60");
-          setSecondaryColor("#4A90E2");
-        });
-    }
-  }, [logo]);
+  // NOTE: Color extraction from logo is handled in the onLogoPreview callback below,
+  // which receives a DataURL. We do NOT extract from `logo` state because after R2
+  // upload `logo` holds an R2 key (not a URL), which causes 404 errors.
 
   // Update mission statement when organization name changes and using default
   useEffect(() => {
@@ -286,7 +271,19 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
                 useDefaultWelcomeStatement,
               }}
               errorFields={errorFields}
-              onLogoPreview={(dataUrl) => setLogoPreview(dataUrl)}
+              onLogoPreview={async (dataUrl) => {
+                setLogoPreview(dataUrl);
+                // Extract colors from the DataURL (never from the R2 key)
+                try {
+                  const colors = await extractColorsFromImage(dataUrl);
+                  setPrimaryColor(colors.primary);
+                  setSecondaryColor(colors.secondary);
+                } catch (error) {
+                  console.error("Failed to extract colors from logo preview:", error);
+                  setPrimaryColor("#1F3A60");
+                  setSecondaryColor("#4A90E2");
+                }
+              }}
               onDataChange={async (field: keyof BrandingState, value: any) => {
                 const setters = createDataSetters({
                   setOrganizationName,
@@ -377,6 +374,7 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
                   const result = e.target?.result as string;
 
                   // Set preview immediately with dataURL for instant display
+                  // Color extraction is handled by onLogoPreview callback
                   if (field === "logo") {
                     setLogoPreview(result);
                   }

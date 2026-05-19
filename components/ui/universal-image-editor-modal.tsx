@@ -1836,7 +1836,9 @@ export function UniversalImageEditorModal({
             fileName: newFileName,
           });
           if (r2Key) {
-            onChange(r2Key, newFileName, undefined, cropData);
+            // Pass croppedPreview DataURL as headshotData so callers can use it
+            // for logo preview and color extraction without fetching the R2 URL
+            onChange(r2Key, newFileName, { previewDataUrl: croppedPreview }, cropData);
             handleClose();
             return;
           }
