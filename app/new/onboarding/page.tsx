@@ -86,7 +86,7 @@ export default function OnboardingPage() {
   }
 
   return (
-    <>
+    <div className="min-h-screen bg-gray-100 dark:bg-background">
       <OnboardingWizard isStep5Valid={isStep5Valid}>
         <WizardContent onValidationChange={handleStep5Validation} />
       </OnboardingWizard>
@@ -99,7 +99,7 @@ export default function OnboardingPage() {
         onDialogOpenChange={leaveGuard.dialogOnOpenChange}
         onDiscardPointerDownCapture={leaveGuard.suppressStayOnNextClose}
       />
-    </>
+    </div>
   );
 }
 
