@@ -72,20 +72,21 @@ interface Step5SummaryProps {
 }
 
 export function Step5Summary({
-  errorFields = [],
-  onValidationChange,
-}: Step5SummaryProps) {
-  const {
-    stepData,
-    saveStepDataLocally,
-    loadStepData,
-    saveStepData,
-    saveSummaryData,
-    showNextSteps,
-    setShowNextSteps,
-    showStep5ConfirmModal,
-    setShowStep5ConfirmModal,
-  } = useOnboardingWizardStore();
+   errorFields = [],
+   onValidationChange,
+ }: Step5SummaryProps) {
+   const {
+     stepData,
+     saveStepDataLocally,
+     loadStepData,
+     saveStepData,
+     saveSummaryData,
+     showNextSteps,
+     setShowNextSteps,
+     showStep5ConfirmModal,
+     setShowStep5ConfirmModal,
+     goToStep,
+   } = useOnboardingWizardStore();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingSection, setEditingSection] = useState<string | null>(null);
   // Initialize as true since disclaimers are optional
@@ -254,6 +255,18 @@ export function Step5Summary({
     const brandColor = stepData.branding?.brandColor;
     if (!brandColor) return "Not specified";
     return `${brandColor}`;
+  };
+
+  const getPrimaryColorDisplay = () => {
+    const primaryColor = stepData.branding?.primaryColor;
+    if (!primaryColor) return "Not specified";
+    return `${primaryColor}`;
+  };
+
+  const getSecondaryColorDisplay = () => {
+    const secondaryColor = stepData.branding?.secondaryColor;
+    if (!secondaryColor) return "Not specified";
+    return `${secondaryColor}`;
   };
 
   const getDesignationsDisplay = () => {
@@ -566,32 +579,27 @@ export function Step5Summary({
   // Otherwise, show the Setup Complete screen
   return (
     <div className="space-y-6">
-      {/* Hero Confirmation */}
-      <div className="bg-green-50 border border-green-200 rounded-lg p-6">
-        <div className="flex items-start space-x-4">
-          <CheckCircle className="w-8 h-8 text-green-600 flex-shrink-0 mt-1" />
-          <div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">
-              Almost Done!
-            </h3>
-            <p className="text-green-600 font-medium">
-              Review your information below to make sure everything&apos;s
-              correct, then click Continue to finalize your setup.
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* Summary Cards Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6">
         {/* Card 1: User Profile */}
         <Card>
           <CardHeader>
-            <div className="flex items-center gap-3">
-              <User className="w-5 h-5 text-blue-600" />
-              <CardTitle className="text-lg font-semibold">
-                User Profile
-              </CardTitle>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <User className="w-5 h-5 text-blue-600" />
+                <CardTitle className="text-lg font-semibold">
+                  User Profile
+                </CardTitle>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => goToStep(1)}
+                className="flex items-center gap-2"
+              >
+                <Edit className="w-4 h-4" />
+                Edit
+              </Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -613,11 +621,22 @@ export function Step5Summary({
         {/* Card 2: Services Provided */}
         <Card>
           <CardHeader>
-            <div className="flex items-center gap-3">
-              <Briefcase className="w-5 h-5 text-green-600" />
-              <CardTitle className="text-lg font-semibold">
-                Services Provided
-              </CardTitle>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <Briefcase className="w-5 h-5 text-green-600" />
+                <CardTitle className="text-lg font-semibold">
+                  Services Provided
+                </CardTitle>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => goToStep(2)}
+                className="flex items-center gap-2"
+              >
+                <Edit className="w-4 h-4" />
+                Edit
+              </Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -631,14 +650,25 @@ export function Step5Summary({
         {/* Card 3: Branding */}
         <Card>
           <CardHeader>
-            <div className="flex items-center gap-3">
-              <Palette className="w-5 h-5 text-purple-600" />
-              <CardTitle className="text-lg font-semibold">Branding</CardTitle>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <Palette className="w-5 h-5 text-purple-600" />
+                <CardTitle className="text-lg font-semibold">Branding</CardTitle>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => goToStep(3)}
+                className="flex items-center gap-2"
+              >
+                <Edit className="w-4 h-4" />
+                Edit
+              </Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-3 flex justify-between">
-            <div>
-              <div>
+            <div className="space-y-2">
+              <div className="mt-4">
                 <p className="text-sm font-medium text-gray-700">
                   Organization Name
                 </p>
@@ -657,52 +687,104 @@ export function Step5Summary({
                 </p>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-700">Color</p>
+                <p className="text-sm font-medium text-gray-700">Logo</p>
+                <div className="mt-2">
+                  {stepData.branding?.logo ? (
+                    <BrandingImage
+                      src={stepData.branding.logo}
+                      alt="Organization Logo"
+                      className="w-16 h-16 object-contain rounded border border-gray-300"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 bg-gray-100 rounded border border-gray-300 flex items-center justify-center">
+                      <span className="text-xs text-gray-400">No logo</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-700">Primary Color</p>
                 <div className="flex items-center gap-2">
                   <div
                     className="w-6 h-6 rounded border border-gray-300"
                     style={{
                       backgroundColor:
-                        stepData.branding?.brandColor || "#1F3A60",
+                        stepData.branding?.primaryColor || "#1F3A60",
                     }}
                   ></div>
                   <span className="text-sm text-gray-600">
-                    {getBrandColorDisplay()}
+                    {getPrimaryColorDisplay()}
+                  </span>
+                </div>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-700">Secondary Color</p>
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-6 h-6 rounded border border-gray-300"
+                    style={{
+                      backgroundColor:
+                        stepData.branding?.secondaryColor || "#4A90E2",
+                    }}
+                  ></div>
+                  <span className="text-sm text-gray-600">
+                    {getSecondaryColorDisplay()}
                   </span>
                 </div>
               </div>
             </div>
-            <div>
-              <p className="text-sm font-medium text-gray-700">Logo</p>
-              <div className="mt-2">
-                {stepData.branding?.logo ? (
-                  <BrandingImage
-                    src={stepData.branding.logo}
-                    alt="Organization Logo"
-                    className="w-16 h-16 object-contain rounded border border-gray-300"
-                  />
-                ) : (
-                  <div className="w-16 h-16 bg-gray-100 rounded border border-gray-300 flex items-center justify-center">
-                    <span className="text-xs text-gray-400">No logo</span>
-                  </div>
-                )}
-              </div>
-            </div>
           </CardContent>
+          <div className="border-t pt-4 px-6 pb-6">
+            <p className="text-sm font-medium text-gray-700 mb-2">Background Image</p>
+            {stepData.branding?.backgroundImage ? (
+              <img
+                src={stepData.branding.backgroundImage}
+                alt="Branding Background"
+                className="w-full h-64 object-contain rounded border border-gray-300"
+              />
+            ) : (
+              <div className="w-full h-64 bg-gray-100 rounded border border-gray-300 flex items-center justify-center">
+                <span className="text-sm text-gray-400">No background image</span>
+              </div>
+            )}
+          </div>
         </Card>
 
         {/* Card 4: User Setup */}
         <Card>
           <CardHeader>
-            <div className="flex items-center gap-3">
-              <Contact className="w-5 h-5 text-orange-600" />
-              <CardTitle className="text-lg font-semibold">
-                User Setup
-              </CardTitle>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <Contact className="w-5 h-5 text-orange-600" />
+                <CardTitle className="text-lg font-semibold">
+                  User Setup
+                </CardTitle>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => goToStep(4)}
+                className="flex items-center gap-2"
+              >
+                <Edit className="w-4 h-4" />
+                Edit
+              </Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-3 flex justify-between">
-            <div>
+            <div className="space-y-2">
+              <div className="mt-4">
+                <p className="text-sm font-medium text-gray-700 mb-2">Headshot</p>
+                <div className="flex-shrink-0">
+                  <div className="w-16 h-16 rounded-full border border-gray-300 overflow-hidden">
+                    <Headshot
+                      src={stepData.userSetup?.headshot || undefined}
+                      monogramName={stepData.userSetup?.name}
+                      alt="Headshot"
+                    />
+                  </div>
+                </div>
+              </div>
               <div>
                 <p className="text-sm font-medium text-gray-700">Name</p>
                 <p className="text-sm text-gray-600">
@@ -729,53 +811,24 @@ export function Step5Summary({
               </div>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-700 mb-2">Headshot</p>
-              <div className="flex flex-col items-center gap-4">
-                {/* Headshot Image */}
-                <div className="flex-shrink-0">
-                  <div className="w-16 h-16 rounded-full border border-gray-300 overflow-hidden">
-                    <Headshot
-                      src={stepData.userSetup?.headshot || undefined}
-                      monogramName={stepData.userSetup?.name}
-                      alt="Headshot"
+              {/* Background Image */}
+              {stepData.userSetup?.backgroundImage && (
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-2">
+                    Background
+                  </p>
+                  <div className="flex items-center gap-4">
+                    <img
+                      src={stepData.userSetup.backgroundImage}
+                      alt="Background"
+                      className="w-full h-24 object-cover rounded border border-gray-300"
                     />
                   </div>
                 </div>
-
-                {/* Background Image */}
-                {stepData.userSetup?.backgroundImage && (
-                  <div>
-                    <p className="text-sm font-medium text-gray-700 mb-2">
-                      Background
-                    </p>
-                    <div className="flex items-center gap-4">
-                      <img
-                        src={stepData.userSetup.backgroundImage}
-                        alt="Background"
-                        className="w-full h-24 object-cover rounded border border-gray-300"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
+              )}
             </div>
           </CardContent>
         </Card>
-      </div>
-
-      {/* Edit Button */}
-      <div className="flex justify-center mt-6">
-        <Button
-          variant="outline"
-          onClick={() => {
-            setEditingSection("userProfile");
-            setIsEditModalOpen(true);
-          }}
-          className="flex items-center gap-2"
-        >
-          <Edit className="w-4 h-4" />
-          Edit Information
-        </Button>
       </div>
 
       {/* Edit Modal */}
