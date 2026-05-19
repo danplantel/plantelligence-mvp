@@ -515,19 +515,23 @@ export function OnboardingWizard({
 
   return (
     <>
-      <div className="flex flex-col items-center min-h-screen py-4">
-        {/* Header with stepper */}
-        <div className="mb-4 w-full max-w-4xl px-10">
-          <OnboardingWizardStepper
-            currentStepTitle={currentStepTitle}
-            steps={steps}
-            currentStep={currentStep}
-            totalSteps={totalSteps}
-            showEditorButton={false}
-          />
+      {/* Fixed header with stepper */}
+      <div className="fixed top-0 left-0 right-0 bg-background border-b shadow-md z-40">
+        <div className="flex justify-center">
+          <div className="w-full max-w-6xl">
+            <OnboardingWizardStepper
+              currentStepTitle={currentStepTitle}
+              steps={steps}
+              currentStep={currentStep}
+              totalSteps={totalSteps}
+              showEditorButton={false}
+            />
+          </div>
         </div>
+      </div>
 
-        {/* Content area */}
+      <div className="flex flex-col items-center min-h-screen pt-20 pb-4">
+        {/* Content area with top padding to account for fixed header */}
         <div ref={contentRef} className="mb-20 w-full max-w-4xl px-10">
           {React.cloneElement(children as React.ReactElement, {
             errorFields: errorFields,
@@ -538,7 +542,7 @@ export function OnboardingWizard({
         <div className="fixed bottom-0 left-0 right-0 bg-background border-t shadow-lg z-50">
           <div className="flex justify-center">
             <Card className="shadow-none border-0 w-full max-w-4xl">
-              <CardContent className="flex justify-between p-4">
+              <CardContent className="flex justify-between p-2">
                 <Button
                   variant="outline"
                   size="lg"

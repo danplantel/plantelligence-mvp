@@ -1,10 +1,11 @@
 "use client";
 
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
-import { Check, Edit3, X } from "lucide-react";
+import { Check, Edit3, X, Moon, Sun } from "lucide-react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
+import { useTheme } from "next-themes";
 
 export interface WizardStep {
   id: number;
@@ -28,13 +29,14 @@ export function WizardStepper({
   totalSteps: externalTotalSteps,
   showEditorButton,
 }: WizardStepperProps) {
-  const store = useNewClientWizardStore();
-  const [isEditorOpen, setIsEditorOpen] = useState(false);
+   const store = useNewClientWizardStore();
+   const [isEditorOpen, setIsEditorOpen] = useState(false);
+   const { theme, setTheme } = useTheme();
 
-  // Use external props if provided, otherwise fall back to store
-  const steps = externalSteps || store.steps;
-  const currentStep = externalCurrentStep || store.currentStep;
-  const totalSteps = externalTotalSteps || store.totalSteps;
+   // Use external props if provided, otherwise fall back to store
+   const steps = externalSteps || store.steps;
+   const currentStep = externalCurrentStep || store.currentStep;
+   const totalSteps = externalTotalSteps || store.totalSteps;
 
   // Determine if editor button should be shown
   // For Step 3, only show on step3d sub-step
@@ -206,31 +208,16 @@ export function WizardStepper({
   const visibleSteps = getVisibleSteps();
 
   return (
-    <Card className="w-full p-5 shadow-none mt-2">
-      <div className="flex items-center justify-between mb-4">
-        <CardTitle className="text-xl">{currentStepTitle}</CardTitle>
-        {shouldShowEditorButton && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleToggleEditor}
-            className="bg-accent-blue text-white hover:bg-[#3f797f]"
-          >
-            {isEditorOpen ? (
-              <>
-                <X className="w-4 h-4 mr-2" />
-                Close Editor
-              </>
-            ) : (
-              <>
-                <Edit3 className="w-4 h-4 mr-2" />
-                Open Editor
-              </>
-            )}
-          </Button>
-        )}
+    <div className="w-full flex items-center justify-between gap-4 h-8 flex-nowrap">
+      {/* Left: Page Title */}
+      <div className="flex-shrink-0 min-w-fit">
+        <h3 className="text-xs font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
+          {currentStepTitle}
+        </h3>
       </div>
-      <div className="relative flex items-center w-full mt-2">
+
+      {/* Center: Stepper Steps */}
+      <div className="relative flex items-center flex-1 gap-0 h-full min-w-0 px-4">
         {visibleSteps.map((step, index) => {
           const isLastVisible = index === visibleSteps.length - 1;
           const isCurrent = step.id === currentStep;
@@ -239,23 +226,22 @@ export function WizardStepper({
           return (
             <div
               key={step.id}
-              className="relative flex items-center"
-              style={{ flex: isLastVisible ? 0 : 1 }}
+              className="relative flex items-center flex-1 h-full min-w-0"
             >
               <div
-                className={`size-12 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-200 flex-shrink-0 ${isCurrent
+                className={`size-5 rounded-full flex items-center justify-center text-xs font-semibold transition-all duration-200 flex-shrink-0 ${isCurrent
                   ? "bg-accent-blue text-white"
                   : isPast
                     ? "bg-accent-blue text-white"
                     : "bg-[#23919C]/10 text-gray-400"
                   }`}
               >
-                <p className="text-sm">{step.id}</p>
+                {isPast ? <Check className="w-2 h-2" /> : <p className="text-xs">{step.id}</p>}
               </div>
 
               {!isLastVisible && (
                 <div
-                  className={`h-1.5 flex-1 transition-all duration-200 ${step.id < currentStep ? "bg-accent-blue" : "bg-[#23919C]/10"
+                  className={`h-0.5 flex-1 mx-0.25 transition-all duration-200 ${step.id < currentStep ? "bg-accent-blue" : "bg-[#23919C]/10"
                     }`}
                 />
               )}
@@ -263,6 +249,22 @@ export function WizardStepper({
           );
         })}
       </div>
-    </Card>
+
+      {/* Right: Theme Toggle */}
+      <div className="flex-shrink-0 min-w-fit">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          className="text-xs px-1.5 py-0.5 h-auto"
+        >
+          {theme === "dark" ? (
+            <Sun className="w-3 h-3" />
+          ) : (
+            <Moon className="w-3 h-3" />
+          )}
+        </Button>
+      </div>
+    </div>
   );
 }

@@ -31,11 +31,14 @@ export function OnboardingWizardStepper({
   const store = useOnboardingWizardStore();
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [themeMode, setThemeMode] = useState<"light" | "dark" | "system">("system");
 
   // Initialize dark mode from localStorage and document
   useEffect(() => {
     const isDark = document.documentElement.classList.contains("dark");
     setIsDarkMode(isDark);
+    const savedTheme = localStorage.getItem("theme") as "light" | "dark" | "system" | null;
+    setThemeMode(savedTheme || "system");
   }, []);
 
   // Use external props if provided, otherwise fall back to store
@@ -58,10 +61,12 @@ export function OnboardingWizardStepper({
     if (isDarkMode) {
       html.classList.remove("dark");
       setIsDarkMode(false);
+      setThemeMode("light");
       localStorage.setItem("theme", "light");
     } else {
       html.classList.add("dark");
       setIsDarkMode(true);
+      setThemeMode("dark");
       localStorage.setItem("theme", "dark");
     }
   };
@@ -98,9 +103,75 @@ export function OnboardingWizardStepper({
   };
 
   return (
-    <Card className="w-full p-5 shadow-none mt-2">
+    <Card className="w-full shadow-none mt-2 rounded-none border-none">
       <div className="flex items-center justify-between mb-4">
-        <CardTitle className="text-xl">{currentStepTitle}</CardTitle>
+         
+         {/* Logo and Step Title */}
+         <div className="flex items-center gap-4">
+           <img
+             src={
+               themeMode === "dark" || themeMode === "system"
+                 ? "/pt_icon_dark.png"
+                 : "/pt_icon_light.png"
+             }
+             className="w-[20px]"
+             alt="PlanTelligence"
+           />
+           <CardTitle className="text-xl">{currentStepTitle}</CardTitle>
+         </div>
+
+         {/* Step Indicators */}
+         <div className="relative flex items-center w-1/2 mt-2">
+        {visibleSteps.map((step, index) => {
+          const isLastVisible = index === visibleSteps.length - 1;
+          const isCurrent = step.id === currentStep;
+          const isPast = step.id < currentStep;
+          const isClickable = isPast || isCurrent;
+
+          return (
+            <div
+              key={step.id}
+              className="relative flex items-center"
+              style={{ flex: isLastVisible ? 0 : 1 }}
+            >
+              <button
+                onClick={() => handleStepClick(step.id)}
+                disabled={!isClickable}
+                className={`size-8 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-200 flex-shrink-0 ${
+                  isCurrent
+                    ? "bg-accent-blue text-white"
+                    : isPast
+                      ? "bg-accent-blue text-white cursor-pointer hover:bg-accent-blue/90 hover:shadow-md hover:scale-105"
+                      : "bg-[#23919C]/10 text-gray-400 cursor-not-allowed"
+                }`}
+                title={
+                  isClickable
+                    ? `Go to ${step.title}`
+                    : `Complete previous steps to unlock ${step.title}`
+                }
+              >
+                {isPast ? (
+                  <Check className="w-5 h-5" />
+                ) : (
+                  <p className="text-sm">{step.id}</p>
+                )}
+              </button>
+
+              {!isLastVisible && (
+                <div
+                  className={`h-1.5 flex-1 transition-all duration-200 ${
+                    step.id < currentStep
+                      ? "bg-accent-blue"
+                      : "bg-[#23919C]/10"
+                  }`}
+                />
+              )}
+            </div>
+          );
+        })}
+        </div>
+
+        {/* Theme Toggle */}
         <div className="flex items-center gap-2">
           <Button
             size="sm"
@@ -136,55 +207,6 @@ export function OnboardingWizardStepper({
             </Button>
           )}
         </div>
-      </div>
-      <div className="relative flex items-center w-full mt-2">
-        {visibleSteps.map((step, index) => {
-          const isLastVisible = index === visibleSteps.length - 1;
-          const isCurrent = step.id === currentStep;
-          const isPast = step.id < currentStep;
-          const isClickable = isPast || isCurrent;
-
-          return (
-            <div
-              key={step.id}
-              className="relative flex items-center"
-              style={{ flex: isLastVisible ? 0 : 1 }}
-            >
-              <button
-                onClick={() => handleStepClick(step.id)}
-                disabled={!isClickable}
-                className={`size-12 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-200 flex-shrink-0 ${
-                  isCurrent
-                    ? "bg-accent-blue text-white"
-                    : isPast
-                      ? "bg-accent-blue text-white cursor-pointer hover:bg-accent-blue/90 hover:shadow-md hover:scale-105"
-                      : "bg-[#23919C]/10 text-gray-400 cursor-not-allowed"
-                }`}
-                title={
-                  isClickable
-                    ? `Go to ${step.title}`
-                    : `Complete previous steps to unlock ${step.title}`
-                }
-              >
-                {isPast ? (
-                  <Check className="w-5 h-5" />
-                ) : (
-                  <p className="text-sm">{step.id}</p>
-                )}
-              </button>
-
-              {!isLastVisible && (
-                <div
-                  className={`h-1.5 flex-1 transition-all duration-200 ${
-                    step.id < currentStep
-                      ? "bg-accent-blue"
-                      : "bg-[#23919C]/10"
-                  }`}
-                />
-              )}
-            </div>
-          );
-        })}
       </div>
     </Card>
   );
