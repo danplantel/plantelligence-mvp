@@ -74,7 +74,7 @@ export function UserSetupSection({
   const relevantDesignations = getRelevantDesignations(watchedTitle);
 
   const content = (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 gap-6">
       {/* Row 1: Name & Title */}
       <div className="space-y-2">
         <label className="block font-medium text-sm">
@@ -281,8 +281,8 @@ export function UserSetupSection({
           name="headshot"
           control={control}
           render={({ field }) => (
-            <div className="flex items-start gap-4" data-field="headshot">
-              <div className="flex-1">
+            <div className="flex flex-col gap-4" data-field="headshot">
+              <div>
                 <UniversalImageEditorModal
                   value={field.value || ""}
                   fileName={headshotFileName || ""}
@@ -309,140 +309,154 @@ export function UserSetupSection({
                   autoSizeOnOpen={true}
                 />
               </div>
-              <div className="-mt-2">
-                <Headshot
-                  src={field.value || undefined}
-                  monogramName={watchedName}
-                  alt="Current headshot"
-                  wrapperClassName="w-20 h-20 rounded-full border-2 border-gray-200"
-                />
-              </div>
+              {field.value && (
+                <div className="mt-2 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 rounded-lg p-4 flex flex-col items-center justify-center">
+                  <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-3">
+                    Headshot Preview
+                  </p>
+                  <div className="flex items-center justify-center w-full">
+                    <Headshot
+                      src={field.value || undefined}
+                      monogramName={watchedName}
+                      alt="Current headshot"
+                      wrapperClassName="w-32 h-32 rounded-full border-2 border-gray-300"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
         />
       </div>
 
-      {/* Row 3: Phone & Background Image */}
+      {/* Row 3: Phone */}
       <div className="space-y-2">
         <label className="block font-medium text-sm">
           Your Phone Number <span className="text-red-500">*</span>
         </label>
-        <div className="flex gap-2">
-          <Controller
-            name="phone"
-            control={control}
-            render={({ field }) => (
-              <Input
-                {...field}
-                type="tel"
-                icon={<Phone className="h-4 w-4" />}
-                value={field.value ? formatPhoneNumber(field.value) : ""}
-                onChange={(e) => {
-                  const normalized = normalizePhoneNumber(e.target.value);
-                  if (normalized.length > 11) return;
-                  field.onChange(normalized);
-                }}
-                onBlur={async (e) => {
-                  field.onBlur();
-                  const normalized = normalizePhoneNumber(e.target.value);
-                  onDataChange("phone", normalized);
-
-                  if (normalized.length >= 7) {
-                    try {
-                      const { validateCurrentStep } = await import(
-                        "@/lib/wizard-validation"
-                      );
-                      const currentStepData = {
-                        ...stepData,
-                        userSetup: {
-                          ...stepData.userSetup,
-                          phone: normalized,
-                        },
-                      };
-
-                      const validationResult = await validateCurrentStep(
-                        4,
-                        currentStepData,
-                      );
-
-                      if (
-                        !validationResult.isValid &&
-                        validationResult.errorFields
-                      ) {
-                        setErrorFields(validationResult.errorFields);
-                      } else {
-                        setErrorFields([]);
-                      }
-                    } catch (validationError) {
-                      console.error(
-                        "Error validating current step:",
-                        validationError,
-                      );
-                    }
-                  } else {
-                    setErrorFields([]);
-                  }
-                }}
-                placeholder="(555) 123-4567"
-                required
-                data-field="phone"
-                destructive={errorFields.includes("phone")}
-              />
-            )}
-          />
-          <Controller
-            name="phoneExtension"
-            control={control}
-            render={({ field }) => (
-              <Input
-                {...field}
-                value={field.value || ""}
-                onChange={(e) => {
-                  const normalized = normalizeExtension(e.target.value);
-                  field.onChange(normalized);
-                }}
-                onBlur={(e) => {
-                  onDataChange("phoneExtension", e.target.value);
-                }}
-                placeholder="Ext."
-                className="w-24"
-              />
-            )}
-          />
-        </div>
-        <FormError message={errors.phone?.message} />
-      </div>
-<div className="md:col-start-2 flex items-start space-x-2 pt-2">
         <Controller
-          name="saveAsContact"
+          name="phone"
           control={control}
-          defaultValue={data.saveAsContact ?? true}
           render={({ field }) => (
-            <Checkbox
-              id="saveAsContact"
-              checked={field.value}
-              onCheckedChange={(checked) => {
-                field.onChange(checked);
-                onDataChange("saveAsContact", checked);
+            <Input
+              {...field}
+              type="tel"
+              icon={<Phone className="h-4 w-4" />}
+              value={field.value ? formatPhoneNumber(field.value) : ""}
+              onChange={(e) => {
+                const normalized = normalizePhoneNumber(e.target.value);
+                if (normalized.length > 11) return;
+                field.onChange(normalized);
               }}
+              onBlur={async (e) => {
+                field.onBlur();
+                const normalized = normalizePhoneNumber(e.target.value);
+                onDataChange("phone", normalized);
+
+                if (normalized.length >= 7) {
+                  try {
+                    const { validateCurrentStep } = await import(
+                      "@/lib/wizard-validation"
+                    );
+                    const currentStepData = {
+                      ...stepData,
+                      userSetup: {
+                        ...stepData.userSetup,
+                        phone: normalized,
+                      },
+                    };
+
+                    const validationResult = await validateCurrentStep(
+                      4,
+                      currentStepData,
+                    );
+
+                    if (
+                      !validationResult.isValid &&
+                      validationResult.errorFields
+                    ) {
+                      setErrorFields(validationResult.errorFields);
+                    } else {
+                      setErrorFields([]);
+                    }
+                  } catch (validationError) {
+                    console.error(
+                      "Error validating current step:",
+                      validationError,
+                    );
+                  }
+                } else {
+                  setErrorFields([]);
+                }
+              }}
+              placeholder="(555) 123-4567"
+              required
+              data-field="phone"
+              destructive={errorFields.includes("phone")}
             />
           )}
         />
-        <div className="grid gap-1.5 leading-none">
-          <Label
-            htmlFor="saveAsContact"
-            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-          >
-            Save me as a contact for future plans
-          </Label>
-          <p className="text-sm text-muted-foreground">
-            You will appear in the &apos;Saved Contacts&apos; list when creating
-            new clients.
-          </p>
-        </div>
+        <FormError message={errors.phone?.message} />
       </div>
-      {/* Row 4: Designations & Save as Contact */}
-      <div className="md:col-start-1">
+
+      {/* Row 4: Phone Extension */}
+      <div className="space-y-2">
+        <label className="block font-medium text-sm">
+          Phone Extension <span className="text-muted-foreground font-normal">(optional)</span>
+        </label>
+        <Controller
+          name="phoneExtension"
+          control={control}
+          render={({ field }) => (
+            <Input
+              {...field}
+              value={field.value || ""}
+              onChange={(e) => {
+                const normalized = normalizeExtension(e.target.value);
+                field.onChange(normalized);
+              }}
+              onBlur={(e) => {
+                onDataChange("phoneExtension", e.target.value);
+              }}
+              placeholder="Ext."
+            />
+          )}
+        />
+      </div>
+<div className="space-y-2">
+         <div className="flex items-start space-x-2">
+           <Controller
+             name="saveAsContact"
+             control={control}
+             defaultValue={data.saveAsContact ?? true}
+             render={({ field }) => (
+               <Checkbox
+                 id="saveAsContact"
+                 checked={field.value}
+                 onCheckedChange={(checked) => {
+                   field.onChange(checked);
+                   onDataChange("saveAsContact", checked);
+                 }}
+               />
+             )}
+           />
+           <div className="grid gap-1.5 leading-none">
+             <Label
+               htmlFor="saveAsContact"
+               className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+             >
+               Save me as a contact for future plans
+             </Label>
+             <p className="text-sm text-muted-foreground">
+               You will appear in the &apos;Saved Contacts&apos; list when creating
+               new clients.
+             </p>
+           </div>
+         </div>
+       </div>
+
+       {/* Row 5: Designations */}
+       <div>
         {relevantDesignations.length > 0 && (
           <div className="space-y-2">
             <label className="block font-medium text-sm">
