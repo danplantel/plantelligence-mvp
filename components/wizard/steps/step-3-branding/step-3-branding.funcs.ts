@@ -1,20 +1,23 @@
 export interface BrandingState {
-  organizationName: string;
-  logo: string;
-  logoFileName: string;
-  website: string;
-  backgroundImage: string;
-  backgroundFileName: string;
-  aiAvatar: string;
-  avatarFileName: string;
-  missionStatement: string;
-  brandColor: string;
-  subdomain: string;
-  isColorPickerOpen: boolean;
-  isAvatarGeneratorOpen: boolean;
-  isGenerating: boolean;
-  useDefaultWelcomeStatement: boolean;
-}
+    organizationName: string;
+    logo: string;
+    logoFileName: string;
+    website: string;
+    backgroundImage: string;
+    backgroundFileName: string;
+    aiAvatar: string;
+    avatarFileName: string;
+    missionStatement: string;
+    brandColor: string;
+    primaryColor?: string;
+    secondaryColor?: string;
+    subdomain: string;
+    isPrimaryColorPickerOpen: boolean;
+    isSecondaryColorPickerOpen: boolean;
+    isAvatarGeneratorOpen: boolean;
+    isGenerating: boolean;
+    useDefaultWelcomeStatement: boolean;
+  }
 
 export interface BrandingActions {
   onDataChange: (field: keyof BrandingState, value: any) => void;
@@ -56,19 +59,22 @@ export const createRemoveHandlers = (setters: any) => ({
 });
 
 export const createDataSetters = (setters: any) => ({
-  organizationName: setters.setOrganizationName,
-  logo: setters.setLogo,
-  logoFileName: setters.setLogoFileName,
-  website: setters.setWebsite,
-  backgroundImage: setters.setBackgroundImage,
-  backgroundFileName: setters.setBackgroundFileName,
-  missionStatement: setters.setMissionStatement,
-  brandColor: setters.setBrandColor,
-  subdomain: setters.setSubdomain,
-  aiAvatar: setters.setAiAvatar,
-  avatarFileName: setters.setAvatarFileName,
-  isColorPickerOpen: setters.setIsColorPickerOpen,
-  isAvatarGeneratorOpen: setters.setIsAvatarGeneratorOpen,
-  isGenerating: setters.setIsGenerating,
-  useDefaultWelcomeStatement: setters.setUseDefaultWelcomeStatement,
-});
+    organizationName: setters.setOrganizationName,
+    logo: setters.setLogo,
+    logoFileName: setters.setLogoFileName,
+    website: setters.setWebsite,
+    backgroundImage: setters.setBackgroundImage,
+    backgroundFileName: setters.setBackgroundFileName,
+    missionStatement: setters.setMissionStatement,
+    brandColor: setters.setBrandColor,
+    primaryColor: setters.setPrimaryColor,
+    secondaryColor: setters.setSecondaryColor,
+    subdomain: setters.setSubdomain,
+    aiAvatar: setters.setAiAvatar,
+    avatarFileName: setters.setAvatarFileName,
+    isPrimaryColorPickerOpen: setters.setIsPrimaryColorPickerOpen,
+    isSecondaryColorPickerOpen: setters.setIsSecondaryColorPickerOpen,
+    isAvatarGeneratorOpen: setters.setIsAvatarGeneratorOpen,
+    isGenerating: setters.setIsGenerating,
+    useDefaultWelcomeStatement: setters.setUseDefaultWelcomeStatement,
+  });

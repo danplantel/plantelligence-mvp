@@ -8,12 +8,13 @@ import { brandingSchema } from "@/lib/wizard-validation";
 import { BrandingSetupCard } from "../sections/branding-setup-card/branding-setup-card";
 import { AvatarGeneratorCard } from "../sections/avatar-generator-card/avatar-generator-card";
 import {
-  createDataSetters,
-  createFileHandlers,
-  createRemoveHandlers,
-  BrandingState,
-} from "./step-3-branding.funcs";
+   createDataSetters,
+   createFileHandlers,
+   createRemoveHandlers,
+   BrandingState,
+ } from "./step-3-branding.funcs";
 import { formatUsDate } from "@/lib/date";
+import { extractColorsFromImage } from "@/lib/extract-colors-from-image";
 
 const DEFAULT_WELCOME_STATEMENT = `Welcome to <Organization_Name>!
 We consider it a privilege to have been selected by <Client_Name> to represent your 401(k) Savings & Investment Plan. Whether you're just starting your employment journey or are a long-time participant, we share your company's commitment to educating you about the importance of this valuable retirement benefit.
@@ -31,33 +32,34 @@ interface Step3BrandingProps {
 }
 
 export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
-  const {
-    saveStepDataLocally,
-    saveStepData,
-    stepData,
-    validateCurrentStepFields,
-  } = useOnboardingWizardStore();
+   const {
+     saveStepDataLocally,
+     saveStepData,
+     stepData,
+     validateCurrentStepFields,
+   } = useOnboardingWizardStore();
 
-  // Initialize form with validation
-  const methods = useForm({
-    resolver: zodResolver(brandingSchema),
-    defaultValues: {
-      logo: stepData.branding?.logo || "",
-      organizationName: stepData.branding?.organizationName || "",
-      website: stepData.branding?.website || "",
-      missionStatement: stepData.branding?.missionStatement || "",
-      brandColor: stepData.branding?.brandColor || "#1F3A60",
-      subdomain: stepData.branding?.subdomain || "benefits.acme.com",
-    },
-    mode: "onSubmit",
-  });
+   // Initialize form with validation
+   const methods = useForm({
+     resolver: zodResolver(brandingSchema),
+     defaultValues: {
+       logo: stepData.branding?.logo || "",
+       organizationName: stepData.branding?.organizationName || "",
+       website: stepData.branding?.website || "",
+       missionStatement: stepData.branding?.missionStatement || "",
+       brandColor: stepData.branding?.brandColor || "#1F3A60",
+       subdomain: stepData.branding?.subdomain || "benefits.acme.com",
+     },
+     mode: "onSubmit",
+   });
 
-  const { setValue, watch } = methods;
-  const watchedData = watch();
-  const [logo, setLogo] = useState(stepData.branding?.logo || "");
-  const [logoFileName, setLogoFileName] = useState(
-    stepData.branding?.logoFileName || "",
-  );
+   const { setValue, watch } = methods;
+   const watchedData = watch();
+   const [logo, setLogo] = useState(stepData.branding?.logo || "");
+   const [logoPreview, setLogoPreview] = useState(stepData.branding?.logo || "");
+   const [logoFileName, setLogoFileName] = useState(
+     stepData.branding?.logoFileName || "",
+   );
   const [backgroundImage, setBackgroundImage] = useState(
     stepData.branding?.backgroundImage || "",
   );
@@ -79,6 +81,12 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
   const [brandColor, setBrandColor] = useState(
     stepData.branding?.brandColor || "#1F3A60",
   );
+  const [primaryColor, setPrimaryColor] = useState(
+    stepData.branding?.primaryColor || "#1F3A60",
+  );
+  const [secondaryColor, setSecondaryColor] = useState(
+    stepData.branding?.secondaryColor || "#4A90E2",
+  );
   const [subdomain, setSubdomain] = useState(
     stepData.branding?.subdomain || "benefits.acme.com",
   );
@@ -86,7 +94,8 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
   // Ref to store the latest logo value
   const latestLogoRef = useRef<string>("");
 
-  const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
+  const [isPrimaryColorPickerOpen, setIsPrimaryColorPickerOpen] = useState(false);
+  const [isSecondaryColorPickerOpen, setIsSecondaryColorPickerOpen] = useState(false);
   const [isAvatarGeneratorOpen, setIsAvatarGeneratorOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [useDefaultWelcomeStatement, setUseDefaultWelcomeStatement] =
@@ -102,6 +111,25 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
       setMissionStatement(updatedStatement);
     }
   }, [useDefaultWelcomeStatement, organizationName]);
+
+  // Extract colors from logo when it changes
+  useEffect(() => {
+    if (logo) {
+      console.log("Extracting colors from logo:", logo);
+      extractColorsFromImage(logo)
+        .then((colors) => {
+          console.log("Extracted colors:", colors);
+          setPrimaryColor(colors.primary);
+          setSecondaryColor(colors.secondary);
+        })
+        .catch((error) => {
+          console.error("Failed to extract colors from logo:", error);
+          // Fallback colors if extraction fails
+          setPrimaryColor("#1F3A60");
+          setSecondaryColor("#4A90E2");
+        });
+    }
+  }, [logo]);
 
   // Update mission statement when organization name changes and using default
   useEffect(() => {
@@ -232,14 +260,12 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
 
   return (
     <FormProvider {...methods}>
-      <div className="space-y-4">
-        <div
-          className={
-            isAvatarGeneratorOpen ? "flex flex-row gap-4" : "space-y-4"
-          }
-        >
-          <div className={isAvatarGeneratorOpen ? "flex-1" : ""}>
-            <BrandingSetupCard
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column - Form Inputs */}
+        <div className="lg:col-span-2 space-y-4">
+          <div className="space-y-4">
+            <div className="w-full">
+              <BrandingSetupCard
               data={{
                 organizationName,
                 logo,
@@ -249,14 +275,18 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
                 backgroundFileName,
                 missionStatement,
                 brandColor,
+                primaryColor,
+                secondaryColor,
                 subdomain,
                 aiAvatar,
                 avatarFileName,
-                isColorPickerOpen,
+                isPrimaryColorPickerOpen,
+                isSecondaryColorPickerOpen,
                 isGenerating,
                 useDefaultWelcomeStatement,
               }}
               errorFields={errorFields}
+              onLogoPreview={(dataUrl) => setLogoPreview(dataUrl)}
               onDataChange={async (field: keyof BrandingState, value: any) => {
                 const setters = createDataSetters({
                   setOrganizationName,
@@ -267,10 +297,13 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
                   setBackgroundFileName,
                   setMissionStatement,
                   setBrandColor,
+                  setPrimaryColor,
+                  setSecondaryColor,
                   setSubdomain,
                   setAiAvatar,
                   setAvatarFileName,
-                  setIsColorPickerOpen,
+                  setIsPrimaryColorPickerOpen,
+                  setIsSecondaryColorPickerOpen,
                   setIsAvatarGeneratorOpen,
                   setIsGenerating,
                   setUseDefaultWelcomeStatement,
@@ -281,6 +314,8 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
                 // Store logo value in ref when updating logo
                 if (field === "logo") {
                   latestLogoRef.current = value;
+                  // Also update preview when logo changes
+                  setLogoPreview(value);
                 }
 
                 // Create updated branding data with the new value
@@ -294,6 +329,8 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
                   website,
                   missionStatement,
                   brandColor,
+                  primaryColor,
+                  secondaryColor,
                   aiAvatar,
                   avatarFileName,
                   subdomain,
@@ -332,12 +369,17 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
                 setTimeout(() => validateCurrentStepFields(), 100);
               }}
               onFileUpload={async (
-                field: "logo" | "backgroundImage" | "avatar",
+                field: "logo" | "backgroundImage",
                 file: File,
               ) => {
                 const reader = new FileReader();
                 reader.onload = async (e) => {
                   const result = e.target?.result as string;
+
+                  // Set preview immediately with dataURL for instant display
+                  if (field === "logo") {
+                    setLogoPreview(result);
+                  }
 
                   const fileHandlers = createFileHandlers(
                     {
@@ -345,28 +387,32 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
                       setLogoFileName,
                       setBackgroundImage,
                       setBackgroundFileName,
-                      setAiAvatar,
-                      setAvatarFileName,
                     },
                     result,
                     file,
                   );
 
-                  fileHandlers[field]?.();
+                  if (field === "logo") {
+                    fileHandlers.logo?.();
+                  } else if (field === "backgroundImage") {
+                    fileHandlers.backgroundImage?.();
+                  }
 
                   try {
                     await saveData();
 
                     // Force save to store immediately after file upload
                     const brandingData = {
-                      logo: result,
-                      logoFileName: file.name,
-                      backgroundImage,
-                      backgroundFileName,
+                      logo: field === "logo" ? result : logo,
+                      logoFileName: field === "logo" ? file.name : logoFileName,
+                      backgroundImage: field === "backgroundImage" ? result : backgroundImage,
+                      backgroundFileName: field === "backgroundImage" ? file.name : backgroundFileName,
                       organizationName,
                       website,
                       missionStatement,
                       brandColor,
+                      primaryColor,
+                      secondaryColor,
                       aiAvatar,
                       avatarFileName,
                       subdomain,
@@ -382,17 +428,20 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
                 };
                 reader.readAsDataURL(file);
               }}
-              onFileRemove={async (field: "logo" | "background" | "avatar") => {
+              onFileRemove={async (field: "logo" | "backgroundImage") => {
                 const removeHandlers = createRemoveHandlers({
                   setLogo,
                   setLogoFileName,
                   setBackgroundImage,
                   setBackgroundFileName,
-                  setAiAvatar,
-                  setAvatarFileName,
                 });
 
-                removeHandlers[field]?.();
+                if (field === "logo") {
+                  removeHandlers.logo?.();
+                } else if (field === "backgroundImage") {
+                  removeHandlers.background?.();
+                }
+                
                 await saveData();
 
                 // Force save to store after file removal
@@ -400,15 +449,17 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
                   logo: field === "logo" ? "" : logo,
                   logoFileName: field === "logo" ? "" : logoFileName,
                   backgroundImage:
-                    field === "background" ? "" : backgroundImage,
+                    field === "backgroundImage" ? "" : backgroundImage,
                   backgroundFileName:
-                    field === "background" ? "" : backgroundFileName,
+                    field === "backgroundImage" ? "" : backgroundFileName,
                   organizationName,
                   website,
                   missionStatement,
                   brandColor,
-                  aiAvatar: field === "avatar" ? "" : aiAvatar,
-                  avatarFileName: field === "avatar" ? "" : avatarFileName,
+                  primaryColor,
+                  secondaryColor,
+                  aiAvatar,
+                  avatarFileName,
                   subdomain,
                 };
 
@@ -423,6 +474,28 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
                 onGenerate={onAvatarGenerate}
                 onCancel={() => setIsAvatarGeneratorOpen(false)}
               />
+            </div>
+          )}
+        </div>
+        </div>
+
+        {/* Right Column - Logo Preview */}
+        <div className="lg:col-span-1">
+          {logoPreview && (
+            <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 rounded-lg p-6 flex flex-col items-center justify-center min-h-96 sticky top-4">
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-4">
+                Logo Preview
+              </p>
+              <div className="flex items-center justify-center w-full flex-1">
+                <img
+                  src={logoPreview}
+                  alt="Organization Logo"
+                  className="max-w-full max-h-64 object-contain"
+                  onError={(e) => {
+                    console.error("Failed to load logo image:", e);
+                  }}
+                />
+              </div>
             </div>
           )}
         </div>

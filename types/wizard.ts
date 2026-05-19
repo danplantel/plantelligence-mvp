@@ -184,18 +184,20 @@ export interface TeamMembersFormData {
 }
 
 export interface BrandingFormData {
-  logo?: string;
-  logoFileName?: string;
-  backgroundImage?: string;
-  backgroundFileName?: string;
-  organizationName?: string;
-  website?: string;
-  missionStatement?: string;
-  brandColor: string;
-  aiAvatar?: string;
-  avatarFileName?: string;
-  subdomain: string;
-}
+   logo?: string;
+   logoFileName?: string;
+   backgroundImage?: string;
+   backgroundFileName?: string;
+   organizationName?: string;
+   website?: string;
+   missionStatement?: string;
+   brandColor: string;
+   primaryColor?: string;
+   secondaryColor?: string;
+   aiAvatar?: string;
+   avatarFileName?: string;
+   subdomain: string;
+ }
 
 
 export interface UserSetupFormData {
