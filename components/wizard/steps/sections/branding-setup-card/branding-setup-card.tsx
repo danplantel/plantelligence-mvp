@@ -208,28 +208,6 @@ export function BrandingSetupCard({
         </div>
       </div>
 
-      {/* Generate with AI Button - Active when website exists but no action */}
-      <div className="space-y-2">
-        <Button
-          onClick={() => {}}
-          disabled={!website}
-          className="w-auto px-3 py-2"
-        >
-          <Sparkles className="mr-2 w-4 h-4" />
-          AI Assistant
-        </Button>
-        {!website && (
-          <p className="text-sm text-muted-foreground">
-            Please enter your website URL to enable AI generation
-          </p>
-        )}
-        {website && (
-          <p className="text-sm text-muted-foreground">
-            AI generation feature coming soon
-          </p>
-        )}
-      </div>
-
       {/* AI Generated Content */}
       <div className="space-y-3">{/* Welcome Statement */}</div>
     </div>

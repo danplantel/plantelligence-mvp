@@ -1,7 +1,7 @@
 "use client";
 
 import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
-import { Check, Edit3, X } from "lucide-react";
+import { Check, Edit3, X, Moon, Sun } from "lucide-react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
@@ -30,6 +30,13 @@ export function OnboardingWizardStepper({
 }: OnboardingWizardStepperProps) {
   const store = useOnboardingWizardStore();
   const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  // Initialize dark mode from localStorage and document
+  useEffect(() => {
+    const isDark = document.documentElement.classList.contains("dark");
+    setIsDarkMode(isDark);
+  }, []);
 
   // Use external props if provided, otherwise fall back to store
   const steps = externalSteps || store.steps;
@@ -43,6 +50,20 @@ export function OnboardingWizardStepper({
   // Handle editor toggle
   const handleToggleEditor = () => {
     setIsEditorOpen(!isEditorOpen);
+  };
+
+  // Handle theme toggle
+  const handleToggleTheme = () => {
+    const html = document.documentElement;
+    if (isDarkMode) {
+      html.classList.remove("dark");
+      setIsDarkMode(false);
+      localStorage.setItem("theme", "light");
+    } else {
+      html.classList.add("dark");
+      setIsDarkMode(true);
+      localStorage.setItem("theme", "dark");
+    }
   };
 
   // Calculate which steps to show (max 5 visible)
@@ -80,26 +101,41 @@ export function OnboardingWizardStepper({
     <Card className="w-full p-5 shadow-none mt-2">
       <div className="flex items-center justify-between mb-4">
         <CardTitle className="text-xl">{currentStepTitle}</CardTitle>
-        {shouldShowEditorButton && (
+        <div className="flex items-center gap-2">
           <Button
             size="sm"
             variant="outline"
-            onClick={handleToggleEditor}
-            className="bg-accent-blue text-white hover:bg-[#3f797f]"
+            onClick={handleToggleTheme}
+            className="p-2 h-9 w-9"
+            title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
           >
-            {isEditorOpen ? (
-              <>
-                <X className="w-4 h-4 mr-2" />
-                Close Editor
-              </>
+            {isDarkMode ? (
+              <Sun className="w-4 h-4" />
             ) : (
-              <>
-                <Edit3 className="w-4 h-4 mr-2" />
-                Open Editor
-              </>
+              <Moon className="w-4 h-4" />
             )}
           </Button>
-        )}
+          {shouldShowEditorButton && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleToggleEditor}
+              className="bg-accent-blue text-white hover:bg-[#3f797f]"
+            >
+              {isEditorOpen ? (
+                <>
+                  <X className="w-4 h-4 mr-2" />
+                  Close Editor
+                </>
+              ) : (
+                <>
+                  <Edit3 className="w-4 h-4 mr-2" />
+                  Open Editor
+                </>
+              )}
+            </Button>
+          )}
+        </div>
       </div>
       <div className="relative flex items-center w-full mt-2">
         {visibleSteps.map((step, index) => {
