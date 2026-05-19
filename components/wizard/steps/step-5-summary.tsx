@@ -366,14 +366,14 @@ export function Step5Summary({
     return (
       <div className="space-y-6">
         {/* Success banner replacing the previous modal */}
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+        <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-700 rounded-lg p-4">
           <div className="flex items-start space-x-3">
             <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" />
             <div>
-              <h3 className="text-base font-semibold text-gray-900">
+              <h3 className="text-base font-semibold text-gray-900 dark:text-green-200">
                 Setup Complete!
               </h3>
-              <p className="text-sm text-green-700 mt-1">
+              <p className="text-sm text-green-700 dark:text-green-300 mt-1">
                 You can start building client portals now, or use the optional
                 steps below to add team members and compliance language.
               </p>
@@ -382,8 +382,8 @@ export function Step5Summary({
         </div>
         {/* Page Header */}
         <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold text-gray-900">Next Steps</h1>
-          <p className="text-gray-600">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Next Steps</h1>
+          <p className="text-gray-600 dark:text-gray-400">
             Complete these optional steps to customize your experience
           </p>
         </div>
@@ -403,8 +403,8 @@ export function Step5Summary({
                 </CardHeader>
                 <CardContent>
                   <div className="text-center py-8 text-muted-foreground">
-                    <Users className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                    <p className="font-medium mb-2">
+                    <Users className="w-12 h-12 mx-auto mb-4 text-gray-400 dark:text-gray-500" />
+                    <p className="font-medium mb-2 text-gray-600 dark:text-gray-400">
                       Change team size to 2+ users to add team members
                     </p>
                     <Button variant="outline" onClick={handleOpenTeamSizeModal}>
@@ -432,7 +432,7 @@ export function Step5Summary({
 
         {/* Validation Error - shown when trying to proceed without selecting disclaimer option */}
         {showValidationError && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-700 rounded-lg p-4">
             <div className="flex items-center space-x-3">
               <div className="flex-shrink-0">
                 <svg
@@ -448,10 +448,10 @@ export function Step5Summary({
                 </svg>
               </div>
               <div>
-                <h3 className="text-sm font-medium text-red-800">
+                <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
                   Please complete required fields
                 </h3>
-                <p className="text-sm text-red-700 mt-1">
+                <p className="text-sm text-red-700 dark:text-red-300 mt-1">
                   You must select when to add disclaimers (Add Now or Add Later)
                   before proceeding to the dashboard.
                 </p>
@@ -465,15 +465,15 @@ export function Step5Summary({
           open={isTeamSizeModalOpen}
           onOpenChange={setIsTeamSizeModalOpen}
         >
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md dark:bg-gray-900 dark:border-gray-700">
             <DialogHeader>
-              <DialogTitle>Change Team Size</DialogTitle>
+              <DialogTitle className="dark:text-white">Change Team Size</DialogTitle>
             </DialogHeader>
 
             <div className="space-y-4 py-4">
               {/* Organization Type */}
               <div className="space-y-2">
-                <Label htmlFor="orgType">
+                <Label htmlFor="orgType" className="dark:text-gray-300">
                   Organization Type <span className="text-red-500">*</span>
                 </Label>
                 <Select value={tempOrgType} onValueChange={setTempOrgType}>
@@ -510,7 +510,7 @@ export function Step5Summary({
 
               {/* Team Size */}
               <div className="space-y-2">
-                <Label>
+                <Label className="dark:text-gray-300">
                   Team Size <span className="text-red-500">*</span>
                 </Label>
                 <RadioGroup
@@ -519,25 +519,25 @@ export function Step5Summary({
                 >
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="just_me" id="just_me" />
-                    <Label htmlFor="just_me" className="cursor-pointer">
+                    <Label htmlFor="just_me" className="cursor-pointer dark:text-gray-300">
                       Just me
                     </Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="2_5" id="2_5" />
-                    <Label htmlFor="2_5" className="cursor-pointer">
+                    <Label htmlFor="2_5" className="cursor-pointer dark:text-gray-300">
                       2-5 people
                     </Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="6_20" id="6_20" />
-                    <Label htmlFor="6_20" className="cursor-pointer">
+                    <Label htmlFor="6_20" className="cursor-pointer dark:text-gray-300">
                       6-20 people
                     </Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="enterprise" id="enterprise" />
-                    <Label htmlFor="enterprise" className="cursor-pointer">
+                    <Label htmlFor="enterprise" className="cursor-pointer dark:text-gray-300">
                       Enterprise
                     </Label>
                   </div>
@@ -549,12 +549,13 @@ export function Step5Summary({
               <Button
                 variant="outline"
                 onClick={() => setIsTeamSizeModalOpen(false)}
+                className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleSaveTeamSize}
-                className="bg-accent-blue text-white hover:bg-accent-blue/90"
+                className="bg-accent-blue text-white hover:bg-accent-blue/90 dark:bg-accent-blue dark:hover:bg-accent-blue/80"
               >
                 Save Changes
               </Button>
@@ -604,16 +605,16 @@ export function Step5Summary({
           </CardHeader>
           <CardContent className="space-y-3">
             <div>
-              <p className="text-sm font-medium text-gray-700">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 Organization Type
               </p>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
                 {getOrganizationTypeDisplay()}
               </p>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-700">Team Size</p>
-              <p className="text-sm text-gray-600">{getTeamSizeDisplay()}</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Team Size</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">{getTeamSizeDisplay()}</p>
             </div>
           </CardContent>
         </Card>
@@ -641,8 +642,8 @@ export function Step5Summary({
           </CardHeader>
           <CardContent className="space-y-3">
             <div>
-              <p className="text-sm font-medium text-gray-700">Services</p>
-              <p className="text-sm text-gray-600">{getServicesDisplay()}</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Services</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">{getServicesDisplay()}</p>
             </div>
           </CardContent>
         </Card>
@@ -669,82 +670,82 @@ export function Step5Summary({
           <CardContent className="space-y-3 flex justify-between">
             <div className="space-y-2">
               <div className="mt-4">
-                <p className="text-sm font-medium text-gray-700">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Organization Name
                 </p>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
                   {stepData.clientProfile?.customOrganization ||
                     stepData.branding?.organizationName ||
                     "Not specified"}
                 </p>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-700">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Organization Website
                 </p>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
                   {stepData.branding?.website || "Not specified"}
                 </p>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-700">Logo</p>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Logo</p>
                 <div className="mt-2">
                   {stepData.branding?.logo ? (
                     <BrandingImage
                       src={stepData.branding.logo}
                       alt="Organization Logo"
-                      className="w-16 h-16 object-contain rounded border border-gray-300"
+                      className="w-16 h-16 object-contain rounded border border-gray-300 dark:border-gray-600"
                     />
                   ) : (
-                    <div className="w-16 h-16 bg-gray-100 rounded border border-gray-300 flex items-center justify-center">
-                      <span className="text-xs text-gray-400">No logo</span>
+                    <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded border border-gray-300 dark:border-gray-600 flex items-center justify-center">
+                      <span className="text-xs text-gray-400 dark:text-gray-500">No logo</span>
                     </div>
                   )}
                 </div>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-700">Primary Color</p>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Primary Color</p>
                 <div className="flex items-center gap-2">
                   <div
-                    className="w-6 h-6 rounded border border-gray-300"
+                    className="w-6 h-6 rounded border border-gray-300 dark:border-gray-600"
                     style={{
                       backgroundColor:
                         stepData.branding?.primaryColor || "#1F3A60",
                     }}
                   ></div>
-                  <span className="text-sm text-gray-600">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
                     {getPrimaryColorDisplay()}
                   </span>
                 </div>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-700">Secondary Color</p>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Secondary Color</p>
                 <div className="flex items-center gap-2">
                   <div
-                    className="w-6 h-6 rounded border border-gray-300"
+                    className="w-6 h-6 rounded border border-gray-300 dark:border-gray-600"
                     style={{
                       backgroundColor:
                         stepData.branding?.secondaryColor || "#4A90E2",
                     }}
                   ></div>
-                  <span className="text-sm text-gray-600">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
                     {getSecondaryColorDisplay()}
                   </span>
                 </div>
               </div>
             </div>
           </CardContent>
-          <div className="border-t pt-4 px-6 pb-6">
-            <p className="text-sm font-medium text-gray-700 mb-2">Background Image</p>
+          <div className="border-t dark:border-gray-700 pt-4 px-6 pb-6">
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Background Image</p>
             {stepData.branding?.backgroundImage ? (
               <img
                 src={stepData.branding.backgroundImage}
                 alt="Branding Background"
-                className="w-full h-64 object-contain rounded border border-gray-300"
+                className="w-full h-64 object-contain rounded border border-gray-300 dark:border-gray-600"
               />
             ) : (
-              <div className="w-full h-64 bg-gray-100 rounded border border-gray-300 flex items-center justify-center">
-                <span className="text-sm text-gray-400">No background image</span>
+              <div className="w-full h-64 bg-gray-100 dark:bg-gray-700 rounded border border-gray-300 dark:border-gray-600 flex items-center justify-center">
+                <span className="text-sm text-gray-400 dark:text-gray-500">No background image</span>
               </div>
             )}
           </div>
@@ -774,9 +775,9 @@ export function Step5Summary({
           <CardContent className="space-y-3 flex justify-between">
             <div className="space-y-2">
               <div className="mt-4">
-                <p className="text-sm font-medium text-gray-700 mb-2">Headshot</p>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Headshot</p>
                 <div className="flex-shrink-0">
-                  <div className="w-16 h-16 rounded-full border border-gray-300 overflow-hidden">
+                  <div className="w-16 h-16 rounded-full border border-gray-300 dark:border-gray-600 overflow-hidden">
                     <Headshot
                       src={stepData.userSetup?.headshot || undefined}
                       monogramName={stepData.userSetup?.name}
@@ -786,26 +787,26 @@ export function Step5Summary({
                 </div>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-700">Name</p>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Name</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
                   {stepData.userSetup?.name || "Not specified"}
                 </p>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-700">Email</p>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Email</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
                   {stepData.userSetup?.email || "Not specified"}
                 </p>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-700">Phone</p>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Phone</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
                   {formatPhoneNumber(stepData.userSetup?.phone || "")}
                 </p>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-700">Title</p>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Title</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
                   {stepData.userSetup?.title || "Not specified"}
                 </p>
               </div>
@@ -814,14 +815,14 @@ export function Step5Summary({
               {/* Background Image */}
               {stepData.userSetup?.backgroundImage && (
                 <div>
-                  <p className="text-sm font-medium text-gray-700 mb-2">
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Background
                   </p>
                   <div className="flex items-center gap-4">
                     <img
                       src={stepData.userSetup.backgroundImage}
                       alt="Background"
-                      className="w-full h-24 object-cover rounded border border-gray-300"
+                      className="w-full h-24 object-cover rounded border border-gray-300 dark:border-gray-600"
                     />
                   </div>
                 </div>
