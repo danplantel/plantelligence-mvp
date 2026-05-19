@@ -95,12 +95,6 @@ export function ServicesSection({
   return (
     <Card className="flex flex-col shadow-none h-full">
       <CardHeader className="space-y-4">
-        <div className="flex justify-between items-center">
-          <CardTitle className="text-xl flex items-center gap-2">
-            <Briefcase className="w-5 h-5 text-accent-blue" />
-            Services Provided
-          </CardTitle>
-        </div>
         <p className="font-light text-muted-foreground">
           Which service categories do you offer? (Select all that apply)
         </p>

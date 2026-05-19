@@ -71,8 +71,6 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
       headshot: "",
       headshotFileName: "",
       headshotData: null as any,
-      backgroundImage: "",
-      backgroundFileName: "",
       primaryServiceCategories: [],
     },
     mode: "onSubmit",
@@ -109,7 +107,6 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
           setValue("designations", serverData.designations || []);
           setValue("headshot", serverData.headshot || "");
           setValue("headshotData", serverData.headshotData ?? null);
-          setValue("backgroundImage", serverData.backgroundImage || "");
           setValue(
             "primaryServiceCategories",
             serverData.primaryServiceCategories || [],
@@ -131,8 +128,6 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
             headshot: serverData.headshot || "",
             headshotFileName,
             headshotData: serverData.headshotData ?? null,
-            backgroundImage: serverData.backgroundImage || "",
-            backgroundFileName: serverData.backgroundFileName || "",
             primaryServiceCategories: serverData.primaryServiceCategories || [],
           };
           await saveStepData("userSetup", userSetupData, true);
@@ -155,9 +150,7 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
             title: "",
             designations: [],
             headshot: session.user.image || "",
-            backgroundImage: "",
             headshotFileName: headshotFileName,
-            backgroundFileName: "",
             primaryServiceCategories: [],
           };
           await saveStepData("userSetup", userSetupData, false);
@@ -178,9 +171,7 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
             title: "",
             designations: [],
             headshot: session.user.image || "",
-            backgroundImage: "",
             headshotFileName: "",
-            backgroundFileName: "",
             primaryServiceCategories: [],
           };
           await saveStepData("userSetup", userSetupData, false);
@@ -252,8 +243,6 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
           "headshotData",
           serverData.headshotData ?? cur.headshotData ?? null,
         );
-        setValue("backgroundImage", serverData.backgroundImage || "");
-        setValue("backgroundFileName", serverData.backgroundFileName || "");
       }
 
       suppressNextDebouncedSaveRef.current = true;
@@ -293,58 +282,6 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
     }
   };
 
-  const onBackgroundImageChange = async (
-    imageData: string,
-    fileName: string,
-  ) => {
-    // Update form values
-    setValue("backgroundImage", imageData);
-    setValue("backgroundFileName", fileName);
-
-    // Save both values together
-    const timestamp = new Date().toISOString();
-    pendingSaveRef.current = {
-      field: "backgroundImage",
-      value: imageData,
-      timestamp,
-    };
-
-    // Also save filename
-    const currentFormData = methods.getValues();
-    const updatedData = {
-      ...currentFormData,
-      backgroundImage: imageData,
-      backgroundFileName: fileName,
-    };
-
-    try {
-      await saveStepData("userSetup", updatedData, false);
-
-      await saveStepDataToServer("userSetup", updatedData);
-
-      // Reload data from server to ensure form is in sync
-      const serverData = await loadStepData("userSetup", true); // force reload
-
-      if (serverData) {
-        const cur = methods.getValues();
-        setValue("phone", serverData.phone || "");
-        setValue("headshot", serverData.headshot || "");
-        setValue(
-          "headshotFileName",
-          serverData.headshotFileName || cur.headshotFileName || "",
-        );
-        setValue(
-          "headshotData",
-          serverData.headshotData ?? cur.headshotData ?? null,
-        );
-        setValue("backgroundImage", serverData.backgroundImage || "");
-        setValue("backgroundFileName", serverData.backgroundFileName || "");
-      }
-      suppressNextDebouncedSaveRef.current = true;
-    } catch (error) {
-      console.error("❌ Step4 - Failed to save background image:", error);
-    }
-  };
 
   const onDataChange = async (field: string, value: any) => {
     setIsEditing(true);
@@ -464,7 +401,6 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
           data={watchedData}
           errorFields={errorFields}
           onDataChange={onDataChange}
-          onBackgroundImageChange={onBackgroundImageChange}
         />
       </div>
 

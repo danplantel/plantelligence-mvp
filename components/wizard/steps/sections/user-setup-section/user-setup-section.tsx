@@ -30,7 +30,6 @@ interface UserSetupSectionProps {
   data: UserSetupData;
   errorFields?: string[];
   onDataChange: (field: keyof UserSetupData, value: any) => void;
-  onBackgroundImageChange?: (imageData: string, fileName: string) => void;
   hideCard?: boolean;
   /** Show Primary Service Categories (e.g. in Settings). Hidden in Step 4 onboarding. */
   showPrimaryServiceCategories?: boolean;
@@ -40,7 +39,6 @@ export function UserSetupSection({
   data,
   errorFields = [],
   onDataChange,
-  onBackgroundImageChange,
   hideCard = false,
   showPrimaryServiceCategories = false,
 }: UserSetupSectionProps) {
@@ -53,8 +51,6 @@ export function UserSetupSection({
     designations,
     headshot,
     headshotFileName,
-    backgroundImage,
-    backgroundFileName,
   } = data;
 
   // Get organization type from wizard store
@@ -137,9 +133,6 @@ export function UserSetupSection({
           )}
         />
         <FormError message={errors.name?.message} />
-        <p className="mt-1 text-muted-foreground text-xs">
-          Pre-filled from your registration, but you can change it
-        </p>
       </div>
 
       <div className="space-y-2">
@@ -277,9 +270,6 @@ export function UserSetupSection({
           )}
         />
         <FormError message={errors.email?.message} />
-        <p className="mt-1 text-muted-foreground text-xs">
-          Pre-filled from your registration, but you can change it
-        </p>
       </div>
 
       <div className="space-y-2">
@@ -422,95 +412,7 @@ export function UserSetupSection({
         </div>
         <FormError message={errors.phone?.message} />
       </div>
-
-      <div className="space-y-2">
-        <label className="block font-medium text-sm">
-          Background Image (Optional)
-        </label>
-        <Controller
-          name="backgroundImage"
-          control={control}
-          render={({ field }) => (
-            <SimpleImageEditorModal
-              value={field.value || ""}
-              fileName={backgroundFileName || ""}
-              onChange={(value, fileName) => {
-                field.onChange(value);
-                if (onBackgroundImageChange) {
-                  onBackgroundImageChange(value, fileName);
-                } else {
-                  onDataChange("backgroundImage", value);
-                  onDataChange("backgroundFileName", fileName);
-                }
-              }}
-              onRemove={async () => {
-                await deleteFromR2(field.value);
-                field.onChange("");
-                if (onBackgroundImageChange) {
-                  onBackgroundImageChange("", "");
-                } else {
-                  onDataChange("backgroundImage", "");
-                  onDataChange("backgroundFileName", "");
-                }
-              }}
-              placeholder="Upload Background Image"
-              modalTitle="Background Image"
-              modalDescription="Upload a background image. Adjust and fit it into the preview dimensions for best results."
-              saveButtonText="Save Background Image"
-              canvasWidth={640}
-              canvasHeight={640}
-              guidelineWidth={580}
-              guidelineHeight={240}
-              showGuidelines={true}
-              autoSizeOnOpen={true}
-              guidelinesTitle="Background Image Guidelines"
-              guidelinesContent={
-                <ul className="list-disc pl-4 space-y-1">
-                  <li>
-                    Resize your Background Image so it fits inside the dashed
-                    line.
-                  </li>
-                  <li>
-                    The dashed line marks the recommended Background Image area
-                    (for best display on all devices).
-                  </li>
-                  <li>
-                    The solid border line marks the safe zone – anything beyond
-                    it may be cropped or hidden.
-                  </li>
-                </ul>
-              }
-            />
-          )}
-        />
-      </div>
-
-      {/* Row 4: Designations & Save as Contact */}
-      <div className="md:col-start-1">
-        {relevantDesignations.length > 0 && (
-          <div className="space-y-2">
-            <label className="block font-medium text-sm">
-              Designations (Optional)
-            </label>
-            <MultiSelectDropdown
-              options={relevantDesignations}
-              selectedValues={watchedDesignations || []}
-              onSelectionChange={(values) => {
-                setValue("designations", values);
-                onDataChange("designations", values);
-              }}
-              placeholder="Select designations..."
-              allowCustomInput
-              customInputPlaceholder="Add custom designation"
-              data-field="designations"
-              maxSelections={5}
-              displayMode="chips"
-            />
-          </div>
-        )}
-      </div>
-
-      <div className="md:col-start-2 flex items-start space-x-2 pt-2">
+<div className="md:col-start-2 flex items-start space-x-2 pt-2">
         <Controller
           name="saveAsContact"
           control={control}
@@ -539,6 +441,32 @@ export function UserSetupSection({
           </p>
         </div>
       </div>
+      {/* Row 4: Designations & Save as Contact */}
+      <div className="md:col-start-1">
+        {relevantDesignations.length > 0 && (
+          <div className="space-y-2">
+            <label className="block font-medium text-sm">
+              Designations (Optional)
+            </label>
+            <MultiSelectDropdown
+              options={relevantDesignations}
+              selectedValues={watchedDesignations || []}
+              onSelectionChange={(values) => {
+                setValue("designations", values);
+                onDataChange("designations", values);
+              }}
+              placeholder="Select designations..."
+              allowCustomInput
+              customInputPlaceholder="Add custom designation"
+              data-field="designations"
+              maxSelections={5}
+              displayMode="chips"
+            />
+          </div>
+        )}
+      </div>
+
+      
     </div>
   );
 
@@ -549,10 +477,6 @@ export function UserSetupSection({
   return (
     <Card className="shadow-none">
       <CardHeader>
-        <CardTitle className="text-xl flex items-center gap-2">
-          <User className="w-5 h-5 text-accent-blue" />
-          User Setup
-        </CardTitle>
         <p className="text-muted-foreground">
           Tell us about yourself to personalize your experience
         </p>

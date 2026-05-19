@@ -6,7 +6,7 @@ import { Canvas, Image as FabricImage, Rect } from "fabric";
 import { Button } from "./button";
 import { Label } from "./label";
 import { Slider } from "./slider";
-import { Upload, X } from "lucide-react";
+import { Upload, X, Loader2 } from "lucide-react";
 
 // Export CropMetadata type for use in other components
 export interface CropMetadata {
@@ -89,6 +89,7 @@ export function SimpleImageEditorModal({
   const [maxScale, setMaxScale] = useState(3);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const isEditingRef = useRef(false);
   const ignoreScaleDifferenceCheckRef = useRef(false); // Flag to ignore scale difference check after auto-size
   const [
@@ -945,12 +946,18 @@ export function SimpleImageEditorModal({
     isOutsideGuidelines,
   ]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!fabricCanvasRef.current || !imageSrc || !originalImageSrc) return;
+
+    // Set saving state to show spinner
+    setIsSaving(true);
 
     const canvas = fabricCanvasRef.current;
     const activeObject = canvas.getActiveObject();
-    if (!activeObject) return;
+    if (!activeObject) {
+      setIsSaving(false);
+      return;
+    }
 
     // Get guideline bounds
     const { outerLeft, outerTop, outerRight, outerBottom } =
@@ -1024,22 +1031,64 @@ export function SimpleImageEditorModal({
       });
 
       const img = new Image();
-      img.onload = () => {
-        // Draw only the guideline area from the full canvas
-        cropCtx.drawImage(
-          img,
-          outerLeft,
-          outerTop,
-          guidelineWidth,
-          guidelineHeight,
-          0,
-          0,
-          guidelineWidth,
-          guidelineHeight,
-        );
+      img.onload = async () => {
+        try {
+          // Draw only the guideline area from the full canvas
+          cropCtx.drawImage(
+            img,
+            outerLeft,
+            outerTop,
+            guidelineWidth,
+            guidelineHeight,
+            0,
+            0,
+            guidelineWidth,
+            guidelineHeight,
+          );
 
-        const croppedPreview = cropCanvas.toDataURL("image/png");
+          const croppedPreview = cropCanvas.toDataURL("image/png");
 
+          setGuidelinesVisibility(true);
+          activeObject.hasControls = true;
+          activeObject.hasBorders = true;
+          canvas.setActiveObject(activeObject);
+          canvas.renderAll();
+
+          const originalFileName =
+            inputRef.current?.files?.[0]?.name || fileName || "image.png";
+          const newFileName =
+            originalFileName.replace(/\.[^/.]+$/, "") + "_edited.png";
+
+          const cropDataWithOriginal: CropMetadata = {
+            ...cropData,
+            originalImage: originalImageSrc,
+          };
+
+          const result = onChange(croppedPreview, newFileName, cropDataWithOriginal);
+          if (result != null && typeof (result as Promise<unknown>).then === "function") {
+            await (result as Promise<unknown>);
+          }
+          // Reset saving state and close modal after a delay to show spinner
+          setTimeout(() => {
+            setIsSaving(false);
+            handleClose();
+          }, 500);
+        } catch (error) {
+          console.error("Error saving image:", error);
+          setIsSaving(false);
+        }
+      };
+      img.src = fullCanvasData;
+    } else {
+      try {
+        // Fallback to original export if crop canvas creation fails
+        const dataURL = canvas.toDataURL({
+          format: "png",
+          quality: 0.95,
+          multiplier: 1,
+        });
+
+        // Restore controls and guidelines
         setGuidelinesVisibility(true);
         activeObject.hasControls = true;
         activeObject.hasBorders = true;
@@ -1051,38 +1100,20 @@ export function SimpleImageEditorModal({
         const newFileName =
           originalFileName.replace(/\.[^/.]+$/, "") + "_edited.png";
 
-        const cropDataWithOriginal: CropMetadata = {
-          ...cropData,
-          originalImage: originalImageSrc,
-        };
-
-        onChange(croppedPreview, newFileName, cropDataWithOriginal);
-        handleClose();
-      };
-      img.src = fullCanvasData;
-    } else {
-      // Fallback to original export if crop canvas creation fails
-      const dataURL = canvas.toDataURL({
-        format: "png",
-        quality: 0.95,
-        multiplier: 1,
-      });
-
-      // Restore controls and guidelines
-      setGuidelinesVisibility(true);
-      activeObject.hasControls = true;
-      activeObject.hasBorders = true;
-      canvas.setActiveObject(activeObject);
-      canvas.renderAll();
-
-      const originalFileName =
-        inputRef.current?.files?.[0]?.name || fileName || "image.png";
-      const newFileName =
-        originalFileName.replace(/\.[^/.]+$/, "") + "_edited.png";
-
-      // If crop failed, don't send crop data (image not cropped)
-      onChange(dataURL, newFileName);
-      handleClose();
+        // If crop failed, don't send crop data (image not cropped)
+        const result = onChange(dataURL, newFileName);
+        if (result != null && typeof (result as Promise<unknown>).then === "function") {
+          await (result as Promise<unknown>);
+        }
+        // Reset saving state and close modal after a delay to show spinner
+        setTimeout(() => {
+          setIsSaving(false);
+          handleClose();
+        }, 500);
+      } catch (error) {
+        console.error("Error saving image:", error);
+        setIsSaving(false);
+      }
     }
   };
 
@@ -1703,9 +1734,17 @@ export function SimpleImageEditorModal({
                   </Button>
                   <Button
                     onClick={handleSave}
-                    className="flex-1 text-[10px] sm:text-xs md:text-sm h-8 sm:h-9 md:h-10 whitespace-nowrap"
+                    disabled={isSaving}
+                    className="flex-1 text-[10px] sm:text-xs md:text-sm h-8 sm:h-9 md:h-10"
                   >
-                    {saveButtonText}
+                    {isSaving ? (
+                      <div className="flex items-center justify-center gap-1.5 w-full">
+                        <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 animate-spin flex-shrink-0" />
+                        <span className="truncate">Saving...</span>
+                      </div>
+                    ) : (
+                      <span className="truncate">{saveButtonText}</span>
+                    )}
                   </Button>
                 </div>
               </div>

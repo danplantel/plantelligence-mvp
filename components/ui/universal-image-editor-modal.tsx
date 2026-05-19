@@ -13,6 +13,7 @@ import {
   X,
   AlertTriangle,
   Maximize2,
+  Loader2,
 } from "lucide-react";
 import { CropMetadata } from "./simple-image-editor-modal";
 import { uploadFileToR2 } from "@/lib/upload-to-r2";
@@ -324,6 +325,7 @@ export function UniversalImageEditorModal({
   const [previews, setPreviews] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [showGuidelines, setShowGuidelines] = useState(true);
   const [isBeyondMaxAspectRatio, setIsBeyondMaxAspectRatio] = useState(false);
@@ -1621,19 +1623,28 @@ export function UniversalImageEditorModal({
     drawSafeZoneAndGuidelines,
   ]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!fabricCanvasRef.current || !imageSrc || !originalImageSrc) return;
+
+    // Set saving state to show spinner
+    setIsSaving(true);
 
     const canvas = fabricCanvasRef.current;
     const activeObject = canvas.getActiveObject();
-    if (!activeObject) return;
+    if (!activeObject) {
+      setIsSaving(false);
+      return;
+    }
 
     if ((type === "logo" || type === "normalizer") && isOutsideSafeZone) {
       const confirmSave = window.confirm(
         `⚠️ Your ${previewTitle ? previewTitle : "logo"
         } touches the boundary and may get cropped. Continue?`,
       );
-      if (!confirmSave) return;
+      if (!confirmSave) {
+        setIsSaving(false);
+        return;
+      }
     }
 
     const objects = canvas.getObjects();
@@ -1800,58 +1811,75 @@ export function UniversalImageEditorModal({
     );
 
     const finalize = async () => {
-      let finalOriginalImage = originalImageSrc;
-      if (originalImageSrc.length > 300000) { // Compress if > 300KB
-        try {
-          const { compressImage } = await import("@/lib/image-compression");
-          finalOriginalImage = await compressImage(originalImageSrc, { maxWidth: 1600, maxHeight: 1600, quality: 0.8 });
-        } catch (err) {
-          console.warn("Failed to compress original image in modal", err);
-        }
-      }
-
-      const cropData: CropMetadata = {
-        x: Math.round(cropXPercent * 100) / 100,
-        y: Math.round(cropYPercent * 100) / 100,
-        width: Math.round(cropWidthPercent * 100) / 100,
-        height: Math.round(cropHeightPercent * 100) / 100,
-        originalWidth: Math.round(originalImageWidth),
-        originalHeight: Math.round(originalImageHeight),
-        cropped: true,
-        originalImage: finalOriginalImage, // Always use originalImageSrc for backend
-      };
-
-      // Headshot / Logo: upload to R2 (advisor assets), store only key in DB
-      if (type === "headshot" || type === "logo") {
-        try {
-          const res = await fetch(croppedPreview);
-          const blob = await res.blob();
-          const mime = exportFormat === "image/png" ? "image/png" : "image/jpeg";
-          const file = new File([blob], newFileName, { type: mime });
-          const subPath = type === "headshot" ? "advisor/headshot" : "advisor/logo";
-          const r2Key = await uploadFileToR2({
-            file,
-            purpose: "upload",
-            subPath,
-            fileName: newFileName,
-          });
-          if (r2Key) {
-            // Pass croppedPreview DataURL as headshotData so callers can use it
-            // for logo preview and color extraction without fetching the R2 URL
-            onChange(r2Key, newFileName, { previewDataUrl: croppedPreview }, cropData);
-            handleClose();
-            return;
+      try {
+        let finalOriginalImage = originalImageSrc;
+        if (originalImageSrc.length > 300000) { // Compress if > 300KB
+          try {
+            const { compressImage } = await import("@/lib/image-compression");
+            finalOriginalImage = await compressImage(originalImageSrc, { maxWidth: 1600, maxHeight: 1600, quality: 0.8 });
+          } catch (err) {
+            console.warn("Failed to compress original image in modal", err);
           }
-        } catch (err) {
-          console.warn(`[${type}] R2 upload failed, falling back to inline`, err);
         }
-      }
 
-      const result = onChange(croppedPreview, newFileName, undefined, cropData);
-      if (result != null && typeof (result as Promise<unknown>).then === "function") {
-        await (result as Promise<unknown>);
+        const cropData: CropMetadata = {
+          x: Math.round(cropXPercent * 100) / 100,
+          y: Math.round(cropYPercent * 100) / 100,
+          width: Math.round(cropWidthPercent * 100) / 100,
+          height: Math.round(cropHeightPercent * 100) / 100,
+          originalWidth: Math.round(originalImageWidth),
+          originalHeight: Math.round(originalImageHeight),
+          cropped: true,
+          originalImage: finalOriginalImage, // Always use originalImageSrc for backend
+        };
+
+        // Headshot / Logo: upload to R2 (advisor assets), store only key in DB
+        if (type === "headshot" || type === "logo") {
+          try {
+            const res = await fetch(croppedPreview);
+            const blob = await res.blob();
+            const mime = exportFormat === "image/png" ? "image/png" : "image/jpeg";
+            const file = new File([blob], newFileName, { type: mime });
+            const subPath = type === "headshot" ? "advisor/headshot" : "advisor/logo";
+            const r2Key = await uploadFileToR2({
+              file,
+              purpose: "upload",
+              subPath,
+              fileName: newFileName,
+            });
+            if (r2Key) {
+              // Pass croppedPreview DataURL as headshotData so callers can use it
+              // for logo preview and color extraction without fetching the R2 URL
+              onChange(r2Key, newFileName, { previewDataUrl: croppedPreview }, cropData);
+              // Reset saving state and close modal after a delay to show spinner
+              setTimeout(() => {
+                setIsSaving(false);
+                handleClose();
+              }, 500);
+              return;
+            }
+          } catch (err) {
+            console.warn(`[${type}] R2 upload failed, falling back to inline`, err);
+          }
+        }
+
+        const result = onChange(croppedPreview, newFileName, undefined, cropData);
+        if (result != null && typeof (result as Promise<unknown>).then === "function") {
+          await (result as Promise<unknown>);
+        }
+        // Reset saving state and close modal after a delay to show spinner
+        setTimeout(() => {
+          setIsSaving(false);
+          handleClose();
+          // Scroll to bottom after modal closes (only for custom type like background images)
+          if (type === "custom") {
+            window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+          }
+        }, 500);
+      } catch (error) {
+        console.error("Error saving image:", error);
+        setIsSaving(false);
       }
-      handleClose();
     };
 
     finalize();
@@ -2892,9 +2920,17 @@ export function UniversalImageEditorModal({
                     </Button>
                     <Button
                       onClick={handleSave}
-                      className="flex-1 text-[10px] sm:text-xs md:text-sm h-8 sm:h-9 md:h-10 whitespace-nowrap"
+                      disabled={isSaving}
+                      className="flex-1 text-[10px] sm:text-xs md:text-sm h-8 sm:h-9 md:h-10"
                     >
-                      {saveButtonText || config.saveButtonText}
+                      {isSaving ? (
+                        <div className="flex items-center justify-center gap-1.5 w-full">
+                          <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 animate-spin flex-shrink-0" />
+                          <span className="truncate">Saving...</span>
+                        </div>
+                      ) : (
+                        <span className="truncate">{saveButtonText || config.saveButtonText}</span>
+                      )}
                     </Button>
                   </div>
                 </div>
