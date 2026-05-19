@@ -34,17 +34,17 @@ const SelectTrigger = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Trigger>,
   SelectTriggerProps
 >(({ className, children, destructive, ...props }, ref) => (
-  <SelectPrimitive.Trigger
-    ref={ref}
-    className={cn(
-      "flex h-9 w-full items-center justify-between rounded-lg border bg-transparent px-3 py-1 text-sm shadow-sm ring-offset-background focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-50",
-      destructive
-        ? "border-red-500 focus:border-red-500 focus:ring-red-500/20"
-        : "border-input",
-      className,
-    )}
-    {...props}
-  >
+   <SelectPrimitive.Trigger
+     ref={ref}
+     className={cn(
+       "flex h-9 w-full items-center justify-between rounded-lg border bg-transparent px-3 py-1 text-sm shadow-sm ring-offset-background focus:outline-none focus:ring-1 disabled:cursor-not-allowed disabled:opacity-50 !border-gray-300 dark:!border-gray-600",
+       destructive
+         ? "!border-red-500 focus:!border-red-500 focus:ring-red-500/20"
+         : "focus:!border-accent-blue focus:ring-accent-blue/20",
+       className,
+     )}
+     {...props}
+   >
     {children}
     <SelectPrimitive.Icon asChild>
       <CaretSortIcon className="h-4 w-4 opacity-50" />
