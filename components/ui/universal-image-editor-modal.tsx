@@ -2391,11 +2391,11 @@ export function UniversalImageEditorModal({
 
       <div
         onClick={() => inputRef.current?.click()}
-        className={`w-full h-9 border rounded-lg px-3 py-1 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer flex items-center relative ${destructive
-          ? "border-red-500 focus-visible:ring-red-500/20"
+        className={`w-full h-9 border rounded-lg px-3 py-1 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer flex items-center relative ${destructive
+          ? "!border-red-500 focus-visible:!border-red-500 focus-visible:ring-red-500/20"
           : value
-            ? "border-accent-blue bg-[#23919C]/10 focus-visible:ring-ring"
-            : "border-input bg-background focus-visible:ring-ring"
+            ? "!border-accent-blue bg-[#23919C]/10 focus-visible:ring-accent-blue/20 dark:focus-visible:ring-accent-blue/30"
+            : "!border-gray-300 dark:!border-gray-500 bg-background focus-visible:!border-accent-blue dark:focus-visible:!border-accent-blue focus-visible:ring-accent-blue/20 dark:focus-visible:ring-accent-blue/30"
           }`}
       >
         {value ? (
@@ -2443,13 +2443,13 @@ export function UniversalImageEditorModal({
         mounted &&
         createPortal(
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-2 sm:p-4">
-            <div className="bg-white rounded-lg w-full max-w-6xl mx-auto max-h-[95vh] overflow-hidden flex flex-col">
+            <div className="bg-white dark:bg-gray-900 rounded-lg w-full max-w-6xl mx-auto max-h-[95vh] overflow-hidden flex flex-col">
               {/* Header */}
-              <div className="p-3 sm:p-4 border-b flex-shrink-0">
-                <h2 className="text-base sm:text-lg font-semibold">
+              <div className="p-3 sm:p-4 border-b dark:border-gray-700 flex-shrink-0 bg-white dark:bg-gray-900">
+                <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
                   {modalTitle || previewTitle || config.modalTitle}
                 </h2>
-                <p className="text-xs sm:text-sm text-muted-foreground">
+                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 mt-1">
                   {modalDescription
                     ? modalDescription
                     : config.modalDescription}
@@ -2459,7 +2459,7 @@ export function UniversalImageEditorModal({
               {/* Content */}
               <div className="flex-1 flex flex-row overflow-hidden min-h-0">
                 {/* Left: Editing Canvas */}
-                <div className="w-2/3 p-2 sm:p-3 md:p-4 flex items-center justify-center bg-gray-50">
+                <div className="w-2/3 p-2 sm:p-3 md:p-4 flex items-center justify-center bg-gray-50 dark:bg-gray-800">
                   {imageSrc && (
                     <div className="w-full h-full flex items-center justify-center">
                       <div
@@ -2485,35 +2485,35 @@ export function UniversalImageEditorModal({
                 </div>
 
                 {/* Right: Info Panel */}
-                <div className="w-1/3 p-2 sm:p-3 md:p-4 space-y-1.5 sm:space-y-2 md:space-y-3 flex flex-col overflow-y-auto text-xs sm:text-sm">
+                <div className="w-1/3 p-2 sm:p-3 md:p-4 space-y-1.5 sm:space-y-2 md:space-y-3 flex flex-col overflow-y-auto text-xs sm:text-sm bg-white dark:bg-gray-850 dark:text-gray-100">
                   <div className="space-y-1.5 sm:space-y-2 md:space-y-3">
                     {/* Logo Guidelines */}
                     {(type === "logo" || type === "normalizer") &&
                       (tip === "no-text" ? null : (
-                        <div className="p-2 sm:p-2.5 md:p-3 bg-blue-50 border border-blue-200 rounded-md space-y-1 sm:space-y-1.5">
-                          <h4 className="text-[10px] sm:text-xs md:text-sm font-semibold text-blue-900">
+                        <div className="p-2 sm:p-2.5 md:p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-700 rounded-md space-y-1 sm:space-y-1.5">
+                          <h4 className="text-[10px] sm:text-xs md:text-sm font-semibold text-blue-900 dark:text-blue-900">
                             {previewTitle ? previewTitle : "Logo"} Guidelines
                           </h4>
-                          <ul className="space-y-1 sm:space-y-1.5 text-[9px] sm:text-[10px] md:text-xs text-blue-800">
+                          <ul className="space-y-1 sm:space-y-1.5 text-[9px] sm:text-[10px] md:text-xs text-blue-800 dark:text-blue-100">
                             <li className="flex items-start gap-2">
-                              <span className="text-blue-600 mt-0.5">•</span>
-                              <span>
+                              <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
+                              <span className="dark:text-gray-700">
                                 Resize your{" "}
                                 {previewTitle ? previewTitle : "logo"} so it
                                 fits inside the <strong>dashed line</strong>.
                               </span>
                             </li>
                             <li className="flex items-start gap-2">
-                              <span className="text-blue-600 mt-0.5">•</span>
-                              <span>
+                              <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
+                              <span className="dark:text-gray-700">
                                 The dashed line marks the recommended{" "}
                                 {previewTitle ? previewTitle : "logo"} area (for
                                 best display on all devices).
                               </span>
                             </li>
                             <li className="flex items-start gap-2">
-                              <span className="text-blue-600 mt-0.5">•</span>
-                              <span>
+                              <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
+                              <span className="dark:text-gray-700">
                                 The solid border line marks the safe zone –
                                 anything beyond it may be cropped or hidden.
                               </span>
@@ -2921,7 +2921,7 @@ export function UniversalImageEditorModal({
                     <Button
                       onClick={handleSave}
                       disabled={isSaving}
-                      className="flex-1 text-[10px] sm:text-xs md:text-sm h-8 sm:h-9 md:h-10"
+                      className="flex-1 text-[10px] sm:text-xs md:text-sm h-8 sm:h-9 md:h-10 bg-accent-blue hover:bg-accent-blue/90 text-white dark:bg-accent-blue dark:hover:bg-accent-blue/80"
                     >
                       {isSaving ? (
                         <div className="flex items-center justify-center gap-1.5 w-full">
