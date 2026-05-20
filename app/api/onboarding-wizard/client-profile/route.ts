@@ -14,9 +14,11 @@ export async function POST(request: NextRequest) {
     }
 
     const rawData = await request.json();
+    console.log("📥 [client-profile POST] Received data:", JSON.stringify(rawData));
     
     // Validate the data
     const data = validateClientProfile(rawData);
+    console.log("📥 [client-profile POST] Validated data:", JSON.stringify(data));
 
     let wizardSession = await prisma.wizardSession.findFirst({
       where: {
@@ -24,6 +26,7 @@ export async function POST(request: NextRequest) {
         completed: false,
       }
     });
+    console.log("📥 [client-profile POST] Found session:", wizardSession?.id || "none");
 
     if (!wizardSession) {
       wizardSession = await prisma.wizardSession.create({
@@ -33,6 +36,7 @@ export async function POST(request: NextRequest) {
           completed: false,
         }
       });
+      console.log("📥 [client-profile POST] Created new session:", wizardSession.id);
     }
 
     const clientProfile = await prisma.wizardClientProfile.upsert({
@@ -48,6 +52,7 @@ export async function POST(request: NextRequest) {
         customOrganization: data.customOrganization,
       }
     });
+    console.log("📥 [client-profile POST] Saved clientProfile:", JSON.stringify(clientProfile));
 
     return NextResponse.json({ clientProfile });
   } catch (error) {

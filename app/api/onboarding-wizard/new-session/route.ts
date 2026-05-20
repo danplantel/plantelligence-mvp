@@ -12,6 +12,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Check for existing session first - return it if found (idempotent)
     const existingSession = await prisma.wizardSession.findFirst({
       where: {
         userId: session.user.id,
@@ -20,10 +21,11 @@ export async function POST(request: NextRequest) {
     });
 
     if (existingSession) {
-      return NextResponse.json({ 
-        error: "User already has an active wizard session",
-        sessionId: existingSession.id 
-      }, { status: 400 });
+      return NextResponse.json({
+        success: true,
+        sessionId: existingSession.id,
+        message: "Using existing wizard session"
+      });
     }
 
     const newSession = await prisma.wizardSession.create({
@@ -33,10 +35,12 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    return NextResponse.json({ 
-      success: true, 
+    console.log("📥 [new-session POST] Created new wizard session:", newSession.id);
+
+    return NextResponse.json({
+      success: true,
       sessionId: newSession.id,
-      message: "New wizard session created" 
+      message: "New wizard session created"
     });
   } catch (error) {
     console.error("Error creating new wizard session:", error);

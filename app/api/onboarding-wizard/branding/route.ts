@@ -13,9 +13,11 @@ export async function POST(request: NextRequest) {
     }
 
     const rawData = await request.json();
+    console.log("📥 [branding POST] Received data keys:", Object.keys(rawData));
 
     // Validate the data
     const data = validateBranding(rawData);
+    console.log("📥 [branding POST] Validated data keys:", Object.keys(data));
 
     // Find or create wizard session
     let wizardSession = await prisma.wizardSession.findFirst({
@@ -24,6 +26,7 @@ export async function POST(request: NextRequest) {
         completed: false,
       }
     });
+    console.log("📥 [branding POST] Found session:", wizardSession?.id || "none");
 
     if (!wizardSession) {
       wizardSession = await prisma.wizardSession.create({
@@ -33,6 +36,7 @@ export async function POST(request: NextRequest) {
           completed: false,
         }
       });
+      console.log("📥 [branding POST] Created new session:", wizardSession.id);
     }
 
     const branding = await prisma.wizardBranding.upsert({
@@ -72,6 +76,7 @@ export async function POST(request: NextRequest) {
         subdomain: data.subdomain,
       },
     });
+    console.log("📥 [branding POST] Saved branding ID:", branding.id);
 
     return NextResponse.json({ branding });
   } catch (error) {

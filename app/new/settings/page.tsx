@@ -86,6 +86,8 @@ export default function SettingsPage() {
       logo: "",
       logoFileName: "",
       brandColor: "#1F3A60",
+      primaryColor: "",
+      secondaryColor: "",
       missionStatement: "",
       backgroundImage: "",
       backgroundFileName: "",
@@ -304,6 +306,16 @@ export default function SettingsPage() {
         completedBranding?.brandColor ||
         userProfile?.brandColor ||
         "#1F3A60",
+      primaryColor:
+        branding.primaryColor ||
+        completedBranding?.primaryColor ||
+        userProfile?.primaryColor ||
+        "",
+      secondaryColor:
+        branding.secondaryColor ||
+        completedBranding?.secondaryColor ||
+        userProfile?.secondaryColor ||
+        "",
       missionStatement:
         branding.missionStatement || completedBranding?.missionStatement || "",
       backgroundImage:
@@ -414,6 +426,8 @@ export default function SettingsPage() {
         logo: data.logo || "",
         logoFileName: data.logoFileName || "",
         brandColor: data.brandColor || "#1F3A60",
+        primaryColor: data.primaryColor || undefined,
+        secondaryColor: data.secondaryColor || undefined,
         missionStatement: data.missionStatement || "",
         backgroundImage: data.backgroundImage || "",
         backgroundFileName: data.backgroundFileName || "",
@@ -426,8 +440,7 @@ export default function SettingsPage() {
       const ok = await saveStepDataToServer("branding", brandingPayload);
       if (!ok) throw new Error("Failed to save branding");
 
-      // Also update User table with logo only (other fields don't exist in User model)
-      // organizationName, website, missionStatement, brandColor, subdomain stay in WizardBranding
+      // Also update User table with branding fields that exist on the User model
       try {
         const updateResponse = await fetch("/api/profile/update-profile", {
           method: "POST",
@@ -435,11 +448,17 @@ export default function SettingsPage() {
           body: JSON.stringify({
             advisorLogo: data.logo,
             advisorLogoUrl: data.logo,
+            organizationName: data.organizationName || undefined,
+            website: data.website || undefined,
+            brandColor: data.brandColor || undefined,
+            primaryColor: data.primaryColor || undefined,
+            secondaryColor: data.secondaryColor || undefined,
+            subdomain: data.subdomain || undefined,
           }),
         });
 
         if (!updateResponse.ok) {
-          console.warn("Failed to update user profile with logo");
+          console.warn("Failed to update user profile with branding fields");
         }
       } catch (profileError) {
         console.error("Error updating user profile:", profileError);
@@ -595,6 +614,8 @@ export default function SettingsPage() {
             logo: branding.logo || "",
             logoFileName: branding.logoFileName || "",
             brandColor: branding.brandColor || "#1F3A60",
+            primaryColor: branding.primaryColor || "",
+            secondaryColor: branding.secondaryColor || "",
             missionStatement: branding.missionStatement || "",
             backgroundImage: branding.backgroundImage || "",
             backgroundFileName: branding.backgroundFileName || "",

@@ -33,6 +33,14 @@ model User {
   phone                       String?
   phoneExtension              String?
   company                     String?
+  customOrganization          String?
+  teamSize                    String?
+  website                     String?
+  brandColor                  String?
+  primaryColor                String?
+  secondaryColor              String?
+  organizationName            String?
+  subdomain                   String?
   advisorName                 String?
   advisorEmail                String?
   advisorPhone                String?
@@ -49,6 +57,10 @@ model User {
   // resources                Resource[]
   planAnalytic                PlanAnalytic[]
   title                       String?
+  headshot                    String?
+  backgroundImage             String?
+  aiAvatar                    String?
+  designations                String[]
   displayAdvisorInfoHeader    Boolean?
   displayAdvisorContactButton Boolean?
   advisorLogo                 String?

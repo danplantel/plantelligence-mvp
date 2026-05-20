@@ -21,6 +21,7 @@ export async function completeWizardOnboarding({ userId, wizardSessionId }: Wiza
         benefitTypes: true,
         employerScope: true,
         userSetup: true,
+        disclaimers: true,
       }
     });
 
@@ -42,17 +43,76 @@ export async function completeWizardOnboarding({ userId, wizardSessionId }: Wiza
     // Prepare user update data
     const updateData: any = {};
     
-    // Client Profile data - only company field exists in User model
+    // Client Profile data (Step 1)
     if (wizardSession.clientProfile) {
+      // User.company stores the organization type (e.g., "independent", "ria")
       updateData.company = wizardSession.clientProfile.organizationType;
+      
+      // User.customOrganization stores the free-text description when "other" is selected
+      if (wizardSession.clientProfile.customOrganization) {
+        updateData.customOrganization = wizardSession.clientProfile.customOrganization;
+        console.log("📋 Setting customOrganization:", updateData.customOrganization);
+      }
+      
+      console.log("📋 Setting company:", updateData.company);
+    }
+
+    // Team Size data (Step 1B)
+    if (wizardSession.teamSize) {
+      updateData.teamSize = wizardSession.teamSize.teamSize;
+      console.log("📋 Setting teamSize:", updateData.teamSize);
     }
     
-    // Branding data - only logo is stored in User table
-    // Other fields (organizationName, website, missionStatement, brandColor, subdomain)
-    // remain in WizardBranding table and can be accessed via wizardSessions relation
+    // Branding data (Step 3)
     if (wizardSession.branding) {
-      updateData.advisorLogo = wizardSession.branding.logo;
-      updateData.advisorLogoUrl = wizardSession.branding.logo;
+      // Logo
+      if (wizardSession.branding.logo) {
+        updateData.advisorLogo = wizardSession.branding.logo;
+        updateData.advisorLogoUrl = wizardSession.branding.logo;
+      }
+      // Organization name
+      if (wizardSession.branding.organizationName) {
+        updateData.organizationName = wizardSession.branding.organizationName;
+      }
+      // Website
+      if (wizardSession.branding.website) {
+        updateData.website = wizardSession.branding.website;
+      }
+      // Brand color
+      if (wizardSession.branding.brandColor) {
+        updateData.brandColor = wizardSession.branding.brandColor;
+      }
+      // Primary color
+      if (wizardSession.branding.primaryColor) {
+        updateData.primaryColor = wizardSession.branding.primaryColor;
+      }
+      // Secondary color
+      if (wizardSession.branding.secondaryColor) {
+        updateData.secondaryColor = wizardSession.branding.secondaryColor;
+      }
+      // Subdomain
+      if (wizardSession.branding.subdomain) {
+        updateData.subdomain = wizardSession.branding.subdomain;
+      }
+      // Background image
+      if (wizardSession.branding.backgroundImage) {
+        updateData.backgroundImage = wizardSession.branding.backgroundImage;
+      }
+      // AI Avatar
+      if (wizardSession.branding.aiAvatar) {
+        updateData.aiAvatar = wizardSession.branding.aiAvatar;
+      }
+      console.log("📋 Setting branding data:", {
+        hasLogo: !!wizardSession.branding.logo,
+        hasOrganizationName: !!wizardSession.branding.organizationName,
+        hasWebsite: !!wizardSession.branding.website,
+        hasBrandColor: !!wizardSession.branding.brandColor,
+        hasPrimaryColor: !!wizardSession.branding.primaryColor,
+        hasSecondaryColor: !!wizardSession.branding.secondaryColor,
+        hasSubdomain: !!wizardSession.branding.subdomain,
+        hasBackgroundImage: !!wizardSession.branding.backgroundImage,
+        hasAiAvatar: !!wizardSession.branding.aiAvatar,
+      });
     }
 
     // Team Members data (first admin member becomes advisor)
@@ -123,6 +183,18 @@ export async function completeWizardOnboarding({ userId, wizardSessionId }: Wiza
       if (wizardSession.userSetup.title) {
         updateData.title = wizardSession.userSetup.title;
       }
+      // Headshot
+      if (wizardSession.userSetup.headshot) {
+        updateData.headshot = wizardSession.userSetup.headshot;
+      }
+      // Background image from user setup
+      if (wizardSession.userSetup.backgroundImage) {
+        updateData.backgroundImage = wizardSession.userSetup.backgroundImage;
+      }
+      // Designations
+      if (wizardSession.userSetup.designations && Array.isArray(wizardSession.userSetup.designations) && wizardSession.userSetup.designations.length > 0) {
+        updateData.designations = wizardSession.userSetup.designations;
+      }
     }
     
     // Note: The following wizard data is NOT stored in User model but remains in wizard tables:
@@ -137,6 +209,17 @@ export async function completeWizardOnboarding({ userId, wizardSessionId }: Wiza
     console.log("📊 Updated fields:", Object.keys(updateData));
     
     if (Object.keys(updateData).length > 0) {
+      // Verify user exists before update
+      const userCheck = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true }
+      });
+      if (!userCheck) {
+        console.error("❌ User not found in completeWizardOnboarding for ID:", userId);
+        throw new Error(`User record not found for ID: ${userId}`);
+      }
+      console.log("✅ User exists in database, proceeding with update");
+      
       await prisma.user.update({
         where: { id: userId },
         data: updateData
@@ -144,6 +227,36 @@ export async function completeWizardOnboarding({ userId, wizardSessionId }: Wiza
       console.log("✅ User updated successfully with fields:", Object.keys(updateData));
     } else {
       console.log("⚠️ No data to update for user");
+    }
+
+    // Delete all wizard step records associated with this session
+    // Data has been transferred to the User object above, so these are no longer needed
+    console.log("🗑️ Cleaning up wizard step records for session:", wizardSessionId);
+    
+    const stepModels = [
+      { name: "WizardClientProfile", record: wizardSession.clientProfile },
+      { name: "WizardTeamSize", record: wizardSession.teamSize },
+      { name: "WizardServices", record: wizardSession.services },
+      { name: "WizardInsuranceLicensing", record: wizardSession.insuranceLicensing },
+      { name: "WizardTeamMembers", record: wizardSession.teamMembers },
+      { name: "WizardBranding", record: wizardSession.branding },
+      { name: "WizardBenefitTypes", record: wizardSession.benefitTypes },
+      { name: "WizardEmployerScope", record: wizardSession.employerScope },
+      { name: "WizardUserSetup", record: wizardSession.userSetup },
+      { name: "WizardDisclaimers", record: wizardSession.disclaimers },
+    ];
+
+    for (const step of stepModels) {
+      if (step.record) {
+        try {
+          await (prisma as any)[step.name].delete({
+            where: { id: (step.record as any).id }
+          });
+          console.log(`🗑️ Deleted ${step.name} record:`, (step.record as any).id);
+        } catch (deleteError) {
+          console.error(`⚠️ Failed to delete ${step.name} record:`, deleteError);
+        }
+      }
     }
 
     // Mark wizard session as completed
@@ -168,6 +281,8 @@ export async function completeWizardOnboarding({ userId, wizardSessionId }: Wiza
         updatedAt: new Date(),
       }
     });
+
+    console.log("✅ Wizard completion cleanup finished successfully");
 
     return {
       success: true,

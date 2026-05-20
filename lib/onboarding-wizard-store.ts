@@ -400,9 +400,18 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
             const sessionResponse = await fetch('/api/onboarding-wizard/new-session');
             const sessionData = await sessionResponse.json();
 
+            // Eagerly create a wizard session if one doesn't exist yet.
+            // This prevents race conditions where multiple auto-save calls
+            // (e.g., onTypeSelect + teamSize useEffect) both try to create
+            // their own session simultaneously.
             if (!sessionData.session) {
-              // Don't create a new session during data loading - this causes data loss!
-              // The session should be created when the user starts the wizard, not when loading data
+              const createResponse = await fetch('/api/onboarding-wizard/new-session', {
+                method: 'POST',
+              });
+              if (createResponse.ok) {
+                const createData = await createResponse.json();
+                console.log("📥 [loadAllWizardData] Created new wizard session:", createData.sessionId);
+              }
             }
 
             const stepTypes = [

@@ -217,25 +217,34 @@ export function OnboardingWizard({
       };
 
       // Special handling for step 1 - save both clientProfile and teamSize
+      // IMPORTANT: These must be SEQUENTIAL, not parallel, to avoid a race condition
+      // where both API routes find no existing session and each creates their own.
+      // The first save creates the session, the second reuses it.
       if (currentStep === 1) {
-        const promises = [];
-
+        // Save clientProfile first to ensure session is created
         if (stepData.clientProfile) {
-          promises.push(
-            saveStepDataToServer("clientProfile", stepData.clientProfile),
+          const clientProfileResult = await saveStepDataToServer(
+            "clientProfile",
+            stepData.clientProfile,
           );
+          if (!clientProfileResult) {
+            console.error(
+              `Failed to save clientProfile for step ${currentStep}`,
+            );
+            return;
+          }
         }
 
+        // Save teamSize second (reuses the session created above)
         if (stepData.teamSize) {
-          promises.push(saveStepDataToServer("teamSize", stepData.teamSize));
-        }
-
-        if (promises.length > 0) {
-          const results = await Promise.all(promises);
-          const allSuccess = results.every((result) => result === true);
-
-          if (!allSuccess) {
-            console.error(`Failed to save step ${currentStep} data to server`);
+          const teamSizeResult = await saveStepDataToServer(
+            "teamSize",
+            stepData.teamSize,
+          );
+          if (!teamSizeResult) {
+            console.error(
+              `Failed to save teamSize for step ${currentStep}`,
+            );
             return;
           }
         }
