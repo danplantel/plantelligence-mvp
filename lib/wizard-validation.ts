@@ -329,7 +329,6 @@ export const validateCurrentStep = async (step: number, stepData: any) => {
         break;
       
       case 2:
-        break;
         // Step 2: Services are now required
         
         const step2Errors: string[] = [];
