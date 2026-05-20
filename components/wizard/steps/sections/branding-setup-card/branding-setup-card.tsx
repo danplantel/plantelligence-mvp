@@ -326,13 +326,20 @@ export function BrandingSetupCard({
           Background Image (Optional)
         </label>
         <UniversalImageEditorModal
-          type="custom"
+          type="logo"
           icon={<ImageIcon className="w-4 h-4" />}
           value={data.backgroundImage || ""}
           fileName={data.backgroundFileName || ""}
-          onChange={(value, fileName) => {
+          onChange={(value, fileName, headshotData) => {
             onDataChange("backgroundImage", value);
             onDataChange("backgroundFileName", fileName);
+            // Use the DataURL preview passed back from the modal so preview works with R2 key
+            const previewDataUrl: string | undefined =
+              (headshotData as any)?.previewDataUrl;
+            const previewSrc = previewDataUrl || (value?.startsWith("data:") ? value : undefined);
+            if (previewSrc) {
+              onDataChange("backgroundImagePreview", previewSrc);
+            }
           }}
           onRemove={async () => {
             if (data.backgroundImage) {

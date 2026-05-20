@@ -582,12 +582,13 @@ export function Step5Summary({
     <div className="space-y-6">
       {/* Summary Cards Grid */}
       <div className="grid grid-cols-1 gap-6">
+
         {/* Card 1: User Profile */}
         <Card className="dark:bg-gray-800">
           <CardHeader>
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <User className="w-5 h-5 text-blue-600" />
+                {/* <User className="w-5 h-5 text-blue-600" /> */}
                 <CardTitle className="text-lg font-semibold">
                   User Profile
                 </CardTitle>
@@ -624,7 +625,7 @@ export function Step5Summary({
           <CardHeader>
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <Briefcase className="w-5 h-5 text-green-600" />
+                {/* <Briefcase className="w-5 h-5 text-green-600" /> */}
                 <CardTitle className="text-lg font-semibold">
                   Services Provided
                 </CardTitle>
@@ -653,7 +654,7 @@ export function Step5Summary({
           <CardHeader>
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <Palette className="w-5 h-5 text-purple-600" />
+                {/* <Palette className="w-5 h-5 text-purple-600" /> */}
                 <CardTitle className="text-lg font-semibold">Branding</CardTitle>
               </div>
               <Button
@@ -738,10 +739,11 @@ export function Step5Summary({
           <div className="border-t dark:border-gray-700 pt-4 px-6 pb-6">
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Background Image</p>
             {stepData.branding?.backgroundImage ? (
-              <img
+              <BrandingImage
                 src={stepData.branding.backgroundImage}
                 alt="Branding Background"
-                className="w-full h-64 object-contain rounded border border-gray-300 dark:border-gray-600"
+                className="w-full h-64 rounded border border-gray-300 dark:border-gray-600"
+                style={{ objectFit: "contain" }}
               />
             ) : (
               <div className="w-full h-64 bg-gray-100 dark:bg-gray-700 rounded border border-gray-300 dark:border-gray-600 flex items-center justify-center">
@@ -756,7 +758,7 @@ export function Step5Summary({
           <CardHeader>
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <Contact className="w-5 h-5 text-orange-600" />
+                {/* <Contact className="w-5 h-5 text-orange-600" /> */}
                 <CardTitle className="text-lg font-semibold">
                   User Setup
                 </CardTitle>

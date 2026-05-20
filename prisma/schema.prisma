@@ -435,14 +435,16 @@ model FutureContact {
 model WizardBranding {
   id                 String   @id @default(auto()) @map("_id") @db.ObjectId
   sessionId          String   @unique @db.ObjectId
-  logo               String? // URL
+  logo               String? // URL or R2 key
   logoFileName       String? // Original filename
-  backgroundImage    String? // URL
+  backgroundImage    String? // URL or R2 key
   backgroundFileName String? // Original filename
   organizationName   String? // Organization name
   website            String? // Organization website
   missionStatement   String? // Optional mission statement
   brandColor         String // HEX color
+  primaryColor       String? // Primary HEX color (extracted from logo)
+  secondaryColor     String? // Secondary HEX color (extracted from logo)
   aiAvatar           String? // URL
   avatarFileName     String? // Original filename
   subdomain          String // custom subdomain

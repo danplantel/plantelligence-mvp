@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
         sessionId: wizardSession.id,
       },
       update: {
-        logo: data.logo,
+        logo: data.logo || undefined,
         logoFileName: data.logoFileName,
         backgroundImage: data.backgroundImage,
         backgroundFileName: data.backgroundFileName,
@@ -48,6 +48,8 @@ export async function POST(request: NextRequest) {
         website: data.website,
         missionStatement: data.missionStatement,
         brandColor: data.brandColor,
+        primaryColor: data.primaryColor,
+        secondaryColor: data.secondaryColor,
         aiAvatar: data.aiAvatar,
         avatarFileName: data.avatarFileName,
         subdomain: data.subdomain,
@@ -55,7 +57,7 @@ export async function POST(request: NextRequest) {
       },
       create: {
         sessionId: wizardSession.id,
-        logo: data.logo,
+        logo: data.logo || "",
         logoFileName: data.logoFileName,
         backgroundImage: data.backgroundImage,
         backgroundFileName: data.backgroundFileName,
@@ -63,6 +65,8 @@ export async function POST(request: NextRequest) {
         website: data.website,
         missionStatement: data.missionStatement,
         brandColor: data.brandColor,
+        primaryColor: data.primaryColor,
+        secondaryColor: data.secondaryColor,
         aiAvatar: data.aiAvatar,
         avatarFileName: data.avatarFileName,
         subdomain: data.subdomain,
@@ -71,8 +75,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ branding });
   } catch (error) {
+    console.error("Error in POST /api/onboarding-wizard/branding:", error);
 
     if (error instanceof z.ZodError) {
+      console.error("Validation errors:", error.errors);
       return NextResponse.json({
         error: "Validation failed",
         details: error.errors
@@ -80,7 +86,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: "Failed to save branding data" },
+      { error: "Failed to save branding data", details: String(error) },
       { status: 500 }
     );
   }

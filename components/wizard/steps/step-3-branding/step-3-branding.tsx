@@ -35,6 +35,7 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
    const {
      saveStepDataLocally,
      saveStepData,
+     saveStepDataToServer,
      stepData,
      validateCurrentStepFields,
    } = useOnboardingWizardStore();
@@ -133,22 +134,24 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
   }, [organizationName, useDefaultWelcomeStatement, missionStatement]);
 
   const saveData = async () => {
-    // Get current form values to ensure consistency
-    const currentFormData = watch();
+     // Get current form values to ensure consistency
+     const currentFormData = watch();
 
-    const brandingData = {
-      logo: logo, // Use local state for logo as it's updated by file upload
-      logoFileName,
-      backgroundImage,
-      backgroundFileName,
-      organizationName: currentFormData.organizationName || organizationName,
-      website: currentFormData.website || website,
-      missionStatement: currentFormData.missionStatement || missionStatement,
-      brandColor: currentFormData.brandColor || brandColor,
-      aiAvatar,
-      avatarFileName,
-      subdomain: currentFormData.subdomain || subdomain,
-    };
+     const brandingData = {
+       logo: logo, // Use local state for logo as it's updated by file upload
+       logoFileName,
+       backgroundImage,
+       backgroundFileName,
+       organizationName: currentFormData.organizationName || organizationName,
+       website: currentFormData.website || website,
+       missionStatement: currentFormData.missionStatement || missionStatement,
+       brandColor: currentFormData.brandColor || brandColor,
+       primaryColor,
+       secondaryColor,
+       aiAvatar,
+       avatarFileName,
+       subdomain: currentFormData.subdomain || subdomain,
+     };
 
     // Basic validation
     if (!brandingData.brandColor || brandingData.brandColor.trim() === "") {
@@ -308,46 +311,55 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
               });
 
               if (field !== "logoPreview" && field !== "backgroundImagePreview") {
-                const setter = setters[field as keyof typeof setters];
-                setter?.(value);
-              }
+                 const setter = setters[field as keyof typeof setters];
+                 setter?.(value);
+               }
 
-              if (field === "logo") {
-                latestLogoRef.current = value;
-                setLogoPreview(value);
-              }
+               if (field === "logo") {
+                 latestLogoRef.current = value;
+                 setLogoPreview(value);
+               }
 
-              if (field === "backgroundImage") {
-                setBackgroundImagePreview(value);
-              }
+               if (field === "backgroundImagePreview") {
+                 setBackgroundImagePreview(value);
+               }
 
-              const currentState = {
-                logo,
-                logoFileName,
-                backgroundImage,
-                backgroundFileName,
-                organizationName,
-                website,
-                missionStatement,
-                brandColor,
-                primaryColor,
-                secondaryColor,
-                aiAvatar,
-                avatarFileName,
-                subdomain,
+              // Read latest branding data from store to avoid stale React state
+              const latestBranding = (useOnboardingWizardStore.getState().stepData.branding || {}) as any;
+
+             // Don't include preview fields in the data saved to store/server
+             const brandingData: any = {
+                logo: latestBranding.logo ?? logo,
+                logoFileName: latestBranding.logoFileName ?? logoFileName,
+                backgroundImage: latestBranding.backgroundImage ?? backgroundImage,
+                backgroundFileName: latestBranding.backgroundFileName ?? backgroundFileName,
+                organizationName: latestBranding.organizationName ?? organizationName,
+                website: latestBranding.website ?? website,
+                missionStatement: latestBranding.missionStatement ?? missionStatement,
+                brandColor: latestBranding.brandColor ?? brandColor,
+                primaryColor: latestBranding.primaryColor ?? primaryColor,
+                secondaryColor: latestBranding.secondaryColor ?? secondaryColor,
+                aiAvatar: latestBranding.aiAvatar ?? aiAvatar,
+                avatarFileName: latestBranding.avatarFileName ?? avatarFileName,
+                subdomain: latestBranding.subdomain ?? subdomain,
               };
 
-              const brandingData = {
-                ...currentState,
-                [field]: value,
-              };
-
-              if (field === "logoFileName" && brandingData.logo === "") {
-                if (latestLogoRef.current) {
-                  brandingData.logo = latestLogoRef.current;
-                }
+              // Only override non-preview fields
+              if (field !== "backgroundImagePreview" && field !== "logoPreview") {
+                brandingData[field] = value;
               }
-              await saveStepDataLocally("branding", brandingData);
+
+               if (field === "logoFileName" && brandingData.logo === "") {
+                 if (latestLogoRef.current) {
+                   brandingData.logo = latestLogoRef.current;
+                 }
+               }
+               await saveStepDataLocally("branding", brandingData);
+
+               // Save to server immediately for backgroundImage changes
+               if (field === "backgroundImage" || field === "backgroundFileName") {
+                 await saveStepDataToServer("branding", brandingData);
+               }
 
               if (field === "organizationName" || field === "website") {
                 const clientProfileData = {
@@ -396,31 +408,32 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
                 }
 
                 try {
-                  await saveData();
+                    const currentFormData = watch();
+                    const brandingData = {
+                       logo: field === "logo" ? result : logo,
+                       logoFileName: field === "logo" ? file.name : logoFileName,
+                       backgroundImage: field === "backgroundImage" ? result : backgroundImage,
+                       backgroundFileName: field === "backgroundImage" ? file.name : backgroundFileName,
+                       organizationName: currentFormData.organizationName || organizationName,
+                       website: currentFormData.website || website,
+                       missionStatement: currentFormData.missionStatement || missionStatement,
+                       brandColor: currentFormData.brandColor || brandColor,
+                       primaryColor,
+                       secondaryColor,
+                       aiAvatar,
+                       avatarFileName,
+                       subdomain: currentFormData.subdomain || subdomain,
+                     };
 
-                  const brandingData = {
-                    logo: field === "logo" ? result : logo,
-                    logoFileName: field === "logo" ? file.name : logoFileName,
-                    backgroundImage: field === "backgroundImage" ? result : backgroundImage,
-                    backgroundFileName: field === "backgroundImage" ? file.name : backgroundFileName,
-                    organizationName,
-                    website,
-                    missionStatement,
-                    brandColor,
-                    primaryColor,
-                    secondaryColor,
-                    aiAvatar,
-                    avatarFileName,
-                    subdomain,
-                  };
-
-                  await saveStepDataLocally("branding", brandingData);
-                } catch (error) {
-                  console.error(
-                    "Step 3 - Error saving data after file upload:",
-                    error,
-                  );
-                }
+                   await saveStepDataLocally("branding", brandingData);
+                   // Save directly to server bypassing autosaveToServer flag
+                   await saveStepDataToServer("branding", brandingData);
+                 } catch (error) {
+                   console.error(
+                     "Step 3 - Error saving data after file upload:",
+                     error,
+                   );
+                 }
               };
               reader.readAsDataURL(file);
             }}
@@ -452,8 +465,6 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
                 website,
                 missionStatement,
                 brandColor,
-                primaryColor,
-                secondaryColor,
                 aiAvatar,
                 avatarFileName,
                 subdomain,

@@ -189,33 +189,35 @@ const isValidWebsiteUrl = (url: string): boolean => {
 
 // Branding validation
 export const brandingSchema = z.object({
-   logo: z.string().min(1, "Logo is required"),
-   logoFileName: z.string().optional(),
-   backgroundImage: z.string().nullable().optional(),
-   backgroundFileName: z.string().optional(),
-   organizationName: z.string().nullable().optional(),
-   website: z.string().refine(
-     (url) => isValidWebsiteUrl(url),
-     { message: "Please enter a valid website URL (e.g., example.com or https://example.com)" }
-   ),
-   missionStatement: z.string().optional(),
-   brandColor: z.string().min(1, "Brand color is required").refine(
-     (color) => {
-       // Allow hex colors, gradients, and other valid CSS colors
-       return color && color.trim().length > 0;
-     },
-     { message: "Brand color is required" }
-   ),
-   aiAvatar: z.string().optional(),
-   avatarFileName: z.string().optional(),
-   subdomain: z.string().min(1, "Subdomain is required").refine(
-     (subdomain) => {
-       // Allow subdomains with dots and basic characters
-       return subdomain && subdomain.trim().length > 0;
-     },
-     { message: "Subdomain is required" }
-   ),
- });
+    logo: z.string().optional(),
+    logoFileName: z.string().optional(),
+    backgroundImage: z.string().nullable().optional(),
+    backgroundFileName: z.string().optional(),
+    organizationName: z.string().nullable().optional(),
+    website: z.string().optional().refine(
+      (url) => !url || isValidWebsiteUrl(url),
+      { message: "Please enter a valid website URL (e.g., example.com or https://example.com)" }
+    ),
+    missionStatement: z.string().optional(),
+    brandColor: z.string().min(1, "Brand color is required").refine(
+      (color) => {
+        // Allow hex colors, gradients, and other valid CSS colors
+        return color && color.trim().length > 0;
+      },
+      { message: "Brand color is required" }
+    ),
+    primaryColor: z.string().optional(),
+    secondaryColor: z.string().optional(),
+    aiAvatar: z.string().optional(),
+    avatarFileName: z.string().optional(),
+    subdomain: z.string().min(1, "Subdomain is required").refine(
+      (subdomain) => {
+        // Allow subdomains with dots and basic characters
+        return subdomain && subdomain.trim().length > 0;
+      },
+      { message: "Subdomain is required" }
+    ),
+  });
 
 
 // Employer Scope validation
@@ -386,12 +388,14 @@ export const validateCurrentStep = async (step: number, stepData: any) => {
           ...stepData.branding,
           logo: stepData.branding?.logo || "",
           logoFileName: stepData.branding?.logoFileName || "",
-          backgroundImage: stepData.userSetup?.backgroundImage || "",
+          backgroundImage: stepData.branding?.backgroundImage || "",
           backgroundFileName: stepData.branding?.backgroundFileName || "",
           organizationName: stepData.branding?.organizationName || "",
           website: stepData.branding?.website || "",
           missionStatement: stepData.branding?.missionStatement || "",
           brandColor: stepData.branding?.brandColor || "",
+          primaryColor: stepData.branding?.primaryColor || "",
+          secondaryColor: stepData.branding?.secondaryColor || "",
           aiAvatar: stepData.branding?.aiAvatar || "",
           avatarFileName: stepData.branding?.avatarFileName || "",
           subdomain: stepData.branding?.subdomain || ""
