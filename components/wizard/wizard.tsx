@@ -413,7 +413,12 @@ export function OnboardingWizard({
 
       if (response.ok) {
         completeStep(currentStep);
-        completeWizard();
+        // Update store state locally without making a second API call
+        // (completeWizard() would trigger a redundant POST to the complete endpoint)
+        useOnboardingWizardStore.setState({
+          isCompleted: true,
+          currentStep: 5,
+        });
         window.location.href = "/new/dashboard";
       } else {
         const errorData = await response.json();

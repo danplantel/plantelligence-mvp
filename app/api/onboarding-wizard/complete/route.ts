@@ -13,11 +13,14 @@ export async function POST(request: NextRequest) {
 
     const { finalData } = await request.json();
 
-    // Find the active wizard session
+    // Find the most recent wizard session (same logic as services/route.ts)
+    // Use orderBy createdAt DESC to get the most recent session, not the first incomplete one
     const wizardSession = await prisma.wizardSession.findFirst({
       where: {
         userId: session.user.id,
-        completed: false,
+      },
+      orderBy: {
+        createdAt: "desc",
       },
       include: {
         clientProfile: true,
@@ -35,6 +38,7 @@ export async function POST(request: NextRequest) {
     if (!wizardSession) {
       return NextResponse.json({ error: "No active wizard session" }, { status: 404 });
     }
+
 
     // Use the comprehensive wizard completion function to merge all wizard data into User
     console.log("🚀 Starting wizard completion for user:", session.user.id);
