@@ -349,6 +349,7 @@ export function OnboardingWizard({
             console.error(
               `Failed to save final step ${currentStep} data to server`,
             );
+            toast.error("Failed to save data. Please try again.");
             return;
           }
         }
@@ -377,6 +378,7 @@ export function OnboardingWizard({
             console.error(
               `Failed to save final step ${currentStep} data to server`,
             );
+            toast.error("Failed to save data. Please try again.");
             return;
           }
         }
@@ -395,6 +397,7 @@ export function OnboardingWizard({
             console.error(
               `Failed to save final step ${currentStep} data to server`,
             );
+            toast.error("Failed to save data. Please try again.");
             return;
           }
         }
@@ -413,10 +416,13 @@ export function OnboardingWizard({
         completeWizard();
         window.location.href = "/new/dashboard";
       } else {
-        console.error("Failed to complete wizard");
+        const errorData = await response.json();
+        console.error("Failed to complete wizard:", errorData);
+        toast.error(`Failed to complete onboarding: ${errorData.error || "Unknown error"}`);
       }
     } catch (error) {
       console.error("Error completing wizard:", error);
+      toast.error(`Error completing onboarding: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setIsLoading(false);
     }

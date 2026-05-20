@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
-
-const prisma = new PrismaClient();
+import { completeWizardOnboarding } from "@/lib/wizard-completion";
+import prisma from "@/lib/prisma";
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,6 +13,7 @@ export async function POST(request: NextRequest) {
 
     const { finalData } = await request.json();
 
+    // Find the active wizard session
     const wizardSession = await prisma.wizardSession.findFirst({
       where: {
         userId: session.user.id,
@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
         branding: true,
         benefitTypes: true,
         employerScope: true,
+        userSetup: true,
       }
     });
 
@@ -35,45 +36,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No active wizard session" }, { status: 404 });
     }
 
-    await prisma.wizardSession.update({
-      where: { id: wizardSession.id },
-      data: {
-        completed: true,
-        currentStep: 10,
-        updatedAt: new Date(),
-      }
+    // Use the comprehensive wizard completion function to merge all wizard data into User
+    console.log("🚀 Starting wizard completion for user:", session.user.id);
+    console.log("📋 Wizard session ID:", wizardSession.id);
+    
+    const completionResult = await completeWizardOnboarding({
+      userId: session.user.id,
+      wizardSessionId: wizardSession.id,
     });
-
-    await prisma.wizardSession.updateMany({
-      where: {
-        userId: session.user.id,
-        completed: false,
-        id: { not: wizardSession.id }
-      },
-      data: {
-        completed: true,
-        updatedAt: new Date(),
-      }
-    });
-
-    if (finalData) {
-      const updateData: any = {};
-
-      if (wizardSession.clientProfile) {
-        updateData.company = wizardSession.clientProfile.organizationType;
-      }
-
-      if (wizardSession.branding) {
-        updateData.advisorLogo = wizardSession.branding.logo;
-      }
-
-      if (Object.keys(updateData).length > 0) {
-        await prisma.user.update({
-          where: { id: session.user.id },
-          data: updateData
-        });
-      }
-    }
+    
+    console.log("✅ Wizard completion result:", completionResult);
 
     // Check if user wants to be saved as a contact for future plans
     if (finalData?.userSetup?.saveAsContact) {
@@ -108,9 +80,6 @@ export async function POST(request: NextRequest) {
           await prisma.futureContact.create({
             data: contactPayload,
           });
-        } else {
-          // Optional: Update existing contact if needed, or skip
-          // For now, we'll skip to avoid overwriting custom data
         }
       } catch (contactError) {
         console.error("Error saving advisor as contact:", contactError);
@@ -118,29 +87,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    try {
-      const storedUserSetup = await prisma.wizardUserSetup.findUnique({
-        where: { sessionId: wizardSession.id },
-      });
-      if (storedUserSetup) {
-        await prisma.user.update({
-          where: { id: session.user.id },
-          data: {
-            phone: storedUserSetup.phone || null,
-            phoneExtension: storedUserSetup.phoneExtension ?? null,
-          } as any,
-        });
-      }
-    } catch (syncError) {
-      console.error("Error syncing user phone from wizard user setup:", syncError);
-    }
-
     return NextResponse.json({
       success: true,
-      message: "Wizard completed successfully"
+      message: "Wizard completed successfully",
+      updatedFields: completionResult.updatedFields,
     });
   } catch (error) {
     console.error("Error completing wizard:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : "Unknown error"
+      },
+      { status: 500 }
+    );
   }
 }

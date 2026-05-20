@@ -20,22 +20,31 @@ export async function completeWizardOnboarding({ userId, wizardSessionId }: Wiza
         branding: true,
         benefitTypes: true,
         employerScope: true,
+        userSetup: true,
       }
     });
 
     if (!wizardSession) {
       throw new Error("Wizard session not found");
     }
+    
+    console.log("🔍 Wizard Session loaded:", {
+      id: wizardSession.id,
+      userId: wizardSession.userId,
+      hasClientProfile: !!wizardSession.clientProfile,
+      hasTeamSize: !!wizardSession.teamSize,
+      hasServices: !!wizardSession.services,
+      hasTeamMembers: !!wizardSession.teamMembers,
+      hasBranding: !!wizardSession.branding,
+      hasUserSetup: !!wizardSession.userSetup,
+    });
 
     // Prepare user update data
     const updateData: any = {};
     
-    // Client Profile data
+    // Client Profile data - only company field exists in User model
     if (wizardSession.clientProfile) {
       updateData.company = wizardSession.clientProfile.organizationType;
-      if (wizardSession.clientProfile.customOrganization) {
-        updateData.customOrganization = wizardSession.clientProfile.customOrganization;
-      }
     }
     
     // Branding data - only logo is stored in User table
@@ -58,45 +67,61 @@ export async function completeWizardOnboarding({ userId, wizardSessionId }: Wiza
     }
 
     // Services data (Step 2) -> primaryServiceCategories for User profile (same labels as Settings)
-    if (wizardSession.services?.services?.length) {
-      const categories = step2ServicesToCategories(wizardSession.services.services);
-      if (categories.length) {
-        updateData.primaryServiceCategories = categories;
+    if (wizardSession.services) {
+      console.log("🔍 WizardServices found:", wizardSession.services);
+      const servicesArray = Array.isArray(wizardSession.services.services)
+        ? wizardSession.services.services
+        : [];
+      console.log("📋 Services array:", servicesArray);
+      
+      if (servicesArray.length > 0) {
+        const categories = step2ServicesToCategories(servicesArray);
+        console.log("🏷️ Converted categories:", categories);
+        if (categories.length) {
+          updateData.primaryServiceCategories = categories;
+        }
       }
     }
 
-    // Insurance Licensing data
-    if (wizardSession.insuranceLicensing?.offersInsurance) {
-      updateData.insuranceLicensing = true;
-      if (wizardSession.insuranceLicensing.licenseTypes?.length) {
-        updateData.licenseTypes = wizardSession.insuranceLicensing.licenseTypes.join(',');
+    // User Setup data (Step 4) - overwrites services categories if provided
+    if (wizardSession.userSetup) {
+      if (wizardSession.userSetup.name) {
+        updateData.name = wizardSession.userSetup.name;
       }
-      if (wizardSession.insuranceLicensing.statesLicensed?.length) {
-        updateData.statesLicensed = wizardSession.insuranceLicensing.statesLicensed.join(',');
+      if (wizardSession.userSetup.phone) {
+        updateData.phone = wizardSession.userSetup.phone;
+      }
+      if (wizardSession.userSetup.phoneExtension) {
+        updateData.phoneExtension = wizardSession.userSetup.phoneExtension;
+      }
+      if (wizardSession.userSetup.title) {
+        updateData.title = wizardSession.userSetup.title;
+      }
+      // Use userSetup categories if available, otherwise use services categories
+      if (wizardSession.userSetup.primaryServiceCategories?.length) {
+        updateData.primaryServiceCategories = wizardSession.userSetup.primaryServiceCategories;
       }
     }
-
-    // Employer Scope data
-    if (wizardSession.employerScope?.servesMultipleEmployers) {
-      updateData.servesMultipleEmployers = true;
-    }
-
-    // Team Size data
-    if (wizardSession.teamSize?.teamSize) {
-      updateData.teamSize = wizardSession.teamSize.teamSize;
-    }
-
-    // Benefit Types data
-    if (wizardSession.benefitTypes?.benefitTypes?.length) {
-      updateData.benefitTypes = wizardSession.benefitTypes.benefitTypes.join(',');
-    }
+    
+    // Note: The following wizard data is NOT stored in User model but remains in wizard tables:
+    // - WizardTeamSize (teamSize) - stored in WizardTeamSize table
+    // - WizardInsuranceLicensing (offersInsurance, licenseTypes, statesLicensed) - stored in WizardInsuranceLicensing table
+    // - WizardEmployerScope (servesMultipleEmployers) - stored in WizardEmployerScope table
+    // - WizardBenefitTypes (benefitTypes) - stored in WizardBenefitTypes table
+    // These can be accessed via the wizardSessions relation when needed
 
     // Update user with all collected data
+    console.log("📊 Final updateData to save to User:", updateData);
+    console.log("📊 Updated fields:", Object.keys(updateData));
+    
     if (Object.keys(updateData).length > 0) {
       await prisma.user.update({
         where: { id: userId },
         data: updateData
       });
+      console.log("✅ User updated successfully with fields:", Object.keys(updateData));
+    } else {
+      console.log("⚠️ No data to update for user");
     }
 
     // Mark wizard session as completed

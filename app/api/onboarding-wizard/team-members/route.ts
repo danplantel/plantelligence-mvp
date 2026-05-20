@@ -12,15 +12,28 @@ export async function POST(request: NextRequest) {
 
     const data = await request.json();
     
+    // Find or create wizard session
+    let wizardSession = await prisma.wizardSession.findFirst({
+      where: { userId: session.user.id },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!wizardSession) {
+      wizardSession = await prisma.wizardSession.create({
+        data: { userId: session.user.id },
+      });
+    }
+
     const teamMembers = await prisma.wizardTeamMembers.upsert({
       where: {
-        sessionId: data.sessionId || session.user.id,
+        sessionId: wizardSession.id,
       },
       update: {
         members: data.members || [],
+        updatedAt: new Date(),
       },
       create: {
-        sessionId: data.sessionId || session.user.id,
+        sessionId: wizardSession.id,
         members: data.members || [],
       },
     });
@@ -42,9 +55,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const teamMembers = await prisma.wizardTeamMembers.findFirst({
+    // Find the latest wizard session
+    const wizardSession = await prisma.wizardSession.findFirst({
+      where: { userId: session.user.id },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!wizardSession) {
+      return NextResponse.json({ teamMembers: null });
+    }
+
+    const teamMembers = await prisma.wizardTeamMembers.findUnique({
       where: {
-        sessionId: session.user.id,
+        sessionId: wizardSession.id,
       },
     });
 

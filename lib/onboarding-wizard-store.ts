@@ -489,13 +489,19 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ finalData: true }),
-        }).then(response => {
+        }).then(async response => {
           if (response.ok) {
             // Redirect to new dashboard after completion
             window.location.href = '/new/dashboard';
+          } else {
+            // Handle error response
+            const errorData = await response.json();
+            console.error("Failed to complete wizard:", errorData);
+            alert(`Error completing onboarding: ${errorData.error || 'Unknown error'}`);
           }
-        }).catch(() => {
-          // Silent error
+        }).catch((error) => {
+          console.error("Error calling complete endpoint:", error);
+          alert(`Error completing onboarding: ${error.message || 'Network error'}`);
         });
       },
 
