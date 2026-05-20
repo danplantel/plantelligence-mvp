@@ -266,23 +266,25 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
           const servicesArray = Array.isArray(data.services) ? data.services : [];
           const uniqueCategories = servicesArray.length ? step2ServicesToCategories(servicesArray) : [];
           normalizedData = { ...normalizedData };
+          
+          // Get current userSetup before updating state
+          const currentUserSetup = get().stepData.userSetup || {};
+          const userSetupPayload = {
+            ...currentUserSetup,
+            primaryServiceCategories: uniqueCategories,
+          };
+          
           set((state) => {
-            const currentUserSetup = state.stepData.userSetup || {};
             return {
               stepData: {
                 ...state.stepData,
                 [stepType]: normalizedData,
-                userSetup: {
-                  ...currentUserSetup,
-                  primaryServiceCategories: uniqueCategories,
-                },
+                userSetup: userSetupPayload,
               },
             } as unknown as Partial<OnboardingWizardState>;
           });
           if (saveToServer) {
             try {
-              const updatedUserSetup = get().stepData.userSetup;
-              const userSetupPayload = updatedUserSetup ?? { primaryServiceCategories: uniqueCategories };
               await get().saveStepDataToServer("userSetup", userSetupPayload);
               await get().saveStepDataToServer(stepType, normalizedData);
             } catch (error) {
@@ -301,8 +303,9 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
             return newState;
           });
 
-          const shouldSendToServer = saveToServer && get().autosaveToServer === true;
-          if (shouldSendToServer) {
+          // If saveToServer is explicitly true, always send to server (don't check autosaveToServer flag)
+          // This allows sections to save data immediately without waiting for the wizard's autosaveToServer flag
+          if (saveToServer) {
             try {
               await get().saveStepDataToServer(stepType, normalizedData);
             } catch (error) {

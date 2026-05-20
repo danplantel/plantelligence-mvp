@@ -50,15 +50,15 @@ export function TeamSizeSection({
         shouldDirty: true,
         shouldTouch: true,
       });
-      if (!disableAutoSave) {
-        saveStepDataLocally("teamSize", { teamSize: nextValue });
+      if (!disableAutoSave && nextValue) {
+        saveStepData("teamSize", { teamSize: nextValue }, true);
       }
     }
   }, [
     organizationType,
     selectedSize,
     setValue,
-    saveStepDataLocally,
+    saveStepData,
     disableAutoSave,
   ]);
 
@@ -68,12 +68,11 @@ export function TeamSizeSection({
     if (!disableAutoSave) {
       // Save data immediately when user interacts
       const data = { teamSize: size };
-      await saveStepDataLocally("teamSize", data);
-      // Also save to server to prevent data loss
+      // Save to both local state and server
       try {
         await saveStepData("teamSize", data, true);
       } catch (error) {
-        console.error("Failed to save team size to server:", error);
+        console.error("Failed to save team size:", error);
       }
       // Validate fields in real-time
       setTimeout(() => validateCurrentStepFields(), 100);

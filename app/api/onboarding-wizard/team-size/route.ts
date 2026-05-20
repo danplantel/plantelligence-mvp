@@ -13,7 +13,8 @@ export async function POST(request: NextRequest) {
 
     const data: TeamSizeFormData = await request.json();
 
-    const wizardSession = await prisma.wizardSession.findFirst({
+    // Find or create wizard session
+    let wizardSession = await prisma.wizardSession.findFirst({
       where: {
         userId: session.user.id,
         completed: false,
@@ -21,7 +22,13 @@ export async function POST(request: NextRequest) {
     });
 
     if (!wizardSession) {
-      return NextResponse.json({ error: "No active wizard session" }, { status: 404 });
+      wizardSession = await prisma.wizardSession.create({
+        data: {
+          userId: session.user.id,
+          currentStep: 1,
+          completed: false,
+        }
+      });
     }
 
     const teamSize = await prisma.wizardTeamSize.upsert({

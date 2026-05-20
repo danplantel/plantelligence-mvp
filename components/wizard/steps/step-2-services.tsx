@@ -66,11 +66,10 @@ export function Step2Services({ errorFields = [] }: Step2ServicesProps) {
       services: newServices,
       customService: newServices.includes(ServiceType.OTHER) ? customService : "",
     };
-    await saveStepDataLocally("services", servicesData);
     try {
       await saveStepData("services", servicesData, true);
     } catch (error) {
-      console.error("Failed to save services to server:", error);
+      console.error("Failed to save services:", error);
     }
     updateInsuranceLicensing(newServices);
     setTimeout(() => validateCurrentStepFields(), 100);
@@ -89,19 +88,18 @@ export function Step2Services({ errorFields = [] }: Step2ServicesProps) {
       services: selectedServices,
       customService: value,
     };
-    await saveStepDataLocally("services", servicesData);
-    // Also save to server to prevent data loss
+    // Save to both local state and server
     try {
       await saveStepData("services", servicesData, true);
     } catch (error) {
-      console.error("Failed to save services to server:", error);
+      console.error("Failed to save services:", error);
     }
     // Validate fields in real-time
     setTimeout(() => validateCurrentStepFields(), 100);
   };
 
   // Helper function to update insurance licensing
-  const updateInsuranceLicensing = (services: ServiceType[]) => {
+  const updateInsuranceLicensing = async (services: ServiceType[]) => {
     const hasInsuranceServices =
       services.includes(ServiceType.GROUP_HEALTH) ||
       services.includes(ServiceType.GROUP_LIFE_DISABILITY);
@@ -112,7 +110,11 @@ export function Step2Services({ errorFields = [] }: Step2ServicesProps) {
       licenses: licenses || [],
     };
 
-    saveStepDataLocally("insuranceLicensing", insuranceData);
+    try {
+      await saveStepData("insuranceLicensing", insuranceData, true);
+    } catch (error) {
+      console.error("Failed to save insurance licensing:", error);
+    }
   };
 
   return (

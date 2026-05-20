@@ -53,12 +53,11 @@ export function UserProfileSection({
         customOrganization:
           type === OrganizationType.OTHER ? customOrganization : undefined,
       };
-      await saveStepDataLocally("clientProfile", data);
-      // Also save to server to prevent data loss
+      // Save to both local state and server
       try {
         await saveStepData("clientProfile", data, true);
       } catch (error) {
-        console.error("Failed to save client profile to server:", error);
+        console.error("Failed to save client profile:", error);
       }
       // Validate fields in real-time
       setTimeout(() => validateCurrentStepFields(), 100);
@@ -78,12 +77,11 @@ export function UserProfileSection({
           organizationType: selectedType,
           customOrganization: value,
         };
-        await saveStepDataLocally("clientProfile", data);
-        // Also save to server to prevent data loss
+        // Save to both local state and server
         try {
           await saveStepData("clientProfile", data, true);
         } catch (error) {
-          console.error("Failed to save client profile to server:", error);
+          console.error("Failed to save client profile:", error);
         }
         // Validate fields in real-time
         setTimeout(() => validateCurrentStepFields(), 100);

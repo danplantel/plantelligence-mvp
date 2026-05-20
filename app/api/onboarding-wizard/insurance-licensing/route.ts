@@ -12,9 +12,25 @@ export async function POST(request: NextRequest) {
 
     const data = await request.json();
     
+    // Find or create wizard session
+    let wizardSession = await prisma.wizardSession.findFirst({
+      where: {
+        userId: session.user.id,
+        completed: false,
+      }
+    });
+
+    if (!wizardSession) {
+      wizardSession = await prisma.wizardSession.create({
+        data: {
+          userId: session.user.id,
+        }
+      });
+    }
+
     const insuranceLicensing = await prisma.wizardInsuranceLicensing.upsert({
       where: {
-        sessionId: data.sessionId || session.user.id,
+        sessionId: wizardSession.id,
       },
       update: {
         offersInsurance: data.offersInsurance,
@@ -22,9 +38,10 @@ export async function POST(request: NextRequest) {
         statesLicensed: data.statesLicensed || [],
         licenseNumbers: data.licenseNumbers || {},
         attestation: data.attestation || false,
+        updatedAt: new Date(),
       },
       create: {
-        sessionId: data.sessionId || session.user.id,
+        sessionId: wizardSession.id,
         offersInsurance: data.offersInsurance,
         licenseTypes: data.licenseTypes || [],
         statesLicensed: data.statesLicensed || [],
@@ -50,9 +67,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const insuranceLicensing = await prisma.wizardInsuranceLicensing.findFirst({
+    const wizardSession = await prisma.wizardSession.findFirst({
       where: {
-        sessionId: session.user.id,
+        userId: session.user.id,
+        completed: false,
+      }
+    });
+
+    if (!wizardSession) {
+      return NextResponse.json({ insuranceLicensing: null });
+    }
+
+    const insuranceLicensing = await prisma.wizardInsuranceLicensing.findUnique({
+      where: {
+        sessionId: wizardSession.id,
       },
     });
 
