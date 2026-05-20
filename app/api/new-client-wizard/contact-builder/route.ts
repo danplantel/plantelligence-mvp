@@ -17,6 +17,7 @@ const CONTACT_FIELDS = {
   email: true,
   phone: true,
   meetingLink: true,
+  headshot: true,
   createdAt: true,
   updatedAt: true,
 } as const;

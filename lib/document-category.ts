@@ -50,7 +50,15 @@ function normalizeExplicitCategoryToHub(raw: string): string {
   if (k === "recordkeeper" || k === "recordkeeper / vendor") {
     return "Recordkeeper / Vendor";
   }
-  if (k === "retirement plan benefits" || k === "retirement plan") {
+  if (
+    k === "retirement plan benefits" ||
+    k === "retirement plan" ||
+    k === "retirements" ||
+    k === "retirement documents" ||
+    k === "retirement plan documents" ||
+    k === "401k plan materials" ||
+    k === "401(k) plan materials"
+  ) {
     return "Retirement";
   }
   if (k === "health insurance") {

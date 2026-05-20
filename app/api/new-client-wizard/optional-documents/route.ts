@@ -64,6 +64,7 @@ export async function POST(request: NextRequest) {
                 category: resolvePersistedDocumentCategory(
                   "Document",
                   (file as any).category,
+                  storageKey,
                 ),
                 categorySuggested,
                 categoryConfidence,
@@ -106,6 +107,7 @@ export async function POST(request: NextRequest) {
               category: resolvePersistedDocumentCategory(
                 "Document",
                 (file as any).category,
+                (file as any).storageKey,
               ),
               categorySuggested,
               categoryConfidence,

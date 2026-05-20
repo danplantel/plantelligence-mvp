@@ -998,6 +998,38 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
         }
 
         try {
+          const stepSaveOrder: Array<keyof typeof stepData> = [
+            "companyBasics",
+            "welcomeStatement",
+            "keyContacts",
+            "contactBuilder",
+            "complianceDocuments",
+            "employeePortalPreview",
+          ];
+
+          for (const stepType of stepSaveOrder) {
+            const data = stepData[stepType];
+            if (!data) continue;
+            if (
+              stepType === "contactBuilder" &&
+              (!(data as any).fullName ||
+                !(data as any).title ||
+                !(data as any).companyName ||
+                !(data as any).orgType)
+            ) {
+              continue;
+            }
+            const saved = await get().saveStepDataToServer(
+              stepType,
+              data,
+            );
+            if (!saved) {
+              throw new Error(
+                `Failed to save latest ${String(stepType)} data before publishing`,
+              );
+            }
+          }
+
           const response = await fetch("/api/new-client-wizard/complete-v2", {
             method: "POST",
             headers: { "Content-Type": "application/json" },

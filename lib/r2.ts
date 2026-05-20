@@ -177,6 +177,12 @@ export type R2DocumentCategory = (typeof R2_DOCUMENT_CATEGORIES)[number];
 
 const DISPLAY_TO_CANONICAL: Record<string, R2DocumentCategory> = {
   retirement: "retirement",
+  retirements: "retirement",
+  "retirement documents": "retirement",
+  "retirement plan": "retirement",
+  "retirement plan documents": "retirement",
+  "401k plan materials": "retirement",
+  "401(k) plan materials": "retirement",
   "group health": "group-health",
   "group-health": "group-health",
   grouphealth: "group-health",

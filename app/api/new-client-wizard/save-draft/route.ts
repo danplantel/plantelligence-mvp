@@ -190,6 +190,30 @@ export async function POST(request: NextRequest) {
     if (stepData.companyBasics && stepData.companyBasics.companyName) {
       const cb = stepData.companyBasics;
       const logoPatch = companyLogoFieldsForPersistence(cb.companyLogo, cb);
+      const brandImagesToSave =
+        cb.brandImages && typeof cb.brandImages === "object"
+          ? { ...cb.brandImages }
+          : cb.brandImages;
+      if (
+        brandImagesToSave &&
+        typeof brandImagesToSave === "object" &&
+        !Array.isArray(brandImagesToSave)
+      ) {
+        const meta = { ...((brandImagesToSave as any)._meta || {}) };
+        if (cb.missionHeadline !== undefined) {
+          meta.missionHeadline = cb.missionHeadline || null;
+        }
+        if (cb.missionBody !== undefined) {
+          meta.missionBody = cb.missionBody || null;
+        }
+        if (cb.heroTitle !== undefined) {
+          meta.heroTitle = cb.heroTitle || null;
+        }
+        if (cb.heroDescription !== undefined) {
+          meta.heroDescription = cb.heroDescription || null;
+        }
+        (brandImagesToSave as any)._meta = meta;
+      }
 
       const dataToSave: any = {
         companyName: cb.companyName,
@@ -197,7 +221,7 @@ export async function POST(request: NextRequest) {
         ...logoPatch,
         ...(cb.primaryColor !== undefined && { primaryColor: cb.primaryColor }),
         ...(cb.secondaryColor !== undefined && { secondaryColor: cb.secondaryColor }),
-        ...(cb.brandImages !== undefined && { brandImages: cb.brandImages }),
+        ...(cb.brandImages !== undefined && { brandImages: brandImagesToSave }),
         ...(cb.planType !== undefined && { planType: cb.planType }),
         ...(cb.heroOverlayOpacity !== undefined && { heroOverlayOpacity: cb.heroOverlayOpacity }),
         ...(cb.heroBackgroundOpacity !== undefined && { heroBackgroundOpacity: cb.heroBackgroundOpacity }),
@@ -547,6 +571,7 @@ export async function POST(request: NextRequest) {
                 category: resolvePersistedDocumentCategory(
                   doc.type,
                   doc.category,
+                  storageKey,
                 ),
                 categorySuggested,
                 categoryConfidence,
@@ -574,6 +599,7 @@ export async function POST(request: NextRequest) {
                 category: resolvePersistedDocumentCategory(
                   doc.type,
                   doc.category,
+                  storageKey,
                 ),
                 categorySuggested,
                 categoryConfidence,

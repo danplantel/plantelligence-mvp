@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await request.json();
-    const { spdFile, otherDocuments, recordkeeper } = data;
+    const { spdFile, retirementPlanDocuments, otherDocuments, recordkeeper } = data;
 
     // Find wizard session
     const wizardSession = await prisma.newClientWizardSession.findFirst({
@@ -34,9 +34,16 @@ export async function POST(request: NextRequest) {
     const updateData: any = {
       spdFile: spdFile !== undefined ? spdFile : existing?.spdFile,
       recordkeeper: recordkeeper !== undefined ? (recordkeeper || null) : existing?.recordkeeper,
-      // Preserve retirementPlanDocuments when updating otherDocuments
-      retirementPlanDocuments: existing?.retirementPlanDocuments || null,
     };
+
+    // Only update retirementPlanDocuments if explicitly provided. This is the
+    // Step 4 upload surface for Benefits Hub documents; dropping it here means
+    // publish has no source rows to create portal documents from.
+    if (retirementPlanDocuments !== undefined) {
+      updateData.retirementPlanDocuments = retirementPlanDocuments;
+    } else {
+      updateData.retirementPlanDocuments = existing?.retirementPlanDocuments || null;
+    }
 
     // Only update otherDocuments if it's explicitly provided
     if (otherDocuments !== undefined) {
@@ -50,7 +57,7 @@ export async function POST(request: NextRequest) {
         sessionId: wizardSession.id,
         spdFile: spdFile || null,
         otherDocuments: otherDocuments || [],
-        retirementPlanDocuments: null,
+        retirementPlanDocuments: retirementPlanDocuments || [],
         recordkeeper: recordkeeper || null,
       },
     });

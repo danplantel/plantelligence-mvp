@@ -285,8 +285,16 @@ export async function POST(request: NextRequest) {
 
         // Get missionHeadline and missionBody from companyBasics
         // Check both direct fields and brandImages._meta
-        const missionHeadline = (companyBasics as any)?.missionHeadline || brandImagesMeta.missionHeadline || null;
-        const missionBody = (companyBasics as any)?.missionBody || brandImagesMeta.missionBody || null;
+        const missionHeadline =
+          (companyBasics as any)?.missionHeadline ||
+          brandImagesMeta.missionHeadline ||
+          welcomeStatement?.headline ||
+          null;
+        const missionBody =
+          (companyBasics as any)?.missionBody ||
+          brandImagesMeta.missionBody ||
+          welcomeStatement?.bodyText ||
+          null;
 
 
 
@@ -481,7 +489,7 @@ export async function POST(request: NextRequest) {
                 storageKey: spdStorageKey.trim(),
                 shortDescription: spdData?.shortDescription || null,
                 type: "SPD",
-                category: resolvePersistedDocumentCategory("SPD", spdData?.category),
+                category: resolvePersistedDocumentCategory("SPD", spdData?.category, spdStorageKey),
                 clientId: client.id,
                 uploadedAt: new Date(),
               } as any,
@@ -502,7 +510,7 @@ export async function POST(request: NextRequest) {
                   fileUrl,
                   shortDescription: spdData?.shortDescription || null,
                   type: "SPD",
-                  category: resolvePersistedDocumentCategory("SPD", spdData?.category),
+                  category: resolvePersistedDocumentCategory("SPD", spdData?.category, spdData?.storageKey),
                   clientId: client.id,
                   uploadedAt: new Date(),
                 } as any,
@@ -619,7 +627,7 @@ export async function POST(request: NextRequest) {
                   storageKey: docStorageKey.trim(),
                   shortDescription: shortDescription,
                   type: documentType,
-                  category: resolvePersistedDocumentCategory(documentType, doc.category),
+                  category: resolvePersistedDocumentCategory(documentType, doc.category, docStorageKey),
                   categorySuggested,
                   categoryConfidence,
                   expirationDate: validExpiration,
@@ -637,7 +645,7 @@ export async function POST(request: NextRequest) {
                   fileUrl: fileUrl,
                   shortDescription: shortDescription,
                   type: documentType,
-                  category: resolvePersistedDocumentCategory(documentType, doc.category),
+                  category: resolvePersistedDocumentCategory(documentType, doc.category, docStorageKey),
                   categorySuggested,
                   categoryConfidence,
                   expirationDate: validExpiration,
@@ -668,6 +676,56 @@ export async function POST(request: NextRequest) {
         // Create other documents if exist
         if (complianceDocuments?.otherDocuments && Array.isArray(complianceDocuments.otherDocuments)) {
           await processDocumentsArray(complianceDocuments.otherDocuments, "SBC");
+        }
+
+        // If a draft plan exists, copy any documents that were saved directly to
+        // the draft Client row but were not present in the wizard JSON. This
+        // protects the publish path from losing Step 4 uploads after draft saves.
+        if (draftClientId) {
+          const draftDocuments = await prisma.document.findMany({
+            where: { clientId: draftClientId },
+          });
+          const copiedKeys = new Set(
+            documents.map((doc: any) => {
+              const key = (doc as any).storageKey || "";
+              return key
+                ? `storage:${key}`
+                : `file:${doc.fileName || ""}:${doc.title || ""}:${doc.type || ""}`;
+            }),
+          );
+
+          for (const draftDoc of draftDocuments) {
+            if ((draftDoc as any).archivedAt) continue;
+            const dedupeKey = (draftDoc as any).storageKey
+              ? `storage:${(draftDoc as any).storageKey}`
+              : `file:${draftDoc.fileName || ""}:${draftDoc.title || ""}:${draftDoc.type || ""}`;
+            if (copiedKeys.has(dedupeKey)) continue;
+
+            const copiedDocument = await prisma.document.create({
+              data: {
+                title: draftDoc.title,
+                fileName: draftDoc.fileName,
+                fileUrl: draftDoc.fileUrl,
+                storageKey: (draftDoc as any).storageKey || null,
+                shortDescription: (draftDoc as any).shortDescription || null,
+                type: draftDoc.type || "Document",
+                category: resolvePersistedDocumentCategory(
+                  draftDoc.type,
+                  (draftDoc as any).category,
+                  (draftDoc as any).storageKey,
+                ),
+                categorySuggested: (draftDoc as any).categorySuggested || null,
+                categoryConfidence: (draftDoc as any).categoryConfidence || null,
+                language: draftDoc.language || "EN",
+                expirationDate: draftDoc.expirationDate || null,
+                showQrCode: (draftDoc as any).showQrCode ?? true,
+                clientId: client.id,
+                uploadedAt: draftDoc.uploadedAt || new Date(),
+              } as any,
+            });
+            documents.push(copiedDocument);
+            copiedKeys.add(dedupeKey);
+          }
         }
 
         // Clean up the wizard session and related data after successful client creation
@@ -779,4 +837,3 @@ export async function POST(request: NextRequest) {
     }, { status: 500 });
   }
 }
-
