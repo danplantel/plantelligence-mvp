@@ -2395,7 +2395,7 @@ export function UniversalImageEditorModal({
           ? "!border-red-500 focus-visible:!border-red-500 focus-visible:ring-red-500/20"
           : value
             ? "!border-accent-blue bg-[#23919C]/10 focus-visible:ring-accent-blue/20 dark:focus-visible:ring-accent-blue/30"
-            : "!border-gray-300 dark:!border-gray-500 bg-background focus-visible:!border-accent-blue dark:focus-visible:!border-accent-blue focus-visible:ring-accent-blue/20 dark:focus-visible:ring-accent-blue/30"
+            : "!border-gray-300 dark:!border-gray-500 bg-transparent focus-visible:!border-accent-blue dark:focus-visible:!border-accent-blue focus-visible:ring-accent-blue/20 dark:focus-visible:ring-accent-blue/30"
           }`}
       >
         {value ? (
