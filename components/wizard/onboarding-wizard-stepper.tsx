@@ -144,6 +144,10 @@ export function OnboardingWizardStepper({
                       ? "bg-accent-blue text-white cursor-pointer hover:bg-accent-blue/90 hover:shadow-md hover:scale-105"
                       : "bg-[#23919C]/10 text-gray-400 cursor-not-allowed"
                 }`}
+                style={!isCurrent && !isPast && isDarkMode ? {
+                  backgroundColor: "#4B5563",
+                  color: "#E5E7EB"
+                } : undefined}
                 title={
                   isClickable
                     ? `Go to ${step.title}`
@@ -162,8 +166,11 @@ export function OnboardingWizardStepper({
                   className={`h-1.5 flex-1 transition-all duration-200 ${
                     step.id < currentStep
                       ? "bg-accent-blue"
-                      : "bg-[#23919C]/10"
+                      : isDarkMode ? "" : "bg-[#23919C]/10"
                   }`}
+                  style={step.id >= currentStep && isDarkMode ? {
+                    backgroundColor: "#4B5563"
+                  } : undefined}
                 />
               )}
             </div>

@@ -233,16 +233,22 @@ export function WizardStepper({
                   ? "bg-accent-blue text-white"
                   : isPast
                     ? "bg-accent-blue text-white"
-                    : "bg-[#23919C]/10 text-gray-400"
+                    : ""
                   }`}
+                style={!isCurrent && !isPast ? {
+                  backgroundColor: theme === "dark" ? "#4B5563" : "#D1D5DB",
+                  color: theme === "dark" ? "#E5E7EB" : "#4B5563"
+                } : undefined}
               >
                 {isPast ? <Check className="w-2 h-2" /> : <p className="text-xs">{step.id}</p>}
               </div>
 
               {!isLastVisible && (
                 <div
-                  className={`h-0.5 flex-1 mx-0.25 transition-all duration-200 ${step.id < currentStep ? "bg-accent-blue" : "bg-[#23919C]/10"
-                    }`}
+                  className="h-0.5 flex-1 mx-0.25 transition-all duration-200"
+                  style={{
+                    backgroundColor: step.id < currentStep ? "#17A2B8" : (theme === "dark" ? "#4B5563" : "#D1D5DB")
+                  }}
                 />
               )}
             </div>
