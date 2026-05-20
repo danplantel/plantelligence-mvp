@@ -3,18 +3,34 @@
 import UserAuthForm from "@/components/forms/user-auth-form";
 import { useTheme } from "next-themes";
 import React, { useEffect, useState } from "react";
+import { Moon, Sun } from "lucide-react";
 
 const SignIn = () => {
-  const { theme = 'system' } = useTheme();
+  const { theme = 'system', setTheme } = useTheme();
   const [themeMode, setThemeMode] = useState("");
 
   useEffect(() => {
     setThemeMode(theme);
   }, [theme]);
 
+  const toggleTheme = () => {
+    setTheme(theme === "dark" ? "light" : "dark");
+  };
+
   return (
-    <div className="flex flex-col items-center justify-center h-screen pt-3 pb-3">
-      <div className="flex flex-col items-center justify-center w-full h-full p-4 mb-12 space-y-6 lg:p-8">
+    <div className="flex flex-col h-screen">
+      <button
+        onClick={toggleTheme}
+        className="fixed top-4 right-4 p-2 rounded-lg bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors z-50"
+        aria-label="Toggle theme"
+      >
+        {themeMode === "dark" ? (
+          <Sun className="w-5 h-5 text-yellow-500" />
+        ) : (
+          <Moon className="w-5 h-5 text-gray-700" />
+        )}
+      </button>
+      <div className="flex flex-col items-center justify-center flex-1 p-4 mb-12 space-y-6 lg:p-8">
         <img
           src={
             themeMode === "dark"
