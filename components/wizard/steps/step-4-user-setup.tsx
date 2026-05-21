@@ -232,14 +232,24 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
 
       if (serverData) {
         const cur = methods.getValues();
-        // Update form with fresh server data (so onboarding stays in sync with Settings)
-        setValue("phone", serverData.phone || "");
-        setValue("headshot", serverData.headshot || "");
+        // Only overwrite fields with server data when server has non-empty values,
+        // otherwise keep the current form values to prevent clearing.
+        if (serverData.phone) {
+          setValue("phone", serverData.phone);
+        }
+        if (serverData.headshot) {
+          setValue("headshot", serverData.headshot);
+        }
+        if (serverData.title) {
+          setValue("title", serverData.title);
+        }
         // DB has no headshotFileName column — keep client filename after GET
-        setValue(
-          "headshotFileName",
-          serverData.headshotFileName || cur.headshotFileName || "",
-        );
+        if (serverData.headshotFileName || cur.headshotFileName) {
+          setValue(
+            "headshotFileName",
+            serverData.headshotFileName || cur.headshotFileName || "",
+          );
+        }
         setValue(
           "headshotData",
           serverData.headshotData ?? cur.headshotData ?? null,

@@ -28,7 +28,8 @@ function DisclaimerCard({ disclaimer, onEdit, onDelete }: DisclaimerCardProps) {
     <div className="border border-gray-200 rounded p-3 bg-card relative">
       <div className="flex justify-between items-start mb-2">
         <div className="flex-1 pr-2">
-          <span className="text-[11px] font-semibold text-gray-700">
+          <h5 className="text-[13px] font-semibold text-gray-500 dark:text-gray-400">Disclaimer Types:</h5>
+          <span className="text-[11px] font-semibold text-gray-500">
             {[
               ...disclaimer.locations,
               ...(disclaimer.customLocation ? [disclaimer.customLocation] : []),
@@ -57,7 +58,7 @@ function DisclaimerCard({ disclaimer, onEdit, onDelete }: DisclaimerCardProps) {
         </div>
       </div>
 
-      <div className="text-xs text-gray-600 leading-relaxed whitespace-pre-wrap break-words">
+      <div className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-wrap break-words">
         {disclaimer.text}
       </div>
     </div>
@@ -362,7 +363,7 @@ export function Step5Disclaimers({
                 onValueChange={handleAddTimingChange}
                 className="grid grid-cols-2 gap-3"
               >
-                <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
                   <RadioGroupItem value="now" id="now" />
                   <Label
                     htmlFor="now"
@@ -372,7 +373,7 @@ export function Step5Disclaimers({
                   </Label>
                 </div>
                 <div
-                  className={`flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer ${!isValidState ? "border-red-500" : ""
+                  className={`flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer ${!isValidState ? "border-red-500" : ""
                     }`}
                 >
                   <RadioGroupItem value="later" id="later" />

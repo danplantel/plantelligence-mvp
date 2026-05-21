@@ -118,6 +118,9 @@ export function UserSetupSection({
               icon={<Briefcase className="h-4 w-4" />}
               onChange={(e) => {
                 field.onChange(e);
+                // Persist title change immediately so validation on "Next"
+                // sees the current value even if user didn't blur first
+                onDataChange("title", e.target.value);
               }}
               onBlur={async (e) => {
                 field.onBlur();

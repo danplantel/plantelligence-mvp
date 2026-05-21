@@ -141,9 +141,9 @@ export function OnboardingWizard({
         const phoneInput = document.querySelector(
           'input[name="phone"]',
         ) as HTMLInputElement;
-        const titleSelect = document.querySelector(
-          'select[name="title"]',
-        ) as HTMLSelectElement;
+        const titleInput = document.querySelector(
+          'input[name="title"]',
+        ) as HTMLInputElement;
         const headshotField = document.querySelector(
           '[data-field="headshot"]',
         ) as HTMLElement;
@@ -170,7 +170,7 @@ export function OnboardingWizard({
         freshStepData.userSetup = {
           ...freshStepData.userSetup,
           phone: phoneInput?.value || freshStepData.userSetup?.phone || "",
-          title: titleSelect?.value || freshStepData.userSetup?.title || "",
+          title: titleInput?.value || freshStepData.userSetup?.title || "",
           name: freshStepData.userSetup?.name || "",
           email: freshStepData.userSetup?.email || "",
           designations: freshStepData.userSetup?.designations || [],
