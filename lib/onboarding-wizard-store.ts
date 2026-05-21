@@ -254,6 +254,16 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
       },
 
       saveStepData: async (stepType: string, data: any, saveToServer: boolean = true) => {
+        // Debug: log branding data being saved
+        if (stepType === "branding") {
+          console.log(`[saveStepData] Saving branding data:`, {
+            hasPrimaryColor: !!(data as any)?.primaryColor,
+            hasSecondaryColor: !!(data as any)?.secondaryColor,
+            primaryColor: (data as any)?.primaryColor,
+            secondaryColor: (data as any)?.secondaryColor,
+            allKeys: Object.keys(data),
+          });
+        }
 
         // Normalize website URL if present
         let normalizedData = { ...data };
@@ -352,8 +362,16 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
         // If data already exists and not forcing reload, return cached data
         if (!force && stepData[stepType as keyof typeof stepData]) {
           const cachedData = stepData[stepType as keyof typeof stepData] as any;
+          console.log(`[loadStepData] Returning CACHED data for "${stepType}":`, {
+            hasPrimaryColor: !!(cachedData as any)?.primaryColor,
+            hasSecondaryColor: !!(cachedData as any)?.secondaryColor,
+            primaryColor: (cachedData as any)?.primaryColor,
+            secondaryColor: (cachedData as any)?.secondaryColor,
+          });
           return cachedData;
         }
+
+        console.log(`[loadStepData] FETCHING from server for "${stepType}" (cached: ${!!stepData[stepType as keyof typeof stepData]})`);
 
         try {
           // Convert camelCase to kebab-case for API endpoints
@@ -362,6 +380,13 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
           if (response.ok) {
             const result = await response.json();
             const data = result[stepType];
+            console.log(`[loadStepData] Server returned for "${stepType}":`, {
+              hasData: !!data,
+              hasPrimaryColor: !!(data as any)?.primaryColor,
+              hasSecondaryColor: !!(data as any)?.secondaryColor,
+              primaryColor: (data as any)?.primaryColor,
+              secondaryColor: (data as any)?.secondaryColor,
+            });
             if (data) {
               set((state) => ({
                 stepData: {

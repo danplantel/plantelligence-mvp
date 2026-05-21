@@ -199,13 +199,7 @@ export const brandingSchema = z.object({
       { message: "Please enter a valid website URL (e.g., example.com or https://example.com)" }
     ),
     missionStatement: z.string().optional(),
-    brandColor: z.string().min(1, "Brand color is required").refine(
-      (color) => {
-        // Allow hex colors, gradients, and other valid CSS colors
-        return color && color.trim().length > 0;
-      },
-      { message: "Brand color is required" }
-    ),
+    brandColor: z.string().optional(),
     primaryColor: z.string().optional(),
     secondaryColor: z.string().optional(),
     aiAvatar: z.string().optional(),
@@ -412,9 +406,7 @@ export const validateCurrentStep = async (step: number, stepData: any) => {
         if (!cleanBranding.website || cleanBranding.website.trim() === "") {
           step3Errors.push("website");
         }
-        if (!cleanBranding.brandColor || cleanBranding.brandColor.trim() === "") {
-          step3Errors.push("brandColor");
-        }
+        // brandColor has been replaced by primaryColor/secondaryColor — no longer required
         if (!cleanBranding.subdomain || cleanBranding.subdomain.trim() === "") {
           step3Errors.push("subdomain");
         }

@@ -94,36 +94,6 @@ export function UserSetupSection({
                 field.onBlur();
                 const value = e.target.value;
                 onDataChange("name", value);
-                try {
-                  const { validateCurrentStep } = await import(
-                    "@/lib/wizard-validation"
-                  );
-                  const currentStepData = {
-                    ...stepData,
-                    userSetup: {
-                      ...stepData.userSetup,
-                      name: value,
-                    },
-                  };
-                  const validationResult = await validateCurrentStep(
-                    4,
-                    currentStepData,
-                  );
-
-                  if (
-                    !validationResult.isValid &&
-                    validationResult.errorFields
-                  ) {
-                    setErrorFields(validationResult.errorFields);
-                  } else {
-                    setErrorFields([]);
-                  }
-                } catch (validationError) {
-                  console.error(
-                    "Error validating current step:",
-                    validationError,
-                  );
-                }
               }}
               placeholder="Enter your full name"
               required
@@ -153,33 +123,7 @@ export function UserSetupSection({
                 field.onBlur();
                 const value = e.target.value;
                 onTitleChange(value, onDataChange);
-                try {
-                  const { validateCurrentStep } = await import(
-                    "@/lib/wizard-validation"
-                  );
-                  const currentStepData = {
-                    ...stepData,
-                    userSetup: { ...stepData.userSetup, title: value },
-                  };
-                  const validationResult = await validateCurrentStep(
-                    4,
-                    currentStepData,
-                  );
-
-                  if (
-                    !validationResult.isValid &&
-                    validationResult.errorFields
-                  ) {
-                    setErrorFields(validationResult.errorFields);
-                  } else {
-                    setErrorFields([]);
-                  }
-                } catch (validationError) {
-                  console.error(
-                    "Error validating current step:",
-                    validationError,
-                  );
-                }
+                // Validation is handled inside onDataChange to ensure current form values are used
               }}
               placeholder="Enter your professional title"
               required
@@ -231,36 +175,6 @@ export function UserSetupSection({
                 field.onBlur();
                 const value = e.target.value;
                 onDataChange("email", value);
-                try {
-                  const { validateCurrentStep } = await import(
-                    "@/lib/wizard-validation"
-                  );
-                  const currentStepData = {
-                    ...stepData,
-                    userSetup: {
-                      ...stepData.userSetup,
-                      email: value,
-                    },
-                  };
-                  const validationResult = await validateCurrentStep(
-                    4,
-                    currentStepData,
-                  );
-
-                  if (
-                    !validationResult.isValid &&
-                    validationResult.errorFields
-                  ) {
-                    setErrorFields(validationResult.errorFields);
-                  } else {
-                    setErrorFields([]);
-                  }
-                } catch (validationError) {
-                  console.error(
-                    "Error validating current step:",
-                    validationError,
-                  );
-                }
               }}
               placeholder="your.email@example.com"
               required
@@ -352,42 +266,6 @@ export function UserSetupSection({
                 field.onBlur();
                 const normalized = normalizePhoneNumber(e.target.value);
                 onDataChange("phone", normalized);
-
-                if (normalized.length >= 7) {
-                  try {
-                    const { validateCurrentStep } = await import(
-                      "@/lib/wizard-validation"
-                    );
-                    const currentStepData = {
-                      ...stepData,
-                      userSetup: {
-                        ...stepData.userSetup,
-                        phone: normalized,
-                      },
-                    };
-
-                    const validationResult = await validateCurrentStep(
-                      4,
-                      currentStepData,
-                    );
-
-                    if (
-                      !validationResult.isValid &&
-                      validationResult.errorFields
-                    ) {
-                      setErrorFields(validationResult.errorFields);
-                    } else {
-                      setErrorFields([]);
-                    }
-                  } catch (validationError) {
-                    console.error(
-                      "Error validating current step:",
-                      validationError,
-                    );
-                  }
-                } else {
-                  setErrorFields([]);
-                }
               }}
               placeholder="(555) 123-4567"
               required

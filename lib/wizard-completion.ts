@@ -81,10 +81,6 @@ export async function completeWizardOnboarding({ userId, wizardSessionId }: Wiza
       if (wizardSession.branding.website) {
         updateData.website = wizardSession.branding.website;
       }
-      // Brand color
-      if (wizardSession.branding.brandColor) {
-        updateData.brandColor = wizardSession.branding.brandColor;
-      }
       // Primary color
       if (wizardSession.branding.primaryColor) {
         updateData.primaryColor = wizardSession.branding.primaryColor;

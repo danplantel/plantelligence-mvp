@@ -95,6 +95,10 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
     stepData.branding?.subdomain || "benefits.acme.com",
   );
 
+  // Refs to store the latest color values to avoid stale closures in saveData
+  const primaryColorRef = useRef<string>(primaryColor);
+  const secondaryColorRef = useRef<string>(secondaryColor);
+
   // Ref to store the latest logo value
   const latestLogoRef = useRef<string>("");
 
@@ -104,6 +108,14 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [useDefaultWelcomeStatement, setUseDefaultWelcomeStatement] =
     useState(true);
+
+  // Keep refs in sync with local state to avoid stale closures
+  useEffect(() => {
+    primaryColorRef.current = primaryColor;
+  }, [primaryColor]);
+  useEffect(() => {
+    secondaryColorRef.current = secondaryColor;
+  }, [secondaryColor]);
 
   // Set default welcome statement when useDefaultWelcomeStatement is true
   useEffect(() => {
@@ -146,8 +158,8 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
        website: currentFormData.website || website,
        missionStatement: currentFormData.missionStatement || missionStatement,
        brandColor: currentFormData.brandColor || brandColor,
-       primaryColor,
-       secondaryColor,
+       primaryColor: primaryColorRef.current,
+       secondaryColor: secondaryColorRef.current,
        aiAvatar,
        avatarFileName,
        subdomain: currentFormData.subdomain || subdomain,
@@ -208,6 +220,8 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
       website,
       missionStatement,
       brandColor,
+      primaryColor: primaryColorRef.current,
+      secondaryColor: secondaryColorRef.current,
       aiAvatar: avatarData.imageUrl || "generated-avatar-url",
       avatarFileName: avatarData.imageUrl
         ? `AI Generated Avatar - ${formatUsDate(new Date())}`
@@ -231,6 +245,15 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
       setValue("missionStatement", stepData.branding.missionStatement || "");
       setValue("brandColor", stepData.branding.brandColor || "#1F3A60");
       setValue("subdomain", stepData.branding.subdomain || "benefits.acme.com");
+
+      // Restore local state for primaryColor and secondaryColor from store
+      // so color pickers show correct values when navigating back to Step 3
+      if (stepData.branding.primaryColor) {
+        setPrimaryColor(stepData.branding.primaryColor);
+      }
+      if (stepData.branding.secondaryColor) {
+        setSecondaryColor(stepData.branding.secondaryColor);
+      }
     }
 
     // Load organizationName and website from clientProfile (for persistence)
@@ -282,6 +305,34 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
                 const colors = await extractColorsFromImage(dataUrl);
                 setPrimaryColor(colors.primary);
                 setSecondaryColor(colors.secondary);
+                // Update refs immediately so that subsequent onDataChange calls
+                // (e.g. for "logo") pick up the correct extracted values
+                primaryColorRef.current = colors.primary;
+                secondaryColorRef.current = colors.secondary;
+                // Persist extracted colors to the Zustand store and server immediately
+                // so Step 5 and the database always see the actual extracted values
+                const latestBranding = (useOnboardingWizardStore.getState().stepData.branding || {}) as any;
+                const brandingData = {
+                  logo: latestBranding.logo ?? logo,
+                  logoFileName: latestBranding.logoFileName ?? logoFileName,
+                  backgroundImage: latestBranding.backgroundImage ?? backgroundImage,
+                  backgroundFileName: latestBranding.backgroundFileName ?? backgroundFileName,
+                  organizationName: latestBranding.organizationName ?? organizationName,
+                  website: latestBranding.website ?? website,
+                  missionStatement: latestBranding.missionStatement ?? missionStatement,
+                  brandColor: latestBranding.brandColor ?? brandColor,
+                  primaryColor: colors.primary,
+                  secondaryColor: colors.secondary,
+                  aiAvatar: latestBranding.aiAvatar ?? aiAvatar,
+                  avatarFileName: latestBranding.avatarFileName ?? avatarFileName,
+                  subdomain: latestBranding.subdomain ?? subdomain,
+                };
+                console.log("[Step3] onLogoPreview - persisting extracted colors:", {
+                  primaryColor: colors.primary,
+                  secondaryColor: colors.secondary,
+                });
+                await saveStepDataLocally("branding", brandingData);
+                await saveStepDataToServer("branding", brandingData);
               } catch (error) {
                 console.error("Failed to extract colors from logo preview:", error);
                 setPrimaryColor("#1F3A60");
@@ -329,32 +380,43 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
 
              // Don't include preview fields in the data saved to store/server
              const brandingData: any = {
-                logo: latestBranding.logo ?? logo,
-                logoFileName: latestBranding.logoFileName ?? logoFileName,
-                backgroundImage: latestBranding.backgroundImage ?? backgroundImage,
-                backgroundFileName: latestBranding.backgroundFileName ?? backgroundFileName,
-                organizationName: latestBranding.organizationName ?? organizationName,
-                website: latestBranding.website ?? website,
-                missionStatement: latestBranding.missionStatement ?? missionStatement,
-                brandColor: latestBranding.brandColor ?? brandColor,
-                primaryColor: latestBranding.primaryColor ?? primaryColor,
-                secondaryColor: latestBranding.secondaryColor ?? secondaryColor,
-                aiAvatar: latestBranding.aiAvatar ?? aiAvatar,
-                avatarFileName: latestBranding.avatarFileName ?? avatarFileName,
-                subdomain: latestBranding.subdomain ?? subdomain,
-              };
+               logo: latestBranding.logo ?? logo,
+               logoFileName: latestBranding.logoFileName ?? logoFileName,
+               backgroundImage: latestBranding.backgroundImage ?? backgroundImage,
+               backgroundFileName: latestBranding.backgroundFileName ?? backgroundFileName,
+               organizationName: latestBranding.organizationName ?? organizationName,
+               website: latestBranding.website ?? website,
+               missionStatement: latestBranding.missionStatement ?? missionStatement,
+               brandColor: latestBranding.brandColor ?? brandColor,
+               primaryColor: latestBranding.primaryColor ?? primaryColorRef.current,
+               secondaryColor: latestBranding.secondaryColor ?? secondaryColorRef.current,
+               aiAvatar: latestBranding.aiAvatar ?? aiAvatar,
+               avatarFileName: latestBranding.avatarFileName ?? avatarFileName,
+               subdomain: latestBranding.subdomain ?? subdomain,
+             };
 
               // Only override non-preview fields
               if (field !== "backgroundImagePreview" && field !== "logoPreview") {
                 brandingData[field] = value;
               }
 
-               if (field === "logoFileName" && brandingData.logo === "") {
-                 if (latestLogoRef.current) {
-                   brandingData.logo = latestLogoRef.current;
-                 }
-               }
-               await saveStepDataLocally("branding", brandingData);
+                if (field === "logoFileName" && brandingData.logo === "") {
+                  if (latestLogoRef.current) {
+                    brandingData.logo = latestLogoRef.current;
+                  }
+                }
+
+                // Debug: log what's being saved to the store
+                console.log(`[Step3] Saving brandingData to store:`, {
+                  field,
+                  value,
+                  primaryColor: brandingData.primaryColor,
+                  secondaryColor: brandingData.secondaryColor,
+                  latestBrandingPrimary: latestBranding.primaryColor,
+                  refPrimary: primaryColorRef.current,
+                });
+
+                await saveStepDataLocally("branding", brandingData);
 
                // Save to server immediately for backgroundImage changes
                if (field === "backgroundImage" || field === "backgroundFileName") {
@@ -418,8 +480,8 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
                        website: currentFormData.website || website,
                        missionStatement: currentFormData.missionStatement || missionStatement,
                        brandColor: currentFormData.brandColor || brandColor,
-                       primaryColor,
-                       secondaryColor,
+                       primaryColor: primaryColorRef.current,
+                       secondaryColor: secondaryColorRef.current,
                        aiAvatar,
                        avatarFileName,
                        subdomain: currentFormData.subdomain || subdomain,
@@ -465,6 +527,8 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
                 website,
                 missionStatement,
                 brandColor,
+                primaryColor: primaryColorRef.current,
+                secondaryColor: secondaryColorRef.current,
                 aiAvatar,
                 avatarFileName,
                 subdomain,

@@ -66,6 +66,7 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
       name: "",
       email: "",
       phone: "",
+      phoneExtension: "",
       title: "",
       designations: [],
       headshot: "",
@@ -285,7 +286,11 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
 
   const onDataChange = async (field: string, value: any) => {
     setIsEditing(true);
-    setValue(field as any, value);
+    // Only call setValue if the value actually changed to avoid unnecessary re-renders
+    const currentValue = methods.getValues(field as any);
+    if (currentValue !== value) {
+      setValue(field as any, value);
+    }
 
     // Clear existing timeout
     if (saveTimeoutRef.current) {
@@ -364,7 +369,7 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
         saveOperationRef.current = null;
       }
 
-      // Validate after successful save (this branch is only for non-phone fields)
+      // Validate after successful save using current form values (not stale store)
       setTimeout(async () => {
         try {
           const { validateCurrentStep } = await import(
@@ -388,8 +393,27 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
         }
       }, 200);
     } else {
-      // For fields that don't require server save, validate immediately
-      setTimeout(() => validateCurrentStepFields(), 100);
+      // For fields that don't require server save, validate immediately using current form values
+      setTimeout(async () => {
+        try {
+          const { validateCurrentStep } = await import(
+            "@/lib/wizard-validation"
+          );
+          const currentFormData = methods.getValues();
+          const currentStepData = { ...stepData, userSetup: currentFormData };
+          const validationResult = await validateCurrentStep(
+            4,
+            currentStepData,
+          );
+          if (!validationResult.isValid && validationResult.errorFields) {
+            setErrorFields(validationResult.errorFields);
+          } else {
+            setErrorFields([]);
+          }
+        } catch (validationError) {
+          console.error("Error validating current step:", validationError);
+        }
+      }, 100);
     }
   };
 

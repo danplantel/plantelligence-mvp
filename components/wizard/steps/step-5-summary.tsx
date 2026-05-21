@@ -97,6 +97,15 @@ export function Step5Summary({
   const [tempCustomOrg, setTempCustomOrg] = useState("");
   const [tempTeamSize, setTempTeamSize] = useState("");
 
+  // Local state for branding colors to ensure they display correctly
+  // even if the reactive stepData from the zustand hook is stale.
+  const [brandingPrimaryColor, setBrandingPrimaryColor] = useState<string>(
+    stepData.branding?.primaryColor || ""
+  );
+  const [brandingSecondaryColor, setBrandingSecondaryColor] = useState<string>(
+    stepData.branding?.secondaryColor || ""
+  );
+
   // Load data when component mounts
   useEffect(() => {
     const loadData = async () => {
@@ -105,10 +114,41 @@ export function Step5Summary({
       await loadStepData("services");
       await loadStepData("branding");
       const userSetupData = await loadStepData("userSetup");
+
+      // Read the latest branding data directly from the store (bypasses any
+      // caching/reactivity issues with loadStepData) and store in local state.
+      const store = useOnboardingWizardStore.getState();
+      const branding = store.stepData.branding;
+      if (branding) {
+        if (branding.primaryColor) {
+          setBrandingPrimaryColor(branding.primaryColor);
+        }
+        if (branding.secondaryColor) {
+          setBrandingSecondaryColor(branding.secondaryColor);
+        }
+      }
+
+      // Debug: log what Step 5 sees for branding colors
+      console.log("[Step5] branding data from store:", {
+        primaryColor: branding?.primaryColor,
+        secondaryColor: branding?.secondaryColor,
+        fullBranding: branding,
+      });
     };
 
     loadData();
   }, [loadStepData]);
+
+  // Sync local branding color state whenever stepData.branding changes
+  // (e.g., when user edits branding from Step 5 via goToStep(3) and returns).
+  useEffect(() => {
+    if (stepData.branding?.primaryColor) {
+      setBrandingPrimaryColor(stepData.branding.primaryColor);
+    }
+    if (stepData.branding?.secondaryColor) {
+      setBrandingSecondaryColor(stepData.branding.secondaryColor);
+    }
+  }, [stepData.branding?.primaryColor, stepData.branding?.secondaryColor]);
 
   const handleSaveEdit = async (updatedData: any) => {
     try {
@@ -258,13 +298,15 @@ export function Step5Summary({
   };
 
   const getPrimaryColorDisplay = () => {
-    const primaryColor = stepData.branding?.primaryColor;
+    // Use local state first (most reliable), fall back to reactive stepData
+    const primaryColor = brandingPrimaryColor || stepData.branding?.primaryColor;
     if (!primaryColor) return "Not specified";
     return `${primaryColor}`;
   };
 
   const getSecondaryColorDisplay = () => {
-    const secondaryColor = stepData.branding?.secondaryColor;
+    // Use local state first (most reliable), fall back to reactive stepData
+    const secondaryColor = brandingSecondaryColor || stepData.branding?.secondaryColor;
     if (!secondaryColor) return "Not specified";
     return `${secondaryColor}`;
   };
@@ -698,7 +740,7 @@ export function Step5Summary({
                     className="w-6 h-6 rounded border border-gray-300 dark:border-gray-600"
                     style={{
                       backgroundColor:
-                        stepData.branding?.primaryColor || "#1F3A60",
+                        brandingPrimaryColor || stepData.branding?.primaryColor || "#1F3A60",
                     }}
                   ></div>
                   <span className="text-sm text-gray-600 dark:text-gray-400">
@@ -713,7 +755,7 @@ export function Step5Summary({
                     className="w-6 h-6 rounded border border-gray-300 dark:border-gray-600"
                     style={{
                       backgroundColor:
-                        stepData.branding?.secondaryColor || "#4A90E2",
+                        brandingSecondaryColor || stepData.branding?.secondaryColor || "#4A90E2",
                     }}
                   ></div>
                   <span className="text-sm text-gray-600 dark:text-gray-400">

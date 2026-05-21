@@ -1833,14 +1833,21 @@ export function UniversalImageEditorModal({
           originalImage: finalOriginalImage, // Always use originalImageSrc for backend
         };
 
-        // Headshot / Logo: upload to R2 (advisor assets), store only key in DB
-        if (type === "headshot" || type === "logo") {
+        // Upload to R2 for all image types (headshot, logo, custom/background), store only key in DB
+        if (type === "headshot" || type === "logo" || type === "custom") {
           try {
             const res = await fetch(croppedPreview);
             const blob = await res.blob();
             const mime = exportFormat === "image/png" ? "image/png" : "image/jpeg";
             const file = new File([blob], newFileName, { type: mime });
-            const subPath = type === "headshot" ? "advisor/headshot" : "advisor/logo";
+            let subPath: string;
+            if (type === "headshot") {
+              subPath = "advisor/headshot";
+            } else if (type === "logo") {
+              subPath = "advisor/logo";
+            } else {
+              subPath = "advisor/background";
+            }
             const r2Key = await uploadFileToR2({
               file,
               purpose: "upload",

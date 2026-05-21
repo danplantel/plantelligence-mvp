@@ -277,6 +277,27 @@ export function OnboardingWizard({
       } else {
         // Regular handling for other steps
         const currentStepType = stepTypeMap[currentStep];
+
+        // Read the latest store data directly to avoid stale render-cycle stepData.
+        // The render-cycle stepData may lag behind the zustand store when onDataChange
+        // in child components (e.g., Step 3 Branding) calls saveStepDataLocally, because
+        // React re-renders are asynchronous. Using getState() guarantees we get the
+        // most up-to-date values (e.g., primaryColor, secondaryColor).
+        const latestStore = useOnboardingWizardStore.getState();
+        const latestStepData = latestStore.stepData;
+
+        // Debug: log what's being sent to the server for Step 3 branding
+        if (currentStep === 3) {
+          console.log("[handleNext] Step 3 - render-cycle stepData.branding:", {
+            primaryColor: stepData.branding?.primaryColor,
+            secondaryColor: stepData.branding?.secondaryColor,
+          });
+          console.log("[handleNext] Step 3 - latestStore stepData.branding:", {
+            primaryColor: latestStepData.branding?.primaryColor,
+            secondaryColor: latestStepData.branding?.secondaryColor,
+          });
+        }
+
         // Step 4: handleNext builds freshStepData (DOM headshot + delayed store read) for
         // validation — must POST that same payload. stepData from render can lag behind
         // the headshot batch debounce and would save without the new headshot.
@@ -284,7 +305,7 @@ export function OnboardingWizard({
           currentStep === 4 && freshStepData.userSetup
             ? freshStepData.userSetup
             : currentStepType
-              ? stepData[currentStepType as keyof typeof stepData]
+              ? latestStepData[currentStepType as keyof typeof latestStepData]
               : undefined;
 
         if (currentStepType && payloadForServer) {

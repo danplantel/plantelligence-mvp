@@ -77,7 +77,7 @@ interface BrandingSetupCardProps {
    onDataChange: (field: keyof BrandingData, value: any) => void;
    onFileUpload: (field: "logo" | "backgroundImage", file: File) => void;
    onFileRemove: (field: "logo" | "backgroundImage") => void;
-   onLogoPreview?: (dataUrl: string) => void;
+   onLogoPreview?: (dataUrl: string) => Promise<void>;
    hideCard?: boolean;
  }
 
@@ -204,17 +204,19 @@ export function BrandingSetupCard({
           icon={<ImageIcon className="w-4 h-4" />}
           value={logo}
           fileName={logoFileName}
-          onChange={(value, fileName, headshotData) => {
-            onDataChange("logo", value);
-            onDataChange("logoFileName", fileName);
-            // Use the DataURL preview passed back from the modal (headshotData.previewDataUrl)
-            // so the preview and color extraction work even when value is an R2 key
+          onChange={async (value, fileName, headshotData) => {
+            // CRITICAL: Extract colors from logo FIRST, so that primaryColor/secondaryColor
+            // are persisted to the store BEFORE onDataChange saves the branding data.
+            // Otherwise the branding data gets saved with stale default colors.
             const previewDataUrl: string | undefined =
               (headshotData as any)?.previewDataUrl;
             const previewSrc = previewDataUrl || (value?.startsWith("data:") ? value : undefined);
             if (onLogoPreview && previewSrc) {
-              onLogoPreview(previewSrc);
+              await onLogoPreview(previewSrc);
             }
+            // Now save the logo/data – the extracted colors are already in the store
+            onDataChange("logo", value);
+            onDataChange("logoFileName", fileName);
           }}
           onRemove={async () => {
             await deleteFromR2(logo);
