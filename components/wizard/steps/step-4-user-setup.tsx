@@ -104,6 +104,7 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
           setValue("name", serverData.name || "");
           setValue("email", serverData.email || "");
           setValue("phone", serverData.phone || "");
+          setValue("phoneExtension", serverData.phoneExtension || "");
           setValue("title", serverData.title || "");
           setValue("designations", serverData.designations || []);
           setValue("headshot", serverData.headshot || "");
@@ -124,6 +125,7 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
             name: serverData.name || "",
             email: serverData.email || "",
             phone: serverData.phone || "",
+            phoneExtension: serverData.phoneExtension || "",
             title: serverData.title || "",
             designations: serverData.designations || [],
             headshot: serverData.headshot || "",
@@ -242,6 +244,12 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
         }
         if (serverData.title) {
           setValue("title", serverData.title);
+        }
+        if (serverData.phoneExtension !== undefined && serverData.phoneExtension !== null) {
+          setValue("phoneExtension", serverData.phoneExtension);
+        }
+        if (serverData.designations && Array.isArray(serverData.designations) && serverData.designations.length > 0) {
+          setValue("designations", serverData.designations);
         }
         // DB has no headshotFileName column — keep client filename after GET
         if (serverData.headshotFileName || cur.headshotFileName) {

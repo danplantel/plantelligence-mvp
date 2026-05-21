@@ -236,6 +236,7 @@ export const userSetupSchema = z.object({
     }),
   title: z.string().min(1, "Title is required"),
   designations: z.array(z.string()).optional(),
+  phoneExtension: z.string().optional().default(""),
   headshot: z.string().optional().default(""),
   headshotFileName: z.string().optional(),
   headshotData: z.any().optional().nullable(),
