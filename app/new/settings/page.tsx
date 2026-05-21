@@ -447,6 +447,9 @@ export default function SettingsPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             advisorLogo: data.logo,
+            // advisorLogoUrl is a legacy field used as fallback across the codebase
+            // (dashboard, new-client-wizard, marketing flyers). Both store the same R2 key
+            // and are resolved to display URLs at render time via useBrandingImageUrl() / BrandingImage.
             advisorLogoUrl: data.logo,
             organizationName: data.organizationName || undefined,
             website: data.website || undefined,

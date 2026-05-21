@@ -25,10 +25,10 @@ interface DisclaimerCardProps {
 
 function DisclaimerCard({ disclaimer, onEdit, onDelete }: DisclaimerCardProps) {
   return (
-    <div className="border border-gray-200 rounded p-4 bg-card relative">
-      <div className="flex justify-between items-start mb-3">
+    <div className="border border-gray-200 rounded p-3 bg-card relative">
+      <div className="flex justify-between items-start mb-2">
         <div className="flex-1 pr-2">
-          <span className="text-xs font-semibold text-gray-700">
+          <span className="text-[11px] font-semibold text-gray-700">
             {[
               ...disclaimer.locations,
               ...(disclaimer.customLocation ? [disclaimer.customLocation] : []),
@@ -36,28 +36,28 @@ function DisclaimerCard({ disclaimer, onEdit, onDelete }: DisclaimerCardProps) {
           </span>
         </div>
 
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-1 items-center">
           <Button
             variant="ghost"
             size="sm"
             onClick={onEdit}
-            className="h-8 px-2 text-gray-600 hover:text-accent-blue text-xs font-medium"
+            className="h-7 px-1.5 text-gray-600 hover:text-accent-blue text-[11px] font-medium"
           >
-            <Edit2 className="h-3 w-3 mr-1" />
+            <Edit2 className="h-3 w-3 mr-0.5" />
             Edit
           </Button>
           <Button
             variant="ghost"
             size="sm"
             onClick={onDelete}
-            className="h-8 w-8 p-0 text-gray-500 hover:text-destructive"
+            className="h-7 w-7 p-0 text-gray-500 hover:text-destructive"
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>
 
-      <div className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap break-words">
+      <div className="text-xs text-gray-600 leading-relaxed whitespace-pre-wrap break-words">
         {disclaimer.text}
       </div>
     </div>
@@ -336,49 +336,49 @@ export function Step5Disclaimers({
   const showSummaryView = disclaimers.length > 0;
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-2xl mx-auto space-y-4">
       {!showSummaryView ? (
         // Initial Landing State
         <>
           {/* Header */}
-          <div className="text-center space-y-2">
-            <h1 className="text-2xl font-semibold">
+          <div className="text-left space-y-1">
+            <h2 className="text-lg font-semibold">
               Add Disclaimers <span className="text-red-500">*</span>
-            </h1>
-            <p className="text-muted-foreground">
+            </h2>
+            <p className="text-sm text-muted-foreground">
               Provide compliance language for participant and client-facing
               materials
             </p>
-            <p className="text-sm font-medium">
+            <p className="text-xs font-medium">
               add: (can be added later / modified in client builds)
             </p>
           </div>
 
           {/* Radio Group */}
-          <Card>
-            <CardContent className="pt-6">
+          <Card className="shadow-none">
+            <CardContent className="pt-3 pb-3">
               <RadioGroup
                 value={addTiming || ""}
                 onValueChange={handleAddTimingChange}
-                className="grid grid-cols-2 gap-4"
+                className="grid grid-cols-2 gap-3"
               >
-                <div className="flex items-center space-x-3 p-4 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
                   <RadioGroupItem value="now" id="now" />
                   <Label
                     htmlFor="now"
-                    className="text-base font-medium cursor-pointer flex-1"
+                    className="text-sm font-medium cursor-pointer flex-1"
                   >
                     Add Now
                   </Label>
                 </div>
                 <div
-                  className={`flex items-center space-x-3 p-4 border rounded-lg hover:bg-gray-50 cursor-pointer ${!isValidState ? "border-red-500" : ""
+                  className={`flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer ${!isValidState ? "border-red-500" : ""
                     }`}
                 >
                   <RadioGroupItem value="later" id="later" />
                   <Label
                     htmlFor="later"
-                    className="text-base font-medium cursor-pointer flex-1"
+                    className="text-sm font-medium cursor-pointer flex-1"
                   >
                     Add Later
                   </Label>
@@ -387,8 +387,8 @@ export function Step5Disclaimers({
 
               {/* Validation Error */}
               {validationError && (
-                <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-sm text-red-600 font-medium">
+                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-xs text-red-600 font-medium">
                     {validationError}
                   </p>
                 </div>
@@ -400,14 +400,14 @@ export function Step5Disclaimers({
         // Summary View
         <>
           {/* Header */}
-          <div className="text-center space-y-2">
-            <h1 className="text-2xl font-semibold">
+          <div className="text-left space-y-1">
+            <h2 className="text-lg font-semibold">
               Added Disclaimers ({disclaimers.length})
-            </h1>
+            </h2>
           </div>
 
           {/* Disclaimer Cards */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             {disclaimers.map((disclaimer) => (
               <DisclaimerCard
                 key={disclaimer.id}
@@ -424,6 +424,7 @@ export function Step5Disclaimers({
           {/* Add Another Button */}
           <Button
             variant="outline"
+            size="sm"
             onClick={() => {
               setEditingDisclaimer(null);
               setIsModalOpen(true);

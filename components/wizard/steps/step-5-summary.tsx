@@ -365,21 +365,6 @@ export function Step5Summary({
   if (showNextSteps) {
     return (
       <div className="space-y-6">
-        {/* Success banner replacing the previous modal */}
-        <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-700 rounded-lg p-4">
-          <div className="flex items-start space-x-3">
-            <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <h3 className="text-base font-semibold text-gray-900 dark:text-green-200">
-                Setup Complete!
-              </h3>
-              <p className="text-sm text-green-700 dark:text-green-300 mt-1">
-                You can start building client portals now, or use the optional
-                steps below to add team members and compliance language.
-              </p>
-            </div>
-          </div>
-        </div>
         {/* Page Header */}
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Next Steps</h1>
@@ -388,26 +373,28 @@ export function Step5Summary({
           </p>
         </div>
 
-        {/* Next Steps Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left Column - Add Team Members */}
+        {/* Next Steps Section - Vertical Layout */}
+        <div className="space-y-4">
+          {/* Add Team Members */}
           <div>
             {!isTeamSizeJustMe ? (
-              <AddTeamMembersSection isVisible={true} />
+              <div className="pl-6">
+                <AddTeamMembersSection isVisible={true} hideCard={true} />
+              </div>
             ) : (
-              <Card className="dark:bg-gray-800">
-                <CardHeader>
-                  <CardTitle className="text-lg font-semibold">
+              <Card className="dark:bg-gray-800 shadow-none">
+                <CardHeader className="pb-2 pt-3">
+                  <CardTitle className="text-lg font-semibold pl-10">
                     Add Team Members
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Users className="w-12 h-12 mx-auto mb-4 text-gray-400 dark:text-gray-500" />
-                    <p className="font-medium mb-2 text-gray-600 dark:text-gray-400">
+                  <div className="text-center py-4 text-muted-foreground">
+                    <Users className="w-8 h-8 mx-auto mb-2 text-gray-400 dark:text-gray-500" />
+                    <p className="text-xs font-medium mb-2 text-gray-600 dark:text-gray-400">
                       Change team size to 2+ users to add team members
                     </p>
-                    <Button variant="outline" onClick={handleOpenTeamSizeModal}>
+                    <Button variant="outline" size="sm" onClick={handleOpenTeamSizeModal}>
                       Change Team Size
                     </Button>
                   </div>
@@ -416,10 +403,10 @@ export function Step5Summary({
             )}
           </div>
 
-          {/* Right Column - Add Disclaimers */}
+          {/* Add Disclaimers */}
           <div>
-            <Card className="dark:bg-gray-800">
-              <CardContent className="pt-6">
+            <Card className="dark:bg-gray-800 shadow-none">
+              <CardContent className="pt-3 pb-3">
                 <Step5Disclaimers
                   onValidationChange={handleDisclaimersValidation}
                   errorFields={errorFields}

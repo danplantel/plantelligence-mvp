@@ -4,6 +4,22 @@ import { authOptions } from "@/lib/auth-options";
 import prisma from "@/lib/prisma";
 import { validateBranding } from "@/lib/wizard-validation";
 import { z } from "zod";
+import { toR2BrandingKey } from "@/lib/branding-image-url";
+
+/**
+ * Normalize an image value: if it's a full proxy URL (e.g. /api/r2/object?key=org/...),
+ * extract and return just the R2 key. Otherwise return the value as-is.
+ */
+function normalizeImageValue(value: string | null | undefined): string | null | undefined {
+  if (value == null) return value;
+  const proxyMatch = value.match(/\/api\/r2\/object\?key=([^&]+)/);
+  if (proxyMatch) {
+    const extractedKey = decodeURIComponent(proxyMatch[1]);
+    const r2Key = toR2BrandingKey(extractedKey);
+    if (r2Key) return r2Key;
+  }
+  return value;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,6 +30,17 @@ export async function POST(request: NextRequest) {
 
     const rawData = await request.json();
     console.log("📥 [branding POST] Received data keys:", Object.keys(rawData));
+
+    // Normalize image fields: strip proxy URLs back to raw R2 keys
+    if (rawData.logo !== undefined) {
+      rawData.logo = normalizeImageValue(rawData.logo) || "";
+    }
+    if (rawData.backgroundImage !== undefined) {
+      rawData.backgroundImage = normalizeImageValue(rawData.backgroundImage);
+    }
+    if (rawData.aiAvatar !== undefined) {
+      rawData.aiAvatar = normalizeImageValue(rawData.aiAvatar) || "";
+    }
 
     // Validate the data
     const data = validateBranding(rawData);

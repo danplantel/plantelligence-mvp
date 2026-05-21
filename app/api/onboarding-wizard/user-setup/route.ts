@@ -2,6 +2,25 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
+import { toR2BrandingKey } from "@/lib/branding-image-url";
+
+/**
+ * Normalize an image value: if it's a full proxy URL (e.g. /api/r2/object?key=org/...),
+ * extract and return just the R2 key. Otherwise return the value as-is.
+ * This prevents accidentally storing resolved proxy URLs instead of raw R2 keys.
+ */
+function normalizeImageValue(value: string | null | undefined): string | null | undefined {
+  if (value == null) return value;
+  // Check if it's a proxy URL like /api/r2/object?key=org/... or http://.../api/r2/object?key=org/...
+  const proxyMatch = value.match(/\/api\/r2\/object\?key=([^&]+)/);
+  if (proxyMatch) {
+    const extractedKey = decodeURIComponent(proxyMatch[1]);
+    // Verify it's a valid R2 key
+    const r2Key = toR2BrandingKey(extractedKey);
+    if (r2Key) return r2Key;
+  }
+  return value;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,6 +31,14 @@ export async function POST(request: NextRequest) {
 
     const userId = session.user.id;
     const data = await request.json();
+
+    // Normalize image fields: strip proxy URLs back to raw R2 keys
+    if (data.headshot !== undefined) {
+      data.headshot = normalizeImageValue(data.headshot) || "";
+    }
+    if (data.backgroundImage !== undefined) {
+      data.backgroundImage = normalizeImageValue(data.backgroundImage) || null;
+    }
 
     // Find or create wizard session
     let wizardSession = await prisma.wizardSession.findFirst({

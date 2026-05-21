@@ -104,23 +104,23 @@ export function AddTeamMembersSection({
   }
 
   const content = (
-    <div className="space-y-4">
+    <div className="space-y-2">
       {members.length === 0 ? (
-        <div className="text-center py-8 text-muted-foreground">
-          <p>No team members added yet</p>
+        <div className="text-center py-3 text-muted-foreground">
+          <p className="text-xs">No team members added yet</p>
           <Button
             variant="ghost"
             onClick={onAddMemberClick}
-            className="mt-4 text-accent-blue hover:bg-muted/50"
+            className="mt-1 text-accent-blue hover:bg-muted/50 h-7 text-xs"
           >
-            <Plus className="size-6 mr-2" />
+            <Plus className="size-4 mr-1" />
             Add Team Member
           </Button>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-2">
           {/* Header Row */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm font-medium text-muted-foreground border-b pb-2">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-2 text-xs font-medium text-muted-foreground border-b pb-1">
             <div>Name</div>
             <div>Email</div>
             <div>Role</div>
@@ -128,11 +128,11 @@ export function AddTeamMembersSection({
           </div>
 
           {members.map((member, index) => (
-            <div key={index} className="flex items-center gap-4">
+            <div key={index} className="flex items-center gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                    <MoreVertical className="w-4 h-4" />
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                    <MoreVertical className="w-3.5 h-3.5" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start">
@@ -156,7 +156,7 @@ export function AddTeamMembersSection({
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-2">
                 {/* Name Field */}
                 <div>
                   <Input
@@ -166,6 +166,7 @@ export function AddTeamMembersSection({
                     }
                     placeholder="Full Name"
                     required
+                    className="h-8 text-xs"
                   />
                 </div>
 
@@ -179,6 +180,7 @@ export function AddTeamMembersSection({
                     }
                     placeholder="Email"
                     required
+                    className="h-8 text-xs"
                   />
                 </div>
 
@@ -190,7 +192,7 @@ export function AddTeamMembersSection({
                       onUpdateMemberClick(index, "role", value)
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs">
                       {member.role ? (
                         <span className="font-medium">
                           {roleOptions.find(
@@ -207,8 +209,8 @@ export function AddTeamMembersSection({
                       {roleOptions.map((role) => (
                         <SelectItem key={role.value} value={role.value}>
                           <div>
-                            <div className="font-medium">{role.label}</div>
-                            <div className="text-xs text-muted-foreground">
+                            <div className="font-medium text-xs">{role.label}</div>
+                            <div className="text-[11px] text-muted-foreground">
                               {role.description}
                             </div>
                           </div>
@@ -221,8 +223,8 @@ export function AddTeamMembersSection({
                 {/* Send Invite Button */}
                 <div className="flex items-center">
                   {member.inviteSent ? (
-                    <div className="flex items-center text-green-600 text-sm">
-                      <CheckCircle className="w-4 h-4 mr-1" />
+                    <div className="flex items-center text-green-600 text-xs">
+                      <CheckCircle className="w-3.5 h-3.5 mr-1" />
                       Invite Sent
                     </div>
                   ) : (
@@ -235,11 +237,11 @@ export function AddTeamMembersSection({
                         !member.email ||
                         !member.role
                       }
-                      className="h-8 px-3 text-xs w-full"
+                      className="h-7 px-2 text-[11px] w-full"
                     >
                       {sendingInvites.has(index) ? (
                         <>
-                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1" />
+                          <div className="animate-spin rounded-full h-2.5 w-2.5 border-b-2 border-white mr-1" />
                           Sending...
                         </>
                       ) : (
@@ -258,9 +260,9 @@ export function AddTeamMembersSection({
           <Button
             onClick={onAddMemberClick}
             variant="outline"
-            className="text-accent-blue border-none shadow-none hover:bg-muted/50 py-6"
+            className="text-accent-blue border-none shadow-none hover:bg-muted/50 py-3 h-9 text-xs"
           >
-            <Plus className="size-6 mr-2" />
+            <Plus className="size-4 mr-1.5" />
             Add Team Member
           </Button>
         </div>

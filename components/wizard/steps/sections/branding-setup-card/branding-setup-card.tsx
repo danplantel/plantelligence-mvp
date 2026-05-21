@@ -326,7 +326,7 @@ export function BrandingSetupCard({
           Background Image (Optional)
         </label>
         <UniversalImageEditorModal
-          type="logo"
+          type="custom"
           icon={<ImageIcon className="w-4 h-4" />}
           value={data.backgroundImage || ""}
           fileName={data.backgroundFileName || ""}
