@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
 import { Button } from "@/components/ui/button";
 import { OnboardingWizardStepper } from "./onboarding-wizard-stepper";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, CheckCircle } from "lucide-react";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { Card, CardContent } from "../ui/card";
 import { validateCurrentStep } from "@/lib/wizard-validation";
@@ -99,6 +99,7 @@ export function OnboardingWizard({
   const [isLoading, setIsLoading] = useState(false);
   const [needsScroll, setNeedsScroll] = useState(false);
   const [isPulsating, setIsPulsating] = useState(false);
+  const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
   // Use external props if provided, otherwise fall back to store
@@ -449,7 +450,12 @@ export function OnboardingWizard({
           isCompleted: true,
           currentStep: 5,
         });
-        window.location.href = "/new/dashboard";
+
+        // Show success overlay with green checkmark for 3 seconds, then navigate
+        setShowSuccessOverlay(true);
+        setTimeout(() => {
+          window.location.href = "/new/dashboard";
+        }, 3000);
       } else {
         const errorData = await response.json();
         console.error("Failed to complete wizard:", errorData);
@@ -556,76 +562,95 @@ export function OnboardingWizard({
 
   return (
     <>
-      {/* Fixed header with stepper */}
-      <div className="fixed top-0 left-0 right-0 bg-background border-b shadow-md z-40">
-        <div className="flex justify-center">
-          <div className="w-full max-w-6xl">
-            <OnboardingWizardStepper
-              currentStepTitle={currentStepTitle}
-              steps={steps}
-              currentStep={currentStep}
-              totalSteps={totalSteps}
-              showEditorButton={false}
-            />
+      {showSuccessOverlay ? (
+        /* Success overlay — hides all toolbars, shows green checkmark for 3s */
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white dark:bg-gray-900">
+          <div className="flex flex-col items-center gap-6 animate-in fade-in zoom-in duration-500">
+            <div className="rounded-full bg-green-100 dark:bg-green-900/40 p-6">
+              <CheckCircle className="size-20 text-green-600 dark:text-green-400" />
+            </div>
+            <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">
+              Setup Complete!
+            </h2>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">
+              Redirecting to dashboard...
+            </p>
           </div>
         </div>
-      </div>
-
-      <div className="flex flex-col items-center min-h-screen pt-20 pb-4">
-        {/* Content area with top padding to account for fixed header */}
-        <div ref={contentRef} className="mb-20 w-full max-w-4xl px-10">
-          {React.cloneElement(children as React.ReactElement, {
-            errorFields: errorFields,
-          })}
-        </div>
-
-        {/* Footer with navigation - sticky to bottom */}
-        <div className="fixed bottom-0 left-0 right-0 bg-background border-t shadow-lg z-50">
-          <div className="flex justify-center">
-            <Card className="shadow-none border-0 w-full max-w-4xl">
-              <CardContent className="flex justify-between p-2">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  onClick={handlePreviousClick}
-                  disabled={isFirstStep}
-                  className="flex items-center space-x-2 border-accent-blue text-accent-blue dark:text-gray-300 dark:border-gray-600 transition-colors duration-300 hover:bg-accent-blue hover:text-white dark:hover:bg-gray-600 disabled:border-gray-300 disabled:text-gray-300 disabled:cursor-not-allowed"
-                >
-                  <ChevronLeft className="size-5" />
-                  <span>Previous</span>
-                </Button>
-
-                <LoadingButton
-                  size="lg"
-                  onClick={handlePrimaryClick}
-                  isLoading={isLoading}
-                  loadingText={
-                    isLastStep && showNextSteps
-                      ? "Completing setup..."
-                      : "Saving data..."
-                  }
-                  className={`flex items-center space-x-2 text-white bg-accent-blue dark:bg-accent-blue-dark transition-all duration-300 ${
-                    isPulsating
-                      ? "animate-pulse ring-2 ring-accent-blue ring-opacity-50"
-                      : ""
-                  }`}
-                >
-                  <span>
-                    {isLastStep && showNextSteps
-                      ? "Go to Dashboard"
-                      : currentStep === 5
-                      ? "Continue"
-                      : needsScroll
-                      ? "Scroll to Continue"
-                      : "Next"}
-                  </span>
-                  <ChevronRight className="size-5" />
-                </LoadingButton>
-              </CardContent>
-            </Card>
+      ) : (
+        <>
+          {/* Fixed header with stepper */}
+          <div className="fixed top-0 left-0 right-0 bg-background border-b shadow-md z-40">
+            <div className="flex justify-center">
+              <div className="w-full max-w-6xl">
+                <OnboardingWizardStepper
+                  currentStepTitle={currentStepTitle}
+                  steps={steps}
+                  currentStep={currentStep}
+                  totalSteps={totalSteps}
+                  showEditorButton={false}
+                />
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+
+          <div className="flex flex-col items-center min-h-screen pt-20 pb-4">
+            {/* Content area with top padding to account for fixed header */}
+            <div ref={contentRef} className="mb-20 w-full max-w-4xl px-10">
+              {React.cloneElement(children as React.ReactElement, {
+                errorFields: errorFields,
+              })}
+            </div>
+
+            {/* Footer with navigation - sticky to bottom */}
+            <div className="fixed bottom-0 left-0 right-0 bg-background border-t shadow-lg z-50">
+              <div className="flex justify-center">
+                <Card className="shadow-none border-0 w-full max-w-4xl">
+                  <CardContent className="flex justify-between p-2">
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      onClick={handlePreviousClick}
+                      disabled={isFirstStep}
+                      className="flex items-center space-x-2 border-accent-blue text-accent-blue dark:text-gray-300 dark:border-gray-600 transition-colors duration-300 hover:bg-accent-blue hover:text-white dark:hover:bg-gray-600 disabled:border-gray-300 disabled:text-gray-300 disabled:cursor-not-allowed"
+                    >
+                      <ChevronLeft className="size-5" />
+                      <span>Previous</span>
+                    </Button>
+
+                    <LoadingButton
+                      size="lg"
+                      onClick={handlePrimaryClick}
+                      isLoading={isLoading}
+                      loadingText={
+                        isLastStep && showNextSteps
+                          ? "Completing setup..."
+                          : "Saving data..."
+                      }
+                      className={`flex items-center space-x-2 text-white bg-accent-blue dark:bg-accent-blue-dark transition-all duration-300 ${
+                        isPulsating
+                          ? "animate-pulse ring-2 ring-accent-blue ring-opacity-50"
+                          : ""
+                      }`}
+                    >
+                      <span>
+                        {isLastStep && showNextSteps
+                          ? "Go to Dashboard"
+                          : currentStep === 5
+                          ? "Continue"
+                          : needsScroll
+                          ? "Scroll to Continue"
+                          : "Next"}
+                      </span>
+                      <ChevronRight className="size-5" />
+                    </LoadingButton>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </>
   );
 }

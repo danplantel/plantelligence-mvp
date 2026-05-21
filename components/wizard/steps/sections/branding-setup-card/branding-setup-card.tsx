@@ -67,8 +67,8 @@ interface BrandingData {
      avatarFileName?: string;
      subdomain: string;
      useDefaultWelcomeStatement?: boolean;
-     logoPreview?: string;
-     backgroundImagePreview?: string;
+     logoPreviewDataUrl?: string;
+     backgroundPreviewDataUrl?: string;
    }
 
 interface BrandingSetupCardProps {
@@ -211,8 +211,11 @@ export function BrandingSetupCard({
             const previewDataUrl: string | undefined =
               (headshotData as any)?.previewDataUrl;
             const previewSrc = previewDataUrl || (value?.startsWith("data:") ? value : undefined);
-            if (onLogoPreview && previewSrc) {
-              await onLogoPreview(previewSrc);
+            if (previewSrc) {
+              if (onLogoPreview) {
+                await onLogoPreview(previewSrc);
+              }
+              onDataChange("logoPreviewDataUrl", previewSrc);
             }
             // Now save the logo/data – the extracted colors are already in the store
             onDataChange("logo", value);
@@ -227,14 +230,14 @@ export function BrandingSetupCard({
           placeholder="Upload Logo"
           destructive={errorFields.includes("logo")}
         />
-        {data.logoPreview && (
+        {data.logoPreviewDataUrl && (
           <div className="mt-4 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 rounded-lg p-4 flex flex-col items-center justify-center">
             <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-3">
               Logo Preview
             </p>
             <div className="flex items-center justify-center w-full">
               <img
-                src={data.logoPreview}
+                src={data.logoPreviewDataUrl}
                 alt="Organization Logo"
                 className="max-w-full max-h-40 object-contain"
                 onError={(e) => {
@@ -340,7 +343,7 @@ export function BrandingSetupCard({
               (headshotData as any)?.previewDataUrl;
             const previewSrc = previewDataUrl || (value?.startsWith("data:") ? value : undefined);
             if (previewSrc) {
-              onDataChange("backgroundImagePreview", previewSrc);
+              onDataChange("backgroundPreviewDataUrl", previewSrc);
             }
           }}
           onRemove={async () => {
@@ -357,14 +360,14 @@ export function BrandingSetupCard({
           saveButtonText="Save Background Image"
           autoSizeOnOpen={true}
         />
-        {data.backgroundImagePreview && (
+        {data.backgroundPreviewDataUrl && (
           <div className="mt-4 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 rounded-lg p-4 flex flex-col items-center justify-center min-h-80">
             <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-3">
               Background Image Preview
             </p>
             <div className="flex items-center justify-center w-full flex-1">
               <img
-                src={data.backgroundImagePreview}
+                src={data.backgroundPreviewDataUrl}
                 alt="Background Image"
                 className="max-w-full max-h-72 object-cover rounded"
                 onError={(e) => {

@@ -57,16 +57,16 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
    const { setValue, watch } = methods;
    const watchedData = watch();
    const [logo, setLogo] = useState(stepData.branding?.logo || "");
-   const [logoPreview, setLogoPreview] = useState(stepData.branding?.logo || "");
+   // Decoupled preview DataURLs – never seeded from R2 keys, only set by
+   // onLogoPreview / onChange callbacks that pass actual displayable URLs.
+   const [logoPreviewDataUrl, setLogoPreviewDataUrl] = useState("");
    const [logoFileName, setLogoFileName] = useState(
      stepData.branding?.logoFileName || "",
    );
    const [backgroundImage, setBackgroundImage] = useState(
      stepData.branding?.backgroundImage || "",
    );
-   const [backgroundImagePreview, setBackgroundImagePreview] = useState(
-     stepData.branding?.backgroundImage || "",
-   );
+   const [backgroundPreviewDataUrl, setBackgroundPreviewDataUrl] = useState("");
    const [backgroundFileName, setBackgroundFileName] = useState(
      stepData.branding?.backgroundFileName || "",
    );
@@ -295,12 +295,12 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
               isSecondaryColorPickerOpen,
               isGenerating,
               useDefaultWelcomeStatement,
-              logoPreview,
-              backgroundImagePreview,
+              logoPreviewDataUrl,
+              backgroundPreviewDataUrl,
             }}
             errorFields={errorFields}
             onLogoPreview={async (dataUrl) => {
-              setLogoPreview(dataUrl);
+            setLogoPreviewDataUrl(dataUrl);
               try {
                 const colors = await extractColorsFromImage(dataUrl);
                 setPrimaryColor(colors.primary);
@@ -361,18 +361,23 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
                 setUseDefaultWelcomeStatement,
               });
 
-              if (field !== "logoPreview" && field !== "backgroundImagePreview") {
+              if (field !== "logoPreviewDataUrl" && field !== "backgroundPreviewDataUrl") {
                  const setter = setters[field as keyof typeof setters];
                  setter?.(value);
                }
 
                if (field === "logo") {
                  latestLogoRef.current = value;
-                 setLogoPreview(value);
+                 // Do NOT overwrite logoPreview here — onLogoPreview already
+                 // set it to the data URL. The R2 key is not a valid image src.
                }
 
-               if (field === "backgroundImagePreview") {
-                 setBackgroundImagePreview(value);
+               if (field === "logoPreviewDataUrl") {
+                 setLogoPreviewDataUrl(value);
+               }
+
+               if (field === "backgroundPreviewDataUrl") {
+                 setBackgroundPreviewDataUrl(value);
                }
 
               // Read latest branding data from store to avoid stale React state
@@ -396,7 +401,7 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
              };
 
               // Only override non-preview fields
-              if (field !== "backgroundImagePreview" && field !== "logoPreview") {
+              if (field !== "backgroundPreviewDataUrl" && field !== "logoPreviewDataUrl") {
                 brandingData[field] = value;
               }
 
@@ -447,9 +452,9 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
                 const result = e.target?.result as string;
 
                 if (field === "logo") {
-                  setLogoPreview(result);
+                  setLogoPreviewDataUrl(result);
                 } else if (field === "backgroundImage") {
-                  setBackgroundImagePreview(result);
+                  setBackgroundPreviewDataUrl(result);
                 }
 
                 const fileHandlers = createFileHandlers(
@@ -509,9 +514,10 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
 
               if (field === "logo") {
                 removeHandlers.logo?.();
+                setLogoPreviewDataUrl("");
               } else if (field === "backgroundImage") {
                 removeHandlers.background?.();
-                setBackgroundImagePreview("");
+                setBackgroundPreviewDataUrl("");
               }
               
               await saveData();
