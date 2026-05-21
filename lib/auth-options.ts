@@ -70,8 +70,18 @@ export const authOptions: NextAuthOptions = {
     },
     async jwt({ token, user, account }) {
       if (user) {
-        // Add user id to the token
-        token.id = user.id;
+        // For OAuth providers (Google), user.id is the provider's 'sub' (e.g. Google numeric ID),
+        // not the MongoDB _id. Look up the actual MongoDB user by email.
+        if (account?.provider === "google") {
+          const dbUser = await prisma.user.findUnique({
+            where: { email: user.email as string },
+            select: { id: true },
+          });
+          token.id = dbUser?.id || user.id;
+        } else {
+          // For credentials provider, user.id is already the MongoDB _id
+          token.id = user.id;
+        }
       }
       if (account) {
         token.provider = account.provider;
@@ -85,14 +95,15 @@ export const authOptions: NextAuthOptions = {
         return false;
       }
 
+      // Search by email only (not email + provider) to handle cross-provider sign-in
       const existUser = await prisma.user.findFirst({
         where: {
           email: user.email,
-          provider: (account?.provider as any) || "local",
         },
       });
 
       if (!existUser) {
+        // No existing user — create a new one
         const newUser: Prisma.UserCreateInput = {
           email: user.email,
           provider: (account?.provider as any) || "local",
@@ -100,6 +111,16 @@ export const authOptions: NextAuthOptions = {
         };
         await prisma.user.create({
           data: newUser,
+        });
+      } else if (existUser.provider !== (account?.provider as any)) {
+        // User exists with a different provider — update their provider
+        // This allows a user who signed up via email to also sign in with Google
+        await prisma.user.update({
+          where: { id: existUser.id },
+          data: {
+            provider: (account?.provider as any) || "local",
+            name: existUser.name || user?.name || "",
+          },
         });
       }
 
