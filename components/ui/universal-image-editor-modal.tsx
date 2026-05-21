@@ -1705,16 +1705,25 @@ export function UniversalImageEditorModal({
         cropY = Math.round((ch - cropHeight) / 2);
       }
     } else if (type === "headshot") {
-      const solidHeight = Math.round(ch - safePad * 2);
-      const solidWidth = Math.round(photoWidth + outlinePct * photoWidth * 0.5);
+      // Center crop on the image (not the canvas) and size proportionally
+      // to the image's rendered dimensions so gaps cannot appear on any side.
+      const imageCenterX = activeObject.left || cw / 2;
+      const imageCenterY = activeObject.top || ch / 2;
 
       const cropFactor = 0.8;
 
-      cropWidth = Math.min(Math.round(solidWidth * cropFactor), cw - 2);
-      cropHeight = Math.min(Math.round(solidHeight * cropFactor), ch - 2);
+      // Both dimensions scaled from the image's actual rendered size
+      cropWidth = Math.min(Math.round(photoWidth * cropFactor), cw - 2);
+      cropHeight = Math.min(Math.round(photoHeight * cropFactor), ch - 2);
 
-      cropX = Math.round((cw - cropWidth) / 2);
-      cropY = Math.round((ch - cropHeight) / 2);
+      // Center on the image, then clamp to canvas edges
+      cropX = Math.round(imageCenterX - cropWidth / 2);
+      cropY = Math.round(imageCenterY - cropHeight / 2);
+
+      if (cropX < 0) cropX = 0;
+      if (cropY < 0) cropY = 0;
+      if (cropX + cropWidth > cw) cropX = cw - cropWidth;
+      if (cropY + cropHeight > ch) cropY = ch - cropHeight;
     } else {
       const innerPad = safePad * 0.5;
       cropX = Math.round(safePad + innerPad);
