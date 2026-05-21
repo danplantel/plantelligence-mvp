@@ -271,7 +271,8 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
           normalizedData.website = normalizeCleanDomain(data.website);
         }
 
-        // When saving Step 2 services, always sync to userSetup.primaryServiceCategories and persist (so autofill works without Settings)
+        // When saving Step 2 services, sync to userSetup.primaryServiceCategories in-memory (for UI/Settings)
+        // but no longer persist to server since WizardUserSetup.primaryServiceCategories has been removed from the model.
         if (stepType === "services") {
           const servicesArray = Array.isArray(data.services) ? data.services : [];
           const uniqueCategories = servicesArray.length ? step2ServicesToCategories(servicesArray) : [];
@@ -295,7 +296,7 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
           });
           if (saveToServer) {
             try {
-              await get().saveStepDataToServer("userSetup", userSetupPayload);
+              // Only persist services to server; userSetup categories are in-memory only
               await get().saveStepDataToServer(stepType, normalizedData);
             } catch (error) {
               throw error;

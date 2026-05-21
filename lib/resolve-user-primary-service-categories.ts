@@ -1,11 +1,10 @@
 import { prisma } from "@/lib/prisma";
-import { getEffectiveWizardUserSetup } from "@/lib/effective-wizard-user-setup";
 import { step2ServicesToCategories } from "@/lib/service-categories";
 import { primaryServiceLabelToBenefitsCategory } from "@/lib/seed-onboarding-advisor-contacts";
 
 /**
- * Same source order as load-draft / profile: User.primaryServiceCategories,
- * then wizard userSetup, then latest onboarding wizard Step 2 services.
+ * Source order: User.primaryServiceCategories, then latest onboarding wizard Step 2 services.
+ * WizardUserSetup no longer stores primaryServiceCategories.
  */
 export async function resolveUserPrimaryServiceCategoryLabels(
   userId: string,
@@ -18,15 +17,6 @@ export async function resolveUserPrimaryServiceCategoryLabels(
     user && Array.isArray(user.primaryServiceCategories)
       ? [...user.primaryServiceCategories]
       : [];
-  const userSetup = await getEffectiveWizardUserSetup(userId, null);
-  if (
-    primaryCats.length === 0 &&
-    userSetup &&
-    Array.isArray((userSetup as any).primaryServiceCategories) &&
-    (userSetup as any).primaryServiceCategories.length > 0
-  ) {
-    primaryCats = [...(userSetup as any).primaryServiceCategories];
-  }
   if (primaryCats.length === 0) {
     const ws = await prisma.wizardSession.findFirst({
       where: { userId },

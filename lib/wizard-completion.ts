@@ -126,20 +126,8 @@ export async function completeWizardOnboarding({ userId, wizardSessionId }: Wiza
     }
 
     // Services data (Step 2) -> primaryServiceCategories for User profile (same labels as Settings)
-    // Priority: WizardUserSetup.primaryServiceCategories (synced from Step 2) > WizardServices.services (converted)
-    let resolvedCategories: string[] = [];
-
-    // First, try WizardUserSetup.primaryServiceCategories (synced from Step 2 via saveStepData)
-    if (wizardSession.userSetup) {
-      const userSetupCategories = (wizardSession.userSetup as any).primaryServiceCategories;
-      if (Array.isArray(userSetupCategories) && userSetupCategories.length > 0) {
-        resolvedCategories = userSetupCategories;
-        console.log("📋 Using primaryServiceCategories from WizardUserSetup:", resolvedCategories);
-      }
-    }
-
-    // Fallback: convert WizardServices.services to categories
-    if (resolvedCategories.length === 0 && wizardSession.services) {
+    // Convert WizardServices.services to categories directly (no longer stored on WizardUserSetup)
+    if (wizardSession.services) {
       const rawServices = wizardSession.services.services;
       console.log("📋 Raw WizardServices.services value:", JSON.stringify(rawServices), "type:", typeof rawServices);
       
@@ -158,14 +146,10 @@ export async function completeWizardOnboarding({ userId, wizardSessionId }: Wiza
       if (servicesArray.length > 0) {
         const categories = step2ServicesToCategories(servicesArray);
         if (categories.length > 0) {
-          resolvedCategories = categories;
-          console.log("📋 Converted primaryServiceCategories from WizardServices:", resolvedCategories);
+          updateData.primaryServiceCategories = categories;
+          console.log("📋 Converted primaryServiceCategories from WizardServices:", categories);
         }
       }
-    }
-
-    if (resolvedCategories.length > 0) {
-      updateData.primaryServiceCategories = resolvedCategories;
     }
 
     // User Setup data (Step 4) - name, phone, title, etc.

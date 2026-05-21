@@ -450,9 +450,7 @@ export function NewClientStep3b({
                 wizardSession.userSetup.headshot || profile.headshot || "",
               );
               setAdvisorServices(
-                profile.primaryServiceCategories ||
-                  wizardSession?.userSetup?.primaryServiceCategories ||
-                  [],
+                profile.primaryServiceCategories || [],
               );
             } else {
               setAdvisorPhone(profile.phone || "");

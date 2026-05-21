@@ -57,7 +57,6 @@ export async function POST(request: NextRequest) {
       where: { sessionId },
     });
 
-    // Partial update: merge with existing so Step 2 can save only primaryServiceCategories without wiping name/email
     const defaults = {
       name: "",
       email: "",
@@ -70,7 +69,6 @@ export async function POST(request: NextRequest) {
       backgroundImage: null as string | null,
       backgroundFileName: null as string | null,
       saveAsContact: true,
-      primaryServiceCategories: [] as string[],
     };
 
     const merged = {
@@ -88,9 +86,6 @@ export async function POST(request: NextRequest) {
           backgroundImage: existing.backgroundImage,
           backgroundFileName: existing.backgroundFileName,
           saveAsContact: existing.saveAsContact ?? true,
-          primaryServiceCategories: Array.isArray((existing as any).primaryServiceCategories)
-            ? (existing as any).primaryServiceCategories
-            : [],
         }
         : {}),
       ...(data.name !== undefined && { name: data.name || "" }),
@@ -104,9 +99,6 @@ export async function POST(request: NextRequest) {
       ...(data.backgroundImage !== undefined && { backgroundImage: data.backgroundImage || null }),
       ...(data.backgroundFileName !== undefined && { backgroundFileName: data.backgroundFileName || null }),
       ...(data.saveAsContact !== undefined && { saveAsContact: data.saveAsContact ?? true }),
-      ...(data.primaryServiceCategories !== undefined && {
-        primaryServiceCategories: data.primaryServiceCategories || [],
-      }),
     };
 
     const result = await prisma.wizardUserSetup.upsert({
@@ -123,7 +115,6 @@ export async function POST(request: NextRequest) {
         backgroundImage: merged.backgroundImage,
         backgroundFileName: merged.backgroundFileName,
         saveAsContact: merged.saveAsContact,
-        primaryServiceCategories: merged.primaryServiceCategories,
         updatedAt: new Date(),
       } as any,
       create: {
@@ -139,7 +130,6 @@ export async function POST(request: NextRequest) {
         backgroundImage: merged.backgroundImage,
         backgroundFileName: merged.backgroundFileName,
         saveAsContact: merged.saveAsContact,
-        primaryServiceCategories: merged.primaryServiceCategories,
       } as any,
     });
 
@@ -148,44 +138,12 @@ export async function POST(request: NextRequest) {
       await (prisma.user as any).update({
         where: { id: userId },
         data: {
-          primaryServiceCategories: merged.primaryServiceCategories,
           phone: merged.phone || null,
           phoneExtension: merged.phoneExtension ?? null,
         },
       });
     } catch (userError) {
-      console.error("Error updating user profile with service categories:", userError);
-
-      // Fallback for dev mode where Prisma Client might be stale
-      if (process.env.NODE_ENV === 'development') {
-        console.log("Attempting fallback update via script...");
-        try {
-          const { exec } = require('child_process');
-          const categoriesJson = JSON.stringify(merged.primaryServiceCategories);
-
-          await new Promise<void>((resolve, reject) => {
-            exec(
-              'npx ts-node scripts/update-advisor-profile.ts',
-              {
-                cwd: process.cwd(),
-                env: { ...process.env, USER_ID: userId, CATEGORIES_JSON: categoriesJson }
-              },
-              (error: any, stdout: string, stderr: string) => {
-                if (error) {
-                  console.error(`Fallback script error: ${error.message}`);
-                  reject(error);
-                  return;
-                }
-                if (stderr) console.error(`Fallback stderr: ${stderr}`);
-                console.log(`Fallback stdout: ${stdout}`);
-                resolve();
-              }
-            );
-          });
-        } catch (scriptError) {
-          console.error("Fallback script execution failed:", scriptError);
-        }
-      }
+      console.error("Error updating user profile:", userError);
     }
 
     return NextResponse.json({ success: true, userSetup: result });
@@ -235,17 +193,6 @@ export async function GET(request: NextRequest) {
           break;
         }
       }
-    }
-
-    // Normalize so primaryServiceCategories is always a plain array (for Step 2 → Settings)
-    if (userSetup) {
-      const raw = userSetup as any;
-      userSetup = {
-        ...raw,
-        primaryServiceCategories: Array.isArray(raw.primaryServiceCategories)
-          ? [...raw.primaryServiceCategories]
-          : [],
-      };
     }
 
     return NextResponse.json({ userSetup });

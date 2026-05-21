@@ -510,7 +510,6 @@ model WizardUserSetup {
   headshotData       Json? // Processed headshot data with crop parameters
   backgroundImage    String? // URL to background image
   backgroundFileName String? // Original filename for background image
-  primaryServiceCategories String[]
   saveAsContact      Boolean? @default(true)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt

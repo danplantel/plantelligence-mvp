@@ -44,24 +44,18 @@ export async function GET(request: Request) {
       firstSession?.userSetup ?? null,
     );
 
-    // Ensure primaryServiceCategories is always an array; derive from Step 2 services if empty (for step-3b autofill)
+    // Derive primaryServiceCategories from User.primaryServiceCategories or Step 2 services (for step-3b autofill)
+    // WizardUserSetup no longer stores primaryServiceCategories.
     const rawServices = firstSession?.services?.services;
     const servicesArray = Array.isArray(rawServices) ? rawServices : [];
-    let primaryServiceCategories: string[] = Array.isArray(userSetup?.primaryServiceCategories)
-      ? [...(userSetup.primaryServiceCategories as string[])]
+    const userCategories = Array.isArray((profile as any).primaryServiceCategories)
+      ? (profile as any).primaryServiceCategories
       : [];
+    let primaryServiceCategories: string[] =
+      userCategories.length > 0 ? [...userCategories] : [];
     if (primaryServiceCategories.length === 0 && servicesArray.length > 0) {
       primaryServiceCategories = step2ServicesToCategories(servicesArray);
     }
-    if (userSetup) {
-      userSetup = { ...userSetup, primaryServiceCategories };
-    } else if (primaryServiceCategories.length > 0) {
-      userSetup = { primaryServiceCategories };
-    }
-
-    const rootCategories = primaryServiceCategories.length > 0
-      ? primaryServiceCategories
-      : (Array.isArray((profile as any).primaryServiceCategories) ? (profile as any).primaryServiceCategories : []);
 
     const response = {
       ...profile,
@@ -74,7 +68,7 @@ export async function GET(request: Request) {
       headshot: userSetup?.headshot || null,
       headshotData: userSetup?.headshotData || null,
       saveAsContact: userSetup?.saveAsContact ?? true,
-      primaryServiceCategories: rootCategories,
+      primaryServiceCategories,
       wizardSessions: profile.wizardSessions.map((s) => ({
         ...s,
         userSetup: s === firstSession ? userSetup : (s as any).userSetup,
