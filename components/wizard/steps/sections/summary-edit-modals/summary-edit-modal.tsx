@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -29,7 +29,8 @@ import { Headshot } from "@/components/ui/headshot";
 import { MultiSelectDropdown } from "@/components/ui/multi-select-dropdown";
 import { OrganizationType, ServiceType } from "@/types/wizard";
 import { getTitleOptionsByOrgType } from "../user-setup-section/user-setup-section.funcs";
-import { Edit, User, Briefcase, Palette, Settings } from "lucide-react";
+import { InfoDialog } from "@/components/ui/info-dialog";
+import { Edit, User, Briefcase, Palette, Settings, Info } from "lucide-react";
 import { deleteFromR2 } from "@/lib/upload-to-r2";
 
 interface SummaryEditModalProps {
@@ -53,6 +54,12 @@ export function SummaryEditModal({
   initialData,
 }: SummaryEditModalProps) {
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
+  const [infoDialogOpen, setInfoDialogOpen] = useState(false);
+  const [infoDialogConfig, setInfoDialogConfig] = useState({ title: "", description: "" });
+  const openInfoDialog = useCallback((title: string, description: string) => {
+    setInfoDialogConfig({ title, description });
+    setInfoDialogOpen(true);
+  }, []);
   const [editData, setEditData] = useState({
     // User Profile
     organizationType:
@@ -522,7 +529,16 @@ We hope to inspire confidence and peace of mind as you navigate your benefits jo
             </div>
 
             <div className="space-y-2">
-              <Label>Organization Logo</Label>
+              <Label className="flex items-center gap-1">
+                Organization Logo
+                <button
+                  type="button"
+                  onClick={() => openInfoDialog("Organization Logo", "Upload your organization's logo for branding purposes.")}
+                  className="inline-flex items-center justify-center text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+                >
+                  <Info className="h-3.5 w-3.5" />
+                </button>
+              </Label>
               <UploadInput
                 id="logo"
                 value={editData.logo}
@@ -538,7 +554,16 @@ We hope to inspire confidence and peace of mind as you navigate your benefits jo
             </div>
 
             <div className="space-y-2">
-              <Label>Background Image</Label>
+              <Label className="flex items-center gap-1">
+                Background Image
+                <button
+                  type="button"
+                  onClick={() => openInfoDialog("Background Image", "Upload a background image that will appear behind your content.")}
+                  className="inline-flex items-center justify-center text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+                >
+                  <Info className="h-3.5 w-3.5" />
+                </button>
+              </Label>
               <UploadInput
                 id="backgroundImage"
                 value={editData.backgroundImage}
@@ -722,7 +747,16 @@ We hope to inspire confidence and peace of mind as you navigate your benefits jo
             </div>
 
             <div className="space-y-2">
-              <Label>Background Image (Optional)</Label>
+              <Label className="flex items-center gap-1">
+                Background Image (Optional)
+                <button
+                  type="button"
+                  onClick={() => openInfoDialog("Background Image", "Upload a background image that will appear behind your content.")}
+                  className="inline-flex items-center justify-center text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+                >
+                  <Info className="h-3.5 w-3.5" />
+                </button>
+              </Label>
               <UniversalImageEditorModal
                 type="logo"
                 value={editData.userBackgroundImage || ""}
@@ -746,6 +780,12 @@ We hope to inspire confidence and peace of mind as you navigate your benefits jo
           <Button onClick={handleSave}>Save Changes</Button>
         </DialogFooter>
       </DialogContent>
+      <InfoDialog
+        open={infoDialogOpen}
+        onOpenChange={setInfoDialogOpen}
+        title={infoDialogConfig.title}
+        description={infoDialogConfig.description}
+      />
     </Dialog>
   );
 }

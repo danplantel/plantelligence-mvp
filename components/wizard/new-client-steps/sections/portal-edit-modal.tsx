@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UploadInput } from "@/components/ui/upload-input";
+import { InfoDialog } from "@/components/ui/info-dialog";
 import { CompanyData } from "@/types/new-client-wizard";
 import {
   Edit,
@@ -23,6 +24,7 @@ import {
   Globe,
   Calendar,
   Image,
+  Info,
 } from "lucide-react";
 
 interface PortalEditModalProps {
@@ -46,6 +48,8 @@ export function PortalEditModal({
   onBackgroundImgRemove,
   companyData,
 }: PortalEditModalProps) {
+  const [infoDialogOpen, setInfoDialogOpen] = useState(false);
+  const [infoDialogConfig, setInfoDialogConfig] = useState({ title: "", description: "" });
   const [editData, setEditData] = useState<Partial<CompanyData>>({
     companyName: companyData.companyName || "",
     companyWebsite: companyData.companyWebsite || "",
@@ -290,7 +294,19 @@ export function PortalEditModal({
           <TabsContent value="media" className="space-y-4">
             <div className="space-y-4">
               <div>
-                <Label htmlFor="companyLogo">Company Logo *</Label>
+                <Label htmlFor="companyLogo" className="flex items-center gap-1">
+                  Company Logo *
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInfoDialogConfig({ title: "Company Logo", description: "Upload your company's logo for branding purposes." });
+                      setInfoDialogOpen(true);
+                    }}
+                    className="inline-flex items-center justify-center text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+                  >
+                    <Info className="h-3.5 w-3.5" />
+                  </button>
+                </Label>
                 <UploadInput
                   id="company-logo-upload"
                   value={editData.companyLogo || ""}
@@ -305,8 +321,18 @@ export function PortalEditModal({
               </div>
 
               <div>
-                <Label htmlFor="backgroundImg">
+                <Label htmlFor="backgroundImg" className="flex items-center gap-1">
                   Background Image (optional)
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInfoDialogConfig({ title: "Background Image", description: "Upload a background image that will appear behind your content." });
+                      setInfoDialogOpen(true);
+                    }}
+                    className="inline-flex items-center justify-center text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+                  >
+                    <Info className="h-3.5 w-3.5" />
+                  </button>
                 </Label>
                 <UploadInput
                   id="background-image-upload"
@@ -333,6 +359,12 @@ export function PortalEditModal({
           <Button onClick={handleSave}>Save Changes</Button>
         </DialogFooter>
       </DialogContent>
+      <InfoDialog
+        open={infoDialogOpen}
+        onOpenChange={setInfoDialogOpen}
+        title={infoDialogConfig.title}
+        description={infoDialogConfig.description}
+      />
     </Dialog>
   );
 }

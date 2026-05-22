@@ -2,7 +2,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, ChevronsUpDown, Upload, X } from "lucide-react";
+import { InfoDialog } from "@/components/ui/info-dialog";
+import { Check, ChevronsUpDown, Upload, X, Info } from "lucide-react";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { Headshot } from "@/components/ui/headshot";
 import { ErrorMessage, Errors, IPlanFormData, TouchedFields } from "../..";
@@ -52,6 +53,8 @@ export const BrandingSection = (props: BrandingSectionProps) => {
   } = props;
 
   const [showAllColors, setShowAllColors] = useState(false);
+  const [infoDialogOpen, setInfoDialogOpen] = useState(false);
+  const [infoDialogConfig, setInfoDialogConfig] = useState({ title: "", description: "" });
   const [colorImages, setColorImages] = useState<ColorImage[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -108,8 +111,18 @@ export const BrandingSection = (props: BrandingSectionProps) => {
         </div>
 
         <div className="space-y-2">
-          <Label>
+          <Label className="flex items-center gap-1">
             Company Logo <span className="text-red-500">*</span>
+            <button
+              type="button"
+              onClick={() => {
+                setInfoDialogConfig({ title: "Company Logo", description: "Upload your company's logo for branding purposes." });
+                setInfoDialogOpen(true);
+              }}
+              className="inline-flex items-center justify-center text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+            >
+              <Info className="h-3.5 w-3.5" />
+            </button>
           </Label>
           <div className="flex items-center space-x-4">
             <UniversalImageEditorModal
@@ -270,7 +283,19 @@ export const BrandingSection = (props: BrandingSectionProps) => {
         </div>
 
         <div className="space-y-2">
-          <Label>Background Image</Label>
+          <Label className="flex items-center gap-1">
+            Background Image
+            <button
+              type="button"
+              onClick={() => {
+                setInfoDialogConfig({ title: "Background Image", description: "Upload a background image that will appear behind your content." });
+                setInfoDialogOpen(true);
+              }}
+              className="inline-flex items-center justify-center text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+            >
+              <Info className="h-3.5 w-3.5" />
+            </button>
+          </Label>
           <div className="flex items-center space-x-4">
             <Button
               variant="outline"
@@ -416,6 +441,12 @@ export const BrandingSection = (props: BrandingSectionProps) => {
           Preview
         </Button>
       </div>
+      <InfoDialog
+        open={infoDialogOpen}
+        onOpenChange={setInfoDialogOpen}
+        title={infoDialogConfig.title}
+        description={infoDialogConfig.description}
+      />
     </div>
   );
 };

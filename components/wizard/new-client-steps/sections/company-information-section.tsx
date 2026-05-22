@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { UploadInput } from "@/components/ui/upload-input";
-import { Sparkles } from "lucide-react";
+import { InfoDialog } from "@/components/ui/info-dialog";
+import { Sparkles, Info } from "lucide-react";
 import { CompanyData } from "@/types/new-client-wizard";
 import { Button } from "@/components/ui/button";
 
@@ -27,6 +29,8 @@ export function CompanyInformationSection({
   onBackgroundImgUpload,
   onBackgroundImgRemove,
 }: CompanyInformationSectionProps) {
+  const [infoDialogOpen, setInfoDialogOpen] = useState(false);
+  const [infoDialogConfig, setInfoDialogConfig] = useState({ title: "", description: "" });
   return (
     <Card className="shadow-none">
       <CardHeader>
@@ -66,8 +70,18 @@ export function CompanyInformationSection({
 
             {/* Company Logo */}
             <div>
-              <label className="block mb-2 font-medium text-sm">
+              <label className="block mb-2 font-medium text-sm flex items-center gap-1">
                 Company Logo *
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInfoDialogConfig({ title: "Company Logo", description: "Upload your company's logo for branding purposes." });
+                    setInfoDialogOpen(true);
+                  }}
+                  className="inline-flex items-center justify-center text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+                >
+                  <Info className="h-3.5 w-3.5" />
+                </button>
               </label>
               <UploadInput
                 id="company-logo-upload"
@@ -119,8 +133,18 @@ export function CompanyInformationSection({
 
             {/* Background Image */}
             <div>
-              <label className="block mb-2 font-medium text-sm">
+              <label className="block mb-2 font-medium text-sm flex items-center gap-1">
                 Background image (optional)
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInfoDialogConfig({ title: "Background Image", description: "Upload a background image that will appear behind your content." });
+                    setInfoDialogOpen(true);
+                  }}
+                  className="inline-flex items-center justify-center text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+                >
+                  <Info className="h-3.5 w-3.5" />
+                </button>
               </label>
               <UploadInput
                 id="background-image-upload"
@@ -245,6 +269,12 @@ export function CompanyInformationSection({
           </div>
         </div>
       </CardContent>
+      <InfoDialog
+        open={infoDialogOpen}
+        onOpenChange={setInfoDialogOpen}
+        title={infoDialogConfig.title}
+        description={infoDialogConfig.description}
+      />
     </Card>
   );
 }

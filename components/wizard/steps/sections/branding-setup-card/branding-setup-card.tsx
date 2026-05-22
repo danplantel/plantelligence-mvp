@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { Label } from "@/components/ui/label";
+import { InfoDialog } from "@/components/ui/info-dialog";
 import {
    Sparkles,
    Building2,
@@ -14,6 +15,7 @@ import {
    Link,
    Palette,
    Image as ImageIcon,
+   Info,
  } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
@@ -93,6 +95,8 @@ export function BrandingSetupCard({
    const { validateCurrentStepFields } = useOnboardingWizardStore();
    const [websiteError, setWebsiteError] = useState<string>("");
    const fileInputRef = useRef<HTMLInputElement>(null);
+   const [infoDialogOpen, setInfoDialogOpen] = useState(false);
+   const [infoDialogConfig, setInfoDialogConfig] = useState({ title: "", description: "" });
 
    // Handle file input change to capture preview immediately
    const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -196,8 +200,18 @@ export function BrandingSetupCard({
 
       {/* Organization Logo */}
       <div>
-        <label className="block text-sm font-medium mb-1">
+        <label className="block text-sm font-medium mb-1 flex items-center gap-1">
           Organization Logo <span className="text-red-500">*</span>
+          <button
+            type="button"
+            onClick={() => {
+              setInfoDialogConfig({ title: "Organization Logo", description: "Upload your organization's logo for branding purposes." });
+              setInfoDialogOpen(true);
+            }}
+            className="inline-flex items-center justify-center text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+          >
+            <Info className="h-3.5 w-3.5" />
+          </button>
         </label>
         <UniversalImageEditorModal
           type="logo"
@@ -327,8 +341,18 @@ export function BrandingSetupCard({
 
       {/* Background Image */}
       <div>
-        <label className="block text-sm font-medium mb-1">
+        <label className="block text-sm font-medium mb-1 flex items-center gap-1">
           Background Image (Optional)
+          <button
+            type="button"
+            onClick={() => {
+              setInfoDialogConfig({ title: "Background Image", description: "Upload a background image that will appear behind your content." });
+              setInfoDialogOpen(true);
+            }}
+            className="inline-flex items-center justify-center text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+          >
+            <Info className="h-3.5 w-3.5" />
+          </button>
         </label>
         <UniversalImageEditorModal
           type="custom"
@@ -383,14 +407,32 @@ export function BrandingSetupCard({
   );
 
   if (hideCard) {
-    return content;
+    return (
+      <>
+        {content}
+        <InfoDialog
+          open={infoDialogOpen}
+          onOpenChange={setInfoDialogOpen}
+          title={infoDialogConfig.title}
+          description={infoDialogConfig.description}
+        />
+      </>
+    );
   }
 
   return (
     <Card className="shadow-none h-full flex flex-col dark:bg-gray-800">
       <CardHeader className="pb-3">
       </CardHeader>
-      <CardContent className="flex-1 pt-0">{content}</CardContent>
+      <CardContent className="flex-1 pt-0">
+        {content}
+        <InfoDialog
+          open={infoDialogOpen}
+          onOpenChange={setInfoDialogOpen}
+          title={infoDialogConfig.title}
+          description={infoDialogConfig.description}
+        />
+      </CardContent>
     </Card>
   );
 }
