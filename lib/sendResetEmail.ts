@@ -2,18 +2,19 @@ import nodemailer from 'nodemailer';
 
 const sendResetEmail = async (email: string, token: string, baseUrl: string) => {
     const transporter = nodemailer.createTransport({
-        host: "smtp.mailgun.org",
+        host: process.env.MAIL_HOST || "smtp.mailgun.org",
         port: 465,
         secure: true,
         auth: {
-            user: "testing2@whoseno.com",
-            pass: process.env.MAILGUN_PASSWORD || '',
+            user: process.env.MAIL_USER || '',
+            pass: process.env.MAIL_PASS || process.env.MAILGUN_PASSWORD || '',
         },
     });
 
+    const fromAddress = process.env.MAIL_USER || 'noreply@plantelligence.com';
     const resetUrl = `${baseUrl}/verify-code?email=${email}`;
     const message = {
-        from: 'testing2@whoseno.com',
+        from: `"PlanTelligence" <${fromAddress}>`,
         to: email,
         subject: 'Password Reset Request',
         text: `Please use the following link to reset your password: ${resetUrl}`,
@@ -23,7 +24,7 @@ const sendResetEmail = async (email: string, token: string, baseUrl: string) => 
                 <p>Hello,</p>
                 <p>You recently requested to reset your password for your account. To complete the process, please click the link below to verify your email address:</p>
                 <p><a href="${resetUrl}" target="_blank">${resetUrl}</a></p>
-                <p>Your verification code is <span style="font-weight: 700; font-size: 20px">${token}</span></p> 
+                <p>Your verification code is <span style="font-weight: 700; font-size: 20px">${token}</span></p>
                 <p>If you did not request this, please ignore this email or contact support if you have questions.</p>
                 <p>Thank you,<br>The Support Team</p>
             </body>

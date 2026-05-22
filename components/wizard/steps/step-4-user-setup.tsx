@@ -229,28 +229,17 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
 
       await saveStepDataToServer("userSetup", updatedData);
 
-      // Reload data from server to ensure form is in sync
+      // Reload data from server to ensure form is in sync.
+      // IMPORTANT: Only use server data to supplement fields the server manages
+      // (e.g. headshotFileName, headshotData which may be transformed server-side).
+      // Do NOT overwrite actively-edited form fields (title, phone, etc.) with
+      // server data, as that creates a race condition: if the user types quickly,
+      // the server response may contain stale values that overwrite the user's
+      // latest input, deleting everything but the first character.
       const serverData = await loadStepData("userSetup", true); // force reload
 
       if (serverData) {
         const cur = methods.getValues();
-        // Only overwrite fields with server data when server has non-empty values,
-        // otherwise keep the current form values to prevent clearing.
-        if (serverData.phone) {
-          setValue("phone", serverData.phone);
-        }
-        if (serverData.headshot) {
-          setValue("headshot", serverData.headshot);
-        }
-        if (serverData.title) {
-          setValue("title", serverData.title);
-        }
-        if (serverData.phoneExtension !== undefined && serverData.phoneExtension !== null) {
-          setValue("phoneExtension", serverData.phoneExtension);
-        }
-        if (serverData.designations && Array.isArray(serverData.designations) && serverData.designations.length > 0) {
-          setValue("designations", serverData.designations);
-        }
         // DB has no headshotFileName column — keep client filename after GET
         if (serverData.headshotFileName || cur.headshotFileName) {
           setValue(
