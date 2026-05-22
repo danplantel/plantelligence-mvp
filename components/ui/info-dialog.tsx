@@ -30,7 +30,7 @@ export function InfoDialog({
         <AlertDialogHeader>
           <div className="flex items-start gap-4">
             <div className="flex-shrink-0 p-3 rounded-full bg-blue-100 dark:bg-blue-900/50">
-              <Info className="h-5 w-5 text-blue-accent dark:text-blue-accent" />
+              <Info className="h-5 w-5 text-accent-blue" />
             </div>
             <div className="flex-1 pt-1">
               <AlertDialogTitle className="text-lg font-semibold text-gray-900 dark:text-gray-100">
@@ -43,7 +43,7 @@ export function InfoDialog({
           </div>
         </AlertDialogHeader>
         <div className="flex justify-end">
-          <AlertDialogAction className="bg-accent-blue hover:bg-blue-700 text-white focus:ring-blue-500 dark:bg-accent-blue dark:hover:bg-blue-600">
+          <AlertDialogAction className="bg-accent-blue hover:bg-accent-blue/90 text-white focus:ring-accent-blue">
             Got it
           </AlertDialogAction>
         </div>
