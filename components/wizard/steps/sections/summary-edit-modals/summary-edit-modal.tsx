@@ -82,8 +82,10 @@ export function SummaryEditModal({
     name: initialData.userSetup?.name || "",
     email: initialData.userSetup?.email || "",
     phone: initialData.userSetup?.phone || "",
+    phoneExtension: initialData.userSetup?.phoneExtension || "",
     title: initialData.userSetup?.title || "",
     designations: initialData.userSetup?.designations || [],
+    saveAsContact: initialData.userSetup?.saveAsContact ?? true,
     headshot: initialData.userSetup?.headshot || "",
     headshotData: initialData.userSetup?.headshotData || null,
     userBackgroundImage: initialData.userSetup?.backgroundImage || "",
@@ -157,8 +159,10 @@ We hope to inspire confidence and peace of mind as you navigate your benefits jo
       name: initialData.userSetup?.name || "",
       email: initialData.userSetup?.email || "",
       phone: initialData.userSetup?.phone || "",
+      phoneExtension: initialData.userSetup?.phoneExtension || "",
       title: initialData.userSetup?.title || "",
       designations: initialData.userSetup?.designations || [],
+      saveAsContact: initialData.userSetup?.saveAsContact ?? true,
       headshot: initialData.userSetup?.headshot || "",
       headshotData: initialData.userSetup?.headshotData || null,
       userBackgroundImage: initialData.userSetup?.backgroundImage || "",
@@ -195,8 +199,10 @@ We hope to inspire confidence and peace of mind as you navigate your benefits jo
       name: initialData.userSetup?.name || "",
       email: initialData.userSetup?.email || "",
       phone: initialData.userSetup?.phone || "",
+      phoneExtension: initialData.userSetup?.phoneExtension || "",
       title: initialData.userSetup?.title || "",
       designations: initialData.userSetup?.designations || [],
+      saveAsContact: initialData.userSetup?.saveAsContact ?? true,
       headshot: initialData.userSetup?.headshot || "",
       headshotData: initialData.userSetup?.headshotData || null,
       userBackgroundImage: initialData.userSetup?.backgroundImage || "",
@@ -606,6 +612,21 @@ We hope to inspire confidence and peace of mind as you navigate your benefits jo
                 />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="phoneExtension">Phone Extension</Label>
+                <Input
+                  id="phoneExtension"
+                  value={editData.phoneExtension}
+                  onChange={(e) => {
+                    const normalized = e.target.value.replace(/\D/g, "").slice(0, 6);
+                    updateField("phoneExtension", normalized);
+                  }}
+                  placeholder="Ext."
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
                 <Label htmlFor="title">
                   Title <span className="text-red-500">*</span>
                 </Label>
@@ -626,6 +647,28 @@ We hope to inspire confidence and peace of mind as you navigate your benefits jo
                     )}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-2 flex items-end pb-2">
+                <div className="flex items-start space-x-2">
+                  <input
+                    id="saveAsContact"
+                    type="checkbox"
+                    checked={editData.saveAsContact !== false}
+                    onChange={(e) => updateField("saveAsContact", e.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-gray-300 text-accent-blue focus:ring-accent-blue"
+                  />
+                  <div className="grid gap-1.5 leading-none">
+                    <Label
+                      htmlFor="saveAsContact"
+                      className="text-sm font-medium leading-none cursor-pointer"
+                    >
+                      Save as Contact
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Appear in Saved Contacts for new clients
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
 

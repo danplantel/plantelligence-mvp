@@ -215,8 +215,10 @@ export function Step5Summary({
           name: updatedData.name,
           email: updatedData.email,
           phone: updatedData.phone,
+          phoneExtension: updatedData.phoneExtension || "",
           title: updatedData.title,
           designations: updatedData.designations,
+          saveAsContact: updatedData.saveAsContact,
           headshot:
             typeof updatedData.headshot === "string"
               ? updatedData.headshot
@@ -833,12 +835,29 @@ export function Step5Summary({
                 <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Phone</p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   {formatPhoneNumber(stepData.userSetup?.phone || "")}
+                  {stepData.userSetup?.phoneExtension && (
+                    <span> Ext. {stepData.userSetup.phoneExtension}</span>
+                  )}
                 </p>
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Title</p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   {stepData.userSetup?.title || "Not specified"}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Designations</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {stepData.userSetup?.designations && stepData.userSetup.designations.length > 0
+                    ? stepData.userSetup.designations.join(", ")
+                    : "None"}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Save as Contact</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {stepData.userSetup?.saveAsContact !== false ? "Yes" : "No"}
                 </p>
               </div>
             </div>

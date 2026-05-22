@@ -9,9 +9,11 @@ export function SummaryUserSetupSection({
   name,
   email,
   phone,
+  phoneExtension,
   title,
   designations,
   headshot,
+  saveAsContact,
 }: SummaryUserSetupSectionProps) {
   return (
     <div className="space-y-3 px-4">
@@ -44,6 +46,9 @@ export function SummaryUserSetupSection({
           </label>
           <p className="text-sm">
             {phone ? formatPhoneNumber(phone) : "Not provided"}
+            {phone && phoneExtension && (
+              <span> Ext. {phoneExtension}</span>
+            )}
           </p>
         </div>
 
@@ -74,6 +79,16 @@ export function SummaryUserSetupSection({
             </div>
           </div>
         )}
+
+        {/* Save as Contact */}
+        <div>
+          <label className="font-medium text-muted-foreground text-sm">
+            Save as Contact
+          </label>
+          <p className="text-sm">
+            {saveAsContact !== false ? "Yes" : "No"}
+          </p>
+        </div>
 
         {/* Headshot preview (photo or monogram) */}
         <div>
