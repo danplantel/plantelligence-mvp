@@ -15,7 +15,6 @@ import { ProfileSettingsSection } from "@/components/pages/settings/profile-sett
 import { BrandingSettingsSection } from "@/components/pages/settings/branding-settings-section";
 import { OrganizationSettingsSection } from "@/components/pages/settings/organization-settings-section";
 import { TeamAndDisclaimersSection } from "@/components/pages/settings/team-and-disclaimers-section";
-import { IntegrationsSection } from "@/components/pages/settings/integrations-section";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -671,7 +670,7 @@ export default function SettingsPage() {
           onValueChange={handleTabChange}
           className="space-y-6"
         >
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="profile" className="flex items-center gap-2">
               <User className="h-4 w-4" />
               Profile
@@ -686,13 +685,6 @@ export default function SettingsPage() {
             >
               <Briefcase className="h-4 w-4" />
               Organization
-            </TabsTrigger>
-            <TabsTrigger
-              value="integrations"
-              className="flex items-center gap-2"
-            >
-              <Building2 className="h-4 w-4" />
-              Integrations
             </TabsTrigger>
             <TabsTrigger value="team" className="flex items-center gap-2">
               <UsersIcon className="h-4 w-4" />
@@ -730,11 +722,6 @@ export default function SettingsPage() {
               servicesForm={servicesForm}
               onSave={handleSaveOrganization}
             />
-          </TabsContent>
-
-          {/* Integrations Tab */}
-          <TabsContent value="integrations" className="space-y-6">
-            <IntegrationsSection isSaving={isSaving} />
           </TabsContent>
 
           {/* Team & Disclaimers Tab */}
