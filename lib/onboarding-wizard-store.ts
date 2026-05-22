@@ -48,6 +48,7 @@ export interface OnboardingWizardState {
   nextStep: () => void;
   previousStep: () => void;
   goToStep: (step: number) => void;
+  persistCurrentStep: (step: number) => Promise<void>;
   completeStep: (stepId: number) => void;
   saveStepData: (stepType: string, data: any, saveToServer?: boolean) => Promise<void>;
   saveStepDataLocally: (stepType: string, data: any) => Promise<void>;
@@ -205,8 +206,22 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
       showStep5ConfirmModal: false,
       setShowStep5ConfirmModal: (show: boolean) => set({ showStep5ConfirmModal: show }),
 
+      // Helper to persist currentStep to the server so returning users
+      // resume at the exact step they were last on.
+      persistCurrentStep: async (step: number) => {
+        try {
+          await fetch('/api/onboarding-wizard/session', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ currentStep: step }),
+          });
+        } catch (error) {
+          // Silent — persistence is best-effort; the user can still navigate
+        }
+      },
+
       nextStep: async () => {
-        const { currentStep, totalSteps, showNextSteps, setShowNextSteps, setShowStep5ConfirmModal } = get();
+        const { currentStep, totalSteps, showNextSteps, setShowNextSteps, setShowStep5ConfirmModal, persistCurrentStep } = get();
 
         // Special handling for step 5 - first show confirmation modal, then Next Steps
         if (currentStep === 5 && !showNextSteps) {
@@ -216,7 +231,9 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
         }
 
         if (currentStep < totalSteps) {
-          set({ currentStep: currentStep + 1 });
+          const next = currentStep + 1;
+          set({ currentStep: next });
+          persistCurrentStep(next);
           // Reset showNextSteps when moving away from step 5
           if (currentStep === 5) {
             setShowNextSteps(false);
@@ -225,7 +242,7 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
       },
 
       previousStep: () => {
-        const { currentStep, stepData, showNextSteps, setShowNextSteps } = get();
+        const { currentStep, stepData, showNextSteps, setShowNextSteps, persistCurrentStep } = get();
 
         // Special handling for step 5 - if showing Next Steps, go back to Setup Complete
         if (currentStep === 5 && showNextSteps) {
@@ -234,14 +251,17 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
         }
 
         if (currentStep > 1) {
-          set({ currentStep: currentStep - 1 });
+          const prev = currentStep - 1;
+          set({ currentStep: prev });
+          persistCurrentStep(prev);
         }
       },
 
       goToStep: (step: number) => {
-        const { totalSteps } = get();
+        const { totalSteps, persistCurrentStep } = get();
         if (step >= 1 && step <= totalSteps) {
           set({ currentStep: step });
+          persistCurrentStep(step);
         }
       },
 
@@ -488,11 +508,53 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
             }
 
             if (hasData) {
+              // Determine the highest completed step from loaded data
+              // so we can mark steps as completed in the stepper UI.
+              const stepDataMap: Record<string, number> = {
+                clientProfile: 1,
+                teamSize: 1,
+                services: 2,
+                insuranceLicensing: 2,
+                branding: 3,
+                userSetup: 4,
+                disclaimers: 5,
+              };
+
+              let highestStepWithData = 0;
+              for (const [key, stepNum] of Object.entries(stepDataMap)) {
+                if (loadedData[key]) {
+                  highestStepWithData = Math.max(highestStepWithData, stepNum);
+                }
+              }
+
+              // Mark steps as completed based on loaded data
+              const updatedSteps = initialSteps.map((step) => ({
+                ...step,
+                completed: step.id <= highestStepWithData,
+              }));
+
+              // Restore currentStep from the server session so returning users
+              // resume at the exact step they were last on (not inferred from data).
+              let serverStep = 1;
+              try {
+                const sessionRes = await fetch('/api/onboarding-wizard/session');
+                if (sessionRes.ok) {
+                  const sessionJson = await sessionRes.json();
+                  if (sessionJson?.session?.currentStep) {
+                    serverStep = sessionJson.session.currentStep;
+                  }
+                }
+              } catch {
+                // Fall back to step 1 if the session fetch fails
+              }
+
               set((state) => ({
                 stepData: {
                   ...state.stepData,
                   ...loadedData,
                 },
+                steps: updatedSteps,
+                currentStep: serverStep,
               }));
             }
 

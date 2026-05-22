@@ -66,3 +66,46 @@ export async function POST() {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { currentStep } = body;
+
+    if (typeof currentStep !== "number" || currentStep < 1 || currentStep > 5) {
+      return NextResponse.json(
+        { error: "Invalid currentStep value (must be 1-5)" },
+        { status: 400 },
+      );
+    }
+
+    const wizardSession = await prisma.wizardSession.findFirst({
+      where: {
+        userId: session.user.id,
+        completed: false,
+      },
+    });
+
+    if (!wizardSession) {
+      return NextResponse.json({ error: "No active wizard session found" }, { status: 404 });
+    }
+
+    const updatedSession = await prisma.wizardSession.update({
+      where: { id: wizardSession.id },
+      data: { currentStep },
+    });
+
+    return NextResponse.json({
+      success: true,
+      session: updatedSession,
+    });
+  } catch (error) {
+    console.error("Error updating wizard session:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
