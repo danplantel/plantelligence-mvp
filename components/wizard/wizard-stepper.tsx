@@ -229,13 +229,18 @@ export function WizardStepper({
               className="relative flex items-center flex-1 h-full min-w-0"
             >
               <div
-                className={`size-5 rounded-full flex items-center justify-center text-xs font-semibold transition-all duration-200 flex-shrink-0 ${isCurrent
-                  ? "bg-accent-blue text-white"
+                className={`size-5 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 ${isCurrent
+                  ? "bg-[#2ba8b5] text-white transition-none"
                   : isPast
-                    ? "bg-accent-blue text-white"
-                    : ""
-                  }`}
-                style={!isCurrent && !isPast ? {
+                    ? "bg-accent-blue text-white transition-all duration-200"
+                    : "transition-all duration-200"
+                }`}
+                style={isCurrent ? {
+                  animationName: theme === "dark" ? "wizard-pulse-glow-dark" : "wizard-pulse-glow-light",
+                  animationDuration: "5s",
+                  animationTimingFunction: "ease-in-out",
+                  animationIterationCount: "infinite",
+                } as React.CSSProperties : !isCurrent && !isPast ? {
                   backgroundColor: theme === "dark" ? "#4B5563" : "#D1D5DB",
                   color: theme === "dark" ? "#E5E7EB" : "#4B5563"
                 } : undefined}

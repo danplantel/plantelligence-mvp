@@ -137,14 +137,19 @@ export function OnboardingWizardStepper({
               <button
                 onClick={() => handleStepClick(step.id)}
                 disabled={!isClickable}
-                className={`size-8 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-200 flex-shrink-0 ${
+                className={`size-8 rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0 ${
                   isCurrent
-                    ? "bg-accent-blue text-white"
+                    ? "bg-[#2ba8b5] text-white transition-none"
                     : isPast
-                      ? "bg-accent-blue text-white cursor-pointer hover:bg-accent-blue/90 hover:shadow-md hover:scale-105"
-                      : "bg-[#23919C]/10 text-gray-400 cursor-not-allowed"
+                      ? "bg-accent-blue text-white cursor-pointer hover:bg-accent-blue/90 hover:shadow-md hover:scale-105 transition-all duration-200"
+                      : "bg-[#23919C]/10 text-gray-400 cursor-not-allowed transition-all duration-200"
                 }`}
-                style={!isCurrent && !isPast && isDarkMode ? {
+                style={isCurrent ? {
+                  animationName: isDarkMode ? "wizard-pulse-glow-dark" : "wizard-pulse-glow-light",
+                  animationDuration: "5s",
+                  animationTimingFunction: "ease-in-out",
+                  animationIterationCount: "infinite",
+                } as React.CSSProperties : !isCurrent && !isPast && isDarkMode ? {
                   backgroundColor: "#4B5563",
                   color: "#E5E7EB"
                 } : undefined}
