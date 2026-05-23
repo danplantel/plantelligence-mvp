@@ -208,4 +208,14 @@
       box-shadow: 0 0 0 8px rgba(100, 210, 220, 0);
     }
   }
+
+  @keyframes wizard-text-pulse {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.25);
+    }
+  }
 }

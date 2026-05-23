@@ -245,7 +245,19 @@ export function WizardStepper({
                   color: theme === "dark" ? "#E5E7EB" : "#4B5563"
                 } : undefined}
               >
-                {isPast ? <Check className="w-2 h-2" /> : <p className="text-xs">{step.id}</p>}
+                {isPast ? <Check className="w-2 h-2" /> : (
+                  <p
+                    className="text-xs"
+                    style={isCurrent ? {
+                      animationName: "wizard-text-pulse",
+                      animationDuration: "5s",
+                      animationTimingFunction: "ease-in-out",
+                      animationIterationCount: "infinite",
+                    } as React.CSSProperties : undefined}
+                  >
+                    {step.id}
+                  </p>
+                )}
               </div>
 
               {!isLastVisible && (

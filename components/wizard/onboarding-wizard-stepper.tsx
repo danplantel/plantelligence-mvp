@@ -162,7 +162,17 @@ export function OnboardingWizardStepper({
                 {isPast ? (
                   <Check className="w-5 h-5" />
                 ) : (
-                  <p className="text-sm">{step.id}</p>
+                  <p
+                    className="text-sm"
+                    style={isCurrent ? {
+                      animationName: "wizard-text-pulse",
+                      animationDuration: "5s",
+                      animationTimingFunction: "ease-in-out",
+                      animationIterationCount: "infinite",
+                    } as React.CSSProperties : undefined}
+                  >
+                    {step.id}
+                  </p>
                 )}
               </button>
 
