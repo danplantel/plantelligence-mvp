@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ColorPicker } from "@/components/ui/color-picker";
-import { Building2, Palette, Globe, Image as ImageIcon } from "lucide-react";
+import { Building2, Palette, Globe, Image as ImageIcon, CheckCircle2, AlertCircle } from "lucide-react";
+import { isValidDomain, normalizeCleanDomain } from "@/lib/url-utils";
 import { BrandImageUpload } from "@/components/ui/brand-image-upload";
 import { BrandImagesSection } from "./sections/brand-images-section";
 import {
@@ -128,6 +129,49 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
 
   const companyNameRef = useRef<HTMLInputElement>(null);
   const companyWebsiteRef = useRef<HTMLInputElement>(null);
+
+  // Field-level validation state
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string | null>>({});
+  const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
+
+  const setFieldError = (field: string, error: string | null) => {
+    setFieldErrors((prev) => ({ ...prev, [field]: error }));
+  };
+
+  const markTouched = (field: string) => {
+    setTouchedFields((prev) => ({ ...prev, [field]: true }));
+  };
+
+  const isFieldInvalid = (field: string): boolean => {
+    return errorFields.includes(field) || (touchedFields[field] && !!fieldErrors[field]);
+  };
+
+  // Validation helpers
+  const validateCompanyName = (value: string): string | null => {
+    const trimmed = value.trim();
+    if (!trimmed) return "Company name is required";
+    if (trimmed.length < 2) return "Company name must be at least 2 characters";
+    return null;
+  };
+
+  const validateWebsite = (value: string): string | null => {
+    const trimmed = value.trim();
+    if (!trimmed) return null; // optional
+    if (!isValidDomain(trimmed)) return "Please enter a valid domain (e.g., example.com)";
+    return null;
+  };
+
+  const validateHexColor = (value: string, label: string): string | null => {
+    const hexColorRegex = /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/;
+    if (!value || !hexColorRegex.test(value)) return `${label} must be a valid hex color (e.g., #1F3A60)`;
+    return null;
+  };
+
+  const validateLogo = (logo: CompanyLogoData | null): string | null => {
+    if (!logo || !logo.url) return null; // optional in v2
+    return null;
+  };
+
   // Only the branding sub-step is shown (welcomeMission moved to Step 2)
   const currentSubStep: CompanyBasicsSubStep = "branding";
   // No auto-initialization to default to avoid user frustration
@@ -625,14 +669,23 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                       value={companyData.companyName}
                       onChange={(e) => {
                         const value = e.target.value.slice(0, 65);
+                        if (touchedFields["companyName"]) {
+                          setFieldError("companyName", validateCompanyName(value));
+                        }
                         updateField("companyName", value);
                       }}
-                      onBlur={() => { }}
+                      onBlur={() => {
+                        markTouched("companyName");
+                        setFieldError("companyName", validateCompanyName(companyData.companyName));
+                      }}
                       placeholder="Enter company name"
                       maxLength={65}
                       required
-                      destructive={errorFields.includes("companyName")}
+                      destructive={isFieldInvalid("companyName")}
                     />
+                    {touchedFields["companyName"] && companyData.companyName.trim() && !fieldErrors["companyName"] && (
+                      <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500 pointer-events-none" />
+                    )}
                     <div
                       className={`absolute -top-8 right-0 flex items-center gap-2 transition-all duration-500 ease-out ${companyData.companyName.length >= 45
                         ? "opacity-100 translate-y-0"
@@ -657,24 +710,58 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                       )}
                     </div>
                   </div>
+                  {touchedFields["companyName"] && fieldErrors["companyName"] && (
+                    <p className="text-xs text-red-500 flex items-center gap-1 mt-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {fieldErrors["companyName"]}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="companyWebsite">Company Website</Label>
-                  <Input
-                    icon={<Globe className="h-4 w-4" />}
-                    ref={companyWebsiteRef}
-                    id="companyWebsite"
-                    name="companyWebsite"
-                    data-field="companyWebsite"
-                    value={companyData.companyWebsite}
-                    onChange={(e) => {
-                      updateField("companyWebsite", e.target.value);
-                    }}
-                    onBlur={() => { }}
-                    placeholder="example.com"
-                    type="url"
-                    destructive={errorFields.includes("companyWebsite")}
-                  />
+                  <Label htmlFor="companyWebsite">
+                    Company Website
+                    <span className="text-xs text-muted-foreground ml-1">(optional)</span>
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      icon={<Globe className="h-4 w-4" />}
+                      ref={companyWebsiteRef}
+                      id="companyWebsite"
+                      name="companyWebsite"
+                      data-field="companyWebsite"
+                      value={companyData.companyWebsite}
+                      onChange={(e) => {
+                        if (touchedFields["companyWebsite"]) {
+                          setFieldError("companyWebsite", validateWebsite(e.target.value));
+                        }
+                        updateField("companyWebsite", e.target.value);
+                      }}
+                      onBlur={() => {
+                        markTouched("companyWebsite");
+                        const value = companyData.companyWebsite?.trim() || "";
+                        if (value) {
+                          // Normalize: strip protocol and www.
+                          const clean = normalizeCleanDomain(value);
+                          if (clean !== value) {
+                            updateField("companyWebsite", clean);
+                          }
+                        }
+                        setFieldError("companyWebsite", validateWebsite(value));
+                      }}
+                      placeholder="example.com"
+                      type="text"
+                      destructive={isFieldInvalid("companyWebsite")}
+                    />
+                    {touchedFields["companyWebsite"] && companyData.companyWebsite?.trim() && !fieldErrors["companyWebsite"] && (
+                      <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500 pointer-events-none" />
+                    )}
+                  </div>
+                  {touchedFields["companyWebsite"] && fieldErrors["companyWebsite"] && (
+                    <p className="text-xs text-red-500 flex items-center gap-1 mt-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {fieldErrors["companyWebsite"]}
+                    </p>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -728,7 +815,7 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Primary Color */}
                 <div className="space-y-3 relative">
-                  <Label>Primary Color</Label>
+                  <Label>Primary Color <span className="text-red-500">*</span></Label>
                   <div className="flex flex-col gap-2">
                     <div className="flex items-center gap-3">
                       <Button
@@ -741,7 +828,7 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                             !companyData.isPrimaryColorPickerOpen,
                           )
                         }
-                        className="h-10 px-3"
+                        className={`h-10 px-3 ${isFieldInvalid("primaryColor") ? "border-red-500" : ""}`}
                       >
                         <div
                           className="w-6 h-6 rounded border"
@@ -751,6 +838,9 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                       <span className="text-sm text-muted-foreground">
                         {companyData.primaryColor}
                       </span>
+                      {touchedFields["primaryColor"] && !fieldErrors["primaryColor"] && (
+                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                      )}
                     </div>
                     <div className="flex gap-1.5">
                       {[
@@ -767,24 +857,43 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                             }`}
                           style={{ backgroundColor: preset.value }}
                           title={preset.name}
-                          onClick={() => updateField("primaryColor", preset.value)}
+                          onClick={() => {
+                            updateField("primaryColor", preset.value);
+                            if (touchedFields["primaryColor"]) {
+                              setFieldError("primaryColor", validateHexColor(preset.value, "Primary color"));
+                            }
+                          }}
                         />
                       ))}
                     </div>
                   </div>
                   <ColorPicker
                     value={companyData.primaryColor}
-                    onChange={(color) => updateField("primaryColor", color)}
+                    onChange={(color) => {
+                      updateField("primaryColor", color);
+                      if (touchedFields["primaryColor"]) {
+                        setFieldError("primaryColor", validateHexColor(color, "Primary color"));
+                      }
+                    }}
                     isOpen={companyData.isPrimaryColorPickerOpen || false}
-                    onOpenChange={(open) =>
-                      updateField("isPrimaryColorPickerOpen", open || false)
-                    }
+                    onOpenChange={(open) => {
+                      if (!open && touchedFields["primaryColor"]) {
+                        setFieldError("primaryColor", validateHexColor(companyData.primaryColor, "Primary color"));
+                      }
+                      updateField("isPrimaryColorPickerOpen", open || false);
+                    }}
                   />
+                  {touchedFields["primaryColor"] && fieldErrors["primaryColor"] && (
+                    <p className="text-xs text-red-500 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {fieldErrors["primaryColor"]}
+                    </p>
+                  )}
                 </div>
 
                 {/* Secondary Color */}
                 <div className="space-y-3 relative">
-                  <Label>Secondary Color</Label>
+                  <Label>Secondary Color <span className="text-red-500">*</span></Label>
                   <div className="flex flex-col gap-2">
                     <div className="flex items-center gap-3">
                       <Button
@@ -797,7 +906,7 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                             !companyData.isSecondaryColorPickerOpen,
                           )
                         }
-                        className="h-10 px-3"
+                        className={`h-10 px-3 ${isFieldInvalid("secondaryColor") ? "border-red-500" : ""}`}
                       >
                         <div
                           className="w-6 h-6 rounded border"
@@ -807,6 +916,9 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <span>{companyData.secondaryColor}</span>
                       </div>
+                      {touchedFields["secondaryColor"] && !fieldErrors["secondaryColor"] && (
+                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                      )}
                     </div>
                     <div className="flex gap-1.5">
                       {[
@@ -823,19 +935,38 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                             }`}
                           style={{ backgroundColor: preset.value }}
                           title={preset.name}
-                          onClick={() => updateField("secondaryColor", preset.value)}
+                          onClick={() => {
+                            updateField("secondaryColor", preset.value);
+                            if (touchedFields["secondaryColor"]) {
+                              setFieldError("secondaryColor", validateHexColor(preset.value, "Secondary color"));
+                            }
+                          }}
                         />
                       ))}
                     </div>
                   </div>
                   <ColorPicker
                     value={companyData.secondaryColor}
-                    onChange={(color) => updateField("secondaryColor", color)}
+                    onChange={(color) => {
+                      updateField("secondaryColor", color);
+                      if (touchedFields["secondaryColor"]) {
+                        setFieldError("secondaryColor", validateHexColor(color, "Secondary color"));
+                      }
+                    }}
                     isOpen={companyData.isSecondaryColorPickerOpen || false}
-                    onOpenChange={(open) =>
-                      updateField("isSecondaryColorPickerOpen", open || false)
-                    }
+                    onOpenChange={(open) => {
+                      if (!open && touchedFields["secondaryColor"]) {
+                        setFieldError("secondaryColor", validateHexColor(companyData.secondaryColor, "Secondary color"));
+                      }
+                      updateField("isSecondaryColorPickerOpen", open || false);
+                    }}
                   />
+                  {touchedFields["secondaryColor"] && fieldErrors["secondaryColor"] && (
+                    <p className="text-xs text-red-500 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {fieldErrors["secondaryColor"]}
+                    </p>
+                  )}
                 </div>
               </div>
 
