@@ -14,10 +14,12 @@ import {
   AlertTriangle,
   Maximize2,
   Loader2,
+  Plus,
 } from "lucide-react";
 import { CropMetadata } from "./simple-image-editor-modal";
 import { uploadFileToR2 } from "@/lib/upload-to-r2";
-import { isR2BrandingKey, toFabricImageLoadUrl } from "@/lib/branding-image-url";
+import { isR2BrandingKey, toR2BrandingKey, toFabricImageLoadUrl } from "@/lib/branding-image-url";
+import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { Headshot } from "@/components/ui/headshot";
 
 // Types for different use cases
@@ -360,6 +362,11 @@ export function UniversalImageEditorModal({
     canvasMode === "compact" ? 300 : config.canvasHeight,
   );
 
+  // Resolve R2 branding keys to displayable URLs for the trigger area preview
+  const { url: displayUrl } = useBrandingImageUrl(value);
+  const isStoredR2Key = toR2BrandingKey(value) != null;
+  const previewSrc = isStoredR2Key ? (displayUrl ?? undefined) : (displayUrl ?? value ?? undefined);
+
   // Check if headshot image is cropped (for headshot type only)
   const checkHeadshotCropping = useCallback(() => {
     if (type !== "headshot") return false;
@@ -442,10 +449,15 @@ export function UniversalImageEditorModal({
     return isTooSmall || isTooFarFromCenter || !previewCoversCircle;
   }, [type, responsiveCanvasWidth, responsiveCanvasHeight]);
 
-  // Use external modal state if provided, otherwise use internal
+  // Use external modal state if provided, otherwise use internal.
+  // Also allow internal modal open to override external closed state
+  // (e.g., when a file is selected via the trigger in controlled mode).
   const modalOpen =
-    externalIsOpen !== undefined ? externalIsOpen : internalModalOpen;
-  const handleClose = externalOnClose || (() => setInternalModalOpen(false));
+    externalIsOpen !== undefined ? (externalIsOpen || internalModalOpen) : internalModalOpen;
+  const handleClose = () => {
+    setInternalModalOpen(false);
+    if (externalOnClose) externalOnClose();
+  };
 
   // Calculate responsive canvas dimensions based on viewport
   useEffect(() => {
@@ -585,6 +597,9 @@ export function UniversalImageEditorModal({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Clear the input value to prevent re-triggering
+    e.target.value = "";
+
     setError(null);
     setIsLoading(true);
 
@@ -610,9 +625,8 @@ export function UniversalImageEditorModal({
       setImageSrc(dataURL);
       setOriginalImageSrc(dataURL);
       generateWarnings(dataURL);
-      if (externalIsOpen === undefined) {
-        setInternalModalOpen(true);
-      }
+      // Open the modal regardless of mode (standalone or controlled)
+      setInternalModalOpen(true);
       setIsLoading(false);
     };
     reader.readAsDataURL(file);
@@ -2405,49 +2419,98 @@ export function UniversalImageEditorModal({
         onChange={handleFileChange}
       />
 
+      {/* BrandImageUpload-style trigger */}
       <div
-        onClick={() => inputRef.current?.click()}
-        className={`w-full h-9 border rounded-lg px-3 py-1 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer flex items-center relative ${destructive
-          ? "!border-red-500 focus-visible:!border-red-500 focus-visible:ring-red-500/20"
+        onClick={() => !value && inputRef.current?.click()}
+        className={`border-2 border-dashed rounded-lg p-4 text-center transition-all duration-300 cursor-pointer ${destructive
+          ? "border-red-500"
           : value
-            ? "!border-accent-blue bg-[#23919C]/10 focus-visible:ring-accent-blue/20 dark:focus-visible:ring-accent-blue/30"
-            : "!border-gray-300 dark:!border-gray-500 bg-transparent focus-visible:!border-accent-blue dark:focus-visible:!border-accent-blue focus-visible:ring-accent-blue/20 dark:focus-visible:ring-accent-blue/30"
+            ? "border-accent-blue bg-[#23919C]/5"
+            : "border-gray-300 hover:border-gray-400"
           }`}
       >
         {value ? (
-          <>
-            <div className="relative mr-3 h-8 w-8 shrink-0">
-              <Headshot
-                src={value}
-                alt="Uploaded file"
-                objectFit="contain"
-                wrapperClassName="h-full w-full"
-              />
+          <div className="w-full space-y-3">
+            <div className="relative grid gap-2 p-2 rounded-xl bg-muted/20 border border-gray-200 md:grid-cols-[60%_40%] md:items-start" style={{ minHeight: "180px" }}>
+
+              {/* Preview Column */}
+              <div className="flex flex-col space-y-1 md:sticky md:top-0 md:self-start">
+                <div className="relative rounded-xl overflow-hidden border border-gray-200 bg-gray-50 inline-block min-h-[140px] min-w-[100px]">
+                  <img
+                    src={previewSrc}
+                    alt={fileName || "Uploaded file"}
+                    className="h-[140px] w-auto object-contain"
+                  />
+                </div>
+              </div>
+
+              {/* Controls Column */}
+              <div className="flex flex-col gap-2 overflow-y-auto max-h-[200px] pr-1">
+                <p className="text-xs font-bold text-foreground break-words truncate">
+                  {(fileName || `${placeholder} uploaded`).replace(/(\.\w+)$/, "-cropped$1")}
+                </p>
+
+                <div className="flex flex-col gap-1.5">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      inputRef.current?.click();
+                    }}
+                    className="text-accent-blue border border-accent-blue hover:bg-accent-blue/10 text-xs px-2 py-0.5 h-7 w-full justify-center rounded-md flex items-center"
+                  >
+                    <Upload className="w-3 h-3 mr-1" />
+                    Replace
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      inputRef.current?.click();
+                    }}
+                    className="text-accent-blue border border-accent-blue hover:bg-accent-blue/10 text-xs px-2 py-0.5 h-7 w-full justify-center rounded-md flex items-center"
+                  >
+                    <Upload className="w-3 h-3 mr-1" />
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemove();
+                      if (inputRef.current) {
+                        inputRef.current.value = "";
+                      }
+                    }}
+                    className="text-red-600 border border-red-300 hover:bg-red-50 text-xs px-2 py-0.5 h-7 w-full justify-center rounded-md flex items-center"
+                  >
+                    <X className="w-3 h-3 mr-1" />
+                    Delete
+                  </button>
+                </div>
+              </div>
             </div>
-            <span className="flex-1 text-sm truncate min-w-0">
-              {fileName
-                ? fileName.length > 30
-                  ? `${fileName.substring(0, 27)}...`
-                  : fileName
-                : `${placeholder} uploaded`}
-            </span>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {icon || <Upload className="w-6 h-6 mx-auto text-gray-400" />}
+            <div>
+              <p className="text-sm text-gray-600">No file selected</p>
+              <p className="text-xs text-gray-500">
+                Recommended: {config.previewSizes.rectangular?.width || 300}×{config.previewSizes.rectangular?.height || 250} • Accepted: {config.acceptedTypes.join(", ").toUpperCase().replace("JPG", "JPG")} • Max 15 MB
+              </p>
+            </div>
             <button
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                onRemove();
-                if (inputRef.current) {
-                  inputRef.current.value = "";
-                }
+                inputRef.current?.click();
               }}
-              className="p-1 text-red-500 hover:text-red-700"
+              className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 mt-2"
             >
-              <X className="w-4 h-4" />
+              <Plus className="w-4 h-4 mr-1" />
+              Choose File
             </button>
-          </>
-        ) : (
-          <div className="flex items-center space-x-2">
-            {icon || <Upload className="w-4 h-4" />}
-            <span>{placeholder}</span>
           </div>
         )}
       </div>

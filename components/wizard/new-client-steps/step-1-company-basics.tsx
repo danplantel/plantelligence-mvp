@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
-import { Building2, Palette, Globe, Image as ImageIcon, CheckCircle2, AlertCircle, Sparkles } from "lucide-react";
+import { Building2, Palette, Globe, Image as ImageIcon, CheckCircle2, AlertCircle, Sparkles, Upload, Plus, X, AlertTriangle } from "lucide-react";
 import { isValidDomain, normalizeCleanDomain } from "@/lib/url-utils";
 import { extractColorsFromImage } from "@/lib/extract-colors-from-image";
 import { deleteFromR2 } from "@/lib/upload-to-r2";
@@ -131,6 +131,7 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
   const companyNameRef = useRef<HTMLInputElement>(null);
   const companyWebsiteRef = useRef<HTMLInputElement>(null);
   const [logoPreviewDataUrl, setLogoPreviewDataUrl] = useState<string | undefined>(undefined);
+  const [isLogoModalOpen, setIsLogoModalOpen] = useState(false);
 
   // Field-level validation state
   const [fieldErrors, setFieldErrors] = useState<Record<string, string | null>>({});
@@ -679,11 +680,15 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
               </CardTitle>
             </CardHeader>
             <CardContent>
+
+              {/* UniversalImageEditorModal (controlled via isOpen/onClose) */}
               <UniversalImageEditorModal
                 type="logo"
                 icon={<ImageIcon className="w-4 h-4" />}
                 value={companyData.companyLogo?.url || ""}
                 fileName={companyData.companyLogo?.fileName || ""}
+                isOpen={isLogoModalOpen}
+                onClose={() => setIsLogoModalOpen(false)}
                 onChange={async (value, fileName, headshotData) => {
                   const previewDataUrl: string | undefined =
                     (headshotData as any)?.previewDataUrl;
@@ -716,6 +721,9 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                     warnings: [],
                   };
                   handleLogoChange(logoData);
+
+                  // Close the modal after saving
+                  setIsLogoModalOpen(false);
                 }}
                 onRemove={async () => {
                   const currentLogoUrl = companyData.companyLogo?.url;
@@ -731,27 +739,11 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                       /* non-blocking */
                     }
                   }
+                  setIsLogoModalOpen(false);
                 }}
                 placeholder="Upload Logo"
                 destructive={errorFields.includes("companyLogo")}
               />
-              {(logoPreviewDataUrl || companyData.companyLogo?.url) && (
-                <div className="mt-4 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 rounded-lg p-4 flex flex-col items-center justify-center">
-                  <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-3">
-                    Logo Preview
-                  </p>
-                  <div className="flex items-center justify-center w-full">
-                    <img
-                      src={logoPreviewDataUrl || companyData.companyLogo?.url || ""}
-                      alt="Company Logo"
-                      className="max-w-full max-h-40 object-contain"
-                      onError={(e) => {
-                        console.error("Failed to load logo image:", e);
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
             </CardContent>
           </Card>
 
