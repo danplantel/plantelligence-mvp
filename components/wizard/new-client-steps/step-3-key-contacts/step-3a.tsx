@@ -15,7 +15,6 @@ import { Building2, Shield, Heart, Gift, Check } from "lucide-react";
 import { BenefitsCategory } from "@/types/new-client-wizard";
 import { cn } from "@/lib/utils";
 import { BrandingImage } from "@/components/ui/branding-image";
-
 interface NewClientStep3aProps {
   errorFields?: string[];
   onNext?: () => void;
@@ -816,7 +815,7 @@ export function NewClientStep3a({
             } else if (isFromStep3b) {
               return "Select another benefits category to add a contact for.";
             } else {
-              return "Start by adding the Company / Plan Sponsor contact. Click Next to continue.";
+              return "Add Key Benefits Contacts for the categories that apply to your company. You can add more contacts later if needed.";
             }
           })()}
         </p>
@@ -825,7 +824,7 @@ export function NewClientStep3a({
       {/* Company / Plan Sponsor Section */}
       <div
         className={cn(
-          "rounded-lg p-4 border max-w-2xl mx-auto cursor-pointer transition-all hover:shadow-md",
+          "rounded-lg border max-w-2xl mx-auto cursor-pointer transition-all hover:shadow-md",
           selectedCategoryStep3a === "Company / Plan Sponsor"
             ? "border-2 border-accent-blue bg-accent-blue/5"
             : "bg-white border-gray-200 hover:border-gray-300",
@@ -835,45 +834,45 @@ export function NewClientStep3a({
         )}
         onClick={() => handleCategorySelect("Company / Plan Sponsor")}
       >
-        <div className="space-y-3">
-          <div className="text-center">
-            <h3 className="text-base font-semibold text-gray-900 mb-3">
-              Company / Plan Sponsor
-            </h3>
-            {/* Company Logo */}
-            <div className="flex items-center justify-center mb-3">
-              <div className="relative flex min-h-[4rem] max-h-24 w-full max-w-[220px] min-w-0 items-center justify-center px-1 py-1">
-                {stepData?.companyBasics?.companyLogo?.url?.trim() ? (
-                  <BrandingImage
-                    src={stepData?.companyBasics?.companyLogo?.url ?? ""}
-                    alt="Company logo"
-                    className="max-h-[5.5rem] w-auto max-w-full object-contain"
-                  />
-                ) : null}
-                {selectedCategoryStep3a === "Company / Plan Sponsor" && (
-                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-accent-blue rounded-full flex items-center justify-center">
-                    <Check className="w-2.5 h-2.5 text-white" />
-                  </div>
-                )}
-              </div>
+        <div className="p-4 text-center">
+          <h3 className="text-base font-semibold text-gray-900 mb-2">
+            Company / Plan Sponsor
+          </h3>
+
+          {/* Company Logo */}
+          {stepData?.companyBasics?.companyLogo?.url?.trim() ? (
+            <div className="relative inline-block mb-2">
+              <BrandingImage
+                src={stepData.companyBasics.companyLogo.url}
+                alt="Company logo"
+                className="w-32 h-32"
+              />
+              {selectedCategoryStep3a === "Company / Plan Sponsor" && (
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-accent-blue rounded-full flex items-center justify-center">
+                  <Check className="w-2.5 h-2.5 text-white" />
+                </div>
+              )}
             </div>
-            {!isFromStep3b && (
-              <div className="flex items-center justify-center gap-2 text-xs">
-                <span
-                  className={cn(
-                    "text-gray-700",
-                    companyContactCount === 0 ? "font-medium" : "text-gray-700",
-                  )}
-                >
-                  {companyContactCount === 0
-                    ? "Contact(s) needed"
-                    : `${companyContactCount} ${
-                        companyContactCount === 1 ? "contact" : "contacts"
-                      } added`}
-                </span>
+          ) : (
+            selectedCategoryStep3a === "Company / Plan Sponsor" && (
+              <div className="relative inline-block mb-2">
+                <div className="w-32 h-14" />
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-accent-blue rounded-full flex items-center justify-center">
+                  <Check className="w-2.5 h-2.5 text-white" />
+                </div>
               </div>
-            )}
-          </div>
+            )
+          )}
+
+          {!isFromStep3b && (
+            <p className="text-xs text-gray-700">
+              {companyContactCount === 0
+                ? "Contact(s) needed"
+                : `${companyContactCount} ${
+                    companyContactCount === 1 ? "contact" : "contacts"
+                  } added`}
+            </p>
+          )}
         </div>
       </div>
 

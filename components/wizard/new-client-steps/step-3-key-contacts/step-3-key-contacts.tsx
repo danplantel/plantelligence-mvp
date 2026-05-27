@@ -430,16 +430,7 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
   const contacts = keyContactsData.contacts || [];
 
   return (
-    <>
-      <Alert className="mb-6 border-accent-blue/20 bg-accent-blue/5">
-        <Info className="h-4 w-4 text-accent-blue" />
-        <AlertTitle className="text-sm font-semibold">Key contacts</AlertTitle>
-        <AlertDescription className="text-sm text-muted-foreground">
-          Pick a benefits category, add one card per area (retirement, health, etc.), then fill
-          name, role, and how participants reach them. Each category should have at least one
-          primary contact before you finish the plan.
-        </AlertDescription>
-      </Alert>
+    <div className="space-y-6 max-w-4xl mx-auto">
 
       {currentSubStep === "step3b" && (
         <NewClientStep3b errorFields={errorFields} onNext={handleStep3bNext} />
@@ -505,6 +496,6 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
         onAddContactForCategory={handleAddContactForCategory}
         contacts={contacts}
       />
-    </>
+    </div>
   );
 }
