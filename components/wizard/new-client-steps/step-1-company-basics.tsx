@@ -676,8 +676,11 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <ImageIcon className="w-5 h-5 text-accent-blue" />
-                Company Logo
+                Company Logo <span className="text-red-500">*</span>
               </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Upload your company logo. Recommended size: 300×250px. Accepted formats: PNG, JPG, WebP, SVG. Max file size: 15 MB.
+              </p>
             </CardHeader>
             <CardContent>
 
