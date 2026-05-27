@@ -96,8 +96,8 @@ const Sidebar = memo(function Sidebar() {
         isOpen ? "w-64" : "w-16",
       )}
     >
-      {/* Arrow Button to Toggle Sidebar */}
-      {/* <button
+      {/* Toggle Button to Collapse/Expand Sidebar */}
+      <button
         onClick={toggleSidebar}
         className={cn(
           "absolute p-2 bg-white dark:bg-[#030303] border-[#efefef] dark:border-[#1c1c1c] border rounded-full shadow-lg z-30",
@@ -110,7 +110,7 @@ const Sidebar = memo(function Sidebar() {
         ) : (
           <Icons.chevronRight className="w-4 h-4" />
         )}
-      </button> */}
+      </button>
 
       {/* Logo */}
       <div className="flex items-center p-4 flex-shrink-0">

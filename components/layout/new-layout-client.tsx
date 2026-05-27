@@ -31,7 +31,7 @@ export function NewLayoutClient({ children }: NewLayoutClientProps) {
         <main
           className="flex-1 pt-16 overflow-y-auto transition-all duration-200 ease-in-out bg-background"
           style={{
-            marginLeft: "var(--sidebar-width, 18rem)",
+            marginLeft: "var(--sidebar-width, 16rem)",
           }}
         >
           {children}
