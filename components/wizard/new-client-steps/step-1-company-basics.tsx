@@ -9,8 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ColorPicker } from "@/components/ui/color-picker";
-import { Building2, Palette, Globe, Image as ImageIcon, CheckCircle2, AlertCircle } from "lucide-react";
+import { Building2, Palette, Globe, Image as ImageIcon, CheckCircle2, AlertCircle, Sparkles } from "lucide-react";
 import { isValidDomain, normalizeCleanDomain } from "@/lib/url-utils";
+import { extractColorsFromImage } from "@/lib/extract-colors-from-image";
 import { BrandImageUpload } from "@/components/ui/brand-image-upload";
 import { BrandImagesSection } from "./sections/brand-images-section";
 import {
@@ -475,6 +476,18 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
   const handleLogoImageChange = async (imageData: BrandImageData) => {
     const logoData = convertBrandImageToLogo(imageData);
     const isDataUrl = imageData.url?.startsWith("data:");
+
+    // Extract colors from the logo preview data URL
+    if (isDataUrl) {
+      try {
+        const colors = await extractColorsFromImage(imageData.url);
+        updateField("primaryColor", colors.primary);
+        updateField("secondaryColor", colors.secondary);
+      } catch (_) {
+        // Fallback to defaults if extraction fails
+      }
+    }
+
     let clientId = draftClientId;
     if (!clientId && isDataUrl && saveAsDraft) {
       try {
@@ -808,7 +821,7 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
               </CardTitle>
               <p className="text-sm text-muted-foreground">
                 Choose your primary and secondary brand colors for the employee
-                portal.
+                portal. Colors can be auto-extracted from your uploaded logo.
               </p>
             </CardHeader>
             <CardContent>
@@ -816,56 +829,44 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                 {/* Primary Color */}
                 <div className="space-y-3 relative">
                   <Label>Primary Color <span className="text-red-500">*</span></Label>
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center gap-3">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          updateField(
-                            "isPrimaryColorPickerOpen",
-                            !companyData.isPrimaryColorPickerOpen,
-                          )
+                  <div className="flex items-center space-x-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateField(
+                          "isPrimaryColorPickerOpen",
+                          !companyData.isPrimaryColorPickerOpen,
+                        );
+                        if (!companyData.isPrimaryColorPickerOpen && companyData.isSecondaryColorPickerOpen) {
+                          updateField("isSecondaryColorPickerOpen", false);
                         }
-                        className={`h-10 px-3 ${isFieldInvalid("primaryColor") ? "border-red-500" : ""}`}
-                      >
-                        <div
-                          className="w-6 h-6 rounded border"
-                          style={{ background: companyData.primaryColor }}
-                        />
-                      </Button>
-                      <span className="text-sm text-muted-foreground">
-                        {companyData.primaryColor}
-                      </span>
-                      {touchedFields["primaryColor"] && !fieldErrors["primaryColor"] && (
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      )}
-                    </div>
-                    <div className="flex gap-1.5">
-                      {[
-                        { name: "Navy", value: "#1F3A60" },
-                        { name: "Dark Gray", value: "#374151" },
-                        { name: "Black", value: "#000000" },
-                      ].map((preset) => (
-                        <button
-                          key={preset.value}
-                          type="button"
-                          className={`w-6 h-6 rounded-full border-2 border-gray-300 shadow-sm transition-transform hover:scale-110 ${companyData.primaryColor === preset.value
-                              ? "ring-2 ring-accent-blue ring-offset-1"
-                              : ""
-                            }`}
-                          style={{ backgroundColor: preset.value }}
-                          title={preset.name}
-                          onClick={() => {
-                            updateField("primaryColor", preset.value);
-                            if (touchedFields["primaryColor"]) {
-                              setFieldError("primaryColor", validateHexColor(preset.value, "Primary color"));
-                            }
-                          }}
-                        />
-                      ))}
-                    </div>
+                      }}
+                      className={`w-9 h-9 border rounded cursor-pointer flex items-center justify-center ${isFieldInvalid("primaryColor") ? "border-red-500" : "border-gray-300"}`}
+                      style={{ background: companyData.primaryColor }}
+                    >
+                      <div className="w-4 h-4 rounded border border-white/20" />
+                    </button>
+                    <Input
+                      icon={<Palette className="h-4 w-4" />}
+                      type="text"
+                      value={companyData.primaryColor}
+                      onChange={(e) => {
+                        updateField("primaryColor", e.target.value);
+                        if (touchedFields["primaryColor"]) {
+                          setFieldError("primaryColor", validateHexColor(e.target.value, "Primary color"));
+                        }
+                      }}
+                      onBlur={() => {
+                        markTouched("primaryColor");
+                        setFieldError("primaryColor", validateHexColor(companyData.primaryColor, "Primary color"));
+                      }}
+                      placeholder="#1F3A60"
+                      className="flex-1"
+                      destructive={isFieldInvalid("primaryColor")}
+                    />
+                    {touchedFields["primaryColor"] && !fieldErrors["primaryColor"] && (
+                      <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                    )}
                   </div>
                   <ColorPicker
                     value={companyData.primaryColor}
@@ -882,6 +883,7 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                       }
                       updateField("isPrimaryColorPickerOpen", open || false);
                     }}
+                    title="Primary Color"
                   />
                   {touchedFields["primaryColor"] && fieldErrors["primaryColor"] && (
                     <p className="text-xs text-red-500 flex items-center gap-1">
@@ -894,56 +896,44 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                 {/* Secondary Color */}
                 <div className="space-y-3 relative">
                   <Label>Secondary Color <span className="text-red-500">*</span></Label>
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center gap-3">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          updateField(
-                            "isSecondaryColorPickerOpen",
-                            !companyData.isSecondaryColorPickerOpen,
-                          )
+                  <div className="flex items-center space-x-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateField(
+                          "isSecondaryColorPickerOpen",
+                          !companyData.isSecondaryColorPickerOpen,
+                        );
+                        if (!companyData.isSecondaryColorPickerOpen && companyData.isPrimaryColorPickerOpen) {
+                          updateField("isPrimaryColorPickerOpen", false);
                         }
-                        className={`h-10 px-3 ${isFieldInvalid("secondaryColor") ? "border-red-500" : ""}`}
-                      >
-                        <div
-                          className="w-6 h-6 rounded border"
-                          style={{ background: companyData.secondaryColor }}
-                        />
-                      </Button>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <span>{companyData.secondaryColor}</span>
-                      </div>
-                      {touchedFields["secondaryColor"] && !fieldErrors["secondaryColor"] && (
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      )}
-                    </div>
-                    <div className="flex gap-1.5">
-                      {[
-                        { name: "Navy", value: "#1F3A60" },
-                        { name: "Dark Gray", value: "#374151" },
-                        { name: "Black", value: "#000000" },
-                      ].map((preset) => (
-                        <button
-                          key={preset.value}
-                          type="button"
-                          className={`w-6 h-6 rounded-full border-2 border-gray-300 shadow-sm transition-transform hover:scale-110 ${companyData.secondaryColor === preset.value
-                              ? "ring-2 ring-accent-blue ring-offset-1"
-                              : ""
-                            }`}
-                          style={{ backgroundColor: preset.value }}
-                          title={preset.name}
-                          onClick={() => {
-                            updateField("secondaryColor", preset.value);
-                            if (touchedFields["secondaryColor"]) {
-                              setFieldError("secondaryColor", validateHexColor(preset.value, "Secondary color"));
-                            }
-                          }}
-                        />
-                      ))}
-                    </div>
+                      }}
+                      className={`w-9 h-9 border rounded cursor-pointer flex items-center justify-center ${isFieldInvalid("secondaryColor") ? "border-red-500" : "border-gray-300"}`}
+                      style={{ background: companyData.secondaryColor }}
+                    >
+                      <div className="w-4 h-4 rounded border border-white/20" />
+                    </button>
+                    <Input
+                      icon={<Palette className="h-4 w-4" />}
+                      type="text"
+                      value={companyData.secondaryColor}
+                      onChange={(e) => {
+                        updateField("secondaryColor", e.target.value);
+                        if (touchedFields["secondaryColor"]) {
+                          setFieldError("secondaryColor", validateHexColor(e.target.value, "Secondary color"));
+                        }
+                      }}
+                      onBlur={() => {
+                        markTouched("secondaryColor");
+                        setFieldError("secondaryColor", validateHexColor(companyData.secondaryColor, "Secondary color"));
+                      }}
+                      placeholder="#4A90E2"
+                      className="flex-1"
+                      destructive={isFieldInvalid("secondaryColor")}
+                    />
+                    {touchedFields["secondaryColor"] && !fieldErrors["secondaryColor"] && (
+                      <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                    )}
                   </div>
                   <ColorPicker
                     value={companyData.secondaryColor}
@@ -960,6 +950,7 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                       }
                       updateField("isSecondaryColorPickerOpen", open || false);
                     }}
+                    title="Secondary Color"
                   />
                   {touchedFields["secondaryColor"] && fieldErrors["secondaryColor"] && (
                     <p className="text-xs text-red-500 flex items-center gap-1">
