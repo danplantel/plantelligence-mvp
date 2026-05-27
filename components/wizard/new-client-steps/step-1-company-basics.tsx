@@ -9,16 +9,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ColorPicker } from "@/components/ui/color-picker";
+import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { Building2, Palette, Globe, Image as ImageIcon, CheckCircle2, AlertCircle, Sparkles } from "lucide-react";
 import { isValidDomain, normalizeCleanDomain } from "@/lib/url-utils";
 import { extractColorsFromImage } from "@/lib/extract-colors-from-image";
-import { BrandImageUpload } from "@/components/ui/brand-image-upload";
+import { deleteFromR2 } from "@/lib/upload-to-r2";
 import { BrandImagesSection } from "./sections/brand-images-section";
 import {
   CompanyBasicsData,
   CompanyLogoData,
   BrandImagesData,
-  BrandImageData,
   WelcomeStatementData,
 } from "@/types/new-client-wizard";
 import { WelcomeMissionSection } from "./sections/welcome-mission-section";
@@ -130,6 +130,7 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
 
   const companyNameRef = useRef<HTMLInputElement>(null);
   const companyWebsiteRef = useRef<HTMLInputElement>(null);
+  const [logoPreviewDataUrl, setLogoPreviewDataUrl] = useState<string | undefined>(undefined);
 
   // Field-level validation state
   const [fieldErrors, setFieldErrors] = useState<Record<string, string | null>>({});
@@ -425,120 +426,9 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
     setCompanyData((prev) => ({ ...prev, [field]: value }));
   };
 
-  // Convert BrandImageData to CompanyLogoData
-  const convertBrandImageToLogo = (
-    brandImage: BrandImageData | null,
-  ): CompanyLogoData | null => {
-    if (!brandImage) return null;
-    return {
-      url: brandImage.url, // Cropped image for UI
-      originalUrl: brandImage.originalUrl || brandImage.cropData?.originalImage,
-      fileName: brandImage.fileName,
-      fileSize: brandImage.fileSize,
-      width: brandImage.width,
-      height: brandImage.height,
-      hasTransparency:
-        brandImage.url.includes("data:image/png") ||
-        brandImage.url.includes("data:image/svg"),
-      warnings: brandImage.warnings || [],
-      cropData: brandImage.cropData, // Preserve cropData with originalImage
-    };
-  };
-
-  // Convert CompanyLogoData to BrandImageData
-  const convertLogoToBrandImage = (
-    logoData: CompanyLogoData | null,
-  ): BrandImageData | undefined => {
-    if (!logoData) return undefined;
-
-    const brandImage: BrandImageData = {
-      url: logoData.url, // Cropped image for UI
-      originalUrl: logoData.originalUrl || logoData.cropData?.originalImage, // Original image for reset
-      fileName: logoData.fileName,
-      fileSize: logoData.fileSize,
-      width: logoData.width,
-      height: logoData.height,
-      recommendedSize: "900×900 px",
-      status:
-        logoData.warnings && logoData.warnings.length > 0 ? "warning" : "ok",
-      warnings: logoData.warnings || [],
-      cropData: logoData.cropData, // Preserve cropData with originalImage
-    };
-
-    return brandImage;
-  };
-
   const handleLogoChange = (logoData: CompanyLogoData | null) => {
     // Just save the logo data directly, no second modal needed
     updateField("companyLogo", logoData);
-  };
-
-  const handleLogoImageChange = async (imageData: BrandImageData) => {
-    const logoData = convertBrandImageToLogo(imageData);
-    const isDataUrl = imageData.url?.startsWith("data:");
-
-    // Extract colors from the logo preview data URL
-    if (isDataUrl) {
-      try {
-        const colors = await extractColorsFromImage(imageData.url);
-        updateField("primaryColor", colors.primary);
-        updateField("secondaryColor", colors.secondary);
-      } catch (_) {
-        // Fallback to defaults if extraction fails
-      }
-    }
-
-    let clientId = draftClientId;
-    if (!clientId && isDataUrl && saveAsDraft) {
-      try {
-        // Do not open duplicate-name dialog here — user resolves name on Next → step 2.
-        await saveAsDraft({ showDuplicatePlanDialog: false });
-        clientId = useNewClientWizardStore.getState().draftClientId ?? undefined;
-      } catch (_) {
-        // continue without R2
-      }
-    }
-    if (clientId && isDataUrl) {
-      try {
-        const { uploadBrandingToR2 } = await import("@/lib/branding-r2");
-        const key = await uploadBrandingToR2({
-          dataUrlOrFile: imageData.url,
-          fileName: imageData.fileName || "logo.png",
-          clientId,
-          slot: "logo",
-        });
-        if (key && logoData) {
-          handleLogoChange({
-            ...logoData,
-            url: key,
-            fileName: logoData.fileName ?? imageData.fileName ?? "logo.png",
-          } as CompanyLogoData);
-          return;
-        }
-      } catch (_) {
-        // fallback to base64
-      }
-    }
-    handleLogoChange(logoData);
-  };
-
-  const handleLogoImageRemove = async () => {
-    const currentLogoUrl = companyData.companyLogo?.url;
-    if (typeof currentLogoUrl === "string" && currentLogoUrl.startsWith("org/")) {
-      const { deleteFromR2 } = await import("@/lib/upload-to-r2");
-      await deleteFromR2(currentLogoUrl);
-    }
-    handleLogoChange(null);
-    // Only sync to server when this wizard is tied to a draft Client row. Without
-    // draftClientId, save-draft treats the name like a new plan and can report duplicate name if it
-    // matches an Active plan — avoid that noise on Remove (Next/save will persist).
-    if (draftClientId) {
-      try {
-        await saveAsDraft({ showDuplicatePlanDialog: false });
-      } catch {
-        /* non-blocking */
-      }
-    }
   };
 
   const handleBrandImagesChange = async (brandImages: BrandImagesData) => {
@@ -789,26 +679,79 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <BrandImageUpload
-                slotKey="companyLogo"
-                slot={{
-                  title: "Company Logo",
-                  description: "",
-                  recommendedSize: "900×900 px",
-                  accept: ".svg,.png,.jpg,.jpeg",
-                  required: true,
-                  previewAspectRatio: 1,
-                  previewLabel: "Logo preview",
-                  defaultPhoteButton: false,
+              <UniversalImageEditorModal
+                type="logo"
+                icon={<ImageIcon className="w-4 h-4" />}
+                value={companyData.companyLogo?.url || ""}
+                fileName={companyData.companyLogo?.fileName || ""}
+                onChange={async (value, fileName, headshotData) => {
+                  const previewDataUrl: string | undefined =
+                    (headshotData as any)?.previewDataUrl;
+                  const previewSrc = previewDataUrl || (value?.startsWith("data:") ? value : undefined);
+
+                  // Store the preview data URL for display
+                  if (previewDataUrl) {
+                    setLogoPreviewDataUrl(previewDataUrl);
+                  }
+
+                  // Extract colors from the logo preview
+                  if (previewSrc) {
+                    try {
+                      const colors = await extractColorsFromImage(previewSrc);
+                      updateField("primaryColor", colors.primary);
+                      updateField("secondaryColor", colors.secondary);
+                    } catch (_) {
+                      // Fallback to defaults if extraction fails
+                    }
+                  }
+
+                  // Save the logo data
+                  const logoData: CompanyLogoData = {
+                    url: value,
+                    fileName: fileName,
+                    fileSize: 0,
+                    width: 0,
+                    height: 0,
+                    hasTransparency: value.includes("data:image/png") || value.includes("data:image/svg"),
+                    warnings: [],
+                  };
+                  handleLogoChange(logoData);
                 }}
-                currentImage={convertLogoToBrandImage(companyData.companyLogo)}
-                onImageChange={handleLogoImageChange}
-                onImageRemove={handleLogoImageRemove}
-                hideButtons={true}
-                useUniversalModal={true}
-                universalModalType="normalizer"
-                maxFileSize={100}
+                onRemove={async () => {
+                  const currentLogoUrl = companyData.companyLogo?.url;
+                  if (typeof currentLogoUrl === "string" && currentLogoUrl.startsWith("org/")) {
+                    await deleteFromR2(currentLogoUrl);
+                  }
+                  setLogoPreviewDataUrl(undefined);
+                  handleLogoChange(null);
+                  if (draftClientId) {
+                    try {
+                      await saveAsDraft({ showDuplicatePlanDialog: false });
+                    } catch {
+                      /* non-blocking */
+                    }
+                  }
+                }}
+                placeholder="Upload Logo"
+                destructive={errorFields.includes("companyLogo")}
               />
+              {(logoPreviewDataUrl || companyData.companyLogo?.url) && (
+                <div className="mt-4 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 rounded-lg p-4 flex flex-col items-center justify-center">
+                  <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-3">
+                    Logo Preview
+                  </p>
+                  <div className="flex items-center justify-center w-full">
+                    <img
+                      src={logoPreviewDataUrl || companyData.companyLogo?.url || ""}
+                      alt="Company Logo"
+                      className="max-w-full max-h-40 object-contain"
+                      onError={(e) => {
+                        console.error("Failed to load logo image:", e);
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
