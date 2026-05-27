@@ -209,14 +209,7 @@ export function WizardStepper({
 
   return (
     <div className="w-full flex items-center justify-between gap-4 h-8 flex-nowrap">
-      {/* Left: Page Title */}
-      <div className="flex-shrink-0 min-w-fit">
-        <h3 className="text-xs font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
-          {currentStepTitle}
-        </h3>
-      </div>
-
-      {/* Center: Stepper Steps */}
+      {/* Center: Stepper Steps (title is shown in the header's left section) */}
       <div className="relative flex items-center flex-1 gap-0 h-full min-w-0 px-4">
         {visibleSteps.map((step, index) => {
           const isLastVisible = index === visibleSteps.length - 1;
@@ -271,22 +264,6 @@ export function WizardStepper({
             </div>
           );
         })}
-      </div>
-
-      {/* Right: Theme Toggle */}
-      <div className="flex-shrink-0 min-w-fit">
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          className="text-xs px-1.5 py-0.5 h-auto"
-        >
-          {theme === "dark" ? (
-            <Sun className="w-3 h-3" />
-          ) : (
-            <Moon className="w-3 h-3" />
-          )}
-        </Button>
       </div>
     </div>
   );

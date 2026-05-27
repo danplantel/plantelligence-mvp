@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "../ui/card";
-import { WizardStep, WizardStepper } from "./wizard-stepper";
+import type { WizardStep } from "./wizard-stepper";
 import { LoadingButton } from "@/components/ui/loading-button";
 import {
   useNewClientWizardStore,
@@ -40,9 +40,6 @@ export function NewClientWizard({
   children,
   isLoading = false,
 }: NewClientWizardProps) {
-  const currentStepData = steps.find((step) => step.id === currentStep);
-  const currentStepTitle = currentStepData?.title || "";
-
   const [needsScroll, setNeedsScroll] = useState(false);
   const [isPulsating, setIsPulsating] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -423,16 +420,6 @@ export function NewClientWizard({
     (stepData as any)?.step3SubStep?.step3SubStep ||
     (stepData as any)?.step3SubStep;
 
-  // Calculate if editor button should be shown
-  const step5SubStep =
-    (stepData as any)?.employeePortalPreview?.step5SubStep || "disclaimers";
-  const showEditorButton =
-    currentStep === 2 ||
-    (currentStep === 3 && step3SubStep === "step3d") ||
-    (currentStep === 5 &&
-      (step5SubStep === "preview" ||
-        step5SubStep === "benefits-team" ||
-        step5SubStep === "step5d"));
   const isStep3c = currentStep === 3 && step3SubStep === "step3c";
   const contactCount = stepData.keyContacts?.contacts?.length || 0;
   const isStep3cWithMultipleContacts = isStep3c && contactCount >= 2;
@@ -453,16 +440,6 @@ export function NewClientWizard({
         onSaveAsNew={resolveDuplicatePlanSaveAsNew}
       />
       <div className="mx-10 py-4 min-h-screen">
-        <div className="mb-2">
-          <WizardStepper
-            steps={steps}
-            currentStep={currentStep}
-            totalSteps={totalSteps}
-            currentStepTitle={currentStepTitle}
-            showEditorButton={showEditorButton}
-          />
-        </div>
-
         <div ref={contentRef} className="mb-12">
           {children}
         </div>

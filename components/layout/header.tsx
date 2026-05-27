@@ -4,12 +4,19 @@ import { cn } from "@/lib/utils";
 import { UserNav } from "./user-nav";
 import { DocumentExpirationNotifications } from "./document-expiration-notifications";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useTheme } from "next-themes";
 import { Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export default function Header() {
+interface HeaderProps {
+  /** Optional stepper component to render centered in the header */
+  stepper?: ReactNode;
+  /** Optional step title to display next to the page title */
+  stepTitle?: string;
+}
+
+export default function Header({ stepper, stepTitle }: HeaderProps) {
   const [scrolled, setScrolled] = useState(false);
   const { title } = usePageTitleContext();
   const { theme, setTheme, resolvedTheme } = useTheme();
@@ -39,7 +46,8 @@ export default function Header() {
     <div className="fixed top-0 left-0 right-0 z-50 bg-background border-b border-border">
       <nav
         className={cn(
-          "flex items-center justify-between h-16 px-10 transition-all duration-200",
+          "flex items-center px-10 transition-all duration-200",
+          stepper ? "h-[72px]" : "h-16",
           scrolled
             ? "bg-background/80 backdrop-blur-md shadow-sm"
             : "bg-transparent",
@@ -48,11 +56,28 @@ export default function Header() {
           marginLeft: "var(--sidebar-width, 18rem)",
         }}
       >
-        <div className="flex items-center">
-          {title && <h1 className="text-xl font-semibold dark:text-white">{title}</h1>}
+        {/* Left: Title + Step Title (equal flex basis to balance center) */}
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          {title && <h1 className="text-xl font-semibold dark:text-white truncate">{title}</h1>}
+          {stepTitle && (
+            <>
+              <span className="text-xl text-muted-foreground/40 dark:text-gray-600">/</span>
+              <span className="text-sm font-medium text-muted-foreground truncate">{stepTitle}</span>
+            </>
+          )}
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Center: Stepper (when provided) */}
+        {stepper ? (
+          <div className="flex-1 flex justify-center min-w-0">
+            {stepper}
+          </div>
+        ) : (
+          <div className="flex-1" />
+        )}
+
+        {/* Right: Actions (equal flex basis to balance center) */}
+        <div className="flex items-center justify-end gap-2 flex-1 min-w-0">
           <DocumentExpirationNotifications />
           {mounted && (
             <Button

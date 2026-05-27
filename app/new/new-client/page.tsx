@@ -78,7 +78,7 @@ export default function NewClientPage() {
   }, [resetWizard, createNewSession, seedAdvisorDefaultsFromProfile]);
 
   useEffect(() => {
-    setTitle("Plan");
+    setTitle("Create Plan");
   }, [setTitle]);
 
   useEffect(() => {

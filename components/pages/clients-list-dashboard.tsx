@@ -258,26 +258,27 @@ export function ClientsListDashboardPage() {
 
   return (
     <div className="flex-1 space-y-4 p-8 pt-6">
-      <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight">Plans</h2>
-        <div className="flex items-center space-x-2">
-          <Button onClick={() => refreshClients()} variant="outline">
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Refresh
-          </Button>
-          <Link href="/new/new-client">
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Create Plan
+      <div className="mx-auto max-w-7xl">
+        <div className="flex items-center justify-between space-y-2">
+          <h2 className="text-3xl font-bold tracking-tight">Plans</h2>
+          <div className="flex items-center space-x-2">
+            <Button onClick={() => refreshClients()} variant="outline">
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Refresh
             </Button>
-          </Link>
+            <Link href="/new/new-client">
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Create Plan
+              </Button>
+            </Link>
+          </div>
         </div>
-      </div>
 
-      <Card>
-        <div className="p-6">
-          <div className="flex items-center justify-between space-x-4 mb-4">
-            <div className="relative flex-1 max-w-sm">
+        <Card>
+          <div className="p-6">
+            <div className="flex items-center justify-between space-x-4 mb-4">
+              <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search plans..."
@@ -872,38 +873,39 @@ export function ClientsListDashboardPage() {
               </div>
             </div>
           )}
-        </div>
-      </Card>
+          </div>
+        </Card>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Confirm Delete</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete{" "}
-              <strong>{clientToDelete?.companyName}</strong>? This action cannot
-              be undone and will also delete all associated documents.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setDeleteDialogOpen(false)}
-              disabled={isDeleting}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={confirmDeleteClient}
-              disabled={isDeleting}
-            >
-              {isDeleting ? "Deleting..." : "Delete"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Confirm Delete</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete{" "}
+                <strong>{clientToDelete?.companyName}</strong>? This action cannot
+                be undone and will also delete all associated documents.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setDeleteDialogOpen(false)}
+                disabled={isDeleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={confirmDeleteClient}
+                disabled={isDeleting}
+              >
+                {isDeleting ? "Deleting..." : "Delete"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   );
 }
