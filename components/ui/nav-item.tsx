@@ -98,7 +98,7 @@ export function NavItemComponent({
           >
             <div className="flex items-center">
               <Icon className="size-6 mr-3" />
-              <span className="flex-1">{item.title}</span>
+              <span className="flex-1 text-sm">{item.title}</span>
               <Icons.chevronRight
                 className={cn(
                   "size-6 transition-transform duration-200",
@@ -150,7 +150,7 @@ export function NavItemComponent({
                       )}
                     >
                       {SubIcon && <SubIcon className="w-4 h-4" />}
-                      <span>{subItem.title}</span>
+                      <span className="text-sm">{subItem.title}</span>
                     </button>
                   );
                 })}
@@ -174,7 +174,7 @@ export function NavItemComponent({
         >
           <div className={cn("flex items-center", !isOpen && "justify-center")}>
             <Icon className={cn("size-6", isOpen && "mr-3")} />
-            {isOpen && <span>{item.title}</span>}
+            {isOpen && <span className="text-sm">{item.title}</span>}
           </div>
         </button>
       )}
@@ -210,7 +210,7 @@ export function NavItemComponent({
                   >
                     <div className="flex items-center">
                       {SubIcon && <SubIcon className="w-4 h-4 mr-3" />}
-                      <span>{subItem.title}</span>
+                      <span className="text-sm">{subItem.title}</span>
                     </div>
                   </button>
                 );
