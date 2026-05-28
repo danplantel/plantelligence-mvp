@@ -43,13 +43,13 @@ export const BannerOverlaySettingsCard = forwardRef<
   return (
     <div
       ref={ref}
-      className={`transition-all duration-500 grid grid-cols-1 gap-4 ${isHighlighted ? "bg-white ring-2 box-border ring-accent-blue/40 rounded-lg p-4 shadow-sm" : ""
+      className={`transition-all duration-500 grid grid-cols-1 gap-4 ${isHighlighted ? "bg-white ring-2 box-border ring-accent-blue/40 rounded-lg p-4 shadow-sm dark:bg-gray-800" : ""
         }`}
     >
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label className="text-sm">Background Opacity</Label>
-          <span className="text-xs text-muted-foreground">
+          <Label className="text-sm dark:text-gray-300">Background Opacity</Label>
+          <span className="text-xs text-muted-foreground dark:text-gray-400">
             {Math.round(backgroundOpacity * 100)}%
           </span>
         </div>
@@ -67,8 +67,8 @@ export const BannerOverlaySettingsCard = forwardRef<
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label className="text-sm">Container Block Opacity</Label>
-          <span className="text-xs text-muted-foreground">
+          <Label className="text-sm dark:text-gray-300">Container Block Opacity</Label>
+          <span className="text-xs text-muted-foreground dark:text-gray-400">
             {Math.round(containerBlockOpacity * 100)}%
           </span>
         </div>
@@ -86,7 +86,7 @@ export const BannerOverlaySettingsCard = forwardRef<
 
       {/* Invert Container */}
       <div className="flex items-center justify-between">
-        <Label className="text-sm">Invert Container</Label>
+        <Label className="text-sm dark:text-gray-300">Invert Container</Label>
         <Button
           type="button"
           variant={containerInverted ? "default" : "outline"}
@@ -103,7 +103,7 @@ export const BannerOverlaySettingsCard = forwardRef<
 
       {/* Invert Background */}
       <div className="flex items-center justify-between">
-        <Label className="text-sm">Invert Background</Label>
+        <Label className="text-sm dark:text-gray-300">Invert Background</Label>
         <Button
           type="button"
           variant={backgroundInverted ? "default" : "outline"}
@@ -121,8 +121,8 @@ export const BannerOverlaySettingsCard = forwardRef<
       {/* Gradient Toggle */}
       <div className="flex items-center justify-between">
         <div className="flex flex-col gap-1">
-          <Label className="text-sm">Gradient from Top</Label>
-          <p className="text-xs text-muted-foreground">
+          <Label className="text-sm dark:text-gray-300">Gradient from Top</Label>
+          <p className="text-xs text-muted-foreground dark:text-gray-400">
             Gradient from transparent (top) to opaque (bottom)
           </p>
         </div>

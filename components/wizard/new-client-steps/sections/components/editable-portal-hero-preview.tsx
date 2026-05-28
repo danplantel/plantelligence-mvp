@@ -80,7 +80,7 @@ export function EditablePortalHeroPreview({
   ) : undefined;
 
   return (
-    <div className="relative overflow-hidden rounded-t-xl h-full flex-1 bg-white m-auto">
+    <div className="relative overflow-hidden rounded-t-xl h-full flex-1 bg-white m-auto dark:bg-gray-900">
       <PortalHeader
         companyData={{
           companyLogo: companyLogo || "",

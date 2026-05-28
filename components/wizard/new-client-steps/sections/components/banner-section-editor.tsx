@@ -73,10 +73,10 @@ export function BannerSectionEditor({
   return (
     <div data-section-id="banner">
       <div className="mb-4">
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide dark:text-gray-400">
           Section 1
         </h3>
-        <div className="h-px w-12 bg-border mt-2" />
+        <div className="h-px w-12 bg-border mt-2 dark:bg-gray-600" />
       </div>
       <BannerPreviewSection
         onCompanyDataChange={onCompanyDataChange}

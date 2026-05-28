@@ -163,7 +163,7 @@ export function BannerPreviewCard({
                   }`}
               >
                 <div
-                  className={`w-full h-full bg-muted/30 ${isEditorOpen ? "overflow-hidden" : ""
+                  className={`w-full h-full bg-muted/30 dark:bg-gray-900/50 ${isEditorOpen ? "overflow-hidden" : ""
                     }`}
                 >
                   <EditablePortalHeroPreview
@@ -197,7 +197,7 @@ export function BannerPreviewCard({
       )}
 
       {!showPreview && (
-        <Card className="sticky top-0 z-10 bg-white shadow-lg">
+        <Card className="sticky top-0 z-10 bg-white shadow-lg dark:bg-gray-800 dark:border-gray-700">
           <CardContent className="pt-6">
             <Button
               type="button"

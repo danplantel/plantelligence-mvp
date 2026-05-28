@@ -92,12 +92,12 @@ export function WelcomeStatementCard({
     <div className="space-y-3">
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label>Banner Headline</Label>
+          <Label className="dark:text-gray-300">Banner Headline</Label>
           {onCompanyNameEdit && (
             <div
               ref={bannerTitleCardRef}
               className={`transition-all duration-500 ${isBannerTitleHighlighted
-                ? "bg-white ring-2 ring-accent-blue/40 rounded-lg p-2 -m-2 scale-[1.02] shadow-sm"
+                ? "bg-white ring-2 ring-accent-blue/40 rounded-lg p-2 -m-2 scale-[1.02] shadow-sm dark:bg-gray-800"
                 : ""
                 }`}
             >
@@ -126,7 +126,7 @@ export function WelcomeStatementCard({
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex flex-wrap items-center gap-2">
-            <Label>
+            <Label className="dark:text-gray-300">
               Welcome Message <span className="text-red-500">*</span>
             </Label>
             {effectiveDefaultBodyText && (
@@ -140,7 +140,7 @@ export function WelcomeStatementCard({
                 />
                 <Label
                   htmlFor="useDefaultBody"
-                  className="text-sm cursor-pointer"
+                  className="text-sm cursor-pointer dark:text-gray-300"
                 >
                   Use default
                 </Label>
@@ -151,8 +151,8 @@ export function WelcomeStatementCard({
             <span
               className={`text-xs ${(welcomeData?.bodyText?.length || 0) >= 250 &&
                 (welcomeData?.bodyText?.length || 0) <= 500
-                ? "text-muted-foreground"
-                : "text-muted-foreground"
+                ? "text-muted-foreground dark:text-gray-400"
+                : "text-muted-foreground dark:text-gray-400"
                 }`}
             >
               {welcomeData?.bodyText?.length || 0}/500 characters
@@ -207,7 +207,7 @@ export function WelcomeStatementCard({
           placeholder="This is the introduction on your Employee Benefits Hub"
           data-field="bodyText"
           destructive={errorFields.includes("bodyText")}
-          className={`transition-all duration-500 ease-in-out origin-center ${isWelcomeBodyHighlighted ? "bg-white ring-2 ring-accent-blue/40 rounded-lg scale-[1.02] shadow-sm" : ""
+          className={`transition-all duration-500 ease-in-out origin-center ${isWelcomeBodyHighlighted ? "bg-white ring-2 ring-accent-blue/40 rounded-lg scale-[1.02] shadow-sm dark:bg-gray-800" : ""
             }`}
         />
       </div>

@@ -50,7 +50,7 @@ export function MissionSectionEditor({
   return (
     <div
       data-section-id="mission"
-      className="pt-6 border-t border-border"
+      className="pt-6 border-t border-border dark:border-gray-700"
     >
       <MissionStatementFields
         missionHeadline={missionHeadline}

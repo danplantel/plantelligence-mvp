@@ -145,7 +145,7 @@ export function BrandingPreviewCard({
 
   if (!showPreview) {
     return (
-      <Card>
+      <Card className="dark:bg-gray-800 dark:border-gray-700">
         <CardContent className="pt-6">
           <Button
             type="button"

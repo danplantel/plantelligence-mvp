@@ -24,17 +24,17 @@ export function ThumbnailSectionEditor({
   onFileSelect,
 }: ThumbnailSectionEditorProps) {
   return (
-    <div className="pt-6 border-t border-border">
+    <div className="pt-6 border-t border-border dark:border-gray-700">
       <div className="mb-4">
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide dark:text-gray-400">
           Section 2
         </h3>
-        <div className="h-px w-12 bg-border mt-2" />
+        <div className="h-px w-12 bg-border mt-2 dark:bg-gray-600" />
       </div>
-      <CardTitle className="flex pt-2 items-center gap-2 text-base font-semibold">
+      <CardTitle className="flex pt-2 items-center gap-2 text-base font-semibold dark:text-gray-100">
         Square Thumbnail <span className="text-xs text-red-500">*</span>
       </CardTitle>
-      <p className="text-sm text-muted-foreground mt-2">
+      <p className="text-sm text-muted-foreground mt-2 dark:text-gray-400">
         This image is used in square thumbnail placements across your Employee Hub. Upload a centered image with space around the edges.
       </p>
       <div

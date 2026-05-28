@@ -740,7 +740,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
 
   return (
     <div
-      className="space-y-4 transition-all duration-200"
+      className="space-y-4 transition-all duration-200 dark:text-gray-100"
       style={{
         transition:
           "margin-left 200ms ease-in-out, padding-left 200ms ease-in-out",

@@ -65,7 +65,7 @@ export function MissionStatementFields({
   return (
     <>
       <div className="mb-3">
-        <Label className="font-bold text-start">
+        <Label className="font-bold text-start dark:text-gray-100">
           Company Mission Statement
         </Label>
       </div>
@@ -76,7 +76,7 @@ export function MissionStatementFields({
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Label className="font-bold">Mission Headline *</Label>
+                <Label className="font-bold dark:text-gray-300">Mission Headline *</Label>
                 {onUseDefaultHeadlineChange && defaultHeadline && (
                   <div className="flex items-center gap-2">
                     <Checkbox
@@ -88,7 +88,7 @@ export function MissionStatementFields({
                     />
                     <Label
                       htmlFor="useDefaultHeadline"
-                      className="text-sm cursor-pointer"
+                      className="text-sm cursor-pointer dark:text-gray-300"
                     >
                       Use default
                     </Label>
@@ -117,7 +117,7 @@ export function MissionStatementFields({
               data-field="missionHeadline"
               destructive={errorFields.includes("missionHeadline")}
               className={`transition-all duration-500 ${highlightedField === "headline"
-                ? "bg-white ring-2 ring-accent-blue/40 scale-[1.02] z-10 relative border-accent-blue/20 shadow-sm rounded-lg"
+                ? "bg-white ring-2 ring-accent-blue/40 scale-[1.02] z-10 relative border-accent-blue/20 shadow-sm rounded-lg dark:bg-gray-800"
                 : ""
                 }`}
             />
@@ -134,7 +134,7 @@ export function MissionStatementFields({
             )}
             {!errorFields.includes("missionHeadline") &&
               headlineCharCount > 0 && (
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-xs text-muted-foreground mt-1 dark:text-gray-400">
                   {headlineCharCount}/60 characters
                 </p>
               )}
@@ -143,7 +143,7 @@ export function MissionStatementFields({
             className={`space-y-2`}
           >
             <div className="flex items-center justify-between">
-              <Label className="font-bold">Mission Statement *</Label>
+              <Label className="font-bold dark:text-gray-300">Mission Statement *</Label>
               {onGenerateMissionBody && (
                 <Button
                   type="button"
@@ -167,7 +167,7 @@ export function MissionStatementFields({
               data-field="missionBody"
               destructive={errorFields.includes("missionBody")}
               className={`transition-all duration-500 ${highlightedField === "body"
-                ? "bg-white ring-2 ring-accent-blue/40 scale-[1.02] z-10 relative border-accent-blue/20 shadow-sm rounded-lg"
+                ? "bg-white ring-2 ring-accent-blue/40 scale-[1.02] z-10 relative border-accent-blue/20 shadow-sm rounded-lg dark:bg-gray-800"
                 : ""
                 }`}
             />
@@ -185,10 +185,10 @@ export function MissionStatementFields({
               />
             )}
             {!errorFields.includes("missionBody") && bodyCharCount > 0 && (
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground mt-1 dark:text-gray-400">
                 {bodyCharCount}/800 characters
                 {bodyCharCount < 250 && (
-                  <span className="text-amber-600 ml-2">
+                  <span className="text-amber-600 ml-2 dark:text-amber-400">
                     (minimum 250 characters)
                   </span>
                 )}
@@ -197,7 +197,7 @@ export function MissionStatementFields({
           </div>
         </div>
         {missionGenerationLimitReached && (
-          <p className="text-xs text-amber-600">
+          <p className="text-xs text-amber-600 dark:text-amber-400">
             Generation limit reached. Cycling through previous selections.
           </p>
         )}

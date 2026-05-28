@@ -1125,9 +1125,9 @@ export function BannerPreviewSection({
   if (!wrapInCard) return content;
 
   return (
-    <Card className="shadow-none">
+    <Card className="shadow-none dark:bg-gray-800">
       <CardHeader className="pb-3">
-        <CardTitle className="text-xl">Banner Preview</CardTitle>
+        <CardTitle className="text-xl dark:text-gray-100">Banner Preview</CardTitle>
       </CardHeader>
       <CardContent>{content}</CardContent>
     </Card>
