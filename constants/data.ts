@@ -1174,10 +1174,10 @@ export const navItems: NavItem[] = [
     ],
   },
   {
-    title: "Meetings",
-    href: "/new/meetings",
-    icon: "calendar",
-    label: "Meetings",
+    title: "Communications",
+    href: "/new/communications",
+    icon: "message",
+    label: "Communications",
     items: [
       {
         title: "All Meetings",
@@ -1188,6 +1188,11 @@ export const navItems: NavItem[] = [
         title: "Webinars & Replays",
         href: "/new/meetings/webinars",
         label: "Webinars & Replays",
+      },
+      {
+        title: "Marketing",
+        href: "/new/marketing",
+        label: "Marketing",
       },
     ],
   },
@@ -1232,12 +1237,6 @@ export const navItems: NavItem[] = [
     href: "/new/benefits",
     icon: "wand-sparkles",
     label: "CreateBenefits",
-  },
-  {
-    title: "Marketing",
-    href: "/new/marketing",
-    icon: "megaphone",
-    label: "Marketing",
   },
   {
     title: "Settings",
