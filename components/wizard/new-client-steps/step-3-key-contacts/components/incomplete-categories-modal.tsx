@@ -91,7 +91,7 @@ export function IncompleteCategoriesModal({
         </DialogHeader>
 
         <div className="py-4">
-          <p className="text-sm text-gray-600 mb-4">
+          <p className="text-sm text-gray-600 mb-4 dark:text-gray-400">
             The following categories need contacts:
           </p>
           
@@ -112,7 +112,7 @@ export function IncompleteCategoriesModal({
                       ? "border-2 border-orange-500 bg-orange-50"
                       : hasContacts
                       ? "border-2 border-green-500 bg-green-50"
-                      : "border border-gray-200 hover:border-gray-300",
+                      : "border border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500",
                   )}
                   onClick={() => handleCategoryClick(category)}
                 >
@@ -124,7 +124,7 @@ export function IncompleteCategoriesModal({
                           ? "bg-orange-100"
                           : hasContacts
                           ? "bg-green-100"
-                          : "bg-gray-100",
+                          : "bg-gray-100 dark:bg-gray-700",
                       )}
                     >
                       <Icon
@@ -134,7 +134,7 @@ export function IncompleteCategoriesModal({
                             ? "text-orange-600"
                             : hasContacts
                             ? "text-green-600"
-                            : "text-gray-600",
+                            : "text-gray-600 dark:text-gray-400",
                         )}
                       />
                       {isMissing && (
@@ -149,10 +149,10 @@ export function IncompleteCategoriesModal({
                       )}
                     </div>
                     <div className="flex flex-col items-center space-y-1">
-                      <span className="text-xs font-semibold text-center">
+                      <span className="text-xs font-semibold text-center dark:text-gray-200">
                         {category === "Other Benefits" ? "Other" : category}
                       </span>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
                         {contactCount} {contactCount === 1 ? "contact" : "contacts"}
                       </span>
                     </div>

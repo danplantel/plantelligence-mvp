@@ -4262,14 +4262,14 @@ export function NewClientStep3b({
       </EditorPanelWrapper>
 
       <div className="space-y-4 overflow-visible">
-        <Card>
-          <CardHeader className="text-2xl text-center font-semibold text-gray-900 mb-1">
+        <Card className="dark:bg-gray-800 dark:border-gray-700">
+          <CardHeader className="text-2xl text-center font-semibold text-gray-900 mb-1 dark:text-gray-100">
             <CardTitle className="flex justify-center items-center gap-2">
               <Building2 className="w-5 h-5 text-accent-blue" />
               <p>Add Contact Details</p>
             </CardTitle>
             <div className="flex flex-col items-center gap-2 mt-2">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
                 Fill in the information employees will see when they need help.
               </p>
               {savedContacts.length > 0 && (
@@ -4288,7 +4288,7 @@ export function NewClientStep3b({
         </Card>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 w-full relative">
-          <Card className="w-full">
+          <Card className="w-full dark:bg-gray-800 dark:border-gray-700">
             <CardContent className="pt-4 space-y-4">
               {/* Check if no contacts exist */}
               {savedContacts.length === 0 && (
@@ -4312,7 +4312,7 @@ export function NewClientStep3b({
                 className="space-y-2 flex flex-col"
                 data-field="benefitsCategories"
               >
-                <Label>
+                <Label className="dark:text-gray-300">
                   Benefits Categories <span className="text-red-500">*</span>
                 </Label>
                 <TooltipProvider>
@@ -4327,7 +4327,7 @@ export function NewClientStep3b({
                           )}
                           readOnly
                           className={cn(
-                            "bg-gray-50 cursor-default",
+                            "bg-gray-50 cursor-default dark:bg-gray-700 dark:text-gray-300",
                             shouldShowErrors &&
                               errorFields.some((field) =>
                                 field.includes("benefitsCategories"),
@@ -4339,7 +4339,7 @@ export function NewClientStep3b({
                         {/* Custom text input for Other Benefits - Read-only */}
                         {benefitsCategories[0] === "Other Benefits" && (
                           <div className="mt-4 space-y-2">
-                            <Label htmlFor="other-benefits-text-step3b">
+                            <Label htmlFor="other-benefits-text-step3b" className="dark:text-gray-300">
                               Benefit Name{" "}
                               <span className="text-red-500">*</span>
                             </Label>
@@ -4349,7 +4349,7 @@ export function NewClientStep3b({
                               value={otherBenefitsText}
                               readOnly
                               className={cn(
-                                "bg-gray-50 cursor-default",
+                                "bg-gray-50 cursor-default dark:bg-gray-700 dark:text-gray-300",
                                 shouldShowErrors &&
                                   errorFields.includes("otherBenefitsText") &&
                                   "border-red-500",
@@ -4444,7 +4444,7 @@ export function NewClientStep3b({
 
               {/* Email */}
               <div className="space-y-2" data-field="email">
-                <Label>
+                <Label className="dark:text-gray-300">
                   Email <span className="text-red-500">*</span>
                 </Label>
                 <Input
@@ -4473,7 +4473,7 @@ export function NewClientStep3b({
               {/* Phone - Required */}
               <div className="flex gap-4">
                 <div className="space-y-2 flex-grow" data-field="phone">
-                  <Label>
+                  <Label className="dark:text-gray-300">
                     Phone <span className="text-red-500">*</span>
                   </Label>
                   <Input
@@ -4499,7 +4499,7 @@ export function NewClientStep3b({
                   />
                 </div>
                 <div className="space-y-2 w-24">
-                  <Label>Ext.</Label>
+                  <Label className="dark:text-gray-300">Ext.</Label>
                   <Input
                     type="text"
                     value={phoneExtension}
@@ -4522,7 +4522,7 @@ export function NewClientStep3b({
 
               {/* Scheduling URL (optional) */}
               <div className="space-y-2">
-                <Label>Scheduling URL (optional)</Label>
+                <Label className="dark:text-gray-300">Scheduling URL (optional)</Label>
                 <Input
                   ref={schedulingUrlRef}
                   type="url"
@@ -4546,7 +4546,7 @@ export function NewClientStep3b({
               {/* Benefits Access URL (optional) */}
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <Label>Benefits Access URL (optional)</Label>
+                  <Label className="dark:text-gray-300">Benefits Access URL (optional)</Label>
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -4602,7 +4602,7 @@ export function NewClientStep3b({
               />
 
               {/* Primary Contact (single toggle) */}
-              <div className="border-t pt-4">
+              <div className="border-t pt-4 dark:border-gray-700">
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="isPrimaryOverall"
@@ -4644,7 +4644,7 @@ export function NewClientStep3b({
             {/* Live Preview - sticky/fixed */}
             <Card
               ref={previewCardRef}
-              className={cn("shadow-lg", isFixed ? "fixed z-20" : "relative")}
+              className={cn("shadow-lg dark:bg-gray-800 dark:border-gray-700", isFixed ? "fixed z-20" : "relative")}
               style={
                 isFixed
                   ? {
@@ -4656,7 +4656,7 @@ export function NewClientStep3b({
               }
             >
               {/* Tabs - inside Card */}
-              <div className="bg-white border-b border-gray-200">
+              <div className="bg-white border-b border-gray-200 dark:bg-gray-800 dark:border-gray-700">
                 <div className="flex">
                   <button
                     type="button"
@@ -4665,7 +4665,7 @@ export function NewClientStep3b({
                       "flex-1 px-4 py-2 text-sm font-medium transition-colors",
                       activeTab === "preview"
                         ? "bg-accent-blue/5 text-accent-blue border-b-2 border-accent-blue"
-                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
+                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700",
                     )}
                   >
                     Preview
@@ -4677,7 +4677,7 @@ export function NewClientStep3b({
                       "flex-1 px-4 py-2 text-sm font-medium transition-colors",
                       activeTab === "contacts"
                         ? "bg-accent-blue/5 text-accent-blue border-b-2 border-accent-blue"
-                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
+                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700",
                     )}
                   >
                     Contacts
@@ -4742,11 +4742,11 @@ export function NewClientStep3b({
                       />
                     </div>
                     {/* Card Display Mode Selection with Navigation Buttons */}
-                    <div className="space-y-2 border-t pt-4">
+                    <div className="space-y-2 border-t pt-4 dark:border-gray-700">
                       <div className="flex items-center justify-between gap-3">
                         {/* Card Display Mode Buttons */}
                         <div className="flex items-center gap-2 flex-1">
-                          <Label className="text-sm font-medium whitespace-nowrap">
+                          <Label className="text-sm font-medium whitespace-nowrap dark:text-gray-300">
                             Card Display Mode
                           </Label>
                           <div className="flex items-center gap-2 flex-1">
@@ -4765,7 +4765,7 @@ export function NewClientStep3b({
                                 "flex items-center justify-center gap-1.5 h-8 flex-1 py-1.5 px-2 text-xs",
                                 cardDisplayMode === "large-horizontal"
                                   ? "bg-accent-blue text-white hover:opacity-90"
-                                  : "bg-white text-gray-700 hover:bg-gray-50 hover:border-accent-blue/50",
+                                  : "bg-white text-gray-700 hover:bg-gray-50 hover:border-accent-blue/50 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600",
                               )}
                             >
                               <div className="flex items-center gap-1.5">
@@ -4788,7 +4788,7 @@ export function NewClientStep3b({
                                 "flex items-center justify-center gap-1.5 h-8 flex-1 py-1.5 px-2 text-xs",
                                 cardDisplayMode === "small-vertical"
                                   ? "bg-accent-blue text-white hover:opacity-90"
-                                  : "bg-white text-gray-700 hover:bg-gray-50 hover:border-accent-blue/50",
+                                  : "bg-white text-gray-700 hover:bg-gray-50 hover:border-accent-blue/50 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600",
                               )}
                             >
                               <div className="flex items-center gap-1.5">
@@ -4802,7 +4802,7 @@ export function NewClientStep3b({
                     </div>
 
                     {/* Live Preview - Shrunk */}
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
                       Live Preview
                     </h4>
                     <div

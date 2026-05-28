@@ -60,7 +60,7 @@ export function BrandChangeConfirmationModal({
                         <div
                             className={`relative flex items-start space-x-3 rounded-lg border-2 p-4 cursor-pointer transition-all ${selectedOption === "plan"
                                 ? "border-accent-blue bg-accent-blue/5"
-                                : "border-gray-200 hover:border-gray-300"
+                                : "border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500"
                                 }`}
                             onClick={() => setSelectedOption("plan")}
                         >
@@ -69,10 +69,10 @@ export function BrandChangeConfirmationModal({
                                 <Label htmlFor="plan" className="font-semibold text-base cursor-pointer">
                                     Only for this plan
                                 </Label>
-                                <p className="text-sm text-muted-foreground mt-1">
+                                <p className="text-sm text-muted-foreground mt-1 dark:text-gray-400">
                                     This change will apply only to this plan&apos;s participant experience
                                 </p>
-                                <p className="text-sm text-muted-foreground">
+                                <p className="text-sm text-muted-foreground dark:text-gray-400">
                                     Other plans will remain unchanged
                                 </p>
                             </div>
@@ -82,7 +82,7 @@ export function BrandChangeConfirmationModal({
                         <div
                             className={`relative flex items-start space-x-3 rounded-lg border-2 p-4 cursor-pointer transition-all ${selectedOption === "profile"
                                 ? "border-accent-blue bg-accent-blue/5"
-                                : "border-gray-200 hover:border-gray-300"
+                                : "border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500"
                                 }`}
                             onClick={() => setSelectedOption("profile")}
                         >
@@ -91,10 +91,10 @@ export function BrandChangeConfirmationModal({
                                 <Label htmlFor="profile" className="font-semibold text-base cursor-pointer">
                                     Update my firm profile
                                 </Label>
-                                <p className="text-sm text-muted-foreground mt-1">
+                                <p className="text-sm text-muted-foreground mt-1 dark:text-gray-400">
                                     This will update your company name/logo across all plans
                                 </p>
-                                <p className="text-sm text-muted-foreground">
+                                <p className="text-sm text-muted-foreground dark:text-gray-400">
                                     You can review and edit this anytime in Profile Settings
                                 </p>
                             </div>

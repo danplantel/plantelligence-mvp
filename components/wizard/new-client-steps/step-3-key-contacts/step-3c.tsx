@@ -543,10 +543,10 @@ export function NewClientStep3c({
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 dark:text-gray-100">
       {/* Question */}
       <div className="text-center">
-        <h2 className="text-2xl font-semibold text-gray-900 mb-1.5">
+        <h2 className="text-2xl font-semibold text-gray-900 mb-1.5 dark:text-gray-100">
           Add contacts for other benefits
         </h2>
         <div className="py-1.5 px-4 rounded-sm inline-block max-w-2xl mx-auto">
@@ -560,7 +560,7 @@ export function NewClientStep3c({
           "rounded-lg p-4 border max-w-2xl mx-auto cursor-pointer transition-all hover:shadow-md",
           selectedCategory === "Company / Plan Sponsor"
             ? "border-2 border-accent-blue bg-accent-blue/5"
-            : "bg-white border-gray-200 hover:border-gray-300",
+            : "bg-white border-gray-200 hover:border-gray-300 dark:bg-gray-800 dark:border-gray-600",
           errorFields.includes("benefitsCategory") &&
             selectedCategory !== "Company / Plan Sponsor" &&
             "border-red-300",
@@ -569,7 +569,7 @@ export function NewClientStep3c({
       >
         <div className="space-y-3">
           <div className="text-center">
-            <h3 className="text-base font-semibold text-gray-900 mb-3">
+            <h3 className="text-base font-semibold text-gray-900 mb-3 dark:text-gray-100">
               Company / Plan Sponsor
             </h3>
             {/* Company Logo */}
@@ -592,8 +592,8 @@ export function NewClientStep3c({
             <div className="flex items-center justify-center gap-2 text-xs">
               <span
                 className={cn(
-                  "text-gray-700",
-                  companyContactCount === 0 && "text-gray-500",
+                  "text-gray-700 dark:text-gray-300",
+                  companyContactCount === 0 && "text-gray-500 dark:text-gray-400",
                 )}
               >
                 {companyContactCount} contact
@@ -619,10 +619,10 @@ export function NewClientStep3c({
               <Card
                 key={category}
                 className={cn(
-                  "cursor-pointer transition-all hover:shadow-md",
+                  "cursor-pointer transition-all hover:shadow-md dark:bg-gray-800",
                   isSelected
                     ? "border-2 border-accent-blue bg-accent-blue/5"
-                    : "border border-gray-200 hover:border-gray-300",
+                    : "border border-gray-200 hover:border-gray-300 dark:border-gray-600",
                   hasError && !isSelected && "border-red-300",
                   !hasCompanyContacts &&
                     "cursor-not-allowed opacity-[0.58] hover:shadow-none",
@@ -633,13 +633,13 @@ export function NewClientStep3c({
                   <div
                     className={cn(
                       "w-12 h-12 rounded-full flex items-center justify-center relative",
-                      isSelected ? "bg-accent-blue/10" : "bg-gray-100",
+                      isSelected ? "bg-accent-blue/10" : "bg-gray-100 dark:bg-gray-700",
                     )}
                   >
                     <Icon
                       className={cn(
                         "w-6 h-6",
-                        isSelected ? "text-accent-blue" : "text-gray-600",
+                        isSelected ? "text-accent-blue" : "text-gray-600 dark:text-gray-400",
                       )}
                     />
                     {isSelected && (
@@ -649,10 +649,10 @@ export function NewClientStep3c({
                     )}
                   </div>
                   <div className="flex flex-col items-center space-y-0.5">
-                    <span className="text-xs font-semibold text-center">
+                    <span className="text-xs font-semibold text-center dark:text-gray-200">
                       {category === "Other Benefits" ? "Other" : category}
                     </span>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
                       {contactCount}{" "}
                       {contactCount === 1 ? "contact" : "contacts"}
                     </span>
@@ -672,12 +672,12 @@ export function NewClientStep3c({
               : "opacity-0 max-h-0 mt-0",
           )}
         >
-          <Card>
+          <Card className="dark:bg-gray-800 dark:border-gray-600">
             <CardContent className="p-4">
               <div className="space-y-2">
                 <Label
                   htmlFor="other-benefits-text-step3c"
-                  className="text-sm font-medium"
+                  className="text-sm font-medium dark:text-gray-300"
                 >
                   Please specify other category (max 50 characters)
                 </Label>
@@ -703,7 +703,7 @@ export function NewClientStep3c({
                   maxLength={50}
                   className="w-full"
                 />
-                <div className="text-xs text-muted-foreground text-right">
+                <div className="text-xs text-muted-foreground text-right dark:text-gray-400">
                   {otherBenefitsText.length}/50 characters
                 </div>
               </div>
@@ -748,12 +748,12 @@ export function NewClientStep3c({
         )}
 
       {/* Skip Button */}
-      <div className="flex justify-center pt-4 border-t max-w-2xl mx-auto">
+      <div className="flex justify-center pt-4 border-t max-w-2xl mx-auto dark:border-gray-700">
         <Button
           type="button"
           variant="ghost"
           onClick={handleSkip}
-          className="text-gray-600 hover:text-gray-900 font-medium"
+          className="text-gray-600 hover:text-gray-900 font-medium dark:text-gray-400 dark:hover:text-gray-200"
         >
           skip for now
         </Button>

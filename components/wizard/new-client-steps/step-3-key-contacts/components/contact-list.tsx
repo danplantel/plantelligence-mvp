@@ -161,7 +161,7 @@ export function ContactList({
               // Complete or validation not attempted: blue if selected, gray if not
               return isSelected
                 ? "ring-2 ring-accent-blue border-accent-blue bg-accent-blue/5 shadow-sm"
-                : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm";
+                : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm dark:bg-gray-800 dark:border-gray-600 dark:hover:border-gray-500";
             };
 
             return (
@@ -185,7 +185,7 @@ export function ContactList({
                             ? "bg-accent-blue/10 text-accent-blue"
                             : !isComplete && validationAttempted
                               ? "bg-red-100 text-red-600"
-                              : "bg-gray-100 text-gray-500",
+                              : "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400",
                       )}
                     >
                       {contactNumber}
@@ -209,7 +209,7 @@ export function ContactList({
                       <h4
                         className={cn(
                           "font-semibold truncate",
-                          isSelected ? "text-gray-900" : "text-gray-700",
+                          isSelected ? "text-gray-900 dark:text-gray-100" : "text-gray-700 dark:text-gray-300",
                         )}
                       >
                         {displayName}
@@ -217,7 +217,7 @@ export function ContactList({
                       <p
                         className={cn(
                           "text-sm truncate",
-                          isSelected ? "text-gray-600" : "text-gray-500",
+                          isSelected ? "text-gray-600 dark:text-gray-400" : "text-gray-500 dark:text-gray-400",
                         )}
                       >
                         {roleDisplay}
@@ -248,7 +248,7 @@ export function ContactList({
             );
           })
       ) : (
-        <div className="text-center py-8 text-gray-500">
+        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
           <p className="text-sm">No saved contacts yet</p>
           <p className="text-xs mt-1">
             Fill in the form and click &quot;Save & Add Contact&quot; to save

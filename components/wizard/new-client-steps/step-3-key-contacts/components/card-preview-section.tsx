@@ -48,8 +48,8 @@ export function CardPreviewSection({
   return (
     <>
       {/* Card Display Mode Selection */}
-      <div className="space-y-2 border-t pt-4">
-        <Label className="text-sm font-medium">Card Display Mode</Label>
+      <div className="space-y-2 border-t pt-4 dark:border-gray-700">
+        <Label className="text-sm font-medium dark:text-gray-300">Card Display Mode</Label>
         <div className="flex items-center justify-center gap-3">
           <Button
             type="button"
@@ -61,7 +61,7 @@ export function CardPreviewSection({
               "flex items-center justify-center gap-2 h-auto py-3 flex-1",
               cardDisplayMode === "large-horizontal"
                 ? "bg-accent-blue text-white hover:opacity-90"
-                : "bg-white text-gray-700 hover:bg-gray-50",
+                : "bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600",
             )}
           >
             <div className="flex items-center gap-2">
@@ -79,7 +79,7 @@ export function CardPreviewSection({
               "flex items-center justify-center gap-2 h-auto py-3 flex-1",
               cardDisplayMode === "small-vertical"
                 ? "bg-accent-blue text-white hover:opacity-90"
-                : "bg-white text-gray-700 hover:bg-gray-50",
+                : "bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600",
             )}
           >
             <div className="flex items-center gap-2">
@@ -91,7 +91,7 @@ export function CardPreviewSection({
       </div>
 
       {/* Live Preview */}
-      <h4 className="text-sm font-medium text-gray-700 mb-2">Live Preview</h4>
+      <h4 className="text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">Live Preview</h4>
       <div className="relative flex items-center justify-center mb-3">
         {cardDisplayMode === "large-horizontal" ? (
           <LargeHorizontalCard

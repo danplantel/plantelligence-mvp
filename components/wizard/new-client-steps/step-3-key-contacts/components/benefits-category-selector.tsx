@@ -40,9 +40,9 @@ export function BenefitsCategorySelector({
         Benefits Categories <span className="text-red-500">*</span>
       </Label>
       <div className="space-y-2">
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-gray-600 dark:text-gray-400">
           We recommend starting with{" "}
-          <span className="font-medium text-gray-900">
+          <span className="font-medium text-gray-900 dark:text-gray-100">
             Company / Plan Sponsor
           </span>
           , but you can build in a different order by selecting a different

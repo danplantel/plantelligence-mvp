@@ -19,7 +19,7 @@ export function ContactTypeSelector({
 }: ContactTypeSelectorProps) {
   return (
     <div className="flex flex-row items-center justify-between space-y-2">
-      <Label>Contact Type : </Label>
+      <Label className="dark:text-gray-300">Contact Type : </Label>
       <div className="grid grid-cols-2 gap-2">
         <Button
           type="button"
@@ -30,7 +30,7 @@ export function ContactTypeSelector({
             "flex items-center justify-center gap-2 h-8 px-4",
             value === "individual"
               ? "bg-accent-blue text-white hover:opacity-90"
-              : "bg-white text-gray-700 hover:bg-gray-50",
+              : "bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600",
             disabled && "opacity-50 cursor-not-allowed",
           )}
         >
@@ -46,7 +46,7 @@ export function ContactTypeSelector({
             "flex items-center justify-center gap-2 h-8 px-4",
             value === "team_support"
               ? "bg-accent-blue text-white hover:opacity-90"
-              : "bg-white text-gray-700 hover:bg-gray-50",
+              : "bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600",
             disabled && "opacity-50 cursor-not-allowed",
           )}
         >

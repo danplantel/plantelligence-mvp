@@ -409,7 +409,7 @@ export function CompanyNameSelector({
               // If logo exists, show it with edit/remove options
               <div className="relative">
                 <div
-                  className="w-12 h-12 rounded border border-gray-200 cursor-pointer overflow-hidden flex items-center justify-center"
+                  className="w-12 h-12 rounded border border-gray-200 cursor-pointer overflow-hidden flex items-center justify-center dark:border-gray-600"
                   onClick={() => {
                     if (!disabled) {
                       handleEditClickWithModal();
@@ -536,7 +536,7 @@ export function CompanyNameSelector({
 
           {isDirty && (
             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
-              <span className="text-[10px] font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 animate-pulse uppercase">
+              <span className="text-[10px] font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 animate-pulse uppercase dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700">
                 Not Saved
               </span>
               <Button
@@ -565,7 +565,7 @@ export function CompanyNameSelector({
                   "text-xs transition-colors duration-300",
                   (otherBenefitsText?.length || 0) >= 50
                     ? "text-red-500"
-                    : "text-muted-foreground",
+                    : "text-muted-foreground dark:text-gray-400",
                 )}
               >
                 {otherBenefitsText?.length || 0}/50 characters
@@ -584,7 +584,7 @@ export function CompanyNameSelector({
           {matchedCompany &&
             displayValue !== defaultCompanyName &&
             displayValue !== advisorOrgName && (
-              <div className="absolute z-[60] w-full mt-1 bg-accent-blue/5 border border-accent-blue/20 rounded-md shadow-lg p-3 bg-white">
+              <div className="absolute z-[60] w-full mt-1 bg-accent-blue/5 border border-accent-blue/20 rounded-md shadow-lg p-3 bg-white dark:bg-gray-800 dark:border-gray-600">
 
                 <div className="text-sm text-accent-blue font-medium mb-2">
                   <strong>Found matching company:</strong>{" "}
@@ -631,7 +631,7 @@ export function CompanyNameSelector({
             !disabled &&
             !isHRPeople &&
             companySearchTerm && (
-              <div className="absolute z-[60] w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-[300px] overflow-y-auto">
+              <div className="absolute z-[60] w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-[300px] overflow-y-auto dark:bg-gray-800 dark:border-gray-600">
 
                 <div className="p-2">
                   {/* Show advisor org as default if they offer this benefit */}
@@ -663,7 +663,7 @@ export function CompanyNameSelector({
                         )}
                       >
                         {advisorOrgLogo ? (
-                          <div className="w-8 h-8 rounded border border-gray-200 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                          <div className="w-8 h-8 rounded border border-gray-200 flex-shrink-0 overflow-hidden flex items-center justify-center dark:border-gray-600">
                             <BrandingImage
                               src={advisorOrgLogo}
                               alt={advisorOrgName ?? "Logo"}
@@ -671,15 +671,15 @@ export function CompanyNameSelector({
                             />
                           </div>
                         ) : (
-                          <div className="w-8 h-8 rounded border border-gray-200 flex items-center justify-center bg-gray-50 flex-shrink-0">
-                            <Building2 className="w-4 h-4 text-gray-400" />
+                          <div className="w-8 h-8 rounded border border-gray-200 flex items-center justify-center bg-gray-50 flex-shrink-0 dark:bg-gray-700 dark:border-gray-600">
+                            <Building2 className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium truncate">
                             {advisorOrgName}
                           </div>
-                          <div className="text-xs text-muted-foreground">
+                          <div className="text-xs text-muted-foreground dark:text-gray-400">
                             Default
                           </div>
                         </div>
@@ -690,7 +690,7 @@ export function CompanyNameSelector({
                     )}
 
                   {isLoadingPlans ? (
-                    <div className="px-3 py-2 text-sm text-muted-foreground">
+                    <div className="px-3 py-2 text-sm text-muted-foreground dark:text-gray-400">
                       Loading companies...
                     </div>
                   ) : (
@@ -726,7 +726,7 @@ export function CompanyNameSelector({
                           )}
                         >
                           {plan.companyLogo ? (
-                            <div className="w-8 h-8 rounded border border-gray-200 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                            <div className="w-8 h-8 rounded border border-gray-200 flex-shrink-0 overflow-hidden flex items-center justify-center dark:border-gray-600">
                               <BrandingImage
                                 src={plan.companyLogo}
                                 alt={plan.companyName ?? "Logo"}
@@ -734,8 +734,8 @@ export function CompanyNameSelector({
                               />
                             </div>
                           ) : (
-                            <div className="w-8 h-8 rounded border border-gray-200 flex items-center justify-center bg-gray-50 flex-shrink-0">
-                              <span className="text-xs font-semibold text-gray-600">
+                            <div className="w-8 h-8 rounded border border-gray-200 flex items-center justify-center bg-gray-50 flex-shrink-0 dark:bg-gray-700 dark:border-gray-600">
+                              <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">
                                 {plan.companyName?.charAt(0).toUpperCase() ||
                                   "?"}
                               </span>
@@ -767,7 +767,7 @@ export function CompanyNameSelector({
                           ?.toLowerCase()
                           .includes(companySearchTerm.toLowerCase()),
                     ).length === 0 && (
-                      <div className="px-3 py-2 text-sm text-muted-foreground">
+                      <div className="px-3 py-2 text-sm text-muted-foreground dark:text-gray-400">
                         No companies found. You can type a custom name.
                       </div>
                     )}

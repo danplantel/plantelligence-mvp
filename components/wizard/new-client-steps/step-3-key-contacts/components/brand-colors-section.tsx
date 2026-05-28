@@ -37,14 +37,14 @@ export function BrandColorsSection({
     }
   };
   return (
-    <div className="rounded-lg p-4">
+    <div className="rounded-lg p-4 dark:text-gray-100">
       <div className="space-y-6">
         <div className="grid grid-cols-2 gap-6 pt-2">
           {/* Background Color */}
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <Palette className="w-4 h-4 text-gray-600" />
-              <Label className="text-sm font-semibold text-gray-900">
+              <Palette className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+              <Label className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                 Card Background
               </Label>
             </div>
@@ -57,14 +57,14 @@ export function BrandColorsSection({
                   onClick={() =>
                     onBackgroundColorPickerOpenChange(!isBackgroundColorPickerOpen)
                   }
-                  className="h-9 px-2.5 border-gray-300 hover:bg-white"
+                  className="h-9 px-2.5 border-gray-300 hover:bg-white dark:border-gray-600 dark:hover:bg-gray-700"
                 >
                   <div
                     className="w-5 h-5 rounded border-2 border-white shadow-sm"
                     style={{ background: backgroundColor }}
                   />
                 </Button>
-                <span className="text-xs font-mono text-gray-600">
+                <span className="text-xs font-mono text-gray-600 dark:text-gray-400">
                   {backgroundColor}
                 </span>
               </div>
@@ -101,8 +101,8 @@ export function BrandColorsSection({
           {/* Logo Scale */}
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <Maximize2 className="w-4 h-4 text-gray-600" />
-              <Label className="text-sm font-semibold text-gray-900">
+              <Maximize2 className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+              <Label className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                 Logo Scale
               </Label>
             </div>

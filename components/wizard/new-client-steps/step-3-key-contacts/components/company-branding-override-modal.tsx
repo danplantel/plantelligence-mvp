@@ -48,7 +48,7 @@ export function CompanyBrandingOverrideModal({
           <AlertDialogTitle className="text-center text-xl">
             {title}
           </AlertDialogTitle>
-          <AlertDialogDescription className="text-center pt-2 text-base text-gray-600">
+          <AlertDialogDescription className="text-center pt-2 text-base text-gray-600 dark:text-gray-400">
             {isName ? (
               <>
                 You are changing the company name to <strong>&quot;{pendingValue}&quot;</strong>. How would you like to apply this change?
@@ -77,7 +77,7 @@ export function CompanyBrandingOverrideModal({
                 "relative flex items-start space-x-3 rounded-lg border-2 p-4 cursor-pointer transition-all",
                 syncType === "global"
                   ? "border-accent-blue bg-accent-blue/5"
-                  : "border-gray-200 hover:border-gray-300"
+                  : "border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500"
               )}
               onClick={() => setSyncType("global")}
             >
@@ -87,7 +87,7 @@ export function CompanyBrandingOverrideModal({
                   <Globe className="w-4 h-4 text-accent-blue" />
                   {isName ? "Update Plan Name Globally" : "Update Plan Logo Globally"}
                 </Label>
-                <p className="text-sm text-muted-foreground mt-1">
+                <p className="text-sm text-muted-foreground mt-1 dark:text-gray-400">
                   {isName 
                     ? "This will update your company name in 'Company Basics' (Step 1) and affect all cards across the plan."
                     : "This will update your company logo in 'Company Basics' (Step 1) and affect all cards across the plan."}
@@ -101,7 +101,7 @@ export function CompanyBrandingOverrideModal({
                 "relative flex items-start space-x-3 rounded-lg border-2 p-4 cursor-pointer transition-all",
                 syncType === "local"
                   ? "border-amber-500 bg-amber-50/30"
-                  : "border-gray-200 hover:border-gray-300"
+                  : "border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500"
               )}
               onClick={() => setSyncType("local")}
             >
@@ -111,7 +111,7 @@ export function CompanyBrandingOverrideModal({
                   <FileText className="w-4 h-4 text-amber-500" />
                   Override for this card only
                 </Label>
-                <p className="text-sm text-muted-foreground mt-1">
+                <p className="text-sm text-muted-foreground mt-1 dark:text-gray-400">
                   {isName
                     ? "This card will use a custom name and will no longer sync with your global company name settings."
                     : "This card will use a custom logo and will no longer sync with your global company logo settings."}

@@ -92,13 +92,13 @@ export function AddMoreContactsModal({
           {/* Company / Plan Sponsor Section */}
           <div className="bg-accent-blue/5 rounded-lg p-4 border border-accent-blue/20">
             <div className="text-center">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2 dark:text-gray-100">
                 Company / Plan Sponsor
               </h3>
               {hasCompanyContacts ? (
                 <div className="flex items-center justify-center gap-2 text-sm">
                   <Check className="w-5 h-5 text-green-600" />
-                  <span className="text-gray-700">
+                  <span className="text-gray-700 dark:text-gray-300">
                     {companyContactCount} contact
                     {companyContactCount !== 1 ? "s" : ""} added
                   </span>
@@ -114,7 +114,7 @@ export function AddMoreContactsModal({
                   </button>
                 </div>
               ) : (
-                <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
+                <div className="flex items-center justify-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                   <span>No contacts added yet</span>
                 </div>
               )}
@@ -123,7 +123,7 @@ export function AddMoreContactsModal({
 
           {/* Benefit Categories */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center dark:text-gray-100">
               Benefit Categories
             </h3>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -139,7 +139,7 @@ export function AddMoreContactsModal({
                       "cursor-pointer transition-all hover:shadow-md relative",
                       categoryHasContacts
                         ? "border-2 border-accent-blue bg-accent-blue/5"
-                        : "border border-gray-200 hover:border-gray-300 bg-white",
+                        : "border border-gray-200 hover:border-gray-300 bg-white dark:bg-gray-800 dark:border-gray-600",
                     )}
                     onClick={() => handleCategoryClick(category)}
                   >
@@ -147,7 +147,7 @@ export function AddMoreContactsModal({
                       <div
                         className={cn(
                           "w-14 h-14 rounded-full flex items-center justify-center relative",
-                          categoryHasContacts ? "bg-accent-blue/10" : "bg-gray-100",
+                          categoryHasContacts ? "bg-accent-blue/10" : "bg-gray-100 dark:bg-gray-700",
                         )}
                       >
                         <Icon
@@ -155,7 +155,7 @@ export function AddMoreContactsModal({
                             "w-7 h-7",
                             categoryHasContacts
                               ? "text-accent-blue"
-                              : "text-gray-600",
+                              : "text-gray-600 dark:text-gray-400",
                           )}
                         />
                         {categoryHasContacts && (
@@ -165,12 +165,12 @@ export function AddMoreContactsModal({
                         )}
                       </div>
                       <div className="flex flex-col items-center space-y-1">
-                        <span className="text-sm font-semibold text-center">
+                        <span className="text-sm font-semibold text-center dark:text-gray-200">
                           {category === "Other Benefits" ? "Other" : category}
                         </span>
                         {categoryHasContacts && (
                           <div className="flex flex-col items-center space-y-1">
-                            <span className="text-xs text-gray-600">
+                            <span className="text-xs text-gray-600 dark:text-gray-400">
                               {contactCount} contact
                               {contactCount !== 1 ? "s" : ""} added
                             </span>
@@ -192,12 +192,12 @@ export function AddMoreContactsModal({
         </div>
 
         {/* Skip Button */}
-        <div className="flex justify-center pt-4 border-t">
+        <div className="flex justify-center pt-4 border-t dark:border-gray-700">
           <Button
             type="button"
             variant="ghost"
             onClick={onSkip}
-            className="text-gray-600 hover:text-gray-900 font-medium"
+            className="text-gray-600 hover:text-gray-900 font-medium dark:text-gray-400 dark:hover:text-gray-200"
           >
             skip for now
           </Button>

@@ -284,10 +284,10 @@ export function SupportHoursTimePicker({
               <div className="flex gap-6">
                 {/* Start Time */}
                 <div className="space-y-2 flex-1">
-                  <Label className="text-xs text-muted-foreground">
+                  <Label className="text-xs text-muted-foreground dark:text-gray-400">
                     Start Time
                   </Label>
-                  <div className="flex rounded-md overflow-hidden border">
+                  <div className="flex rounded-md overflow-hidden border dark:border-gray-600">
                     {/* Hour Column */}
                     <div className="border-r border-border flex-1">
                       <div className="px-1 py-1 text-[10px] font-medium text-center border-b border-border bg-muted/50 text-muted-foreground">
@@ -378,10 +378,10 @@ export function SupportHoursTimePicker({
 
                 {/* End Time */}
                 <div className="space-y-2 flex-1">
-                  <Label className="text-xs text-muted-foreground">
+                  <Label className="text-xs text-muted-foreground dark:text-gray-400">
                     End Time
                   </Label>
-                  <div className="flex rounded-md overflow-hidden border">
+                  <div className="flex rounded-md overflow-hidden border dark:border-gray-600">
                     {/* Hour Column */}
                     <div className="border-r border-border flex-1">
                       <div className="px-1 py-1 text-[10px] font-medium text-center border-b border-border bg-muted/50 text-muted-foreground">

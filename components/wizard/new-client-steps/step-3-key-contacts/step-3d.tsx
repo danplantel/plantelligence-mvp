@@ -914,15 +914,15 @@ export function NewClientStep3d({
 
       {/* Combined Preview Section with Collapsible Layout */}
       {contacts.length > 0 && (
-        <Card className="space-y-4">
+        <Card className="space-y-4 dark:bg-gray-800 dark:border-gray-700">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                <h2 className="text-xl font-semibold text-gray-900 mb-1 flex items-center gap-2 dark:text-gray-100">
                   <Palette className="w-5 h-5 text-accent-blue" />
                   Preview
                 </h2>
-                <p className="text-sm max-w-[700px] text-gray-600">
+                <p className="text-sm max-w-[700px] text-gray-600 dark:text-gray-400">
                   Choose a layout style for your contact cards. Drag and drop to
                   reorder contacts directly in the preview.
                 </p>
@@ -933,18 +933,18 @@ export function NewClientStep3d({
                   onClick={() =>
                     setIsLayoutSectionCollapsed(!isLayoutSectionCollapsed)
                   }
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all cursor-pointer text-sm"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all cursor-pointer text-sm dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-700"
                 >
                   <LayoutGrid className="w-4 h-4 text-accent-blue" />
-                  <span className="text-gray-700">
+                  <span className="text-gray-700 dark:text-gray-300">
                     {isLayoutSectionCollapsed
                       ? "Show Layout Options"
                       : "Hide Layout Options"}
                   </span>
                   {isLayoutSectionCollapsed ? (
-                    <ChevronDown className="w-4 h-4 text-gray-500" />
+                    <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                   ) : (
-                    <ChevronUp className="w-4 h-4 text-gray-500" />
+                    <ChevronUp className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                   )}
                 </button>
               </div>
@@ -956,7 +956,7 @@ export function NewClientStep3d({
             {!isLayoutSectionCollapsed && (
               <div className="space-y-4 pb-6 border-b border-gray-200">
                 <div>
-                  <h4 className="text-xs font-semibold text-gray-900 mb-2">
+                  <h4 className="text-xs font-semibold text-gray-900 mb-2 dark:text-gray-100">
                     Card Layout Style
                   </h4>
                   <div className="grid grid-cols-4 gap-1.5">
@@ -970,13 +970,13 @@ export function NewClientStep3d({
                             "cursor-pointer transition-all duration-200 hover:shadow-md h-[120px] overflow-hidden",
                             isSelected
                               ? "border-2 border-accent-blue shadow-sm"
-                              : "border border-gray-200 hover:border-gray-300",
+                              : "border border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500",
                           )}
                           onClick={() => handleLayoutChange(layout.id)}
                         >
                           <CardContent className="p-1 h-full flex flex-col">
                             <div className="flex items-center justify-between mb-0.5">
-                              <h4 className="text-[9px] font-semibold text-gray-900 leading-tight">
+                              <h4 className="text-[9px] font-semibold text-gray-900 leading-tight dark:text-gray-100">
                                 {layout.name}
                               </h4>
                               {isSelected && (
@@ -998,7 +998,7 @@ export function NewClientStep3d({
             )}
 
             {/* Preview Content */}
-            <div className="bg-[#F8F8F3] rounded-lg p-8 border border-gray-200">
+            <div className="bg-[#F8F8F3] rounded-lg p-8 border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
               <div className="text-center mb-8">
                 <h1
                   className="text-4xl font-semibold"

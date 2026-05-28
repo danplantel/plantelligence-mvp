@@ -430,7 +430,7 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
   const contacts = keyContactsData.contacts || [];
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-6 max-w-4xl mx-auto dark:text-gray-100">
 
       {currentSubStep === "step3b" && (
         <NewClientStep3b errorFields={errorFields} onNext={handleStep3bNext} />

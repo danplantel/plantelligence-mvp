@@ -105,7 +105,7 @@ export function ContactFormFields({
               </div>
             </div>
             {headshot && (
-              <div className="-mt-2 h-16 w-16 rounded-full border border-gray-200 overflow-hidden">
+              <div className="-mt-2 h-16 w-16 rounded-full border border-gray-200 overflow-hidden dark:border-gray-600">
                 <Headshot src={headshot} alt="Headshot preview" />
               </div>
             )}
@@ -197,7 +197,7 @@ export function ContactFormFields({
                     "text-xs transition-colors duration-300",
                     title.length >= 60
                       ? "text-red-500"
-                      : "text-muted-foreground",
+                      : "text-muted-foreground dark:text-gray-400",
                   )}
                 >
                   {title.length}/60 characters
@@ -255,7 +255,7 @@ export function ContactFormFields({
                 </div>
               </div>
               {teamImage && (
-                <div className="-mt-2 h-16 w-16 rounded-full border border-gray-200 overflow-hidden">
+                <div className="-mt-2 h-16 w-16 rounded-full border border-gray-200 overflow-hidden dark:border-gray-600">
                   <Headshot src={teamImage} alt="Team image preview" />
                 </div>
               )}

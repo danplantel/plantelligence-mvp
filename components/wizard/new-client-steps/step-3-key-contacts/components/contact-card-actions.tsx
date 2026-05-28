@@ -348,10 +348,10 @@ export function ContactCardActions({
   );
 
   return (
-    <div className="space-y-4 border-t pt-4">
+    <div className="space-y-4 border-t pt-4 dark:border-gray-700">
       <div className="space-y-2">
-        <Label className="text-base font-semibold">Contact Card Actions</Label>
-        <p className="text-sm text-gray-600">
+        <Label className="text-base font-semibold dark:text-gray-100">Contact Card Actions</Label>
+        <p className="text-sm text-gray-600 dark:text-gray-400">
           Choose which buttons appear on the contact card
         </p>
         {error && <p className="text-sm font-medium text-destructive">{error}</p>}
@@ -359,7 +359,7 @@ export function ContactCardActions({
 
       {/* Contact Info Section */}
       <div className="space-y-2">
-        <Label className="text-sm font-medium text-gray-700">
+        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
           Contact Information
         </Label>
         <DndContext
@@ -386,7 +386,7 @@ export function ContactCardActions({
 
       {/* Action Buttons Section */}
       <div className="space-y-2">
-        <Label className="text-sm font-medium text-gray-700">
+        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
           Action Buttons
         </Label>
         <DndContext

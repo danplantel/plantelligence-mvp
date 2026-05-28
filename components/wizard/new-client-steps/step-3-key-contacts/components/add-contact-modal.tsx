@@ -104,13 +104,13 @@ export function AddContactModal({
               "rounded-lg p-4 border max-w-2xl mx-auto cursor-pointer transition-all hover:shadow-md",
               benefitsCategory === "Company / Plan Sponsor"
                 ? "border-2 border-accent-blue bg-accent-blue/5"
-                : "bg-white border-gray-200 hover:border-gray-300",
+                : "bg-white border-gray-200 hover:border-gray-300 dark:bg-gray-800 dark:border-gray-600",
             )}
             onClick={() => onBenefitsCategoryChange("Company / Plan Sponsor")}
           >
             <div className="space-y-3">
               <div className="text-center">
-                <h3 className="text-base font-semibold text-gray-900 mb-3">
+                <h3 className="text-base font-semibold text-gray-900 mb-3 dark:text-gray-100">
                   Company / Plan Sponsor
                 </h3>
                 {/* Company Logo */}
@@ -133,8 +133,8 @@ export function AddContactModal({
                 <div className="flex items-center justify-center gap-2 text-xs">
                   <span
                     className={cn(
-                      "text-gray-700",
-                      companyContactCount === 0 && "text-gray-500",
+                      "text-gray-700 dark:text-gray-300",
+                      companyContactCount === 0 && "text-gray-500 dark:text-gray-400",
                     )}
                   >
                     {companyContactCount} contact
@@ -156,10 +156,10 @@ export function AddContactModal({
                   <Card
                     key={category}
                     className={cn(
-                      "cursor-pointer transition-all hover:shadow-md",
+                      "cursor-pointer transition-all hover:shadow-md dark:bg-gray-800",
                       isSelected
                         ? "border-2 border-accent-blue bg-accent-blue/5"
-                        : "border border-gray-200 hover:border-gray-300",
+                        : "border border-gray-200 hover:border-gray-300 dark:border-gray-600",
                     )}
                     onClick={() => onBenefitsCategoryChange(category)}
                   >
@@ -167,13 +167,13 @@ export function AddContactModal({
                       <div
                         className={cn(
                           "w-16 h-16 rounded-full flex items-center justify-center relative",
-                          isSelected ? "bg-accent-blue/10" : "bg-gray-100",
+                          isSelected ? "bg-accent-blue/10" : "bg-gray-100 dark:bg-gray-700",
                         )}
                       >
                         <Icon
                           className={cn(
                             "w-8 h-8",
-                            isSelected ? "text-accent-blue" : "text-gray-600",
+                            isSelected ? "text-accent-blue" : "text-gray-600 dark:text-gray-400",
                           )}
                         />
                         {isSelected && (
@@ -183,10 +183,10 @@ export function AddContactModal({
                         )}
                       </div>
                       <div className="flex flex-col items-center space-y-1">
-                        <span className="text-sm font-semibold text-center">
+                        <span className="text-sm font-semibold text-center dark:text-gray-200">
                           {category === "Other Benefits" ? "Other" : category}
                         </span>
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
                           {contactCount} {contactCount === 1 ? "contact" : "contacts"}
                         </span>
                       </div>
@@ -199,7 +199,7 @@ export function AddContactModal({
 
           {/* Import / Select Existing Section */}
           <div className="space-y-3 pt-2">
-            <Label className="text-sm font-medium">Import from Saved Contacts (Optional)</Label>
+            <Label className="text-sm font-medium dark:text-gray-300">Import from Saved Contacts (Optional)</Label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Advisor Info Option */}
               <div
@@ -207,7 +207,7 @@ export function AddContactModal({
                   "p-3 rounded-lg border cursor-pointer transition-all flex items-center gap-3",
                   selectedContactToImport?.type === "advisor"
                     ? "border-accent-blue bg-accent-blue/5"
-                    : "border-gray-200 hover:border-gray-300"
+                    : "border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500"
                 )}
                 onClick={() => setSelectedContactToImport({ type: "advisor", data: advisorProfile })}
               >
@@ -215,8 +215,8 @@ export function AddContactModal({
                   <Users className="w-5 h-5 text-accent-blue" />
                 </div>
                 <div className="flex flex-col min-w-0">
-                  <span className="text-sm font-semibold truncate">Advisor Info</span>
-                  <span className="text-xs text-gray-500 truncate">{advisorProfile?.name || "Use my profile"}</span>
+                  <span className="text-sm font-semibold truncate dark:text-gray-200">Advisor Info</span>
+                  <span className="text-xs text-gray-500 truncate dark:text-gray-400">{advisorProfile?.name || "Use my profile"}</span>
                 </div>
               </div>
 
@@ -228,7 +228,7 @@ export function AddContactModal({
                       "w-full h-full p-3 pl-12 rounded-lg border cursor-pointer transition-all text-sm appearance-none",
                       selectedContactToImport?.type === "global"
                         ? "border-accent-blue bg-accent-blue/5"
-                        : "border-gray-200 hover:border-gray-300"
+                        : "border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500"
                     )}
                     onChange={(e) => {
                       const contact = globalContacts.find(c => c.id === e.target.value);
@@ -245,8 +245,8 @@ export function AddContactModal({
                       </option>
                     ))}
                   </select>
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center pointer-events-none">
-                    <Briefcase className="w-5 h-5 text-gray-600" />
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center pointer-events-none dark:bg-gray-700">
+                    <Briefcase className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                   </div>
                 </div>
               )}
