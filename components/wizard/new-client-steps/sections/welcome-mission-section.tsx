@@ -124,11 +124,11 @@ export function WelcomeMissionSection({
 
   return (
     <>
-      <Card>
+      <Card className="dark:bg-gray-800">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 dark:text-gray-100">
                 <FileText className="w-5 h-5 text-accent-blue" />
                 Welcome Statement
               </CardTitle>
@@ -140,9 +140,9 @@ export function WelcomeMissionSection({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Label>Banner Headline</Label>
+                  <Label className="dark:text-gray-300">Banner Headline</Label>
                   {(onGenerateStatement || onGenerateAI) && (
-                    <span className="text-sm text-muted-foreground">
+                    <span className="text-sm text-muted-foreground dark:text-gray-400">
                       This is the introduction on your Employee Benefits Hub
                     </span>
                   )}
@@ -156,7 +156,7 @@ export function WelcomeMissionSection({
                       setEditedCompanyName(companyName || "");
                       setIsEditCompanyNameOpen(true);
                     }}
-                    className="flex items-center gap-2 h-7 text-xs"
+                    className="flex items-center gap-2 h-7 text-xs dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
                   >
                     <Pencil className="w-3 h-3" />
                     Edit Banner Headline
@@ -174,7 +174,7 @@ export function WelcomeMissionSection({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Label>
+                  <Label className="dark:text-gray-300">
                     Welcome Message<span className="text-red-500">*</span>
                   </Label>
                   {onToggleDefaultBody && defaultBodyText && (
@@ -188,7 +188,7 @@ export function WelcomeMissionSection({
                       />
                       <Label
                         htmlFor="useDefaultBody"
-                        className="text-sm cursor-pointer"
+                        className="text-sm cursor-pointer dark:text-gray-300"
                       >
                         Use default
                       </Label>
@@ -198,8 +198,8 @@ export function WelcomeMissionSection({
                 <div className="flex items-center gap-2">
                   <span
                     className={`text-xs ${computedBodyValid
-                      ? "text-muted-foreground"
-                      : "text-red-500"
+                      ? "text-muted-foreground dark:text-gray-400"
+                      : "text-red-500 dark:text-red-400"
                       }`}
                   >
                     {computedBodyCount}/500 characters
@@ -224,10 +224,10 @@ export function WelcomeMissionSection({
           </div>
         </CardContent>
       </Card>
-      <Card>
+      <Card className="dark:bg-gray-800">
         <CardHeader>
           <div className="flex items-center gap-2">
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 dark:text-gray-100">
               <FileText className="w-5 h-5 text-accent-blue" />
               Company Mission Statement
             </CardTitle>
@@ -238,7 +238,7 @@ export function WelcomeMissionSection({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Label>Mission Headline *</Label>
+                  <Label className="dark:text-gray-300">Mission Headline *</Label>
                   {onToggleDefaultHeadline && defaultHeadline && (
                     <div className="flex items-center gap-2">
                       <Checkbox
@@ -250,7 +250,7 @@ export function WelcomeMissionSection({
                       />
                       <Label
                         htmlFor="useDefaultHeadline"
-                        className="text-sm cursor-pointer"
+                        className="text-sm cursor-pointer dark:text-gray-300"
                       >
                         Use default
                       </Label>
@@ -263,7 +263,7 @@ export function WelcomeMissionSection({
                     variant="outline"
                     size="sm"
                     onClick={onGenerateMissionHeadline}
-                    className="flex items-center gap-2 h-7 text-xs"
+                    className="flex items-center gap-2 h-7 text-xs dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
                   >
                     <Sparkles className="w-3 h-3" />
                     Generate with AI
@@ -283,14 +283,14 @@ export function WelcomeMissionSection({
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label>Mission Statement *</Label>
+                <Label className="dark:text-gray-300">Mission Statement *</Label>
                 {onGenerateMissionBody && (
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     onClick={onGenerateMissionBody}
-                    className="flex items-center gap-1.5 h-7 text-xs whitespace-nowrap"
+                    className="flex items-center gap-1.5 h-7 text-xs whitespace-nowrap dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
                   >
                     <Sparkles className="w-3 h-3" />
                     Generate with AI
@@ -309,7 +309,7 @@ export function WelcomeMissionSection({
                 destructive={errorFields.includes("missionBody")}
               />
               <div className="flex items-center justify-between mt-1">
-                <p className={`text-xs ${missionBody.length >= 250 && missionBody.length <= 800 ? "text-muted-foreground" : "text-red-500"}`}>
+                <p className={`text-xs ${missionBody.length >= 250 && missionBody.length <= 800 ? "text-muted-foreground dark:text-gray-400" : "text-red-500 dark:text-red-400"}`}>
                   {missionBody.length}/800 characters
                 </p>
                 {missionBody.length > 0 && (missionBody.length < 250 || missionBody.length > 800) && (
@@ -321,7 +321,7 @@ export function WelcomeMissionSection({
             </div>
           </div>
           {missionGenerationLimitReached && (
-            <p className="text-xs text-amber-600">
+            <p className="text-xs text-amber-600 dark:text-amber-400">
               Generation limit reached. Cycling through previous selections.
             </p>
           )}
@@ -331,17 +331,17 @@ export function WelcomeMissionSection({
           open={isEditCompanyNameOpen}
           onOpenChange={setIsEditCompanyNameOpen}
         >
-          <DialogContent className="z-[52]">
+          <DialogContent className="z-[52] dark:bg-gray-900 dark:border-gray-700">
             <DialogHeader>
-              <DialogTitle>Edit Banner Headline</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="dark:text-gray-100">Edit Banner Headline</DialogTitle>
+              <DialogDescription className="dark:text-gray-400">
                 Update the Benefits Hub name. This will automatically update the
                 banner headline in preview.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="companyName">Benefits Hub Name</Label>
+                <Label htmlFor="companyName" className="dark:text-gray-300">Benefits Hub Name</Label>
                 <Input
                   id="companyName"
                   value={editedCompanyName}
@@ -352,7 +352,7 @@ export function WelcomeMissionSection({
                   placeholder="Enter company name"
                   maxLength={65}
                 />
-                <p className="text-xs text-muted-foreground text-right">
+                <p className="text-xs text-muted-foreground text-right dark:text-gray-400">
                   {editedCompanyName.length}/65 characters
                 </p>
               </div>
@@ -361,6 +361,7 @@ export function WelcomeMissionSection({
               <Button
                 variant="outline"
                 onClick={() => setIsEditCompanyNameOpen(false)}
+                className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
               >
                 Cancel
               </Button>

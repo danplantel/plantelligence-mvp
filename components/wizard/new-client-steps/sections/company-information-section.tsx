@@ -32,9 +32,9 @@ export function CompanyInformationSection({
   const [infoDialogOpen, setInfoDialogOpen] = useState(false);
   const [infoDialogConfig, setInfoDialogConfig] = useState({ title: "", description: "" });
   return (
-    <Card className="shadow-none">
+    <Card className="shadow-none dark:bg-gray-800">
       <CardHeader>
-        <CardTitle className="text-xl">Company Information</CardTitle>
+        <CardTitle className="text-xl dark:text-gray-100">Company Information</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="gap-6 grid grid-cols-1 lg:grid-cols-2">
@@ -42,7 +42,7 @@ export function CompanyInformationSection({
           <div className="space-y-6">
             {/* Company Name */}
             <div>
-              <label className="block mb-2 font-medium text-sm">
+              <label className="block mb-2 font-medium text-sm dark:text-gray-300">
                 Company Name *
               </label>
               <Input
@@ -58,7 +58,7 @@ export function CompanyInformationSection({
 
             {/* Company Website */}
             <div>
-              <label className="block mb-2 font-medium text-sm">
+              <label className="block mb-2 font-medium text-sm dark:text-gray-300">
                 Company website *
               </label>
               <Input
@@ -70,7 +70,7 @@ export function CompanyInformationSection({
 
             {/* Company Logo */}
             <div>
-              <label className="block mb-2 font-medium text-sm flex items-center gap-1">
+              <label className="block mb-2 font-medium text-sm flex items-center gap-1 dark:text-gray-300">
                 Company Logo *
                 <button
                   type="button"
@@ -94,14 +94,14 @@ export function CompanyInformationSection({
                 onRemove={onLogoFileRemove}
                 placeholder="Upload Logo (2MB limit)"
               />
-              <p className="mt-1 text-muted-foreground text-xs">
+              <p className="mt-1 text-muted-foreground text-xs dark:text-gray-400">
                 Use a square logo. SVG recommended.
               </p>
             </div>
 
             {/* Appointment Scheduling */}
             <div>
-              <label className="block mb-2 font-medium text-sm">
+              <label className="block mb-2 font-medium text-sm dark:text-gray-300">
                 How do plan participants schedule an appointment? *
               </label>
               <Input
@@ -113,19 +113,19 @@ export function CompanyInformationSection({
                 placeholder="Enter email or scheduling URL"
               />
               {appointmentType === "invalid" && (
-                <p className="mt-1 text-red-500 text-xs">
+                <p className="mt-1 text-red-500 dark:text-red-400 text-xs">
                   Please enter a valid email or scheduling URL.
                 </p>
               )}
 
               {appointmentType === "email" && (
-                <p className="mt-1 text-green-600 text-xs">
+                <p className="mt-1 text-green-600 dark:text-green-400 text-xs">
                   Email detected — we will generate a scheduling form.
                 </p>
               )}
 
               {appointmentType === "url" && (
-                <p className="mt-1 text-green-600 text-xs">
+                <p className="mt-1 text-green-600 dark:text-green-400 text-xs">
                   URL detected — we will use this scheduling link.
                 </p>
               )}
@@ -133,7 +133,7 @@ export function CompanyInformationSection({
 
             {/* Background Image */}
             <div>
-              <label className="block mb-2 font-medium text-sm flex items-center gap-1">
+              <label className="block mb-2 font-medium text-sm flex items-center gap-1 dark:text-gray-300">
                 Background image (optional)
                 <button
                   type="button"
@@ -159,7 +159,7 @@ export function CompanyInformationSection({
                 onRemove={onBackgroundImgRemove}
                 placeholder="Upload Background (PNG, JPG, JPEG, 1920x1080px)"
               />
-              <p className="mt-1 text-muted-foreground text-xs">
+              <p className="mt-1 text-muted-foreground text-xs dark:text-gray-400">
                 Recommended dimensions: 1920x1080px. Supported formats: PNG,
                 JPG, JPEG. WebP is not supported.
               </p>
@@ -170,7 +170,7 @@ export function CompanyInformationSection({
           <div className="space-y-6">
             {/* Brand Color */}
             <div>
-              <label className="block mb-2 font-medium text-sm">
+              <label className="block mb-2 font-medium text-sm dark:text-gray-300">
                 Brand color *
               </label>
               <div className="flex items-center space-x-3">
@@ -178,7 +178,7 @@ export function CompanyInformationSection({
                   type="color"
                   value={data.brandColor}
                   onChange={(e) => onDataChange("brandColor", e.target.value)}
-                  className="w-9 h-9 border border-gray-300 rounded cursor-pointer"
+                  className="w-9 h-9 border border-gray-300 dark:border-gray-600 rounded cursor-pointer"
                 />
                 <Input
                   type="text"
@@ -192,7 +192,7 @@ export function CompanyInformationSection({
 
             {/* Secondary Color */}
             <div>
-              <label className="block mb-2 font-medium text-sm">
+              <label className="block mb-2 font-medium text-sm dark:text-gray-300">
                 Secondary color *
               </label>
               <div className="flex items-center space-x-3">
@@ -202,7 +202,7 @@ export function CompanyInformationSection({
                   onChange={(e) =>
                     onDataChange("secondaryColor", e.target.value)
                   }
-                  className="w-9 h-9 border border-gray-300 rounded cursor-pointer"
+                  className="w-9 h-9 border border-gray-300 dark:border-gray-600 rounded cursor-pointer"
                 />
                 <Input
                   type="text"
@@ -218,10 +218,10 @@ export function CompanyInformationSection({
 
             {/* Welcome Statement Headline */}
             <div>
-              <label className="block mb-2 font-medium text-sm">
+              <label className="block mb-2 font-medium text-sm dark:text-gray-300">
                 Benefits Hub Welcome Statement Headline *
               </label>
-              <p className="text-xs text-muted-foreground mb-2">
+              <p className="text-xs text-muted-foreground mb-2 dark:text-gray-400">
                 This message introduces your firm to employers and participants
                 via the branded benefits hub. Keep it clear, welcoming, and
                 aligned with your brand voice
@@ -235,7 +235,7 @@ export function CompanyInformationSection({
                 maxLength={60}
               />
               <div className="flex justify-end">
-                <span className="mt-1 text-[14px] text-gray-500">
+                <span className="mt-1 text-[14px] text-gray-500 dark:text-gray-400">
                   {data.missionHeadline.length}/60
                 </span>
               </div>
@@ -243,7 +243,7 @@ export function CompanyInformationSection({
 
             {/* Welcome Statement Body */}
             <div>
-              <label className="block mb-2 font-medium text-sm">
+              <label className="block mb-2 font-medium text-sm dark:text-gray-300">
                 Benefits Hub Welcome Statement Body *
               </label>
               <Textarea
@@ -252,7 +252,7 @@ export function CompanyInformationSection({
                 placeholder="At <COMPANY_NAME>, this employee benefits portal..."
                 className="min-h-[120px]"
               />
-              <p className="mt-1 text-muted-foreground text-xs">
+              <p className="mt-1 text-muted-foreground text-xs dark:text-gray-400">
                 (you can customize your message here as needed. Click on Ai
                 Assistant below to generate a custom message from plan sponsor
                 website.)

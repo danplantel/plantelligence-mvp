@@ -485,13 +485,13 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
       {currentSubStep === "branding" && (
         <>
           {/* Plan Type Selection */}
-          <Card>
+          <Card className="dark:bg-gray-800">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 dark:text-gray-100">
                 <Building2 className="w-5 h-5 text-accent-blue" />
                 Plan Type
               </CardTitle>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground dark:text-gray-400">
                 Select the type of plan you&apos;re creating
               </p>
             </CardHeader>
@@ -503,8 +503,8 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
               >
                 <div
                   className={`p-3 border rounded-lg cursor-pointer transition-colors ${companyData.planType === "client" || !companyData.planType
-                    ? "border-primary bg-[#23919C]/10"
-                    : "hover:bg-muted/50"
+                    ? "border-primary bg-[#23919C]/10 dark:bg-[#23919C]/20"
+                    : "hover:bg-muted/50 dark:hover:bg-gray-700 dark:border-gray-600"
                     }`}
                   onClick={() => updateField("planType", "client")}
                 >
@@ -513,11 +513,11 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                     <div>
                       <Label
                         htmlFor="plan-client"
-                        className="cursor-pointer font-medium"
+                        className="cursor-pointer font-medium dark:text-gray-300"
                       >
                         <p className="text-sm font-medium">Client</p>
                       </Label>
-                      <div className="text-xs text-muted-foreground">
+                      <div className="text-xs text-muted-foreground dark:text-gray-400">
                         Active plan for real clients
                       </div>
                     </div>
@@ -525,8 +525,8 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                 </div>
                 <div
                   className={`p-3 border rounded-lg cursor-pointer transition-colors ${companyData.planType === "prospect"
-                    ? "border-primary bg-[#23919C]/10"
-                    : "hover:bg-muted/50"
+                    ? "border-primary bg-[#23919C]/10 dark:bg-[#23919C]/20"
+                    : "hover:bg-muted/50 dark:hover:bg-gray-700 dark:border-gray-600"
                     }`}
                   onClick={() => updateField("planType", "prospect")}
                 >
@@ -535,11 +535,11 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                     <div>
                       <Label
                         htmlFor="plan-prospect"
-                        className="cursor-pointer font-medium"
+                        className="cursor-pointer font-medium dark:text-gray-300"
                       >
                         <p className="text-sm font-medium">Prospect</p>
                       </Label>
-                      <div className="text-xs text-muted-foreground">
+                      <div className="text-xs text-muted-foreground dark:text-gray-400">
                         Draft plan for demos & presentations
                       </div>
                     </div>
@@ -550,9 +550,9 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
           </Card>
 
           {/* Company Information */}
-          <Card>
+          <Card className="dark:bg-gray-800">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 dark:text-gray-100">
                 <Building2 className="w-5 h-5 text-accent-blue" />
                 Company Information
               </CardTitle>
@@ -560,7 +560,7 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="companyName">
+                  <Label htmlFor="companyName" className="dark:text-gray-300">
                     Company Name <span className="text-red-500">*</span>
                   </Label>
                   <div className="relative">
@@ -588,7 +588,7 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                       destructive={isFieldInvalid("companyName")}
                     />
                     {touchedFields["companyName"] && companyData.companyName.trim() && !fieldErrors["companyName"] && (
-                      <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500 pointer-events-none" />
+                      <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500 dark:text-green-400 pointer-events-none" />
                     )}
                     <div
                       className={`absolute -top-8 right-0 flex items-center gap-2 transition-all duration-500 ease-out ${companyData.companyName.length >= 45
@@ -598,8 +598,8 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                     >
                       <span
                         className={`text-xs transition-colors duration-300 ${companyData.companyName.length >= 65
-                          ? "text-red-500"
-                          : "text-muted-foreground"
+                          ? "text-red-500 dark:text-red-400"
+                          : "text-muted-foreground dark:text-gray-400"
                           }`}
                       >
                         {companyData.companyName.length}/65 characters
@@ -615,16 +615,16 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                     </div>
                   </div>
                   {touchedFields["companyName"] && fieldErrors["companyName"] && (
-                    <p className="text-xs text-red-500 flex items-center gap-1 mt-1">
+                    <p className="text-xs text-red-500 dark:text-red-400 flex items-center gap-1 mt-1">
                       <AlertCircle className="w-3 h-3" />
                       {fieldErrors["companyName"]}
                     </p>
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="companyWebsite">
+                  <Label htmlFor="companyWebsite" className="dark:text-gray-300">
                     Company Website
-                    <span className="text-xs text-muted-foreground ml-1">(optional)</span>
+                    <span className="text-xs text-muted-foreground dark:text-gray-400 ml-1">(optional)</span>
                   </Label>
                   <div className="relative">
                     <Input
@@ -657,11 +657,11 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                       destructive={isFieldInvalid("companyWebsite")}
                     />
                     {touchedFields["companyWebsite"] && companyData.companyWebsite?.trim() && !fieldErrors["companyWebsite"] && (
-                      <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500 pointer-events-none" />
+                      <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500 dark:text-green-400 pointer-events-none" />
                     )}
                   </div>
                   {touchedFields["companyWebsite"] && fieldErrors["companyWebsite"] && (
-                    <p className="text-xs text-red-500 flex items-center gap-1 mt-1">
+                    <p className="text-xs text-red-500 dark:text-red-400 flex items-center gap-1 mt-1">
                       <AlertCircle className="w-3 h-3" />
                       {fieldErrors["companyWebsite"]}
                     </p>
@@ -672,13 +672,13 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
           </Card>
 
           {/* Company Logo */}
-          <Card>
+          <Card className="dark:bg-gray-800">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 dark:text-gray-100">
                 <ImageIcon className="w-5 h-5 text-accent-blue" />
                 Company Logo <span className="text-red-500">*</span>
               </CardTitle>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground dark:text-gray-400">
                 Upload your company logo. Recommended size: 300×250px. Accepted formats: PNG, JPG, WebP, SVG. Max file size: 15 MB.
               </p>
             </CardHeader>
@@ -751,13 +751,13 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
           </Card>
 
           {/* Brand Colors */}
-          <Card>
+          <Card className="dark:bg-gray-800">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 dark:text-gray-100">
                 <Palette className="w-5 h-5 text-accent-blue" />
                 Brand Colors
               </CardTitle>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground dark:text-gray-400">
                 Choose your primary and secondary brand colors for the employee
                 portal. Colors can be auto-extracted from your uploaded logo.
               </p>
@@ -766,7 +766,7 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Primary Color */}
                 <div className="space-y-3 relative">
-                  <Label>Primary Color <span className="text-red-500">*</span></Label>
+                  <Label className="dark:text-gray-300">Primary Color <span className="text-red-500">*</span></Label>
                   <div className="flex items-center space-x-3">
                     <button
                       type="button"
@@ -779,7 +779,7 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                           updateField("isSecondaryColorPickerOpen", false);
                         }
                       }}
-                      className={`w-9 h-9 border rounded cursor-pointer flex items-center justify-center ${isFieldInvalid("primaryColor") ? "border-red-500" : "border-gray-300"}`}
+                      className={`w-9 h-9 border rounded cursor-pointer flex items-center justify-center ${isFieldInvalid("primaryColor") ? "border-red-500" : "border-gray-300 dark:border-gray-600"}`}
                       style={{ background: companyData.primaryColor }}
                     >
                       <div className="w-4 h-4 rounded border border-white/20" />
@@ -803,7 +803,7 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                       destructive={isFieldInvalid("primaryColor")}
                     />
                     {touchedFields["primaryColor"] && !fieldErrors["primaryColor"] && (
-                      <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                      <CheckCircle2 className="w-4 h-4 text-green-500 dark:text-green-400 shrink-0" />
                     )}
                   </div>
                   <ColorPicker
@@ -824,7 +824,7 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                     title="Primary Color"
                   />
                   {touchedFields["primaryColor"] && fieldErrors["primaryColor"] && (
-                    <p className="text-xs text-red-500 flex items-center gap-1">
+                    <p className="text-xs text-red-500 dark:text-red-400 flex items-center gap-1">
                       <AlertCircle className="w-3 h-3" />
                       {fieldErrors["primaryColor"]}
                     </p>
@@ -833,7 +833,7 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
 
                 {/* Secondary Color */}
                 <div className="space-y-3 relative">
-                  <Label>Secondary Color <span className="text-red-500">*</span></Label>
+                  <Label className="dark:text-gray-300">Secondary Color <span className="text-red-500">*</span></Label>
                   <div className="flex items-center space-x-3">
                     <button
                       type="button"
@@ -846,7 +846,7 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                           updateField("isPrimaryColorPickerOpen", false);
                         }
                       }}
-                      className={`w-9 h-9 border rounded cursor-pointer flex items-center justify-center ${isFieldInvalid("secondaryColor") ? "border-red-500" : "border-gray-300"}`}
+                      className={`w-9 h-9 border rounded cursor-pointer flex items-center justify-center ${isFieldInvalid("secondaryColor") ? "border-red-500" : "border-gray-300 dark:border-gray-600"}`}
                       style={{ background: companyData.secondaryColor }}
                     >
                       <div className="w-4 h-4 rounded border border-white/20" />
@@ -870,7 +870,7 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                       destructive={isFieldInvalid("secondaryColor")}
                     />
                     {touchedFields["secondaryColor"] && !fieldErrors["secondaryColor"] && (
-                      <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                      <CheckCircle2 className="w-4 h-4 text-green-500 dark:text-green-400 shrink-0" />
                     )}
                   </div>
                   <ColorPicker
@@ -891,7 +891,7 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                     title="Secondary Color"
                   />
                   {touchedFields["secondaryColor"] && fieldErrors["secondaryColor"] && (
-                    <p className="text-xs text-red-500 flex items-center gap-1">
+                    <p className="text-xs text-red-500 dark:text-red-400 flex items-center gap-1">
                       <AlertCircle className="w-3 h-3" />
                       {fieldErrors["secondaryColor"]}
                     </p>
@@ -900,16 +900,16 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
               </div>
 
               {/* Color Preview */}
-              <div className="mt-4 p-4 border rounded-lg">
-                <h4 className="text-sm font-medium mb-2">Color Preview</h4>
+              <div className="mt-4 p-4 border rounded-lg dark:border-gray-600">
+                <h4 className="text-sm font-medium mb-2 dark:text-gray-300">Color Preview</h4>
                 <div className="flex gap-2">
                   <div
-                    className="w-8 h-8 rounded border"
+                    className="w-8 h-8 rounded border dark:border-gray-500"
                     style={{ background: companyData.primaryColor }}
                     title="Primary Color"
                   />
                   <div
-                    className="w-8 h-8 rounded border"
+                    className="w-8 h-8 rounded border dark:border-gray-500"
                     style={{ background: companyData.secondaryColor }}
                     title="Secondary Color"
                   />

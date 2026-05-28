@@ -321,13 +321,13 @@ export function BrandImagesSection({
   };
 
   return (
-    <Card data-section="brandImages">
+    <Card data-section="brandImages" className="dark:bg-gray-800">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2 dark:text-gray-100">
           <ImageIcon className="w-5 h-5 text-accent-blue" />
           Brand Images
         </CardTitle>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground dark:text-gray-400">
           Upload brand images for different placements in your Employee Benefits
           Hub.
         </p>

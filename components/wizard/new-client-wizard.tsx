@@ -439,13 +439,13 @@ export function NewClientWizard({
         onOverwrite={resolveDuplicatePlanOverwrite}
         onSaveAsNew={resolveDuplicatePlanSaveAsNew}
       />
-      <div className="mx-10 py-4 min-h-screen">
+      <div className="mx-10 py-4 min-h-screen dark:bg-gray-900">
         <div ref={contentRef} className="mb-12">
           {children}
         </div>
 
         <div
-          className="fixed bottom-0 bg-background border-t z-50"
+          className="fixed bottom-0 bg-background border-t z-50 dark:bg-gray-800 dark:border-gray-700"
           style={{
             left: "var(--sidebar-width, 0)",
             width: "calc(100% - var(--sidebar-width, 0))",
@@ -453,7 +453,7 @@ export function NewClientWizard({
           }}
         >
           <div className="mx-10">
-            <Card className="shadow-none border-0">
+            <Card className="shadow-none border-0 dark:bg-gray-800">
               <CardContent className="flex justify-between items-center p-4 relative">
                 <LoadingButton
                   variant="outline"
@@ -462,6 +462,7 @@ export function NewClientWizard({
                   loadingText="Previous"
                   disabled={isFirstStep || isLoading || isProcessing}
                   size="lg"
+                  className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
                 >
                   <ChevronLeft className="size-5" />
                   Previous
@@ -475,6 +476,7 @@ export function NewClientWizard({
                     isLoading={isLoading || isProcessing}
                     loadingText="Saving draft..."
                     variant="outline"
+                    className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
                   >
                     Save as Draft
                   </LoadingButton>
@@ -486,6 +488,7 @@ export function NewClientWizard({
                       onClick={handleComplete}
                       isLoading={isLoading || isProcessing}
                       loadingText="Completing client setup..."
+                      className="bg-accent-blue hover:bg-accent-blue/90"
                     >
                       Complete Setup
                       <ChevronRight className="size-5" />
@@ -501,6 +504,11 @@ export function NewClientWizard({
                         (isStep3aWithMultipleContacts || isStep3cWithMultipleContacts)
                           ? currentSelectedCategory ? "default" : "outline"
                           : "default"
+                      }
+                      className={
+                        (isStep3aWithMultipleContacts || isStep3cWithMultipleContacts)
+                          ? currentSelectedCategory ? "bg-accent-blue hover:bg-accent-blue/90" : ""
+                          : "bg-accent-blue dark:bg-accent-blue dark:text-white hover:bg-accent-blue/90"
                       }
                     >
                       {(() => {
@@ -529,7 +537,7 @@ export function NewClientWizard({
                       className={
                         (isStep3cWithMultipleContacts || isStep3aWithMultipleContacts)
                           ? ""
-                          : "text-gray-600 border border-gray-300 bg-gray-50 hover:text-gray-900 font-medium"
+                          : "text-gray-600 border border-gray-300 bg-gray-50 hover:text-gray-900 font-medium dark:border-gray-600 dark:text-gray-400 dark:bg-gray-700 dark:hover:text-gray-200"
                       }
                     >
                       {(isStep3cWithMultipleContacts || isStep3aWithMultipleContacts)

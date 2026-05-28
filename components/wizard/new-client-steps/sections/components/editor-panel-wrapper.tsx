@@ -27,7 +27,7 @@ export function EditorPanelWrapper({
 
   return (
     <div
-      className={`fixed left-0 top-0 bottom-4 w-full max-w-xl bg-white z-[51] flex flex-col rounded-lg overflow-hidden transition-transform ${
+      className={`fixed left-0 top-0 bottom-4 w-full max-w-xl bg-white dark:bg-gray-900 z-[51] flex flex-col rounded-lg overflow-hidden transition-transform ${
         isAnimating
           ? "translate-x-0 duration-300"
           : "-translate-x-full duration-200"
@@ -36,16 +36,16 @@ export function EditorPanelWrapper({
         marginTop: "0",
       }}
     >
-      <CardHeader className="flex flex-row items-center justify-between px-4 py-4 border-b shadow-md">
+      <CardHeader className="flex flex-row items-center justify-between px-4 py-4 border-b shadow-md dark:border-gray-700">
         <div className="flex flex-col gap-1">
-          <Label className="text-xs uppercase text-muted-foreground tracking-wide font-medium">
+          <Label className="text-xs uppercase text-muted-foreground tracking-wide font-medium dark:text-gray-400">
             Plan Branding & Messaging
           </Label>
-          <Label className="text-lg font-semibold text-foreground mt-1">
+          <Label className="text-lg font-semibold text-foreground mt-1 dark:text-gray-100">
             Editing Panel
           </Label>
         </div>
-        <Button variant="ghost" size="icon" onClick={onClose}>
+        <Button variant="ghost" size="icon" onClick={onClose} className="dark:text-gray-300 dark:hover:bg-gray-800">
           <X className="w-5 h-5" />
         </Button>
       </CardHeader>
@@ -59,7 +59,7 @@ export function EditorPanelWrapper({
         </div>
       </div>
       {footer != null ? (
-        <div className="flex-shrink-0 border-t bg-white px-4 py-3 flex justify-end">
+        <div className="flex-shrink-0 border-t bg-white dark:bg-gray-800 dark:border-gray-700 px-4 py-3 flex justify-end">
           {footer}
         </div>
       ) : null}
