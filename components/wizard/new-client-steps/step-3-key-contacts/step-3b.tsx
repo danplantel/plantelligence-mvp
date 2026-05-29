@@ -4373,6 +4373,38 @@ export function NewClientStep3b({
                 </TooltipProvider>
               </div>
 
+              {/* Primary Contact (single toggle) */}
+              <div className="border-t pt-4 dark:border-gray-700">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="isPrimaryOverall"
+                    checked={isPrimaryOverall}
+                    onCheckedChange={(checked) => {
+                      if (savedContacts.length > 0) {
+                        handlePrimaryChange(checked === true);
+                      }
+                    }}
+                    disabled={savedContacts.length === 0}
+                    className={
+                      savedContacts.length === 0
+                        ? "opacity-50 cursor-not-allowed"
+                        : "dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600"
+                    }
+                  />
+                  <Label
+                    htmlFor="isPrimaryOverall"
+                    className={cn(
+                      "text-sm font-normal",
+                      savedContacts.length === 0
+                        ? "text-gray-400 cursor-not-allowed"
+                        : "cursor-pointer dark:text-gray-300",
+                    )}
+                  >
+                    Mark as primary contact for this category [{getCategoryLabel(benefitsCategories[0])}].
+                  </Label>
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <CompanyNameSelector
                   key={selectedContactId || "new"}
@@ -4601,37 +4633,7 @@ export function NewClientStep3b({
                 error={actionsError}
               />
 
-              {/* Primary Contact (single toggle) */}
-              <div className="border-t pt-4 dark:border-gray-700">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="isPrimaryOverall"
-                    checked={isPrimaryOverall}
-                    onCheckedChange={(checked) => {
-                      if (savedContacts.length > 0) {
-                        handlePrimaryChange(checked === true);
-                      }
-                    }}
-                    disabled={savedContacts.length === 0}
-                    className={
-                      savedContacts.length === 0
-                        ? "opacity-50 cursor-not-allowed"
-                        : "dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600"
-                    }
-                  />
-                  <Label
-                    htmlFor="isPrimaryOverall"
-                    className={cn(
-                      "text-sm font-normal",
-                      savedContacts.length === 0
-                        ? "text-gray-400 cursor-not-allowed"
-                        : "cursor-pointer dark:text-gray-300",
-                    )}
-                  >
-                    Mark as primary contact for this benefits category.
-                  </Label>
-                </div>
-              </div>
+
             </CardContent>
           </Card>
 
