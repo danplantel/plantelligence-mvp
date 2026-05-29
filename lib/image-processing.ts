@@ -1,4 +1,4 @@
-import sharp from "sharp";
+import type sharp from "sharp";
 
 export interface CropOptions {
   x: number;
@@ -22,6 +22,19 @@ export interface ImageProcessingOptions {
 }
 
 /**
+ * Lazily load sharp — top-level `import sharp` causes native binary load errors
+ * in all routes that import this module (e.g. DELETE /api/clients/[id]), even when
+ * image-processing functions are never called for that request.
+ */
+let _sharp: typeof sharp | null = null;
+const getSharp = async (): Promise<typeof sharp> => {
+  if (!_sharp) {
+    _sharp = (await import("sharp")).default;
+  }
+  return _sharp;
+};
+
+/**
  * Process and crop image on backend
  * @param imageBuffer - Image buffer
  * @param options - Processing options
@@ -31,7 +44,8 @@ export async function processImage(
   imageBuffer: Buffer,
   options: ImageProcessingOptions = {}
 ): Promise<Buffer> {
-  let pipeline = sharp(imageBuffer);
+  const sharpModule = await getSharp();
+  let pipeline = sharpModule(imageBuffer);
 
   if (options.crop) {
     const { x, y, width, height } = options.crop;
@@ -85,7 +99,8 @@ export async function autoCropToSquare(
   imageBuffer: Buffer,
   size: number = 800
 ): Promise<Buffer> {
-  const metadata = await sharp(imageBuffer).metadata();
+  const sharpModule = await getSharp();
+  const metadata = await sharpModule(imageBuffer).metadata();
   const { width = 0, height = 0 } = metadata;
 
   const minDimension = Math.min(width, height);
@@ -165,7 +180,8 @@ export function bufferToBase64(
 export async function getImageMetadata(
   imageBuffer: Buffer
 ): Promise<sharp.Metadata> {
-  return await sharp(imageBuffer).metadata();
+  const sharpModule = await getSharp();
+  return await sharpModule(imageBuffer).metadata();
 }
 
 /**
@@ -266,4 +282,3 @@ export async function processBase64ImageWithCrop(
 
   return await processBase64Image(base64Image, defaultSize);
 }
-
