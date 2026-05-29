@@ -259,38 +259,21 @@ export function ClientsListDashboardPage() {
   return (
     <div className="flex-1 space-y-4 p-8 pt-6">
       <div className="mx-auto max-w-7xl">
-        <div className="flex items-center justify-between space-y-2">
-          <h2 className="text-3xl font-bold tracking-tight">Plans</h2>
-          <div className="flex items-center space-x-2">
-            <Button onClick={() => refreshClients()} variant="outline">
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Refresh
-            </Button>
-            <Link href="/new/new-client">
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Create Plan
-              </Button>
-            </Link>
-          </div>
-        </div>
-
         <Card>
           <div className="p-6">
-            <div className="flex items-center justify-between space-x-4 mb-4">
+            <div className="flex items-center gap-4 mb-4">
               <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search plans..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <div className="flex items-center space-x-2">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search plans..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="text-sm">
+                  <Button variant="outline" size="sm" className="text-sm shrink-0">
                     <Filter className="mr-2 h-4 w-4" />
                     Advanced Filter
                   </Button>
@@ -376,8 +359,19 @@ export function ClientsListDashboardPage() {
               >
                 Prospect
               </Button>
+              <div className="flex items-center gap-2 ml-auto">
+                <Button onClick={() => refreshClients()} variant="outline" size="sm">
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Refresh
+                </Button>
+                <Link href="/new/new-client">
+                  <Button size="sm">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create Plan
+                  </Button>
+                </Link>
+              </div>
             </div>
-          </div>
 
           <div className="rounded-md border overflow-hidden">
             <div className="w-full">
