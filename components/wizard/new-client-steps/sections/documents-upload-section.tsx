@@ -836,9 +836,9 @@ export function DocumentsUploadSection({
   };
 
   return (
-    <Card>
+    <Card className="dark:bg-gray-800 dark:border-gray-700">
       <CardHeader className={compactDropzone ? "space-y-1 pb-2" : undefined}>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2 dark:text-gray-100">
           <FileText className="w-5 h-5 text-accent-blue" />
           {title}
         </CardTitle>
@@ -854,7 +854,7 @@ export function DocumentsUploadSection({
       </CardHeader>
       <CardContent className={compactDropzone ? "space-y-3 pt-0" : "space-y-4"}>
         {pdfOnly && failedBatchFiles.length > 0 && !isUploading && (
-          <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 dark:border-red-800/40 dark:bg-red-900/10">
             <p className="text-sm text-destructive font-medium">
               {failedBatchFiles.length} file
               {failedBatchFiles.length === 1 ? "" : "s"} could not be uploaded or
@@ -864,7 +864,7 @@ export function DocumentsUploadSection({
               type="button"
               variant="outline"
               size="sm"
-              className="border-destructive/50 text-destructive shrink-0"
+              className="border-destructive/50 text-destructive shrink-0 dark:border-red-800 dark:text-red-400"
               onClick={() => void addDocumentsFromFiles(failedBatchFiles)}
             >
               Retry failed
@@ -879,7 +879,7 @@ export function DocumentsUploadSection({
         />
         {/* Upload progress: bar + per-file status (multi-file only) */}
         {uploadProgress && uploadProgress.total > 0 && (
-          <div className="rounded-lg border border-accent-blue/30 bg-accent-blue/5 p-4 space-y-3">
+          <div className="rounded-lg border border-accent-blue/30 bg-accent-blue/5 p-4 space-y-3 dark:border-accent-blue/20 dark:bg-accent-blue/10">
             <div className="flex items-center justify-between gap-2">
               <span className="text-sm font-medium text-accent-blue">
                 Uploading {uploadProgress.completed} of {uploadProgress.total}
@@ -957,7 +957,7 @@ export function DocumentsUploadSection({
                   : "p-6 sm:p-8 md:p-12"
               } ${isDragOver
                 ? "border-accent-blue bg-accent-blue/5"
-                : "border-gray-300 hover:border-accent-blue"
+                : "border-gray-300 hover:border-accent-blue dark:border-gray-600 dark:hover:border-accent-blue"
                 }`}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
@@ -965,13 +965,13 @@ export function DocumentsUploadSection({
             >
               <div className="text-center">
                 <Upload
-                  className={`mx-auto text-gray-400 ${compactDropzone ? "w-7 h-7 sm:w-8 sm:h-8 mb-2" : "w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 mb-3 sm:mb-4"}`}
+                  className={`mx-auto text-gray-400 dark:text-gray-500 ${compactDropzone ? "w-7 h-7 sm:w-8 sm:h-8 mb-2" : "w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 mb-3 sm:mb-4"}`}
                 />
                 <p
                   className={
                     compactDropzone
-                      ? "text-gray-700 font-medium mb-1.5 text-sm"
-                      : "text-gray-700 font-medium mb-2 text-sm sm:text-base"
+                      ? "text-gray-700 font-medium mb-1.5 text-sm dark:text-gray-300"
+                      : "text-gray-700 font-medium mb-2 text-sm sm:text-base dark:text-gray-300"
                   }
                 >
                   Drag & Drop Files Here
@@ -979,8 +979,8 @@ export function DocumentsUploadSection({
                 <p
                   className={
                     compactDropzone
-                      ? "text-gray-500 text-xs mb-2"
-                      : "text-gray-500 text-xs sm:text-sm mb-3 sm:mb-4"
+                      ? "text-gray-500 text-xs mb-2 dark:text-gray-400"
+                      : "text-gray-500 text-xs sm:text-sm mb-3 sm:mb-4 dark:text-gray-400"
                   }
                 >
                   or
@@ -1022,21 +1022,21 @@ export function DocumentsUploadSection({
 
         {/* Document Form - shown after file is selected or when editing */}
         {(currentDocumentFile || currentDocumentFileUrl || editingDocument) && (
-          <div className="space-y-4 p-3 sm:p-4 border rounded-lg">
+          <div className="space-y-4 p-3 sm:p-4 border rounded-lg dark:border-gray-600">
             {/* File Info */}
             <div className="space-y-3">
-              <div className="flex items-center justify-between p-2 sm:p-3 bg-gray-50 rounded-lg gap-2">
+              <div className="flex items-center justify-between p-2 sm:p-3 bg-gray-50 rounded-lg gap-2 dark:bg-gray-700">
                 <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                   <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-accent-blue flex-shrink-0" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs sm:text-sm font-medium truncate">
+                    <p className="text-xs sm:text-sm font-medium truncate dark:text-gray-300">
                       {currentDocumentFile
                         ? currentDocumentFile.name
                         : editingDocument?.originalFileName ||
                         editingDocument?.name ||
                         "Current file"}
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
                       {currentDocumentFile
                         ? `${Math.round(currentDocumentFile.size / 1024)} KB`
                         : editingDocument
@@ -1066,18 +1066,18 @@ export function DocumentsUploadSection({
                 <div
                   className={`relative border-2 border-dashed rounded-lg p-4 sm:p-6 transition-colors ${isDragOver
                     ? "border-accent-blue bg-accent-blue/5"
-                    : "border-gray-300 hover:border-accent-blue"
+                    : "border-gray-300 hover:border-accent-blue dark:border-gray-600 dark:hover:border-accent-blue"
                     }`}
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
                 >
                   <div className="text-center">
-                    <Upload className="mx-auto w-6 h-6 sm:w-8 sm:h-8 text-gray-400 mb-2" />
-                    <p className="text-gray-700 text-xs sm:text-sm font-medium mb-2">
+                    <Upload className="mx-auto w-6 h-6 sm:w-8 sm:h-8 text-gray-400 mb-2 dark:text-gray-500" />
+                    <p className="text-gray-700 text-xs sm:text-sm font-medium mb-2 dark:text-gray-300">
                       Replace file (optional)
                     </p>
-                    <p className="text-gray-500 text-xs mb-3">
+                    <p className="text-gray-500 text-xs mb-3 dark:text-gray-400">
                       Drag & drop or click to upload a new file
                     </p>
                     <Button
@@ -1096,7 +1096,7 @@ export function DocumentsUploadSection({
 
             {/* Category - Always show, even if fixed, to give feedback */}
             <div className="space-y-2">
-              <Label className="flex items-center justify-between">
+              <Label className="flex items-center justify-between dark:text-gray-300">
                 <span>Category</span>
                 {isAutoCategorized && (
                   <Badge className="bg-accent-blue/10 text-accent-blue hover:bg-accent-blue/10 border-none px-2 py-0 h-5 text-[11px] font-bold">
@@ -1109,7 +1109,7 @@ export function DocumentsUploadSection({
                 onValueChange={(val: any) => setCurrentDocumentCategory(val)}
                 disabled={!!fixedCategory} // Category is locked if passed as fixed
               >
-                <SelectTrigger className="w-full bg-white border-gray-200 h-9">
+                <SelectTrigger className="w-full bg-white border-gray-200 h-9 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300">
                   <SelectValue placeholder="Select Category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1129,7 +1129,7 @@ export function DocumentsUploadSection({
             {/* Document Name */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="document-name">
+                <Label htmlFor="document-name" className="dark:text-gray-300">
                   Document Name <span className="text-red-500">*</span>
                 </Label>
                 <span
@@ -1137,7 +1137,7 @@ export function DocumentsUploadSection({
                     ? "text-red-500"
                     : currentDocumentName.length > 50
                       ? "text-amber-500"
-                      : "text-gray-500"
+                      : "text-gray-500 dark:text-gray-400"
                     }`}
                 >
                   {currentDocumentName.length}/60
@@ -1154,27 +1154,27 @@ export function DocumentsUploadSection({
                 placeholder="Document name will be pre-filled from PDF"
                 required
                 maxLength={60}
-                className={
+                className={`dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 ${
                   currentDocumentName.length > 60
                     ? "border-red-500 focus:border-red-500"
                     : ""
-                }
+                }`}
               />
             </div>
 
             {/* Short Description */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="document-description">
+                <Label htmlFor="document-description" className="dark:text-gray-300">
                   Short Description{" "}
-                  <span className="text-gray-400">(optional)</span>
+                  <span className="text-gray-400 dark:text-gray-500">(optional)</span>
                 </Label>
                 <span
                   className={`text-xs ${currentDocumentDescription.length > 200
                     ? "text-red-500"
                     : currentDocumentDescription.length > 180
                       ? "text-amber-500"
-                      : "text-gray-500"
+                      : "text-gray-500 dark:text-gray-400"
                     }`}
                 >
                   {currentDocumentDescription.length}/200
@@ -1191,20 +1191,20 @@ export function DocumentsUploadSection({
                 placeholder="Add a brief description to help employees understand this document (optional)"
                 rows={3}
                 maxLength={200}
-                className={
+                className={`dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 ${
                   currentDocumentDescription.length > 200
                     ? "border-red-500 focus:border-red-500"
                     : ""
-                }
+                }`}
               />
             </div>
 
 
             {/* Expiration Date */}
             <div className="space-y-2">
-              <Label htmlFor="document-expiration-date">
+              <Label htmlFor="document-expiration-date" className="dark:text-gray-300">
                 Expiration Date{" "}
-                <span className="text-gray-400">(optional)</span>
+                <span className="text-gray-400 dark:text-gray-500">(optional)</span>
               </Label>
               <Input
                 id="document-expiration-date"
@@ -1214,8 +1214,9 @@ export function DocumentsUploadSection({
                   setCurrentDocumentExpirationDate(e.target.value)
                 }
                 min={new Date().toISOString().split("T")[0]}
+                className="dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600"
               />
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 Set an expiration date to receive notifications when this
                 document expires
               </p>
@@ -1258,7 +1259,7 @@ export function DocumentsUploadSection({
                     onCancelEdit();
                   }
                 }}
-                className="w-full sm:w-auto"
+                className="w-full sm:w-auto dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
               >
                 Cancel
               </Button>

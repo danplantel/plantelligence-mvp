@@ -1013,7 +1013,7 @@ export function ComplianceDocumentsUpload({
   return (
     <div className={compact ? "space-y-3 min-w-0" : "space-y-4"}>
       {showInfoCard && (
-        <Card className="bg-blue-50 border-blue-200">
+        <Card className="bg-blue-50 border-blue-200 dark:bg-accent-blue/10 dark:border-accent-blue/30">
           <CardContent
             className={
               compact ? "py-3 px-4" : "py-4 sm:py-6 p-4 sm:p-6"
@@ -1025,8 +1025,8 @@ export function ComplianceDocumentsUpload({
                 <p
                   className={
                     compact
-                      ? "text-sm leading-snug text-blue-900 font-medium"
-                      : "text-sm sm:text-base md:text-lg leading-relaxed text-blue-900 font-medium"
+                      ? "text-sm leading-snug text-blue-900 font-medium dark:text-accent-blue-light"
+                      : "text-sm sm:text-base md:text-lg leading-relaxed text-blue-900 font-medium dark:text-accent-blue-light"
                   }
                 >
                   {infoCardText}
@@ -1038,12 +1038,12 @@ export function ComplianceDocumentsUpload({
       )}
 
       {mixedCategoryBanner && uncategorizedDocuments.length > 0 && (
-        <Alert className="border-amber-200 bg-amber-50 text-amber-950">
-          <AlertCircle className="h-4 w-4 text-amber-700" />
-          <AlertTitle className="text-amber-900 font-semibold">
+        <Alert className="border-amber-200 bg-amber-50 text-amber-950 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-200">
+          <AlertCircle className="h-4 w-4 text-amber-700 dark:text-amber-400" />
+          <AlertTitle className="text-amber-900 font-semibold dark:text-amber-200">
             Categories differ across uploads
           </AlertTitle>
-          <AlertDescription className="text-amber-900/90 text-sm">
+          <AlertDescription className="text-amber-900/90 text-sm dark:text-amber-300/90">
             Assign a category to each document below. Rows marked with low AI
             confidence may need a manual check.
           </AlertDescription>
@@ -1052,14 +1052,14 @@ export function ComplianceDocumentsUpload({
 
       {/* Uncategorized Documents Review List */}
       {!allDocumentsCategorized && (
-        <Alert variant="destructive" className="bg-red-50 border-red-200 text-red-900">
-          <AlertCircle className="h-4 w-4 text-red-600" />
+        <Alert variant="destructive" className="bg-red-50 border-red-200 text-red-900 dark:bg-red-900/20 dark:border-red-800 dark:text-red-200">
+          <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full mr-6">
-            <AlertTitle className="font-semibold mb-0">Uncategorized Documents</AlertTitle>
+            <AlertTitle className="font-semibold mb-0 dark:text-red-200">Uncategorized Documents</AlertTitle>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold text-red-600 uppercase">Apply to all:</span>
+              <span className="text-[10px] font-bold text-red-600 uppercase dark:text-red-400">Apply to all:</span>
               <Select onValueChange={(value: any) => handleApplyCategoryToAll(value)}>
-                <SelectTrigger className="h-7 text-[10px] bg-white border-red-200 w-32">
+                <SelectTrigger className="h-7 text-[10px] bg-white border-red-200 w-32 dark:bg-gray-700 dark:border-red-800 dark:text-gray-300">
                   <SelectValue placeholder="Select Category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1080,26 +1080,26 @@ export function ComplianceDocumentsUpload({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-7 text-[10px] text-red-600 hover:text-red-700 hover:bg-red-100/50 font-bold uppercase underline"
+                  className="h-7 text-[10px] text-red-600 hover:text-red-700 hover:bg-red-100/50 font-bold uppercase underline dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/30"
                   onClick={() => setHasSkippedCategorization(true)}
                 >
                   Skip for now
                 </Button>
               )}
             </div>
-            <div className="bg-white/50 rounded-lg border border-red-100 divide-y divide-red-100 overflow-hidden">
+            <div className="bg-white/50 rounded-lg border border-red-100 divide-y divide-red-100 overflow-hidden dark:bg-gray-800/50 dark:border-red-800 dark:divide-red-800">
               {uncategorizedDocuments.map((doc) => (
-                <div key={doc.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 gap-3">
+                <div key={doc.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 gap-3 dark:text-gray-300">
                   <div className="flex items-center gap-2 min-w-0">
-                    <FileText className="h-4 w-4 text-red-400 flex-shrink-0" />
+                    <FileText className="h-4 w-4 text-red-400 flex-shrink-0 dark:text-red-500" />
                     <span className="text-sm font-medium truncate">{doc.name}</span>
-                    <Badge variant="outline" className="text-[10px] py-0 h-4 border-red-200 text-red-600 bg-red-50">
+                    <Badge variant="outline" className="text-[10px] py-0 h-4 border-red-200 text-red-600 bg-red-50 dark:border-red-800 dark:text-red-400 dark:bg-red-900/20">
                       Required
                     </Badge>
                     {lowConfidenceIdSet.has(doc.id) && (
                       <Badge
                         variant="outline"
-                        className="text-[10px] py-0 h-4 border-amber-300 text-amber-800 bg-amber-50"
+                        className="text-[10px] py-0 h-4 border-amber-300 text-amber-800 bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:bg-amber-900/20"
                       >
                         Low AI confidence
                       </Badge>
@@ -1109,7 +1109,7 @@ export function ComplianceDocumentsUpload({
                     <Select
                       onValueChange={(value: any) => handleUpdateDocumentCategory(doc.id, value)}
                     >
-                      <SelectTrigger className="h-8 text-xs bg-white border-red-200 focus:ring-red-500">
+                      <SelectTrigger className="h-8 text-xs bg-white border-red-200 focus:ring-red-500 dark:bg-gray-700 dark:border-red-800 dark:text-gray-300">
                         <SelectValue placeholder="Select Category" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1124,7 +1124,7 @@ export function ComplianceDocumentsUpload({
               ))}
             </div>
             {secondaryAction && (
-              <p className="text-[10px] text-red-600 font-medium">
+              <p className="text-[10px] text-red-600 font-medium dark:text-red-400">
                 * &quot;{secondaryAction.label}&quot; button is disabled until all documents are categorized.
               </p>
             )}
@@ -1209,10 +1209,10 @@ export function ComplianceDocumentsUpload({
           }
         }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent className="dark:bg-gray-800 dark:border-gray-700">
           <AlertDialogHeader>
-            <AlertDialogTitle>Bulk category suggestion</AlertDialogTitle>
-            <AlertDialogDescription className="text-left space-y-2">
+            <AlertDialogTitle className="dark:text-gray-100">Bulk category suggestion</AlertDialogTitle>
+            <AlertDialogDescription className="text-left space-y-2 dark:text-gray-400">
               <span className="block">
                 Apply{" "}
                 <span className="font-semibold text-foreground">
@@ -1235,7 +1235,7 @@ export function ComplianceDocumentsUpload({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Review individually</AlertDialogCancel>
+            <AlertDialogCancel className="dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600">Review individually</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (!bulkMajorityModal) return;

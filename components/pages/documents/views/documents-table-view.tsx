@@ -69,7 +69,7 @@ export function DocumentsTableView({
   availableCategories = [],
 }: DocumentsTableViewProps) {
   return (
-    <div className="rounded-md border">
+    <div className="rounded-md border dark:border-gray-700">
       <Table>
         <TableHeader>
           <TableRow>
@@ -125,10 +125,10 @@ export function DocumentsTableView({
             const uploadedTime = formatUsTime(document.uploadedAt);
 
             return (
-              <TableRow key={document.id} className="hover:bg-gray-50">
-                <TableCell className="font-medium text-gray-900">
+              <TableRow key={document.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                <TableCell className="font-medium text-gray-900 dark:text-gray-100">
                   <div className="flex items-center">
-                    <FileText className="h-4 w-4 mr-2 text-gray-400" />
+                    <FileText className="h-4 w-4 mr-2 text-gray-400 dark:text-gray-500" />
                     {document.title}
                   </div>
                 </TableCell>
@@ -150,7 +150,7 @@ export function DocumentsTableView({
                         <SelectTrigger
                           className={`h-9 w-full text-left text-sm ${
                             !document.category
-                              ? "border-amber-200 bg-amber-50/50 text-amber-900"
+                              ? "border-amber-200 bg-amber-50/50 text-amber-900 dark:bg-amber-900/20 dark:border-amber-700 dark:text-amber-400"
                               : ""
                           }`}
                         >
@@ -179,45 +179,45 @@ export function DocumentsTableView({
                   ) : document.category ? (
                     <Badge
                       variant="outline"
-                      className="bg-purple-50 text-purple-700 border-purple-100"
+                      className="bg-purple-50 text-purple-700 border-purple-100 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800"
                     >
                       {getDocumentCategoryDisplayLabel(document.category)}
                     </Badge>
                   ) : (
                     <Badge
                       variant="outline"
-                      className="bg-red-50 text-red-600 border-red-100 italic"
+                      className="bg-red-50 text-red-600 border-red-100 italic dark:bg-red-900/20 dark:text-red-400 dark:border-red-800"
                     >
                       Uncategorized
                     </Badge>
                   )}
                 </TableCell>
                 <TableCell>
-                  <div className="flex items-center text-sm text-gray-900">
-                    <Building className="h-3 w-3 mr-1 text-gray-400" />
+                  <div className="flex items-center text-sm text-gray-900 dark:text-gray-100">
+                    <Building className="h-3 w-3 mr-1 text-gray-400 dark:text-gray-500" />
                     {document.client.companyName}
                   </div>
                 </TableCell>
                 <TableCell>
                   <div className="space-y-1">
-                    <div className="flex items-center text-sm text-gray-900">
-                      <Calendar className="h-3 w-3 mr-1 text-gray-400" />
+                    <div className="flex items-center text-sm text-gray-900 dark:text-gray-100">
+                      <Calendar className="h-3 w-3 mr-1 text-gray-400 dark:text-gray-500" />
                       {uploadedDate}
                     </div>
-                    <div className="text-xs text-gray-500">{uploadedTime}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">{uploadedTime}</div>
                   </div>
                 </TableCell>
                 <TableCell>
                   {document.expirationDate ? (
                     <div className="flex items-center gap-2">
                       <Calendar className="h-3 w-3 text-gray-400" />
-                      <span className="text-sm text-gray-900">
+                      <span className="text-sm text-gray-900 dark:text-gray-100">
                         {formatUsDate(document.expirationDate)}
                       </span>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6 ml-1 text-gray-400 hover:text-accent-blue"
+                        className="h-6 w-6 ml-1 text-gray-400 hover:text-accent-blue dark:text-gray-500"
                         onClick={(e) => {
                           e.stopPropagation();
                           toast.success("Notification set for expiration");
@@ -250,7 +250,7 @@ export function DocumentsTableView({
                           return (
                             <Badge
                               variant="outline"
-                              className="ml-2 border-amber-300 bg-amber-50 text-amber-800 text-xs"
+                              className="ml-2 border-amber-300 bg-amber-50 text-amber-800 text-xs dark:bg-amber-900/20 dark:border-amber-700 dark:text-amber-400"
                             >
                               <Clock className="h-3 w-3 mr-1" />
                               {daysUntilExpiration} day
@@ -262,7 +262,7 @@ export function DocumentsTableView({
                       })()}
                     </div>
                   ) : (
-                    <span className="text-sm text-gray-400">-</span>
+                    <span className="text-sm text-gray-400 dark:text-gray-500">-</span>
                   )}
                 </TableCell>
 

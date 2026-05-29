@@ -714,17 +714,17 @@ export function NewClientStep4({
 
         {/* Confirm categories + View Preview banner - when docs uploaded and on list/upload */}
         {retirementPlanDocuments.length > 0 && (activeTab === "list" || activeTab === "upload") && (
-          <Alert className="mt-6 bg-blue-50 border-blue-200">
-            <AlertTitle className="text-blue-900 font-semibold">Documents uploaded</AlertTitle>
+          <Alert className="mt-6 bg-blue-50 border-blue-200 dark:bg-accent-blue/10 dark:border-accent-blue/30">
+            <AlertTitle className="text-blue-900 font-semibold dark:text-accent-blue-light">Documents uploaded</AlertTitle>
             <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-2">
-              <p className="text-blue-800">
+              <p className="text-blue-800 dark:text-accent-blue-light">
                 Please confirm document categories, then use the footer Next button to proceed. Click below to preview how documents will display on the Benefits Hub.
               </p>
               <Button
                 onClick={() => setActiveTab("preview")}
                 size="sm"
                 variant="outline"
-                className="shrink-0 border-blue-300 text-blue-900 hover:bg-blue-100"
+                className="shrink-0 border-blue-300 text-blue-900 hover:bg-blue-100 dark:border-accent-blue/30 dark:text-accent-blue-light dark:hover:bg-accent-blue/10"
               >
                 View Preview
                 <ChevronRight className="h-4 w-4 ml-1" />
@@ -806,7 +806,7 @@ export function NewClientStep4({
                     }}
                     className={`rounded-full px-5 py-2 text-[16px] leading-tight font-red-hat font-semibold border transition-colors ${isActive
                       ? "bg-[#002B5B] text-white border-[#002B5B]"
-                      : "bg-white text-[#002B5B] border-[#D1D5DB] hover:bg-gray-50"
+                      : "bg-white text-[#002B5B] border-[#D1D5DB] hover:bg-gray-50 dark:bg-gray-700 dark:text-accent-blue-light dark:border-gray-600 dark:hover:bg-gray-600"
                       }`}
                     style={
                       isActive
@@ -845,7 +845,7 @@ export function NewClientStep4({
                   key={cat}
                   type="button"
                   onClick={() => setActiveCategory(cat)}
-                  className={`px-4 py-2 text-[14px] font-semibold transition-all relative ${isActive ? "text-[#002B5B]" : "text-gray-500 hover:text-gray-700"
+                  className={`px-4 py-2 text-[14px] font-semibold transition-all relative ${isActive ? "text-[#002B5B]" : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                     }`}
                   style={isActive ? { color: primaryColor } : {}}
                 >
@@ -863,7 +863,7 @@ export function NewClientStep4({
 
           {retirementDocs.length === 0 ? (
             <div className="flex items-center justify-center py-20">
-              <p className="text-gray-600 text-lg">
+              <p className="text-gray-600 text-lg dark:text-gray-400">
                 No documents found in{" "}
                 {previewLanguage === "EN" ? "English" : "Spanish"}.
               </p>
@@ -928,7 +928,7 @@ export function NewClientStep4({
                         }}
                         className={`rounded-full px-5 py-2 text-[16px] leading-tight font-red-hat font-semibold border transition-colors ${isActive
                           ? "bg-[#002B5B] text-white border-[#002B5B]"
-                          : "bg-white text-[#002B5B] border-[#D1D5DB] hover:bg-gray-50"
+                          : "bg-white text-[#002B5B] border-[#D1D5DB] hover:bg-gray-50 dark:bg-gray-700 dark:text-accent-blue-light dark:border-gray-600 dark:hover:bg-gray-600"
                           }`}
                         style={
                           isActive
@@ -949,7 +949,7 @@ export function NewClientStep4({
               {/* Filtered Documents Preview */}
               {retirementDocs.length === 0 ? (
                 <div className="flex items-center justify-center py-20">
-                  <p className="text-gray-600 text-lg">
+                  <p className="text-gray-600 text-lg dark:text-gray-400">
                     No documents found in{" "}
                     {previewLanguage === "EN" ? "English" : "Spanish"}.
                   </p>

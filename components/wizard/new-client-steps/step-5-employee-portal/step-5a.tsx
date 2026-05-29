@@ -215,7 +215,7 @@ export function NewClientStep5a({
     return (
         <div className="space-y-6 max-w-6xl mx-auto">
             <div className="text-center space-y-2">
-                <h1 className="text-3xl font-bold text-gray-900">Disclaimers</h1>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Disclaimers</h1>
                 <p className="text-gray-600">
                     {existingDisclaimers.length > 0
                         ? "Review and manage your disclaimers for this plan"

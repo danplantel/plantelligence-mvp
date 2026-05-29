@@ -74,7 +74,7 @@ export function DisclosuresEditor({
     return (
         <div
             className={`pt-6 border-t border-border transition-all duration-500 ${isHighlighted
-                ? "bg-white ring-2 ring-accent-blue/40 rounded-lg p-2 -m-2 scale-[1.01] shadow-sm"
+                ? "bg-white ring-2 ring-accent-blue/40 rounded-lg p-2 -m-2 scale-[1.01] shadow-sm dark:bg-gray-800 dark:ring-accent-blue/60"
                 : ""
                 }`}
         >

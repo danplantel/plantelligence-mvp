@@ -264,7 +264,7 @@ export function AddDisclaimerModal({
   return (
     <Dialog open={isOpen} onOpenChange={isBlocking ? undefined : handleCancel}>
       <DialogContent
-        className="max-w-2xl max-h-[90vh] overflow-y-auto"
+        className="max-w-2xl max-h-[90vh] overflow-y-auto dark:bg-gray-800 dark:border-gray-700"
         onKeyDown={handleKeyDown}
         onInteractOutside={(e) => {
           if (isBlocking) {
@@ -278,7 +278,7 @@ export function AddDisclaimerModal({
         }}
       >
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle className="dark:text-gray-100">
             {isBlocking
               ? "Action Required: Add Disclaimer"
               : (initialData ? "Edit Disclaimer" : "Add Disclaimer")}
@@ -289,11 +289,11 @@ export function AddDisclaimerModal({
           {/* Multi-Select Checkboxes */}
           <div className="space-y-4">
             <div>
-              <Label className="text-base font-medium">
+              <Label className="text-base font-medium dark:text-gray-300">
                 Where will this disclaimer appear?{" "}
                 <span className="text-red-500">*</span>
               </Label>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-sm text-muted-foreground mt-1 dark:text-gray-400">
                 Select all that apply
               </p>
             </div>
@@ -310,7 +310,7 @@ export function AddDisclaimerModal({
                     <div className="space-y-1 flex-1">
                       <Label
                         htmlFor={option.id}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer dark:text-gray-300"
                       >
                         {option.label}
                       </Label>
@@ -321,7 +321,7 @@ export function AddDisclaimerModal({
 
               {disclaimerScopeFlag && !forceUniversalScope && (
                 <div className="space-y-3">
-                  <Label className="text-base font-medium">
+                  <Label className="text-base font-medium dark:text-gray-300">
                     Disclaimer Scope
                   </Label>
                   <RadioGroup
@@ -331,13 +331,13 @@ export function AddDisclaimerModal({
                   >
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="plan" id="modal-scope-plan" />
-                      <Label htmlFor="modal-scope-plan" className="text-sm font-normal cursor-pointer">
+                      <Label htmlFor="modal-scope-plan" className="text-sm font-normal cursor-pointer dark:text-gray-300">
                         For this plan only
                       </Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="universal" id="modal-scope-universal" />
-                      <Label htmlFor="modal-scope-universal" className="text-sm font-normal cursor-pointer">
+                      <Label htmlFor="modal-scope-universal" className="text-sm font-normal cursor-pointer dark:text-gray-300">
                         Modify my universal disclaimer
                       </Label>
                     </div>
@@ -350,10 +350,10 @@ export function AddDisclaimerModal({
           {/* Apply to All Benefits Categories Toggle */}
           <div className="space-y-4 pt-4 border-t">
             <div>
-              <Label className="text-base font-medium">
+              <Label className="text-base font-medium dark:text-gray-300">
                 Apply to all benefits categories
               </Label>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-sm text-muted-foreground mt-1 dark:text-gray-400">
                 If set to Yes, this disclaimer will appear across all benefits categories.
               </p>
             </div>
@@ -364,11 +364,11 @@ export function AddDisclaimerModal({
             >
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="yes" id="apply-all-yes" />
-                <Label htmlFor="apply-all-yes" className="font-normal cursor-pointer">Yes</Label>
+                <Label htmlFor="apply-all-yes" className="font-normal cursor-pointer dark:text-gray-300">Yes</Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="no" id="apply-all-no" />
-                <Label htmlFor="apply-all-no" className="font-normal cursor-pointer">No</Label>
+                <Label htmlFor="apply-all-no" className="font-normal cursor-pointer dark:text-gray-300">No</Label>
               </div>
             </RadioGroup>
           </div>
@@ -377,10 +377,10 @@ export function AddDisclaimerModal({
           <div className="space-y-2 pt-4 border-t">
             <div className="flex justify-between items-center">
               <div>
-                <Label className="text-base font-medium">
+                <Label className="text-base font-medium dark:text-gray-300">
                   Disclaimer Text <span className="text-red-500">*</span>
                 </Label>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground dark:text-gray-400">
                   Minimum 10 characters required
                 </p>
               </div>
@@ -390,7 +390,7 @@ export function AddDisclaimerModal({
                   checked={useDefault}
                   onCheckedChange={handleUseDefaultChange}
                 />
-                <Label htmlFor="use-default" className="text-sm font-medium cursor-pointer">
+                <Label htmlFor="use-default" className="text-sm font-medium cursor-pointer dark:text-gray-300">
                   Use Default
                 </Label>
               </div>
@@ -401,7 +401,7 @@ export function AddDisclaimerModal({
                 value={disclaimerText}
                 onChange={(e) => handleDisclaimerTextChange(e.target.value)}
                 placeholder="Enter or paste your disclaimer text here..."
-                className="resize-none min-h-[200px] pr-20 overflow-hidden"
+                className="resize-none min-h-[200px] pr-20 overflow-hidden dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600"
                 maxLength={2500}
               />
               <div className="absolute bottom-2 right-2">
@@ -422,11 +422,11 @@ export function AddDisclaimerModal({
         {/* Footer */}
         <div className="flex justify-end space-x-3 pt-4 border-t">
           {!isBlocking && (
-            <Button variant="outline" onClick={handleCancel}>
+            <Button variant="outline" onClick={handleCancel} className="dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600">
               Cancel
             </Button>
           )}
-          <Button onClick={handleSave} disabled={isSaveDisabled}>
+          <Button onClick={handleSave} disabled={isSaveDisabled} className="dark:bg-accent-blue dark:text-white">
             {initialData ? "Update Disclaimer" : "Add Disclaimer"}
           </Button>
         </div>

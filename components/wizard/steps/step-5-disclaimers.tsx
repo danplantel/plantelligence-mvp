@@ -25,11 +25,11 @@ interface DisclaimerCardProps {
 
 function DisclaimerCard({ disclaimer, onEdit, onDelete }: DisclaimerCardProps) {
   return (
-    <div className="border border-gray-200 rounded p-3 bg-card relative">
+    <div className="border border-gray-200 rounded p-3 bg-card relative dark:bg-gray-800 dark:border-gray-700">
       <div className="flex justify-between items-start mb-2">
         <div className="flex-1 pr-2">
           <h5 className="text-[13px] font-semibold text-gray-500 dark:text-gray-400">Disclaimer Types:</h5>
-          <span className="text-[11px] font-semibold text-gray-500">
+          <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400">
             {[
               ...disclaimer.locations,
               ...(disclaimer.customLocation ? [disclaimer.customLocation] : []),
@@ -42,7 +42,7 @@ function DisclaimerCard({ disclaimer, onEdit, onDelete }: DisclaimerCardProps) {
             variant="ghost"
             size="sm"
             onClick={onEdit}
-            className="h-7 px-1.5 text-gray-600 hover:text-accent-blue text-[11px] font-medium"
+            className="h-7 px-1.5 text-gray-600 hover:text-accent-blue text-[11px] font-medium dark:text-gray-400 dark:hover:text-accent-blue-light"
           >
             <Edit2 className="h-3 w-3 mr-0.5" />
             Edit
@@ -51,7 +51,7 @@ function DisclaimerCard({ disclaimer, onEdit, onDelete }: DisclaimerCardProps) {
             variant="ghost"
             size="sm"
             onClick={onDelete}
-            className="h-7 w-7 p-0 text-gray-500 hover:text-destructive"
+            className="h-7 w-7 p-0 text-gray-500 hover:text-destructive dark:text-gray-400 dark:hover:text-red-400"
           >
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
@@ -343,43 +343,43 @@ export function Step5Disclaimers({
         <>
           {/* Header */}
           <div className="text-left space-y-1">
-            <h2 className="text-lg font-semibold">
+            <h2 className="text-lg font-semibold dark:text-gray-100">
               Add Disclaimers <span className="text-red-500">*</span>
             </h2>
             <p className="text-sm text-muted-foreground">
               Provide compliance language for participant and client-facing
               materials
             </p>
-            <p className="text-xs font-medium">
+            <p className="text-xs font-medium dark:text-gray-400">
               add: (can be added later / modified in client builds)
             </p>
           </div>
 
           {/* Radio Group */}
-          <Card className="shadow-none">
+          <Card className="shadow-none dark:bg-gray-800 dark:border-gray-700">
             <CardContent className="pt-3 pb-3">
               <RadioGroup
                 value={addTiming || ""}
                 onValueChange={handleAddTimingChange}
                 className="grid grid-cols-2 gap-3"
               >
-                <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer dark:border-gray-600">
                   <RadioGroupItem value="now" id="now" />
                   <Label
                     htmlFor="now"
-                    className="text-sm font-medium cursor-pointer flex-1"
+                    className="text-sm font-medium cursor-pointer flex-1 dark:text-gray-300"
                   >
                     Add Now
                   </Label>
                 </div>
                 <div
-                  className={`flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer ${!isValidState ? "border-red-500" : ""
+                  className={`flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer dark:border-gray-600 ${!isValidState ? "border-red-500" : ""
                     }`}
                 >
                   <RadioGroupItem value="later" id="later" />
                   <Label
                     htmlFor="later"
-                    className="text-sm font-medium cursor-pointer flex-1"
+                    className="text-sm font-medium cursor-pointer flex-1 dark:text-gray-300"
                   >
                     Add Later
                   </Label>
@@ -388,8 +388,8 @@ export function Step5Disclaimers({
 
               {/* Validation Error */}
               {validationError && (
-                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-xs text-red-600 font-medium">
+                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg dark:bg-red-900/20 dark:border-red-800">
+                  <p className="text-xs text-red-600 font-medium dark:text-red-400">
                     {validationError}
                   </p>
                 </div>
@@ -402,7 +402,7 @@ export function Step5Disclaimers({
         <>
           {/* Header */}
           <div className="text-left space-y-1">
-            <h2 className="text-lg font-semibold">
+            <h2 className="text-lg font-semibold dark:text-gray-100">
               Added Disclaimers ({disclaimers.length})
             </h2>
           </div>
@@ -430,7 +430,7 @@ export function Step5Disclaimers({
               setEditingDisclaimer(null);
               setIsModalOpen(true);
             }}
-            className="w-full flex items-center gap-2"
+            className="w-full flex items-center gap-2 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
           >
             <Plus className="h-4 w-4" />
             Add Another Disclaimer
