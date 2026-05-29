@@ -91,9 +91,11 @@ export function NavItemComponent({
             className={cn(
               "w-full text-left py-3 rounded-md transition-colors duration-200",
               "px-4",
-              isActive || hasActiveChild
+              isActive
                 ? "bg-accent-blue text-white hover:bg-accent-blue hover:text-white"
-                : "text-muted-foreground hover:bg-accent-blue-light hover:text-accent-blue",
+                : hasActiveChild
+                  ? "bg-accent-blue-light text-accent-blue hover:bg-accent-blue-light hover:text-accent-blue"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
           >
             <div className="flex items-center">
@@ -116,9 +118,11 @@ export function NavItemComponent({
                 onMouseLeave={onLeave}
                 className={cn(
                   "w-full py-3 rounded-md transition-colors duration-200 flex justify-center",
-                  isActive || hasActiveChild
+                  isActive
                     ? "bg-accent-blue text-white hover:bg-accent-blue hover:text-white"
-                    : "text-muted-foreground hover:bg-accent-blue-light hover:text-accent-blue",
+                    : hasActiveChild
+                      ? "bg-accent-blue-light text-accent-blue hover:bg-accent-blue-light hover:text-accent-blue"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
                 )}
               >
                 <Icon className="size-6" />
@@ -146,7 +150,7 @@ export function NavItemComponent({
                         "w-full text-left px-3 py-2 rounded-md transition-colors duration-200 flex items-center gap-3",
                         isSubActive
                           ? "bg-accent-blue text-white hover:bg-accent-blue hover:text-white"
-                          : "text-muted-foreground hover:bg-accent-blue-light hover:text-accent-blue",
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground",
                       )}
                     >
                       {SubIcon && <SubIcon className="w-4 h-4" />}
@@ -169,7 +173,7 @@ export function NavItemComponent({
             isOpen ? "px-4" : "px-0 flex justify-center",
             isActive
               ? "bg-accent-blue text-white hover:bg-accent-blue hover:text-white"
-              : "text-muted-foreground hover:bg-accent-blue-light hover:text-accent-blue",
+              : "text-muted-foreground hover:bg-muted hover:text-foreground",
           )}
         >
           <div className={cn("flex items-center", !isOpen && "justify-center")}>
@@ -205,7 +209,7 @@ export function NavItemComponent({
                       "w-full text-left px-3 py-2 rounded-md transition-colors duration-200",
                       isSubActive
                         ? "bg-accent-blue text-white hover:bg-accent-blue hover:text-white"
-                        : "text-muted-foreground hover:bg-accent-blue-light hover:text-accent-blue",
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground",
                     )}
                   >
                     <div className="flex items-center">
