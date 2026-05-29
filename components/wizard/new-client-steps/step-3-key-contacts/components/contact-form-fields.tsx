@@ -81,7 +81,7 @@ export function ContactFormFields({
       {/* Headshot (optional) - only for Individual contacts */}
       {contactType === "individual" && (
         <div className="space-y-2" data-field="headshot">
-          <Label>Headshot (optional)</Label>
+          <Label className="dark:text-gray-300">Headshot (optional)</Label>
           <div className="flex items-start gap-4">
             <div className="flex-1">
               <div className={disabled ? "opacity-50 pointer-events-none" : ""}>
@@ -118,7 +118,7 @@ export function ContactFormFields({
         <>
           {/* First Name */}
           <div className="space-y-2" data-field="firstName">
-            <Label>
+            <Label className="dark:text-gray-300">
               First Name <span className="text-red-500">*</span>
             </Label>
             <Input
@@ -133,14 +133,17 @@ export function ContactFormFields({
               destructive={errorFields.some((field) =>
                 field.includes("firstName"),
               )}
-              className={disabled ? "opacity-50 cursor-not-allowed" : ""}
+              className={cn(
+                disabled ? "opacity-50 cursor-not-allowed" : "",
+                "dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600",
+              )}
               disabled={disabled}
             />
           </div>
 
           {/* Last Name */}
           <div className="space-y-2" data-field="lastName">
-            <Label>
+            <Label className="dark:text-gray-300">
               Last Name <span className="text-red-500">*</span>
             </Label>
             <Input
@@ -155,14 +158,17 @@ export function ContactFormFields({
               destructive={errorFields.some((field) =>
                 field.includes("lastName"),
               )}
-              className={disabled ? "opacity-50 cursor-not-allowed" : ""}
+              className={cn(
+                disabled ? "opacity-50 cursor-not-allowed" : "",
+                "dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600",
+              )}
               disabled={disabled}
             />
           </div>
 
           {/* Title */}
           <div className="space-y-2" data-field="title">
-            <Label>
+            <Label className="dark:text-gray-300">
               Title <span className="text-red-500">*</span>
             </Label>
             <div className="relative">
@@ -181,6 +187,7 @@ export function ContactFormFields({
                   disabled && "opacity-50 cursor-not-allowed",
                   errorFields.some((field) => field.includes("title")) &&
                   "border-red-500",
+                  "dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600",
                 )}
                 disabled={disabled}
               />
@@ -216,7 +223,7 @@ export function ContactFormFields({
         <>
           {/* Team Image (optional) - only for Team/Support contacts */}
           <div className="space-y-2" data-field="teamImage">
-            <Label>Team Image (optional)</Label>
+            <Label className="dark:text-gray-300">Team Image (optional)</Label>
             <div className="flex items-start gap-4">
               <div className="flex-1">
                 <div className={cn("flex", disabled && "opacity-50 pointer-events-none")}>
@@ -245,7 +252,7 @@ export function ContactFormFields({
                       variant="outline"
                       onClick={onDefaultTeamImageClick}
                       disabled={disabled}
-                      className="rounded-l-none border-l-0 h-9 px-3 text-accent-blue hover:text-accent-blue/80 bg-background"
+                      className="rounded-l-none border-l-0 h-9 px-3 text-accent-blue hover:text-accent-blue/80 bg-background dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 dark:border-gray-600"
                       title="Choose from gallery"
                     >
                       <ImageIcon className="w-4 h-4" />
@@ -264,7 +271,7 @@ export function ContactFormFields({
 
           {/* Display Name */}
           <div className="space-y-2" data-field="displayName">
-            <Label>
+            <Label className="dark:text-gray-300">
               Display Name <span className="text-red-500">*</span>
             </Label>
             <Input
@@ -278,14 +285,17 @@ export function ContactFormFields({
               destructive={errorFields.some((field) =>
                 field.includes("displayName"),
               )}
-              className={disabled ? "opacity-50 cursor-not-allowed" : ""}
+              className={cn(
+                disabled ? "opacity-50 cursor-not-allowed" : "",
+                "dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600",
+              )}
               disabled={disabled}
             />
           </div>
 
           {/* Department Label */}
           <div className="space-y-2">
-            <Label>Department/Label (optional)</Label>
+            <Label className="dark:text-gray-300">Department/Label (optional)</Label>
             <Input
               value={departmentLabel}
               onChange={(e) => {
@@ -294,7 +304,10 @@ export function ContactFormFields({
                 }
               }}
               placeholder="e.g., Human Resources"
-              className={disabled ? "opacity-50 cursor-not-allowed" : ""}
+              className={cn(
+                disabled ? "opacity-50 cursor-not-allowed" : "",
+                "dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600",
+              )}
               disabled={disabled}
             />
           </div>

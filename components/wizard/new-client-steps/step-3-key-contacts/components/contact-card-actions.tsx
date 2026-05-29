@@ -85,7 +85,7 @@ function SortableContactInfoItem({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 transition-colors",
+        "flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors",
         isDragging && "shadow-lg",
       )}
     >
@@ -94,18 +94,18 @@ function SortableContactInfoItem({
           {...attributes}
           {...listeners}
           className={cn(
-            "cursor-grab active:cursor-grabbing p-1 hover:bg-gray-200 rounded transition-colors",
+            "cursor-grab active:cursor-grabbing p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors",
             disabled && "cursor-not-allowed opacity-50",
           )}
           title="Drag to reorder"
         >
-          <GripVertical className="w-4 h-4 text-gray-500" />
+          <GripVertical className="w-4 h-4 text-gray-500 dark:text-gray-400" />
         </div>
         <div className="flex items-center gap-3 flex-1">
           {item.icon}
           <Label
             htmlFor={item.id}
-            className="text-sm font-medium cursor-pointer"
+            className="text-sm font-medium cursor-pointer dark:text-gray-300"
           >
             {item.label}
           </Label>
@@ -154,7 +154,7 @@ function SortableActionButton({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 transition-colors",
+        "flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors",
         isDragging && "shadow-lg",
       )}
     >
@@ -163,26 +163,26 @@ function SortableActionButton({
           {...attributes}
           {...listeners}
           className={cn(
-            "cursor-grab active:cursor-grabbing p-1 hover:bg-gray-200 rounded transition-colors",
+            "cursor-grab active:cursor-grabbing p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors",
             disabled && "cursor-not-allowed opacity-50",
           )}
           title="Drag to reorder"
         >
-          <GripVertical className="w-4 h-4 text-gray-500" />
+          <GripVertical className="w-4 h-4 text-gray-500 dark:text-gray-400" />
         </div>
         <div className="flex items-center gap-3 flex-1">
           {button.icon}
           <div>
             <Label
               htmlFor={button.id}
-              className="text-sm font-medium cursor-pointer"
+              className="text-sm font-medium cursor-pointer dark:text-gray-300"
             >
               {button.label}
             </Label>
             {isPrimary && (
               <Badge
                 variant="secondary"
-                className="ml-2 text-xs bg-accent-blue/10 text-accent-blue"
+                className="ml-2 text-xs bg-accent-blue/10 text-accent-blue dark:bg-accent-blue/20 dark:text-accent-blue-light"
               >
                 Primary
               </Badge>
@@ -308,7 +308,7 @@ export function ContactCardActions({
           return {
             id: "phone",
             label: "Display Phone Number",
-            icon: <Phone className="w-5 h-5 text-gray-600" />,
+            icon: <Phone className="w-5 h-5 text-gray-600 dark:text-gray-400" />,
             checked: displayPhone,
             onChange: onPhoneChange,
           };
@@ -316,7 +316,7 @@ export function ContactCardActions({
           return {
             id: "email",
             label: "Display Email",
-            icon: <Mail className="w-5 h-5 text-gray-600" />,
+            icon: <Mail className="w-5 h-5 text-gray-600 dark:text-gray-400" />,
             checked: displayEmail,
             onChange: onEmailChange,
           };
@@ -331,7 +331,7 @@ export function ContactCardActions({
           return {
             id: "schedule",
             label: "Schedule Appointment",
-            icon: <Calendar className="w-5 h-5 text-gray-600" />,
+            icon: <Calendar className="w-5 h-5 text-gray-600 dark:text-gray-400" />,
             checked: displayScheduleAppointment,
             onChange: onScheduleAppointmentChange,
           };
@@ -339,7 +339,7 @@ export function ContactCardActions({
           return {
             id: "website",
             label: "Visit Website",
-            icon: <Globe className="w-5 h-5 text-gray-600" />,
+            icon: <Globe className="w-5 h-5 text-gray-600 dark:text-gray-400" />,
             checked: displayWebsite,
             onChange: onWebsiteChange,
           };
@@ -412,7 +412,7 @@ export function ContactCardActions({
         </DndContext>
       </div>
 
-      <p className="text-xs text-gray-500 mt-2">
+      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
         First checked button will be the primary button, drag to change order
       </p>
     </div>

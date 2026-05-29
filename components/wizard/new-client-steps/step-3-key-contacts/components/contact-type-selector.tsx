@@ -29,7 +29,7 @@ export function ContactTypeSelector({
           className={cn(
             "flex items-center justify-center gap-2 h-8 px-4",
             value === "individual"
-              ? "bg-accent-blue text-white hover:opacity-90"
+              ? "bg-accent-blue text-white hover:opacity-90 dark:bg-accent-blue dark:text-white"
               : "bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600",
             disabled && "opacity-50 cursor-not-allowed",
           )}
@@ -45,7 +45,7 @@ export function ContactTypeSelector({
           className={cn(
             "flex items-center justify-center gap-2 h-8 px-4",
             value === "team_support"
-              ? "bg-accent-blue text-white hover:opacity-90"
+              ? "bg-accent-blue text-white hover:opacity-90 dark:bg-accent-blue dark:text-white"
               : "bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600",
             disabled && "opacity-50 cursor-not-allowed",
           )}

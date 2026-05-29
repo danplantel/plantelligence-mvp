@@ -400,7 +400,7 @@ export function CompanyNameSelector({
 
   return (
     <div className="space-y-2">
-      <Label>Company/Provider Name & Logo</Label>
+      <Label className="dark:text-gray-300">Company/Provider Name & Logo</Label>
       <div className="flex items-center gap-3">
         {/* Company Logo Image with Upload */}
         <div className="flex-shrink-0">
@@ -529,7 +529,8 @@ export function CompanyNameSelector({
               errorFields.includes("otherBenefitsText") &&
               !otherBenefitsText?.trim() &&
               "border-red-500",
-              isDirty && "border-amber-400"
+              isDirty && "border-amber-400",
+              "dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600",
             )}
             disabled={disabled}
           />
@@ -544,7 +545,7 @@ export function CompanyNameSelector({
                 size="sm"
                 variant="ghost"
                 onClick={handleApplyValue}
-                className="h-7 px-2 text-xs bg-accent-blue text-white hover:bg-accent-blue/90"
+                className="h-7 px-2 text-xs bg-accent-blue text-white hover:bg-accent-blue/90 dark:bg-accent-blue dark:text-white dark:hover:bg-accent-blue/90"
               >
                 Apply
               </Button>
@@ -608,7 +609,7 @@ export function CompanyNameSelector({
                       }
                       setMatchedCompany(null);
                     }}
-                    className="px-3 py-1.5 text-sm bg-accent-blue text-white rounded-md hover:opacity-90 transition-opacity"
+                    className="px-3 py-1.5 text-sm bg-accent-blue text-white rounded-md hover:opacity-90 transition-opacity dark:bg-accent-blue dark:text-white"
                   >
                     Use saved company
                   </button>
@@ -618,7 +619,7 @@ export function CompanyNameSelector({
                       e.preventDefault();
                       setMatchedCompany(null);
                     }}
-                    className="px-3 py-1.5 text-sm bg-white text-accent-blue border border-accent-blue/20 rounded-md hover:bg-accent-blue/5"
+                    className="px-3 py-1.5 text-sm bg-white text-accent-blue border border-accent-blue/20 rounded-md hover:bg-accent-blue/5 dark:bg-gray-700 dark:text-accent-blue-light dark:border-gray-600 dark:hover:bg-gray-600"
                   >
                     {isHRPeople ? "Keep override" : "Create new"}
                   </button>
@@ -658,7 +659,7 @@ export function CompanyNameSelector({
                           setIsCompanyDropdownOpen(false);
                         }}
                         className={cn(
-                          "w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent text-left",
+                          "w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent text-left dark:hover:bg-gray-700",
                           displayValue === advisorOrgName && "bg-accent",
                         )}
                       >
@@ -721,7 +722,7 @@ export function CompanyNameSelector({
                             setIsCompanyDropdownOpen(false);
                           }}
                           className={cn(
-                            "w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent text-left",
+                            "w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent text-left dark:hover:bg-gray-700",
                             displayValue === plan.companyName && "bg-accent",
                           )}
                         >

@@ -4292,8 +4292,8 @@ export function NewClientStep3b({
             <CardContent className="pt-4 space-y-4">
               {/* Check if no contacts exist */}
               {savedContacts.length === 0 && (
-                <div className="mb-4 p-4 bg-accent-blue/5 border border-accent-blue/20 rounded-lg">
-                  <p className="text-sm text-accent-blue font-medium">
+                <div className="mb-4 p-4 bg-accent-blue/5 border border-accent-blue/20 rounded-lg dark:bg-accent-blue/10 dark:border-accent-blue/30">
+                  <p className="text-sm text-accent-blue font-medium dark:text-accent-blue-light">
                     Please click &quot;Add Contact&quot; button to create your
                     first contact before filling in the form.
                   </p>
@@ -4464,7 +4464,7 @@ export function NewClientStep3b({
                   className={
                     savedContacts.length === 0
                       ? "opacity-50 cursor-not-allowed"
-                      : ""
+                      : "dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600"
                   }
                   disabled={savedContacts.length === 0}
                 />
@@ -4493,7 +4493,7 @@ export function NewClientStep3b({
                     className={
                       savedContacts.length === 0
                         ? "opacity-50 cursor-not-allowed"
-                        : ""
+                        : "dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600"
                     }
                     disabled={savedContacts.length === 0}
                   />
@@ -4512,7 +4512,7 @@ export function NewClientStep3b({
                     className={
                       savedContacts.length === 0
                         ? "opacity-50 cursor-not-allowed"
-                        : ""
+                        : "dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600"
                     }
                     disabled={savedContacts.length === 0}
                     maxLength={6}
@@ -4533,7 +4533,7 @@ export function NewClientStep3b({
                   className={cn(
                     savedContacts.length === 0
                       ? "opacity-50 cursor-not-allowed"
-                      : "",
+                      : "dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600",
                     schedulingUrlError && "border-red-500 ring-2 ring-red-500",
                   )}
                   disabled={savedContacts.length === 0}
@@ -4571,7 +4571,7 @@ export function NewClientStep3b({
                   className={cn(
                     savedContacts.length === 0
                       ? "opacity-50 cursor-not-allowed"
-                      : "",
+                      : "dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600",
                     websiteUrlError && "border-red-500 ring-2 ring-red-500",
                   )}
                   disabled={savedContacts.length === 0}
@@ -4616,7 +4616,7 @@ export function NewClientStep3b({
                     className={
                       savedContacts.length === 0
                         ? "opacity-50 cursor-not-allowed"
-                        : ""
+                        : "dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600"
                     }
                   />
                   <Label
@@ -4625,7 +4625,7 @@ export function NewClientStep3b({
                       "text-sm font-normal",
                       savedContacts.length === 0
                         ? "text-gray-400 cursor-not-allowed"
-                        : "cursor-pointer",
+                        : "cursor-pointer dark:text-gray-300",
                     )}
                   >
                     Mark as primary contact for this benefits category.
@@ -4854,7 +4854,7 @@ export function NewClientStep3b({
                       type="button"
                       variant="outline"
                       onClick={handleAddEmptyContact}
-                      className="w-full mt-4"
+                      className="w-full mt-4 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
                     >
                       <Plus className="w-4 h-4" />
                       Save & Add Contact
@@ -4883,10 +4883,10 @@ export function NewClientStep3b({
           open={showSetPrimaryConfirm}
           onOpenChange={setShowSetPrimaryConfirm}
         >
-          <AlertDialogContent>
+          <AlertDialogContent className="dark:bg-gray-800 dark:border-gray-700">
             <AlertDialogHeader>
-              <AlertDialogTitle>Set as Primary Contact?</AlertDialogTitle>
-              <AlertDialogDescription>
+              <AlertDialogTitle className="dark:text-gray-100">Set as Primary Contact?</AlertDialogTitle>
+              <AlertDialogDescription className="dark:text-gray-400">
                 Are you sure you want to make this contact the primary contact
                 for this benefits category? This will change the display order
                 and remove the primary status from the current primary contact
@@ -4899,6 +4899,7 @@ export function NewClientStep3b({
                   setShowSetPrimaryConfirm(false);
                   setPendingPrimaryChange(null);
                 }}
+                className="dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
               >
                 Cancel
               </AlertDialogAction>
@@ -4914,10 +4915,10 @@ export function NewClientStep3b({
           open={showUnsetPrimaryWarning}
           onOpenChange={setShowUnsetPrimaryWarning}
         >
-          <AlertDialogContent>
+          <AlertDialogContent className="dark:bg-gray-800 dark:border-gray-700">
             <AlertDialogHeader>
-              <AlertDialogTitle>Remove Primary Status?</AlertDialogTitle>
-              <AlertDialogDescription>
+              <AlertDialogTitle className="dark:text-gray-100">Remove Primary Status?</AlertDialogTitle>
+              <AlertDialogDescription className="dark:text-gray-400">
                 Are you sure you want to remove the primary status from this
                 contact? You can select a new primary contact later if needed.
               </AlertDialogDescription>
@@ -4928,6 +4929,7 @@ export function NewClientStep3b({
                   setShowUnsetPrimaryWarning(false);
                   setPendingPrimaryChange(null);
                 }}
+                className="dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
               >
                 Cancel
               </AlertDialogAction>
@@ -4958,10 +4960,10 @@ export function NewClientStep3b({
           }
         }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent className="dark:bg-gray-800 dark:border-gray-700">
           <AlertDialogHeader>
-            <AlertDialogTitle>First name already in use</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="dark:text-gray-100">First name already in use</AlertDialogTitle>
+            <AlertDialogDescription className="dark:text-gray-400">
               A contact with this first name already exists for this benefits
               category
               {duplicateContactDialog.existingLabel
@@ -4976,6 +4978,7 @@ export function NewClientStep3b({
                 duplicateDialogSkipValidationRef.current = false;
                 setDuplicateContactDialog({ open: false, existingLabel: "" });
               }}
+              className="dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
             >
               Cancel
             </AlertDialogCancel>
@@ -4991,12 +4994,12 @@ export function NewClientStep3b({
         open={isColorWarningOpen}
         onOpenChange={setIsColorWarningOpen}
       >
-        <AlertDialogContent>
+        <AlertDialogContent className="dark:bg-gray-800 dark:border-gray-700">
           <AlertDialogHeader>
-            <AlertDialogTitle>
+            <AlertDialogTitle className="dark:text-gray-100">
               Change standard card color for this contact?
             </AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogDescription className="dark:text-gray-400">
               You are changing the standard card color for this contact. This
               card will no longer update automatically when you change your
               global Brand Colors. Continue?
@@ -5008,6 +5011,7 @@ export function NewClientStep3b({
                 setPendingColor(null);
                 setIsColorWarningOpen(false);
               }}
+              className="dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
             >
               Cancel
             </AlertDialogCancel>
