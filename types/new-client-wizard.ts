@@ -255,7 +255,7 @@ export interface Benefit {
 
 export interface EmployeePortalPreviewData {
   previewData: any;
-  step5SubStep?: "disclaimers" | "preview" | "benefits-team" | "step5d";
+  step5SubStep?: "disclaimers" | "benefits-team" | "step5d";
   benefits?: Benefit[];
 }
 

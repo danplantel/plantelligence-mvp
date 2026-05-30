@@ -1,6 +1,5 @@
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import { NewClientStep5a } from "./step-5a";
-import { NewClientStep5b } from "./step-5b";
 import { NewClientStep5d } from "./step-5d";
 import { useEffect, useState } from "react";
 
@@ -19,10 +18,6 @@ export function NewClientStep5({ errorFields = [] }: NewClientStep5Props) {
   const handleDisclaimersValidation = (isValid: boolean) => {
     setIsDisclaimersValid(isValid);
   };
-
-  if (currentSubStep === "preview") {
-    return <NewClientStep5b errorFields={errorFields} />;
-  }
 
   if (currentSubStep === "benefits-team" || currentSubStep === "step5d") {
     return <NewClientStep5d errorFields={errorFields} />;

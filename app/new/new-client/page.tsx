@@ -209,8 +209,7 @@ export default function NewClientPage() {
   const step5SubStep = stepData.employeePortalPreview?.step5SubStep || "disclaimers";
   const isLastStep =
     currentStep === totalSteps &&
-    (step5SubStep === "preview" ||
-      step5SubStep === "benefits-team" ||
+    (step5SubStep === "benefits-team" ||
       step5SubStep === "step5d");
 
   const renderStep = () => {

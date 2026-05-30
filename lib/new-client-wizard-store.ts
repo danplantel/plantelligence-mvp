@@ -599,7 +599,24 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
             stepData.employeePortalPreview?.step5SubStep || "disclaimers";
 
           if (step5SubStep === "disclaimers") {
-            // Move to preview
+            // Save step 5 data before transitioning to benefits-team
+            try {
+              const stepDataForSave = stepData.employeePortalPreview;
+              if (stepDataForSave) {
+                await get().saveStepDataToServer(
+                  "employeePortalPreview",
+                  stepDataForSave,
+                );
+                await get().saveAsDraft();
+              }
+            } catch (saveError) {
+              if (isDuplicatePlanNameError(saveError)) {
+                throw saveError;
+              }
+              // Non-blocking: continue with transition even if save fails
+            }
+
+            // Move to benefits-team (step5d)
             set((state) => ({
               stepData: {
                 ...state.stepData,
@@ -607,13 +624,13 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
                   ...state.stepData.employeePortalPreview,
                   previewData:
                     state.stepData.employeePortalPreview?.previewData || {},
-                  step5SubStep: "preview",
+                  step5SubStep: "benefits-team",
                 },
               },
             }));
             return { isValid: true, errors: [] };
           }
-          // If preview, proceed to completion (handled below or by completeWizard)
+          // If on benefits-team/step5d, proceed to completion (handled below or by completeWizard)
         }
 
         // Save current step data to server before proceeding
@@ -820,23 +837,8 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
           const step5SubStep =
             stepData.employeePortalPreview?.step5SubStep || "disclaimers";
 
-          // If on step-5d (benefits-team or step5d), go back to step-5b (preview)
+          // If on step-5d (benefits-team or step5d), go back to disclaimers
           if (step5SubStep === "benefits-team" || step5SubStep === "step5d") {
-            set((state) => ({
-              stepData: {
-                ...state.stepData,
-                employeePortalPreview: {
-                  ...state.stepData.employeePortalPreview,
-                  previewData:
-                    state.stepData.employeePortalPreview?.previewData || {},
-                  step5SubStep: "preview",
-                },
-              },
-            }));
-            return;
-          }
-
-          if (step5SubStep === "preview") {
             set((state) => ({
               stepData: {
                 ...state.stepData,

@@ -136,13 +136,8 @@ export function NewClientWizard({
         const step5SubStep =
           (stepData as any)?.employeePortalPreview?.step5SubStep || "disclaimers";
 
-        // Close editor panel first if it's open (for step-5b or step-5d)
-        if (
-          step5SubStep === "preview" ||
-          step5SubStep === "benefits-team" ||
-          step5SubStep === "step5d" ||
-          !step5SubStep
-        ) {
+        // Close editor panel first if it's open (for benefits-team/step5d)
+        if (step5SubStep === "benefits-team" || step5SubStep === "step5d") {
           window.dispatchEvent(new CustomEvent("closeStep5Editor"));
           await new Promise((resolve) => setTimeout(resolve, 2000));
         }
@@ -320,12 +315,18 @@ export function NewClientWizard({
       }
 
       // If valid, now we can safely close the editor panels before transitioning
-      if (currentStep === 2 || currentStep === 5) {
-        const eventName =
-          currentStep === 2 ? "closeStep2Editor" : "closeStep5Editor";
-        window.dispatchEvent(new CustomEvent(eventName));
+      if (currentStep === 2) {
+        window.dispatchEvent(new CustomEvent("closeStep2Editor"));
         // Wait 2 seconds for modal to close before proceeding to next step
         await new Promise((resolve) => setTimeout(resolve, 2000));
+      } else if (currentStep === 5) {
+        const step5SubStep =
+          (stepData as any)?.employeePortalPreview?.step5SubStep || "disclaimers";
+        // Only close editor when on benefits-team/step5d (the editor substep)
+        if (step5SubStep === "benefits-team" || step5SubStep === "step5d") {
+          window.dispatchEvent(new CustomEvent("closeStep5Editor"));
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+        }
       }
 
       // Check if we're on step-3b or step-3d
