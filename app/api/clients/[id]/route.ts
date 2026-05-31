@@ -763,6 +763,13 @@ export async function DELETE(
     // Get client name before deletion for meeting cleanup
     const clientName = client.companyName;
 
+    // Find the associated wizard session so we can clean up sub-records
+    const wizardSession = await prisma.newClientWizardSession.findFirst({
+      where: { userId: session.user.id, completed: false },
+      orderBy: { createdAt: "desc" },
+      select: { id: true },
+    });
+
     // Delete all related records before deleting the client
     await prisma.$transaction([
       // Delete documents
@@ -792,6 +799,32 @@ export async function DELETE(
           },
         ],
       }),
+      // Clean up wizard session sub-records if a session exists
+      ...(wizardSession
+        ? [
+            prisma.newClientCompanyBasics.deleteMany({
+              where: { sessionId: wizardSession.id },
+            }),
+            prisma.newClientWelcomeStatement.deleteMany({
+              where: { sessionId: wizardSession.id },
+            }),
+            prisma.newClientKeyContacts.deleteMany({
+              where: { sessionId: wizardSession.id },
+            }),
+            prisma.newClientContactBuilder.deleteMany({
+              where: { sessionId: wizardSession.id },
+            }),
+            prisma.newClientComplianceDocuments.deleteMany({
+              where: { sessionId: wizardSession.id },
+            }),
+            prisma.newClientEmployeePortalPreview.deleteMany({
+              where: { sessionId: wizardSession.id },
+            }),
+            prisma.newClientWizardSession.deleteMany({
+              where: { id: wizardSession.id },
+            }),
+          ]
+        : []),
       // Finally, delete the client
       prisma.client.delete({
         where: { id: clientId },

@@ -100,6 +100,29 @@ export default function NewClientPage() {
           const { consumePendingDraftSelection } = await import("@/lib/draft-utils");
           consumePendingDraftSelection();
           resumedFromDraft = true;
+
+          // Show a toast indicating the user is resuming a server-side draft
+          try {
+            const draftRes = await fetch(`/api/clients/${pendingDraftId}`);
+            const draftJson = await draftRes.json();
+            const draftClient = draftJson?.data || draftJson;
+            const updatedAt: string | undefined = draftClient?.updatedAt;
+            if (updatedAt) {
+              const savedAt = new Date(updatedAt);
+              const formatted = savedAt.toLocaleString(undefined, {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+              });
+              toast.info(`Resuming draft saved ${formatted}`, {
+                duration: 5000,
+              });
+            }
+          } catch {
+            // Ignore — the toast is non-critical
+          }
         } else {
           // Wait for Zustand persist middleware to rehydrate from localStorage
           // before checking for existing data, otherwise stepData is always {}
@@ -121,6 +144,31 @@ export default function NewClientPage() {
             // colors, advisor name). This is safe because mergeAdvisorProfileIntoWizardStepData
             // only fills fields that are empty/falsy — it never overwrites user data.
             await seedAdvisorDefaultsFromProfile();
+
+            // Show a toast indicating the user is resuming a draft
+            try {
+              const raw = localStorage.getItem("new-client-wizard");
+              if (raw) {
+                const parsed = JSON.parse(raw);
+                const persistTime: number | undefined =
+                  parsed?._persist?.time;
+                if (persistTime && typeof persistTime === "number") {
+                  const savedAt = new Date(persistTime);
+                  const formatted = savedAt.toLocaleString(undefined, {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  });
+                  toast.info(`Resuming draft saved ${formatted}`, {
+                    duration: 5000,
+                  });
+                }
+              }
+            } catch {
+              // Ignore parse errors — the toast is non-critical
+            }
           }
         }
 

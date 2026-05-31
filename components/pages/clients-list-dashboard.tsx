@@ -220,6 +220,17 @@ export function ClientsListDashboardPage() {
       const result = await response.json();
       if (result.success) {
         toast.success("Client deleted successfully");
+
+        // Clear the Create Plan wizard's localStorage data so the user doesn't
+        // see stale draft info if they navigate to /new/new-client afterwards.
+        // This runs for ALL deleted clients (not just drafts) because the wizard
+        // may have been autosaving data that was never fully committed as a draft.
+        try {
+          localStorage.removeItem("new-client-wizard");
+        } catch {
+          // Ignore localStorage errors
+        }
+
         // Revalidate SWR cache so the list refreshes without a full reload
         refreshClients();
       } else {
