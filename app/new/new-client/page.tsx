@@ -93,6 +93,7 @@ export default function NewClientPage() {
             : null;
 
         let resumedFromDraft = false;
+        let hasExistingData = false;
 
         if (pendingDraftId) {
           await loadDraftById(pendingDraftId);
@@ -100,8 +101,13 @@ export default function NewClientPage() {
           consumePendingDraftSelection();
           resumedFromDraft = true;
         } else {
+          // Wait for Zustand persist middleware to rehydrate from localStorage
+          // before checking for existing data, otherwise stepData is always {}
+          // and resetWizard() wipes all previously saved data on page reload.
+          await useNewClientWizardStore.persist.rehydrate();
+
           const sd = useNewClientWizardStore.getState().stepData;
-          const hasExistingData =
+          hasExistingData =
             !!sd.companyBasics?.companyName ||
             !!sd.welcomeStatement?.headline ||
             !!(sd.keyContacts?.contacts && sd.keyContacts.contacts.length > 0);
@@ -109,6 +115,11 @@ export default function NewClientPage() {
           if (!hasExistingData) {
             resetWizard();
             await createNewSession();
+            await seedAdvisorDefaultsFromProfile();
+          } else {
+            // Seed advisor defaults for any empty fields (e.g. companyWebsite,
+            // colors, advisor name). This is safe because mergeAdvisorProfileIntoWizardStepData
+            // only fills fields that are empty/falsy — it never overwrites user data.
             await seedAdvisorDefaultsFromProfile();
           }
         }
@@ -123,9 +134,13 @@ export default function NewClientPage() {
         if (!Number.isNaN(parsed) && parsed >= 1 && parsed <= 5) {
           goToStep(parsed);
           await updateCurrentStep(parsed);
-        } else if (!resumedFromDraft) {
+        } else if (!resumedFromDraft && !hasExistingData) {
           // Resuming a draft already set currentStep from the client record; do not jump to
           // "first incomplete" or the user loses their last-saved step (e.g. Finish Setup).
+          // Also skip when resuming with existing localStorage data — the user's persisted
+          // currentStep should be honored. Otherwise seedAdvisorDefaultsFromProfile may have
+          // pre-filled fields (e.g. companyWebsite) making the current step appear complete
+          // and auto-advancing the user before they've finished.
           await syncCurrentStepToFirstIncomplete();
         }
       } catch (error) {
