@@ -101,7 +101,13 @@ export default function NewClientPage() {
           consumePendingDraftSelection();
           resumedFromDraft = true;
 
-          // Show a toast indicating the user is resuming a server-side draft
+          // Show a toast indicating the user is resuming a server-side draft.
+          // Prefer the client record's updatedAt from the API; fall back to the
+          // companion localStorage timestamp written by createSafeStorage.setItem.
+          const planName =
+            useNewClientWizardStore.getState().stepData.companyBasics
+              ?.companyName || "Plan";
+          let toastShown = false;
           try {
             const draftRes = await fetch(`/api/clients/${pendingDraftId}`);
             const draftJson = await draftRes.json();
@@ -116,12 +122,37 @@ export default function NewClientPage() {
                 hour: "numeric",
                 minute: "2-digit",
               });
-              toast.info(`Resuming draft saved ${formatted}`, {
+              toast.info(`Resuming "${planName}" draft saved ${formatted}`, {
                 duration: 5000,
               });
+              toastShown = true;
             }
           } catch {
-            // Ignore — the toast is non-critical
+            // API fetch failed — fall through to localStorage timestamp below
+          }
+
+          if (!toastShown) {
+            try {
+              const raw = localStorage.getItem("new-client-wizard-saved-at");
+              if (raw) {
+                const ts = Number(raw);
+                if (!Number.isNaN(ts) && ts > 0) {
+                  const savedAt = new Date(ts);
+                  const formatted = savedAt.toLocaleString(undefined, {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  });
+                  toast.info(`Resuming "${planName}" draft saved ${formatted}`, {
+                    duration: 5000,
+                  });
+                }
+              }
+            } catch {
+              // Ignore — the toast is non-critical
+            }
           }
         } else {
           // Wait for Zustand persist middleware to rehydrate from localStorage
@@ -145,15 +176,19 @@ export default function NewClientPage() {
             // only fills fields that are empty/falsy — it never overwrites user data.
             await seedAdvisorDefaultsFromProfile();
 
-            // Show a toast indicating the user is resuming a draft
+            // Show a toast indicating the user is resuming a draft.
+            // Zustand v4 stores { state, version } — there is no _persist.time
+            // like v5, so we read the companion timestamp written by
+            // createSafeStorage.setItem.
+            const planName =
+              useNewClientWizardStore.getState().stepData.companyBasics
+                ?.companyName || "Plan";
             try {
-              const raw = localStorage.getItem("new-client-wizard");
+              const raw = localStorage.getItem("new-client-wizard-saved-at");
               if (raw) {
-                const parsed = JSON.parse(raw);
-                const persistTime: number | undefined =
-                  parsed?._persist?.time;
-                if (persistTime && typeof persistTime === "number") {
-                  const savedAt = new Date(persistTime);
+                const ts = Number(raw);
+                if (!Number.isNaN(ts) && ts > 0) {
+                  const savedAt = new Date(ts);
                   const formatted = savedAt.toLocaleString(undefined, {
                     year: "numeric",
                     month: "short",
@@ -161,7 +196,7 @@ export default function NewClientPage() {
                     hour: "numeric",
                     minute: "2-digit",
                   });
-                  toast.info(`Resuming draft saved ${formatted}`, {
+                  toast.info(`Resuming "${planName}" draft saved ${formatted}`, {
                     duration: 5000,
                   });
                 }

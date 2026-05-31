@@ -339,6 +339,16 @@ const createSafeStorage = (): any => {
         const stringValue =
           typeof value === "string" ? value : JSON.stringify(value);
         localStorage.setItem(name, stringValue);
+        // Track when the wizard data was last saved so the page can show a
+        // "Resuming draft saved …" toast after rehydration.  Zustand v4 stores
+        // { state, version } — there is no _persist.time like v5, so we keep
+        // a companion timestamp.
+        if (name === "new-client-wizard") {
+          localStorage.setItem(
+            "new-client-wizard-saved-at",
+            JSON.stringify(Date.now()),
+          );
+        }
       } catch (error) {
         if (error instanceof Error && error.name === "QuotaExceededError") {
           try {
@@ -348,6 +358,12 @@ const createSafeStorage = (): any => {
             const stringValue =
               typeof value === "string" ? value : JSON.stringify(value);
             localStorage.setItem(name, stringValue);
+            if (name === "new-client-wizard") {
+              localStorage.setItem(
+                "new-client-wizard-saved-at",
+                JSON.stringify(Date.now()),
+              );
+            }
           } catch (retryError) {
             // If still failing, try to remove base64 data and save minimal version
             try {
@@ -356,6 +372,12 @@ const createSafeStorage = (): any => {
               const cleaned = removeBase64Data(parsed);
               const cleanedString = JSON.stringify(cleaned);
               localStorage.setItem(name, cleanedString);
+              if (name === "new-client-wizard") {
+                localStorage.setItem(
+                  "new-client-wizard-saved-at",
+                  JSON.stringify(Date.now()),
+                );
+              }
             } catch (minimalError) {
               // Don't throw - just log the error to prevent app crash
             }
@@ -2044,6 +2066,7 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
         // Clear localStorage to ensure no previous data persists
         if (typeof window !== "undefined") {
           localStorage.removeItem("new-client-wizard");
+          localStorage.removeItem("new-client-wizard-saved-at");
         }
 
         set({

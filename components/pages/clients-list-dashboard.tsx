@@ -227,6 +227,7 @@ export function ClientsListDashboardPage() {
         // may have been autosaving data that was never fully committed as a draft.
         try {
           localStorage.removeItem("new-client-wizard");
+          localStorage.removeItem("new-client-wizard-saved-at");
         } catch {
           // Ignore localStorage errors
         }
