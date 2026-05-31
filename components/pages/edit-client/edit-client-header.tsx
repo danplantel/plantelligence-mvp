@@ -29,13 +29,12 @@ export function EditClientHeader({
   isFormValid,
 }: EditClientHeaderProps) {
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex items-center justify-between mx-auto max-w-5xl ">
       <div className="flex items-center gap-4">
         <Button variant="ghost" onClick={onBackClick} className="p-2">
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Edit Plan</h1>
           <p className="text-muted-foreground">
             Update plan information and settings
           </p>

@@ -932,7 +932,7 @@ export default function EditClientPage() {
 
   return (
     <TooltipProvider>
-      <div className="flex-1 space-y-6 p-8 pt-6 pb-24">
+      <div className="flex-1 space-y-6 py-4 pb-24">
         <EditClientHeader
           clientStatus={clientStatus}
           onStatusChange={setClientStatus}
@@ -942,7 +942,7 @@ export default function EditClientPage() {
           isFormValid={isFormValid()}
         />
 
-        <div className="space-y-8">
+        <div className="mx-auto max-w-5xl space-y-8 px-4">
           {/* Company Basics Section */}
           <Card className="shadow-none">
             <CardHeader
@@ -1387,7 +1387,7 @@ export default function EditClientPage() {
 
       {/* Fixed Save Button Bar */}
       <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background shadow-lg">
-        <div className="mx-auto px-8 py-4 flex justify-end gap-3">
+        <div className="mx-auto max-w-5xl px-4 py-4 flex justify-end gap-3">
           <Button
             variant="outline"
             onClick={() => router.push("/new/clients")}
