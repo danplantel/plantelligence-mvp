@@ -1176,13 +1176,13 @@ export const navItems: NavItem[] = [
   {
     title: "Communications",
     href: "/new/communications",
-    icon: "message",
+    icon: "megaphone",
     label: "Communications",
     items: [
       {
-        title: "All Meetings",
+        title: "Meetings",
         href: "/new/meetings",
-        label: "All Meetings",
+        label: "Meetings",
       },
       {
         title: "Webinars & Replays",
