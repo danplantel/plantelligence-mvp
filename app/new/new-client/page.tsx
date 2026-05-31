@@ -6,7 +6,7 @@ import {
   newClientWizardSteps,
   getCompanyBasicsSubStep,
 } from "@/lib/new-client-wizard-store";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { toast } from "sonner";
 import {
@@ -163,6 +163,88 @@ export default function NewClientPage() {
     goToStep,
     updateCurrentStep,
   ]);
+
+  // ── Debounced server-side autosave ──────────────────────────────────────
+  // When the user has entered a company name (the minimum data for a draft),
+  // automatically create/update a client record with status "Draft" so it
+  // appears in the /new/clients (View Plans) list.  This runs independently
+  // of the per-input localStorage autosave in the step components.
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isAutosavingRef = useRef(false);
+
+  useEffect(() => {
+    // Do not autosave while the wizard is still initialising — the store may
+    // be in a transient state (resetWizard / createNewSession / seedDefaults).
+    if (isInitialLoading) return;
+
+    const companyName = stepData.companyBasics?.companyName?.trim();
+
+    // Skip if no company name yet (nothing to save as a draft)
+    if (!companyName) return;
+
+    // Skip if already saving to avoid stacking requests
+    if (isAutosavingRef.current) return;
+
+    // Clear any pending autosave timer
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+    }
+
+    // Debounce 3 seconds after the last data change
+    autosaveTimerRef.current = setTimeout(async () => {
+      if (isAutosavingRef.current) return;
+      isAutosavingRef.current = true;
+
+      try {
+        const state = useNewClientWizardStore.getState();
+
+        // Double-check company name still exists (may have been reset during debounce)
+        if (!state.stepData.companyBasics?.companyName?.trim()) {
+          return;
+        }
+
+        const response = await fetch("/api/new-client-wizard/save-draft", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            stepData: state.stepData,
+            currentStep: state.currentStep,
+            clientId: state.draftClientId || undefined,
+          }),
+        });
+
+        const result = (await response.json().catch(() => ({}))) as {
+          success?: boolean;
+          clientId?: string;
+          error?: string;
+          code?: string;
+        };
+
+        if (result.success && result.clientId) {
+          // Store the clientId so subsequent autosaves update the same record
+          const currentDraftId = useNewClientWizardStore.getState().draftClientId;
+          if (!currentDraftId || currentDraftId !== result.clientId) {
+            useNewClientWizardStore.setState({ draftClientId: result.clientId });
+          }
+        } else if (result.code === "DUPLICATE_PLAN_NAME") {
+          // Duplicate name is expected when autosaving — the user will resolve
+          // via the explicit "Save as Draft" button dialog. Silently ignore.
+        } else if (result.error) {
+          console.warn("[Autosave] Failed to save draft:", result.error);
+        }
+      } catch (error) {
+        console.warn("[Autosave] Error saving draft:", error);
+      } finally {
+        isAutosavingRef.current = false;
+      }
+    }, 3000);
+
+    return () => {
+      if (autosaveTimerRef.current) {
+        clearTimeout(autosaveTimerRef.current);
+      }
+    };
+  }, [stepData, isInitialLoading]);
 
   const onNext = async () => {
     // Complete the current step - validation is handled in new-client-wizard.tsx
