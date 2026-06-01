@@ -81,6 +81,11 @@ export default function NewClientPage() {
     setTitle("Create Plan");
   }, [setTitle]);
 
+  // Guard to ensure the "Resuming" toast appears only once per page load,
+  // even if the initialization effect re-fires due to Strict Mode or
+  // dependency reference shifts.
+  const resumeToastGuardRef = useRef(false);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -122,9 +127,12 @@ export default function NewClientPage() {
                 hour: "numeric",
                 minute: "2-digit",
               });
-              toast.info(`Resuming "${planName}" draft saved ${formatted}`, {
-                duration: 5000,
-              });
+              if (!resumeToastGuardRef.current) {
+                toast.info(`Resuming "${planName}" draft saved ${formatted}`, {
+                  duration: 5000,
+                });
+                resumeToastGuardRef.current = true;
+              }
               toastShown = true;
             }
           } catch {
@@ -145,9 +153,12 @@ export default function NewClientPage() {
                     hour: "numeric",
                     minute: "2-digit",
                   });
-                  toast.info(`Resuming "${planName}" draft saved ${formatted}`, {
-                    duration: 5000,
-                  });
+                  if (!resumeToastGuardRef.current) {
+                    toast.info(`Resuming "${planName}" draft saved ${formatted}`, {
+                      duration: 5000,
+                    });
+                    resumeToastGuardRef.current = true;
+                  }
                 }
               }
             } catch {
@@ -196,9 +207,12 @@ export default function NewClientPage() {
                     hour: "numeric",
                     minute: "2-digit",
                   });
-                  toast.info(`Resuming "${planName}" draft saved ${formatted}`, {
-                    duration: 5000,
-                  });
+                  if (!resumeToastGuardRef.current) {
+                    toast.info(`Resuming "${planName}" draft saved ${formatted}`, {
+                      duration: 5000,
+                    });
+                    resumeToastGuardRef.current = true;
+                  }
                 }
               }
             } catch {
