@@ -222,7 +222,7 @@ export const validateNewClientCurrentStepV2 = async (step: number, stepData: any
   try {
     switch (step) {
       case 1: {
-        // Always require company + website on step 1 (single screen; legacy welcomeMission substep is unused).
+        // Always require company + website + plan type on step 1 (single screen; legacy welcomeMission substep is unused).
         const step1Errors: string[] = [];
 
         if (
@@ -237,6 +237,13 @@ export const validateNewClientCurrentStepV2 = async (step: number, stepData: any
           stepData.companyBasics.companyWebsite.trim() === ""
         ) {
           step1Errors.push("companyWebsite");
+        }
+
+        if (
+          !stepData.companyBasics?.planType ||
+          stepData.companyBasics.planType.trim() === ""
+        ) {
+          step1Errors.push("planType");
         }
 
         if (step1Errors.length > 0) {

@@ -53,7 +53,7 @@ const normalizeCompanyBasicsData = (
     favicon: data?.brandImages?.favicon || defaultBrandImages.favicon,
   },
   appointmentLink: data?.appointmentLink,
-  planType: data?.planType || "client",
+  planType: data?.planType || "",
   organizationType: data?.organizationType || "Advisor Firm",
   isPrimaryColorPickerOpen: data?.isPrimaryColorPickerOpen ?? false,
   isSecondaryColorPickerOpen: data?.isSecondaryColorPickerOpen ?? false,
@@ -497,12 +497,12 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
             </CardHeader>
             <CardContent>
               <RadioGroup
-                value={companyData.planType || "client"}
+                value={companyData.planType || ""}
                 onValueChange={(value) => updateField("planType", value)}
                 className="grid gap-3"
               >
                 <div
-                  className={`p-3 border rounded-lg cursor-pointer transition-colors ${companyData.planType === "client" || !companyData.planType
+                  className={`p-3 border rounded-lg cursor-pointer transition-colors ${companyData.planType === "client"
                     ? "border-primary bg-[#23919C]/10 dark:bg-[#23919C]/20"
                     : "hover:bg-muted/50 dark:hover:bg-gray-700 dark:border-gray-600"
                     }`}
