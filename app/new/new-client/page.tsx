@@ -247,6 +247,45 @@ export default function NewClientPage() {
     updateCurrentStep,
   ]);
 
+  // ── Stale-draft guard (non-blocking) ────────────────────────────────────
+  // After initialization finishes, verify that any draftClientId still
+  // references a live server-side draft.  If the draft was deleted from
+  // /new/clients (View Plans) while this page was loaded in another tab,
+  // or if the persist middleware re-wrote old state before the delete
+  // handler's resetWizard() could clear it, force a clean start.
+  // This runs OUTSIDE the initialization path so it never blocks
+  // isInitialLoading → autosave.
+  useEffect(() => {
+    if (isInitialLoading) return;
+
+    const state = useNewClientWizardStore.getState();
+    const draftId = state.draftClientId;
+    if (!draftId) return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const checkRes = await fetch(`/api/clients/${draftId}`);
+        if (cancelled) return;
+        if (!checkRes.ok) {
+          // Draft no longer exists — silently reset to a clean session
+          const { resetWizard, createNewSession, seedAdvisorDefaultsFromProfile } =
+            useNewClientWizardStore.getState();
+          resetWizard();
+          await createNewSession();
+          await seedAdvisorDefaultsFromProfile();
+        }
+      } catch {
+        // Network error — preserve data (don't wipe real work)
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isInitialLoading]);
+
   // ── Debounced server-side autosave ──────────────────────────────────────
   // When the user has entered a company name (the minimum data for a draft),
   // automatically create/update a client record with status "Draft" so it

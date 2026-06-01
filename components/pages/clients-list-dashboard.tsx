@@ -75,6 +75,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { storePendingDraftSelection } from "@/lib/draft-utils";
+import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 
 interface Client {
   id: string;
@@ -221,15 +222,24 @@ export function ClientsListDashboardPage() {
       if (result.success) {
         toast.success("Client deleted successfully");
 
-        // Clear the Create Plan wizard's localStorage data so the user doesn't
-        // see stale draft info if they navigate to /new/new-client afterwards.
+        // Clear the Create Plan wizard's localStorage data AND in-memory Zustand
+        // state so the user doesn't see stale draft info if they navigate to
+        // /new/new-client afterwards.  The Zustand store is a module-level singleton
+        // that survives client-side navigations — merely clearing localStorage is
+        // not enough because persist.rehydrate() does not clear existing in-memory
+        // state when storage is empty.
         // This runs for ALL deleted clients (not just drafts) because the wizard
         // may have been autosaving data that was never fully committed as a draft.
         try {
-          localStorage.removeItem("new-client-wizard");
-          localStorage.removeItem("new-client-wizard-saved-at");
+          useNewClientWizardStore.getState().resetWizard();
         } catch {
-          // Ignore localStorage errors
+          // Ignore errors — fall back to manual localStorage removal
+          try {
+            localStorage.removeItem("new-client-wizard");
+            localStorage.removeItem("new-client-wizard-saved-at");
+          } catch {
+            // Ignore localStorage errors
+          }
         }
 
         // Revalidate SWR cache so the list refreshes without a full reload
