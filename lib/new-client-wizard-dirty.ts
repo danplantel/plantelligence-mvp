@@ -14,6 +14,7 @@ function hasMeaningfulWizardContent(
   const cd = stepData.complianceDocuments;
 
   if (cb?.companyName?.trim()) return true;
+  if (cb?.planType?.trim()) return true;
   if (cb?.companyLogo?.url) return true;
   const bi = cb?.brandImages;
   if (

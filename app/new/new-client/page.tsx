@@ -174,6 +174,7 @@ export default function NewClientPage() {
           const sd = useNewClientWizardStore.getState().stepData;
           hasExistingData =
             !!sd.companyBasics?.companyName ||
+            !!sd.companyBasics?.planType?.trim() ||
             (!!sd.welcomeStatement?.headline &&
               sd.welcomeStatement.headline !==
                 "Welcome to the <Company Name> Benefits Hub!") ||
@@ -316,9 +317,10 @@ export default function NewClientPage() {
     if (isInitialLoading) return;
 
     const companyName = stepData.companyBasics?.companyName?.trim();
+    const planType = stepData.companyBasics?.planType?.trim();
 
-    // Skip if no company name yet (nothing to save as a draft)
-    if (!companyName) return;
+    // Skip if no company name or plan type yet (nothing meaningful to save as a draft)
+    if (!companyName && !planType) return;
 
     // Skip if already saving to avoid stacking requests
     if (isAutosavingRef.current) return;
@@ -336,8 +338,11 @@ export default function NewClientPage() {
       try {
         const state = useNewClientWizardStore.getState();
 
-        // Double-check company name still exists (may have been reset during debounce)
-        if (!state.stepData.companyBasics?.companyName?.trim()) {
+        // Double-check there's still meaningful data (may have been reset during debounce)
+        if (
+          !state.stepData.companyBasics?.companyName?.trim() &&
+          !state.stepData.companyBasics?.planType?.trim()
+        ) {
           return;
         }
 

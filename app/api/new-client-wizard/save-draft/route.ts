@@ -186,8 +186,12 @@ export async function POST(request: NextRequest) {
     // --- 1. Update Wizard Session Sub-Records ---
     const savePromises = [];
 
-    // Company Basics
-    if (stepData.companyBasics && stepData.companyBasics.companyName) {
+    // Company Basics — save when any meaningful fields are present (not just companyName)
+    if (
+      stepData.companyBasics &&
+      (stepData.companyBasics.companyName ||
+        stepData.companyBasics.planType?.trim())
+    ) {
       const cb = stepData.companyBasics;
       const logoPatch = companyLogoFieldsForPersistence(cb.companyLogo, cb);
       const brandImagesToSave =
@@ -348,7 +352,10 @@ export async function POST(request: NextRequest) {
     });
 
     // --- 3. Create or Update Client Record ---
-    if (stepData.companyBasics?.companyName) {
+    if (
+      stepData.companyBasics?.companyName ||
+      stepData.companyBasics?.planType?.trim()
+    ) {
       const cb = stepData.companyBasics;
       const clientLogoPatch = clientLogoCropAndFileForPersistence(cb.companyLogo, cb);
 
@@ -384,15 +391,10 @@ export async function POST(request: NextRequest) {
 
       // Final Client Data construction (Undefined-safe)
       const planNameTrimmed = (cb.companyName || "").trim();
-      if (!planNameTrimmed) {
-        return NextResponse.json(
-          { error: "Company / plan name is required" },
-          { status: 400 },
-        );
-      }
+      const effectivePlanName = planNameTrimmed || "[New Plan]";
 
       const clientUpdateData: any = {
-        companyName: planNameTrimmed,
+        companyName: effectivePlanName,
         status: "Draft",
         type: cb.planType || "client",
         currentStep: currentStep || 1,
@@ -454,7 +456,8 @@ export async function POST(request: NextRequest) {
       // existing plan with the same name must be an explicit user choice (modal), not a
       // silent merge into an old draft. Otherwise "new plan" + name "test" overwrites a
       // same-name draft with no warning.
-      if (!existingClient && !clientIdStr) {
+      // Only run duplicate checks when the user has actually entered a plan name.
+      if (!existingClient && !clientIdStr && planNameTrimmed) {
         const blocking = await prisma.client.findFirst({
           where: {
             userId,

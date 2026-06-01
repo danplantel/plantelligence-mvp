@@ -135,8 +135,8 @@ export function ClientsListDashboardPage() {
     jsonFetcher,
     {
       keepPreviousData: true,   // show stale data while revalidating — no blank flash
-      dedupingInterval: 60_000,
-      revalidateOnFocus: false,
+      dedupingInterval: 2_000,  // allow refetch after 2s (was 60s, hiding new drafts)
+      revalidateOnFocus: true,  // refetch when user returns to this tab
     },
   );
 
