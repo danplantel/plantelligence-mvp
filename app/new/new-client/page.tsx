@@ -174,7 +174,9 @@ export default function NewClientPage() {
           const sd = useNewClientWizardStore.getState().stepData;
           hasExistingData =
             !!sd.companyBasics?.companyName ||
-            !!sd.welcomeStatement?.headline ||
+            (!!sd.welcomeStatement?.headline &&
+              sd.welcomeStatement.headline !==
+                "Welcome to the <Company Name> Benefits Hub!") ||
             !!(sd.keyContacts?.contacts && sd.keyContacts.contacts.length > 0);
 
           if (!hasExistingData) {

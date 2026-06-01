@@ -288,9 +288,20 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
       return;
     }
 
+    // Do not persist the auto-generated placeholder headline when the user
+    // has not entered a company name — it would make hasExistingData truthy
+    // on the next visit and trigger a misleading "Resuming" toast.
+    if (
+      !companyData.companyName.trim() &&
+      welcomeData.headline === "Welcome to the <Company Name> Benefits Hub!"
+    ) {
+      lastPersistedWelcomeData.current = welcomeData;
+      return;
+    }
+
     lastPersistedWelcomeData.current = welcomeData;
     saveStepDataLocally("welcomeStatement", welcomeData);
-  }, [welcomeData, saveStepDataLocally]);
+  }, [welcomeData, saveStepDataLocally, companyData.companyName]);
 
   const getAutoWelcomeHeadline = () => {
     if (companyData.companyName.trim().length > 0) {
