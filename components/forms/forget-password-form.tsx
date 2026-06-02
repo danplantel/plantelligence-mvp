@@ -17,6 +17,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Enter a valid email address" }),
@@ -57,8 +58,8 @@ export default function ForgetPasswordForm() {
         email: data.email,
       });
       if (response.status === 200) {
+        toast.success('Please check your email for password reset instructions');
         navigation.replace(`/verify-code?email=${data.email}`);
-        alert('Please check your email for password reset instructions');
       } else {
         throw new Error(response.data.message || 'Reset request failed');
       }
