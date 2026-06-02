@@ -16,23 +16,14 @@ import axios, { AxiosError } from "axios";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import Link from "next/link";
-import * as z from "zod";
 import GoogleSignInButton from "../google-auth-button";
 import { signIn } from "next-auth/react";
 import { Eye, EyeOff } from "lucide-react";
+import { signupSchema, type SignupFormValues } from "@/lib/form-schema";
 
-const formSchema = z.object({
-  name: z.string().min(1, { message: "Name is required" }),
-  email: z.string().email({ message: "Enter a valid email address" }),
-  password: z
-    .string()
-    .min(6, { message: "Password must be at least 6 characters long" }),
-});
 interface ErrorResponse {
   error: string;
 }
-
-type UserFormValue = z.infer<typeof formSchema>;
 
 export default function UserAuthForm() {
   const [loading, setLoading] = useState(false);
@@ -45,8 +36,8 @@ export default function UserAuthForm() {
     return emailRegex.test(email);
   };
 
-  const form = useForm<UserFormValue>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<SignupFormValues>({
+    resolver: zodResolver(signupSchema),
     defaultValues: {
       name: "",
       email: "",
@@ -54,15 +45,9 @@ export default function UserAuthForm() {
     },
   });
 
-  const onSubmit = async (data: UserFormValue) => {
+  const onSubmit = async (data: SignupFormValues) => {
     if (!isValidEmail(data.email)) {
       setError("Email is invalid");
-      return;
-    }
-
-    if (!data.password || data.password.length < 6) {
-      // Corrected the password length to match schema
-      setError("Password must be at least 6 characters long");
       return;
     }
 
@@ -179,6 +164,9 @@ export default function UserAuthForm() {
                     </button>
                   </div>
                 </FormControl>
+                <p className="text-[0.8rem] text-muted-foreground mt-1">
+                  Must be at least 8 characters with uppercase, lowercase, number & special character.
+                </p>
                 <FormMessage />
               </FormItem>
             )}

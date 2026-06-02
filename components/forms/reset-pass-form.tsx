@@ -15,18 +15,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import axios, { AxiosError } from 'axios';
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import * as z from "zod";
 import { useSearchParams } from "next/navigation";
+import { resetPasswordSchema, type ResetPasswordFormValues } from "@/lib/form-schema";
 
-const formSchema = z.object({
-  password: z.string().min(8, "Password must be at least 8 characters long"),
-  confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords must match",
-  path: ["confirmPassword"],
-});
-
-type ResetPasswordFormValues = z.infer<typeof formSchema>;
 interface APIErrorResponse {
   error: string;
 }
@@ -39,7 +30,7 @@ export default function ResetPasswordForm() {
   const email = params.get('email') ?? "";
 
   const form = useForm<ResetPasswordFormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(resetPasswordSchema),
     defaultValues: {
       password: "",
       confirmPassword: ""
@@ -91,6 +82,9 @@ export default function ResetPasswordForm() {
                     {...field}
                   />
                 </FormControl>
+                <p className="text-[0.8rem] text-muted-foreground mt-1">
+                  Must be at least 8 characters with uppercase, lowercase, number & special character.
+                </p>
                 <FormMessage />
               </FormItem>
             )}

@@ -17,20 +17,12 @@ import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import Link from "next/link";
-import * as z from "zod";
 import GoogleSignInButton from "../google-auth-button";
 import { useFormWithLoading } from "@/hooks/useFormWithLoading";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { Eye, EyeOff } from "lucide-react";
+import { signinSchema, type SigninFormValues } from "@/lib/form-schema";
 
-const formSchema = z.object({
-  email: z.string().email({ message: "Enter a valid email address" }),
-  password: z
-    .string()
-    .min(6, { message: "Password must be at least 6 characters long" }),
-});
-
-type UserFormValue = z.infer<typeof formSchema>;
 interface SignInResult {
   error?: string;
 }
@@ -43,15 +35,15 @@ export default function UserAuthForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const form = useForm<UserFormValue>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<SigninFormValues>({
+    resolver: zodResolver(signinSchema),
     defaultValues: {
       email: "",
       password: "",
     },
   });
 
-  const onSubmit = async (data: UserFormValue) => {
+  const onSubmit = async (data: SigninFormValues) => {
     await handleSubmit(async () => {
       setError(null);
 
