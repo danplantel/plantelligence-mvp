@@ -132,19 +132,14 @@ export function ContactFormSlide({
   ]);
 
   // Build contact object and save to keyContacts
-  // Updates existing contact for the same category to prevent duplicates
+  // Always creates a new contact — allows multiple contacts per category
   const saveContact = useCallback(
     (): string => {
       const keyContactsData = stepData.keyContacts || { contacts: [] };
       const savedContacts = keyContactsData.contacts || [];
 
-      // Check if a contact already exists for this category
-      const existingIndex = savedContacts.findIndex((c: any) => {
-        const cats = c.benefitsCategories || (c.benefitsCategory ? [c.benefitsCategory] : []);
-        return cats.includes(category);
-      });
-
-      const contactPayload = {
+      const newContact = {
+        id: `contact-${Date.now()}-${Math.random()}`,
         contactType,
         benefitsCategories: [category],
         benefitsCategory: category,
@@ -176,25 +171,10 @@ export function ContactFormSlide({
         enableContactButton: true,
       };
 
-      let updatedContacts: any[];
-
-      if (existingIndex !== -1) {
-        // Update existing contact instead of creating a duplicate
-        updatedContacts = savedContacts.map((c: any, idx: number) =>
-          idx === existingIndex ? { ...c, ...contactPayload } : c,
-        );
-      } else {
-        // Create new contact
-        const newContact = {
-          id: `contact-${Date.now()}-${Math.random()}`,
-          ...contactPayload,
-        };
-        updatedContacts = [...savedContacts, newContact];
-      }
-
+      const updatedContacts = [...savedContacts, newContact];
       const updatedKeyContacts = { ...keyContactsData, contacts: updatedContacts };
       saveStepDataLocally("keyContacts", updatedKeyContacts);
-      return existingIndex !== -1 ? savedContacts[existingIndex].id : `contact-${Date.now()}-${Math.random()}`;
+      return newContact.id;
     },
     [
       stepData.keyContacts,

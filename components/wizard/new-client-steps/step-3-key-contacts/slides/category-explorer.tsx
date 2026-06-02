@@ -14,6 +14,7 @@ import {
   Mail,
   Phone,
   Building2,
+  Star,
 } from "lucide-react";
 import { BenefitsCategory } from "@/types/new-client-wizard";
 import { cn } from "@/lib/utils";
@@ -142,6 +143,44 @@ export function CategoryExplorer({
     [contacts, stepData.keyContacts, saveStepDataLocally],
   );
 
+  // Set a contact as primary for its category (only one per category)
+  const handleSetPrimary = useCallback(
+    (contactId: string, category: BenefitsCategory) => {
+      if (!contacts.length) return;
+      const currentKeyData = stepData.keyContacts || { contacts: [] };
+
+      const updatedContacts = contacts.map((c: any) => {
+        const contactCategories =
+          c.benefitsCategories ||
+          (c.benefitsCategory ? [c.benefitsCategory] : []);
+        const isInCategory = contactCategories.includes(category);
+
+        if (c.id === contactId) {
+          // Set this contact as primary
+          return {
+            ...c,
+            isPrimaryOverall: true,
+            isPrimary: true,
+          };
+        } else if (isInCategory) {
+          // Remove primary from other contacts in the same category
+          return {
+            ...c,
+            isPrimaryOverall: false,
+            isPrimary: false,
+          };
+        }
+        return c;
+      });
+
+      saveStepDataLocally("keyContacts", {
+        ...currentKeyData,
+        contacts: updatedContacts,
+      });
+    },
+    [contacts, stepData.keyContacts, saveStepDataLocally],
+  );
+
   // Toggle category expansion
   const toggleCategory = useCallback((category: BenefitsCategory) => {
     setExpandedCategory((prev) => (prev === category ? null : category));
@@ -257,10 +296,17 @@ export function CategoryExplorer({
 
       {/* Benefit Categories Section Header */}
       <div className="w-full max-w-2xl">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
-            Benefit Contacts
-          </span>
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
+              Benefit Contacts
+            </span>
+          </div>
+          {/* Star icon legend */}
+          <div className="flex items-center gap-1.5 text-[10px] text-gray-400 dark:text-gray-500">
+            <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+            <span>= Primary Contact per category</span>
+          </div>
         </div>
         <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">
           Click a category to add or manage contacts for specific benefits.
@@ -392,7 +438,35 @@ export function CategoryExplorer({
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                          <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                            {/* Primary checkbox for benefit categories only */}
+                            {category !== "Company / Plan Sponsor" && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSetPrimary(contact.id, category);
+                                }}
+                                className={cn(
+                                  "flex items-center gap-1 px-1.5 py-1 rounded text-xs transition-colors",
+                                  contact.isPrimaryOverall || contact.isPrimary
+                                    ? "text-amber-500 hover:text-amber-600"
+                                    : "text-gray-300 hover:text-gray-400 dark:text-gray-600 dark:hover:text-gray-400",
+                                )}
+                                title={
+                                  contact.isPrimaryOverall || contact.isPrimary
+                                    ? "Primary contact"
+                                    : "Mark as primary"
+                                }
+                              >
+                                <Star
+                                  className={cn(
+                                    "w-3.5 h-3.5",
+                                    (contact.isPrimaryOverall || contact.isPrimary) && "fill-amber-500",
+                                  )}
+                                />
+                              </button>
+                            )}
                             {onEditContact && (
                               <Button
                                 type="button"
