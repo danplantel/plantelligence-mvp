@@ -164,7 +164,7 @@ export default function UserAuthForm() {
           <LoadingButton
             isLoading={isLoading}
             loadingText="Signing in..."
-            className="w-full ml-auto !mt-3"
+            className="w-full ml-auto !mt-3 dark:bg-accent-blue dark:hover:bg-accent-blue/90"
             type="submit"
           >
             Continue with email

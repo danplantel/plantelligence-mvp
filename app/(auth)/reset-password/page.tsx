@@ -3,40 +3,60 @@
 import ResetPasswordForm from "@/components/forms/reset-pass-form";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
+import { Moon, Sun } from "lucide-react";
 
 export default function ResetPasswordPage() {
-  const { theme = "system" } = useTheme();
+  const { theme = "system", setTheme } = useTheme();
   const [themeMode, setThemeMode] = useState("");
 
   useEffect(() => {
     setThemeMode(theme);
   }, [theme]);
 
+  const toggleTheme = () => {
+    setTheme(theme === "dark" ? "light" : "dark");
+  };
+
   return (
-    <div className="flex flex-col items-center justify-center h-screen pt-3 pb-3">
-      <img
-        src={
-          themeMode === "dark" || themeMode === "system"
-            ? "/pt_web_dark.png"
-            : "/pt_web_light.png"
-        }
-        className="w-[260px] rounded-xl mx-auto"
-        alt="PlanTelligence"
-      />
-      <div className="flex flex-col items-center justify-center w-full h-full p-4 mb-12 space-y-6 lg:p-8">
-        <div className="w-full max-w-[350px] space-y-3">
-          <div className="flex flex-col items-center space-y-2 text-center">
-            <h1 className="text-3xl font-semibold dm-serif">Reset Password</h1>
-            <p className="text-sm text-muted-foreground">
-              Enter your new password
+    <div className="relative flex flex-col h-screen bg-background">
+      <button
+        onClick={toggleTheme}
+        className="fixed top-4 right-4 p-2 rounded-lg bg-secondary/80 backdrop-blur-sm hover:bg-secondary transition-colors z-50"
+        aria-label="Toggle theme"
+      >
+        {themeMode === "dark" ? (
+          <Sun className="w-5 h-5 text-yellow-500" />
+        ) : (
+          <Moon className="w-5 h-5 text-muted-foreground" />
+        )}
+      </button>
+      <div className="flex flex-col items-center justify-center flex-1 p-4">
+        <div className="w-full max-w-[400px] p-8 rounded-xl border border-border bg-card shadow-sm">
+          <div className="flex flex-col items-center space-y-6">
+            <img
+              src={
+                themeMode === "dark" || themeMode === "system"
+                  ? "/pt_web_dark.png"
+                  : "/pt_web_light.png"
+              }
+              className="w-[220px] rounded-xl"
+              alt="PlanTelligence"
+            />
+            <div className="flex flex-col items-center space-y-2 text-center">
+              <h1 className="text-2xl font-semibold dm-serif text-foreground">
+                Reset Password
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                Enter your new password
+              </p>
+            </div>
+            <ResetPasswordForm />
+            <p className="text-xs text-muted-foreground">
+              &copy; {new Date().getFullYear()} PlanTelligence
             </p>
           </div>
-          <ResetPasswordForm />
         </div>
       </div>
-      <footer className="text-sm text-center text-[#959595] mt-8">
-        © 2025 PlanTelligence
-      </footer>
     </div>
   );
 }

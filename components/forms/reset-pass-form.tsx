@@ -154,7 +154,7 @@ export default function ResetPasswordForm() {
             </motion.div>
           )}
 
-          <Button disabled={loading} className="w-full ml-auto !mt-3" type="submit">
+          <Button disabled={loading} className="w-full ml-auto !mt-3 dark:bg-accent-blue dark:hover:bg-accent-blue/90" type="submit">
             {loading ? "Resetting..." : "Reset Password"}
           </Button>
         </form>

@@ -18,30 +18,32 @@ const SignIn = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="relative flex flex-col h-screen bg-background">
       <button
         onClick={toggleTheme}
-        className="fixed top-4 right-4 p-2 rounded-lg bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors z-50"
+        className="fixed top-4 right-4 p-2 rounded-lg bg-secondary/80 backdrop-blur-sm hover:bg-secondary transition-colors z-50"
         aria-label="Toggle theme"
       >
         {themeMode === "dark" ? (
           <Sun className="w-5 h-5 text-yellow-500" />
         ) : (
-          <Moon className="w-5 h-5 text-gray-700" />
+          <Moon className="w-5 h-5 text-muted-foreground" />
         )}
       </button>
-      <div className="flex flex-col items-center justify-center flex-1 p-4 mb-12 space-y-6 lg:p-8">
-        <img
-          src={
-            themeMode === "dark"
-              ? "/pt_web_dark.png"
-              : "/pt_web_light.png"
-          }
-          className="w-[260px] rounded-xl mx-auto"
-          alt="PlanTelligence"
-        />
-        <div className="w-full max-w-[350px] space-y-3">
-          <UserAuthForm />
+      <div className="flex flex-col items-center justify-center flex-1 p-4">
+        <div className="w-full max-w-[400px] p-8 rounded-xl border border-border bg-card shadow-sm">
+          <div className="flex flex-col items-center space-y-6">
+            <img
+              src={
+                themeMode === "dark"
+                  ? "/pt_web_dark.png"
+                  : "/pt_web_light.png"
+              }
+              className="w-[220px] rounded-xl"
+              alt="PlanTelligence"
+            />
+            <UserAuthForm />
+          </div>
         </div>
       </div>
     </div>
