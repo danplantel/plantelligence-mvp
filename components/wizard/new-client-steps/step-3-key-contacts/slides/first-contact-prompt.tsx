@@ -39,9 +39,9 @@ export function FirstContactPrompt({ onContinue }: FirstContactPromptProps) {
       {/* Question */}
       <div className="space-y-2 max-w-xl">
         <h2 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-gray-100 leading-tight">
-          Who's the main point of contact for{" "}
+          Who{'\''}s the main point of contact for{" "}
           <span className="text-accent-blue">{displayName}</span>
-          's benefits plan?
+          {'\''}s benefits plan?
         </h2>
         <p className="py-4 text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto">
           Start by adding your Company / Plan Sponsor contact. This is normally an HR manager, benefits coordinator, or someone in a similar role who oversees employee benefits.
