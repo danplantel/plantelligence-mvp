@@ -2,8 +2,6 @@
 
 import { ReactNode, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ==================== Types ====================
@@ -28,12 +26,6 @@ export interface SlideContainerProps {
   children: ReactNode;
   /** Called when a progress dot is clicked (only dots before current are clickable) */
   onDotClick?: (index: number) => void;
-  /** Called when the user clicks the inner Back button */
-  onBack?: () => void;
-  /** Called when the user clicks the inner Next button. If omitted, Next button is hidden. */
-  onNext?: () => void;
-  /** Label for the Next button (default: "Next") */
-  nextLabel?: string;
   /** Extra CSS class */
   className?: string;
 }
@@ -73,14 +65,8 @@ export function SlideContainer({
   slides,
   children,
   onDotClick,
-  onBack,
-  onNext,
-  nextLabel = "Next",
   className,
 }: SlideContainerProps) {
-  const isFirstSlide = currentIndex === 0;
-  const isLastSlide = currentIndex === totalSlides - 1;
-
   const handleDotClick = useCallback(
     (index: number) => {
       if (index < currentIndex && onDotClick) {
@@ -157,39 +143,6 @@ export function SlideContainer({
 
       {/* Slide Content */}
       <div className="relative overflow-hidden min-h-[300px]">{content}</div>
-
-      {/* Inner Navigation Bar - consistent Back/Next across all slides */}
-      {(onBack || onNext) && (
-        <div className="flex items-center justify-center gap-4 pt-4 border-t border-gray-100 dark:border-gray-800">
-          {onBack && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onBack}
-              disabled={isFirstSlide}
-              className="flex items-center gap-2 min-w-[100px]"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </Button>
-          )}
-          {onNext && !isLastSlide && (
-            <Button
-              type="button"
-              onClick={onNext}
-              className="flex items-center gap-2 min-w-[100px]"
-            >
-              {nextLabel}
-              <ArrowRight className="w-4 h-4" />
-            </Button>
-          )}
-          {!onNext && isLastSlide && (
-            <span className="text-xs text-gray-400 dark:text-gray-500">
-              Use the wizard Next button to proceed
-            </span>
-          )}
-        </div>
-      )}
     </div>
   );
 }

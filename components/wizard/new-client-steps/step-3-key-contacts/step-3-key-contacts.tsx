@@ -364,7 +364,6 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
             goToSlide(index);
           }
         }}
-        onBack={slideIndex > 0 ? () => goToSlide(slideIndex - 1) : undefined}
       >
         {slideContent}
       </SlideContainer>
