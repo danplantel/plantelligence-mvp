@@ -349,11 +349,27 @@ export const validateNewClientCurrentStepV2 = async (step: number, stepData: any
         break;
 
       case 3:
-        // Step 3: Key Contacts - Validate based on sub-step
-        const step3SubStep =
-          (stepData?.step3SubStep?.step3SubStep as string) ||
-          (stepData?.step3SubStep as string) ||
-          "step3a";
+        // Step 3: Key Contacts - Validate based on sub-step or slide index
+        // New slide-based system takes priority over legacy step3SubStep
+        const step3SlideIndex = (stepData as any)?.step3SlideIndex;
+        
+        // Map slide index to legacy sub-step for validation
+        let step3SubStep: string;
+        if (typeof step3SlideIndex === "number" && step3SlideIndex >= 0 && step3SlideIndex <= 3) {
+          const slideMap: Record<number, string> = {
+            0: "step3a",
+            1: "step3b",
+            2: "step3c",
+            3: "step3d",
+          };
+          step3SubStep = slideMap[step3SlideIndex];
+        } else {
+          // Legacy: read from step3SubStep
+          step3SubStep =
+            (stepData?.step3SubStep?.step3SubStep as string) ||
+            (stepData?.step3SubStep as string) ||
+            "step3a";
+        }
 
         // Check if contacts exist - if they do, we're likely on step3b or later
         const keyContacts = stepData.keyContacts || { contacts: [] };

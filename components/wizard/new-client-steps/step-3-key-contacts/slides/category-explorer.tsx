@@ -1,0 +1,432 @@
+"use client";
+
+import { useState, useCallback, useMemo } from "react";
+import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
+import { Button } from "@/components/ui/button";
+import {
+  ArrowLeft,
+  ArrowRight,
+  ChevronDown,
+  Plus,
+  Trash2,
+  Pencil,
+  User,
+  Mail,
+  Phone,
+  Building2,
+} from "lucide-react";
+import { BenefitsCategory } from "@/types/new-client-wizard";
+import { cn } from "@/lib/utils";
+import { getContactCountForCategory } from "../components/category-grid";
+
+// ==================== Types ====================
+
+export interface CategoryExplorerProps {
+  /** Called when a specific category is selected (user wants to add a contact for it) */
+  onCategorySelect: (category: BenefitsCategory) => void;
+  /** Called when user clicks Back */
+  onBack: () => void;
+  /** Called when user clicks Continue to Preview */
+  onContinue: () => void;
+  /** Called when user wants to edit the main contact (Company/Plan Sponsor) */
+  onEditMainContact?: () => void;
+}
+
+// ==================== Constants ====================
+
+const BENEFIT_CATEGORIES: BenefitsCategory[] = [
+  "Retirement",
+  "Group Health",
+  "Group Life",
+  "Other Benefits",
+];
+
+// Category icons (emoji-based to avoid extra deps)
+const CATEGORY_EMOJI: Record<string, string> = {
+  Retirement: "🏢",
+  "Group Health": "🛡️",
+  "Group Life": "❤️",
+  "Other Benefits": "🎁",
+};
+
+// ==================== Component ====================
+
+export function CategoryExplorer({
+  onCategorySelect,
+  onBack,
+  onContinue,
+  onEditMainContact,
+}: CategoryExplorerProps) {
+  const { stepData, saveStepDataLocally } = useNewClientWizardStore();
+
+  const contacts = useMemo(
+    () => (stepData.keyContacts?.contacts || []) as any[],
+    [stepData.keyContacts],
+  );
+
+  const companyContactCount = useMemo(
+    () => getContactCountForCategory(contacts, "Company / Plan Sponsor"),
+    [contacts],
+  );
+
+  const [expandedCategory, setExpandedCategory] =
+    useState<BenefitsCategory | null>(null);
+
+  const hasMinimumContacts = useMemo(
+    () => companyContactCount > 0 && contacts.length > 0,
+    [companyContactCount, contacts.length],
+  );
+
+  const getCategoryStatus = useCallback(
+    (category: BenefitsCategory) => {
+      return getContactCountForCategory(contacts, category);
+    },
+    [contacts],
+  );
+
+  const allCategoriesCovered = useMemo(
+    () => BENEFIT_CATEGORIES.every((cat) => getCategoryStatus(cat) > 0),
+    [getCategoryStatus],
+  );
+
+  // Get contacts for a specific category
+  const getContactsForCategory = useCallback(
+    (category: BenefitsCategory) => {
+      return contacts.filter((contact: any) => {
+        const contactCategories =
+          contact.benefitsCategories ||
+          (contact.benefitsCategory ? [contact.benefitsCategory] : []);
+        if (!contactCategories || contactCategories.length === 0) return false;
+        return contactCategories.includes(category);
+      });
+    },
+    [contacts],
+  );
+
+  // Get display name for a contact
+  const getContactDisplayName = useCallback((contact: any): string => {
+    if (contact.contactType === "team_support") {
+      return contact.displayName || contact.name || "Unnamed Team";
+    }
+    const first = contact.firstName || "";
+    const last = contact.lastName || "";
+    const full = `${first} ${last}`.trim();
+    return full || contact.name || "Unnamed Contact";
+  }, []);
+
+  // Delete a contact
+  const handleDeleteContact = useCallback(
+    (contactId: string, e: React.MouseEvent) => {
+      e.stopPropagation();
+      const updatedContacts = contacts.filter(
+        (c: any) => c.id !== contactId,
+      );
+      const currentKeyData = stepData.keyContacts || { contacts: [] };
+      const prevOrder = (
+        currentKeyData as { contactDisplayOrder?: string[] }
+      ).contactDisplayOrder;
+      const nextOrder = Array.isArray(prevOrder)
+        ? prevOrder.filter((id: string) => id !== contactId)
+        : updatedContacts.map((c: any) => c.id);
+
+      saveStepDataLocally("keyContacts", {
+        ...currentKeyData,
+        contacts: updatedContacts,
+        contactDisplayOrder: nextOrder,
+      });
+    },
+    [contacts, stepData.keyContacts, saveStepDataLocally],
+  );
+
+  // Toggle category expansion
+  const toggleCategory = useCallback((category: BenefitsCategory) => {
+    setExpandedCategory((prev) => (prev === category ? null : category));
+  }, []);
+
+  return (
+    <div className="flex flex-col items-center space-y-6 py-4">
+      {/* Header */}
+      <div className="text-center space-y-2 max-w-2xl">
+        <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+          Do employees need different contacts for specific benefits?
+        </h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          {contacts.length <= 1
+            ? "Great start! Click a category below to add a contact."
+            : allCategoriesCovered
+              ? "All benefit categories are covered! Click Continue to review your team."
+              : "Click any category to add or manage contacts."}
+        </p>
+      </div>
+
+      {/* Main Contact (Company / Plan Sponsor) Section */}
+      {companyContactCount > 0 && (
+        <div className="w-full max-w-2xl">
+          <div className="flex items-center gap-2 mb-3">
+            <Building2 className="w-4 h-4 text-accent-blue" />
+            <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
+              Main Contact
+            </span>
+          </div>
+          <div className="rounded-lg border-2 border-accent-blue/20 bg-accent-blue/[0.03] overflow-hidden">
+            {/* Plan Sponsor contacts */}
+            {contacts
+              .filter((c: any) => {
+                const cats = c.benefitsCategories || (c.benefitsCategory ? [c.benefitsCategory] : []);
+                return cats.includes("Company / Plan Sponsor");
+              })
+              .map((contact: any) => {
+                const name = getContactDisplayName(contact);
+                const email = contact.email || "";
+                const phone = contact.phone || "";
+                const formattedPhone = phone
+                  ? `(${phone.slice(0, 3)}) ${phone.slice(3, 6)}-${phone.slice(6, 10)}`
+                  : "";
+
+                return (
+                  <div
+                    key={contact.id}
+                    className="flex items-center justify-between px-4 py-3 border-b border-accent-blue/10 last:border-b-0"
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="w-9 h-9 rounded-full bg-accent-blue/10 flex items-center justify-center flex-shrink-0">
+                        <Building2 className="w-4 h-4 text-accent-blue" />
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                          {name}
+                        </span>
+                        <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+                          {email && (
+                            <span className="flex items-center gap-1 truncate">
+                              <Mail className="w-3 h-3 flex-shrink-0" />
+                              {email}
+                            </span>
+                          )}
+                          {formattedPhone && (
+                            <span className="flex items-center gap-1">
+                              <Phone className="w-3 h-3 flex-shrink-0" />
+                              {formattedPhone}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={onEditMainContact}
+                        className="h-8 px-2 text-xs text-accent-blue hover:text-accent-blue/80 hover:bg-accent-blue/10 rounded-md"
+                        title="Edit main contact"
+                      >
+                        <Pencil className="w-3.5 h-3.5 mr-1" />
+                        Edit
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => handleDeleteContact(contact.id, e)}
+                        className="h-8 w-8 p-0 rounded-full text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        title={`Delete ${name}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
+
+      {/* Benefit Categories Section Header */}
+      <div className="w-full max-w-2xl">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
+            Benefit Contacts
+          </span>
+        </div>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">
+          Click a category to add or manage contacts for specific benefits.
+        </p>
+      </div>
+
+      {/* Expandable Category Rows */}
+      <div className="w-full max-w-2xl space-y-2">
+        {BENEFIT_CATEGORIES.map((category) => {
+          const count = getCategoryStatus(category);
+          const isCovered = count > 0;
+          const isExpanded = expandedCategory === category;
+          const categoryContacts = getContactsForCategory(category);
+          const displayLabel =
+            category === "Other Benefits" ? "Other Benefits" : category;
+
+          return (
+            <div
+              key={category}
+              className={cn(
+                "rounded-lg border overflow-hidden transition-all duration-200",
+                isExpanded
+                  ? "border-accent-blue shadow-sm"
+                  : isCovered
+                    ? "border-green-200 dark:border-green-800"
+                    : "border-gray-200 dark:border-gray-700",
+              )}
+            >
+              {/* Category Header Row - clickable to expand */}
+              <button
+                type="button"
+                onClick={() => toggleCategory(category)}
+                className={cn(
+                  "w-full flex items-center justify-between px-4 py-3 text-left transition-colors",
+                  isExpanded
+                    ? "bg-accent-blue/5"
+                    : isCovered
+                      ? "bg-green-50/50 dark:bg-green-900/10"
+                      : "bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750",
+                )}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="text-lg flex-shrink-0">
+                    {CATEGORY_EMOJI[category] || "📋"}
+                  </span>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                      {displayLabel}
+                    </span>
+                    <span
+                      className={cn(
+                        "text-xs",
+                        isCovered
+                          ? "text-green-600 dark:text-green-400"
+                          : "text-gray-400 dark:text-gray-500",
+                      )}
+                    >
+                      {isCovered
+                        ? `${count} contact${count !== 1 ? "s" : ""}`
+                        : "No contacts yet"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {/* Add Contact Button */}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCategorySelect(category);
+                    }}
+                    className="h-8 w-8 p-0 rounded-full text-accent-blue hover:text-accent-blue/80 hover:bg-accent-blue/10"
+                    title={`Add ${displayLabel} contact`}
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
+
+                  {/* Expand/Collapse Chevron */}
+                  <ChevronDown
+                    className={cn(
+                      "w-4 h-4 text-gray-400 transition-transform duration-200",
+                      isExpanded && "rotate-180",
+                    )}
+                  />
+                </div>
+              </button>
+
+              {/* Expanded Contact List */}
+              {isExpanded && (
+                <div className="border-t border-gray-100 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700">
+                  {categoryContacts.length > 0 ? (
+                    categoryContacts.map((contact: any) => {
+                      const name = getContactDisplayName(contact);
+                      const email = contact.email || "";
+                      const phone = contact.phone || "";
+                      const formattedPhone = phone
+                        ? `(${phone.slice(0, 3)}) ${phone.slice(3, 6)}-${phone.slice(6, 10)}`
+                        : "";
+
+                      return (
+                        <div
+                          key={contact.id}
+                          className="flex items-center justify-between px-4 py-2.5 bg-white dark:bg-gray-800"
+                        >
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                              <User className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
+                            </div>
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                                {name}
+                              </span>
+                              <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
+                                {email && (
+                                  <span className="flex items-center gap-1 truncate">
+                                    <Mail className="w-3 h-3 flex-shrink-0" />
+                                    {email}
+                                  </span>
+                                )}
+                                {formattedPhone && (
+                                  <span className="flex items-center gap-1">
+                                    <Phone className="w-3 h-3 flex-shrink-0" />
+                                    {formattedPhone}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => handleDeleteContact(contact.id, e)}
+                            className="h-8 w-8 p-0 rounded-full text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex-shrink-0 ml-2"
+                            title={`Delete ${name}`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="px-4 py-4 text-center bg-white dark:bg-gray-800">
+                      <p className="text-xs text-gray-400 dark:text-gray-500">
+                        No contacts added yet.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Navigation */}
+      <div className="flex items-center justify-center gap-4 w-full max-w-md pt-4">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onBack}
+          className="flex items-center gap-2"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back
+        </Button>
+        <Button
+          type="button"
+          onClick={onContinue}
+          className="flex items-center gap-2"
+          disabled={!hasMinimumContacts}
+        >
+          {allCategoriesCovered ? "Review Team" : "Continue to Preview"}
+          <ArrowRight className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}

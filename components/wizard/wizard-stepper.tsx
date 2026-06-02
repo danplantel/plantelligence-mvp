@@ -39,9 +39,13 @@ export function WizardStepper({
    const totalSteps = externalTotalSteps || store.totalSteps;
 
   // Determine if editor button should be shown
-  // For Step 3, only show on step3d sub-step
+  // For Step 3, only show on preview layout slide (index 3) or legacy step3d
   const step3SubStep = (store.stepData as any)?.step3SubStep?.step3SubStep || (store.stepData as any)?.step3SubStep;
-  const isStep3d = currentStep === 3 && step3SubStep === "step3d";
+  const step3Slide = store.step3SlideIndex;
+  const isStep3d = currentStep === 3 && (
+    (typeof step3Slide === "number" && step3Slide === 3) ||
+    (step3SubStep === "step3d")
+  );
 
   const shouldShowEditorButton =
     showEditorButton !== undefined

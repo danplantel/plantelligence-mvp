@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
-import { NewClientStep3a } from "./step-3a";
-import { NewClientStep3b } from "./step-3b";
-import { NewClientStep3c } from "./step-3c";
+import { SlideContainer, SlideDirection } from "./slides/slide-container";
+import { FirstContactPrompt } from "./slides/first-contact-prompt";
+import { ContactFormSlide } from "./slides/contact-form-slide";
+import { CategoryExplorer } from "./slides/category-explorer";
 import { NewClientStep3d } from "./step-3d";
 import { IncompleteCategoriesModal } from "./components/incomplete-categories-modal";
 import { BenefitsCategory } from "@/types/new-client-wizard";
@@ -12,166 +13,136 @@ import { mergeOnboardingAdvisorContactsIntoKeyContacts } from "@/lib/seed-onboar
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Info } from "lucide-react";
 
+// ==================== Types ====================
+
 interface NewClientStep3Props {
   errorFields?: string[];
 }
 
-type Step3SubKey = "step3a" | "step3b" | "step3c" | "step3d";
+type SlideId =
+  | "first-contact-prompt"     // 0
+  | "contact-form"             // 1
+  | "category-explorer"        // 2
+  | "preview-layout";          // 3
 
-const STEP3_SUB_KEYS = new Set<string>([
-  "step3a",
-  "step3b",
-  "step3c",
-  "step3d",
-]);
-
-/** Read a string sub-step from persisted data (never returns objects). */
-function extractStep3SubStepLabel(raw: unknown): string {
-  if (raw == null) return "";
-  if (typeof raw === "string") return raw;
-  if (typeof raw === "object" && !Array.isArray(raw) && "step3SubStep" in raw) {
-    const v = (raw as { step3SubStep?: unknown }).step3SubStep;
-    return typeof v === "string" ? v : "";
-  }
-  return "";
+interface SlideDef {
+  id: SlideId;
+  label: string;
 }
 
-/** Sub-step for syncing from store (preserves step3c). */
-function toSyncSubStep(label: string): Step3SubKey {
-  const normalized = label === "step3e" ? "step3d" : label;
-  if (STEP3_SUB_KEYS.has(normalized)) return normalized as Step3SubKey;
-  return "step3a";
+const SLIDES: SlideDef[] = [
+  { id: "first-contact-prompt", label: "Main Contact" },
+  { id: "contact-form", label: "Details" },
+  { id: "category-explorer", label: "Categories" },
+  { id: "preview-layout", label: "Preview" },
+];
+
+// ==================== Helpers ====================
+
+function computeInitialSlide(contacts: any[]): number {
+  if (contacts.length === 0) return 0;
+
+  const hasPlanSponsor = contacts.some((c) => {
+    const cats = c.benefitsCategories || (c.benefitsCategory ? [c.benefitsCategory] : []);
+    return cats.includes("Company / Plan Sponsor");
+  });
+
+  if (!hasPlanSponsor) return 0;
+
+  const completeContacts = contacts.filter((c) => {
+    const hasFirstName = c.firstName && String(c.firstName).trim() !== "";
+    const hasLastName = c.lastName && String(c.lastName).trim() !== "";
+    const hasEmail = c.email && String(c.email).trim() !== "";
+    const hasPhone = c.phone && String(c.phone).trim() !== "";
+    return hasFirstName && hasLastName && (hasEmail || hasPhone);
+  });
+
+  if (completeContacts.length >= 1) return 2;
+  return 2;
 }
 
-/**
- * Initial sub-step when hydrating: map legacy step3c → step3b (same as before).
- * Empty `{}` or garbage in draft must not become a truthy object for useState.
- */
-function toInitialSubStep(label: string): Step3SubKey {
-  let s = label === "step3e" ? "step3d" : label;
-  if (s === "step3c") s = "step3b";
-  if (STEP3_SUB_KEYS.has(s)) return s as Step3SubKey;
-  return "step3a";
-}
+// ==================== Component ====================
 
 export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
-  const { stepData, saveStepDataLocally, clearErrorFields, setSelectedCategoryStep3a } =
-    useNewClientWizardStore();
-  const currentStep = useNewClientWizardStore((s) => s.currentStep);
-
-  const keyContactsDataForCheck = stepData.keyContacts || { contacts: [] };
-  const contactsForCheck = keyContactsDataForCheck.contacts || [];
-
-  const persistedStep3Label = extractStep3SubStepLabel(
-    (stepData as any).step3SubStep,
-  );
-  const initialSubStep: Step3SubKey =
-    contactsForCheck.length === 0
-      ? "step3a"
-      : toInitialSubStep(persistedStep3Label);
-
-  const [currentSubStep, setCurrentSubStep] =
-    useState<Step3SubKey>(initialSubStep);
-
-  const lastPersistedSubStep = useRef<Step3SubKey>(initialSubStep);
-
-  const [isIncompleteModalOpen, setIsIncompleteModalOpen] = useState(false);
-  const [missingCategories, setMissingCategories] = useState<
-    BenefitsCategory[]
-  >([]);
-  const [step3cMountKey, setStep3cMountKey] = useState(0);
-
-  useEffect(() => {
-    const handleShowIncompleteCategoriesModal = (event: CustomEvent) => {
-      const missing = event.detail?.missingCategories || [];
-      if (missing.length > 0) {
-        setMissingCategories(missing);
-        setIsIncompleteModalOpen(true);
-      }
-    };
-
-    const handleNavigateToStep3a = (event: CustomEvent) => {
-      const fromStep3b = event.detail?.fromStep3b === true;
-      const selectedContactId = event.detail?.selectedContactId || undefined;
-      // Clear validation errors when navigating from step-3b to step-3a
-      // This allows editing step-3a without being blocked by step-3b validation
-      if (fromStep3b) {
-        clearErrorFields();
-        // Clear category selection so no card shows green border/check after creating a contact
-        setSelectedCategoryStep3a(null);
-        const step3aData = (stepData as any).step3a || {};
-        saveStepDataLocally("step3a", { ...step3aData, benefitsCategory: null });
-        const step3cData = (stepData as any).step3c || {};
-        saveStepDataLocally("step3c", { ...step3cData, benefitsCategory: null });
-
-        // Remove incomplete contacts (contacts without ALL required fields) to prevent phantom counts
-        // A contact is considered complete only if it has: firstName AND lastName AND (email OR phone)
-        const keyContactsData = stepData.keyContacts || { contacts: [] };
-        const contacts = keyContactsData.contacts || [];
-        const completeContacts = contacts.filter((contact: any) => {
-          const hasFirstName = contact.firstName && contact.firstName.trim() !== "";
-          const hasLastName = contact.lastName && contact.lastName.trim() !== "";
-          const hasEmail = contact.email && contact.email.trim() !== "";
-          const hasPhone = contact.phone && contact.phone.trim() !== "";
-
-          // Contact must have firstName, lastName, AND at least email or phone
-          const isComplete = hasFirstName && hasLastName && (hasEmail || hasPhone);
-          return isComplete;
-        });
-
-
-        // If we removed any incomplete contacts, update the store
-        if (completeContacts.length !== contacts.length) {
-          saveStepDataLocally("keyContacts", {
-            ...keyContactsData,
-            contacts: completeContacts,
-          });
-        }
-
-      }
-      // Save data first, then update sub-step to ensure data is available when component renders
-      saveStepDataLocally("step3SubStep", {
-        step3SubStep: "step3a",
-        fromStep3b: fromStep3b,
-        selectedContactId: selectedContactId,
-      });
-      // Use setTimeout to ensure store update is processed before component renders
-      setTimeout(() => {
-        setCurrentSubStep("step3a");
-      }, 0);
-    };
-
-
-    window.addEventListener(
-      "showIncompleteCategoriesModal",
-      handleShowIncompleteCategoriesModal as EventListener,
-    );
-    window.addEventListener(
-      "navigateToStep3a",
-      handleNavigateToStep3a as EventListener,
-    );
-
-    return () => {
-      window.removeEventListener(
-        "showIncompleteCategoriesModal",
-        handleShowIncompleteCategoriesModal as EventListener,
-      );
-      window.removeEventListener(
-        "navigateToStep3a",
-        handleNavigateToStep3a as EventListener,
-      );
-    };
-  }, [
+  const {
+    stepData,
     saveStepDataLocally,
     clearErrorFields,
     setSelectedCategoryStep3a,
-    stepData,
-  ]);
+    currentStep,
+    step3SlideIndex,
+    setStep3SlideIndex,
+  } = useNewClientWizardStore();
 
-  // Fallback if draft load hasn’t run yet: persist seeded advisor contacts from /api/profile.
+  // Get contacts
+  const keyContactsData = stepData.keyContacts || { contacts: [] };
+  const contacts = keyContactsData.contacts || [];
+
+  // Initialize slide from store or compute initial
+  const initialSlide = useMemo(() => {
+    // If store has a valid slide index, use it
+    if (typeof step3SlideIndex === "number" && step3SlideIndex >= 0 && step3SlideIndex <= 3) {
+      return step3SlideIndex;
+    }
+    return computeInitialSlide(contacts);
+  }, []);
+
+  // Local slide state (synced with store)
+  const [slideIndex, setSlideIndexLocal] = useState(initialSlide);
+  const prevSlideIndexRef = useRef(slideIndex);
+  const [direction, setDirection] = useState<SlideDirection>(1);
+
+  // Category for the contact form
+  const [contactFormCategory, setContactFormCategory] =
+    useState<BenefitsCategory>("Company / Plan Sponsor");
+  const [isGuidedForm, setIsGuidedForm] = useState(true);
+
+  // Modal state
+  const [isIncompleteModalOpen, setIsIncompleteModalOpen] = useState(false);
+  const [missingCategories, setMissingCategories] = useState<BenefitsCategory[]>([]);
+
+  // Sync slide changes to store
+  const goToSlide = useCallback(
+    (target: number) => {
+      const prev = prevSlideIndexRef.current;
+      setDirection(target > prev ? 1 : -1);
+      prevSlideIndexRef.current = target;
+      setSlideIndexLocal(target);
+      setStep3SlideIndex(target);
+
+      // Keep legacy step3SubStep for backward compatibility
+      const legacyMap: Record<number, string> = {
+        0: "step3a",
+        1: "step3b",
+        2: "step3c",
+        3: "step3d",
+      };
+      saveStepDataLocally("step3SubStep", {
+        step3SubStep: legacyMap[target] || "step3a",
+      });
+    },
+    [setStep3SlideIndex, saveStepDataLocally],
+  );
+
+  // Sync from store (e.g., when wizard Next button changes step3SlideIndex)
+  useEffect(() => {
+    if (
+      typeof step3SlideIndex === "number" &&
+      step3SlideIndex !== slideIndex &&
+      step3SlideIndex >= 0 &&
+      step3SlideIndex <= 3
+    ) {
+      const prev = prevSlideIndexRef.current;
+      setDirection(step3SlideIndex > prev ? 1 : -1);
+      prevSlideIndexRef.current = step3SlideIndex;
+      setSlideIndexLocal(step3SlideIndex);
+    }
+  }, [step3SlideIndex, slideIndex]);
+
+  // Fallback: seed advisor contacts from profile
   useEffect(() => {
     if (currentStep !== 3) return;
-    if (contactsForCheck.length > 0) return;
+    if (contacts.length > 0) return;
 
     let cancelled = false;
     (async () => {
@@ -199,94 +170,81 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
         const newKc = { contacts: next };
         const {
           saveStepDataLocally: saveLocal,
-          saveStepDataToServer,
-          saveAsDraft,
+          saveStepDataToServer: saveServer,
+          saveAsDraft: draft,
         } = useNewClientWizardStore.getState();
         saveLocal("keyContacts", newKc);
-        await saveStepDataToServer("keyContacts", newKc);
-        await saveAsDraft();
+        await saveServer("keyContacts", newKc);
+        await draft();
       } catch {
         /* ignore */
       }
     })();
-
     return () => {
       cancelled = true;
     };
-  }, [currentStep, contactsForCheck.length]);
+  }, [currentStep, contacts.length]);
 
-  // Recover from corrupted state (e.g. old bug stored non-string in React state).
-  useEffect(() => {
-    if (typeof currentSubStep !== "string" || !STEP3_SUB_KEYS.has(currentSubStep)) {
-      setCurrentSubStep("step3a");
-      lastPersistedSubStep.current = "step3a";
-    }
-  }, [currentSubStep]);
+  // ==================== Slide Handlers ====================
 
-  useEffect(() => {
-    if (lastPersistedSubStep.current === currentSubStep) {
-      return;
-    }
+  // Slide 0 → Slide 1
+  const handleFirstContactContinue = useCallback(() => {
+    setContactFormCategory("Company / Plan Sponsor");
+    setIsGuidedForm(true);
+    goToSlide(1);
+  }, [goToSlide]);
 
-    lastPersistedSubStep.current = currentSubStep;
-    saveStepDataLocally("step3SubStep", { step3SubStep: currentSubStep });
-  }, [currentSubStep, saveStepDataLocally]);
+  // Slide 1 → Slide 2 (contact saved)
+  const handleContactFormContinue = useCallback(() => {
+    setSelectedCategoryStep3a(null);
+    saveStepDataLocally("step3a", {
+      benefitsCategory: null,
+      otherBenefitsText: "",
+    });
+    goToSlide(2);
+  }, [goToSlide, setSelectedCategoryStep3a, saveStepDataLocally]);
 
-  const keyContactsForDeps = stepData.keyContacts || { contacts: [] };
-  const contactsCountForSync = keyContactsForDeps.contacts?.length ?? 0;
-  const persistedSubStepLabel = extractStep3SubStepLabel(
-    (stepData as any).step3SubStep,
+  // Slide 1 → Slide 0 (Back)
+  const handleContactFormBack = useCallback(() => {
+    goToSlide(0);
+  }, [goToSlide]);
+
+  // Slide 2 → Slide 1 (category selected)
+  const handleCategorySelect = useCallback(
+    (category: BenefitsCategory) => {
+      setContactFormCategory(category);
+      setIsGuidedForm(false);
+      goToSlide(1);
+    },
+    [goToSlide],
   );
 
-  useEffect(() => {
-    if (typeof currentSubStep !== "string" || !STEP3_SUB_KEYS.has(currentSubStep)) {
-      return;
-    }
+  // Slide 2 → Slide 3 (Continue to preview)
+  const handleCategoryContinue = useCallback(() => {
+    goToSlide(3);
+  }, [goToSlide]);
 
-    const keyContactsDataForSync = stepData.keyContacts || { contacts: [] };
-    const contactsForSync = keyContactsDataForSync.contacts || [];
+  // Slide 2 → Slide 0 (Back)
+  const handleCategoryBack = useCallback(() => {
+    goToSlide(0);
+  }, [goToSlide]);
 
-    if (contactsForSync.length === 0) {
-      // With 0 contacts, always show step3a (cards) - step3b form has nothing to edit
-      if (currentSubStep !== "step3a") {
-        setCurrentSubStep("step3a");
-      }
-      return;
-    }
+  // Slide 1 → Slide 2 (Back from category form)
+  const handleContactFormCategoryBack = useCallback(() => {
+    goToSlide(2);
+  }, [goToSlide]);
 
-    const newSubStep = toSyncSubStep(persistedSubStepLabel);
-
-    if (newSubStep !== currentSubStep) {
-      if (newSubStep === "step3c") {
-        // Allow transition to step3c from step3b, step3c (re-sync), or step3d (Previous from Card Layout)
-        if (currentSubStep === "step3b" || currentSubStep === "step3c" || currentSubStep === "step3d") {
-          setCurrentSubStep(newSubStep);
-        }
-        return;
-      }
-
-      setCurrentSubStep(newSubStep);
-    }
-    // Intentionally omit `stepData` / keyContacts object identity — they change every save and caused update loops.
-  }, [currentSubStep, contactsCountForSync, persistedSubStepLabel]);
-
-  // Required categories for Company/Plan Sponsor
-  const requiredCategories: BenefitsCategory[] = [
-    "Retirement",
-    "Group Health",
-    "Group Life",
-    "Other Benefits",
-  ];
-
-  // Check which categories are missing contacts
-  // A contact is considered "filled" if it has at least email or phone
-  const checkMissingCategories = (): BenefitsCategory[] => {
-    const keyContactsData = stepData.keyContacts || { contacts: [] };
-    const contacts = keyContactsData.contacts || [];
-
+  // Check missing categories
+  const checkMissingCategories = useCallback((): BenefitsCategory[] => {
+    const requiredCategories: BenefitsCategory[] = [
+      "Retirement",
+      "Group Health",
+      "Group Life",
+      "Other Benefits",
+    ];
     const filledCategories = new Set<BenefitsCategory>();
+
     contacts.forEach((contact: any) => {
-      // Check if contact has minimum required data (email or phone)
       const hasMinimumData =
         (contact.email && contact.email.trim() !== "") ||
         (contact.phone && contact.phone.trim() !== "");
@@ -305,192 +263,119 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
     });
 
     return requiredCategories.filter((cat) => !filledCategories.has(cat));
-  };
+  }, [contacts]);
 
-  const handleStep3bNext = () => {
-    const keyContactsData = stepData.keyContacts || { contacts: [] };
-    const contacts = keyContactsData.contacts || [];
-    const hasContacts = contacts.length > 0;
+  const handleAddContactForCategory = useCallback(
+    (category: BenefitsCategory) => {
+      setContactFormCategory(category);
+      setIsGuidedForm(false);
+      setIsIncompleteModalOpen(false);
+      goToSlide(1);
+    },
+    [goToSlide],
+  );
 
-    if (hasContacts) {
-      // Clear category selection so no card shows green border/check after creating a contact (Add New Card flow)
-      setSelectedCategoryStep3a(null);
-      const step3aData = (stepData as any).step3a || {};
-      saveStepDataLocally("step3a", { ...step3aData, benefitsCategory: null });
-      const step3cData = (stepData as any).step3c || {};
-      saveStepDataLocally("step3c", { ...step3cData, benefitsCategory: null });
-      // Flag so step3c can force-clear selection on mount (avoids timing issues)
-      saveStepDataLocally("step3SubStep", { step3SubStep: "step3c", fromStep3bJustNow: true });
-      setStep3cMountKey((k) => k + 1); // Remount step3c so it reads cleared store (same as Company flow)
-      setCurrentSubStep("step3c");
-    } else {
-      const missing = checkMissingCategories();
-      if (missing.length > 0) {
-        setMissingCategories(missing);
-        setIsIncompleteModalOpen(true);
-      } else {
-        setCurrentSubStep("step3d");
-      }
-    }
-  };
-
-  const handleFillCategories = () => {
+  const handleSkip = useCallback(() => {
     setIsIncompleteModalOpen(false);
-    if (currentSubStep !== "step3b") {
-      saveStepDataLocally("step3SubStep", { step3SubStep: "step3b" });
-      setCurrentSubStep("step3b");
+    goToSlide(3);
+  }, [goToSlide]);
+
+  // ==================== Render ====================
+
+  const defaultCompanyName = stepData?.companyBasics?.companyName || "";
+  const defaultCompanyLogo = stepData?.companyBasics?.companyLogo?.url || "";
+
+  const slideContent = useMemo(() => {
+    switch (slideIndex) {
+      case 0:
+        return <FirstContactPrompt onContinue={handleFirstContactContinue} />;
+      case 1:
+        return (
+          <ContactFormSlide
+            key={`form-${contactFormCategory}-${isGuidedForm ? "guided" : "free"}`}
+            category={contactFormCategory}
+            defaultCompanyName={defaultCompanyName}
+            defaultCompanyLogo={defaultCompanyLogo}
+            defaultIsPrimary={contactFormCategory === "Company / Plan Sponsor"}
+            onBack={
+              isGuidedForm
+                ? handleContactFormBack
+                : handleContactFormCategoryBack
+            }
+            onContinue={handleContactFormContinue}
+            isGuided={isGuidedForm}
+            errorFields={errorFields}
+          />
+        );
+      case 2:
+        return (
+          <CategoryExplorer
+            onCategorySelect={handleCategorySelect}
+            onBack={handleCategoryBack}
+            onContinue={handleCategoryContinue}
+            onEditMainContact={() => {
+              setContactFormCategory("Company / Plan Sponsor");
+              setIsGuidedForm(false);
+              goToSlide(1);
+            }}
+          />
+        );
+      case 3:
+        return <NewClientStep3d errorFields={errorFields} />;
+      default:
+        return null;
     }
-  };
-
-  // Handle Skip - proceed anyway
-  const handleSkip = () => {
-    setIsIncompleteModalOpen(false);
-    // Update store to move to step3d
-    saveStepDataLocally("step3SubStep", { step3SubStep: "step3d" });
-    setCurrentSubStep("step3d");
-  };
-
-  const handleAddContactForCategory = (category: BenefitsCategory) => {
-    const keyContactsData = stepData.keyContacts || { contacts: [] };
-    const savedContacts = keyContactsData.contacts || [];
-    const defaultCompanyName = stepData?.companyBasics?.companyName || "";
-    const defaultCompanyLogo = stepData?.companyBasics?.companyLogo?.url || "";
-
-    // For Company / Plan Sponsor, get company name and logo from step3c if available
-    let contactCompanyName = defaultCompanyName;
-    let contactCompanyLogo = defaultCompanyLogo || undefined;
-
-    if (category === "Company / Plan Sponsor") {
-      const step3cData = (stepData as any).step3c || {};
-      // If user has set custom company name/logo in step3c, use it
-      if (step3cData.planSponsorCompanyName) {
-        contactCompanyName = step3cData.planSponsorCompanyName;
-      }
-      if (step3cData.planSponsorCompanyLogo) {
-        contactCompanyLogo = step3cData.planSponsorCompanyLogo;
-      }
-    }
-
-    // Create new contact with the selected category
-    const newContact = {
-      id: `contact-${Date.now()}-${Math.random()}`,
-      contactType: "individual" as const,
-      benefitsCategories: [category],
-      role: "HR Generalist" as const,
-      firstName: "",
-      lastName: "",
-      email: "",
-      phone: "",
-      companyName: contactCompanyName,
-      companyLogo: contactCompanyLogo,
-      companyLogoAssetId: undefined,
-      name: "",
-      showOnPortal: true,
-      isPrimary: false,
-      displayScope: "thisPortal" as const,
-      isPrimaryByCategory: undefined,
-      isPrimaryOverall: false,
-      displayEmail: true,
-      displayPhone: true,
-      displayUrl: false,
-      enableContactButton: true,
-      benefitsCategory: category,
-    };
-
-    const updatedContacts = [...savedContacts, newContact];
-    const updatedKeyContacts = {
-      ...keyContactsData,
-      contacts: updatedContacts,
-    };
-
-    saveStepDataLocally("keyContacts", updatedKeyContacts);
-
-    // Clear category selection so the newly created card is not shown as focused when returning to step3a
-    setSelectedCategoryStep3a(null);
-    const step3aData = (stepData as any).step3a || {};
-    saveStepDataLocally("step3a", { ...step3aData, benefitsCategory: null });
-    const step3cData = (stepData as any).step3c || {};
-    saveStepDataLocally("step3c", { ...step3cData, benefitsCategory: null });
-
-    setIsIncompleteModalOpen(false);
-
-    if (currentSubStep !== "step3b") {
-      saveStepDataLocally("step3SubStep", { step3SubStep: "step3b" });
-      setCurrentSubStep("step3b");
-    } else {
-      window.dispatchEvent(
-        new CustomEvent("selectContact", {
-          detail: { contactId: newContact.id },
-        }),
-      );
-    }
-  };
-
-  const keyContactsData = stepData.keyContacts || { contacts: [] };
-  const contacts = keyContactsData.contacts || [];
+  }, [
+    slideIndex,
+    contactFormCategory,
+    isGuidedForm,
+    defaultCompanyName,
+    defaultCompanyLogo,
+    handleFirstContactContinue,
+    handleContactFormContinue,
+    handleContactFormBack,
+    handleContactFormCategoryBack,
+    handleCategorySelect,
+    handleCategoryContinue,
+    handleCategoryBack,
+    errorFields,
+  ]);
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto dark:text-gray-100">
-
-      {currentSubStep === "step3b" && (
-        <NewClientStep3b errorFields={errorFields} onNext={handleStep3bNext} />
+      {contacts.length > 0 && slideIndex === 0 && (
+        <Alert variant="default" className="bg-accent-blue/5 border-accent-blue/20">
+          <Info className="h-4 w-4 text-accent-blue" />
+          <AlertTitle className="text-accent-blue">You already have contacts</AlertTitle>
+          <AlertDescription className="text-gray-600 dark:text-gray-400">
+            {contacts.length} contact{contacts.length !== 1 ? "s" : ""} already added.
+            You can add more or navigate through the slides using the dots above.
+          </AlertDescription>
+        </Alert>
       )}
 
-      {currentSubStep === "step3c" && (
-        <NewClientStep3c
-          key={step3cMountKey}
-          clearSelectionOnMount={(stepData as any).step3SubStep?.fromStep3bJustNow === true}
-          errorFields={errorFields}
-          onNext={async () => {
-            // Clear category selection as soon as user leaves for step3b (Add New Card) so when they return no card is focused
-            setSelectedCategoryStep3a(null);
-            const step3aData = (stepData as any).step3a || {};
-            saveStepDataLocally("step3a", { ...step3aData, benefitsCategory: null });
-            const step3cData = (stepData as any).step3c || {};
-            saveStepDataLocally("step3c", { ...step3cData, benefitsCategory: null });
-            await new Promise((resolve) => setTimeout(resolve, 100));
-            saveStepDataLocally("step3SubStep", { 
-              step3SubStep: "step3b",
-              isCreatingNew: true
-            });
-            setCurrentSubStep("step3b");
-          }}
-          onSkip={handleSkip}
-          onAddContactForCategory={handleAddContactForCategory}
-        />
-      )}
-
-      {currentSubStep === "step3d" && (
-        <NewClientStep3d errorFields={errorFields} onNext={undefined} />
-      )}
-
-      {currentSubStep === "step3a" && (
-        <NewClientStep3a
-          errorFields={errorFields}
-          fromStep3b={(stepData as any).step3SubStep?.fromStep3b === true}
-          onNext={async () => {
-            // Clear category selection as soon as user leaves for step3b (Add New Card) so when they return no card is focused
-            setSelectedCategoryStep3a(null);
-            const step3aData = (stepData as any).step3a || {};
-            saveStepDataLocally("step3a", { ...step3aData, benefitsCategory: null });
-            const step3cData = (stepData as any).step3c || {};
-            saveStepDataLocally("step3c", { ...step3cData, benefitsCategory: null });
-            await new Promise((resolve) => setTimeout(resolve, 100));
-            saveStepDataLocally("step3SubStep", {
-              step3SubStep: "step3b",
-              fromStep3b: false,
-              isCreatingNew: true,
-            });
-            setCurrentSubStep("step3b");
-          }}
-          onCreateContactBeforeNext={() => { }}
-        />
-      )}
+      <SlideContainer
+        currentIndex={slideIndex}
+        totalSlides={4}
+        direction={direction}
+        slides={SLIDES}
+        onDotClick={(index) => {
+          if (index < slideIndex) {
+            goToSlide(index);
+          }
+        }}
+        onBack={slideIndex > 0 ? () => goToSlide(slideIndex - 1) : undefined}
+      >
+        {slideContent}
+      </SlideContainer>
 
       <IncompleteCategoriesModal
         open={isIncompleteModalOpen}
         onOpenChange={setIsIncompleteModalOpen}
-        onFillCategories={handleFillCategories}
+        onFillCategories={() => {
+          setIsIncompleteModalOpen(false);
+          goToSlide(2);
+        }}
         onSkip={handleSkip}
         missingCategories={missingCategories}
         onAddContactForCategory={handleAddContactForCategory}

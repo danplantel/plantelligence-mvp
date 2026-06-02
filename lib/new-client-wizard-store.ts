@@ -169,6 +169,9 @@ export interface NewClientWizardState {
   saveFutureContactToUser: (contact: KeyContact) => Promise<any>;
   selectedCategoryStep3a: string | null;
   setSelectedCategoryStep3a: (category: string | null) => void;
+  /** Current slide index within Step 3 (0=first contact, 1=form, 2=categories, 3=preview). Replaces legacy step3SubStep routing. */
+  step3SlideIndex: number;
+  setStep3SlideIndex: (index: number) => void;
   advisorProfile: any;
   setAdvisorProfile: (profile: any) => void;
   /** Set when save-draft reports duplicate plan name — drives duplicate-name dialog */
@@ -395,6 +398,89 @@ const createSafeStorage = (): any => {
   };
 };
 
+// ==================== Step 3 Slide-Based Next Handler ====================
+
+async function handleStep3NextBySlide(
+  set: (partial: Partial<NewClientWizardState>) => void,
+  get: () => NewClientWizardState,
+): Promise<{ isValid: boolean; errors: any[] }> {
+  const { step3SlideIndex, stepData } = get();
+  const keyContactsData = stepData.keyContacts || { contacts: [] };
+  const contacts = keyContactsData.contacts || [];
+
+  switch (step3SlideIndex) {
+    case 0: {
+      // Slide 0 (First Contact Prompt) → Slide 1 (Contact Form)
+      set({
+        step3SlideIndex: 1,
+        stepData: {
+          ...stepData,
+          step3SubStep: { step3SubStep: "step3b" },
+        },
+      } as any);
+      return { isValid: true, errors: [] };
+    }
+
+    case 1: {
+      // Slide 1 (Contact Form) → Slide 2 (Category Explorer)
+      // Validation is handled by validateNewClientCurrentStepV2
+      if (contacts.length >= 5) {
+        // Jump to preview if 5+ valid contacts
+        set({
+          step3SlideIndex: 3,
+          stepData: {
+            ...stepData,
+            step3SubStep: { step3SubStep: "step3d" },
+          },
+        } as any);
+      } else {
+        set({
+          step3SlideIndex: 2,
+          stepData: {
+            ...stepData,
+            step3SubStep: { step3SubStep: "step3c" },
+          },
+        } as any);
+      }
+      return { isValid: true, errors: [] };
+    }
+
+    case 2: {
+      // Slide 2 (Category Explorer) → Slide 3 (Preview)
+      set({
+        step3SlideIndex: 3,
+        stepData: {
+          ...stepData,
+          step3SubStep: { step3SubStep: "step3d" },
+        },
+      } as any);
+      return { isValid: true, errors: [] };
+    }
+
+    case 3: {
+      // Slide 3 (Preview) → Step 4
+      if (keyContactsData) {
+        try {
+          await get().saveStepDataToServer("keyContacts", keyContactsData);
+          await get().saveAsDraft();
+        } catch (error) {
+          if (isDuplicatePlanNameError(error)) {
+            throw error;
+          }
+          console.error("Failed to save draft when leaving step3d:", error);
+        }
+      }
+      if (get().currentStep < get().totalSteps) {
+        set({ currentStep: get().currentStep + 1 });
+      }
+      return { isValid: true, errors: [] };
+    }
+
+    default:
+      return { isValid: true, errors: [] };
+  }
+}
+
 export const useNewClientWizardStore = create<NewClientWizardState>()(
   persist(
     (set, get) => ({
@@ -449,8 +535,11 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
       setSelectedCategoryStep3a: (category: string | null) =>
         set({ selectedCategoryStep3a: category }),
 
+      step3SlideIndex: 0,
+      setStep3SlideIndex: (index: number) => set({ step3SlideIndex: index }),
+
       nextStep: async () => {
-        const { currentStep, totalSteps, stepData } = get();
+        const { currentStep, totalSteps, stepData, step3SlideIndex } = get();
         const validationResult = await validateNewClientCurrentStepV2(
           currentStep,
           stepData,
@@ -471,6 +560,12 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
         // plan name modal until a second Next click.
 
         if (currentStep === 3 && validationResult.isValid) {
+          // Try new slide-based routing first, fall back to legacy step3SubStep
+          if (typeof step3SlideIndex === "number") {
+            return handleStep3NextBySlide(set, get as any);
+          }
+
+          // Legacy flow (backward compatibility)
           const step3SubStep =
             (stepData as any)?.step3SubStep?.step3SubStep ||
             (stepData as any)?.step3SubStep ||
