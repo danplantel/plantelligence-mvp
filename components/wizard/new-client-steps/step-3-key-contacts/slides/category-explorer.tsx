@@ -220,7 +220,7 @@ export function CategoryExplorer({
               Main Contact
             </span>
           </div>
-          <div className="rounded-lg border-2 border-accent-blue/20 bg-accent-blue/[0.03] overflow-hidden">
+          <div className="rounded-lg border-2 border-accent-blue/20 bg-accent-blue/[0.03] dark:bg-accent-blue/[0.06] overflow-hidden">
             {/* Plan Sponsor contacts */}
             {contacts
               .filter((c: any) => {
@@ -345,7 +345,7 @@ export function CategoryExplorer({
                     ? "bg-accent-blue/5"
                     : isCovered
                       ? "bg-green-50/50 dark:bg-green-900/10"
-                      : "bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750",
+                      : "bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50",
                 )}
               >
                 <div className="flex items-center gap-3 min-w-0">

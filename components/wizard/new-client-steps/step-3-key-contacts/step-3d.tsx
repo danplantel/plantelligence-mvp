@@ -169,16 +169,16 @@ function SortablePreviewCard({
         {...dragHandleListeners}
         className={cn(
           "absolute top-2 left-2 z-10 cursor-grab active:cursor-grabbing",
-          "bg-gray-200 hover:bg-gray-300 rounded-md p-1.5 transition-all shadow-sm",
+          "bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-md p-1.5 transition-all shadow-sm",
           "opacity-70 group-hover:opacity-100",
-          (isDragging || externalIsDragging) && "opacity-100 bg-gray-300",
+          (isDragging || externalIsDragging) && "opacity-100 bg-gray-300 dark:bg-gray-600",
         )}
         style={{
           touchAction: "none",
         }}
         title="Drag to reorder"
       >
-        <GripVertical className="w-4 h-4 text-gray-700" />
+        <GripVertical className="w-4 h-4 text-gray-700 dark:text-gray-300" />
       </div>
       {children}
     </div>
@@ -734,10 +734,10 @@ export function NewClientStep3d({
       description: "1 primary + 4 small vertical (default)",
       preview: (
         <div className="space-y-2">
-          <div className="h-20 bg-gray-200 rounded" />
+          <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded" />
           <div className="grid grid-cols-4 gap-2">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-16 bg-gray-200 rounded" />
+              <div key={i} className="h-16 bg-gray-200 dark:bg-gray-700 rounded" />
             ))}
           </div>
         </div>
@@ -749,10 +749,10 @@ export function NewClientStep3d({
       description: "4 large horizontal cards",
       preview: (
         <div className="grid grid-cols-2 gap-2">
-          <div className="h-20 bg-gray-200 rounded" />
-          <div className="h-20 bg-gray-200 rounded" />
-          <div className="h-20 bg-gray-200 rounded" />
-          <div className="h-20 bg-gray-200 rounded" />
+          <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded" />
+          <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded" />
+          <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded" />
+          <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded" />
         </div>
       ),
     },
@@ -763,7 +763,7 @@ export function NewClientStep3d({
       preview: (
         <div className="grid grid-cols-4 gap-2">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="h-12 bg-gray-200 rounded" />
+            <div key={i} className="h-12 bg-gray-200 dark:bg-gray-700 rounded" />
           ))}
         </div>
       ),
@@ -775,11 +775,11 @@ export function NewClientStep3d({
         "2 large horizontal (top row) + 3 small vertical (bottom row)",
       preview: (
         <div className="grid grid-cols-6 gap-1.5">
-          <div className="col-span-3 h-16 bg-gray-200 rounded" />
-          <div className="col-span-3 h-16 bg-gray-200 rounded" />
-          <div className="col-span-2 h-12 bg-gray-200 rounded" />
-          <div className="col-span-2 h-12 bg-gray-200 rounded" />
-          <div className="col-span-2 h-12 bg-gray-200 rounded" />
+          <div className="col-span-3 h-16 bg-gray-200 dark:bg-gray-700 rounded" />
+          <div className="col-span-3 h-16 bg-gray-200 dark:bg-gray-700 rounded" />
+          <div className="col-span-2 h-12 bg-gray-200 dark:bg-gray-700 rounded" />
+          <div className="col-span-2 h-12 bg-gray-200 dark:bg-gray-700 rounded" />
+          <div className="col-span-2 h-12 bg-gray-200 dark:bg-gray-700 rounded" />
         </div>
       ),
     },
@@ -958,7 +958,7 @@ export function NewClientStep3d({
           <CardContent className="space-y-4">
             {/* Collapsible Layout Section */}
             {!isLayoutSectionCollapsed && (
-              <div className="space-y-4 pb-6 border-b border-gray-200">
+              <div className="space-y-4 pb-6 border-b border-gray-200 dark:border-gray-700">
                 <div>
                   <h4 className="text-xs font-semibold text-gray-900 mb-2 dark:text-gray-100">
                     Card Layout Style

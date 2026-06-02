@@ -54,7 +54,7 @@ export function FirstContactPrompt({ onContinue }: FirstContactPromptProps) {
         onClick={onContinue}
         className={cn(
           "group rounded-xl w-full max-w-sm mx-auto p-4",
-          "bg-accent-blue-light hover:bg-accent-blue-light/80 transition-all cursor-pointer",
+          "bg-accent-blue-light hover:bg-accent-blue-light/80 dark:bg-accent-blue-dark/30 dark:hover:bg-accent-blue-dark/40 transition-all cursor-pointer",
           "text-left shadow-sm hover:shadow-md",
         )}
       >
@@ -82,7 +82,7 @@ export function FirstContactPrompt({ onContinue }: FirstContactPromptProps) {
             <h3 className="text-sm font-semibold text-accent-blue">
               Company / Plan Sponsor
             </h3>
-            <p className="text-xs text-gray-600">
+            <p className="text-xs text-gray-600 dark:text-gray-400">
               Main point of contact
             </p>
           </div>
