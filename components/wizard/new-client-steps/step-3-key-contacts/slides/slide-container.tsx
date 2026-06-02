@@ -97,48 +97,62 @@ export function SlideContainer({
 
   return (
     <div className={cn("space-y-2", className)}>
-      {/* Progress Dots - with border */}
-      <div className="flex items-center justify-center gap-2 py-2 px-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 mx-auto max-w-md">
+      {/* Text Tabs with Underline — distinct from the circular wizard stepper */}
+      <div className="flex items-stretch justify-center mx-auto max-w-md">
         {slides.map((slide, index) => {
           const isCurrent = index === currentIndex;
           const isPast = index < currentIndex;
           const isClickable = isPast && onDotClick;
 
           return (
-            <button
-              key={slide.id}
-              type="button"
-              disabled={!isClickable}
-              onClick={() => handleDotClick(index)}
-              className="group flex items-center gap-1.5 p-1 -mx-1"
-              aria-label={`Go to ${slide.label}`}
-              aria-current={isCurrent ? "step" : undefined}
-            >
-              <span
+            <div key={slide.id} className="flex items-stretch flex-1">
+              {/* Step label */}
+              <button
+                type="button"
+                disabled={!isClickable}
+                onClick={() => handleDotClick(index)}
                 className={cn(
-                  "block rounded-full transition-all duration-300",
+                  "flex-1 flex flex-col items-center justify-center gap-0.5 py-2 px-1 transition-all duration-200 relative",
                   isCurrent
-                    ? "w-3 h-3 bg-accent-blue shadow-sm shadow-accent-blue/30"
+                    ? "text-accent-blue"
                     : isPast
-                      ? "w-2.5 h-2.5 bg-accent-blue/50 hover:bg-accent-blue/70 cursor-pointer"
-                      : "w-2 h-2 bg-gray-300 dark:bg-gray-600",
+                      ? "text-gray-500 dark:text-gray-400 cursor-pointer hover:text-accent-blue/70"
+                      : "text-gray-300 dark:text-gray-600 cursor-default",
                 )}
-              />
-              <span
-                className={cn(
-                  "text-xs transition-colors duration-300 hidden sm:inline-block",
-                  isCurrent
-                    ? "text-accent-blue font-semibold"
-                    : isPast
-                      ? "text-accent-blue/60"
-                      : "text-gray-400 dark:text-gray-500",
-                )}
+                aria-label={`Go to ${slide.label}`}
+                aria-current={isCurrent ? "step" : undefined}
               >
-                {slide.label}
-              </span>
-            </button>
+                <span className={cn(
+                  "text-[10px] font-semibold uppercase tracking-wider transition-colors duration-200",
+                  isCurrent && "text-accent-blue",
+                )}>
+                  {slide.label}
+                </span>
+              </button>
+
+              {/* Connector line between tabs */}
+              {index < slides.length - 1 && (
+                <div className="flex items-center px-1">
+                  <div className={cn(
+                    "w-1 sm:w-2 h-px transition-colors duration-200",
+                    isPast ? "bg-accent-blue/40" : "bg-gray-200 dark:bg-gray-700",
+                  )} />
+                </div>
+              )}
+            </div>
           );
         })}
+      </div>
+
+      {/* Thin underline indicator */}
+      <div className="relative mx-auto max-w-md h-0.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+        <div
+          className="absolute top-0 left-0 h-full bg-accent-blue rounded-full transition-all duration-300 ease-in-out"
+          style={{
+            width: `${100 / slides.length}%`,
+            transform: `translateX(${currentIndex * 100}%)`,
+          }}
+        />
       </div>
 
       {/* Slide Content */}
