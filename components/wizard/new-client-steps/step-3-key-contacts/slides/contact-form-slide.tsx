@@ -252,32 +252,32 @@ export function ContactFormSlide({
         : category;
 
   return (
-    <div className="flex flex-col items-center space-y-6 py-4">
-      {/* Header */}
-      <div className="text-center space-y-2">
-        <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+    <div className="flex flex-col items-center space-y-4 py-2">
+      {/* Header - compact */}
+      <div className="text-center space-y-1 max-w-lg">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
           {isGuided
             ? "Tell us about your primary contact"
             : `Add a ${categoryLabel} contact`}
         </h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto">
+        <p className="text-xs text-gray-500 dark:text-gray-400">
           {isGuided
-            ? "Fill in the details below. Employees will see this person on their Benefits Team page."
-            : `Enter the contact details for ${categoryLabel}.`}
+            ? "Employees will see this person on their Benefits Team page."
+            : `Enter contact details for ${categoryLabel}.`}
         </p>
       </div>
 
-      {/* Contact Type - Radio List */}
-      <div className="w-full max-w-md space-y-2">
-        <Label className="dark:text-gray-300 font-medium text-base">
+      {/* Contact Type - Radio List (compact) */}
+      <div className="w-full max-w-md space-y-1.5">
+        <Label className="dark:text-gray-300 font-medium text-sm">
           Contact Type
         </Label>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
             onClick={() => setContactType("individual")}
             className={cn(
-              "flex items-center gap-3 p-4 rounded-lg border-2 text-left transition-all",
+              "flex items-center gap-2 p-3 rounded-lg border-2 text-left transition-all",
               contactType === "individual"
                 ? "border-accent-blue bg-accent-blue/5 shadow-sm"
                 : "border-gray-200 bg-white hover:border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500",
@@ -285,21 +285,21 @@ export function ContactFormSlide({
           >
             <div
               className={cn(
-                "w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors",
+                "w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors",
                 contactType === "individual"
                   ? "border-accent-blue"
                   : "border-gray-300 dark:border-gray-500",
               )}
             >
               {contactType === "individual" && (
-                <div className="w-2.5 h-2.5 rounded-full bg-accent-blue" />
+                <div className="w-2 h-2 rounded-full bg-accent-blue" />
               )}
             </div>
             <div className="flex flex-col">
-              <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+              <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">
                 Individual
               </span>
-              <span className="text-xs text-gray-500 dark:text-gray-400">
+              <span className="text-[10px] text-gray-500 dark:text-gray-400">
                 A specific person
               </span>
             </div>
@@ -308,7 +308,7 @@ export function ContactFormSlide({
             type="button"
             onClick={() => setContactType("team_support")}
             className={cn(
-              "flex items-center gap-3 p-4 rounded-lg border-2 text-left transition-all",
+              "flex items-center gap-2 p-3 rounded-lg border-2 text-left transition-all",
               contactType === "team_support"
                 ? "border-accent-blue bg-accent-blue/5 shadow-sm"
                 : "border-gray-200 bg-white hover:border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500",
@@ -316,21 +316,21 @@ export function ContactFormSlide({
           >
             <div
               className={cn(
-                "w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors",
+                "w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors",
                 contactType === "team_support"
                   ? "border-accent-blue"
                   : "border-gray-300 dark:border-gray-500",
               )}
             >
               {contactType === "team_support" && (
-                <div className="w-2.5 h-2.5 rounded-full bg-accent-blue" />
+                <div className="w-2 h-2 rounded-full bg-accent-blue" />
               )}
             </div>
             <div className="flex flex-col">
-              <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+              <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">
                 Team / Support Line
               </span>
-              <span className="text-xs text-gray-500 dark:text-gray-400">
+              <span className="text-[10px] text-gray-500 dark:text-gray-400">
                 A department or group
               </span>
             </div>
@@ -339,13 +339,12 @@ export function ContactFormSlide({
       </div>
 
       {/* Form Fields */}
-      <Card className="w-full max-w-md dark:bg-gray-800 dark:border-gray-700">
-        <CardContent className="pt-6 space-y-4">
+      <Card className="w-full max-w-md dark:bg-gray-800 dark:border-gray-700 shadow-sm">
+        <CardContent className="pt-3 space-y-2.5">
           {contactType === "individual" ? (
             <>
-              {/* First Name */}
-              <div className="space-y-1.5" data-field="firstName">
-                <Label className="dark:text-gray-300">
+              <div className="space-y-1" data-field="firstName">
+                <Label className="dark:text-gray-300 text-xs font-medium">
                   First Name <span className="text-red-500">*</span>
                 </Label>
                 <Input
@@ -353,16 +352,14 @@ export function ContactFormSlide({
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
                   placeholder="e.g. John"
-                  className={cn(hasError("firstName") && "border-red-500")}
+                  className={cn("h-8 text-sm", hasError("firstName") && "border-red-500")}
                 />
                 {hasError("firstName") && (
-                  <p className="text-xs text-red-500">First name is required</p>
+                  <p className="text-[10px] text-red-500">First name is required</p>
                 )}
               </div>
-
-              {/* Last Name */}
-              <div className="space-y-1.5" data-field="lastName">
-                <Label className="dark:text-gray-300">
+              <div className="space-y-1" data-field="lastName">
+                <Label className="dark:text-gray-300 text-xs font-medium">
                   Last Name <span className="text-red-500">*</span>
                 </Label>
                 <Input
@@ -370,52 +367,46 @@ export function ContactFormSlide({
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
                   placeholder="e.g. Smith"
-                  className={cn(hasError("lastName") && "border-red-500")}
+                  className={cn("h-8 text-sm", hasError("lastName") && "border-red-500")}
                 />
                 {hasError("lastName") && (
-                  <p className="text-xs text-red-500">Last name is required</p>
+                  <p className="text-[10px] text-red-500">Last name is required</p>
                 )}
               </div>
-
-              {/* Job Title */}
-              <div className="space-y-1.5" data-field="title">
-                <Label className="dark:text-gray-300">
+              <div className="space-y-1" data-field="title">
+                <Label className="dark:text-gray-300 text-xs font-medium">
                   Job Title <span className="text-red-500">*</span>
                 </Label>
                 <Input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="e.g. HR Director"
-                  className={cn(hasError("title") && "border-red-500")}
+                  className={cn("h-8 text-sm", hasError("title") && "border-red-500")}
                 />
                 {hasError("title") && (
-                  <p className="text-xs text-red-500">Job title is required</p>
+                  <p className="text-[10px] text-red-500">Job title is required</p>
                 )}
               </div>
             </>
           ) : (
-            /* Team Support Fields */
-            <div className="space-y-1.5" data-field="displayName">
-              <Label className="dark:text-gray-300">
+            <div className="space-y-1" data-field="displayName">
+              <Label className="dark:text-gray-300 text-xs font-medium">
                 Team / Department Name <span className="text-red-500">*</span>
               </Label>
               <Input
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 placeholder="e.g. Benefits Support Team"
-                className={cn(hasError("displayName") && "border-red-500")}
+                className={cn("h-8 text-sm", hasError("displayName") && "border-red-500")}
               />
               {hasError("displayName") && (
-                <p className="text-xs text-red-500">
-                  Team name is required
-                </p>
+                <p className="text-[10px] text-red-500">Team name is required</p>
               )}
             </div>
           )}
 
-          {/* Email */}
-          <div className="space-y-1.5" data-field="email">
-            <Label className="dark:text-gray-300">
+          <div className="space-y-1" data-field="email">
+            <Label className="dark:text-gray-300 text-xs font-medium">
               Email <span className="text-red-500">*</span>
             </Label>
             <Input
@@ -423,18 +414,15 @@ export function ContactFormSlide({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="e.g. john@company.com"
-              className={cn(hasError("email") && "border-red-500")}
+              className={cn("h-8 text-sm", hasError("email") && "border-red-500")}
             />
             {hasError("email") && (
-              <p className="text-xs text-red-500">
-                Valid email is required
-              </p>
+              <p className="text-[10px] text-red-500">Valid email is required</p>
             )}
           </div>
 
-          {/* Phone */}
-          <div className="space-y-1.5" data-field="phone">
-            <Label className="dark:text-gray-300">
+          <div className="space-y-1" data-field="phone">
+            <Label className="dark:text-gray-300 text-xs font-medium">
               Phone <span className="text-red-500">*</span>
             </Label>
             <Input
@@ -445,10 +433,10 @@ export function ContactFormSlide({
                 if (digits.length <= 11) setPhone(digits);
               }}
               placeholder="(555) 123-4567"
-              className={cn(hasError("phone") && "border-red-500")}
+              className={cn("h-8 text-sm", hasError("phone") && "border-red-500")}
             />
             {hasError("phone") && (
-              <p className="text-xs text-red-500">Phone number is required</p>
+              <p className="text-[10px] text-red-500">Phone number is required</p>
             )}
           </div>
 

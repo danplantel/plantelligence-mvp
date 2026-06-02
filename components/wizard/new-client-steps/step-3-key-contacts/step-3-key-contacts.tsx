@@ -342,7 +342,7 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
   ]);
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto dark:text-gray-100">
+    <div className="space-y-3 max-w-4xl mx-auto dark:text-gray-100">
       {contacts.length > 0 && slideIndex === 0 && (
         <Alert variant="default" className="bg-accent-blue/5 border-accent-blue/20">
           <Info className="h-4 w-4 text-accent-blue" />

@@ -440,7 +440,7 @@ export function NewClientWizard({
         onOverwrite={resolveDuplicatePlanOverwrite}
         onSaveAsNew={resolveDuplicatePlanSaveAsNew}
       />
-      <div className="mx-10 py-4 min-h-screen dark:bg-gray-900">
+      <div className="mx-10 py-4 dark:bg-gray-900">
         <div ref={contentRef} className="mb-12">
           {children}
         </div>

@@ -96,9 +96,9 @@ export function SlideContainer({
   }, [currentIndex, direction, slides, children]);
 
   return (
-    <div className={cn("space-y-4", className)}>
+    <div className={cn("space-y-2", className)}>
       {/* Progress Dots */}
-      <div className="flex items-center justify-center gap-2 py-2">
+      <div className="flex items-center justify-center gap-2 py-1">
         {slides.map((slide, index) => {
           const isCurrent = index === currentIndex;
           const isPast = index < currentIndex;
@@ -142,7 +142,7 @@ export function SlideContainer({
       </div>
 
       {/* Slide Content */}
-      <div className="relative overflow-hidden min-h-[300px]">{content}</div>
+      <div className="relative overflow-hidden">{content}</div>
     </div>
   );
 }
