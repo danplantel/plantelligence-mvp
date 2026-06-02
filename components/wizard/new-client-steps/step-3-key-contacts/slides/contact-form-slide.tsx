@@ -272,6 +272,16 @@ export function ContactFormSlide({
         ? "Other Benefits"
         : category;
 
+  // Category emoji matching CategoryExplorer
+  const categoryEmoji: Record<string, string> = {
+    Retirement: "🏢",
+    "Group Health": "🛡️",
+    "Group Life": "❤️",
+    "Other Benefits": "🎁",
+    "Company / Plan Sponsor": "👥",
+  };
+  const emoji = categoryEmoji[category] || "🏢";
+
   return (
     <div className="flex flex-col items-center space-y-4 py-2">
       {/* Company Logo above header */}
@@ -285,11 +295,14 @@ export function ContactFormSlide({
 
       {/* Header - compact */}
       <div className="text-center space-y-1 max-w-lg">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-          {isGuided
-            ? "Tell us about your primary contact"
-            : `Add a ${categoryLabel} contact`}
-        </h2>
+        <div className="flex items-center justify-center gap-2">
+          <span className="text-lg">{emoji}</span>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+            {isGuided
+              ? "Tell us about your primary contact"
+              : `Add a ${categoryLabel} contact`}
+          </h2>
+        </div>
         <p className="text-xs text-gray-500 dark:text-gray-400">
           {isGuided
             ? "Employees will see this person on their Benefits Team page."
@@ -371,6 +384,23 @@ export function ContactFormSlide({
       {/* Form Fields */}
       <Card className="w-full max-w-md dark:bg-gray-800 dark:border-gray-700 shadow-sm">
         <CardContent className="pt-3 space-y-2.5">
+          {/* Primary Contact Toggle (top of form) */}
+          <div className="pb-2 border-b border-gray-100 dark:border-gray-700 mb-1">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="is-primary-contact"
+                checked={isPrimary}
+                onCheckedChange={(checked) => setIsPrimary(checked === true)}
+              />
+              <Label
+                htmlFor="is-primary-contact"
+                className="text-xs font-medium cursor-pointer dark:text-gray-300"
+              >
+                Mark as primary contact for{" "}
+                <span className="font-semibold">{categoryLabel}</span>
+              </Label>
+            </div>
+          </div>
           {contactType === "individual" ? (
             <>
               <div className="space-y-1" data-field="firstName">
@@ -484,23 +514,6 @@ export function ContactFormSlide({
             </div>
           )}
 
-          {/* Primary Contact Toggle */}
-          <div className="border-t pt-4 dark:border-gray-700">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="is-primary-contact"
-                checked={isPrimary}
-                onCheckedChange={(checked) => setIsPrimary(checked === true)}
-              />
-              <Label
-                htmlFor="is-primary-contact"
-                className="text-sm font-normal cursor-pointer dark:text-gray-300"
-              >
-                Mark as primary contact for{" "}
-                <span className="font-medium">{categoryLabel}</span>
-              </Label>
-            </div>
-          </div>
         </CardContent>
       </Card>
 

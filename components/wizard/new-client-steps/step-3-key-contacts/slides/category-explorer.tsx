@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { BenefitsCategory } from "@/types/new-client-wizard";
 import { cn } from "@/lib/utils";
+import { BrandingImage } from "@/components/ui/branding-image";
 import { getContactCountForCategory } from "../components/category-grid";
 
 // ==================== Types ====================
@@ -30,6 +31,8 @@ export interface CategoryExplorerProps {
   onContinue: () => void;
   /** Called when user wants to edit the main contact (Company/Plan Sponsor) */
   onEditMainContact?: () => void;
+  /** Called when user wants to edit a benefit contact */
+  onEditContact?: (category: BenefitsCategory) => void;
 }
 
 // ==================== Constants ====================
@@ -56,6 +59,7 @@ export function CategoryExplorer({
   onBack,
   onContinue,
   onEditMainContact,
+  onEditContact,
 }: CategoryExplorerProps) {
   const { stepData, saveStepDataLocally } = useNewClientWizardStore();
 
@@ -145,6 +149,15 @@ export function CategoryExplorer({
 
   return (
     <div className="flex flex-col items-center space-y-6 py-4">
+      {/* Company Logo above header */}
+      {stepData?.companyBasics?.companyLogo?.url?.trim() && (
+        <BrandingImage
+          src={stepData.companyBasics.companyLogo.url}
+          alt="Company logo"
+          className="w-12 h-12 object-contain mx-auto"
+        />
+      )}
+
       {/* Header */}
       <div className="text-center space-y-2 max-w-2xl">
         <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
@@ -379,16 +392,34 @@ export function CategoryExplorer({
                               </div>
                             </div>
                           </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => handleDeleteContact(contact.id, e)}
-                            className="h-8 w-8 p-0 rounded-full text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex-shrink-0 ml-2"
-                            title={`Delete ${name}`}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
+                          <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                            {onEditContact && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onEditContact(category);
+                                }}
+                                className="h-7 px-1.5 text-xs text-accent-blue hover:text-accent-blue/80 hover:bg-accent-blue/10 rounded-md"
+                                title={`Edit ${name}`}
+                              >
+                                <Pencil className="w-3 h-3 mr-1" />
+                                Edit
+                              </Button>
+                            )}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => handleDeleteContact(contact.id, e)}
+                              className="h-7 w-7 p-0 rounded-full text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                              title={`Delete ${name}`}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
                         </div>
                       );
                     })

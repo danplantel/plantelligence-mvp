@@ -322,6 +322,12 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
             onCategorySelect={handleCategorySelect}
             onBack={handleCategoryBack}
             onContinue={handleCategoryContinue}
+            onEditContact={(category) => {
+              saveStepDataLocally("step3b", {});
+              setContactFormCategory(category);
+              setIsGuidedForm(false);
+              goToSlide(1);
+            }}
             onEditMainContact={() => {
               saveStepDataLocally("step3b", {});
               setContactFormCategory("Company / Plan Sponsor");
