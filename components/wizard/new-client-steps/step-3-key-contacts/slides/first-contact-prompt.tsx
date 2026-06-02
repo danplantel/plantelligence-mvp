@@ -2,7 +2,6 @@
 
 import { useMemo } from "react";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
-import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BrandingImage } from "@/components/ui/branding-image";
@@ -26,7 +25,18 @@ export function FirstContactPrompt({ onContinue }: FirstContactPromptProps) {
 
   return (
     <div className="flex flex-col items-center justify-center text-center space-y-3 py-2">
-      {/* Question - compact, fits above fold */}
+      {/* Company Logo above header */}
+      {companyLogo?.trim() ? (
+        <div className="mb-1">
+          <BrandingImage
+            src={companyLogo}
+            alt={`${displayName} logo`}
+            className="w-16 h-16 object-contain mx-auto"
+          />
+        </div>
+      ) : null}
+
+      {/* Question */}
       <div className="space-y-2 max-w-xl">
         <h2 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-gray-100 leading-tight">
           Who's the main point of contact for{" "}
@@ -38,11 +48,14 @@ export function FirstContactPrompt({ onContinue }: FirstContactPromptProps) {
         </p>
       </div>
 
-      {/* Single Prominent Card - compact */}
-      <div
+      {/* Single Clickable Card — replaces card + separate button */}
+      <button
+        type="button"
+        onClick={onContinue}
         className={cn(
-          "rounded-xl border-2 border-accent-blue bg-accent-blue/5 w-full max-w-xs mx-auto p-4",
-          "shadow-sm",
+          "group rounded-xl w-full max-w-sm mx-auto p-4",
+          "bg-accent-blue-light hover:bg-accent-blue-light/80 transition-all cursor-pointer",
+          "text-left shadow-sm hover:shadow-md",
         )}
       >
         <div className="flex items-center gap-4">
@@ -64,46 +77,25 @@ export function FirstContactPrompt({ onContinue }: FirstContactPromptProps) {
             </svg>
           </div>
 
-          {/* Label + Logo */}
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            <div className="flex flex-col text-left">
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                Company / Plan Sponsor
-              </h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Main point of contact
-              </p>
-            </div>
+          {/* Label */}
+          <div className="flex flex-col flex-1 min-w-0">
+            <h3 className="text-sm font-semibold text-accent-blue">
+              Company / Plan Sponsor
+            </h3>
+            <p className="text-xs text-gray-600">
+              Main point of contact
+            </p>
+          </div>
 
-            {/* Company Logo */}
-            {companyLogo?.trim() ? (
-              <div className="ml-auto flex-shrink-0">
-                <BrandingImage
-                  src={companyLogo}
-                  alt={`${displayName} logo`}
-                  className="w-10 h-10 object-contain"
-                />
-              </div>
-            ) : (
-              <div className="ml-auto flex-shrink-0">
-                <div className="w-10 h-10 rounded-md bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-400 text-[10px]">
-                  No logo
-                </div>
-              </div>
-            )}
+          {/* Right side: Continue → horizontally aligned */}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <span className="text-xs font-semibold text-accent-blue whitespace-nowrap">
+              Continue
+            </span>
+            <ArrowRight className="w-4 h-4 text-accent-blue group-hover:translate-x-1 transition-transform" />
           </div>
         </div>
-      </div>
-
-      {/* CTA */}
-      <Button
-        onClick={onContinue}
-        size="default"
-        className="px-6 text-sm font-semibold rounded-lg shadow-md hover:shadow-lg transition-all"
-      >
-        Continue
-        <ArrowRight className="ml-2 w-4 h-4" />
-      </Button>
+      </button>
     </div>
   );
 }
