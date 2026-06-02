@@ -131,15 +131,22 @@ export function ContactFormSlide({
   ]);
 
   // Build contact object and save to keyContacts
+  // Updates existing contact for the same category to prevent duplicates
   const saveContact = useCallback(
     (): string => {
       const keyContactsData = stepData.keyContacts || { contacts: [] };
       const savedContacts = keyContactsData.contacts || [];
 
-      const newContact = {
-        id: `contact-${Date.now()}-${Math.random()}`,
+      // Check if a contact already exists for this category
+      const existingIndex = savedContacts.findIndex((c: any) => {
+        const cats = c.benefitsCategories || (c.benefitsCategory ? [c.benefitsCategory] : []);
+        return cats.includes(category);
+      });
+
+      const contactPayload = {
         contactType,
         benefitsCategories: [category],
+        benefitsCategory: category,
         firstName: contactType === "individual" ? firstName : undefined,
         lastName: contactType === "individual" ? lastName : undefined,
         title: contactType === "individual" ? title : undefined,
@@ -166,14 +173,27 @@ export function ContactFormSlide({
         displayPhone: true,
         displayUrl: false,
         enableContactButton: true,
-        benefitsCategory: category,
       };
 
-      const updatedContacts = [...savedContacts, newContact];
-      const updatedKeyContacts = { ...keyContactsData, contacts: updatedContacts };
+      let updatedContacts: any[];
 
+      if (existingIndex !== -1) {
+        // Update existing contact instead of creating a duplicate
+        updatedContacts = savedContacts.map((c: any, idx: number) =>
+          idx === existingIndex ? { ...c, ...contactPayload } : c,
+        );
+      } else {
+        // Create new contact
+        const newContact = {
+          id: `contact-${Date.now()}-${Math.random()}`,
+          ...contactPayload,
+        };
+        updatedContacts = [...savedContacts, newContact];
+      }
+
+      const updatedKeyContacts = { ...keyContactsData, contacts: updatedContacts };
       saveStepDataLocally("keyContacts", updatedKeyContacts);
-      return newContact.id;
+      return existingIndex !== -1 ? savedContacts[existingIndex].id : `contact-${Date.now()}-${Math.random()}`;
     },
     [
       stepData.keyContacts,

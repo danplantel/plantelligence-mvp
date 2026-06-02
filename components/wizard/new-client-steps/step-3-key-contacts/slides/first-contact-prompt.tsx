@@ -44,7 +44,7 @@ export function FirstContactPrompt({ onContinue }: FirstContactPromptProps) {
           's benefits plan?
         </h2>
         <p className="py-4 text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto">
-          Start by adding your Company / Plan Sponsor contact.
+          Start by adding your Company / Plan Sponsor contact. This is normally an HR manager, benefits coordinator, or someone in a similar role who oversees employee benefits.
         </p>
       </div>
 

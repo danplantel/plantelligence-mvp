@@ -10,8 +10,6 @@ import { NewClientStep3d } from "./step-3d";
 import { IncompleteCategoriesModal } from "./components/incomplete-categories-modal";
 import { BenefitsCategory } from "@/types/new-client-wizard";
 import { mergeOnboardingAdvisorContactsIntoKeyContacts } from "@/lib/seed-onboarding-advisor-contacts";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Info } from "lucide-react";
 
 // ==================== Types ====================
 
@@ -87,6 +85,9 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
     return computeInitialSlide(contacts);
   }, []);
 
+  // Track whether the initial advisor seed has been attempted (prevents re-seeding after manual deletion)
+  const hasSeededAdvisorContacts = useRef(false);
+
   // Local slide state (synced with store)
   const [slideIndex, setSlideIndexLocal] = useState(initialSlide);
   const prevSlideIndexRef = useRef(slideIndex);
@@ -140,9 +141,13 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
   }, [step3SlideIndex, slideIndex]);
 
   // Fallback: seed advisor contacts from profile
+  // Seed advisor contacts only once on initial mount — never re-run after manual deletion
   useEffect(() => {
     if (currentStep !== 3) return;
+    if (hasSeededAdvisorContacts.current) return;
     if (contacts.length > 0) return;
+
+    hasSeededAdvisorContacts.current = true;
 
     let cancelled = false;
     (async () => {
@@ -343,16 +348,6 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
 
   return (
     <div className="space-y-3 max-w-4xl mx-auto dark:text-gray-100">
-      {contacts.length > 0 && slideIndex === 0 && (
-        <Alert variant="default" className="bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800">
-          <Info className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-          <AlertTitle className="text-amber-800 dark:text-amber-300">You already have contacts</AlertTitle>
-          <AlertDescription className="text-amber-700 dark:text-amber-400">
-            {contacts.length} contact{contacts.length !== 1 ? "s" : ""} already added.
-            You can add more or navigate through the slides using the dots above.
-          </AlertDescription>
-        </Alert>
-      )}
 
       <SlideContainer
         currentIndex={slideIndex}
