@@ -344,10 +344,10 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
   return (
     <div className="space-y-3 max-w-4xl mx-auto dark:text-gray-100">
       {contacts.length > 0 && slideIndex === 0 && (
-        <Alert variant="default" className="bg-accent-blue/5 border-accent-blue/20">
-          <Info className="h-4 w-4 text-accent-blue" />
-          <AlertTitle className="text-accent-blue">You already have contacts</AlertTitle>
-          <AlertDescription className="text-gray-600 dark:text-gray-400">
+        <Alert variant="default" className="bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800">
+          <Info className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+          <AlertTitle className="text-amber-800 dark:text-amber-300">You already have contacts</AlertTitle>
+          <AlertDescription className="text-amber-700 dark:text-amber-400">
             {contacts.length} contact{contacts.length !== 1 ? "s" : ""} already added.
             You can add more or navigate through the slides using the dots above.
           </AlertDescription>
