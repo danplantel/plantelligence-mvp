@@ -194,10 +194,11 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
 
   // Slide 0 → Slide 1
   const handleFirstContactContinue = useCallback(() => {
+    saveStepDataLocally("step3b", {});
     setContactFormCategory("Company / Plan Sponsor");
     setIsGuidedForm(true);
     goToSlide(1);
-  }, [goToSlide]);
+  }, [goToSlide, saveStepDataLocally]);
 
   // Slide 1 → Slide 2 (contact saved)
   const handleContactFormContinue = useCallback(() => {
@@ -217,11 +218,13 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
   // Slide 2 → Slide 1 (category selected)
   const handleCategorySelect = useCallback(
     (category: BenefitsCategory) => {
+      // Clear previously saved step3b form data so the form starts fresh
+      saveStepDataLocally("step3b", {});
       setContactFormCategory(category);
       setIsGuidedForm(false);
       goToSlide(1);
     },
-    [goToSlide],
+    [goToSlide, saveStepDataLocally],
   );
 
   // Slide 2 → Slide 3 (Continue to preview)
@@ -272,12 +275,13 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
 
   const handleAddContactForCategory = useCallback(
     (category: BenefitsCategory) => {
+      saveStepDataLocally("step3b", {});
       setContactFormCategory(category);
       setIsGuidedForm(false);
       setIsIncompleteModalOpen(false);
       goToSlide(1);
     },
-    [goToSlide],
+    [goToSlide, saveStepDataLocally],
   );
 
   const handleSkip = useCallback(() => {
@@ -319,6 +323,7 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
             onBack={handleCategoryBack}
             onContinue={handleCategoryContinue}
             onEditMainContact={() => {
+              saveStepDataLocally("step3b", {});
               setContactFormCategory("Company / Plan Sponsor");
               setIsGuidedForm(false);
               goToSlide(1);
