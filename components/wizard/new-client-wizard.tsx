@@ -500,54 +500,12 @@ export function NewClientWizard({
                       onClick={handleNextWithScroll}
                       isLoading={isLoading || isProcessing}
                       loadingText="Saving client data..."
-                      variant={
-                        // Step 3a/3c with multiple contacts: primary if category selected, outline if not
-                        (isStep3aWithMultipleContacts || isStep3cWithMultipleContacts)
-                          ? currentSelectedCategory ? "default" : "outline"
-                          : "default"
-                      }
-                      className={
-                        (isStep3aWithMultipleContacts || isStep3cWithMultipleContacts)
-                          ? currentSelectedCategory ? "bg-accent-blue hover:bg-accent-blue/90" : ""
-                          : "bg-accent-blue dark:bg-accent-blue dark:text-white hover:bg-accent-blue/90"
-                      }
+                      variant="default"
+                      className="bg-accent-blue dark:bg-accent-blue dark:text-white hover:bg-accent-blue/90"
                     >
-                      {(() => {
-                        // Show "Add New Card" for step-3a/3c with multiple contacts
-                        if (isStep3c || isStep3aWithMultipleContacts) {
-                          return needsScroll ? "Scroll to Continue" : "Add New Card";
-                        }
-                        return needsScroll ? "Scroll to Continue" : "Next";
-                      })()}
+                      {needsScroll ? "Scroll to Continue" : "Next"}
                       <ChevronRight className="size-5" />
                     </LoadingButton>
-                  )}
-
-                  {(isStep3c || isStep3aWithMultipleContacts) && (
-                    <Button
-                      variant={currentSelectedCategory ? "outline" : "default"}
-                      size="lg"
-                      onClick={() => {
-                        const { saveStepDataLocally } =
-                          useNewClientWizardStore.getState();
-                        saveStepDataLocally("step3SubStep", {
-                          step3SubStep: "step3d",
-                        });
-                      }}
-                      disabled={isLoading || isProcessing}
-                      className={
-                        (isStep3cWithMultipleContacts || isStep3aWithMultipleContacts)
-                          ? ""
-                          : "text-gray-600 border border-gray-300 bg-gray-50 hover:text-gray-900 font-medium dark:border-gray-600 dark:text-gray-400 dark:bg-gray-700 dark:hover:text-gray-200"
-                      }
-                    >
-                      {(isStep3cWithMultipleContacts || isStep3aWithMultipleContacts)
-                        ? "Continue"
-                        : "skip for now"}
-                      {(isStep3cWithMultipleContacts || isStep3aWithMultipleContacts) && (
-                        <ChevronRight className="size-5 ml-1" />
-                      )}
-                    </Button>
                   )}
                 </div>
               </CardContent>
