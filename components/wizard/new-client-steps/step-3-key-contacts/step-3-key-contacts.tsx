@@ -326,7 +326,7 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
           />
         );
       case 3:
-        return <NewClientStep3d errorFields={errorFields} />;
+        return <NewClientStep3d errorFields={errorFields} onBack={() => goToSlide(2)} />;
       default:
         return null;
     }
@@ -347,7 +347,7 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
   ]);
 
   return (
-    <div className="space-y-3 max-w-4xl mx-auto dark:text-gray-100">
+    <div className="space-y-3 max-w-4xl mx-auto dark:text-gray-100 pb-8">
 
       <SlideContainer
         currentIndex={slideIndex}

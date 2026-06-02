@@ -11,6 +11,7 @@ import {
   Eye,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
   Palette,
 } from "lucide-react";
 import { BenefitsCategory, KeyContact } from "@/types/new-client-wizard";
@@ -42,6 +43,8 @@ import { ContactAvatar } from "@/components/pages/my-benefits-team/contact-avata
 interface NewClientStep3dProps {
   errorFields?: string[];
   onNext?: () => void;
+  /** Called when user clicks Back to return to Category Explorer */
+  onBack?: () => void;
 }
 
 interface LayoutOption {
@@ -260,6 +263,7 @@ function RenderCardBySlot({
 export function NewClientStep3d({
   errorFields = [],
   onNext,
+  onBack,
 }: NewClientStep3dProps) {
   const {
     stepData,
@@ -1034,6 +1038,21 @@ export function NewClientStep3d({
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Back button to return to Category Explorer */}
+      {onBack && (
+        <div className="flex justify-center pt-4 pb-8">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onBack}
+            className="flex items-center gap-2"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Back to Categories
+          </Button>
+        </div>
       )}
     </div>
   );

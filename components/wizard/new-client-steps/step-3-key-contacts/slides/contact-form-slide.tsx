@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft, ArrowRight } from "lucide-react";
+import { BrandingImage } from "@/components/ui/branding-image";
 import { BenefitsCategory, ContactType } from "@/types/new-client-wizard";
 import { cn } from "@/lib/utils";
 
@@ -273,6 +274,15 @@ export function ContactFormSlide({
 
   return (
     <div className="flex flex-col items-center space-y-4 py-2">
+      {/* Company Logo above header */}
+      {defaultCompanyLogo?.trim() && (
+        <BrandingImage
+          src={defaultCompanyLogo}
+          alt="Company logo"
+          className="w-12 h-12 object-contain mx-auto"
+        />
+      )}
+
       {/* Header - compact */}
       <div className="text-center space-y-1 max-w-lg">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
