@@ -16,16 +16,19 @@ import axios, { AxiosError } from "axios";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import GoogleSignInButton from "../google-auth-button";
 import { signIn } from "next-auth/react";
 import { Eye, EyeOff } from "lucide-react";
 import { signupSchema, type SignupFormValues } from "@/lib/form-schema";
+import { toast } from "sonner";
 
 interface ErrorResponse {
   error: string;
 }
 
 export default function UserAuthForm() {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -70,12 +73,11 @@ export default function UserAuthForm() {
         });
 
         if (result?.ok) {
-          // Redirect to onboarding
-          window.location.href = "/new/onboarding";
+          toast.success("Account created successfully");
+          router.push("/new/onboarding");
         } else {
-          // Fallback to signin page if auto signin fails
-          alert("User created successfully, Please login to continue.");
-          window.location.href = "/signin";
+          toast.success("Account created successfully. Please sign in.");
+          router.push("/signin");
         }
       } else {
         throw new Error(response.data.message || "Registration failed");

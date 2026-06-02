@@ -15,16 +15,21 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import axios, { AxiosError } from 'axios';
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { resetPasswordSchema, type ResetPasswordFormValues } from "@/lib/form-schema";
+import { toast } from "sonner";
+import { Eye, EyeOff } from "lucide-react";
 
 interface APIErrorResponse {
   error: string;
 }
 
 export default function ResetPasswordForm() {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const params = useSearchParams();
   const email = params.get('email') ?? "";
@@ -48,7 +53,8 @@ export default function ResetPasswordForm() {
         newPassword: data.password,
       });
       if (response.status === 200) {
-        window.location.href = "/signin"; 
+        toast.success("Password reset successfully. Please sign in.");
+        router.push("/signin");
       } else {
         throw new Error(response.data.message || 'Password reset failed');
       }
@@ -75,12 +81,26 @@ export default function ResetPasswordForm() {
               <FormItem>
                 <FormLabel>New Password</FormLabel>
                 <FormControl>
-                  <Input
-                    type="password"
-                    placeholder="Enter new password"
-                    disabled={loading}
-                    {...field}
-                  />
+                  <div className="relative">
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Enter new password"
+                      disabled={loading}
+                      {...field}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      disabled={loading}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
                 </FormControl>
                 <p className="text-[0.8rem] text-muted-foreground mt-1">
                   Must be at least 8 characters with uppercase, lowercase, number & special character.
@@ -97,12 +117,26 @@ export default function ResetPasswordForm() {
               <FormItem>
                 <FormLabel>Confirm Password</FormLabel>
                 <FormControl>
-                  <Input
-                    type="password"
-                    placeholder="Confirm new password"
-                    disabled={loading}
-                    {...field}
-                  />
+                  <div className="relative">
+                    <Input
+                      type={showConfirmPassword ? "text" : "password"}
+                      placeholder="Confirm new password"
+                      disabled={loading}
+                      {...field}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      disabled={loading}
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
                 </FormControl>
                 <FormMessage />
               </FormItem>
