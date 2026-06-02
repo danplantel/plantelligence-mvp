@@ -43,7 +43,7 @@ export function FirstContactPrompt({ onContinue }: FirstContactPromptProps) {
           <span className="text-accent-blue">{displayName}</span>
           's benefits plan?
         </h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto">
+        <p className="py-4 text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto">
           Start by adding your Company / Plan Sponsor contact.
         </p>
       </div>

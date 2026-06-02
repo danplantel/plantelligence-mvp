@@ -97,8 +97,8 @@ export function SlideContainer({
 
   return (
     <div className={cn("space-y-2", className)}>
-      {/* Progress Dots */}
-      <div className="flex items-center justify-center gap-2 py-1">
+      {/* Progress Dots - with border */}
+      <div className="flex items-center justify-center gap-2 py-2 px-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">
         {slides.map((slide, index) => {
           const isCurrent = index === currentIndex;
           const isPast = index < currentIndex;
