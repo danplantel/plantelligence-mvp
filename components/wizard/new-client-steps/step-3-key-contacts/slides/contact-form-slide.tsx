@@ -258,7 +258,7 @@ function StickyPreviewContainer({ children }: { children: React.ReactNode }) {
     const el = ref.current;
     if (!el) return;
 
-    const threshold = 160; // px from viewport top — start pinning well before the header
+    const threshold = 130; // px from viewport top — start pinning well before the header
 
     const recalc = () => {
       const rect = el.getBoundingClientRect();
