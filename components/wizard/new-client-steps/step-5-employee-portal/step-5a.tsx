@@ -216,7 +216,7 @@ export function NewClientStep5a({
         <div className="space-y-6 max-w-6xl mx-auto">
             <div className="text-center space-y-2">
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Disclaimers</h1>
-                <p className="text-gray-600">
+                <p className="text-muted-foreground">
                     {existingDisclaimers.length > 0
                         ? "Review and manage your disclaimers for this plan"
                         : "Add any necessary disclaimers for your employee portal"}

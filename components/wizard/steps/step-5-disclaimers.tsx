@@ -33,7 +33,7 @@ function DisclaimerCard({ disclaimer, onEdit, onDelete }: DisclaimerCardProps) {
             {[
               ...disclaimer.locations,
               ...(disclaimer.customLocation ? [disclaimer.customLocation] : []),
-            ].join(", ")}
+            ].map((location) => `[${location}]`).join(" ")}
           </span>
         </div>
 
@@ -42,7 +42,7 @@ function DisclaimerCard({ disclaimer, onEdit, onDelete }: DisclaimerCardProps) {
             variant="ghost"
             size="sm"
             onClick={onEdit}
-            className="h-7 px-1.5 text-gray-600 hover:text-accent-blue text-[11px] font-medium dark:text-gray-400 dark:hover:text-accent-blue-light"
+            className="h-7 px-1.5 text-green-600 hover:text-accent-blue text-[11px] font-medium dark:text-green-700 dark:hover:text-green-500"
           >
             <Edit2 className="h-3 w-3 mr-0.5" />
             Edit
@@ -51,14 +51,14 @@ function DisclaimerCard({ disclaimer, onEdit, onDelete }: DisclaimerCardProps) {
             variant="ghost"
             size="sm"
             onClick={onDelete}
-            className="h-7 w-7 p-0 text-gray-500 hover:text-destructive dark:text-gray-400 dark:hover:text-red-400"
+            className="h-7 px-1.5 text-red-600 hover:text-accent-blue text-[11px] font-medium dark:text-red-700 dark:hover:text-red-500"
           >
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>
 
-      <div className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-wrap break-words">
+      <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap break-words">
         {disclaimer.text}
       </div>
     </div>
@@ -343,7 +343,7 @@ export function Step5Disclaimers({
         <>
           {/* Header */}
           <div className="text-left space-y-1">
-            <h2 className="text-lg font-semibold dark:text-gray-100">
+            <h2 className="text-lg font-semibold text-foreground">
               Add Disclaimers <span className="text-red-500">*</span>
             </h2>
             <p className="text-sm text-muted-foreground">
@@ -402,7 +402,7 @@ export function Step5Disclaimers({
         <>
           {/* Header */}
           <div className="text-left space-y-1">
-            <h2 className="text-lg font-semibold dark:text-gray-100">
+            <h2 className="text-lg font-semibold text-foreground">
               Added Disclaimers ({disclaimers.length})
             </h2>
           </div>
