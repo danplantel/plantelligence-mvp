@@ -122,16 +122,6 @@ function ContactCardPreview({
       </div>
 
       <CardContent className="p-5 flex flex-col items-center gap-3">
-        {/* Primary badge */}
-        {isPrimary && (
-          <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 border border-amber-200 dark:border-amber-700">
-            <BadgeCheck className="w-3 h-3 text-amber-600 dark:text-amber-400" />
-            <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-300">
-              Primary Contact
-            </span>
-          </div>
-        )}
-
         {/* Avatar / headshot */}
         <div
           className="w-20 h-20 rounded-full flex items-center justify-center overflow-hidden border-2"
