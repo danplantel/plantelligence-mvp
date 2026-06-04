@@ -440,13 +440,13 @@ export function NewClientWizard({
         onOverwrite={resolveDuplicatePlanOverwrite}
         onSaveAsNew={resolveDuplicatePlanSaveAsNew}
       />
-      <div className="mx-10 py-4 dark:bg-gray-900">
+      <div className="mx-10 py-4">
         <div ref={contentRef} className="mb-12">
           {children}
         </div>
 
         <div
-          className="fixed bottom-0 bg-background border-t z-50 dark:bg-gray-800 dark:border-gray-700"
+          className="fixed bottom-0 bg-background border-t z-50 dark:border-gray-700"
           style={{
             left: "var(--sidebar-width, 0)",
             width: "calc(100% - var(--sidebar-width, 0))",
@@ -454,7 +454,7 @@ export function NewClientWizard({
           }}
         >
           <div className="mx-10">
-            <Card className="shadow-none border-0 dark:bg-gray-800">
+            <Card className="shadow-none border-0">
               <CardContent className="flex justify-between items-center p-4 relative">
                 <LoadingButton
                   variant="outline"

@@ -94,7 +94,7 @@ export function NavItemComponent({
               isActive
                 ? "bg-accent-blue text-white hover:bg-accent-blue hover:text-white"
                 : hasActiveChild
-                  ? "bg-accent-blue-light text-accent-blue hover:bg-accent-blue-light hover:text-accent-blue"
+                  ? "bg-accent-blue-light text-white hover:bg-accent-blue-light hover:text-accent-blue"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
           >

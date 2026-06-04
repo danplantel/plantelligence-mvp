@@ -511,7 +511,7 @@ export function ContactFormSlide({
         <Button
           type="button"
           onClick={handleContinue}
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 bg-accent-blue dark:bg-accent-blue hover:bg-accent-blue/90 text-white"
         >
           {isGuided ? "Save & Continue" : "Save Contact"}
           <ArrowRight className="w-4 h-4" />

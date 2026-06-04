@@ -202,7 +202,7 @@ export function CategoryExplorer({
         <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
           Do employees need different contacts for specific benefits?
         </h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
+        <p className="text-sm text-gray-500 dark:text-gray-100">
           {contacts.length <= 1
             ? "Great start! Click a category below to add a contact."
             : allCategoriesCovered
@@ -220,7 +220,7 @@ export function CategoryExplorer({
               Main Contact
             </span>
           </div>
-          <div className="rounded-lg border-2 border-accent-blue/20 bg-accent-blue/[0.03] dark:bg-accent-blue/[0.06] overflow-hidden">
+          <div className="rounded-lg border-2 border-accent-blue/20 bg-white dark:bg-gray-800 overflow-hidden">
             {/* Plan Sponsor contacts */}
             {contacts
               .filter((c: any) => {
@@ -245,10 +245,10 @@ export function CategoryExplorer({
                         <Building2 className="w-4 h-4 text-accent-blue" />
                       </div>
                       <div className="flex flex-col min-w-0">
-                        <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                           {name}
                         </span>
-                        <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+                        <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
                           {email && (
                             <span className="flex items-center gap-1 truncate">
                               <Mail className="w-3 h-3 flex-shrink-0" />
@@ -525,7 +525,7 @@ export function CategoryExplorer({
         <Button
           type="button"
           onClick={onContinue}
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 bg-accent-blue dark:bg-accent-blue hover:bg-accent-blue/90 text-white"
           disabled={!hasMinimumContacts}
         >
           {allCategoriesCovered ? "Review Team" : "Continue to Preview"}

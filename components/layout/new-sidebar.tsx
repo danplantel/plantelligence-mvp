@@ -92,7 +92,7 @@ const Sidebar = memo(function Sidebar() {
   return (
     <nav
       className={cn(
-        `fixed left-0 top-0 h-screen z-50 bg-[#FDFDFD] dark:bg-[#030303] border-r border-[#efefef] dark:border-[#1c1c1c] transition-all duration-200 ease-in-out flex flex-col`,
+        `fixed left-0 top-0 h-screen z-50 bg-[#FDFDFD] dark:bg-background border-r border-[#efefef] dark:border-[#1c1c1c] transition-all duration-200 ease-in-out flex flex-col`,
         isOpen ? "w-64" : "w-16",
       )}
     >
@@ -100,7 +100,7 @@ const Sidebar = memo(function Sidebar() {
       <button
         onClick={toggleSidebar}
         className={cn(
-          "absolute p-2 bg-white dark:bg-[#030303] border-[#efefef] dark:border-[#1c1c1c] border rounded-full shadow-lg z-30",
+          "absolute p-2 bg-white dark:bg-background border-[#efefef] dark:border-[#1c1c1c] border rounded-full shadow-lg z-30",
           "top-[76px] -right-4 transform -translate-y-1/2",
         )}
         type="button"

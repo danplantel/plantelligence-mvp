@@ -79,7 +79,7 @@ export function UserNav() {
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
-            className="relative flex items-center gap-3 h-12 px-3 rounded-lg hover:bg-gray-100"
+            className="relative flex items-center gap-3 h-12 px-3 rounded-lg hover:bg-accent-blue hover:text-white"
           >
             <Avatar className="w-10 h-10">
               <AvatarImage src={userImage} alt={userName} />
@@ -90,7 +90,7 @@ export function UserNav() {
             <div className="flex flex-col items-start">
               <span className="text-sm font-medium">{userName}</span>
               {userTitle && (
-                <span className="text-xs text-muted-foreground">
+                <span className="text-xs">
                   {userTitle}
                 </span>
               )}
