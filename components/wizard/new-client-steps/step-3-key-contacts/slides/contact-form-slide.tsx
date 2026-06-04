@@ -208,6 +208,52 @@ function ContactCardPreview({
   );
 }
 
+// ==================== Sticky Preview Container ====================
+
+/**
+ * Pins its children to the top of the viewport while the user scrolls past.
+ * Uses transform: translateY() to visually offset the element while it
+ * remains in its natural DOM position — this bypasses all ancestor
+ * overflow / transform / containing-block constraints.
+ */
+function StickyPreviewContainer({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [offsetY, setOffsetY] = useState(0);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const threshold = 32; // px from top of viewport
+
+    const recalc = () => {
+      const rect = el.getBoundingClientRect();
+      // When the element's top scrolls above the threshold, shift it
+      // back down by the deficit so it appears pinned at `threshold` px.
+      if (rect.top < threshold) {
+        setOffsetY(threshold - rect.top);
+      } else {
+        setOffsetY(0);
+      }
+    };
+
+    window.addEventListener("scroll", recalc, { passive: true });
+    recalc();
+
+    return () => window.removeEventListener("scroll", recalc);
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      className="flex flex-col items-center justify-start gap-2 pt-1 will-change-transform"
+      style={{ transform: offsetY > 0 ? `translateY(${offsetY}px)` : undefined }}
+    >
+      {children}
+    </div>
+  );
+}
+
 // ==================== Component ====================
 
 export function ContactFormSlide({
@@ -987,7 +1033,7 @@ export function ContactFormSlide({
         </Card>
 
         {/* Right column: Live Contact Card Preview */}
-        <div className="flex flex-col items-center justify-start gap-2 pt-1">
+        <StickyPreviewContainer>
           <ContactCardPreview
             contactType={contactType}
             firstName={firstName}
@@ -1002,7 +1048,7 @@ export function ContactFormSlide({
             isPrimary={isPrimary}
             category={category}
           />
-        </div>
+        </StickyPreviewContainer>
       </div>
 
       {/* Navigation Buttons */}
