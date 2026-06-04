@@ -8,6 +8,7 @@ import { ContactFormSlide } from "./slides/contact-form-slide";
 import { CategoryExplorer } from "./slides/category-explorer";
 import { NewClientStep3d } from "./step-3d";
 import { IncompleteCategoriesModal } from "./components/incomplete-categories-modal";
+import { cn } from "@/lib/utils";
 import { BenefitsCategory } from "@/types/new-client-wizard";
 import { mergeOnboardingAdvisorContactsIntoKeyContacts } from "@/lib/seed-onboarding-advisor-contacts";
 
@@ -416,7 +417,12 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
   ]);
 
   return (
-    <div className="space-y-3 max-w-4xl mx-auto dark:text-gray-100 pb-8">
+    <div
+      className={cn(
+        "space-y-3 mx-auto dark:text-gray-100 pb-8",
+        slideIndex === 3 ? "max-w-6xl" : "max-w-4xl",
+      )}
+    >
 
       <SlideContainer
         currentIndex={slideIndex}

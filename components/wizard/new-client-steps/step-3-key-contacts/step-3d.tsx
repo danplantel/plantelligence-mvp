@@ -502,6 +502,7 @@ export function NewClientStep3d({
         companyName: contact.companyName || companyName,
         contactType: contact.contactType,
         displayName: contact.displayName,
+        teamImage: contact.teamImage,
         isPrimary: contact.isPrimary || false,
         isPrimaryOverall: contact.isPrimaryOverall || false,
         cardPrimaryColor: contact.cardPrimaryColor,
@@ -1000,13 +1001,13 @@ export function NewClientStep3d({
 
             {/* Preview Content */}
             <div className="bg-[#F8F8F3] rounded-lg p-8 border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
-              <div className="text-center mb-8">
+              <div className="text-center mb-16">
                 <h1
-                  className="text-4xl font-semibold"
+                  className="text-4xl font-semibold text-[var(--heading-color)] dark:text-gray-100"
                   style={{
                     fontFamily: '"DM Serif Display", serif',
-                    color: brandColor,
-                  }}
+                    '--heading-color': brandColor,
+                  } as React.CSSProperties}
                 >
                   My Benefits Team
                 </h1>

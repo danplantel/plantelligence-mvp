@@ -2326,13 +2326,17 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
           };
         }
 
+        // Strip base64 data URLs from keyContacts headshot/teamImage (keep R2 keys, which are small strings).
+        const isBase64 = (v: string) =>
+          typeof v === "string" && v.startsWith("data:image");
         if (cleanedStepData.keyContacts) {
           cleanedStepData.keyContacts = {
             ...cleanedStepData.keyContacts,
             contacts:
               cleanedStepData.keyContacts.contacts?.map((contact: any) => ({
                 ...contact,
-                headshot: "",
+                headshot: isBase64(contact.headshot) ? "" : contact.headshot,
+                teamImage: isBase64(contact.teamImage) ? "" : contact.teamImage,
               })) || [],
           };
         }
