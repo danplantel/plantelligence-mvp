@@ -71,6 +71,9 @@ export function ContactFormSlide({
   const [displayName, setDisplayName] = useState(step3bData.displayName || "");
   const [email, setEmail] = useState(step3bData.email || "");
   const [phone, setPhone] = useState(step3bData.phone || "");
+  const [phoneExtension, setPhoneExtension] = useState(
+    step3bData.phoneExtension || "",
+  );
   const [companyName, setCompanyName] = useState(
     step3bData.companyName || defaultCompanyName || "",
   );
@@ -112,6 +115,7 @@ export function ContactFormSlide({
       setDisplayName(sb.displayName || "");
       setEmail(sb.email || "");
       setPhone(sb.phone || "");
+      setPhoneExtension(sb.phoneExtension || "");
       setCompanyName(sb.companyName || defaultCompanyName || "");
       setIsPrimary(
         category === "Company / Plan Sponsor"
@@ -157,6 +161,7 @@ export function ContactFormSlide({
       displayName,
       email,
       phone,
+      phoneExtension,
       companyName,
       isPrimaryOverall: isPrimary,
     });
@@ -169,6 +174,7 @@ export function ContactFormSlide({
     displayName,
     email,
     phone,
+    phoneExtension,
     companyName,
     isPrimary,
     saveStepDataLocally,
@@ -256,6 +262,7 @@ export function ContactFormSlide({
           displayName: contactType === "team_support" ? displayName : undefined,
           email,
           phone,
+          phoneExtension,
           companyName:
             category === "Company / Plan Sponsor"
               ? companyName || defaultCompanyName
@@ -325,6 +332,7 @@ export function ContactFormSlide({
             displayName: contactType === "team_support" ? displayName : undefined,
             email,
             phone,
+            phoneExtension,
             companyName: companyName || defaultCompanyName,
             companyLogo: defaultCompanyLogo || undefined,
             name:
@@ -388,6 +396,7 @@ export function ContactFormSlide({
         displayName: contactType === "team_support" ? displayName : undefined,
         email,
         phone,
+        phoneExtension,
         companyName:
           category === "Company / Plan Sponsor"
             ? companyName || defaultCompanyName
@@ -426,6 +435,7 @@ export function ContactFormSlide({
       displayName,
       email,
       phone,
+      phoneExtension,
       companyName,
       defaultCompanyName,
       defaultCompanyLogo,
@@ -707,16 +717,35 @@ export function ContactFormSlide({
             <Label className="dark:text-gray-300 text-xs font-medium">
               Phone <span className="text-red-500">*</span>
             </Label>
-            <Input
-              type="tel"
-              value={phone ? formatPhoneNumber(phone) : ""}
-              onChange={(e) => {
-                const digits = e.target.value.replace(/\D/g, "");
-                if (digits.length <= 11) setPhone(digits);
-              }}
-              placeholder="(555) 123-4567"
-              className={cn("h-8 text-sm", hasError("phone") && "border-red-500")}
-            />
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <Input
+                  type="tel"
+                  value={phone ? formatPhoneNumber(phone) : ""}
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/\D/g, "");
+                    if (digits.length <= 11) setPhone(digits);
+                  }}
+                  placeholder="(555) 123-4567"
+                  className={cn(
+                    "h-8 text-sm",
+                    hasError("phone") && "border-red-500",
+                  )}
+                />
+              </div>
+              <div className="w-20">
+                <Input
+                  type="text"
+                  value={phoneExtension}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, "");
+                    if (val.length <= 8) setPhoneExtension(val);
+                  }}
+                  placeholder="Ext."
+                  className="h-8 text-sm text-center"
+                />
+              </div>
+            </div>
             {hasError("phone") && (
               <p className="text-[10px] text-red-500">Phone number is required</p>
             )}
