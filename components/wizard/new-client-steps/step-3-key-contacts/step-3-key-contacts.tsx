@@ -359,6 +359,8 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
                 email: contact?.email || "",
                 phone: contact?.phone || "",
                 phoneExtension: contact?.phoneExtension || "",
+                headshot: contact?.headshot || "",
+                headshotFileName: contact?.headshotFileName || "",
                 companyName: contact?.companyName || "",
                 isPrimaryOverall: contact?.isPrimaryOverall ?? false,
               });
@@ -381,6 +383,8 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
                 email: existingMainContact?.email || "",
                 phone: existingMainContact?.phone || "",
                 phoneExtension: existingMainContact?.phoneExtension || "",
+                headshot: existingMainContact?.headshot || "",
+                headshotFileName: existingMainContact?.headshotFileName || "",
                 companyName: existingMainContact?.companyName || "",
                 isPrimaryOverall: existingMainContact?.isPrimaryOverall ?? true,
               });

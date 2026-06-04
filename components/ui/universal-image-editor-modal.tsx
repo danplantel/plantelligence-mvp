@@ -1793,7 +1793,9 @@ export function UniversalImageEditorModal({
       inputRef.current?.files?.[0]?.name || fileName || "image.png";
     const extension = exportFormat === "image/png" ? ".png" : ".jpg";
     const newFileName =
-      originalFileName.replace(/\.[^/.]+$/, "") + "_cropped" + extension;
+      (type === "headshot"
+        ? "headshot"
+        : originalFileName.replace(/\.[^/.]+$/, "")) + "_cropped" + extension;
 
     const originalImageWidth = activeObject.width || 1;
     const originalImageHeight = activeObject.height || 1;
@@ -2431,15 +2433,38 @@ export function UniversalImageEditorModal({
       >
         {value ? (
           <div className="w-full space-y-3">
-            <div className="relative grid gap-2 p-2 rounded-xl bg-muted/20 border border-gray-200 md:grid-cols-[60%_40%] md:items-start" style={{ minHeight: "180px" }}>
+            <div
+              className={
+                "relative grid gap-2 p-2 rounded-xl bg-muted/20 border border-gray-200 md:grid-cols-[60%_40%] " +
+                (type === "headshot" ? "md:items-center" : "md:items-start")
+              }
+              style={{ minHeight: type === "headshot" ? "auto" : "180px" }}
+            >
 
               {/* Preview Column */}
-              <div className="flex flex-col space-y-1 md:sticky md:top-0 md:self-start">
-                <div className="relative rounded-xl overflow-hidden border border-gray-200 bg-gray-50 inline-block min-h-[140px] min-w-[100px]">
+              <div
+                className={
+                  "flex flex-col space-y-1 " +
+                  (type === "headshot"
+                    ? "items-center justify-center self-center"
+                    : "md:sticky md:top-0 md:self-start")
+                }
+              >
+                <div
+                  className={
+                    "relative overflow-hidden border border-gray-200 bg-gray-50 inline-block " +
+                    (type === "headshot"
+                      ? "h-[140px] w-[140px] rounded-full"
+                      : "min-h-[140px] min-w-[100px] rounded-xl")
+                  }
+                >
                   <img
                     src={previewSrc}
                     alt={fileName || "Uploaded file"}
-                    className="h-[140px] w-auto object-contain"
+                    className={
+                      "h-full w-full object-cover" +
+                      (type === "headshot" ? " rounded-full" : "")
+                    }
                   />
                 </div>
               </div>
@@ -2447,7 +2472,11 @@ export function UniversalImageEditorModal({
               {/* Controls Column */}
               <div className="flex flex-col gap-2 overflow-y-auto max-h-[200px] pr-1">
                 <p className="text-xs font-bold text-foreground break-words truncate">
-                  {(fileName || `${placeholder} uploaded`).replace(/(\.\w+)$/, "-cropped$1")}
+                  {type === "headshot"
+                    ? fileName
+                      ? fileName.replace(/-cropped\.\w+$/, (m) => m.replace("-cropped", ""))
+                      : "Headshot"
+                    : (fileName || `${placeholder} uploaded`).replace(/(\.\w+)$/, "-cropped$1")}
                 </p>
 
                 <div className="flex flex-col gap-1.5">

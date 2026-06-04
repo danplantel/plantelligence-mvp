@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { BrandingImage } from "@/components/ui/branding-image";
+import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
+import { Headshot } from "@/components/ui/headshot";
 import { BenefitsCategory, ContactType } from "@/types/new-client-wizard";
 import { cn } from "@/lib/utils";
 
@@ -74,6 +76,10 @@ export function ContactFormSlide({
   const [phoneExtension, setPhoneExtension] = useState(
     step3bData.phoneExtension || "",
   );
+  const [headshot, setHeadshot] = useState<string>(step3bData.headshot || "");
+  const [headshotFileName, setHeadshotFileName] = useState<string>(
+    step3bData.headshotFileName || "",
+  );
   const [companyName, setCompanyName] = useState(
     step3bData.companyName || defaultCompanyName || "",
   );
@@ -116,6 +122,8 @@ export function ContactFormSlide({
       setEmail(sb.email || "");
       setPhone(sb.phone || "");
       setPhoneExtension(sb.phoneExtension || "");
+      setHeadshot(sb.headshot || "");
+      setHeadshotFileName(sb.headshotFileName || "");
       setCompanyName(sb.companyName || defaultCompanyName || "");
       setIsPrimary(
         category === "Company / Plan Sponsor"
@@ -162,6 +170,8 @@ export function ContactFormSlide({
       email,
       phone,
       phoneExtension,
+      headshot,
+      headshotFileName,
       companyName,
       isPrimaryOverall: isPrimary,
     });
@@ -175,6 +185,8 @@ export function ContactFormSlide({
     email,
     phone,
     phoneExtension,
+    headshot,
+    headshotFileName,
     companyName,
     isPrimary,
     saveStepDataLocally,
@@ -263,6 +275,9 @@ export function ContactFormSlide({
           email,
           phone,
           phoneExtension,
+          headshot: contactType === "individual" ? headshot || undefined : undefined,
+          headshotFileName:
+            contactType === "individual" ? headshotFileName || undefined : undefined,
           companyName:
             category === "Company / Plan Sponsor"
               ? companyName || defaultCompanyName
@@ -333,6 +348,9 @@ export function ContactFormSlide({
             email,
             phone,
             phoneExtension,
+            headshot: contactType === "individual" ? headshot || undefined : undefined,
+            headshotFileName:
+              contactType === "individual" ? headshotFileName || undefined : undefined,
             companyName: companyName || defaultCompanyName,
             companyLogo: defaultCompanyLogo || undefined,
             name:
@@ -397,6 +415,9 @@ export function ContactFormSlide({
         email,
         phone,
         phoneExtension,
+        headshot: contactType === "individual" ? headshot || undefined : undefined,
+        headshotFileName:
+          contactType === "individual" ? headshotFileName || undefined : undefined,
         companyName:
           category === "Company / Plan Sponsor"
             ? companyName || defaultCompanyName
@@ -436,6 +457,8 @@ export function ContactFormSlide({
       email,
       phone,
       phoneExtension,
+      headshot,
+      headshotFileName,
       companyName,
       defaultCompanyName,
       defaultCompanyLogo,
@@ -750,6 +773,38 @@ export function ContactFormSlide({
               <p className="text-[10px] text-red-500">Phone number is required</p>
             )}
           </div>
+
+          {/* Headshot (optional) - only for Individual contacts */}
+          {contactType === "individual" && (
+            <div className="space-y-1" data-field="headshot">
+              <Label className="dark:text-gray-300 text-xs font-medium">
+                Headshot (optional)
+              </Label>
+              <div className="items-start">
+                <div className="flex-1">
+                  <UniversalImageEditorModal
+                    value={headshot || ""}
+                    fileName={headshotFileName || ""}
+                    onChange={(value, fileName) => {
+                      setHeadshot(value);
+                      setHeadshotFileName(fileName || "");
+                    }}
+                    onRemove={() => {
+                      setHeadshot("");
+                      setHeadshotFileName("");
+                    }}
+                    placeholder="Upload Headshot"
+                    modalTitle="Edit Headshot"
+                    modalDescription="Upload a clear, front-facing photo. Keep the face inside the circle guide for best results."
+                    saveButtonText="Save Headshot"
+                    type="headshot"
+                    autoSizeOnOpen={true}
+                    forceCircularGuidelines={true}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Company Name (for non-Plan-Sponsor categories) */}
           {category !== "Company / Plan Sponsor" && (
