@@ -77,9 +77,28 @@ export function CategoryExplorer({
   const [expandedCategory, setExpandedCategory] =
     useState<BenefitsCategory | null>(null);
 
+  // Check that every benefit category with contacts has a primary contact designated
+  const allCategoriesHavePrimary = useMemo(() => {
+    return BENEFIT_CATEGORIES.every((cat) => {
+      const categoryContacts = contacts.filter((contact: any) => {
+        const contactCats: BenefitsCategory[] =
+          contact.benefitsCategories ||
+          (contact.benefitsCategory ? [contact.benefitsCategory] : []);
+        return contactCats.includes(cat);
+      });
+      if (categoryContacts.length === 0) return true; // no contacts, skip
+      return categoryContacts.some(
+        (c: any) => c.isPrimaryOverall || c.isPrimary,
+      );
+    });
+  }, [contacts]);
+
   const hasMinimumContacts = useMemo(
-    () => companyContactCount > 0 && contacts.length > 0,
-    [companyContactCount, contacts.length],
+    () =>
+      companyContactCount > 0 &&
+      contacts.length > 0 &&
+      allCategoriesHavePrimary,
+    [companyContactCount, contacts.length, allCategoriesHavePrimary],
   );
 
   const getCategoryStatus = useCallback(
@@ -92,6 +111,22 @@ export function CategoryExplorer({
   const allCategoriesCovered = useMemo(
     () => BENEFIT_CATEGORIES.every((cat) => getCategoryStatus(cat) > 0),
     [getCategoryStatus],
+  );
+
+  // Check if a category has a primary contact designated
+  const hasPrimaryForCategory = useCallback(
+    (category: BenefitsCategory) => {
+      return contacts.some((contact: any) => {
+        const contactCats: BenefitsCategory[] =
+          contact.benefitsCategories ||
+          (contact.benefitsCategory ? [contact.benefitsCategory] : []);
+        return (
+          contactCats.includes(category) &&
+          (contact.isPrimaryOverall || contact.isPrimary)
+        );
+      });
+    },
+    [contacts],
   );
 
   // Get contacts for a specific category
@@ -143,14 +178,16 @@ export function CategoryExplorer({
     [contacts, stepData.keyContacts, saveStepDataLocally],
   );
 
-  // Set a contact as primary for its benefit category (one primary per category)
+  // Toggle a contact as primary for its benefit category (one primary per category).
+  // Clicking the star on an already-primary contact un-selects it.
   const handleSetPrimary = useCallback(
     (contactId: string, _category: BenefitsCategory) => {
       if (!contacts.length) return;
       const currentKeyData = stepData.keyContacts || { contacts: [] };
 
-      // Find the contact being promoted to know which categories to scope demotion to
       const promotedContact = contacts.find((c: any) => c.id === contactId);
+      const wasAlreadyPrimary =
+        promotedContact?.isPrimaryOverall || promotedContact?.isPrimary;
       const promotedCategories: BenefitsCategory[] =
         promotedContact?.benefitsCategories ||
         (promotedContact?.benefitsCategory
@@ -159,21 +196,22 @@ export function CategoryExplorer({
 
       const updatedContacts = contacts.map((c: any) => {
         if (c.id === contactId) {
-          // Set this contact as primary
+          // Toggle: if already primary, unset; otherwise promote
           return {
             ...c,
-            isPrimaryOverall: true,
-            isPrimary: true,
+            isPrimaryOverall: !wasAlreadyPrimary,
+            isPrimary: !wasAlreadyPrimary,
           };
         }
-        // Only demote contacts that share a category with the promoted contact
+        // Only demote contacts that share a category with the clicked contact
         const contactCats: BenefitsCategory[] =
           c.benefitsCategories ||
           (c.benefitsCategory ? [c.benefitsCategory] : []);
         const sharesCategory = promotedCategories.some((cat) =>
           contactCats.includes(cat),
         );
-        if (sharesCategory) {
+        if (sharesCategory && !wasAlreadyPrimary) {
+          // If promoting, demote others; if unselecting, leave others alone
           return {
             ...c,
             isPrimaryOverall: false,
@@ -216,7 +254,9 @@ export function CategoryExplorer({
           {contacts.length <= 1
             ? "Great start! Click a category below to add a contact."
             : allCategoriesCovered
-              ? "All benefit categories are covered! Click Continue to review your team."
+              ? !allCategoriesHavePrimary
+                ? "Each category needs a primary contact before continuing."
+                : "All benefit categories are covered! Click Continue to review your team."
               : "Click any category to add or manage contacts."}
         </p>
       </div>
@@ -369,13 +409,17 @@ export function CategoryExplorer({
                     <span
                       className={cn(
                         "text-xs",
-                        isCovered
-                          ? "text-green-600 dark:text-green-400"
-                          : "text-gray-400 dark:text-gray-500",
+                        isCovered && !hasPrimaryForCategory(category)
+                          ? "text-amber-600 dark:text-amber-400"
+                          : isCovered
+                            ? "text-green-600 dark:text-green-400"
+                            : "text-gray-400 dark:text-gray-500",
                       )}
                     >
                       {isCovered
-                        ? `${count} contact${count !== 1 ? "s" : ""}`
+                        ? hasPrimaryForCategory(category)
+                          ? `${count} contact${count !== 1 ? "s" : ""}`
+                          : `${count} contact${count !== 1 ? "s" : ""} — needs primary`
                         : "No contacts yet"}
                     </span>
                   </div>
