@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, ArrowRight, Mail, Phone, BadgeCheck } from "lucide-react";
+import { ArrowLeft, ArrowRight, Mail, Phone, BadgeCheck, Calendar, Globe } from "lucide-react";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { Headshot } from "@/components/ui/headshot";
@@ -80,6 +80,8 @@ interface ContactCardPreviewProps {
   companyName: string;
   isPrimary: boolean;
   category: BenefitsCategory;
+  enableCtaButton?: boolean;
+  ctaType?: "schedule" | "call" | "email" | "contact";
 }
 
 function ContactCardPreview({
@@ -95,6 +97,8 @@ function ContactCardPreview({
   companyName,
   isPrimary,
   category,
+  enableCtaButton = false,
+  ctaType = "schedule",
 }: ContactCardPreviewProps) {
   const resolvedName =
     contactType === "individual"
@@ -199,6 +203,36 @@ function ContactCardPreview({
           )}
         </div>
 
+        {/* CTA Button */}
+        {enableCtaButton && (
+          <div className="w-full pt-1.5">
+            {ctaType === "schedule" && (
+              <span className="inline-flex items-center gap-1.5 w-full justify-center rounded-md bg-accent-blue px-3 py-1.5 text-[10px] font-semibold text-white shadow-sm">
+                <Calendar className="w-3 h-3" />
+                Schedule Appointment
+              </span>
+            )}
+            {ctaType === "call" && (
+              <span className="inline-flex items-center gap-1.5 w-full justify-center rounded-md bg-accent-blue px-3 py-1.5 text-[10px] font-semibold text-white shadow-sm">
+                <Phone className="w-3 h-3" />
+                Call Now
+              </span>
+            )}
+            {ctaType === "email" && (
+              <span className="inline-flex items-center gap-1.5 w-full justify-center rounded-md bg-accent-blue px-3 py-1.5 text-[10px] font-semibold text-white shadow-sm">
+                <Mail className="w-3 h-3" />
+                Send Email
+              </span>
+            )}
+            {ctaType === "contact" && (
+              <span className="inline-flex items-center gap-1.5 w-full justify-center rounded-md bg-accent-blue px-3 py-1.5 text-[10px] font-semibold text-white shadow-sm">
+                <Globe className="w-3 h-3" />
+                Contact Us
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Live update hint */}
         <p className="text-[9px] text-gray-400 dark:text-gray-500 italic text-center mt-0.5">
           Live preview — updates as you type
@@ -298,6 +332,20 @@ export function ContactFormSlide({
     category === "Company / Plan Sponsor" ? true : (step3bData.isPrimaryOverall ?? defaultIsPrimary),
   );
 
+  // CTA state
+  const [enableCtaButton, setEnableCtaButton] = useState(
+    step3bData.enableContactButton ?? false,
+  );
+  const [ctaType, setCtaType] = useState<"schedule" | "call" | "email" | "contact">(
+    step3bData.ctaType || "schedule",
+  );
+  const [schedulingUrl, setSchedulingUrl] = useState(
+    step3bData.schedulingUrl || "",
+  );
+  const [websiteUrl, setWebsiteUrl] = useState(
+    step3bData.websiteUrl || "",
+  );
+
   // Validation state
   const [validationAttempted, setValidationAttempted] = useState(false);
   const [localErrors, setLocalErrors] = useState<string[]>([]);
@@ -341,6 +389,10 @@ export function ContactFormSlide({
           ? true
           : (sb.isPrimaryOverall ?? defaultIsPrimary),
       );
+      setEnableCtaButton(sb.enableContactButton ?? false);
+      setCtaType(sb.ctaType || "schedule");
+      setSchedulingUrl(sb.schedulingUrl || "");
+      setWebsiteUrl(sb.websiteUrl || "");
       setValidationAttempted(false);
       setLocalErrors([]);
     }
@@ -385,6 +437,10 @@ export function ContactFormSlide({
       headshotFileName,
       companyName,
       isPrimaryOverall: isPrimary,
+      enableContactButton: enableCtaButton,
+      ctaType,
+      schedulingUrl,
+      websiteUrl,
     });
   }, [
     contactType,
@@ -400,6 +456,10 @@ export function ContactFormSlide({
     headshotFileName,
     companyName,
     isPrimary,
+    enableCtaButton,
+    ctaType,
+    schedulingUrl,
+    websiteUrl,
     saveStepDataLocally,
   ]);
 
@@ -645,10 +705,16 @@ export function ContactFormSlide({
         isPrimary: shouldBePrimary,
         isPrimaryOverall: shouldBePrimary,
         displayScope: "thisPortal" as const,
-        displayEmail: true,
-        displayPhone: true,
-        displayUrl: false,
-        enableContactButton: true,
+        displayEmail: enableCtaButton ? ctaType === "email" : true,
+        displayPhone: enableCtaButton ? ctaType === "call" : true,
+        displayUrl: enableCtaButton ? ctaType === "contact" : false,
+        displayScheduleAppointment: enableCtaButton ? ctaType === "schedule" : false,
+        enableContactButton: enableCtaButton,
+        contactButtonType: enableCtaButton
+          ? ((ctaType === "schedule" ? "calendar" : ctaType === "call" ? "phone" : ctaType === "email" ? "email" : "url") as "calendar" | "phone" | "email" | "url")
+          : undefined,
+        schedulingUrl: enableCtaButton && ctaType === "schedule" ? schedulingUrl || undefined : undefined,
+        websiteUrl: enableCtaButton && ctaType === "contact" ? websiteUrl || undefined : undefined,
       };
 
       const updatedContacts = [...demotedContacts, newContact];
@@ -674,6 +740,10 @@ export function ContactFormSlide({
       defaultCompanyName,
       defaultCompanyLogo,
       isPrimary,
+      enableCtaButton,
+      ctaType,
+      schedulingUrl,
+      websiteUrl,
       saveStepDataLocally,
     ],
   );
@@ -987,6 +1057,120 @@ export function ContactFormSlide({
               )}
             </div>
 
+            {/* Call-to-Action Button Section */}
+            <div className="border-t border-gray-100 dark:border-gray-700 pt-3 mt-2 space-y-2.5">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="enable-cta-button"
+                  checked={enableCtaButton}
+                  onCheckedChange={(checked) => setEnableCtaButton(checked === true)}
+                />
+                <Label
+                  htmlFor="enable-cta-button"
+                  className="text-xs font-medium cursor-pointer dark:text-gray-300"
+                >
+                  Add a call to action button
+                </Label>
+              </div>
+
+              {enableCtaButton && (
+                <>
+                  {/* CTA Type Radio Group */}
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {(
+                      [
+                        { value: "schedule", label: "Schedule Appt.", icon: Calendar },
+                        { value: "call", label: "Call", icon: Phone },
+                        { value: "email", label: "Email", icon: Mail },
+                        { value: "contact", label: "Contact Form", icon: Globe },
+                      ] as const
+                    ).map((opt) => {
+                      const isActive = ctaType === opt.value;
+                      const Icon = opt.icon;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setCtaType(opt.value)}
+                          className={cn(
+                            "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-left transition-all",
+                            isActive
+                              ? "border-accent-blue bg-accent-blue/5 shadow-sm"
+                              : "border-gray-200 bg-white hover:border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500",
+                          )}
+                        >
+                          <Icon
+                            className={cn(
+                              "w-3.5 h-3.5 flex-shrink-0",
+                              isActive
+                                ? "text-accent-blue"
+                                : "text-gray-400 dark:text-gray-500",
+                            )}
+                          />
+                          <span className="text-[11px] font-medium">
+                            {opt.label}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Conditional input based on type */}
+                  {ctaType === "schedule" && (
+                    <div className="space-y-1">
+                      <Label className="dark:text-gray-300 text-xs font-medium">
+                        Scheduling URL
+                      </Label>
+                      <Input
+                        value={schedulingUrl}
+                        onChange={(e) => setSchedulingUrl(e.target.value)}
+                        placeholder="https://calendly.com/..."
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                  )}
+
+                  {ctaType === "contact" && (
+                    <div className="space-y-1">
+                      <Label className="dark:text-gray-300 text-xs font-medium">
+                        Contact Form URL
+                      </Label>
+                      <Input
+                        value={websiteUrl}
+                        onChange={(e) => setWebsiteUrl(e.target.value)}
+                        placeholder="https://forms.company.com/..."
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                  )}
+
+                  {ctaType === "call" && (
+                    <div className="space-y-1">
+                      <Label className="dark:text-gray-300 text-xs font-medium">
+                        Phone Number
+                      </Label>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 rounded px-2.5 py-1.5">
+                        {phone
+                          ? formatPhoneWithExtension(phone, phoneExtension)
+                          : "Complete the Phone field above first"}
+                      </p>
+                    </div>
+                  )}
+
+                  {ctaType === "email" && (
+                    <div className="space-y-1">
+                      <Label className="dark:text-gray-300 text-xs font-medium">
+                        Email
+                      </Label>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 rounded px-2.5 py-1.5">
+                        {email || "Complete the Email field above first"}
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
             {/* Headshot (optional) - only for Individual contacts */}
             {contactType === "individual" && (
               <div className="space-y-1" data-field="headshot">
@@ -1051,6 +1235,8 @@ export function ContactFormSlide({
             companyName={companyName}
             isPrimary={isPrimary}
             category={category}
+            enableCtaButton={enableCtaButton}
+            ctaType={ctaType}
           />
         </StickyPreviewContainer>
       </div>
