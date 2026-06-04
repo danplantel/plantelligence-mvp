@@ -85,6 +85,10 @@ export function ContactFormSlide({
   // Refs
   const firstNameRef = useRef<HTMLInputElement>(null);
   const lastNameRef = useRef<HTMLInputElement>(null);
+  // Capture editingContactId on mount so auto-save preserves it without reactive deps
+  const editingContactIdRef = useRef<string | null | undefined>(
+    (stepData as any)?.step3b?.editingContactId,
+  );
 
   // Focus first name on mount for guided mode
   useEffect(() => {
@@ -104,7 +108,12 @@ export function ContactFormSlide({
 
   // Auto-save form to store
   useEffect(() => {
+    // Preserve editingContactId captured on mount (e.g. when editing an existing contact)
+    // Using a ref instead of reactive step3bData to avoid infinite save loops
+    const editingContactId = editingContactIdRef.current;
+
     saveStepDataLocally("step3b", {
+      editingContactId: editingContactId || null,
       contactType,
       benefitsCategories: [category],
       benefitsCategory: category,
@@ -132,15 +141,56 @@ export function ContactFormSlide({
   ]);
 
   // Build contact object and save to keyContacts
-  // Always creates a new contact — allows multiple contacts per category
+  // Supports both creating new contacts and editing existing ones
   const saveContact = useCallback(
     (): string => {
       const keyContactsData = stepData.keyContacts || { contacts: [] };
       const savedContacts = keyContactsData.contacts || [];
       const shouldBePrimary = category === "Company / Plan Sponsor" ? true : isPrimary;
 
-      // Guard: if saving a Company / Plan Sponsor contact and one already exists,
-      // update the existing record instead of creating a duplicate
+      // Check if we're editing an existing contact (passed via step3b.editingContactId)
+      const editingContactId = step3bData.editingContactId as string | undefined | null;
+      const existingContact = editingContactId
+        ? savedContacts.find((c: any) => c.id === editingContactId)
+        : null;
+
+      if (existingContact) {
+        // Update the existing contact in-place
+        const updatedContact = {
+          ...existingContact,
+          contactType,
+          firstName: contactType === "individual" ? firstName : undefined,
+          lastName: contactType === "individual" ? lastName : undefined,
+          title: contactType === "individual" ? title : undefined,
+          displayName: contactType === "team_support" ? displayName : undefined,
+          email,
+          phone,
+          companyName:
+            category === "Company / Plan Sponsor"
+              ? companyName || defaultCompanyName
+              : companyName || "",
+          companyLogo:
+            category === "Company / Plan Sponsor"
+              ? defaultCompanyLogo || undefined
+              : undefined,
+          name:
+            contactType === "individual"
+              ? `${firstName} ${lastName}`.trim()
+              : displayName,
+          isPrimary: shouldBePrimary,
+          isPrimaryOverall: shouldBePrimary,
+        };
+
+        const updatedContacts = savedContacts.map((c: any) =>
+          c.id === existingContact.id ? updatedContact : c,
+        );
+        const updatedKeyContacts = { ...keyContactsData, contacts: updatedContacts };
+        saveStepDataLocally("keyContacts", updatedKeyContacts);
+        return existingContact.id;
+      }
+
+      // Guard for non-editing path: if saving a Company / Plan Sponsor contact
+      // and one already exists, update it instead of creating a duplicate
       if (category === "Company / Plan Sponsor") {
         const existingMainContact = savedContacts.find((c: any) => {
           const cats = c.benefitsCategories || (c.benefitsCategory ? [c.benefitsCategory] : []);
@@ -170,7 +220,6 @@ export function ContactFormSlide({
           const updatedContacts = savedContacts.map((c: any) =>
             c.id === existingMainContact.id ? updatedContact : c,
           );
-
           const updatedKeyContacts = { ...keyContactsData, contacts: updatedContacts };
           saveStepDataLocally("keyContacts", updatedKeyContacts);
           return existingMainContact.id;
@@ -226,6 +275,7 @@ export function ContactFormSlide({
     },
     [
       stepData.keyContacts,
+      step3bData,
       contactType,
       category,
       firstName,

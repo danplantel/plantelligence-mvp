@@ -32,8 +32,8 @@ export interface CategoryExplorerProps {
   onContinue: () => void;
   /** Called when user wants to edit the main contact (Company/Plan Sponsor) */
   onEditMainContact?: () => void;
-  /** Called when user wants to edit a benefit contact */
-  onEditContact?: (category: BenefitsCategory) => void;
+  /** Called when user wants to edit a specific benefit contact */
+  onEditContact?: (category: BenefitsCategory, contact?: any) => void;
 }
 
 // ==================== Constants ====================
@@ -467,7 +467,7 @@ export function CategoryExplorer({
                                 size="sm"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  onEditContact(category);
+                                  onEditContact(category, contact);
                                 }}
                                 className="h-7 px-1.5 text-xs text-accent-blue hover:text-accent-blue/80 hover:bg-accent-blue/10 rounded-md"
                                 title={`Edit ${name}`}

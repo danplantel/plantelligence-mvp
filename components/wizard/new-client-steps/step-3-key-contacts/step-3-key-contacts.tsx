@@ -241,6 +241,7 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
     if (existingMainContact) {
       // Main contact already exists: pre-populate step3b with its data and go to edit mode
       saveStepDataLocally("step3b", {
+        editingContactId: existingMainContact.id,
         contactType: existingMainContact.contactType || "individual",
         firstName: existingMainContact.firstName || "",
         lastName: existingMainContact.lastName || "",
@@ -344,8 +345,22 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
             onCategorySelect={handleCategorySelect}
             onBack={handleCategoryBack}
             onContinue={handleCategoryContinue}
-            onEditContact={(category) => {
-              saveStepDataLocally("step3b", {});
+            onEditContact={(category, contact) => {
+              // Pre-populate step3b with the existing contact's data so the form
+              // initialises with its values, and include editingContactId so
+              // saveContact knows to update rather than create a duplicate.
+              saveStepDataLocally("step3b", {
+                editingContactId: contact?.id || null,
+                contactType: contact?.contactType || "individual",
+                firstName: contact?.firstName || "",
+                lastName: contact?.lastName || "",
+                title: contact?.title || "",
+                displayName: contact?.displayName || "",
+                email: contact?.email || "",
+                phone: contact?.phone || "",
+                companyName: contact?.companyName || "",
+                isPrimaryOverall: contact?.isPrimaryOverall ?? false,
+              });
               setContactFormCategory(category);
               setIsGuidedForm(false);
               goToSlide(1);
@@ -356,6 +371,7 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
                 return cats.includes("Company / Plan Sponsor");
               });
               saveStepDataLocally("step3b", {
+                editingContactId: existingMainContact?.id || null,
                 contactType: existingMainContact?.contactType || "individual",
                 firstName: existingMainContact?.firstName || "",
                 lastName: existingMainContact?.lastName || "",
