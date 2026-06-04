@@ -211,28 +211,32 @@ function ContactCardPreview({
 // ==================== Sticky Preview Container ====================
 
 /**
- * Pins its children to the top of the viewport while the user scrolls past.
- * Uses transform: translateY() to visually offset the element while it
- * remains in its natural DOM position — this bypasses all ancestor
- * overflow / transform / containing-block constraints.
+ * Pins its children to the top of the viewport via translateY so the
+ * element stays in its natural DOM position (no horizontal issues) while
+ * bypassing all ancestor overflow / transform / containing-block constraints.
  */
 function StickyPreviewContainer({ children }: { children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const [offsetY, setOffsetY] = useState(0);
+  const offsetYRef = useRef(0);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
 
-    const threshold = 32; // px from top of viewport
+    const threshold = 160; // px from viewport top — start pinning well before the header
 
     const recalc = () => {
       const rect = el.getBoundingClientRect();
-      // When the element's top scrolls above the threshold, shift it
-      // back down by the deficit so it appears pinned at `threshold` px.
-      if (rect.top < threshold) {
-        setOffsetY(threshold - rect.top);
+      // rect.top includes any translateY already applied.
+      // Subtract the current offset to get the natural (untransformed) position.
+      const naturalTop = rect.top - offsetYRef.current;
+      if (naturalTop < threshold) {
+        const newOffset = threshold - naturalTop;
+        offsetYRef.current = newOffset;
+        setOffsetY(newOffset);
       } else {
+        offsetYRef.current = 0;
         setOffsetY(0);
       }
     };
@@ -1032,7 +1036,7 @@ export function ContactFormSlide({
           </CardContent>
         </Card>
 
-        {/* Right column: Live Contact Card Preview */}
+        {/* Right column: Live Contact Card Preview (sticks on scroll) */}
         <StickyPreviewContainer>
           <ContactCardPreview
             contactType={contactType}

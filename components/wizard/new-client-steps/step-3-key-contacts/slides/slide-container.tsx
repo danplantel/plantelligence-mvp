@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useCallback, useMemo } from "react";
+import { ReactNode, useCallback, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -67,6 +67,8 @@ export function SlideContainer({
   onDotClick,
   className,
 }: SlideContainerProps) {
+  const motionRef = useRef<HTMLDivElement>(null);
+
   const handleDotClick = useCallback(
     (index: number) => {
       if (index < currentIndex && onDotClick) {
@@ -80,6 +82,7 @@ export function SlideContainer({
     return (
       <AnimatePresence mode="wait" custom={direction} initial={false}>
         <motion.div
+          ref={motionRef}
           key={slides[currentIndex]?.id ?? currentIndex}
           custom={direction}
           variants={slideVariants}
@@ -88,6 +91,14 @@ export function SlideContainer({
           exit="exit"
           transition={slideTransition}
           className="w-full"
+          onAnimationComplete={() => {
+            // After the slide animation finishes, clear Framer Motion's transform
+            // so it doesn't create a containing block that breaks position:sticky
+            // in descendant components.
+            if (motionRef.current) {
+              motionRef.current.style.transform = "";
+            }
+          }}
         >
           {children}
         </motion.div>
