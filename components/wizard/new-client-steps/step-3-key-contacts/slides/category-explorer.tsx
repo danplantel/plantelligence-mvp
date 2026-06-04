@@ -16,6 +16,7 @@ import {
   Building2,
   Star,
 } from "lucide-react";
+import { Headshot } from "@/components/ui/headshot";
 import { BenefitsCategory } from "@/types/new-client-wizard";
 import { cn } from "@/lib/utils";
 import { BrandingImage } from "@/components/ui/branding-image";
@@ -291,9 +292,15 @@ export function CategoryExplorer({
                     className="flex items-center justify-between px-4 py-3 border-b border-accent-blue/10 last:border-b-0"
                   >
                     <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <div className="w-9 h-9 rounded-full bg-accent-blue/10 flex items-center justify-center flex-shrink-0">
-                        <Building2 className="w-4 h-4 text-accent-blue" />
-                      </div>
+                      {contact.headshot ? (
+                        <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0">
+                          <Headshot src={contact.headshot} alt={name} />
+                        </div>
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-accent-blue/10 flex items-center justify-center flex-shrink-0">
+                          <Building2 className="w-4 h-4 text-accent-blue" />
+                        </div>
+                      )}
                       <div className="flex flex-col min-w-0">
                         <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                           {name}
@@ -469,9 +476,15 @@ export function CategoryExplorer({
                           className="flex items-center justify-between px-4 py-2.5 bg-white dark:bg-gray-800"
                         >
                           <div className="flex items-center gap-3 min-w-0 flex-1">
-                            <div className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
-                              <User className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
-                            </div>
+                            {contact.headshot ? (
+                              <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0">
+                                <Headshot src={contact.headshot} alt={name} />
+                              </div>
+                            ) : (
+                              <div className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                                <User className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
+                              </div>
+                            )}
                             <div className="flex flex-col min-w-0">
                               <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                                 {name}
