@@ -704,7 +704,7 @@ export function NewClientStep4({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="list">List</TabsTrigger>
@@ -884,7 +884,7 @@ export function NewClientStep4({
           )}
         </TabsContent>
 
-        <TabsContent value="upload" className="mt-6">
+        <TabsContent value="upload" className="mt-4">
           <ComplianceDocumentsUpload
             clientId={draftClientId}
             initialDocuments={retirementPlanDocuments}
@@ -904,6 +904,7 @@ export function NewClientStep4({
             showInfoCard={true}
             language={selectedLanguage}
             onLanguageChange={setSelectedLanguage}
+            compact={true}
             secondaryAction={{
               label: isInlineSkipLoading ? "Skipping..." : "Skip for now",
               onClick: handleInlineSkip,
@@ -913,7 +914,7 @@ export function NewClientStep4({
 
           {/* Document Preview with Language Switcher */}
           {retirementPlanDocuments.length > 0 && (
-            <div className="mt-6">
+            <div className="mt-4">
               {/* Language Switcher */}
               {availableLanguages.length > 1 && (
                 <div className="mb-6 flex flex-wrap gap-2">
