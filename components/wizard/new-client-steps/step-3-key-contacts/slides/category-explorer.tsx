@@ -143,18 +143,13 @@ export function CategoryExplorer({
     [contacts, stepData.keyContacts, saveStepDataLocally],
   );
 
-  // Set a contact as primary for its category (only one per category)
+  // Set a contact as primary for the entire plan (only one primary per plan)
   const handleSetPrimary = useCallback(
-    (contactId: string, category: BenefitsCategory) => {
+    (contactId: string, _category: BenefitsCategory) => {
       if (!contacts.length) return;
       const currentKeyData = stepData.keyContacts || { contacts: [] };
 
       const updatedContacts = contacts.map((c: any) => {
-        const contactCategories =
-          c.benefitsCategories ||
-          (c.benefitsCategory ? [c.benefitsCategory] : []);
-        const isInCategory = contactCategories.includes(category);
-
         if (c.id === contactId) {
           // Set this contact as primary
           return {
@@ -162,15 +157,13 @@ export function CategoryExplorer({
             isPrimaryOverall: true,
             isPrimary: true,
           };
-        } else if (isInCategory) {
-          // Remove primary from other contacts in the same category
-          return {
-            ...c,
-            isPrimaryOverall: false,
-            isPrimary: false,
-          };
         }
-        return c;
+        // Demote all other contacts
+        return {
+          ...c,
+          isPrimaryOverall: false,
+          isPrimary: false,
+        };
       });
 
       saveStepDataLocally("keyContacts", {

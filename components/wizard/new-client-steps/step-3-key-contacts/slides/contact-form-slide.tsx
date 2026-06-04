@@ -75,7 +75,7 @@ export function ContactFormSlide({
     step3bData.companyName || defaultCompanyName || "",
   );
   const [isPrimary, setIsPrimary] = useState(
-    step3bData.isPrimaryOverall ?? defaultIsPrimary,
+    category === "Company / Plan Sponsor" ? true : (step3bData.isPrimaryOverall ?? defaultIsPrimary),
   );
 
   // Validation state
@@ -137,6 +137,16 @@ export function ContactFormSlide({
     (): string => {
       const keyContactsData = stepData.keyContacts || { contacts: [] };
       const savedContacts = keyContactsData.contacts || [];
+      const shouldBePrimary = category === "Company / Plan Sponsor" ? true : isPrimary;
+
+      // If this contact is being saved as primary, demote all existing contacts first
+      const demotedContacts = shouldBePrimary
+        ? savedContacts.map((c: any) => ({
+            ...c,
+            isPrimary: false,
+            isPrimaryOverall: false,
+          }))
+        : savedContacts;
 
       const newContact = {
         id: `contact-${Date.now()}-${Math.random()}`,
@@ -162,8 +172,8 @@ export function ContactFormSlide({
             ? `${firstName} ${lastName}`.trim()
             : displayName,
         showOnPortal: true,
-        isPrimary: isPrimary,
-        isPrimaryOverall: isPrimary,
+        isPrimary: shouldBePrimary,
+        isPrimaryOverall: shouldBePrimary,
         displayScope: "thisPortal" as const,
         displayEmail: true,
         displayPhone: true,
@@ -171,7 +181,7 @@ export function ContactFormSlide({
         enableContactButton: true,
       };
 
-      const updatedContacts = [...savedContacts, newContact];
+      const updatedContacts = [...demotedContacts, newContact];
       const updatedKeyContacts = { ...keyContactsData, contacts: updatedContacts };
       saveStepDataLocally("keyContacts", updatedKeyContacts);
       return newContact.id;
@@ -283,7 +293,7 @@ export function ContactFormSlide({
               : `Add a ${categoryLabel} contact`}
           </h2>
         </div>
-        <p className="text-xs text-gray-500 dark:text-gray-400">
+        <p className="text-xs text-gray-500 dark:text-gray-200">
           {isGuided
             ? "Employees will see this person on their Benefits Team page."
             : `Enter contact details for ${categoryLabel}.`}
@@ -364,23 +374,25 @@ export function ContactFormSlide({
       {/* Form Fields */}
       <Card className="w-full max-w-md dark:bg-gray-800 dark:border-gray-700 shadow-sm">
         <CardContent className="pt-3 space-y-2.5">
-          {/* Primary Contact Toggle (top of form) */}
-          <div className="pb-2 border-b border-gray-100 dark:border-gray-700 mb-1">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="is-primary-contact"
-                checked={isPrimary}
-                onCheckedChange={(checked) => setIsPrimary(checked === true)}
-              />
-              <Label
-                htmlFor="is-primary-contact"
-                className="text-xs font-medium cursor-pointer dark:text-gray-300"
-              >
-                Mark as primary contact for{" "}
-                <span className="font-semibold">{categoryLabel}</span>
-              </Label>
+          {/* Primary Contact Toggle (top of form) — hidden for Company / Plan Sponsor since they are always primary */}
+          {category !== "Company / Plan Sponsor" && (
+            <div className="pb-2 border-b border-gray-100 dark:border-gray-700 mb-1">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="is-primary-contact"
+                  checked={isPrimary}
+                  onCheckedChange={(checked) => setIsPrimary(checked === true)}
+                />
+                <Label
+                  htmlFor="is-primary-contact"
+                  className="text-xs font-medium cursor-pointer dark:text-gray-300"
+                >
+                  Mark as primary contact for{" "}
+                  <span className="font-semibold">{categoryLabel}</span>
+                </Label>
+              </div>
             </div>
-          </div>
+          )}
           {contactType === "individual" ? (
             <>
               <div className="space-y-1" data-field="firstName">
