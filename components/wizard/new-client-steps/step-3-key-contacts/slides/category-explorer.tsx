@@ -143,11 +143,19 @@ export function CategoryExplorer({
     [contacts, stepData.keyContacts, saveStepDataLocally],
   );
 
-  // Set a contact as primary for the entire plan (only one primary per plan)
+  // Set a contact as primary for its benefit category (one primary per category)
   const handleSetPrimary = useCallback(
     (contactId: string, _category: BenefitsCategory) => {
       if (!contacts.length) return;
       const currentKeyData = stepData.keyContacts || { contacts: [] };
+
+      // Find the contact being promoted to know which categories to scope demotion to
+      const promotedContact = contacts.find((c: any) => c.id === contactId);
+      const promotedCategories: BenefitsCategory[] =
+        promotedContact?.benefitsCategories ||
+        (promotedContact?.benefitsCategory
+          ? [promotedContact.benefitsCategory]
+          : []);
 
       const updatedContacts = contacts.map((c: any) => {
         if (c.id === contactId) {
@@ -158,12 +166,21 @@ export function CategoryExplorer({
             isPrimary: true,
           };
         }
-        // Demote all other contacts
-        return {
-          ...c,
-          isPrimaryOverall: false,
-          isPrimary: false,
-        };
+        // Only demote contacts that share a category with the promoted contact
+        const contactCats: BenefitsCategory[] =
+          c.benefitsCategories ||
+          (c.benefitsCategory ? [c.benefitsCategory] : []);
+        const sharesCategory = promotedCategories.some((cat) =>
+          contactCats.includes(cat),
+        );
+        if (sharesCategory) {
+          return {
+            ...c,
+            isPrimaryOverall: false,
+            isPrimary: false,
+          };
+        }
+        return c;
       });
 
       saveStepDataLocally("keyContacts", {

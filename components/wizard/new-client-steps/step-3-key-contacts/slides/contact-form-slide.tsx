@@ -90,6 +90,40 @@ export function ContactFormSlide({
     (stepData as any)?.step3b?.editingContactId,
   );
 
+  // When the parent reuses this component instance (same category key) for a
+  // different contact, the ref and all form state must be reset to match the
+  // freshly populated step3b data — otherwise the auto-save effect will
+  // overwrite step3b with stale values from the previous editing session.
+  useEffect(() => {
+    const incomingId = (stepData as any)?.step3b?.editingContactId as
+      | string
+      | null
+      | undefined;
+    if (incomingId !== editingContactIdRef.current) {
+      editingContactIdRef.current = incomingId;
+      // Reset form state to the new step3b data
+      const sb = (stepData as any).step3b || {};
+      setContactType(
+        (sb.contactType as "individual" | "team_support") || "individual",
+      );
+      setFirstName(sb.firstName || "");
+      setLastName(sb.lastName || "");
+      setTitle(sb.title || "");
+      setDisplayName(sb.displayName || "");
+      setEmail(sb.email || "");
+      setPhone(sb.phone || "");
+      setCompanyName(sb.companyName || defaultCompanyName || "");
+      setIsPrimary(
+        category === "Company / Plan Sponsor"
+          ? true
+          : (sb.isPrimaryOverall ?? defaultIsPrimary),
+      );
+      setValidationAttempted(false);
+      setLocalErrors([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [(stepData as any)?.step3b?.editingContactId]);
+
   // Focus first name on mount for guided mode
   useEffect(() => {
     if (isGuided) {
@@ -140,6 +174,63 @@ export function ContactFormSlide({
     saveStepDataLocally,
   ]);
 
+  // When the user checks "Mark as primary", immediately demote other primary
+  // contacts that share the same category — before the user even returns to
+  // the CategoryExplorer. This guarantees only one primary per category at
+  // all times, without waiting for "Save Contact".
+  useEffect(() => {
+    if (!isPrimary || category === "Company / Plan Sponsor") return;
+
+    const keyContactsData = stepData.keyContacts || { contacts: [] };
+    const savedContacts = (keyContactsData.contacts || []) as any[];
+    if (!savedContacts.length) return;
+
+    const editingContactId = editingContactIdRef.current;
+
+    // Determine which categories to scope demotion to
+    const promotedContact = editingContactId
+      ? savedContacts.find((c: any) => c.id === editingContactId)
+      : null;
+    const promotedCats: BenefitsCategory[] =
+      promotedContact?.benefitsCategories ||
+      (promotedContact?.benefitsCategory
+        ? [promotedContact.benefitsCategory]
+        : [category]);
+
+    // Only update if there's actually another primary contact to demote
+    const needsUpdate = savedContacts.some((c: any) => {
+      if (editingContactId && c.id === editingContactId) return false;
+      const contactCats: BenefitsCategory[] =
+        c.benefitsCategories ||
+        (c.benefitsCategory ? [c.benefitsCategory] : []);
+      const sharesCategory = promotedCats.some((cat) =>
+        contactCats.includes(cat),
+      );
+      return sharesCategory && (c.isPrimaryOverall || c.isPrimary);
+    });
+
+    if (!needsUpdate) return;
+
+    const updatedContacts = savedContacts.map((c: any) => {
+      if (editingContactId && c.id === editingContactId) {
+        return { ...c, isPrimaryOverall: true, isPrimary: true };
+      }
+      const contactCats: BenefitsCategory[] =
+        c.benefitsCategories ||
+        (c.benefitsCategory ? [c.benefitsCategory] : []);
+      const sharesCategory = promotedCats.some((cat) =>
+        contactCats.includes(cat),
+      );
+      if (sharesCategory && (c.isPrimaryOverall || c.isPrimary)) {
+        return { ...c, isPrimaryOverall: false, isPrimary: false };
+      }
+      return c;
+    });
+
+    const updatedKeyContacts = { ...keyContactsData, contacts: updatedContacts };
+    saveStepDataLocally("keyContacts", updatedKeyContacts);
+  }, [isPrimary, category, stepData.keyContacts, saveStepDataLocally]);
+
   // Build contact object and save to keyContacts
   // Supports both creating new contacts and editing existing ones
   const saveContact = useCallback(
@@ -181,7 +272,34 @@ export function ContactFormSlide({
           isPrimaryOverall: shouldBePrimary,
         };
 
-        const updatedContacts = savedContacts.map((c: any) =>
+        // If this contact is being saved as primary, demote only contacts that
+        // share a category with the promoted contact (one primary per category)
+        const promotedCats: BenefitsCategory[] =
+          updatedContact.benefitsCategories ||
+          (updatedContact.benefitsCategory
+            ? [updatedContact.benefitsCategory]
+            : [category]);
+
+        const baseContacts = shouldBePrimary
+          ? savedContacts.map((c: any) => {
+              const contactCats: BenefitsCategory[] =
+                c.benefitsCategories ||
+                (c.benefitsCategory ? [c.benefitsCategory] : []);
+              const sharesCategory = promotedCats.some((cat) =>
+                contactCats.includes(cat),
+              );
+              if (sharesCategory) {
+                return {
+                  ...c,
+                  isPrimary: false,
+                  isPrimaryOverall: false,
+                };
+              }
+              return c;
+            })
+          : savedContacts;
+
+        const updatedContacts = baseContacts.map((c: any) =>
           c.id === existingContact.id ? updatedContact : c,
         );
         const updatedKeyContacts = { ...keyContactsData, contacts: updatedContacts };
@@ -217,7 +335,22 @@ export function ContactFormSlide({
             isPrimaryOverall: true,
           };
 
-          const updatedContacts = savedContacts.map((c: any) =>
+          // Demote only contacts in the same category to prevent duplicate primaries
+          const baseContacts = savedContacts.map((c: any) => {
+            const contactCats: BenefitsCategory[] =
+              c.benefitsCategories ||
+              (c.benefitsCategory ? [c.benefitsCategory] : []);
+            if (contactCats.includes("Company / Plan Sponsor")) {
+              return {
+                ...c,
+                isPrimary: false,
+                isPrimaryOverall: false,
+              };
+            }
+            return c;
+          });
+
+          const updatedContacts = baseContacts.map((c: any) =>
             c.id === existingMainContact.id ? updatedContact : c,
           );
           const updatedKeyContacts = { ...keyContactsData, contacts: updatedContacts };
@@ -226,13 +359,22 @@ export function ContactFormSlide({
         }
       }
 
-      // If this contact is being saved as primary, demote all existing contacts first
+      // If this contact is being saved as primary, demote only contacts that share
+      // a category with the new contact (one primary per category)
       const demotedContacts = shouldBePrimary
-        ? savedContacts.map((c: any) => ({
-            ...c,
-            isPrimary: false,
-            isPrimaryOverall: false,
-          }))
+        ? savedContacts.map((c: any) => {
+            const contactCats: BenefitsCategory[] =
+              c.benefitsCategories ||
+              (c.benefitsCategory ? [c.benefitsCategory] : []);
+            if (contactCats.includes(category)) {
+              return {
+                ...c,
+                isPrimary: false,
+                isPrimaryOverall: false,
+              };
+            }
+            return c;
+          })
         : savedContacts;
 
       const newContact = {
