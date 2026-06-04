@@ -232,10 +232,32 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
     goToSlide(3);
   }, [goToSlide]);
 
-  // Slide 2 → Slide 0 (Back)
+  // Slide 2 → Back: skip Slide 0 (creation prompt) if main contact exists, go to edit mode instead
   const handleCategoryBack = useCallback(() => {
-    goToSlide(0);
-  }, [goToSlide]);
+    const existingMainContact = contacts.find((c: any) => {
+      const cats = c.benefitsCategories || (c.benefitsCategory ? [c.benefitsCategory] : []);
+      return cats.includes("Company / Plan Sponsor");
+    });
+    if (existingMainContact) {
+      // Main contact already exists: pre-populate step3b with its data and go to edit mode
+      saveStepDataLocally("step3b", {
+        contactType: existingMainContact.contactType || "individual",
+        firstName: existingMainContact.firstName || "",
+        lastName: existingMainContact.lastName || "",
+        title: existingMainContact.title || "",
+        displayName: existingMainContact.displayName || "",
+        email: existingMainContact.email || "",
+        phone: existingMainContact.phone || "",
+        companyName: existingMainContact.companyName || "",
+        isPrimaryOverall: existingMainContact.isPrimaryOverall ?? true,
+      });
+      setContactFormCategory("Company / Plan Sponsor");
+      setIsGuidedForm(false);
+      goToSlide(1);
+    } else {
+      goToSlide(0);
+    }
+  }, [goToSlide, contacts, saveStepDataLocally]);
 
   // Slide 1 → Slide 2 (Back from category form)
   const handleContactFormCategoryBack = useCallback(() => {
@@ -329,7 +351,21 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
               goToSlide(1);
             }}
             onEditMainContact={() => {
-              saveStepDataLocally("step3b", {});
+              const existingMainContact = contacts.find((c: any) => {
+                const cats = c.benefitsCategories || (c.benefitsCategory ? [c.benefitsCategory] : []);
+                return cats.includes("Company / Plan Sponsor");
+              });
+              saveStepDataLocally("step3b", {
+                contactType: existingMainContact?.contactType || "individual",
+                firstName: existingMainContact?.firstName || "",
+                lastName: existingMainContact?.lastName || "",
+                title: existingMainContact?.title || "",
+                displayName: existingMainContact?.displayName || "",
+                email: existingMainContact?.email || "",
+                phone: existingMainContact?.phone || "",
+                companyName: existingMainContact?.companyName || "",
+                isPrimaryOverall: existingMainContact?.isPrimaryOverall ?? true,
+              });
               setContactFormCategory("Company / Plan Sponsor");
               setIsGuidedForm(false);
               goToSlide(1);

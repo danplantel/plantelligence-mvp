@@ -139,6 +139,44 @@ export function ContactFormSlide({
       const savedContacts = keyContactsData.contacts || [];
       const shouldBePrimary = category === "Company / Plan Sponsor" ? true : isPrimary;
 
+      // Guard: if saving a Company / Plan Sponsor contact and one already exists,
+      // update the existing record instead of creating a duplicate
+      if (category === "Company / Plan Sponsor") {
+        const existingMainContact = savedContacts.find((c: any) => {
+          const cats = c.benefitsCategories || (c.benefitsCategory ? [c.benefitsCategory] : []);
+          return cats.includes("Company / Plan Sponsor");
+        });
+
+        if (existingMainContact) {
+          const updatedContact = {
+            ...existingMainContact,
+            contactType,
+            firstName: contactType === "individual" ? firstName : undefined,
+            lastName: contactType === "individual" ? lastName : undefined,
+            title: contactType === "individual" ? title : undefined,
+            displayName: contactType === "team_support" ? displayName : undefined,
+            email,
+            phone,
+            companyName: companyName || defaultCompanyName,
+            companyLogo: defaultCompanyLogo || undefined,
+            name:
+              contactType === "individual"
+                ? `${firstName} ${lastName}`.trim()
+                : displayName,
+            isPrimary: true,
+            isPrimaryOverall: true,
+          };
+
+          const updatedContacts = savedContacts.map((c: any) =>
+            c.id === existingMainContact.id ? updatedContact : c,
+          );
+
+          const updatedKeyContacts = { ...keyContactsData, contacts: updatedContacts };
+          saveStepDataLocally("keyContacts", updatedKeyContacts);
+          return existingMainContact.id;
+        }
+      }
+
       // If this contact is being saved as primary, demote all existing contacts first
       const demotedContacts = shouldBePrimary
         ? savedContacts.map((c: any) => ({
