@@ -54,15 +54,15 @@ export function FirstContactPrompt({ onContinue }: FirstContactPromptProps) {
         onClick={onContinue}
         className={cn(
           "group rounded-xl w-full max-w-sm mx-auto p-4",
-          "bg-accent-blue-light hover:bg-accent-blue-light/80 dark:bg-accent-blue-dark/30 dark:hover:bg-accent-blue-dark/40 transition-all cursor-pointer",
+          "bg-accent-blue hover:bg-accent-blue-light/80 dark:hover:bg-accent-blue-dark/40 transition-all cursor-pointer",
           "text-left shadow-sm hover:shadow-md",
         )}
       >
         <div className="flex items-center gap-4">
           {/* Icon */}
-          <div className="w-10 h-10 rounded-full bg-accent-blue/10 flex items-center justify-center flex-shrink-0">
+          <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0">
             <svg
-              className="w-5 h-5 text-accent-blue"
+              className="w-5 h-5 text-gray-100"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -79,20 +79,20 @@ export function FirstContactPrompt({ onContinue }: FirstContactPromptProps) {
 
           {/* Label */}
           <div className="flex flex-col flex-1 min-w-0">
-            <h3 className="text-sm font-semibold text-accent-blue">
+            <h3 className="text-sm font-semibold text-white">
               Company / Plan Sponsor
             </h3>
-            <p className="text-xs text-gray-600 dark:text-gray-400">
+            <p className="text-xs text-gray-100">
               Main point of contact
             </p>
           </div>
 
           {/* Right side: Continue → horizontally aligned */}
           <div className="flex items-center gap-1 flex-shrink-0">
-            <span className="text-xs font-semibold text-accent-blue whitespace-nowrap">
+            <span className="text-xs font-semibold text-gray-100 whitespace-nowrap">
               Continue
             </span>
-            <ArrowRight className="w-4 h-4 text-accent-blue group-hover:translate-x-1 transition-transform" />
+            <ArrowRight className="w-4 h-4 text-gray-100 group-hover:translate-x-1 transition-transform" />
           </div>
         </div>
       </button>
