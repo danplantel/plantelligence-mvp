@@ -13,6 +13,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
       theme={theme as ToasterProps["theme"]}
       position="top-right"
       className="toaster group"
+      style={{ top: "4.5rem" }}
       toastOptions={{
         classNames: {
           toast:
