@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Icons } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import type { NavItem } from "@/types";
@@ -73,11 +74,6 @@ export function NavItemComponent({
     }
   }, [isActive, hasActiveChild]);
 
-  const handleNavigate = (href: string) => {
-    if (href === "#") return;
-    onNavigate(href);
-  };
-
   return (
     <div className="space-y-1">
       {item.items ? (
@@ -142,10 +138,10 @@ export function NavItemComponent({
                       : null;
                   const isSubActive = hrefMatches(subItem.href, pathname, search);
 
-                  return (
-                    <button
+                  return subItem.href && subItem.href !== "#" ? (
+                    <Link
                       key={subIndex}
-                      onClick={() => handleNavigate(subItem.href ?? "#")}
+                      href={subItem.href}
                       className={cn(
                         "w-full text-left px-3 py-2 rounded-md transition-colors duration-200 flex items-center gap-3",
                         isSubActive
@@ -155,21 +151,21 @@ export function NavItemComponent({
                     >
                       {SubIcon && <SubIcon className="w-4 h-4" />}
                       <span className="text-sm">{subItem.title}</span>
-                    </button>
-                  );
+                    </Link>
+                  ) : null;
                 })}
               </div>
             </PopoverContent>
           </Popover>
         )
-      ) : (
-        // Leaf items: navigate immediately via onNavigate
-        <button
+      ) : item.href && item.href !== "#" ? (
+        // Leaf items: navigate via Link (renders <a> tag, caught by leave-guard)
+        <Link
+          href={item.href}
           onMouseEnter={onHover}
           onMouseLeave={onLeave}
-          onClick={() => handleNavigate(item.href ?? "#")}
           className={cn(
-            "w-full text-left py-3 rounded-md transition-colors duration-200",
+            "w-full text-left py-3 rounded-md transition-colors duration-200 block",
             isOpen ? "px-4" : "px-0 flex justify-center",
             isActive
               ? "bg-accent-blue text-white hover:bg-accent-blue hover:text-white"
@@ -180,8 +176,8 @@ export function NavItemComponent({
             <Icon className={cn("size-6", isOpen && "mr-3")} />
             {isOpen && <span className="text-sm">{item.title}</span>}
           </div>
-        </button>
-      )}
+        </Link>
+      ) : null}
 
       {/* Submenu */}
       <AnimatePresence>
@@ -201,23 +197,21 @@ export function NavItemComponent({
                     : null;
                 const isSubActive = hrefMatches(subItem.href, pathname, search);
 
-                return (
-                  <button
+                return subItem.href && subItem.href !== "#" ? (
+                  <Link
                     key={subIndex}
-                    onClick={() => handleNavigate(subItem.href ?? "#")}
+                    href={subItem.href}
                     className={cn(
-                      "w-full text-left px-3 py-2 rounded-md transition-colors duration-200",
+                      "w-full text-left px-3 py-2 rounded-md transition-colors duration-200 flex items-center",
                       isSubActive
                         ? "bg-accent-blue text-white hover:bg-accent-blue hover:text-white"
                         : "text-muted-foreground hover:bg-muted hover:text-foreground",
                     )}
                   >
-                    <div className="flex items-center">
-                      {SubIcon && <SubIcon className="w-4 h-4 mr-3" />}
-                      <span className="text-sm">{subItem.title}</span>
-                    </div>
-                  </button>
-                );
+                    {SubIcon && <SubIcon className="w-4 h-4 mr-3" />}
+                    <span className="text-sm">{subItem.title}</span>
+                  </Link>
+                ) : null;
               })}
             </div>
           </motion.div>
