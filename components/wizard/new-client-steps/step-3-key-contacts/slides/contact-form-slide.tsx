@@ -7,12 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, Mail, Phone, BadgeCheck } from "lucide-react";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { Headshot } from "@/components/ui/headshot";
 import { BenefitsCategory, ContactType } from "@/types/new-client-wizard";
 import { cn } from "@/lib/utils";
+import { formatPhoneWithExtension } from "@/lib/phone-utils";
 
 // ==================== Types ====================
 
@@ -46,6 +47,166 @@ const formatPhoneNumber = (value: string): string => {
     return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6)}`;
   return `+${phoneNumber.slice(0, 1)} (${phoneNumber.slice(1, 4)}) ${phoneNumber.slice(4, 7)}-${phoneNumber.slice(7, 11)}`;
 };
+
+/** Compute a two-letter monogram from a contact name */
+const getInitials = (name?: string): string => {
+  if (!name || !name.trim()) return "?";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0][0].toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
+
+/** Derive a light card accent color from the category */
+const categoryAccent: Record<string, string> = {
+  Retirement: "#1F3A60",
+  "Group Health": "#0F766E",
+  "Group Life": "#B91C1C",
+  "Other Benefits": "#7C3AED",
+  "Company / Plan Sponsor": "#1E40AF",
+};
+
+// ==================== Contact Card Preview ====================
+
+interface ContactCardPreviewProps {
+  contactType: "individual" | "team_support";
+  firstName: string;
+  lastName: string;
+  title: string;
+  displayName: string;
+  email: string;
+  phone: string;
+  phoneExtension: string;
+  headshot: string;
+  companyName: string;
+  isPrimary: boolean;
+  category: BenefitsCategory;
+}
+
+function ContactCardPreview({
+  contactType,
+  firstName,
+  lastName,
+  title,
+  displayName,
+  email,
+  phone,
+  phoneExtension,
+  headshot,
+  companyName,
+  isPrimary,
+  category,
+}: ContactCardPreviewProps) {
+  const resolvedName =
+    contactType === "individual"
+      ? `${firstName} ${lastName}`.trim()
+      : displayName || "Team Name";
+  const resolvedTitle =
+    contactType === "individual"
+      ? title || "Job Title"
+      : "Team / Department";
+  const avatarSrc = contactType === "individual" ? headshot || "" : "";
+  const accentColor = categoryAccent[category] || "#1F3A60";
+  const showAvatar = contactType === "individual";
+
+  return (
+    <Card className="w-full max-w-xs overflow-hidden border border-gray-200 dark:border-gray-700 shadow-md rounded-xl bg-white dark:bg-gray-800">
+      {/* Preview badge */}
+      <div className="bg-accent-blue/10 px-3 py-1.5 text-center border-b border-gray-100 dark:border-gray-700">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-accent-blue">
+          Portal Preview
+        </span>
+      </div>
+
+      <CardContent className="p-5 flex flex-col items-center gap-3">
+        {/* Primary badge */}
+        {isPrimary && (
+          <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 border border-amber-200 dark:border-amber-700">
+            <BadgeCheck className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+            <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-300">
+              Primary Contact
+            </span>
+          </div>
+        )}
+
+        {/* Avatar / headshot */}
+        <div
+          className="w-20 h-20 rounded-full flex items-center justify-center overflow-hidden border-2"
+          style={{ borderColor: accentColor }}
+        >
+          {showAvatar && avatarSrc ? (
+            <Headshot src={avatarSrc} alt={resolvedName} monogramName={resolvedName} />
+          ) : (
+            <span
+              className="text-xl font-bold font-dm-serif select-none"
+              style={{ color: accentColor }}
+            >
+              {showAvatar ? getInitials(resolvedName) : "👥"}
+            </span>
+          )}
+        </div>
+
+        {/* Name */}
+        {resolvedName ? (
+          <h3
+            className="text-base font-semibold text-center text-gray-900 dark:text-gray-100 font-dm-serif leading-tight"
+          >
+            {resolvedName}
+          </h3>
+        ) : (
+          <h3 className="text-base font-semibold text-center text-gray-400 dark:text-gray-500 font-dm-serif italic leading-tight">
+            Contact name...
+          </h3>
+        )}
+
+        {/* Title / Department */}
+        <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400 text-center -mt-1">
+          {resolvedTitle}
+        </p>
+
+        {/* Company name */}
+        {companyName && (
+          <p className="text-[10px] text-gray-400 dark:text-gray-500 text-center -mt-1">
+            {companyName}
+          </p>
+        )}
+
+        {/* Divider */}
+        <div className="w-full border-t border-gray-100 dark:border-gray-700 pt-2 space-y-1.5">
+          {/* Email */}
+          {email ? (
+            <div className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-300">
+              <Mail className="w-3 h-3 flex-shrink-0" style={{ color: accentColor }} />
+              <span className="truncate text-gray-500 dark:text-gray-200">{email}</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-[11px] text-gray-400 dark:text-gray-500">
+              <Mail className="w-3 h-3 flex-shrink-0" />
+              <span>email@company.com</span>
+            </div>
+          )}
+
+          {/* Phone */}
+          {phone ? (
+            <div className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-300">
+              <Phone className="w-3 h-3 flex-shrink-0" style={{ color: accentColor }} />
+              <span className="truncate text-gray-500 dark:text-gray-200">{formatPhoneWithExtension(phone, phoneExtension)}</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-[11px] ">
+              <Phone className="w-3 h-3 flex-shrink-0" />
+              <span>(555) 000-0000</span>
+            </div>
+          )}
+        </div>
+
+        {/* Live update hint */}
+        <p className="text-[9px] text-gray-400 dark:text-gray-500 italic text-center mt-0.5">
+          Live preview — updates as you type
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
 
 // ==================== Component ====================
 
@@ -634,194 +795,215 @@ export function ContactFormSlide({
         </div>
       </div>
 
-      {/* Form Fields */}
-      <Card className="w-full max-w-md dark:bg-gray-800 dark:border-gray-700 shadow-sm">
-        <CardContent className="pt-3 space-y-2.5">
-          {/* Primary Contact Toggle (top of form) — hidden for Company / Plan Sponsor since they are always primary */}
-          {category !== "Company / Plan Sponsor" && (
-            <div className="pb-2 border-b border-gray-100 dark:border-gray-700 mb-1">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="is-primary-contact"
-                  checked={isPrimary}
-                  onCheckedChange={(checked) => setIsPrimary(checked === true)}
-                />
-                <Label
-                  htmlFor="is-primary-contact"
-                  className="text-xs font-medium cursor-pointer dark:text-gray-300"
-                >
-                  Mark as primary contact for{" "}
-                  <span className="font-semibold">{categoryLabel}</span>
-                </Label>
+      {/* Form + Preview: side-by-side on large screens */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full max-w-3xl items-start">
+        {/* Left column: Form Fields */}
+        <Card className="w-full dark:bg-gray-800 dark:border-gray-700 shadow-sm">
+          <CardContent className="pt-3 space-y-2.5">
+            {/* Primary Contact Toggle (top of form) — hidden for Company / Plan Sponsor since they are always primary */}
+            {category !== "Company / Plan Sponsor" && (
+              <div className="pb-2 border-b border-gray-100 dark:border-gray-700 mb-1">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="is-primary-contact"
+                    checked={isPrimary}
+                    onCheckedChange={(checked) => setIsPrimary(checked === true)}
+                  />
+                  <Label
+                    htmlFor="is-primary-contact"
+                    className="text-xs font-medium cursor-pointer dark:text-gray-300"
+                  >
+                    Mark as primary contact for{" "}
+                    <span className="font-semibold">{categoryLabel}</span>
+                  </Label>
+                </div>
               </div>
-            </div>
-          )}
-          {contactType === "individual" ? (
-            <>
-              <div className="space-y-1" data-field="firstName">
+            )}
+            {contactType === "individual" ? (
+              <>
+                <div className="space-y-1" data-field="firstName">
+                  <Label className="dark:text-gray-300 text-xs font-medium">
+                    First Name <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    ref={firstNameRef}
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="e.g. John"
+                    className={cn("h-8 text-sm", hasError("firstName") && "border-red-500")}
+                  />
+                  {hasError("firstName") && (
+                    <p className="text-[10px] text-red-500">First name is required</p>
+                  )}
+                </div>
+                <div className="space-y-1" data-field="lastName">
+                  <Label className="dark:text-gray-300 text-xs font-medium">
+                    Last Name <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    ref={lastNameRef}
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="e.g. Smith"
+                    className={cn("h-8 text-sm", hasError("lastName") && "border-red-500")}
+                  />
+                  {hasError("lastName") && (
+                    <p className="text-[10px] text-red-500">Last name is required</p>
+                  )}
+                </div>
+                <div className="space-y-1" data-field="title">
+                  <Label className="dark:text-gray-300 text-xs font-medium">
+                    Job Title <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="e.g. HR Director"
+                    className={cn("h-8 text-sm", hasError("title") && "border-red-500")}
+                  />
+                  {hasError("title") && (
+                    <p className="text-[10px] text-red-500">Job title is required</p>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="space-y-1" data-field="displayName">
                 <Label className="dark:text-gray-300 text-xs font-medium">
-                  First Name <span className="text-red-500">*</span>
+                  Team / Department Name <span className="text-red-500">*</span>
                 </Label>
                 <Input
-                  ref={firstNameRef}
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  placeholder="e.g. John"
-                  className={cn("h-8 text-sm", hasError("firstName") && "border-red-500")}
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="e.g. Benefits Support Team"
+                  className={cn("h-8 text-sm", hasError("displayName") && "border-red-500")}
                 />
-                {hasError("firstName") && (
-                  <p className="text-[10px] text-red-500">First name is required</p>
+                {hasError("displayName") && (
+                  <p className="text-[10px] text-red-500">Team name is required</p>
                 )}
               </div>
-              <div className="space-y-1" data-field="lastName">
-                <Label className="dark:text-gray-300 text-xs font-medium">
-                  Last Name <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  ref={lastNameRef}
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  placeholder="e.g. Smith"
-                  className={cn("h-8 text-sm", hasError("lastName") && "border-red-500")}
-                />
-                {hasError("lastName") && (
-                  <p className="text-[10px] text-red-500">Last name is required</p>
-                )}
-              </div>
-              <div className="space-y-1" data-field="title">
-                <Label className="dark:text-gray-300 text-xs font-medium">
-                  Job Title <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. HR Director"
-                  className={cn("h-8 text-sm", hasError("title") && "border-red-500")}
-                />
-                {hasError("title") && (
-                  <p className="text-[10px] text-red-500">Job title is required</p>
-                )}
-              </div>
-            </>
-          ) : (
-            <div className="space-y-1" data-field="displayName">
+            )}
+
+            <div className="space-y-1" data-field="email">
               <Label className="dark:text-gray-300 text-xs font-medium">
-                Team / Department Name <span className="text-red-500">*</span>
+                Email <span className="text-red-500">*</span>
               </Label>
               <Input
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="e.g. Benefits Support Team"
-                className={cn("h-8 text-sm", hasError("displayName") && "border-red-500")}
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="e.g. john@company.com"
+                className={cn("h-8 text-sm", hasError("email") && "border-red-500")}
               />
-              {hasError("displayName") && (
-                <p className="text-[10px] text-red-500">Team name is required</p>
+              {hasError("email") && (
+                <p className="text-[10px] text-red-500">Valid email is required</p>
               )}
             </div>
-          )}
 
-          <div className="space-y-1" data-field="email">
-            <Label className="dark:text-gray-300 text-xs font-medium">
-              Email <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="e.g. john@company.com"
-              className={cn("h-8 text-sm", hasError("email") && "border-red-500")}
-            />
-            {hasError("email") && (
-              <p className="text-[10px] text-red-500">Valid email is required</p>
-            )}
-          </div>
-
-          <div className="space-y-1" data-field="phone">
-            <Label className="dark:text-gray-300 text-xs font-medium">
-              Phone <span className="text-red-500">*</span>
-            </Label>
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <Input
-                  type="tel"
-                  value={phone ? formatPhoneNumber(phone) : ""}
-                  onChange={(e) => {
-                    const digits = e.target.value.replace(/\D/g, "");
-                    if (digits.length <= 11) setPhone(digits);
-                  }}
-                  placeholder="(555) 123-4567"
-                  className={cn(
-                    "h-8 text-sm",
-                    hasError("phone") && "border-red-500",
-                  )}
-                />
-              </div>
-              <div className="w-20">
-                <Input
-                  type="text"
-                  value={phoneExtension}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/\D/g, "");
-                    if (val.length <= 8) setPhoneExtension(val);
-                  }}
-                  placeholder="Ext."
-                  className="h-8 text-sm text-center"
-                />
-              </div>
-            </div>
-            {hasError("phone") && (
-              <p className="text-[10px] text-red-500">Phone number is required</p>
-            )}
-          </div>
-
-          {/* Headshot (optional) - only for Individual contacts */}
-          {contactType === "individual" && (
-            <div className="space-y-1" data-field="headshot">
+            <div className="space-y-1" data-field="phone">
               <Label className="dark:text-gray-300 text-xs font-medium">
-                Headshot (optional)
+                Phone <span className="text-red-500">*</span>
               </Label>
-              <div className="items-start">
+              <div className="flex gap-2">
                 <div className="flex-1">
-                  <UniversalImageEditorModal
-                    value={headshot || ""}
-                    fileName={headshotFileName || ""}
-                    onChange={(value, fileName) => {
-                      setHeadshot(value);
-                      setHeadshotFileName(fileName || "");
+                  <Input
+                    type="tel"
+                    value={phone ? formatPhoneNumber(phone) : ""}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, "");
+                      if (digits.length <= 11) setPhone(digits);
                     }}
-                    onRemove={() => {
-                      setHeadshot("");
-                      setHeadshotFileName("");
+                    placeholder="(555) 123-4567"
+                    className={cn(
+                      "h-8 text-sm",
+                      hasError("phone") && "border-red-500",
+                    )}
+                  />
+                </div>
+                <div className="w-20">
+                  <Input
+                    type="text"
+                    value={phoneExtension}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, "");
+                      if (val.length <= 8) setPhoneExtension(val);
                     }}
-                    placeholder="Upload Headshot"
-                    modalTitle="Edit Headshot"
-                    modalDescription="Upload a clear, front-facing photo. Keep the face inside the circle guide for best results."
-                    saveButtonText="Save Headshot"
-                    type="headshot"
-                    autoSizeOnOpen={true}
-                    forceCircularGuidelines={true}
+                    placeholder="Ext."
+                    className="h-8 text-sm text-center"
                   />
                 </div>
               </div>
+              {hasError("phone") && (
+                <p className="text-[10px] text-red-500">Phone number is required</p>
+              )}
             </div>
-          )}
 
-          {/* Company Name (for non-Plan-Sponsor categories) */}
-          {category !== "Company / Plan Sponsor" && (
-            <div className="space-y-1.5">
-              <Label className="dark:text-gray-300">
-                Company / Organization (optional)
-              </Label>
-              <Input
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-                placeholder="e.g. Benefits Provider Inc."
-              />
-            </div>
-          )}
+            {/* Headshot (optional) - only for Individual contacts */}
+            {contactType === "individual" && (
+              <div className="space-y-1" data-field="headshot">
+                <Label className="dark:text-gray-300 text-xs font-medium">
+                  Headshot (optional)
+                </Label>
+                <div className="items-start">
+                  <div className="flex-1">
+                    <UniversalImageEditorModal
+                      value={headshot || ""}
+                      fileName={headshotFileName || ""}
+                      onChange={(value, fileName) => {
+                        setHeadshot(value);
+                        setHeadshotFileName(fileName || "");
+                      }}
+                      onRemove={() => {
+                        setHeadshot("");
+                        setHeadshotFileName("");
+                      }}
+                      placeholder="Upload Headshot"
+                      modalTitle="Edit Headshot"
+                      modalDescription="Upload a clear, front-facing photo. Keep the face inside the circle guide for best results."
+                      saveButtonText="Save Headshot"
+                      type="headshot"
+                      autoSizeOnOpen={true}
+                      forceCircularGuidelines={true}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
-        </CardContent>
-      </Card>
+            {/* Company Name (for non-Plan-Sponsor categories) */}
+            {category !== "Company / Plan Sponsor" && (
+              <div className="space-y-1.5">
+                <Label className="dark:text-gray-300">
+                  Company / Organization (optional)
+                </Label>
+                <Input
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  placeholder="e.g. Benefits Provider Inc."
+                />
+              </div>
+            )}
+
+          </CardContent>
+        </Card>
+
+        {/* Right column: Live Contact Card Preview */}
+        <div className="flex flex-col items-center justify-start gap-2 pt-1">
+          <ContactCardPreview
+            contactType={contactType}
+            firstName={firstName}
+            lastName={lastName}
+            title={title}
+            displayName={displayName}
+            email={email}
+            phone={phone}
+            phoneExtension={phoneExtension}
+            headshot={headshot}
+            companyName={companyName}
+            isPrimary={isPrimary}
+            category={category}
+          />
+        </div>
+      </div>
 
       {/* Navigation Buttons */}
       <div className="flex items-center justify-center gap-4 w-full max-w-md">
