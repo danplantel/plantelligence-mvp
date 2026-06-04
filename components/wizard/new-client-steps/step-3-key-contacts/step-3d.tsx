@@ -830,13 +830,12 @@ export function NewClientStep3d({
       const primarySlot = slotElements[0];
       const smallSlots = slotElements.slice(1);
       return (
-        <div className="flex w-full min-w-0 max-w-none flex-col">
-          <div className="w-full min-w-0 shrink-0">{primarySlot}</div>
+        <div className="w-full min-w-0 max-w-none space-y-4">
+          {/* Primary card — compensate for PrimaryContactCard's built-in mt-10 */}
+          <div className="w-full min-w-0 shrink-0 -mt-10">{primarySlot}</div>
           {smallSlots.length > 0 && (
-            <div className="mt-3 w-full min-w-0 shrink-0">
-              <div className="grid w-full min-w-0 grid-cols-4 gap-1 [&>*]:min-w-0">
-                {smallSlots}
-              </div>
+            <div className="grid w-full min-w-0 grid-cols-2 sm:grid-cols-4 gap-4 [&>*]:min-w-0">
+              {smallSlots}
             </div>
           )}
         </div>
@@ -848,25 +847,23 @@ export function NewClientStep3d({
       const largeSlots = slotElements.slice(0, 2);
       const smallSlots = slotElements.slice(2);
       return (
-        <>
-          <div className="mt-6 grid w-full min-w-0 gap-8 md:grid-cols-2">
+        <div className="w-full min-w-0 max-w-none space-y-4">
+          <div className="grid w-full min-w-0 grid-cols-1 md:grid-cols-2 gap-4 [&>*]:min-w-0">
             {largeSlots}
           </div>
           {smallSlots.length > 0 && (
-            <div className="mt-3 w-full min-w-0">
-              <div className="grid w-full min-w-0 grid-cols-3 gap-8">
-                {smallSlots}
-              </div>
+            <div className="grid w-full min-w-0 grid-cols-2 sm:grid-cols-3 gap-4 [&>*]:min-w-0">
+              {smallSlots}
             </div>
           )}
-        </>
+        </div>
       );
     }
 
     if (currentDisplayStyle === 2) {
       // Layout 2: All large
       return (
-        <div className="mt-6 grid w-full min-w-0 gap-8 md:grid-cols-2">
+        <div className="grid w-full min-w-0 grid-cols-1 md:grid-cols-2 gap-4 [&>*]:min-w-0">
           {slotElements}
         </div>
       );
@@ -875,8 +872,8 @@ export function NewClientStep3d({
     if (currentDisplayStyle === 3) {
       // Layout 3: All small
       return (
-        <div className="mt-6 w-full min-w-0">
-          <div className="grid w-full min-w-0 grid-cols-4 gap-8">{slotElements}</div>
+        <div className="grid w-full min-w-0 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 [&>*]:min-w-0">
+          {slotElements}
         </div>
       );
     }
@@ -926,7 +923,7 @@ export function NewClientStep3d({
                   <Palette className="w-5 h-5 text-accent-blue" />
                   Preview
                 </h2>
-                <p className="text-sm max-w-[700px] text-gray-600 dark:text-gray-400">
+                <p className="text-sm max-w-[700px] text-gray-600 dark:text-gray-200">
                   Choose a layout style for your contact cards. Drag and drop to
                   reorder contacts directly in the preview.
                 </p>
@@ -963,7 +960,7 @@ export function NewClientStep3d({
                   <h4 className="text-xs font-semibold text-gray-900 mb-2 dark:text-gray-100">
                     Card Layout Style
                   </h4>
-                  <div className="grid grid-cols-4 gap-1.5">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {layoutOptions.map((layout) => {
                       const isSelected = layoutStyle === layout.id;
 
