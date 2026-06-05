@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { PrimaryVisual } from "@/components/pages/my-benefits-team/primary-visual";
 import { formatPhone } from "@/components/pages/my-benefits-team/utils";
 import { readableColor, mix } from "polished";
+import { getBasePhoneForDialing } from "@/lib/phone-utils";
 
 interface Contact {
   id?: string | number;
@@ -34,6 +35,8 @@ interface Contact {
   displayScheduleAppointment?: boolean;
   schedulingUrl?: string;
   websiteUrl?: string;
+  enableContactButton?: boolean;
+  contactButtonType?: string;
   contactType?: "individual" | "team_support";
   supportHours?: string;
   departmentLabel?: string;
@@ -91,43 +94,78 @@ export function PrimaryContactCard({
   let primaryIndex = -1;
   const isTeamSupport = contact.contactType === "team_support";
 
-  // Build buttons in the specified order (only schedule and website)
-  for (const buttonType of actionButtonOrder) {
-    if (
-      buttonType === "schedule" &&
-      contact.displayScheduleAppointment === true
-    ) {
+  // Check if a CTA button was explicitly configured via the wizard
+  const hasEnabledCta = contact.enableContactButton === true;
+  const ctaBtnType = contact.contactButtonType as string | undefined;
+
+  // Build buttons based on CTA configuration
+  if (hasEnabledCta && ctaBtnType) {
+    // Explicit CTA button configured via wizard
+    if (ctaBtnType === "calendar") {
       if (primaryIndex === -1) primaryIndex = buttons.length;
       buttons.push({
         type: "schedule",
-        label: "Schedule Appointment",
+        label: "Book Now",
         url: contact.schedulingUrl || appointmentLink,
       });
-    } else if (
-      buttonType === "website" &&
-      contact.displayUrl === true &&
-      contact.websiteUrl &&
-      contact.websiteUrl.trim() !== ""
-    ) {
+    } else if (ctaBtnType === "phone") {
+      if (primaryIndex === -1) primaryIndex = buttons.length;
+      buttons.push({
+        type: "call",
+        label: "Call Now",
+        url: contact.phone ? `tel:${getBasePhoneForDialing(contact.phone)}` : "",
+      });
+    } else if (ctaBtnType === "email") {
+      if (primaryIndex === -1) primaryIndex = buttons.length;
+      buttons.push({
+        type: "email",
+        label: "Send Email",
+        url: contact.email ? `mailto:${contact.email}` : "",
+      });
+    } else if (ctaBtnType === "url") {
       if (primaryIndex === -1) primaryIndex = buttons.length;
       buttons.push({
         type: "website",
         label: isTeamSupport ? "Visit Support Site" : "Visit Website",
-        url: contact.websiteUrl,
+        url: contact.websiteUrl || "",
       });
+    }
+  } else {
+    // Legacy/fallback: use display flags for backward compatibility
+    for (const buttonType of actionButtonOrder) {
+      if (
+        buttonType === "schedule" &&
+        contact.displayScheduleAppointment === true
+      ) {
+        if (primaryIndex === -1) primaryIndex = buttons.length;
+        buttons.push({
+          type: "schedule",
+          label: "Book Now",
+          url: contact.schedulingUrl || appointmentLink,
+        });
+      } else if (
+        buttonType === "website" &&
+        contact.displayUrl === true &&
+        contact.websiteUrl &&
+        contact.websiteUrl.trim() !== ""
+      ) {
+        if (primaryIndex === -1) primaryIndex = buttons.length;
+        buttons.push({
+          type: "website",
+          label: isTeamSupport ? "Visit Support Site" : "Visit Website",
+          url: contact.websiteUrl,
+        });
+      }
     }
   }
 
-  const hasScheduleOrWebsite = buttons.some(
-    (b) =>
-      (b.type === "schedule" && !!b.url) || (b.type === "website" && !!b.url),
-  );
+  const hasAnyButton = buttons.some((b) => !!b.url);
 
-  // If no buttons configured, show default schedule button
-  if (buttons.length === 0) {
+  // Legacy fallback: only show default Schedule button when no CTA system data exists at all
+  if (buttons.length === 0 && contact.enableContactButton === undefined) {
     buttons.push({
       type: "schedule",
-      label: "Schedule Appointment",
+      label: "Book Now",
       url: appointmentLink,
     });
     primaryIndex = 0;
@@ -249,7 +287,7 @@ export function PrimaryContactCard({
           </div>
 
           {/* ACTION BUTTONS */}
-          {hasScheduleOrWebsite && (
+          {hasAnyButton && (
             <div className="flex flex-wrap gap-2 justify-center lg:justify-start">
               {buttons.map((button, idx) => {
                 const isPrimaryButton = idx === primaryIndex;
@@ -274,7 +312,9 @@ export function PrimaryContactCard({
                     onClick={() => {
                       if (
                         button.type === "schedule" ||
-                        button.type === "website"
+                        button.type === "website" ||
+                        button.type === "call" ||
+                        button.type === "email"
                       ) {
                         window.open(button.url, "_blank");
                       }

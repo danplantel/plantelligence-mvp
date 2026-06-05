@@ -250,8 +250,27 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
         displayName: existingMainContact.displayName || "",
         email: existingMainContact.email || "",
         phone: existingMainContact.phone || "",
+        phoneExtension: existingMainContact.phoneExtension || "",
+        headshot: existingMainContact.headshot || "",
+        headshotFileName: existingMainContact.headshotFileName || "",
         companyName: existingMainContact.companyName || "",
         isPrimaryOverall: existingMainContact.isPrimaryOverall ?? true,
+        enableContactButton: existingMainContact.enableContactButton ?? existingMainContact.displayScheduleAppointment === true,
+        ctaType: existingMainContact.contactButtonType === "calendar" ? "schedule" as const
+          : existingMainContact.contactButtonType === "phone" ? "call" as const
+          : existingMainContact.contactButtonType === "email" ? "email" as const
+          : existingMainContact.contactButtonType === "url" ? "contact" as const
+          : (existingMainContact.displayScheduleAppointment ? "schedule" as const
+            : existingMainContact.displayPhone && !existingMainContact.displayEmail ? "call" as const
+            : existingMainContact.displayEmail && !existingMainContact.displayPhone ? "email" as const
+            : existingMainContact.displayUrl ? "contact" as const
+            : "schedule" as const),
+        schedulingUrl: existingMainContact.schedulingUrl || "",
+        websiteUrl: existingMainContact.websiteUrl || "",
+        displayEmail: existingMainContact.displayEmail,
+        displayPhone: existingMainContact.displayPhone,
+        displayUrl: existingMainContact.displayUrl,
+        displayScheduleAppointment: existingMainContact.displayScheduleAppointment,
       });
       setContactFormCategory("Company / Plan Sponsor");
       setIsGuidedForm(false);
@@ -364,6 +383,22 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
                 headshotFileName: contact?.headshotFileName || "",
                 companyName: contact?.companyName || "",
                 isPrimaryOverall: contact?.isPrimaryOverall ?? false,
+                enableContactButton: contact?.enableContactButton ?? contact?.displayScheduleAppointment === true,
+                ctaType: contact?.contactButtonType === "calendar" ? "schedule" as const
+                  : contact?.contactButtonType === "phone" ? "call" as const
+                  : contact?.contactButtonType === "email" ? "email" as const
+                  : contact?.contactButtonType === "url" ? "contact" as const
+                  : (contact?.displayScheduleAppointment ? "schedule" as const
+                    : contact?.displayPhone && !contact?.displayEmail ? "call" as const
+                    : contact?.displayEmail && !contact?.displayPhone ? "email" as const
+                    : contact?.displayUrl ? "contact" as const
+                    : "schedule" as const),
+                schedulingUrl: contact?.schedulingUrl || "",
+                websiteUrl: contact?.websiteUrl || "",
+                displayEmail: contact?.displayEmail,
+                displayPhone: contact?.displayPhone,
+                displayUrl: contact?.displayUrl,
+                displayScheduleAppointment: contact?.displayScheduleAppointment,
               });
               setContactFormCategory(category);
               setIsGuidedForm(false);
@@ -388,6 +423,22 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
                 headshotFileName: existingMainContact?.headshotFileName || "",
                 companyName: existingMainContact?.companyName || "",
                 isPrimaryOverall: existingMainContact?.isPrimaryOverall ?? true,
+                enableContactButton: existingMainContact?.enableContactButton ?? existingMainContact?.displayScheduleAppointment === true,
+                ctaType: existingMainContact?.contactButtonType === "calendar" ? "schedule" as const
+                  : existingMainContact?.contactButtonType === "phone" ? "call" as const
+                  : existingMainContact?.contactButtonType === "email" ? "email" as const
+                  : existingMainContact?.contactButtonType === "url" ? "contact" as const
+                  : (existingMainContact?.displayScheduleAppointment ? "schedule" as const
+                    : existingMainContact?.displayPhone && !existingMainContact?.displayEmail ? "call" as const
+                    : existingMainContact?.displayEmail && !existingMainContact?.displayPhone ? "email" as const
+                    : existingMainContact?.displayUrl ? "contact" as const
+                    : "schedule" as const),
+                schedulingUrl: existingMainContact?.schedulingUrl || "",
+                websiteUrl: existingMainContact?.websiteUrl || "",
+                displayEmail: existingMainContact?.displayEmail,
+                displayPhone: existingMainContact?.displayPhone,
+                displayUrl: existingMainContact?.displayUrl,
+                displayScheduleAppointment: existingMainContact?.displayScheduleAppointment,
               });
               setContactFormCategory("Company / Plan Sponsor");
               setIsGuidedForm(false);

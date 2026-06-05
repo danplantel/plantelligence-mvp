@@ -168,7 +168,7 @@ function ContactCardPreview({
         <div className="w-full border-t border-gray-100 dark:border-gray-700 pt-2 space-y-1.5">
           {/* Email */}
           {email ? (
-            <div className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-300">
+            <div className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-200">
               <Mail className="w-3 h-3 flex-shrink-0" style={{ color: accentColor }} />
               <span className="truncate text-gray-500 dark:text-gray-200">{email}</span>
             </div>
@@ -181,12 +181,12 @@ function ContactCardPreview({
 
           {/* Phone */}
           {phone ? (
-            <div className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-300">
+            <div className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-200">
               <Phone className="w-3 h-3 flex-shrink-0" style={{ color: accentColor }} />
               <span className="truncate text-gray-500 dark:text-gray-200">{formatPhoneWithExtension(phone, phoneExtension)}</span>
             </div>
           ) : (
-            <div className="flex items-center gap-2 text-[11px] ">
+            <div className="flex items-center gap-2 text-[11px] text-gray-400 dark:text-gray-500">
               <Phone className="w-3 h-3 flex-shrink-0" />
               <span>(555) 000-0000</span>
             </div>
@@ -199,7 +199,7 @@ function ContactCardPreview({
             {ctaType === "schedule" && (
               <span className="inline-flex items-center gap-1.5 w-full justify-center rounded-md bg-accent-blue px-3 py-1.5 text-[10px] font-semibold text-white shadow-sm">
                 <Calendar className="w-3 h-3" />
-                Schedule Appointment
+                Book Now
               </span>
             )}
             {ctaType === "call" && (
@@ -553,6 +553,16 @@ export function ContactFormSlide({
               : displayName,
           isPrimary: shouldBePrimary,
           isPrimaryOverall: shouldBePrimary,
+          displayEmail: enableCtaButton ? ctaType === "email" : true,
+          displayPhone: enableCtaButton ? ctaType === "call" : true,
+          displayUrl: enableCtaButton ? ctaType === "contact" : false,
+          displayScheduleAppointment: enableCtaButton ? ctaType === "schedule" : false,
+          enableContactButton: enableCtaButton,
+          contactButtonType: enableCtaButton
+            ? ((ctaType === "schedule" ? "calendar" : ctaType === "call" ? "phone" : ctaType === "email" ? "email" : "url") as "calendar" | "phone" | "email" | "url")
+            : undefined,
+          schedulingUrl: enableCtaButton && ctaType === "schedule" ? schedulingUrl || undefined : undefined,
+          websiteUrl: enableCtaButton && ctaType === "contact" ? websiteUrl || undefined : undefined,
         };
 
         // If this contact is being saved as primary, demote only contacts that
@@ -620,6 +630,16 @@ export function ContactFormSlide({
                 : displayName,
             isPrimary: true,
             isPrimaryOverall: true,
+            displayEmail: enableCtaButton ? ctaType === "email" : true,
+            displayPhone: enableCtaButton ? ctaType === "call" : true,
+            displayUrl: enableCtaButton ? ctaType === "contact" : false,
+            displayScheduleAppointment: enableCtaButton ? ctaType === "schedule" : false,
+            enableContactButton: enableCtaButton,
+            contactButtonType: enableCtaButton
+              ? ((ctaType === "schedule" ? "calendar" : ctaType === "call" ? "phone" : ctaType === "email" ? "email" : "url") as "calendar" | "phone" | "email" | "url")
+              : undefined,
+            schedulingUrl: enableCtaButton && ctaType === "schedule" ? schedulingUrl || undefined : undefined,
+            websiteUrl: enableCtaButton && ctaType === "contact" ? websiteUrl || undefined : undefined,
           };
 
           // Demote only contacts in the same category to prevent duplicate primaries

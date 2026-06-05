@@ -391,16 +391,16 @@ export function NewClientStep3d({
       .filter((p) => p.contactId !== "");
   };
 
-  // Get slots for current layout
+  // Get slots for current layout — use sortedContacts.length (store-derived) for consistency
   const slots = useMemo(() => {
     const currentDisplayStyle = layoutStyle === 1 ? 0 : layoutStyle;
-    return getSlotsForLayout(currentDisplayStyle, contacts.length);
-  }, [layoutStyle, contacts.length]);
+    return getSlotsForLayout(currentDisplayStyle, sortedContacts.length);
+  }, [layoutStyle, sortedContacts.length]);
 
-  // Derived placements state
+  // Derived placements state — use sortedContacts (store-derived) for consistency with previewContacts
   const placements = useMemo(() => {
-    return initializePlacements(contacts, slots);
-  }, [contacts, slots]);
+    return initializePlacements(sortedContacts, slots);
+  }, [sortedContacts, slots]);
 
   // Preview order for sortable list (separate from placements)
   const [previewOrder, setPreviewOrder] = useState<(string | number)[]>(() => {
@@ -452,8 +452,10 @@ export function NewClientStep3d({
   }, [sortedContacts, contacts]);
 
   // Transform KeyContact to Contact format
+  // Derives from sortedContacts (always reflects current store data) instead of local contacts state
+  // which can be stale due to sync-effect guards. Visual order is driven by previewOrder, not by this array.
   const previewContacts = useMemo(() => {
-    return contacts.map((contact, index) => {
+    return sortedContacts.map((contact, index) => {
       const displayName =
         contact.name ||
         (contact.contactType === "individual"
@@ -514,11 +516,15 @@ export function NewClientStep3d({
         displayPhone: contact.displayPhone,
         displayUrl: contact.displayUrl,
         displayScheduleAppointment: contact.displayScheduleAppointment,
+        schedulingUrl: contact.schedulingUrl,
+        websiteUrl: contact.websiteUrl,
+        enableContactButton: contact.enableContactButton,
+        contactButtonType: contact.contactButtonType,
         contactInfoOrder: contact.contactInfoOrder,
         actionButtonOrder: contact.actionButtonOrder,
       };
     });
-  }, [contacts, companyName]);
+  }, [sortedContacts, companyName]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
