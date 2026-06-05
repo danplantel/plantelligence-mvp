@@ -41,13 +41,13 @@ export function NavigateAwayWarningDialog({
             lost.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+        <AlertDialogFooter className="flex-col items-stretch gap-2 sm:flex-col sm:items-stretch">
           <Button
             type="button"
             variant="default"
             onClick={onSaveAndExit}
             disabled={isSaving}
-            className="w-full sm:w-auto"
+            className="w-full"
           >
             {isSaving ? "Saving..." : "Save and exit"}
           </Button>
@@ -56,7 +56,7 @@ export function NavigateAwayWarningDialog({
             variant="secondary"
             onClick={onStay}
             disabled={isSaving}
-            className="w-full sm:w-auto"
+            className="w-full relative right-2"
           >
             Stay and keep editing
           </Button>
@@ -70,7 +70,7 @@ export function NavigateAwayWarningDialog({
             }
             onClick={onDiscardWithoutSaving}
             disabled={isSaving}
-            className="w-full sm:w-auto"
+            className="w-full relative right-2"
           >
             Discard without saving
           </Button>
