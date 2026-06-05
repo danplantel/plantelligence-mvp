@@ -320,6 +320,7 @@ export function NewClientStep3d({
     stepData?.companyBasics?.appointmentLink ||
     "https://go.oncehub.com/WFAParticipantInquiry";
   const companyName = stepData?.companyBasics?.companyName || "";
+  const planCompanyLogo = stepData?.companyBasics?.companyLogo?.url || "";
 
   // Get contacts
   const keyContactsData = stepData.keyContacts || { contacts: [] };
@@ -502,8 +503,8 @@ export function NewClientStep3d({
         email: contact.email,
         phone: contact.phone,
         headshot: contact.headshot,
-        logo: contact.companyLogo,
-        companyLogo: contact.companyLogo,
+        logo: contact.companyLogo || planCompanyLogo,
+        companyLogo: contact.companyLogo || planCompanyLogo,
         showOnPortal: contact.showOnPortal !== false,
         benefitsCategory: mapBenefitsCategory(benefitsCategory),
         benefitsCategoryOther: contact.benefitsCategoryOther,

@@ -78,6 +78,7 @@ interface ContactCardPreviewProps {
   phoneExtension: string;
   headshot: string;
   companyName: string;
+  companyLogoSrc?: string;
   isPrimary: boolean;
   category: BenefitsCategory;
   enableCtaButton?: boolean;
@@ -95,6 +96,7 @@ function ContactCardPreview({
   phoneExtension,
   headshot,
   companyName,
+  companyLogoSrc,
   isPrimary,
   category,
   enableCtaButton = false,
@@ -122,6 +124,15 @@ function ContactCardPreview({
       </div>
 
       <CardContent className="p-5 flex flex-col items-center gap-3">
+        {/* Company Logo above the headshot */}
+        {companyLogoSrc?.trim() && (
+          <BrandingImage
+            src={companyLogoSrc}
+            alt="Company logo"
+            className="h-8 w-auto max-w-[140px] object-contain mb-1"
+          />
+        )}
+
         {/* Avatar / headshot */}
         <div
           className="w-20 h-20 rounded-full flex items-center justify-center overflow-hidden border-2"
@@ -543,10 +554,7 @@ export function ContactFormSlide({
             category === "Company / Plan Sponsor"
               ? companyName || defaultCompanyName
               : companyName || "",
-          companyLogo:
-            category === "Company / Plan Sponsor"
-              ? defaultCompanyLogo || undefined
-              : undefined,
+          companyLogo: defaultCompanyLogo || undefined,
           name:
             contactType === "individual"
               ? `${firstName} ${lastName}`.trim()
@@ -703,10 +711,7 @@ export function ContactFormSlide({
           category === "Company / Plan Sponsor"
             ? companyName || defaultCompanyName
             : companyName || "",
-        companyLogo:
-          category === "Company / Plan Sponsor"
-            ? defaultCompanyLogo || undefined
-            : undefined,
+        companyLogo: defaultCompanyLogo || undefined,
         name:
           contactType === "individual"
             ? `${firstName} ${lastName}`.trim()
@@ -1243,6 +1248,7 @@ export function ContactFormSlide({
             phoneExtension={phoneExtension}
             headshot={headshot}
             companyName={companyName}
+            companyLogoSrc={defaultCompanyLogo}
             isPrimary={isPrimary}
             category={category}
             enableCtaButton={enableCtaButton}

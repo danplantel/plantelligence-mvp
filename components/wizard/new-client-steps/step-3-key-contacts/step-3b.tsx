@@ -53,6 +53,7 @@ import {
 import { Info } from "lucide-react";
 import { normalizeExtension } from "@/lib/phone-utils";
 import { isOnboardingAdvisorContactId } from "@/lib/seed-onboarding-advisor-contacts";
+import { BrandingImage } from "@/components/ui/branding-image";
 
 interface NewClientStep3bProps {
   errorFields?: string[];
@@ -1165,7 +1166,9 @@ export function NewClientStep3b({
     step3aData.planSponsorCompanyLogo || defaultCompanyLogo;
   const otherBenefitsCompanyLogo = step3aData.otherBenefitsCompanyLogo || "";
 
-  let previewCompanyLogo: string | undefined = companyLogo;
+  // Use the contact's logo, falling back to the plan's company logo so the card
+  // always shows a company logo regardless of whether a headshot or contact logo exists.
+  let previewCompanyLogo: string | undefined = companyLogo || defaultCompanyLogo;
 
   const formatPhoneNumber = (value: string): string => {
     const phoneNumber = value.replace(/\D/g, "");
@@ -4808,7 +4811,7 @@ export function NewClientStep3b({
                       Live Preview
                     </h4>
                     <div
-                      className="relative flex items-center justify-center mb-3 origin-center scale-[0.8] 2xl:scale-100 cursor-pointer hover:opacity-90 transition-opacity"
+                      className="relative flex flex-col items-center justify-center mb-3 origin-center scale-[0.8] 2xl:scale-100 cursor-pointer hover:opacity-90 transition-opacity"
                       onClick={() => {
                         // Switch to contacts tab
                         setActiveTab("contacts");
@@ -4822,6 +4825,13 @@ export function NewClientStep3b({
                         }
                       }}
                     >
+                      {/* Company Logo above the headshot */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={defaultCompanyLogo}
+                        alt="Company logo"
+                        className="h-8 w-auto max-w-[140px] object-contain mb-3"
+                      />
                       {cardDisplayMode === "large-horizontal" ? (
                         <LargeHorizontalCard
                           key={`preview-${displayEmail}-${displayPhone}-${displayScheduleAppointment}-${displayWebsite}-${email}-${phone}-${websiteUrl}`}
