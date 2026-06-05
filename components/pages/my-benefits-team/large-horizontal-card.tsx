@@ -139,7 +139,7 @@ export function LargeHorizontalCard({
       if (primaryIndex === -1) primaryIndex = buttons.length;
       buttons.push({
         type: "website",
-        label: isTeamSupport ? "Visit Support Site" : "Visit Website",
+        label: "Contact",
         url: contact.websiteUrl || "",
       });
     }
@@ -153,7 +153,7 @@ export function LargeHorizontalCard({
         if (primaryIndex === -1) primaryIndex = buttons.length;
         buttons.push({
           type: "schedule",
-          label: "Book Now",
+          label: "Schedule Appt.",
           url: contact.schedulingUrl || appointmentLink,
         });
       } else if (
@@ -165,7 +165,7 @@ export function LargeHorizontalCard({
         if (primaryIndex === -1) primaryIndex = buttons.length;
         buttons.push({
           type: "website",
-          label: isTeamSupport ? "Visit Support Site" : "Visit Website",
+          label: "Contact",
           url: contact.websiteUrl,
         });
       }

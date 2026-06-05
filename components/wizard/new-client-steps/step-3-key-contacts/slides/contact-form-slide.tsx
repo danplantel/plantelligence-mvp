@@ -217,7 +217,7 @@ function ContactCardPreview({
             {ctaType === "contact" && (
               <span className="inline-flex items-center gap-1.5 w-full justify-center rounded-md bg-accent-blue px-3 py-1.5 text-[10px] font-semibold text-white shadow-sm">
                 <Globe className="w-3 h-3" />
-                Contact Us
+                Contact
               </span>
             )}
           </div>
