@@ -118,7 +118,7 @@ export function LargeHorizontalCard({
       if (primaryIndex === -1) primaryIndex = buttons.length;
       buttons.push({
         type: "schedule",
-        label: "Book Now",
+        label: "Schedule Appt.",
         url: contact.schedulingUrl || appointmentLink,
       });
     } else if (ctaBtnType === "phone") {

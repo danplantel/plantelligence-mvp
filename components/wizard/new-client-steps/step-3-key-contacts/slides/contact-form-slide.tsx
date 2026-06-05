@@ -199,7 +199,7 @@ function ContactCardPreview({
             {ctaType === "schedule" && (
               <span className="inline-flex items-center gap-1.5 w-full justify-center rounded-md bg-accent-blue px-3 py-1.5 text-[10px] font-semibold text-white shadow-sm">
                 <Calendar className="w-3 h-3" />
-                Book Now
+                Schedule Appt.
               </span>
             )}
             {ctaType === "call" && (
