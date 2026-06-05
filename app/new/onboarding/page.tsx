@@ -93,6 +93,7 @@ export default function OnboardingPage() {
       <NavigateAwayWarningDialog
         open={leaveGuard.dialogOpen}
         isSaving={leaveGuard.isSaving}
+        isDiscarding={leaveGuard.isDiscarding}
         onStay={leaveGuard.stayAndKeepEditing}
         onSaveAndExit={leaveGuard.saveAndExit}
         onDiscardWithoutSaving={leaveGuard.discardWithoutSaving}

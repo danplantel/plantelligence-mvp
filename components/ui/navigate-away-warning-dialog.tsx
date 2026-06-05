@@ -9,10 +9,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 
 type NavigateAwayWarningDialogProps = {
   open: boolean;
   isSaving?: boolean;
+  isDiscarding?: boolean;
   onStay: () => void;
   onSaveAndExit: () => void;
   onDiscardWithoutSaving: () => void;
@@ -25,12 +27,15 @@ type NavigateAwayWarningDialogProps = {
 export function NavigateAwayWarningDialog({
   open,
   isSaving = false,
+  isDiscarding = false,
   onStay,
   onSaveAndExit,
   onDiscardWithoutSaving,
   onDialogOpenChange,
   onDiscardPointerDownCapture,
 }: NavigateAwayWarningDialogProps) {
+  const isLoading = isSaving || isDiscarding;
+
   return (
     <AlertDialog open={open} onOpenChange={onDialogOpenChange}>
       <AlertDialogContent className="sm:max-w-[460px]">
@@ -46,17 +51,24 @@ export function NavigateAwayWarningDialog({
             type="button"
             variant="default"
             onClick={onSaveAndExit}
-            disabled={isSaving}
+            disabled={isLoading}
             className="w-full"
           >
-            {isSaving ? "Saving..." : "Save and exit"}
+            {isSaving ? (
+              <span className="flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Saving...
+              </span>
+            ) : (
+              "Save and exit"
+            )}
           </Button>
           <Button
             type="button"
             variant="secondary"
             onClick={onStay}
-            disabled={isSaving}
-            className="w-full relative right-2"
+            disabled={isLoading}
+            className="w-full"
           >
             Stay and keep editing
           </Button>
@@ -69,10 +81,17 @@ export function NavigateAwayWarningDialog({
                 : undefined
             }
             onClick={onDiscardWithoutSaving}
-            disabled={isSaving}
-            className="w-full relative right-2"
+            disabled={isLoading}
+            className="w-full"
           >
-            Discard without saving
+            {isDiscarding ? (
+              <span className="flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Discarding...
+              </span>
+            ) : (
+              "Discard without saving"
+            )}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

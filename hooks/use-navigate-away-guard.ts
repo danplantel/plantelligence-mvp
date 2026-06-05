@@ -28,6 +28,7 @@ export function useNavigateAwayGuard({
   const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDiscarding, setIsDiscarding] = useState(false);
   const pendingNavigationRef = useRef<PendingNavigation>(null);
   const bypassNextPopStateRef = useRef(false);
 
@@ -56,35 +57,56 @@ export function useNavigateAwayGuard({
       if (event.button !== 0) return;
 
       const target = event.target as HTMLElement | null;
-      const anchor = target?.closest?.("a[href]") as HTMLAnchorElement | null;
-      if (!anchor?.href) return;
-      if (anchor.target === "_blank") return;
-      if (anchor.hasAttribute("download")) return;
 
-      let nextUrl: URL;
-      try {
-        nextUrl = new URL(anchor.href);
-      } catch {
+      // 1) Standard <a href> links
+      const anchor = target?.closest?.("a[href]") as HTMLAnchorElement | null;
+      if (anchor?.href) {
+        if (anchor.target === "_blank") return;
+        if (anchor.hasAttribute("download")) return;
+
+        let nextUrl: URL;
+        try {
+          nextUrl = new URL(anchor.href);
+        } catch {
+          return;
+        }
+
+        if (nextUrl.origin !== window.location.origin) return;
+
+        const href = `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`;
+        const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+        if (href === current) return;
+        if (shouldIgnoreHref?.(href)) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        pendingNavigationRef.current = { type: "href", href };
+        setDialogOpen(true);
         return;
       }
 
-      if (nextUrl.origin !== window.location.origin) return;
+      // 2) Programmatic navigation via <button data-nav-href="..."> (sidebar, dashboard nav)
+      const navButton = target?.closest?.("[data-nav-href]") as HTMLElement | null;
+      if (navButton) {
+        const href = navButton.getAttribute("data-nav-href") ?? "";
+        if (!href.startsWith("/")) return;
 
-      const href = `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`;
-      const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-      if (href === current) return;
-      if (shouldIgnoreHref?.(href)) return;
+        const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+        if (href === current) return;
+        if (shouldIgnoreHref?.(href)) return;
 
-      event.preventDefault();
-      event.stopPropagation();
-      pendingNavigationRef.current = { type: "href", href };
-      setDialogOpen(true);
+        event.preventDefault();
+        event.stopPropagation();
+        pendingNavigationRef.current = { type: "href", href };
+        setDialogOpen(true);
+      }
     };
 
     document.addEventListener("click", onDocClickCapture, true);
     return () => document.removeEventListener("click", onDocClickCapture, true);
   }, [shouldGuard, shouldIgnoreHref]);
 
+  // Popstate handling (browser back/forward)
   useEffect(() => {
     if (!shouldGuard) return;
 
@@ -95,7 +117,6 @@ export function useNavigateAwayGuard({
         bypassNextPopStateRef.current = false;
         return;
       }
-
       pendingNavigationRef.current = { type: "back" };
       setDialogOpen(true);
       window.history.pushState({ __guard: true }, "", window.location.href);
@@ -158,6 +179,7 @@ export function useNavigateAwayGuard({
 
   const discardWithoutSaving = useCallback(async () => {
     suppressStayOnNextClose();
+    setIsDiscarding(true);
     try {
       await onDiscard?.();
     } catch (error) {
@@ -166,8 +188,10 @@ export function useNavigateAwayGuard({
           ? error.message
           : "Could not discard changes.";
       toast.error(message);
+      setIsDiscarding(false);
       return;
     }
+    setIsDiscarding(false);
     continuePendingNavigation();
   }, [continuePendingNavigation, onDiscard, suppressStayOnNextClose]);
 
@@ -188,6 +212,7 @@ export function useNavigateAwayGuard({
       shouldGuard,
       dialogOpen,
       isSaving,
+      isDiscarding,
       stayAndKeepEditing,
       saveAndExit,
       discardWithoutSaving,
@@ -198,6 +223,7 @@ export function useNavigateAwayGuard({
       shouldGuard,
       dialogOpen,
       isSaving,
+      isDiscarding,
       stayAndKeepEditing,
       saveAndExit,
       discardWithoutSaving,

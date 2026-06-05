@@ -733,6 +733,26 @@ export async function PUT(
   }
 }
 
+/** Retry a Prisma operation up to `maxRetries` times when it fails with a write conflict (P2034). */
+async function withRetry(
+  fn: () => Promise<unknown>,
+  maxRetries = 3,
+): Promise<void> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await fn();
+      return;
+    } catch (error: any) {
+      lastError = error;
+      if (error?.code !== "P2034" || attempt === maxRetries) throw error;
+      // Exponential back-off: 200ms, 400ms, 800ms ...
+      await new Promise((r) => setTimeout(r, 200 * Math.pow(2, attempt - 1)));
+    }
+  }
+  throw lastError;
+}
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -770,66 +790,46 @@ export async function DELETE(
       select: { id: true },
     });
 
-    // Delete all related records before deleting the client
-    await prisma.$transaction([
-      // Delete documents
-      prisma.document.deleteMany({
-        where: { clientId },
-      }),
-      // Plan meetings (clientId) + legacy name-only rows for this plan name
-      prisma.meeting.deleteMany({
+    // Delete webinars outside the transaction (raw command + MongoDB transactions can conflict)
+    await prisma.$runCommandRaw({
+      delete: "Webinar",
+      deletes: [
+        {
+          q: {
+            clientId: new ObjectId(clientId),
+            userId: new ObjectId(session.user.id),
+          },
+          limit: 0,
+        },
+      ],
+    });
+
+    // Delete related records individually (avoids MongoDB multi-document transaction write conflicts)
+    const deleteOps = [
+      () => prisma.document.deleteMany({ where: { clientId } }),
+      () => prisma.meeting.deleteMany({
         where: {
           userId: session.user.id,
-          OR: [
-            { clientId },
-            { client: clientName, clientId: null },
-          ],
+          OR: [{ clientId }, { client: clientName, clientId: null }],
         },
       }),
-      // Delete webinars assigned to this client (using MongoDB raw command since Prisma client might not be updated)
-      prisma.$runCommandRaw({
-        delete: "Webinar",
-        deletes: [
-          {
-            q: {
-              clientId: new ObjectId(clientId),
-              userId: new ObjectId(session.user.id),
-            },
-            limit: 0, // Delete all matching documents
-          },
-        ],
-      }),
-      // Clean up wizard session sub-records if a session exists
       ...(wizardSession
         ? [
-            prisma.newClientCompanyBasics.deleteMany({
-              where: { sessionId: wizardSession.id },
-            }),
-            prisma.newClientWelcomeStatement.deleteMany({
-              where: { sessionId: wizardSession.id },
-            }),
-            prisma.newClientKeyContacts.deleteMany({
-              where: { sessionId: wizardSession.id },
-            }),
-            prisma.newClientContactBuilder.deleteMany({
-              where: { sessionId: wizardSession.id },
-            }),
-            prisma.newClientComplianceDocuments.deleteMany({
-              where: { sessionId: wizardSession.id },
-            }),
-            prisma.newClientEmployeePortalPreview.deleteMany({
-              where: { sessionId: wizardSession.id },
-            }),
-            prisma.newClientWizardSession.deleteMany({
-              where: { id: wizardSession.id },
-            }),
+            () => prisma.newClientCompanyBasics.deleteMany({ where: { sessionId: wizardSession.id } }),
+            () => prisma.newClientWelcomeStatement.deleteMany({ where: { sessionId: wizardSession.id } }),
+            () => prisma.newClientKeyContacts.deleteMany({ where: { sessionId: wizardSession.id } }),
+            () => prisma.newClientContactBuilder.deleteMany({ where: { sessionId: wizardSession.id } }),
+            () => prisma.newClientComplianceDocuments.deleteMany({ where: { sessionId: wizardSession.id } }),
+            () => prisma.newClientEmployeePortalPreview.deleteMany({ where: { sessionId: wizardSession.id } }),
+            () => prisma.newClientWizardSession.deleteMany({ where: { id: wizardSession.id } }),
           ]
         : []),
-      // Finally, delete the client
-      prisma.client.delete({
-        where: { id: clientId },
-      }),
-    ]);
+      () => prisma.client.delete({ where: { id: clientId } }),
+    ];
+
+    for (const op of deleteOps) {
+      await withRetry(op);
+    }
 
     return NextResponse.json({
       success: true,

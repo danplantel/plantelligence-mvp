@@ -47,26 +47,19 @@ export default function NewClientPage() {
 
   const handleDiscardLeaveCreatePlan = useCallback(async () => {
     const draftClientId = useNewClientWizardStore.getState().draftClientId;
+
     if (draftClientId) {
-      const getRes = await fetch(`/api/clients/${draftClientId}`);
-      const getJson = (await getRes.json().catch(() => ({}))) as {
-        success?: boolean;
-        data?: { status?: string };
-      };
-      const clientData = getJson?.data;
-      const status = (clientData?.status ?? "").toString().toLowerCase();
-      if (status === "draft") {
-        const res = await fetch(`/api/clients/${draftClientId}`, {
-          method: "DELETE",
-        });
-        const data = (await res.json().catch(() => ({}))) as {
-          error?: string;
-        };
-        if (!res.ok && res.status !== 404) {
-          throw new Error(data.error || "Failed to delete the draft plan");
-        }
+      // Always attempt to delete — the previous GET pre-check + status === "draft"
+      // gate could skip deletion when autosave races with the discard flow.
+      const res = await fetch(`/api/clients/${draftClientId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok && res.status !== 404) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        console.error("Failed to delete draft client:", data.error || res.statusText);
       }
     }
+
     resetWizard();
     await createNewSession();
     await seedAdvisorDefaultsFromProfile();
@@ -501,6 +494,7 @@ export default function NewClientPage() {
       <NavigateAwayWarningDialog
         open={leaveGuard.dialogOpen}
         isSaving={leaveGuard.isSaving}
+        isDiscarding={leaveGuard.isDiscarding}
         onStay={leaveGuard.stayAndKeepEditing}
         onSaveAndExit={leaveGuard.saveAndExit}
         onDiscardWithoutSaving={leaveGuard.discardWithoutSaving}

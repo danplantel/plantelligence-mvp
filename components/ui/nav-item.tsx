@@ -145,6 +145,7 @@ export function NavItemComponent({
                   return (
                     <button
                       key={subIndex}
+                      data-nav-href={subItem.href}
                       onClick={() => handleNavigate(subItem.href ?? "#")}
                       className={cn(
                         "w-full text-left px-3 py-2 rounded-md transition-colors duration-200 flex items-center gap-3",
@@ -167,6 +168,7 @@ export function NavItemComponent({
         <button
           onMouseEnter={onHover}
           onMouseLeave={onLeave}
+          data-nav-href={item.href}
           onClick={() => handleNavigate(item.href ?? "#")}
           className={cn(
             "w-full text-left py-3 rounded-md transition-colors duration-200",
@@ -204,6 +206,7 @@ export function NavItemComponent({
                 return (
                   <button
                     key={subIndex}
+                    data-nav-href={subItem.href}
                     onClick={() => handleNavigate(subItem.href ?? "#")}
                     className={cn(
                       "w-full text-left px-3 py-2 rounded-md transition-colors duration-200",
