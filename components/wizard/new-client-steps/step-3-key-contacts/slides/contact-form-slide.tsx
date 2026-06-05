@@ -83,6 +83,8 @@ interface ContactCardPreviewProps {
   category: BenefitsCategory;
   enableCtaButton?: boolean;
   ctaType?: "schedule" | "call" | "email" | "contact";
+  displayEmail?: boolean;
+  displayPhone?: boolean;
 }
 
 function ContactCardPreview({
@@ -101,6 +103,8 @@ function ContactCardPreview({
   category,
   enableCtaButton = false,
   ctaType = "schedule",
+  displayEmail = true,
+  displayPhone = true,
 }: ContactCardPreviewProps) {
   const resolvedName =
     contactType === "individual"
@@ -170,30 +174,34 @@ function ContactCardPreview({
 
         {/* Divider */}
         <div className="w-full border-t border-gray-100 dark:border-gray-700 pt-2 space-y-1.5">
-          {/* Email */}
-          {email ? (
-            <div className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-200">
-              <Mail className="w-3 h-3 flex-shrink-0" style={{ color: accentColor }} />
-              <span className="truncate text-gray-500 dark:text-gray-200">{email}</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 text-[11px] text-gray-400 dark:text-gray-500">
-              <Mail className="w-3 h-3 flex-shrink-0" />
-              <span>email@company.com</span>
-            </div>
+          {/* Email — controlled by displayEmail toggle */}
+          {displayEmail && (
+            email ? (
+              <div className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-200">
+                <Mail className="w-3 h-3 flex-shrink-0" style={{ color: accentColor }} />
+                <span className="truncate text-gray-500 dark:text-gray-200">{email}</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-[11px] text-gray-400 dark:text-gray-500">
+                <Mail className="w-3 h-3 flex-shrink-0" />
+                <span>email@company.com</span>
+              </div>
+            )
           )}
 
-          {/* Phone */}
-          {phone ? (
-            <div className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-200">
-              <Phone className="w-3 h-3 flex-shrink-0" style={{ color: accentColor }} />
-              <span className="truncate text-gray-500 dark:text-gray-200">{formatPhoneWithExtension(phone, phoneExtension)}</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 text-[11px] text-gray-400 dark:text-gray-500">
-              <Phone className="w-3 h-3 flex-shrink-0" />
-              <span>(555) 000-0000</span>
-            </div>
+          {/* Phone — controlled by displayPhone toggle */}
+          {displayPhone && (
+            phone ? (
+              <div className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-200">
+                <Phone className="w-3 h-3 flex-shrink-0" style={{ color: accentColor }} />
+                <span className="truncate text-gray-500 dark:text-gray-200">{formatPhoneWithExtension(phone, phoneExtension)}</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-[11px] text-gray-400 dark:text-gray-500">
+                <Phone className="w-3 h-3 flex-shrink-0" />
+                <span>(555) 000-0000</span>
+              </div>
+            )
           )}
         </div>
 
@@ -326,6 +334,14 @@ export function ContactFormSlide({
     category === "Company / Plan Sponsor" ? true : (step3bData.isPrimaryOverall ?? defaultIsPrimary),
   );
 
+  // Display toggles for Email / Phone on the card
+  const [displayEmail, setDisplayEmail] = useState(
+    step3bData.displayEmail ?? true,
+  );
+  const [displayPhone, setDisplayPhone] = useState(
+    step3bData.displayPhone ?? true,
+  );
+
   // CTA state
   const [enableCtaButton, setEnableCtaButton] = useState(
     step3bData.enableContactButton ?? false,
@@ -383,6 +399,8 @@ export function ContactFormSlide({
           ? true
           : (sb.isPrimaryOverall ?? defaultIsPrimary),
       );
+      setDisplayEmail(sb.displayEmail ?? true);
+      setDisplayPhone(sb.displayPhone ?? true);
       setEnableCtaButton(sb.enableContactButton ?? false);
       setCtaType(sb.ctaType || "schedule");
       setSchedulingUrl(sb.schedulingUrl || "");
@@ -431,6 +449,8 @@ export function ContactFormSlide({
       headshotFileName,
       companyName,
       isPrimaryOverall: isPrimary,
+      displayEmail,
+      displayPhone,
       enableContactButton: enableCtaButton,
       ctaType,
       schedulingUrl,
@@ -450,6 +470,8 @@ export function ContactFormSlide({
     headshotFileName,
     companyName,
     isPrimary,
+    displayEmail,
+    displayPhone,
     enableCtaButton,
     ctaType,
     schedulingUrl,
@@ -554,8 +576,8 @@ export function ContactFormSlide({
               : displayName,
           isPrimary: shouldBePrimary,
           isPrimaryOverall: shouldBePrimary,
-          displayEmail: enableCtaButton ? ctaType === "email" : true,
-          displayPhone: enableCtaButton ? ctaType === "call" : true,
+          displayEmail,
+          displayPhone,
           displayUrl: enableCtaButton ? ctaType === "contact" : false,
           displayScheduleAppointment: enableCtaButton ? ctaType === "schedule" : false,
           enableContactButton: enableCtaButton,
@@ -631,8 +653,8 @@ export function ContactFormSlide({
                 : displayName,
             isPrimary: true,
             isPrimaryOverall: true,
-            displayEmail: enableCtaButton ? ctaType === "email" : true,
-            displayPhone: enableCtaButton ? ctaType === "call" : true,
+            displayEmail,
+            displayPhone,
             displayUrl: enableCtaButton ? ctaType === "contact" : false,
             displayScheduleAppointment: enableCtaButton ? ctaType === "schedule" : false,
             enableContactButton: enableCtaButton,
@@ -713,8 +735,8 @@ export function ContactFormSlide({
         isPrimary: shouldBePrimary,
         isPrimaryOverall: shouldBePrimary,
         displayScope: "thisPortal" as const,
-        displayEmail: enableCtaButton ? ctaType === "email" : true,
-        displayPhone: enableCtaButton ? ctaType === "call" : true,
+        displayEmail,
+        displayPhone,
         displayUrl: enableCtaButton ? ctaType === "contact" : false,
         displayScheduleAppointment: enableCtaButton ? ctaType === "schedule" : false,
         enableContactButton: enableCtaButton,
@@ -1225,6 +1247,39 @@ export function ContactFormSlide({
               </div>
             )}
 
+            {/* Email / Phone Visibility Toggles */}
+            <div className="border-t border-gray-100 dark:border-gray-700 pt-3 mt-2 space-y-2">
+              <Label className="dark:text-gray-300 text-xs font-medium">
+                Show on contact card
+              </Label>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="display-email"
+                  checked={displayEmail}
+                  onCheckedChange={(checked) => setDisplayEmail(checked === true)}
+                />
+                <Label
+                  htmlFor="display-email"
+                  className="text-xs font-medium cursor-pointer dark:text-gray-300"
+                >
+                  Email
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="display-phone"
+                  checked={displayPhone}
+                  onCheckedChange={(checked) => setDisplayPhone(checked === true)}
+                />
+                <Label
+                  htmlFor="display-phone"
+                  className="text-xs font-medium cursor-pointer dark:text-gray-300"
+                >
+                  Phone
+                </Label>
+              </div>
+            </div>
+
           </CardContent>
         </Card>
 
@@ -1249,6 +1304,8 @@ export function ContactFormSlide({
             category={category}
             enableCtaButton={enableCtaButton}
             ctaType={ctaType}
+            displayEmail={displayEmail}
+            displayPhone={displayPhone}
           />
         </StickyPreviewContainer>
       </div>
