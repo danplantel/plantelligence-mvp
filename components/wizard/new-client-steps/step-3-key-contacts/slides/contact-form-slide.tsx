@@ -116,13 +116,6 @@ function ContactCardPreview({
 
   return (
     <Card className="w-full max-w-xs overflow-hidden border border-gray-200 dark:border-gray-700 shadow-md rounded-xl bg-white dark:bg-gray-800">
-      {/* Preview badge */}
-      <div className="bg-accent-blue/10 px-3 py-1.5 text-center border-b border-gray-100 dark:border-gray-700">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-accent-blue">
-          Portal Preview
-        </span>
-      </div>
-
       <CardContent className="p-5 flex flex-col items-center gap-3">
         {/* Company Logo above the headshot */}
         {companyLogoSrc?.trim() && (
@@ -1237,6 +1230,9 @@ export function ContactFormSlide({
 
         {/* Right column: Live Contact Card Preview (sticks on scroll) */}
         <StickyPreviewContainer>
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-accent-blue mb-1 text-center">
+            Portal Preview
+          </span>
           <ContactCardPreview
             contactType={contactType}
             firstName={firstName}
