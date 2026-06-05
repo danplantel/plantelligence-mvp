@@ -57,6 +57,8 @@ export default function NewClientPage() {
       if (!res.ok && res.status !== 404) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
         console.error("Failed to delete draft client:", data.error || res.statusText);
+      } else if (res.ok) {
+        toast.success("Draft plan deleted");
       }
     }
 
