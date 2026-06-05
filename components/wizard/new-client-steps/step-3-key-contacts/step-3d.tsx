@@ -930,7 +930,7 @@ export function NewClientStep3d({
                   <Palette className="w-5 h-5 text-accent-blue" />
                   Preview
                 </h2>
-                <p className="text-sm max-w-[700px] text-gray-600 dark:text-gray-200">
+                <p className="text-sm max-w-[700px] text-muted-foreground">
                   Choose a layout style for your contact cards. Drag and drop to
                   reorder contacts directly in the preview.
                 </p>
