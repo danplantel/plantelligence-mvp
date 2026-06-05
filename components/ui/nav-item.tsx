@@ -1,7 +1,6 @@
 "use client";
 
 import { usePathname, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { Icons } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import type { NavItem } from "@/types";
@@ -74,6 +73,11 @@ export function NavItemComponent({
     }
   }, [isActive, hasActiveChild]);
 
+  const handleNavigate = (href: string) => {
+    if (href === "#") return;
+    onNavigate(href);
+  };
+
   return (
     <div className="space-y-1">
       {item.items ? (
@@ -90,7 +94,7 @@ export function NavItemComponent({
               isActive
                 ? "bg-accent-blue text-white hover:bg-accent-blue hover:text-white"
                 : hasActiveChild
-                  ? "bg-accent-blue-light text-white hover:bg-accent-blue-light hover:text-accent-blue"
+                  ? "bg-accent-blue-light text-accent-blue dark:text-white hover:bg-accent-blue-light hover:text-accent-blue"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
           >
@@ -138,10 +142,10 @@ export function NavItemComponent({
                       : null;
                   const isSubActive = hrefMatches(subItem.href, pathname, search);
 
-                  return subItem.href && subItem.href !== "#" ? (
-                    <Link
+                  return (
+                    <button
                       key={subIndex}
-                      href={subItem.href}
+                      onClick={() => handleNavigate(subItem.href ?? "#")}
                       className={cn(
                         "w-full text-left px-3 py-2 rounded-md transition-colors duration-200 flex items-center gap-3",
                         isSubActive
@@ -151,21 +155,21 @@ export function NavItemComponent({
                     >
                       {SubIcon && <SubIcon className="w-4 h-4" />}
                       <span className="text-sm">{subItem.title}</span>
-                    </Link>
-                  ) : null;
+                    </button>
+                  );
                 })}
               </div>
             </PopoverContent>
           </Popover>
         )
-      ) : item.href && item.href !== "#" ? (
-        // Leaf items: navigate via Link (renders <a> tag, caught by leave-guard)
-        <Link
-          href={item.href}
+      ) : (
+        // Leaf items: navigate immediately via onNavigate
+        <button
           onMouseEnter={onHover}
           onMouseLeave={onLeave}
+          onClick={() => handleNavigate(item.href ?? "#")}
           className={cn(
-            "w-full text-left py-3 rounded-md transition-colors duration-200 block",
+            "w-full text-left py-3 rounded-md transition-colors duration-200",
             isOpen ? "px-4" : "px-0 flex justify-center",
             isActive
               ? "bg-accent-blue text-white hover:bg-accent-blue hover:text-white"
@@ -176,8 +180,8 @@ export function NavItemComponent({
             <Icon className={cn("size-6", isOpen && "mr-3")} />
             {isOpen && <span className="text-sm">{item.title}</span>}
           </div>
-        </Link>
-      ) : null}
+        </button>
+      )}
 
       {/* Submenu */}
       <AnimatePresence>
@@ -197,21 +201,23 @@ export function NavItemComponent({
                     : null;
                 const isSubActive = hrefMatches(subItem.href, pathname, search);
 
-                return subItem.href && subItem.href !== "#" ? (
-                  <Link
+                return (
+                  <button
                     key={subIndex}
-                    href={subItem.href}
+                    onClick={() => handleNavigate(subItem.href ?? "#")}
                     className={cn(
-                      "w-full text-left px-3 py-2 rounded-md transition-colors duration-200 flex items-center",
+                      "w-full text-left px-3 py-2 rounded-md transition-colors duration-200",
                       isSubActive
                         ? "bg-accent-blue text-white hover:bg-accent-blue hover:text-white"
                         : "text-muted-foreground hover:bg-muted hover:text-foreground",
                     )}
                   >
-                    {SubIcon && <SubIcon className="w-4 h-4 mr-3" />}
-                    <span className="text-sm">{subItem.title}</span>
-                  </Link>
-                ) : null;
+                    <div className="flex items-center">
+                      {SubIcon && <SubIcon className="w-4 h-4 mr-3" />}
+                      <span className="text-sm">{subItem.title}</span>
+                    </div>
+                  </button>
+                );
               })}
             </div>
           </motion.div>
