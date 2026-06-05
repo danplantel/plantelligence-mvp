@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Building2, Shield, Heart, Gift, Check, Users } from "lucide-react";
+import { Building2, Shield, Heart, PiggyBank, Puzzle, Check, Users } from "lucide-react";
 import { BenefitsCategory, KeyContact } from "@/types/new-client-wizard";
 import { cn } from "@/lib/utils";
 import { BrandingImage } from "@/components/ui/branding-image";
@@ -44,10 +44,10 @@ export function NewClientStep3c({
   ];
 
   const categoryIcons: Record<BenefitsCategory, typeof Building2> = {
-    Retirement: Building2,
+    Retirement: PiggyBank,
     "Group Health": Shield,
     "Group Life": Heart,
-    "Other Benefits": Gift,
+    "Other Benefits": Puzzle,
     "Company / Plan Sponsor": Users,
     "Recordkeeper / Vendor": Building2,
   };
@@ -632,13 +632,15 @@ export function NewClientStep3c({
                 <CardContent className="p-4 flex flex-col items-center justify-center space-y-2 min-h-[100px]">
                   <div
                     className={cn(
-                      "w-12 h-12 rounded-full flex items-center justify-center relative",
-                      isSelected ? "bg-accent-blue/10" : "bg-gray-100 dark:bg-gray-700",
+                      "w-12 h-12 flex items-center justify-center relative",
+                      isSelected
+                        ? "bg-accent-blue/10"
+                        : "bg-gray-100 dark:bg-gray-700",
                     )}
                   >
                     <Icon
                       className={cn(
-                        "w-6 h-6",
+                        "w-7 h-7",
                         isSelected ? "text-accent-blue" : "text-gray-600 dark:text-gray-400",
                       )}
                     />

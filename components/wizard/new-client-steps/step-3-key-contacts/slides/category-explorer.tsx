@@ -15,6 +15,10 @@ import {
   Phone,
   Building2,
   Star,
+  PiggyBank,
+  Shield,
+  Heart,
+  Puzzle,
 } from "lucide-react";
 import { Headshot } from "@/components/ui/headshot";
 import { BenefitsCategory } from "@/types/new-client-wizard";
@@ -46,12 +50,12 @@ const BENEFIT_CATEGORIES: BenefitsCategory[] = [
   "Other Benefits",
 ];
 
-// Category icons (emoji-based to avoid extra deps)
-const CATEGORY_EMOJI: Record<string, string> = {
-  Retirement: "🏢",
-  "Group Health": "🛡️",
-  "Group Life": "❤️",
-  "Other Benefits": "🎁",
+// Category icons
+const CATEGORY_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
+  Retirement: PiggyBank,
+  "Group Health": Shield,
+  "Group Life": Heart,
+  "Other Benefits": Puzzle,
 };
 
 // ==================== Component ====================
@@ -266,7 +270,7 @@ export function CategoryExplorer({
       {companyContactCount > 0 && (
         <div className="w-full max-w-2xl">
           <div className="flex items-center gap-2 mb-3">
-            <Building2 className="w-4 h-4 text-accent-blue" />
+            <Building2 className="w-6 h-6 text-accent-blue" />
             <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
               Main Contact
             </span>
@@ -297,8 +301,8 @@ export function CategoryExplorer({
                           <Headshot src={contact.headshot} alt={name} />
                         </div>
                       ) : (
-                        <div className="w-9 h-9 rounded-full bg-accent-blue/10 flex items-center justify-center flex-shrink-0">
-                          <Building2 className="w-4 h-4 text-accent-blue" />
+                        <div className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                          <User className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
                         </div>
                       )}
                       <div className="flex flex-col min-w-0">
@@ -406,9 +410,14 @@ export function CategoryExplorer({
                 )}
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <span className="text-lg flex-shrink-0">
-                    {CATEGORY_EMOJI[category] || "📋"}
-                  </span>
+                  <div className="w-10 h-10 flex items-center justify-center bg-transparent flex-shrink-0">
+                    {(() => {
+                      const IconComponent = CATEGORY_ICON[category];
+                      return IconComponent ? (
+                        <IconComponent className="w-6 h-6 text-accent-blue" />
+                      ) : null;
+                    })()}
+                  </div>
                   <div className="flex flex-col min-w-0">
                     <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
                       {displayLabel}
