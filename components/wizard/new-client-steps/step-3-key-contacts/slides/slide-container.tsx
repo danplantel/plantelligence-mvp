@@ -123,11 +123,11 @@ export function SlideContainer({
                 disabled={!isClickable}
                 onClick={() => handleDotClick(index)}
                 className={cn(
-                  "flex-1 flex flex-col items-center justify-center gap-0.5 py-2 px-1 transition-all duration-200 relative",
+                  "flex-1 flex flex-col items-center justify-center gap-0.5 py-1 transition-all duration-200 relative rounded-md",
                   isCurrent
-                    ? "text-accent-blue"
+                    ? "text-accent-blue hover:bg-accent-blue-light"
                     : isPast
-                      ? "text-gray-500 dark:text-gray-400 cursor-pointer hover:text-accent-blue/70"
+                      ? "text-gray-500 dark:text-gray-400 cursor-pointer hover:text-accent-blue/70 hover:bg-accent-blue-light"
                       : "text-gray-300 dark:text-gray-600 cursor-default",
                 )}
                 aria-label={`Go to ${slide.label}`}

@@ -13,6 +13,8 @@ import {
   ChevronUp,
   ChevronLeft,
   Palette,
+  Monitor,
+  Smartphone,
 } from "lucide-react";
 import { BenefitsCategory, KeyContact } from "@/types/new-client-wizard";
 import { cn } from "@/lib/utils";
@@ -366,6 +368,10 @@ export function NewClientStep3d({
   >(null);
   const [isLayoutSectionCollapsed, setIsLayoutSectionCollapsed] =
     useState(true);
+  const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">(
+    "desktop",
+  );
+  const [mobileLayoutStyle, setMobileLayoutStyle] = useState<number>(0);
   const isDraggingRef = useRef<boolean>(false);
   const justFinishedDragRef = useRef<boolean>(false);
 
@@ -792,6 +798,50 @@ export function NewClientStep3d({
     },
   ];
 
+  // Mobile layout options
+  const mobileLayoutOptions: LayoutOption[] = [
+    {
+      id: 0,
+      name: "Stacked",
+      description: "All cards stacked vertically (single column)",
+      preview: (
+        <div className="space-y-1.5">
+          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded" />
+          <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded" />
+          <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded" />
+          <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded" />
+        </div>
+      ),
+    },
+    {
+      id: 1,
+      name: "2-Column Grid",
+      description: "All cards in a 2-column grid",
+      preview: (
+        <div className="grid grid-cols-2 gap-1.5">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-8 bg-gray-200 dark:bg-gray-700 rounded" />
+          ))}
+        </div>
+      ),
+    },
+    {
+      id: 2,
+      name: "Hero + Grid",
+      description: "First card full width, remaining in 2-column grid",
+      preview: (
+        <div className="space-y-1.5">
+          <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded" />
+          <div className="grid grid-cols-2 gap-1.5">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-6 bg-gray-200 dark:bg-gray-700 rounded" />
+            ))}
+          </div>
+        </div>
+      ),
+    },
+  ];
+
   const currentDisplayStyle = layoutStyle === 1 ? 0 : layoutStyle;
   const previewContent = useMemo(() => {
     if (previewContacts.length === 0 || slots.length === 0) return null;
@@ -831,7 +881,60 @@ export function NewClientStep3d({
       })
       .filter(Boolean);
 
-    // Layout-specific JSX structure
+    // Mobile layout-specific JSX structure
+    if (previewMode === "mobile") {
+      if (mobileLayoutStyle === 0) {
+        // Stacked: all cards in a single column
+        return (
+          <div className="w-full min-w-0 max-w-none space-y-3">
+            {slotElements.map((el, i) => (
+              <div key={i} className="w-full min-w-0">
+                {i === 0 ? (
+                  <div className="w-full min-w-0 shrink-0 -mt-10">{el}</div>
+                ) : (
+                  el
+                )}
+              </div>
+            ))}
+          </div>
+        );
+      }
+
+      if (mobileLayoutStyle === 1) {
+        // 2-Column Grid: all cards in a 2-column grid
+        return (
+          <div className="grid w-full min-w-0 grid-cols-2 gap-3 [&>*]:min-w-0">
+            {slotElements.map((el, i) => (
+              <div key={i} className="w-full min-w-0">
+                {i === 0 ? (
+                  <div className="w-full min-w-0 shrink-0 -mt-10">{el}</div>
+                ) : (
+                  el
+                )}
+              </div>
+            ))}
+          </div>
+        );
+      }
+
+      if (mobileLayoutStyle === 2) {
+        // Hero + Grid: first card full width, rest in 2-column grid
+        const heroSlot = slotElements[0];
+        const gridSlots = slotElements.slice(1);
+        return (
+          <div className="w-full min-w-0 max-w-none space-y-3">
+            <div className="w-full min-w-0 shrink-0 -mt-10">{heroSlot}</div>
+            {gridSlots.length > 0 && (
+              <div className="grid w-full min-w-0 grid-cols-2 gap-3 [&>*]:min-w-0">
+                {gridSlots}
+              </div>
+            )}
+          </div>
+        );
+      }
+    }
+
+    // Desktop layout-specific JSX structure
     if (currentDisplayStyle === 0 || currentDisplayStyle === null) {
       // Default Layout: 1 primary + 4 small
       const primarySlot = slotElements[0];
@@ -897,6 +1000,8 @@ export function NewClientStep3d({
     companyName,
     activePreviewId,
     handleCardClick,
+    mobileLayoutStyle,
+    previewMode,
   ]);
 
   return (
@@ -936,6 +1041,34 @@ export function NewClientStep3d({
                 </p>
               </div>
               <div className="flex items-center gap-2">
+                {/* Desktop / Mobile Toggle */}
+                <div className="flex items-center rounded-lg border border-gray-200 overflow-hidden dark:border-gray-600">
+                  <button
+                    onClick={() => setPreviewMode("desktop")}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-2 text-sm transition-all cursor-pointer",
+                      previewMode === "desktop"
+                        ? "bg-accent-blue text-white"
+                        : "bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700",
+                    )}
+                  >
+                    <Monitor className="w-4 h-4" />
+                    <span className="hidden sm:inline">Desktop</span>
+                  </button>
+                  <button
+                    onClick={() => setPreviewMode("mobile")}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-2 text-sm transition-all cursor-pointer",
+                      previewMode === "mobile"
+                        ? "bg-accent-blue text-white"
+                        : "bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700",
+                    )}
+                  >
+                    <Smartphone className="w-4 h-4" />
+                    <span className="hidden sm:inline">Mobile</span>
+                  </button>
+                </div>
+
                 {/* Collapsible Layout Button */}
                 <button
                   onClick={() =>
@@ -965,80 +1098,153 @@ export function NewClientStep3d({
               <div className="space-y-4 pb-6 border-b border-gray-200 dark:border-gray-700">
                 <div>
                   <h4 className="text-xs font-semibold text-gray-900 mb-2 dark:text-gray-100">
-                    Card Layout Style
+                    {previewMode === "mobile"
+                      ? "Mobile Layout Style"
+                      : "Card Layout Style"}
                   </h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {layoutOptions.map((layout) => {
-                      const isSelected = layoutStyle === layout.id;
 
-                      return (
-                        <Card
-                          key={layout.id}
-                          className={cn(
-                            "cursor-pointer transition-all duration-200 hover:shadow-md h-[120px] overflow-hidden",
-                            isSelected
-                              ? "border-2 border-accent-blue shadow-sm"
-                              : "border border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500",
-                          )}
-                          onClick={() => handleLayoutChange(layout.id)}
-                        >
-                          <CardContent className="p-1 h-full flex flex-col">
-                            <div className="flex items-center justify-between mb-0.5">
-                              <h4 className="text-[9px] font-semibold text-gray-900 leading-tight dark:text-gray-100">
-                                {layout.name}
-                              </h4>
-                              {isSelected && (
-                                <div className="w-1.5 h-1.5 rounded-full bg-accent-blue flex-shrink-0"></div>
-                              )}
-                            </div>
-                            <div className="flex-1 flex items-center justify-center overflow-hidden">
-                              <div className="scale-[0.5] origin-center w-full">
-                                {layout.preview}
+                  {/* Desktop Layout Options */}
+                  {previewMode === "desktop" && (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {layoutOptions.map((layout) => {
+                        const isSelected = layoutStyle === layout.id;
+                        return (
+                          <Card
+                            key={layout.id}
+                            className={cn(
+                              "cursor-pointer transition-all duration-200 hover:shadow-md h-[120px] overflow-hidden",
+                              isSelected
+                                ? "border-2 border-accent-blue shadow-sm"
+                                : "border border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500",
+                            )}
+                            onClick={() => handleLayoutChange(layout.id)}
+                          >
+                            <CardContent className="p-1 h-full flex flex-col">
+                              <div className="flex items-center justify-between mb-0.5">
+                                <h4 className="text-[9px] font-semibold text-gray-900 leading-tight dark:text-gray-100">
+                                  {layout.name}
+                                </h4>
+                                {isSelected && (
+                                  <div className="w-1.5 h-1.5 rounded-full bg-accent-blue flex-shrink-0" />
+                                )}
                               </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                  </div>
+                              <div className="flex-1 flex items-center justify-center overflow-hidden">
+                                <div className="scale-[0.5] origin-center w-full">
+                                  {layout.preview}
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Mobile Layout Options */}
+                  {previewMode === "mobile" && (
+                    <div className="grid grid-cols-3 gap-2">
+                      {mobileLayoutOptions.map((layout) => {
+                        const isSelected = mobileLayoutStyle === layout.id;
+                        return (
+                          <Card
+                            key={layout.id}
+                            className={cn(
+                              "cursor-pointer transition-all duration-200 hover:shadow-md h-[110px] overflow-hidden",
+                              isSelected
+                                ? "border-2 border-accent-blue shadow-sm"
+                                : "border border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500",
+                            )}
+                            onClick={() => setMobileLayoutStyle(layout.id)}
+                          >
+                            <CardContent className="p-1 h-full flex flex-col">
+                              <div className="flex items-center justify-between mb-0.5">
+                                <h4 className="text-[9px] font-semibold text-gray-900 leading-tight dark:text-gray-100">
+                                  {layout.name}
+                                </h4>
+                                {isSelected && (
+                                  <div className="w-1.5 h-1.5 rounded-full bg-accent-blue flex-shrink-0" />
+                                )}
+                              </div>
+                              <div className="flex-1 flex items-center justify-center overflow-hidden">
+                                <div className="scale-[0.5] origin-center w-full">
+                                  {layout.preview}
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
             {/* Preview Content */}
             <div className="bg-[#F8F8F3] rounded-lg p-8 border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
-              <div className="text-center mb-16">
-                <h1
-                  className="text-4xl font-semibold text-[var(--heading-color)] dark:text-gray-100"
-                  style={{
-                    fontFamily: '"DM Serif Display", serif',
-                    '--heading-color': brandColor,
-                  } as React.CSSProperties}
-                >
-                  My Benefits Team
-                </h1>
-              </div>
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                measuring={{
-                  droppable: {
-                    strategy: MeasuringStrategy.Always,
-                  },
-                }}
-                onDragStart={handlePreviewDragStart}
-                onDragOver={handlePreviewDragOver}
-                onDragEnd={handlePreviewDragEnd}
-                onDragCancel={handlePreviewDragCancel}
+              {/* Mobile frame wrapper */}
+              <div
+                className={cn(
+                  previewMode === "mobile" &&
+                    "max-w-[375px] mx-auto rounded-[3rem] border-[6px] border-gray-800 dark:border-gray-600 bg-white dark:bg-gray-950 shadow-xl overflow-hidden",
+                )}
               >
-                <SortableContext
-                  key={`layout-${currentDisplayStyle}`}
-                  items={previewOrder}
-                  strategy={rectSortingStrategy}
+                {/* Notch bar for mobile frame */}
+                {previewMode === "mobile" && (
+                  <div className="flex items-center justify-center py-2 bg-gray-800 dark:bg-gray-600">
+                    <div className="w-16 h-1.5 rounded-full bg-gray-600 dark:bg-gray-400" />
+                  </div>
+                )}
+
+                <div
+                  className={cn(
+                    previewMode === "mobile" ? "px-4 py-6" : undefined,
+                  )}
                 >
-                  <div className="w-full min-w-0 max-w-none">{previewContent}</div>
-                </SortableContext>
-              </DndContext>
+                  <div
+                    className={cn(
+                      "text-center",
+                      previewMode === "mobile" ? "mb-8" : "mb-16",
+                    )}
+                  >
+                    <h1
+                      className={cn(
+                        "font-semibold text-[var(--heading-color)] dark:text-gray-100",
+                        previewMode === "mobile"
+                          ? "text-2xl"
+                          : "text-4xl",
+                      )}
+                      style={{
+                        fontFamily: '"DM Serif Display", serif',
+                        '--heading-color': brandColor,
+                      } as React.CSSProperties}
+                    >
+                      My Benefits Team
+                    </h1>
+                  </div>
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    measuring={{
+                      droppable: {
+                        strategy: MeasuringStrategy.Always,
+                      },
+                    }}
+                    onDragStart={handlePreviewDragStart}
+                    onDragOver={handlePreviewDragOver}
+                    onDragEnd={handlePreviewDragEnd}
+                    onDragCancel={handlePreviewDragCancel}
+                  >
+                    <SortableContext
+                      key={`layout-${currentDisplayStyle}`}
+                      items={previewOrder}
+                      strategy={rectSortingStrategy}
+                    >
+                      <div className="w-full min-w-0 max-w-none">{previewContent}</div>
+                    </SortableContext>
+                  </DndContext>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
