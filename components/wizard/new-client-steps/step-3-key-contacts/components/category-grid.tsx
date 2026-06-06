@@ -44,6 +44,7 @@ const CATEGORY_ICONS: Record<BenefitsCategory, typeof Building2> = {
   "Other Benefits": Gift,
   "Company / Plan Sponsor": Users,
   "Recordkeeper / Vendor": Briefcase,
+  "Third Party Contact": Briefcase,
 };
 
 const CATEGORY_LOGOS: Record<BenefitsCategory, string> = {
@@ -53,6 +54,7 @@ const CATEGORY_LOGOS: Record<BenefitsCategory, string> = {
   "Other Benefits": "/benefits-logo/wellhub.png",
   "Company / Plan Sponsor": "",
   "Recordkeeper / Vendor": "",
+  "Third Party Contact": "",
 };
 
 /** Count complete contacts per category */

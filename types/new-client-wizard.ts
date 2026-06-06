@@ -98,7 +98,8 @@ export type BenefitsCategory =
   | "Group Life"
   | "Other Benefits"
   | "Company / Plan Sponsor"
-  | "Recordkeeper / Vendor";
+  | "Recordkeeper / Vendor"
+  | "Third Party Contact";
 
 export type ContactRole =
   | "HR Generalist"

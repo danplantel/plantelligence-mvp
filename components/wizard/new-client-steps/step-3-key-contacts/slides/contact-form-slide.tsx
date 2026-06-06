@@ -34,6 +34,8 @@ export interface ContactFormSlideProps {
   isGuided?: boolean;
   /** Error fields from validation */
   errorFields?: string[];
+  /** Whether this form is shown after selecting "Someone Else" on the first contact prompt */
+  isFromSomeoneElse?: boolean;
 }
 
 // ==================== Helpers ====================
@@ -63,6 +65,7 @@ const categoryAccent: Record<string, string> = {
   "Group Life": "#B91C1C",
   "Other Benefits": "#7C3AED",
   "Company / Plan Sponsor": "#1E40AF",
+  "Third Party Contact": "#6B7280",
 };
 
 // ==================== Contact Card Preview ====================
@@ -304,6 +307,7 @@ export function ContactFormSlide({
   onBack,
   onContinue,
   isGuided = false,
+  isFromSomeoneElse = false,
   errorFields: externalErrorFields = [],
 }: ContactFormSlideProps) {
   const { stepData, saveStepDataLocally } = useNewClientWizardStore();
@@ -328,7 +332,7 @@ export function ContactFormSlide({
     step3bData.headshotFileName || "",
   );
   const [companyName, setCompanyName] = useState(
-    step3bData.companyName || defaultCompanyName || "",
+    isFromSomeoneElse ? "" : (step3bData.companyName || defaultCompanyName || ""),
   );
   const [isPrimary, setIsPrimary] = useState(
     category === "Company / Plan Sponsor" ? true : (step3bData.isPrimaryOverall ?? defaultIsPrimary),
@@ -834,7 +838,9 @@ export function ContactFormSlide({
       ? "Company / Plan Sponsor"
       : category === "Other Benefits"
         ? "Other Benefits"
-        : category;
+        : category === "Third Party Contact"
+          ? "Third Party Contact"
+          : category;
 
   // Category emoji matching CategoryExplorer
   const categoryEmoji: Record<string, string> = {
@@ -843,6 +849,7 @@ export function ContactFormSlide({
     "Group Life": "❤️",
     "Other Benefits": "🎁",
     "Company / Plan Sponsor": "👥",
+    "Third Party Contact": "🤝",
   };
   const emoji = categoryEmoji[category] || "🏢";
 
@@ -969,6 +976,25 @@ export function ContactFormSlide({
                 </div>
               </div>
             )}
+
+            {/* Company Name input — only visible when coming from "Someone Else" selection */}
+            {isFromSomeoneElse && (
+              <div className="space-y-1">
+                <Label className="dark:text-gray-300 text-xs font-medium">
+                  Company Name <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  placeholder="e.g. Benefits Provider Inc."
+                  className="h-8 text-sm"
+                />
+                {!companyName.trim() && validationAttempted && (
+                  <p className="text-[10px] text-red-500">Company name is required</p>
+                )}
+              </div>
+            )}
+
             {contactType === "individual" ? (
               <>
                 <div className="space-y-1" data-field="firstName">

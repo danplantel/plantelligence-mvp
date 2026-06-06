@@ -50,6 +50,7 @@ export function NewClientStep3c({
     "Other Benefits": Puzzle,
     "Company / Plan Sponsor": Users,
     "Recordkeeper / Vendor": Building2,
+    "Third Party Contact": Building2,
   };
 
   // Map categories to their logos (same as step-3a)
@@ -60,6 +61,7 @@ export function NewClientStep3c({
     "Other Benefits": "/benefits-logo/wellhub.png",
     "Company / Plan Sponsor": "",
     "Recordkeeper / Vendor": "",
+    "Third Party Contact": "",
   };
 
   // Get saved benefits category selection or default to null; when clearSelectionOnMount (after creating a contact) start with null so auto-saved focus is not restored

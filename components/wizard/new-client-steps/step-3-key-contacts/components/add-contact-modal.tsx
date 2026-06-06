@@ -73,6 +73,7 @@ export function AddContactModal({
     "Other Benefits": Gift,
     "Company / Plan Sponsor": Users,
     "Recordkeeper / Vendor": Briefcase,
+    "Third Party Contact": Briefcase,
   };
 
   // Count contacts for each category

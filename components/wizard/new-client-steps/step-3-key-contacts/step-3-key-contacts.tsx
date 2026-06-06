@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import { SlideContainer, SlideDirection } from "./slides/slide-container";
-import { FirstContactPrompt } from "./slides/first-contact-prompt";
+import { FirstContactPrompt, SomeoneElseOption } from "./slides/first-contact-prompt";
 import { ContactFormSlide } from "./slides/contact-form-slide";
 import { CategoryExplorer } from "./slides/category-explorer";
 import { NewClientStep3d } from "./step-3d";
@@ -99,6 +99,9 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
     useState<BenefitsCategory>("Company / Plan Sponsor");
   const [isGuidedForm, setIsGuidedForm] = useState(true);
 
+  // Tracks whether the contact form was opened via "Someone Else" selection
+  const [isFromSomeoneElse, setIsFromSomeoneElse] = useState(false);
+
   // Modal state
   const [isIncompleteModalOpen, setIsIncompleteModalOpen] = useState(false);
   const [missingCategories, setMissingCategories] = useState<BenefitsCategory[]>([]);
@@ -191,6 +194,15 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
     };
   }, [currentStep, contacts.length]);
 
+  // ==================== Helpers ====================
+
+  /** Map a "Someone Else" option to the Third Party Contact category */
+  function mapSomeoneElseOptionToCategory(
+    option: SomeoneElseOption,
+  ): BenefitsCategory {
+    return "Third Party Contact";
+  }
+
   // ==================== Slide Handlers ====================
 
   // Slide 0 → Slide 1
@@ -198,8 +210,26 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
     saveStepDataLocally("step3b", {});
     setContactFormCategory("Company / Plan Sponsor");
     setIsGuidedForm(true);
+    setIsFromSomeoneElse(false);
     goToSlide(1);
   }, [goToSlide, saveStepDataLocally]);
+
+  // Slide 0 → Someone Else selected → navigate to slide 1 (ContactFormSlide)
+  const handleSomeoneElseSelect = useCallback(
+    (option: SomeoneElseOption) => {
+      const category = mapSomeoneElseOptionToCategory(option);
+      // Clear previous form data and set "Someone Else" context
+      saveStepDataLocally("step3b", {
+        isFromSomeoneElse: true,
+        someoneElseOption: option,
+      });
+      setContactFormCategory(category);
+      setIsGuidedForm(false);
+      setIsFromSomeoneElse(true);
+      goToSlide(1);
+    },
+    [goToSlide, saveStepDataLocally],
+  );
 
   // Slide 1 → Slide 2 (contact saved)
   const handleContactFormContinue = useCallback(() => {
@@ -340,11 +370,16 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
   const slideContent = useMemo(() => {
     switch (slideIndex) {
       case 0:
-        return <FirstContactPrompt onContinue={handleFirstContactContinue} />;
+        return (
+          <FirstContactPrompt
+            onContinue={handleFirstContactContinue}
+            onSomeoneElseSelect={handleSomeoneElseSelect}
+          />
+        );
       case 1:
         return (
           <ContactFormSlide
-            key={`form-${contactFormCategory}-${isGuidedForm ? "guided" : "free"}`}
+            key={`form-${contactFormCategory}-${isGuidedForm ? "guided" : "free"}-${isFromSomeoneElse ? "someone-else" : "standard"}`}
             category={contactFormCategory}
             defaultCompanyName={defaultCompanyName}
             defaultCompanyLogo={defaultCompanyLogo}
@@ -356,6 +391,7 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
             }
             onContinue={handleContactFormContinue}
             isGuided={isGuidedForm}
+            isFromSomeoneElse={isFromSomeoneElse}
             errorFields={errorFields}
           />
         );

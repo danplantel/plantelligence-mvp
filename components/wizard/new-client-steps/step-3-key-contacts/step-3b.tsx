@@ -1158,6 +1158,7 @@ export function NewClientStep3b({
     "Other Benefits": "/benefits-logo/wellhub.png",
     "Company / Plan Sponsor": "",
     "Recordkeeper / Vendor": "",
+    "Third Party Contact": "",
   };
 
   // Get step3a data for logo selection (step3aData already declared above)

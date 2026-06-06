@@ -60,6 +60,7 @@ export function NewClientStep3a({
     "Other Benefits": Gift,
     "Company / Plan Sponsor": Building2,
     "Recordkeeper / Vendor": Building2,
+    "Third Party Contact": Building2,
   };
 
   // Map categories to their logos
@@ -70,6 +71,7 @@ export function NewClientStep3a({
     "Other Benefits": "/benefits-logo/wellhub.png",
     "Company / Plan Sponsor": "",
     "Recordkeeper / Vendor": "",
+    "Third Party Contact": "",
   };
 
   const step3aData = (stepData as any).step3a || {};

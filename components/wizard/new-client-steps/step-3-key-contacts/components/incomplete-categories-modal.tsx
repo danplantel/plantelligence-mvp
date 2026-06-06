@@ -56,6 +56,7 @@ export function IncompleteCategoriesModal({
     "Other Benefits": Gift,
     "Company / Plan Sponsor": Users,
     "Recordkeeper / Vendor": Briefcase,
+    "Third Party Contact": Briefcase,
   };
 
   // Count contacts for each category

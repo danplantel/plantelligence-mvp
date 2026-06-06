@@ -11,6 +11,7 @@ const BENEFITS_CATEGORY_OPTIONS: BenefitsCategory[] = [
   "Group Life",
   "Other Benefits",
   "Recordkeeper / Vendor",
+  "Third Party Contact",
 ];
 
 interface BenefitsCategorySelectorProps {

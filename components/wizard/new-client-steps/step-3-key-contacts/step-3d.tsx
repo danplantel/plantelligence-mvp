@@ -487,6 +487,7 @@ export function NewClientStep3d({
           return "Company / Plan Sponsor";
         if (category === "Other Benefits") return "Other";
         if (category === "Recordkeeper / Vendor") return "Other";
+        if (category === "Third Party Contact") return "Other";
         return "Other";
       };
 
