@@ -57,7 +57,7 @@ export function FirstContactPrompt({ onContinue, onSomeoneElseSelect }: FirstCon
           {'\''}s benefits plan?
         </h2>
         <p className="py-4 text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto">
-          Start by adding your Company / Plan Sponsor contact. This is normally an HR manager, benefits coordinator, or someone in a similar role who oversees employee benefits.
+          Start by selecting who manages the benefits plan. Choose <strong>Company / Plan Sponsor</strong> for an internal contact like an HR manager, or choose <strong>Someone Else</strong> for a third-party administrator, advisor, or external benefits contact.
         </p>
       </div>
 
