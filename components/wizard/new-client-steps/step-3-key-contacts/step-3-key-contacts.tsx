@@ -41,22 +41,15 @@ const SLIDES: SlideDef[] = [
 function computeInitialSlide(contacts: any[]): number {
   if (contacts.length === 0) return 0;
 
-  const hasPlanSponsor = contacts.some((c) => {
+  // Accept either Plan Sponsor or Third Party Contact as a valid main contact
+  const hasMainContact = contacts.some((c) => {
     const cats = c.benefitsCategories || (c.benefitsCategory ? [c.benefitsCategory] : []);
-    return cats.includes("Company / Plan Sponsor");
+    return cats.includes("Company / Plan Sponsor") || cats.includes("Third Party Contact");
   });
 
-  if (!hasPlanSponsor) return 0;
+  if (!hasMainContact) return 0;
 
-  const completeContacts = contacts.filter((c) => {
-    const hasFirstName = c.firstName && String(c.firstName).trim() !== "";
-    const hasLastName = c.lastName && String(c.lastName).trim() !== "";
-    const hasEmail = c.email && String(c.email).trim() !== "";
-    const hasPhone = c.phone && String(c.phone).trim() !== "";
-    return hasFirstName && hasLastName && (hasEmail || hasPhone);
-  });
-
-  if (completeContacts.length >= 1) return 2;
+  if (contacts.length >= 1) return 2;
   return 2;
 }
 
@@ -77,20 +70,26 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
   const keyContactsData = stepData.keyContacts || { contacts: [] };
   const contacts = keyContactsData.contacts || [];
 
-  // Initialize slide from store or compute initial
-  const initialSlide = useMemo(() => {
-    // If store has a valid slide index, use it
-    if (typeof step3SlideIndex === "number" && step3SlideIndex >= 0 && step3SlideIndex <= 3) {
-      return step3SlideIndex;
-    }
-    return computeInitialSlide(contacts);
-  }, []);
-
   // Track whether the initial advisor seed has been attempted (prevents re-seeding after manual deletion)
   const hasSeededAdvisorContacts = useRef(false);
 
-  // Local slide state (synced with store)
-  const [slideIndex, setSlideIndexLocal] = useState(initialSlide);
+  // Local slide state — start at slide 0, then sync from store/contacts on mount
+  const [slideIndex, setSlideIndexLocal] = useState(0);
+  const [initialSlideSynced, setInitialSlideSynced] = useState(false);
+
+  // Sync the initial slide after mount once contacts and step3SlideIndex are settled.
+  // This handles the async-load edge case where contacts arrive after the first render.
+  useEffect(() => {
+    if (initialSlideSynced) return;
+    let targetSlide = 0;
+    if (typeof step3SlideIndex === "number" && step3SlideIndex >= 0 && step3SlideIndex <= 3) {
+      targetSlide = step3SlideIndex;
+    } else {
+      targetSlide = computeInitialSlide(contacts);
+    }
+    setSlideIndexLocal(targetSlide);
+    setInitialSlideSynced(true);
+  }, [contacts.length, step3SlideIndex, initialSlideSynced]);
   const prevSlideIndexRef = useRef(slideIndex);
   const [direction, setDirection] = useState<SlideDirection>(1);
 
