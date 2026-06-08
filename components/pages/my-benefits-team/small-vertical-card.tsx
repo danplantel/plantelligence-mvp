@@ -62,6 +62,9 @@ interface SmallVerticalCardProps {
   disableAnimation?: boolean; // Disable animation for preview
   baselineBackgroundColor?: string;
   baselineLogoScale?: number;
+  /** When true, reduces padding, margins, avatar, text, and min-height for compact
+   *  display in constrained containers such as the mobile wizard preview grid. */
+  compact?: boolean;
 }
 
 export function SmallVerticalCard({
@@ -75,6 +78,7 @@ export function SmallVerticalCard({
   disableAnimation = false,
   baselineBackgroundColor,
   baselineLogoScale,
+  compact = false,
 }: SmallVerticalCardProps) {
   const isPrimary = contact.isPrimary || false;
   const effectiveBrandColor = contact.cardPrimaryColor || brandColor;
@@ -190,14 +194,36 @@ export function SmallVerticalCard({
   }
 
   if (disableAnimation) {
+    const cardPadding = compact
+      ? "px-2 py-3 sm:px-3 sm:py-4"
+      : "px-4 py-6 sm:px-8 sm:py-10";
+    const avatarSize = compact
+      ? "h-[60px] w-[60px]"
+      : "h-[90px] w-[90px]";
+    const nameSize = compact
+      ? "text-base sm:text-lg"
+      : "text-xl sm:text-2xl";
+    const subtitleSize = compact ? "text-xs" : "text-sm";
+    const gapLogo = compact ? "mb-3" : "mb-6";
+    const gapAvatar = compact ? "mb-3" : "mb-6";
+    const gapName = compact ? "mb-1" : "mb-2";
+    const gapTitle = compact ? "mb-1" : "mb-2";
+    const gapCompany = compact ? "mb-2" : "mb-4";
+    const contactInfoGap = compact ? "space-y-1.5" : "space-y-3";
+    const buttonGap = compact ? "space-y-1" : "space-y-2";
+    const iconSize = compact ? 14 : 18;
+    const buttonSize = compact ? "py-2" : "py-3";
+    const logoHeight = compact ? 40 : 60;
+    const minH = compact ? "min-h-0" : "min-h-[500px]";
+
     return (
       <div
-        className={`${cardWidth} h-auto min-h-[500px] flex flex-col items-center justify-between rounded-xl border border-[#E5E5E5] px-4 py-6 sm:px-8 sm:py-10 shadow-sm transition-all duration-200 hover:shadow-md hover:border-gray-300 cursor-pointer`}
+        className={`${cardWidth} h-auto ${minH} flex flex-col items-center justify-between rounded-xl border border-[#E5E5E5] ${cardPadding} shadow-sm transition-all duration-200 hover:shadow-md hover:border-gray-300 cursor-pointer`}
         style={{ backgroundColor }}
       >
         <div className="flex flex-col items-center flex-shrink-0">
           {/* LOGO AND COMPANY NAME */}
-          <div className="flex flex-col items-center gap-2 mb-6 flex-shrink-0" style={{ height: `${60 * (contact.logoScale || baselineLogoScale || 1)}px` }}>
+          <div className={`flex flex-col items-center gap-2 ${gapLogo} flex-shrink-0`} style={{ height: `${logoHeight * (contact.logoScale || baselineLogoScale || 1)}px` }}>
             {(contact.companyLogo || contact.logo) && (
               <BrandingImage
                 src={contact.companyLogo || contact.logo || ""}
@@ -209,13 +235,13 @@ export function SmallVerticalCard({
           </div>
 
           {/* PROFILE PICTURE */}
-          <div className="relative h-[90px] w-[90px] overflow-hidden rounded-full mb-6 flex-shrink-0">
+          <div className={`relative ${avatarSize} overflow-hidden rounded-full ${gapAvatar} flex-shrink-0`}>
             <ContactAvatar contact={contact} />
           </div>
 
           {/* NAME */}
           <h3
-            className="text-xl sm:text-2xl font-semibold mb-2 text-center flex-shrink-0 font-dm-serif"
+            className={`${nameSize} font-semibold ${gapName} text-center flex-shrink-0 font-dm-serif`}
             style={{ color: textColor || effectiveBrandColor }}
           >
             {contact.contactType === "team_support"
@@ -226,7 +252,7 @@ export function SmallVerticalCard({
 
           {/* TITLE / DEPARTMENT LABEL */}
           <p
-            className="text-sm font-medium mb-2 text-center font-red-hat flex-shrink-0"
+            className={`${subtitleSize} font-medium ${gapTitle} text-center font-red-hat flex-shrink-0`}
             style={{ color: textColor || "#374151" }}
           >
             {contact.contactType === "team_support"
@@ -236,7 +262,7 @@ export function SmallVerticalCard({
 
           {/* COMPANY NAME */}
           <p
-            className="text-sm font-semibold mb-4 font-red-hat text-center flex-shrink-0"
+            className={`${subtitleSize} font-semibold ${gapCompany} font-red-hat text-center flex-shrink-0`}
             style={{ color: textColor || effectiveBrandColor }}
           >
             {contact.companyName}
@@ -244,7 +270,7 @@ export function SmallVerticalCard({
         </div>
         {/* CONTACT INFO - FLEXIBLE SPACE */}
         <div
-          className="space-y-3 text-sm w-full font-red-hat flex-1 flex flex-col justify-end"
+          className={`${contactInfoGap} ${subtitleSize} w-full font-red-hat flex-1 flex flex-col justify-end`}
           style={{ color: textColor || "#374151" }}
         >
           {/* Display contact info in the specified order */}
@@ -260,7 +286,7 @@ export function SmallVerticalCard({
                   className="flex items-center justify-center gap-2 group"
                 >
                   <Mail
-                    size={18}
+                    size={iconSize}
                     strokeWidth={1.5}
                     className="transition-colors duration-200"
                     style={{ color: textColor || effectiveSecondaryColor }}
@@ -301,7 +327,7 @@ export function SmallVerticalCard({
                   className="flex items-center justify-center gap-2 group"
                 >
                   <Phone
-                    size={18}
+                    size={iconSize}
                     strokeWidth={1.5}
                     className="transition-colors duration-200"
                     style={{ color: textColor || effectiveSecondaryColor }}
@@ -335,11 +361,11 @@ export function SmallVerticalCard({
           })}
           {contact.contactType === "team_support" && contact.supportHours && (
             <p
-              className="text-sm text-center flex items-center justify-center gap-2"
+              className={`${subtitleSize} text-center flex items-center justify-center gap-2`}
               style={{ color: textColor || "#6B7280" }}
             >
               <Clock
-                size={16}
+                size={compact ? 12 : 16}
                 strokeWidth={1.5}
                 style={{ color: textColor || effectiveSecondaryColor }}
               />
@@ -348,7 +374,7 @@ export function SmallVerticalCard({
           )}
 
           {/* ACTION BUTTONS - ALWAYS AT BOTTOM */}
-          <div className="w-full space-y-2 flex-shrink-0">
+          <div className={`w-full ${buttonGap} flex-shrink-0`}>
             {hasAnyButton && buttons.map((button, idx) => {
               const isPrimaryButton = idx === primaryIndex;
               const buttonBg = isPrimaryButton
@@ -362,8 +388,8 @@ export function SmallVerticalCard({
                 <Button
                   key={idx}
                   className={cn(
-                    "w-full rounded-lg px-6 text-sm font-semibold uppercase tracking-wide hover:opacity-90 font-red-hat",
-                    isPrimaryButton ? "py-3" : "py-2",
+                    `w-full rounded-lg px-4 ${subtitleSize} font-semibold uppercase tracking-wide hover:opacity-90 font-red-hat`,
+                    isPrimaryButton ? buttonSize : "py-1.5",
                   )}
                   style={{
                     backgroundColor: isPrimaryButton

@@ -198,6 +198,7 @@ function RenderCardBySlot({
   logoScale,
   index,
   baselineBackgroundColor,
+  compact,
 }: {
   slot: CardSlot;
   contact: any;
@@ -208,6 +209,8 @@ function RenderCardBySlot({
   logoScale?: number;
   index?: number;
   baselineBackgroundColor?: string;
+  /** When true, SmallVerticalCard uses compact sizing (reduced padding, avatar, text) */
+  compact?: boolean;
 }) {
   // Use index to determine visual primary status (first item is always primary)
   const isPrimaryContact = index === 0;
@@ -253,6 +256,7 @@ function RenderCardBySlot({
           index={index}
           disableAnimation={true}
           baselineBackgroundColor={baselineBackgroundColor}
+          compact={compact}
         />
       );
     default:
@@ -873,6 +877,11 @@ export function NewClientStep3d({
             ? ({ ...slot, type: "small" as const })
             : slot;
 
+        // Use compact sizing for mobile grid layouts (1 & 2) to prevent tall,
+        // skinny cards in the constrained phone frame. Stacked (0) has full width
+        // so it doesn't need the compact treatment.
+        const isCompact = previewMode === "mobile" && mobileLayoutStyle !== 0;
+
         return (
           <SortablePreviewCard
             key={contact.id}
@@ -890,18 +899,21 @@ export function NewClientStep3d({
               logoScale={contact.logoScale}
               index={index}
               baselineBackgroundColor={globalBackgroundColor}
+              compact={isCompact}
             />
           </SortablePreviewCard>
         );
       })
       .filter(Boolean);
 
-    // Mobile layout-specific JSX structure
+    // Mobile layout-specific JSX structure — compact card overrides use a data attribute
+    // so the wizard preview can shrink padding, margins, avatar, and text for the narrow
+    // phone frame without affecting the real SmallVerticalCard component used elsewhere.
     if (previewMode === "mobile") {
       if (mobileLayoutStyle === 0) {
         // Stacked: all cards in a single column (uniform layout, no special first card)
         return (
-          <div className="w-full min-w-0 max-w-none space-y-3">
+          <div className="w-full min-w-0 max-w-none space-y-2">
             {slotElements.map((el, i) => (
               <div key={i} className="w-full min-w-0">
                 {el}
@@ -912,9 +924,9 @@ export function NewClientStep3d({
       }
 
       if (mobileLayoutStyle === 1) {
-        // 2-Column Grid: all cards in a 2-column grid (uniform layout, no special first card)
+        // 2-Column Grid: all cards in a 2-column grid (compact spacing)
         return (
-          <div className="grid w-full min-w-0 grid-cols-2 gap-3 [&>*]:min-w-0">
+          <div className="grid w-full min-w-0 grid-cols-2 gap-2 [&>*]:min-w-0">
             {slotElements.map((el, i) => (
               <div key={i} className="w-full min-w-0">
                 {el}
@@ -925,9 +937,9 @@ export function NewClientStep3d({
       }
 
       if (mobileLayoutStyle === 2) {
-        // Hero + Grid: all cards in a 2-column grid (uniform layout, no special first card)
+        // Hero + Grid: all cards in a 2-column grid (compact spacing)
         return (
-          <div className="grid w-full min-w-0 grid-cols-2 gap-3 [&>*]:min-w-0">
+          <div className="grid w-full min-w-0 grid-cols-2 gap-2 [&>*]:min-w-0">
             {slotElements.map((el, i) => (
               <div key={i} className="w-full min-w-0">
                 {el}
@@ -1202,13 +1214,13 @@ export function NewClientStep3d({
 
                 <div
                   className={cn(
-                    previewMode === "mobile" ? "px-4 py-6" : undefined,
+                    previewMode === "mobile" ? "px-3 py-4" : undefined,
                   )}
                 >
                   <div
                     className={cn(
                       "text-center",
-                      previewMode === "mobile" ? "mb-8" : "mb-16",
+                      previewMode === "mobile" ? "mb-4" : "mb-16",
                     )}
                   >
                     <h1
