@@ -865,6 +865,14 @@ export function NewClientStep3d({
         const slot = slots[index];
         if (!slot) return null;
 
+        // In mobile preview, use "small" card type for all cards so the main
+        // contact renders with a vertical layout (headshot above info) matching
+        // the other cards, instead of the desktop horizontal PrimaryContactCard.
+        const mobileSlot =
+          previewMode === "mobile"
+            ? ({ ...slot, type: "small" as const })
+            : slot;
+
         return (
           <SortablePreviewCard
             key={contact.id}
@@ -873,7 +881,7 @@ export function NewClientStep3d({
             onClick={() => handleCardClick(contact.id)}
           >
             <RenderCardBySlot
-              slot={slot}
+              slot={mobileSlot}
               contact={contact}
               brandColor={brandColor}
               secondaryColor={secondaryColor}
@@ -891,16 +899,12 @@ export function NewClientStep3d({
     // Mobile layout-specific JSX structure
     if (previewMode === "mobile") {
       if (mobileLayoutStyle === 0) {
-        // Stacked: all cards in a single column
+        // Stacked: all cards in a single column (uniform layout, no special first card)
         return (
           <div className="w-full min-w-0 max-w-none space-y-3">
             {slotElements.map((el, i) => (
               <div key={i} className="w-full min-w-0">
-                {i === 0 ? (
-                  <div className="w-full min-w-0 shrink-0 -mt-10">{el}</div>
-                ) : (
-                  el
-                )}
+                {el}
               </div>
             ))}
           </div>
@@ -908,16 +912,12 @@ export function NewClientStep3d({
       }
 
       if (mobileLayoutStyle === 1) {
-        // 2-Column Grid: all cards in a 2-column grid
+        // 2-Column Grid: all cards in a 2-column grid (uniform layout, no special first card)
         return (
           <div className="grid w-full min-w-0 grid-cols-2 gap-3 [&>*]:min-w-0">
             {slotElements.map((el, i) => (
               <div key={i} className="w-full min-w-0">
-                {i === 0 ? (
-                  <div className="w-full min-w-0 shrink-0 -mt-10">{el}</div>
-                ) : (
-                  el
-                )}
+                {el}
               </div>
             ))}
           </div>
@@ -925,17 +925,14 @@ export function NewClientStep3d({
       }
 
       if (mobileLayoutStyle === 2) {
-        // Hero + Grid: first card full width, rest in 2-column grid
-        const heroSlot = slotElements[0];
-        const gridSlots = slotElements.slice(1);
+        // Hero + Grid: all cards in a 2-column grid (uniform layout, no special first card)
         return (
-          <div className="w-full min-w-0 max-w-none space-y-3">
-            <div className="w-full min-w-0 shrink-0 -mt-10">{heroSlot}</div>
-            {gridSlots.length > 0 && (
-              <div className="grid w-full min-w-0 grid-cols-2 gap-3 [&>*]:min-w-0">
-                {gridSlots}
+          <div className="grid w-full min-w-0 grid-cols-2 gap-3 [&>*]:min-w-0">
+            {slotElements.map((el, i) => (
+              <div key={i} className="w-full min-w-0">
+                {el}
               </div>
-            )}
+            ))}
           </div>
         );
       }
