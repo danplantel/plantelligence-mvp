@@ -555,10 +555,12 @@ export function ContactFormSlide({
         : null;
 
       if (existingContact) {
-        // Update the existing contact in-place
+        // Update the existing contact in-place, resetting its category to the current one
         const updatedContact = {
           ...existingContact,
           contactType,
+          benefitsCategories: [category],
+          benefitsCategory: category,
           firstName: contactType === "individual" ? firstName : undefined,
           lastName: contactType === "individual" ? lastName : undefined,
           title: contactType === "individual" ? title : undefined,
@@ -594,11 +596,7 @@ export function ContactFormSlide({
 
         // If this contact is being saved as primary, demote only contacts that
         // share a category with the promoted contact (one primary per category)
-        const promotedCats: BenefitsCategory[] =
-          updatedContact.benefitsCategories ||
-          (updatedContact.benefitsCategory
-            ? [updatedContact.benefitsCategory]
-            : [category]);
+        const promotedCats: BenefitsCategory[] = [category];
 
         const baseContacts = shouldBePrimary
           ? savedContacts.map((c: any) => {
@@ -639,6 +637,8 @@ export function ContactFormSlide({
           const updatedContact = {
             ...existingMainContact,
             contactType,
+            benefitsCategories: [category],
+            benefitsCategory: category,
             firstName: contactType === "individual" ? firstName : undefined,
             lastName: contactType === "individual" ? lastName : undefined,
             title: contactType === "individual" ? title : undefined,
