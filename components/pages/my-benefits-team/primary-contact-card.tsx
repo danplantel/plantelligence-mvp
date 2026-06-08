@@ -55,6 +55,9 @@ interface PrimaryContactCardProps {
   companyName: string;
   logoScale?: number;
   baselineBackgroundColor?: string;
+  /** When true, reduces vertical spacing/padding between text/info elements
+   *  so they sit closer together instead of being spaced out. */
+  compact?: boolean;
 }
 
 export function PrimaryContactCard({
@@ -64,6 +67,7 @@ export function PrimaryContactCard({
   appointmentLink,
   companyName,
   baselineBackgroundColor,
+  compact = false,
 }: PrimaryContactCardProps) {
   const effectiveBrandColor = contact.cardPrimaryColor || brandColor;
   const effectiveSecondaryColor = contact.cardSecondaryColor || secondaryColor;
@@ -171,6 +175,18 @@ export function PrimaryContactCard({
     primaryIndex = 0;
   }
 
+  const gridGap = compact
+    ? "gap-4 sm:gap-6 lg:gap-8"
+    : "gap-6 sm:gap-8 lg:gap-12";
+  const logoMargin = compact ? "mb-2" : "mb-6";
+  const contentLayout = compact
+    ? "flex flex-col justify-center font-red-hat"
+    : "flex flex-col justify-between font-red-hat";
+  const contactInfoSpacing = compact ? "space-y-1" : "space-y-3";
+  const headingSize = compact
+    ? "text-xl sm:text-2xl"
+    : "text-2xl sm:text-3xl";
+
   return (
     <motion.section
       initial={{ opacity: 0, y: 50 }}
@@ -182,7 +198,7 @@ export function PrimaryContactCard({
       className="mt-10 w-full rounded-xl p-4 sm:p-8 lg:p-12 shadow-lg relative overflow-hidden"
       style={{ backgroundColor: backgroundColor }}
     >
-      <div className="grid gap-6 sm:gap-8 lg:gap-12 grid-cols-1 lg:grid-cols-2 relative z-10">
+      <div className={`grid ${gridGap} grid-cols-1 lg:grid-cols-2 relative z-10`}>
         {/* LEFT: HEADSHOT */}
         <div className="flex items-center justify-center">
           <div className="relative h-[200px] w-[200px] sm:h-[300px] sm:w-[300px] lg:h-[400px] lg:w-[400px] overflow-hidden rounded-full">
@@ -191,142 +207,269 @@ export function PrimaryContactCard({
         </div>
 
         {/* RIGHT: CONTENT */}
-        <div
-          className="flex flex-col justify-between font-red-hat"
-          style={{ color: textColor }}
-        >
-          {/* LOGO AND COMPANY NAME */}
-          <div className="flex m-0 flex-col gap-2 mb-6 items-start" style={{ height: `${80 * (contact.logoScale || 1)}px` }}>
-            {(contact.companyLogo || contact.logo) && (
-              <BrandingImage
-                src={contact.companyLogo || contact.logo || ""}
-                alt="Logo"
-                className="object-contain w-auto transition-all duration-200 max-h-full"
-                style={{ height: "100%", maxHeight: "100%" }}
-              />
-            )}
-          </div>
-
-          {/* NAME */}
-          <h2
-            className="text-2xl sm:text-3xl font-semibold font-dm-serif"
-            style={{ color: textColor }}
-          >
-            {contact.contactType === "team_support"
-              ? contact.displayName || contact.name
-              : contact.name}
-          </h2>
-
-          {/* TITLE / DEPARTMENT LABEL */}
-          <p
-            className="text-sm font-medium m-0 font-red-hat"
-            style={{ color: textColor }}
-          >
-            {contact.contactType === "team_support"
-              ? contact.departmentLabel || contact.customRole
-              : contact.title || contact.customRole}
-          </p>
-
-          {/* Company Name */}
-          {/* <p className="text-sm text-bold text-white font-red-hat">
-            {contact.companyName}
-          </p> */}
-
-          {/* CONTACT INFO */}
-          <div
-            className="space-y-3 text-base font-red-hat"
-            style={{ color: textColor }}
-          >
-            {/* Display contact info in the specified order */}
-            {contactInfoOrder.map((infoType: ContactInfoType) => {
-              if (
-                infoType === "email" &&
-                contact.email &&
-                contact.displayEmail !== false
-              ) {
-                return (
-                  <p
-                    key="email"
-                    className="flex items-center gap-2 font-red-hat"
-                  >
-                    <Mail size={18} strokeWidth={1.5} color={textColor} />
-                    <a
-                      href={`mailto:${contact.email}`}
-                      className="underline hover:opacity-80 font-red-hat"
-                      style={{ color: textColor }}
-                    >
-                      {contact.email}
-                    </a>
-                  </p>
-                );
-              }
-              if (
-                infoType === "phone" &&
-                contact.phone &&
-                contact.displayPhone !== false
-              ) {
-                return (
-                  <p
-                    key="phone"
-                    className="flex items-center gap-2 font-red-hat"
-                  >
-                    <Phone size={18} strokeWidth={1.5} color={textColor} />
-                    <span className="font-red-hat">
-                      {formatPhone(contact.phone)}
-                    </span>
-                  </p>
-                );
-              }
-              return null;
-            })}
-            {contact.contactType === "team_support" && contact.supportHours && (
-              <p className="flex items-center gap-2 font-red-hat text-sm">
-                <span>Support Hours: {contact.supportHours}</span>
-              </p>
-            )}
-          </div>
-
-          {/* ACTION BUTTONS */}
-          {hasAnyButton && (
-            <div className="flex flex-wrap gap-2 justify-center lg:justify-start">
-              {buttons.map((button, idx) => {
-                const isPrimaryButton = idx === primaryIndex;
-                const buttonBg = isPrimaryButton
-                  ? effectiveSecondaryColor
-                  : mix(0.2, "#ffffff", backgroundColor);
-                const buttonColor = readableColor(buttonBg);
-
-                return (
-                  <Button
-                    key={idx}
-                    className="rounded-lg px-4 py-2 sm:px-6 sm:py-3 text-xs sm:text-sm font-semibold uppercase tracking-wide hover:opacity-90 font-red-hat"
-                    style={{
-                      backgroundColor: isPrimaryButton
-                        ? effectiveSecondaryColor
-                        : "rgba(255,255,255,0.2)",
-                      color: buttonColor,
-                      border: isPrimaryButton
-                        ? "none"
-                        : "1px solid rgba(255,255,255,0.3)",
-                    }}
-                    onClick={() => {
-                      if (
-                        button.type === "schedule" ||
-                        button.type === "website" ||
-                        button.type === "call" ||
-                        button.type === "email"
-                      ) {
-                        window.open(button.url, "_blank");
-                      }
-                    }}
-                  >
-                    {button.label}
-                  </Button>
-                );
-              })}
+        {compact ? (
+          <div className="flex flex-col justify-center items-center font-red-hat" style={{ color: textColor }}>
+            {/* LOGO - horizontally centered */}
+            <div className="flex m-0 flex-col gap-2 mb-2 items-center" style={{ height: `${80 * (contact.logoScale || 1)}px` }}>
+              {(contact.companyLogo || contact.logo) && (
+                <BrandingImage
+                  src={contact.companyLogo || contact.logo || ""}
+                  alt="Logo"
+                  className="object-contain w-auto transition-all duration-200 max-h-full"
+                  style={{ height: "100%", maxHeight: "100%" }}
+                />
+              )}
             </div>
-          )}
-        </div>
+
+            {/* Fixed-width text/info block — text left-aligned, CTA button full-width */}
+            <div className="w-80 max-w-full flex flex-col items-start">
+              {/* NAME */}
+              <h2
+                className={`${headingSize} font-semibold font-dm-serif text-left w-full`}
+                style={{ color: textColor }}
+              >
+                {contact.contactType === "team_support"
+                  ? contact.displayName || contact.name
+                  : contact.name}
+              </h2>
+
+              {/* TITLE / DEPARTMENT LABEL */}
+              <p
+                className="text-sm font-medium m-0 font-red-hat text-left w-full"
+                style={{ color: textColor }}
+              >
+                {contact.contactType === "team_support"
+                  ? contact.departmentLabel || contact.customRole
+                  : contact.title || contact.customRole}
+              </p>
+
+              {/* CONTACT INFO */}
+              <div
+                className={`${contactInfoSpacing} text-base font-red-hat text-left w-full`}
+                style={{ color: textColor }}
+              >
+                {contactInfoOrder.map((infoType: ContactInfoType) => {
+                  if (
+                    infoType === "email" &&
+                    contact.email &&
+                    contact.displayEmail !== false
+                  ) {
+                    return (
+                      <p
+                        key="email"
+                        className="flex items-center justify-start gap-2 font-red-hat"
+                      >
+                        <Mail size={18} strokeWidth={1.5} color={textColor} />
+                        <a
+                          href={`mailto:${contact.email}`}
+                          className="underline hover:opacity-80 font-red-hat"
+                          style={{ color: textColor }}
+                        >
+                          {contact.email}
+                        </a>
+                      </p>
+                    );
+                  }
+                  if (
+                    infoType === "phone" &&
+                    contact.phone &&
+                    contact.displayPhone !== false
+                  ) {
+                    return (
+                      <p
+                        key="phone"
+                        className="flex items-center justify-start gap-2 font-red-hat"
+                      >
+                        <Phone size={18} strokeWidth={1.5} color={textColor} />
+                        <span className="font-red-hat">
+                          {formatPhone(contact.phone)}
+                        </span>
+                      </p>
+                    );
+                  }
+                  return null;
+                })}
+                {contact.contactType === "team_support" && contact.supportHours && (
+                  <p className="flex items-center justify-start gap-2 font-red-hat text-sm">
+                    <span>Support Hours: {contact.supportHours}</span>
+                  </p>
+                )}
+              </div>
+
+              {/* ACTION BUTTONS - full width matching the text block */}
+              {hasAnyButton && (
+                <div className="w-full pt-1 mt-2">
+                  {buttons.map((button, idx) => {
+                    const isPrimaryButton = idx === primaryIndex;
+                    const buttonBg = isPrimaryButton
+                      ? effectiveSecondaryColor
+                      : mix(0.2, "#ffffff", backgroundColor);
+                    const buttonColor = readableColor(buttonBg);
+
+                    return (
+                      <Button
+                        key={idx}
+                        className="w-full rounded-lg px-4 py-2 sm:px-6 sm:py-3 text-xs sm:text-sm font-semibold uppercase tracking-wide hover:opacity-90 font-red-hat"
+                        style={{
+                          backgroundColor: isPrimaryButton
+                            ? effectiveSecondaryColor
+                            : "rgba(255,255,255,0.2)",
+                          color: buttonColor,
+                          border: isPrimaryButton
+                            ? "none"
+                            : "1px solid rgba(255,255,255,0.3)",
+                        }}
+                        onClick={() => {
+                          if (
+                            button.type === "schedule" ||
+                            button.type === "website" ||
+                            button.type === "call" ||
+                            button.type === "email"
+                          ) {
+                            window.open(button.url, "_blank");
+                          }
+                        }}
+                      >
+                        {button.label}
+                      </Button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div
+            className={contentLayout}
+            style={{ color: textColor }}
+          >
+            {/* LOGO AND COMPANY NAME */}
+            <div className={`flex m-0 flex-col gap-2 ${logoMargin} items-start`} style={{ height: `${80 * (contact.logoScale || 1)}px` }}>
+              {(contact.companyLogo || contact.logo) && (
+                <BrandingImage
+                  src={contact.companyLogo || contact.logo || ""}
+                  alt="Logo"
+                  className="object-contain w-auto transition-all duration-200 max-h-full"
+                  style={{ height: "100%", maxHeight: "100%" }}
+                />
+              )}
+            </div>
+
+            {/* NAME */}
+            <h2
+              className={`${headingSize} font-semibold font-dm-serif`}
+              style={{ color: textColor }}
+            >
+              {contact.contactType === "team_support"
+                ? contact.displayName || contact.name
+                : contact.name}
+            </h2>
+
+            {/* TITLE / DEPARTMENT LABEL */}
+            <p
+              className="text-sm font-medium m-0 font-red-hat"
+              style={{ color: textColor }}
+            >
+              {contact.contactType === "team_support"
+                ? contact.departmentLabel || contact.customRole
+                : contact.title || contact.customRole}
+            </p>
+
+            {/* CONTACT INFO */}
+            <div
+              className={`${contactInfoSpacing} text-base font-red-hat`}
+              style={{ color: textColor }}
+            >
+              {contactInfoOrder.map((infoType: ContactInfoType) => {
+                if (
+                  infoType === "email" &&
+                  contact.email &&
+                  contact.displayEmail !== false
+                ) {
+                  return (
+                    <p
+                      key="email"
+                      className="flex items-center gap-2 font-red-hat"
+                    >
+                      <Mail size={18} strokeWidth={1.5} color={textColor} />
+                      <a
+                        href={`mailto:${contact.email}`}
+                        className="underline hover:opacity-80 font-red-hat"
+                        style={{ color: textColor }}
+                      >
+                        {contact.email}
+                      </a>
+                    </p>
+                  );
+                }
+                if (
+                  infoType === "phone" &&
+                  contact.phone &&
+                  contact.displayPhone !== false
+                ) {
+                  return (
+                    <p
+                      key="phone"
+                      className="flex items-center gap-2 font-red-hat"
+                    >
+                      <Phone size={18} strokeWidth={1.5} color={textColor} />
+                      <span className="font-red-hat">
+                        {formatPhone(contact.phone)}
+                      </span>
+                    </p>
+                  );
+                }
+                return null;
+              })}
+              {contact.contactType === "team_support" && contact.supportHours && (
+                <p className="flex items-center gap-2 font-red-hat text-sm">
+                  <span>Support Hours: {contact.supportHours}</span>
+                </p>
+              )}
+            </div>
+
+            {/* ACTION BUTTONS */}
+            {hasAnyButton && (
+              <div className="flex flex-wrap gap-2 justify-center lg:justify-start">
+                {buttons.map((button, idx) => {
+                  const isPrimaryButton = idx === primaryIndex;
+                  const buttonBg = isPrimaryButton
+                    ? effectiveSecondaryColor
+                    : mix(0.2, "#ffffff", backgroundColor);
+                  const buttonColor = readableColor(buttonBg);
+
+                  return (
+                    <Button
+                      key={idx}
+                      className="rounded-lg px-4 py-2 sm:px-6 sm:py-3 text-xs sm:text-sm font-semibold uppercase tracking-wide hover:opacity-90 font-red-hat"
+                      style={{
+                        backgroundColor: isPrimaryButton
+                          ? effectiveSecondaryColor
+                          : "rgba(255,255,255,0.2)",
+                        color: buttonColor,
+                        border: isPrimaryButton
+                          ? "none"
+                          : "1px solid rgba(255,255,255,0.3)",
+                      }}
+                      onClick={() => {
+                        if (
+                          button.type === "schedule" ||
+                          button.type === "website" ||
+                          button.type === "call" ||
+                          button.type === "email"
+                        ) {
+                          window.open(button.url, "_blank");
+                        }
+                      }}
+                    >
+                      {button.label}
+                    </Button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </motion.section>
   );

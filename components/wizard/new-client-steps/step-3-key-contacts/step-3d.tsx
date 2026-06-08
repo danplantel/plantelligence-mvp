@@ -230,6 +230,7 @@ function RenderCardBySlot({
           companyName={companyName}
           logoScale={logoScale}
           baselineBackgroundColor={baselineBackgroundColor}
+          compact={true}
         />
       );
     case "large":
