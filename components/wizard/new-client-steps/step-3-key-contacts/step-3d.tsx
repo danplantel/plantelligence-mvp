@@ -1213,7 +1213,7 @@ export function NewClientStep3d({
             )}
 
             {/* Preview Content */}
-            <div className="bg-[#F8F8F3] rounded-lg p-8 border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
+            <div className="bg-[#F8F8F3] rounded-lg p-8 border border-gray-200">
               {/* Mobile frame wrapper */}
               <div
                 className={cn(
