@@ -715,7 +715,12 @@ export function NewClientStep3d({
     // Don't update if we're dragging or just finished a drag
     if (isDraggingRef.current || justFinishedDragRef.current) return;
 
-    const currentKeyContactsData = stepData.keyContacts || { contacts: [] };
+    // Keep existing contacts when the store hasn't hydrated yet (skipHydration: true).
+    // This prevents the local contacts state from being cleared on initial page load
+    // before the Zustand persist middleware has rehydrated from localStorage.
+    if (!stepData.keyContacts) return;
+
+    const currentKeyContactsData = stepData.keyContacts;
 
     if (
       lastPersistedKeyContactsData.current &&
@@ -1028,7 +1033,7 @@ export function NewClientStep3d({
       </EditorPanelWrapper>
 
       {/* Combined Preview Section with Collapsible Layout */}
-      {contacts.length > 0 && (
+      {sortedContacts.length > 0 && (
         <Card className="space-y-4 dark:bg-gray-800 dark:border-gray-700">
           <CardHeader>
             <div className="flex items-center justify-between">
