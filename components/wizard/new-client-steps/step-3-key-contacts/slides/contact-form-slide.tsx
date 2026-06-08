@@ -984,7 +984,6 @@ export function ContactFormSlide({
                   Company Name <span className="text-red-500">*</span>
                 </Label>
                 <Input
-                  value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
                   placeholder="e.g. Benefits Provider Inc."
                   className="h-8 text-sm"
@@ -1259,8 +1258,8 @@ export function ContactFormSlide({
               </div>
             )}
 
-            {/* Company Name (for non-Plan-Sponsor categories) */}
-            {category !== "Company / Plan Sponsor" && (
+            {/* Company Name (for non-Plan-Sponsor categories, not shown when isFromSomeoneElse since it's at the top) */}
+            {category !== "Company / Plan Sponsor" && !isFromSomeoneElse && (
               <div className="space-y-1.5">
                 <Label className="dark:text-gray-300">
                   Company / Organization (optional)
