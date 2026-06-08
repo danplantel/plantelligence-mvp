@@ -937,14 +937,17 @@ export function NewClientStep3d({
       }
 
       if (mobileLayoutStyle === 2) {
-        // Hero + Grid: all cards in a 2-column grid (compact spacing)
+        // Hero + Grid: first card full-width hero, remaining in 2-column grid
+        const heroSlot = slotElements[0];
+        const gridSlots = slotElements.slice(1);
         return (
-          <div className="grid w-full min-w-0 grid-cols-2 gap-2 [&>*]:min-w-0">
-            {slotElements.map((el, i) => (
-              <div key={i} className="w-full min-w-0">
-                {el}
+          <div className="w-full min-w-0 max-w-none space-y-2">
+            <div className="w-full min-w-0">{heroSlot}</div>
+            {gridSlots.length > 0 && (
+              <div className="grid w-full min-w-0 grid-cols-2 gap-2 [&>*]:min-w-0">
+                {gridSlots}
               </div>
-            ))}
+            )}
           </div>
         );
       }
