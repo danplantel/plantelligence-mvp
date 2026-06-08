@@ -57,6 +57,10 @@ export const authOptions: NextAuthOptions = {
     signIn: "/",
     // signUp: "/signup",
   },
+  session: {
+    strategy: "jwt",
+    maxAge: 8 * 60 * 60, // 8 hours — persistent across browser restarts
+  },
   callbacks: {
     async session({ session, token }) {
       if (session.user) {
