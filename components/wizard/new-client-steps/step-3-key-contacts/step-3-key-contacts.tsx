@@ -147,12 +147,14 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
     }
   }, [step3SlideIndex, slideIndex]);
 
-  // Fallback: seed advisor contacts from profile
-  // Seed advisor contacts only once on initial mount — never re-run after manual deletion
+  // Seed advisor contacts from profile for their primary service categories.
+  // Only runs once the user has saved at least one main contact (slide 1 → slide 2
+  // transition) so the category explorer never shows surprise pre-seeded contacts
+  // before the user has chosen Company / Plan Sponsor or Someone Else.
   useEffect(() => {
     if (currentStep !== 3) return;
+    if (contacts.length === 0) return; // wait for user to add their main contact first
     if (hasSeededAdvisorContacts.current) return;
-    if (contacts.length > 0) return;
 
     hasSeededAdvisorContacts.current = true;
 
@@ -162,8 +164,18 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
         const res = await fetch("/api/profile");
         if (!res.ok || cancelled) return;
         const profile = await res.json();
+
+        // Grab the latest contacts from the store (includes the user's just-saved
+        // main contact) so mergeOnboardingAdvisorContactsIntoKeyContacts can
+        // skip categories that already have a complete contact.
+        const currentKc =
+          useNewClientWizardStore.getState().stepData.keyContacts || {
+            contacts: [],
+          };
+        const currentContacts = currentKc.contacts || [];
+
         const next = mergeOnboardingAdvisorContactsIntoKeyContacts(
-          [],
+          currentContacts,
           profile.primaryServiceCategories,
           {
             name: profile.name,
@@ -178,7 +190,9 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
             advisorLink: profile.advisorLink,
           },
         );
-        if (next.length === 0 || cancelled) return;
+        // No new contacts were added — nothing to save
+        if (next.length <= currentContacts.length || cancelled) return;
+
         const newKc = { contacts: next };
         const {
           saveStepDataLocally: saveLocal,
