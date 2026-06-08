@@ -19,6 +19,8 @@ import {
   Shield,
   Heart,
   Puzzle,
+  Users,
+  Briefcase,
 } from "lucide-react";
 import { Headshot } from "@/components/ui/headshot";
 import { BenefitsCategory } from "@/types/new-client-wizard";
@@ -51,12 +53,12 @@ const CATEGORY_LABEL: Record<string, string> = {
 
 // Category icons
 const CATEGORY_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
-  "Company / Plan Sponsor": Building2,
+  "Company / Plan Sponsor": Briefcase,
   Retirement: PiggyBank,
   "Group Health": Shield,
   "Group Life": Heart,
   "Other Benefits": Puzzle,
-  "Third Party Contact": Building2,
+  "Third Party Contact": Users,
 };
 
 // ==================== Component ====================
