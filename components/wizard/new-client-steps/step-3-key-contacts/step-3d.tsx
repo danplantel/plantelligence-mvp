@@ -319,7 +319,7 @@ export function NewClientStep3d({
   // Get brand colors and appointment link
   const brandColor = styles.cardPrimaryColor;
   const secondaryColor = styles.cardSecondaryColor;
-  const globalBackgroundColor = styles.cardBackgroundColor;
+  const globalBackgroundColor = "#ffffff";
 
   const appointmentLink =
     stepData?.companyBasics?.appointmentLink ||
@@ -522,7 +522,7 @@ export function NewClientStep3d({
         isPrimaryOverall: contact.isPrimaryOverall || false,
         cardPrimaryColor: contact.cardPrimaryColor,
         cardSecondaryColor: contact.cardSecondaryColor,
-        cardBackgroundColor: contact.cardBackgroundColor,
+        cardBackgroundColor: undefined,
         logoScale: contact.logoScale,
         phoneExtension: contact.phoneExtension,
         displayEmail: contact.displayEmail,
@@ -1241,15 +1241,15 @@ export function NewClientStep3d({
                   >
                     <h1
                       className={cn(
-                        "font-semibold text-[var(--heading-color)] dark:text-gray-100",
+                        "font-semibold",
                         previewMode === "mobile"
                           ? "text-2xl"
                           : "text-4xl",
                       )}
                       style={{
                         fontFamily: '"DM Serif Display", serif',
-                        '--heading-color': brandColor,
-                      } as React.CSSProperties}
+                        color: brandColor,
+                      }}
                     >
                       My Benefits Team
                     </h1>

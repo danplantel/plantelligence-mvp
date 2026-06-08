@@ -11,7 +11,7 @@ export function useContactStyles() {
         return {
             cardPrimaryColor: keyContacts?.cardPrimaryColor || stepData.companyBasics?.primaryColor || "#1F3A60",
             cardSecondaryColor: keyContacts?.cardSecondaryColor || stepData.companyBasics?.secondaryColor || "#000000",
-            cardBackgroundColor: keyContacts?.cardBackgroundColor || stepData.companyBasics?.primaryColor || "#1F3A60",
+            cardBackgroundColor: keyContacts?.cardBackgroundColor || "#ffffff",
             logoScale: keyContacts?.logoScale || 1,
         };
     };
@@ -56,7 +56,7 @@ export function useContactStyles() {
         const storeStyles = {
             cardPrimaryColor: keyContacts?.cardPrimaryColor || stepData.companyBasics?.primaryColor || "#1F3A60",
             cardSecondaryColor: keyContacts?.cardSecondaryColor || stepData.companyBasics?.secondaryColor || "#000000",
-            cardBackgroundColor: keyContacts?.cardBackgroundColor || stepData.companyBasics?.primaryColor || "#1F3A60",
+            cardBackgroundColor: keyContacts?.cardBackgroundColor || "#ffffff",
             logoScale: keyContacts?.logoScale || 1,
         };
 

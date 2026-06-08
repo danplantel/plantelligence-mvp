@@ -83,7 +83,7 @@ export function SmallVerticalCard({
   const isPrimary = contact.isPrimary || false;
   const effectiveBrandColor = contact.cardPrimaryColor || brandColor;
   const effectiveSecondaryColor = contact.cardSecondaryColor || secondaryColor;
-  const backgroundColor = contact.cardBackgroundColor || baselineBackgroundColor || effectiveBrandColor;
+  const backgroundColor = contact.cardBackgroundColor || baselineBackgroundColor || "#ffffff";
   const textColor = isPrimary || (backgroundColor && backgroundColor !== "#ffffff" && backgroundColor !== "white")
     ? readableColor(backgroundColor)
     : undefined;
@@ -382,7 +382,7 @@ export function SmallVerticalCard({
                 : isPrimary
                   ? mix(0.2, "#ffffff", effectiveBrandColor)
                   : "#F3F4F6";
-              const buttonColor = readableColor(buttonBg);
+              const buttonColor = isPrimaryButton ? "#ffffff" : readableColor(buttonBg);
 
               return (
                 <Button
@@ -392,16 +392,12 @@ export function SmallVerticalCard({
                     isPrimaryButton ? buttonSize : "py-1.5",
                   )}
                   style={{
-                    backgroundColor: isPrimaryButton
-                      ? effectiveSecondaryColor
-                      : isPrimary
-                        ? "rgba(255,255,255,0.2)"
-                        : "#F3F4F6",
+                    backgroundColor: buttonBg,
                     color: buttonColor,
                     border: isPrimaryButton
                       ? "none"
                       : isPrimary
-                        ? "1px solid rgba(255,255,255,0.3)"
+                        ? "1px solid #E5E7EB"
                         : "1px solid #E5E7EB",
                   }}
                   onClick={() => {
@@ -591,7 +587,7 @@ export function SmallVerticalCard({
                 : isPrimary
                   ? mix(0.2, "#ffffff", effectiveBrandColor)
                   : "#F3F4F6";
-              const buttonColor = readableColor(buttonBg);
+              const buttonColor = isPrimaryButton ? "#ffffff" : readableColor(buttonBg);
 
               return (
                 <Button
@@ -601,16 +597,12 @@ export function SmallVerticalCard({
                     isPrimaryButton ? "py-3" : "py-2",
                   )}
                   style={{
-                    backgroundColor: isPrimaryButton
-                      ? effectiveSecondaryColor
-                      : isPrimary
-                        ? "rgba(255,255,255,0.2)"
-                        : "#F3F4F6",
+                    backgroundColor: buttonBg,
                     color: buttonColor,
                     border: isPrimaryButton
                       ? "none"
                       : isPrimary
-                        ? "1px solid rgba(255,255,255,0.3)"
+                        ? "1px solid #E5E7EB"
                         : "1px solid #E5E7EB",
                   }}
                   onClick={() => {

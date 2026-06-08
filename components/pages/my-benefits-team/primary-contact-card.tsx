@@ -71,7 +71,7 @@ export function PrimaryContactCard({
 }: PrimaryContactCardProps) {
   const effectiveBrandColor = contact.cardPrimaryColor || brandColor;
   const effectiveSecondaryColor = contact.cardSecondaryColor || secondaryColor;
-  const backgroundColor = contact.cardBackgroundColor || baselineBackgroundColor || effectiveBrandColor;
+  const backgroundColor = contact.cardBackgroundColor || baselineBackgroundColor || "#ffffff";
   const textColor = readableColor(backgroundColor);
   // Determine which buttons to show and which is primary (first checked button becomes primary)
   // Use saved orders from contact or default orders
@@ -226,7 +226,7 @@ export function PrimaryContactCard({
               {/* NAME */}
               <h2
                 className={`${headingSize} font-semibold font-dm-serif text-left w-full`}
-                style={{ color: textColor }}
+                style={{ color: effectiveBrandColor }}
               >
                 {contact.contactType === "team_support"
                   ? contact.displayName || contact.name
@@ -303,21 +303,19 @@ export function PrimaryContactCard({
                     const isPrimaryButton = idx === primaryIndex;
                     const buttonBg = isPrimaryButton
                       ? effectiveSecondaryColor
-                      : mix(0.2, "#ffffff", backgroundColor);
-                    const buttonColor = readableColor(buttonBg);
+                      : "#F3F4F6";
+                    const buttonColor = isPrimaryButton ? "#ffffff" : readableColor(buttonBg);
 
                     return (
                       <Button
                         key={idx}
                         className="w-full rounded-lg px-4 py-2 sm:px-6 sm:py-3 text-xs sm:text-sm font-semibold uppercase tracking-wide hover:opacity-90 font-red-hat"
                         style={{
-                          backgroundColor: isPrimaryButton
-                            ? effectiveSecondaryColor
-                            : "rgba(255,255,255,0.2)",
+                          backgroundColor: buttonBg,
                           color: buttonColor,
                           border: isPrimaryButton
                             ? "none"
-                            : "1px solid rgba(255,255,255,0.3)",
+                            : "1px solid #E5E7EB",
                         }}
                         onClick={() => {
                           if (
@@ -358,7 +356,7 @@ export function PrimaryContactCard({
             {/* NAME */}
             <h2
               className={`${headingSize} font-semibold font-dm-serif`}
-              style={{ color: textColor }}
+              style={{ color: effectiveBrandColor }}
             >
               {contact.contactType === "team_support"
                 ? contact.displayName || contact.name
@@ -435,21 +433,19 @@ export function PrimaryContactCard({
                   const isPrimaryButton = idx === primaryIndex;
                   const buttonBg = isPrimaryButton
                     ? effectiveSecondaryColor
-                    : mix(0.2, "#ffffff", backgroundColor);
-                  const buttonColor = readableColor(buttonBg);
+                    : "#F3F4F6";
+                  const buttonColor = isPrimaryButton ? "#ffffff" : readableColor(buttonBg);
 
                   return (
                     <Button
                       key={idx}
                       className="rounded-lg px-4 py-2 sm:px-6 sm:py-3 text-xs sm:text-sm font-semibold uppercase tracking-wide hover:opacity-90 font-red-hat"
                       style={{
-                        backgroundColor: isPrimaryButton
-                          ? effectiveSecondaryColor
-                          : "rgba(255,255,255,0.2)",
+                        backgroundColor: buttonBg,
                         color: buttonColor,
                         border: isPrimaryButton
                           ? "none"
-                          : "1px solid rgba(255,255,255,0.3)",
+                          : "1px solid #E5E7EB",
                       }}
                       onClick={() => {
                         if (

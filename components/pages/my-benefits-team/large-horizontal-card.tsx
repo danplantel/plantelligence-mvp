@@ -77,7 +77,7 @@ export function LargeHorizontalCard({
   const isPrimary = contact.isPrimary || false;
   const effectiveBrandColor = contact.cardPrimaryColor || brandColor;
   const effectiveSecondaryColor = contact.cardSecondaryColor || secondaryColor;
-  const backgroundColor = contact.cardBackgroundColor || baselineBackgroundColor || effectiveBrandColor;
+  const backgroundColor = contact.cardBackgroundColor || baselineBackgroundColor || "#ffffff";
   const textColor = isPrimary || (backgroundColor && backgroundColor !== "#ffffff" && backgroundColor !== "white")
     ? readableColor(backgroundColor)
     : undefined;
@@ -347,7 +347,7 @@ export function LargeHorizontalCard({
                 : isPrimary
                   ? mix(0.2, "#ffffff", effectiveBrandColor)
                   : "#F3F4F6";
-              const buttonColor = readableColor(buttonBg);
+              const buttonColor = isPrimaryButton ? "#ffffff" : readableColor(buttonBg);
 
               return (
                 <Button
@@ -362,7 +362,7 @@ export function LargeHorizontalCard({
                     border: isPrimaryButton
                       ? "none"
                       : isPrimary
-                        ? "1px solid rgba(255,255,255,0.3)"
+                        ? "1px solid #E5E7EB"
                         : "1px solid #E5E7EB",
                   }}
                   onClick={() => {
