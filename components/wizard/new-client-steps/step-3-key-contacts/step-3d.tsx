@@ -877,10 +877,10 @@ export function NewClientStep3d({
             ? ({ ...slot, type: "small" as const })
             : slot;
 
-        // Use compact sizing for mobile grid layouts (1 & 2) to prevent tall,
-        // skinny cards in the constrained phone frame. Stacked (0) has full width
-        // so it doesn't need the compact treatment.
-        const isCompact = previewMode === "mobile" && mobileLayoutStyle !== 0;
+        // Use compact sizing for all mobile layouts so stacked cards have the same
+        // reduced padding, avatar, and text proportions as the Hero card in the
+        // Hero + Grid layout.
+        const isCompact = previewMode === "mobile";
 
         return (
           <SortablePreviewCard
