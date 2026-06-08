@@ -878,10 +878,22 @@ export function NewClientStep3d({
             ? ({ ...slot, type: "small" as const })
             : slot;
 
+        // For desktop Layout 2 & 4, render "large" horizontal cards as compact
+        // SmallVerticalCard to match the mobile hero card appearance (vertical layout,
+        // reduced padding/avatar/text) instead of the wide horizontal card.
+        const largeAsCompact =
+          previewMode !== "mobile" &&
+          (currentDisplayStyle === 2 || currentDisplayStyle === 4) &&
+          slot.type === "large";
+
+        const effectiveSlot = largeAsCompact
+          ? ({ ...slot, type: "small" as const })
+          : mobileSlot;
+
         // Use compact sizing for all mobile layouts so stacked cards have the same
         // reduced padding, avatar, and text proportions as the Hero card in the
-        // Hero + Grid layout.
-        const isCompact = previewMode === "mobile";
+        // Hero + Grid layout. Also use compact when large cards are converted.
+        const isCompact = previewMode === "mobile" || largeAsCompact;
 
         return (
           <SortablePreviewCard
@@ -891,7 +903,7 @@ export function NewClientStep3d({
             onClick={() => handleCardClick(contact.id)}
           >
             <RenderCardBySlot
-              slot={mobileSlot}
+              slot={effectiveSlot}
               contact={contact}
               brandColor={brandColor}
               secondaryColor={secondaryColor}
