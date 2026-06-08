@@ -82,43 +82,46 @@ export function CategoryExplorer({
     [contacts],
   );
 
-  // Main contact: the primary contact for the category chosen in FirstContactPrompt.
-  // Reacts live — clicking a different star in the accordion updates the Main Contact section.
+  // Determine which category was selected FIRST in FirstContactPrompt — locks the
+  // Main Contact category forever so adding a Plan Sponsor later (when initially
+  // chosen "Someone Else") doesn't steal the Main Contact slot.
+  const initialMainContactCategory = useMemo((): BenefitsCategory | null => {
+    if (contacts.length === 0) return null;
+    const firstContact = contacts[0];
+    const firstCats: BenefitsCategory[] =
+      firstContact.benefitsCategories ||
+      (firstContact.benefitsCategory ? [firstContact.benefitsCategory] : []);
+    if (firstCats.includes("Company / Plan Sponsor")) return "Company / Plan Sponsor";
+    if (firstCats.includes("Third Party Contact")) return "Third Party Contact";
+    return firstCats[0] || null;
+  }, [contacts]);
+
+  // Main contact: the primary contact for the category chosen FIRST in FirstContactPrompt.
+  // Once set, this does NOT change — adding a Plan Sponsor after choosing Someone Else
+  // keeps the TPA as Main Contact.
+  // Reacts live to primary star toggles within the locked category.
   const mainContacts = useMemo(() => {
-    // Priority 1: primary Company / Plan Sponsor contact
-    if (companyContactCount > 0) {
-      const primarySponsor = contacts.filter((c: any) => {
-        const cats: BenefitsCategory[] =
-          c.benefitsCategories ||
-          (c.benefitsCategory ? [c.benefitsCategory] : []);
-        return (
-          cats.includes("Company / Plan Sponsor") &&
-          (c.isPrimaryOverall || c.isPrimary)
-        );
-      });
-      if (primarySponsor.length > 0) return primarySponsor;
-      // Fallback: any Plan Sponsor contact
-      return contacts.filter((c: any) => {
-        const cats: BenefitsCategory[] =
-          c.benefitsCategories ||
-          (c.benefitsCategory ? [c.benefitsCategory] : []);
-        return cats.includes("Company / Plan Sponsor");
-      });
-    }
-    // Priority 2: primary Third Party Contact (from Someone Else → "3rd Party Administrator")
-    const primaryTPA = contacts.filter((c: any) => {
+    if (contacts.length === 0) return [];
+    const targetCat = initialMainContactCategory;
+    if (!targetCat) return contacts.length > 0 ? [contacts[0]] : [];
+    const primaryContacts = contacts.filter((c: any) => {
       const cats: BenefitsCategory[] =
         c.benefitsCategories ||
         (c.benefitsCategory ? [c.benefitsCategory] : []);
-      return (
-        cats.includes("Third Party Contact") &&
-        (c.isPrimaryOverall || c.isPrimary)
-      );
+      return cats.includes(targetCat) && (c.isPrimaryOverall || c.isPrimary);
     });
-    if (primaryTPA.length > 0) return primaryTPA;
-    // Fallback: first contact (shouldn't normally be reached after auto-set)
+    if (primaryContacts.length > 0) return primaryContacts;
+    // Fallback: any contact with the target category
+    const fallback = contacts.filter((c: any) => {
+      const cats: BenefitsCategory[] =
+        c.benefitsCategories ||
+        (c.benefitsCategory ? [c.benefitsCategory] : []);
+      return cats.includes(targetCat);
+    });
+    if (fallback.length > 0) return fallback;
+    // Last resort: first contact
     return contacts.length > 0 ? [contacts[0]] : [];
-  }, [contacts, companyContactCount]);
+  }, [contacts, initialMainContactCategory]);
 
   // Label for the Main Contact type (shown beneath "Main Contact" heading).
   // Only two possibilities: Company/Plan Sponsor or Third Party Administrator.
