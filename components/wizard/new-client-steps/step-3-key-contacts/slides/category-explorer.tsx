@@ -208,12 +208,18 @@ export function CategoryExplorer({
     });
   }, [contacts]);
 
+  // Accept either Plan Sponsor or TPA as the required main contact
+  const tpaContactCount = useMemo(
+    () => getContactCountForCategory(contacts, "Third Party Contact"),
+    [contacts],
+  );
+
   const hasMinimumContacts = useMemo(
     () =>
-      companyContactCount > 0 &&
+      (companyContactCount > 0 || tpaContactCount > 0) &&
       contacts.length > 0 &&
       allCategoriesHavePrimary,
-    [companyContactCount, contacts.length, allCategoriesHavePrimary],
+    [companyContactCount, tpaContactCount, contacts.length, allCategoriesHavePrimary],
   );
 
   const getCategoryStatus = useCallback(

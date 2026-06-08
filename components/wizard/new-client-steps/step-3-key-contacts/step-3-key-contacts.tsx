@@ -437,6 +437,7 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
               });
               setContactFormCategory(category);
               setIsGuidedForm(false);
+              setIsFromSomeoneElse(category === "Third Party Contact");
               goToSlide(1);
             }}
             onEditMainContact={() => {

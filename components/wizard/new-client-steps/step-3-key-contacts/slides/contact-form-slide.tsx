@@ -332,7 +332,9 @@ export function ContactFormSlide({
     step3bData.headshotFileName || "",
   );
   const [companyName, setCompanyName] = useState(
-    isFromSomeoneElse ? "" : (step3bData.companyName || defaultCompanyName || ""),
+    isFromSomeoneElse
+      ? (step3bData.companyName || "")
+      : (step3bData.companyName || defaultCompanyName || ""),
   );
   const [isPrimary, setIsPrimary] = useState(
     category === "Company / Plan Sponsor" ? true : (step3bData.isPrimaryOverall ?? defaultIsPrimary),
@@ -976,23 +978,20 @@ export function ContactFormSlide({
                 </div>
               </div>
             )}
-
-            {/* Company Name input — only visible when coming from "Someone Else" selection */}
+            {/* Company / Organization — first input for TPA/Someone Else contacts */}
             {isFromSomeoneElse && (
               <div className="space-y-1">
                 <Label className="dark:text-gray-300 text-xs font-medium">
-                  Company Name <span className="text-red-500">*</span>
+                  Company / Organization <span className="text-red-500">*</span>
                 </Label>
                 <Input
                   onChange={(e) => setCompanyName(e.target.value)}
                   placeholder="e.g. Benefits Provider Inc."
                   className="h-8 text-sm"
                 />
-                {!companyName.trim() && validationAttempted && (
-                  <p className="text-[10px] text-red-500">Company name is required</p>
-                )}
               </div>
             )}
+
 
             {contactType === "individual" ? (
               <>
@@ -1258,7 +1257,7 @@ export function ContactFormSlide({
               </div>
             )}
 
-            {/* Company Name (for non-Plan-Sponsor categories, not shown when isFromSomeoneElse since it's at the top) */}
+            {/* Company / Organization — shown for non-Plan-Sponsor, unless already shown at top for Someone Else */}
             {category !== "Company / Plan Sponsor" && !isFromSomeoneElse && (
               <div className="space-y-1.5">
                 <Label className="dark:text-gray-300">
