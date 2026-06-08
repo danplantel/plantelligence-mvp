@@ -218,7 +218,7 @@ export function SmallVerticalCard({
 
     return (
       <div
-        className={`${cardWidth} h-auto ${minH} flex flex-col items-center justify-between rounded-xl border border-[#E5E5E5] ${cardPadding} shadow-sm transition-all duration-200 hover:shadow-md hover:border-gray-300 cursor-pointer`}
+        className={`${cardWidth} h-full ${minH} flex flex-col items-center justify-between rounded-xl border border-[#E5E5E5] ${cardPadding} shadow-sm transition-all duration-200 hover:shadow-md hover:border-gray-300 cursor-pointer`}
         style={{ backgroundColor }}
       >
         <div className="flex flex-col items-center flex-shrink-0">
@@ -270,7 +270,7 @@ export function SmallVerticalCard({
         </div>
         {/* CONTACT INFO - FLEXIBLE SPACE */}
         <div
-          className={`${contactInfoGap} ${subtitleSize} w-full font-red-hat flex-1 flex flex-col justify-end`}
+          className={`${contactInfoGap} ${subtitleSize} w-full font-red-hat flex-1 flex flex-col`}
           style={{ color: textColor || "#374151" }}
         >
           {/* Display contact info in the specified order */}
@@ -373,8 +373,8 @@ export function SmallVerticalCard({
             </p>
           )}
 
-          {/* ACTION BUTTONS - ALWAYS AT BOTTOM */}
-          <div className={`w-full ${buttonGap} flex-shrink-0`}>
+          {/* ACTION BUTTONS - pushed to bottom with mt-auto */}
+          <div className={`w-full ${buttonGap} flex-shrink-0 mt-auto`}>
             {hasAnyButton && buttons.map((button, idx) => {
               const isPrimaryButton = idx === primaryIndex;
               const buttonBg = isPrimaryButton

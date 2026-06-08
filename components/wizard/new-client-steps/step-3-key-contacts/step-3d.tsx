@@ -153,7 +153,7 @@ function SortablePreviewCard({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "relative w-full min-w-0 group cursor-grab active:cursor-grabbing",
+        "relative w-full min-w-0 h-full group cursor-grab active:cursor-grabbing",
         (isDragging || externalIsDragging) && "cursor-grabbing",
       )}
       {...attributes}
