@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import { ArrowRight, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -26,6 +26,16 @@ export interface FirstContactPromptProps {
 export function FirstContactPrompt({ onContinue, onSomeoneElseSelect }: FirstContactPromptProps) {
   const stepData = useNewClientWizardStore((s) => s.stepData);
   const [isSomeoneElseExpanded, setIsSomeoneElseExpanded] = useState(false);
+  const someoneElseRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to the bottom of the page when expanded so dropdown options are visible
+  useEffect(() => {
+    if (isSomeoneElseExpanded) {
+      setTimeout(() => {
+        window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+      }, 150);
+    }
+  }, [isSomeoneElseExpanded]);
 
   const companyName =
     stepData?.companyBasics?.companyName || "your company";
@@ -118,7 +128,7 @@ export function FirstContactPrompt({ onContinue, onSomeoneElseSelect }: FirstCon
       </div>
 
       {/* Someone Else Button */}
-      <div className="w-full max-w-sm mx-auto">
+      <div ref={someoneElseRef} className="w-full max-w-sm mx-auto">
         <button
           type="button"
           onClick={() => setIsSomeoneElseExpanded(!isSomeoneElseExpanded)}

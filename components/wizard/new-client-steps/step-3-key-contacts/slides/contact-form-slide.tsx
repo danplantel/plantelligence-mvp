@@ -959,8 +959,8 @@ export function ContactFormSlide({
         {/* Left column: Form Fields */}
         <Card className="w-full dark:bg-gray-800 dark:border-gray-700 shadow-sm">
           <CardContent className="pt-3 space-y-2.5">
-            {/* Primary Contact Toggle (top of form) — hidden for Company / Plan Sponsor since they are always primary */}
-            {category !== "Company / Plan Sponsor" && (
+            {/* Primary Contact Toggle — hidden for Company / Plan Sponsor and TPA (Someone Else) since they are always primary */}
+            {category !== "Company / Plan Sponsor" && !isFromSomeoneElse && (
               <div className="pb-2 border-b border-gray-100 dark:border-gray-700 mb-1">
                 <div className="flex items-center space-x-2">
                   <Checkbox
