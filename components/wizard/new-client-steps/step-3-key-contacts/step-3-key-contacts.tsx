@@ -78,11 +78,15 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
   const [initialSlideSynced, setInitialSlideSynced] = useState(false);
 
   // Sync the initial slide after mount once contacts and step3SlideIndex are settled.
-  // This handles the async-load edge case where contacts arrive after the first render.
+  // When no contacts exist (brand-new plan), always start at slide 0 (FirstContactPrompt)
+  // regardless of any persisted step3SlideIndex from a previous plan session.
   useEffect(() => {
     if (initialSlideSynced) return;
     let targetSlide = 0;
-    if (typeof step3SlideIndex === "number" && step3SlideIndex >= 0 && step3SlideIndex <= 3) {
+    if (contacts.length === 0) {
+      // Brand new plan — force slide 0, clear any stale store index
+      targetSlide = 0;
+    } else if (typeof step3SlideIndex === "number" && step3SlideIndex >= 0 && step3SlideIndex <= 3) {
       targetSlide = step3SlideIndex;
     } else {
       targetSlide = computeInitialSlide(contacts);
