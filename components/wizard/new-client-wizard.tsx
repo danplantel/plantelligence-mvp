@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Card, CardContent } from "../ui/card";
 import type { WizardStep } from "./wizard-stepper";
 import { LoadingButton } from "@/components/ui/loading-button";
@@ -58,6 +59,10 @@ export function NewClientWizard({
     resolveDuplicatePlanOverwrite,
     resolveDuplicatePlanSaveAsNew,
   } = useNewClientWizardStore();
+
+  // Contacts for Step 3 — gate the Next button until at least one contact exists
+  const contactsOnStep3 = stepData.keyContacts?.contacts || [];
+  const hasStep3Contact = currentStep === 3 ? contactsOnStep3.length > 0 : true;
 
   // Check if user needs to scroll to see all content
   const checkIfScrollNeeded = () => {
@@ -460,7 +465,11 @@ export function NewClientWizard({
                       isLoading={isLoading || isProcessing}
                       loadingText="Saving client data..."
                       variant="default"
-                      className="bg-accent-blue dark:bg-accent-blue dark:text-white hover:bg-accent-blue/90"
+                      disabled={!hasStep3Contact}
+                      className={cn(
+                        "bg-accent-blue dark:bg-accent-blue dark:text-white hover:bg-accent-blue/90",
+                        !hasStep3Contact && "opacity-50 cursor-not-allowed",
+                      )}
                     >
                       {needsScroll ? "Scroll to Continue" : "Next"}
                       <ChevronRight className="size-5" />
