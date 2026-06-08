@@ -92,35 +92,6 @@ export function NewClientWizard({
     }
   };
 
-  const handleSaveAsDraft = async () => {
-    // Prevent multiple clicks while processing
-    if (isProcessing || isLoading) {
-      return;
-    }
-
-    setIsProcessing(true);
-    try {
-      // Give a small delay to ensure any pending state updates are flushed
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      await saveAsDraft();
-      toast.success("Draft saved successfully!", {
-        description: "Your progress has been saved. You can continue later.",
-        duration: 4000,
-      });
-    } catch (error: any) {
-      if (isDuplicatePlanNameError(error)) {
-        return;
-      }
-      toast.error("Failed to save draft:", {
-        description: error.message,
-        duration: 5000,
-      });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
   const handlePrevious = async () => {
     if (isProcessing || isLoading) return;
 
@@ -470,18 +441,6 @@ export function NewClientWizard({
                 </LoadingButton>
 
                 <div className="flex gap-3">
-                  {/* Save as Draft - available on all steps */}
-                  <LoadingButton
-                    size="lg"
-                    onClick={handleSaveAsDraft}
-                    isLoading={isLoading || isProcessing}
-                    loadingText="Saving draft..."
-                    variant="outline"
-                    className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
-                  >
-                    Save as Draft
-                  </LoadingButton>
-
                   {/* Next/Complete button */}
                   {isLastStep ? (
                     <LoadingButton
