@@ -20,6 +20,7 @@ import {
   getRelevantDesignations,
 } from "@/components/wizard/steps/sections/user-setup-section/user-setup-section.funcs";
 import { EmailChangeSection } from "@/components/pages/settings/email-change-section";
+import { PasswordChangeSection } from "@/components/pages/settings/password-change-section";
 import { PrimaryServiceCategoriesSelect } from "@/components/ui/primary-service-categories-select";
 import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
 import { deleteFromR2 } from "@/lib/upload-to-r2";
@@ -202,6 +203,9 @@ export function UserSetupSection({
           <FormError message={errors.email?.message} />
         </div>
       )}
+
+      {/* Change Password (only in settings mode) */}
+      {emailChangeMode && <PasswordChangeSection />}
 
       <div className="space-y-2">
         <label className="block font-medium text-sm text-left">
