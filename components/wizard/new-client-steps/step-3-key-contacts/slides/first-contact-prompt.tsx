@@ -76,16 +76,17 @@ export function FirstContactPrompt({ onContinue, onSomeoneElseSelect }: FirstCon
         type="button"
         onClick={onContinue}
         className={cn(
-          "group rounded-xl w-full max-w-sm mx-auto p-4",
-          "bg-accent-blue hover:bg-accent-blue-light/80 dark:hover:bg-accent-blue-dark/40 transition-all cursor-pointer",
-          "text-left shadow-sm hover:shadow-md",
+          "group rounded-xl w-full max-w-sm mx-auto p-4 transition-all cursor-pointer text-left shadow-sm hover:shadow-md",
+          isSomeoneElseExpanded
+            ? "bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800"
+            : "bg-accent-blue hover:bg-accent-blue-light/80 dark:hover:bg-accent-blue-dark/40",
         )}
       >
         <div className="flex items-center gap-4">
           {/* Icon */}
           <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0">
             <svg
-              className="w-5 h-5 text-gray-100"
+              className={cn("w-5 h-5", isSomeoneElseExpanded ? "text-muted-foreground" : "text-gray-100")}
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -102,20 +103,20 @@ export function FirstContactPrompt({ onContinue, onSomeoneElseSelect }: FirstCon
 
           {/* Label */}
           <div className="flex flex-col flex-1 min-w-0">
-            <h3 className="text-sm font-semibold text-white">
+            <h3 className={cn("text-sm font-semibold", isSomeoneElseExpanded ? "text-muted-foreground" : "text-white")}>
               Company / Plan Sponsor
             </h3>
-            <p className="text-xs text-gray-100">
+            <p className={cn("text-xs", isSomeoneElseExpanded ? "text-muted-foreground" : "text-gray-100")}>
               Main point of contact
             </p>
           </div>
 
           {/* Right side: Continue → horizontally aligned */}
           <div className="flex items-center gap-1 flex-shrink-0">
-            <span className="text-xs font-semibold text-gray-100 whitespace-nowrap">
+            <span className={cn("text-xs font-semibold whitespace-nowrap", isSomeoneElseExpanded ? "text-muted-foreground" : "text-gray-100")}>
               Continue
             </span>
-            <ArrowRight className="w-4 h-4 text-gray-100 group-hover:translate-x-1 transition-transform" />
+            <ArrowRight className={cn("w-4 h-4 group-hover:translate-x-1 transition-transform", isSomeoneElseExpanded ? "text-muted-foreground" : "text-gray-100")} />
           </div>
         </div>
       </button>
@@ -133,17 +134,17 @@ export function FirstContactPrompt({ onContinue, onSomeoneElseSelect }: FirstCon
           type="button"
           onClick={() => setIsSomeoneElseExpanded(!isSomeoneElseExpanded)}
           className={cn(
-            "group rounded-xl w-full p-4 transition-all cursor-pointer text-left",
+            "group rounded-xl w-full p-4 transition-all cursor-pointer text-left shadow-sm hover:shadow-md",
             isSomeoneElseExpanded
-              ? "bg-gray-100 dark:bg-gray-800 shadow-sm"
-              : "bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 shadow-sm hover:shadow-md",
+              ? "bg-accent-blue hover:bg-accent-blue-light/80 dark:hover:bg-accent-blue-dark/40"
+              : "bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800",
           )}
         >
           <div className="flex items-center gap-4">
             {/* Icon */}
             <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0">
               <svg
-                className="w-5 h-5 text-muted-foreground"
+                className={cn("w-5 h-5", isSomeoneElseExpanded ? "text-gray-100" : "text-muted-foreground")}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -159,10 +160,10 @@ export function FirstContactPrompt({ onContinue, onSomeoneElseSelect }: FirstCon
 
             {/* Label */}
             <div className="flex flex-col flex-1 min-w-0">
-              <h3 className="text-sm font-semibold text-muted-foreground">
+              <h3 className={cn("text-sm font-semibold", isSomeoneElseExpanded ? "text-white" : "text-muted-foreground")}>
                 Someone Else
               </h3>
-              <p className="text-xs text-muted-foreground">
+              <p className={cn("text-xs", isSomeoneElseExpanded ? "text-gray-100" : "text-muted-foreground")}>
                 3rd party or external contact
               </p>
             </div>
@@ -170,7 +171,7 @@ export function FirstContactPrompt({ onContinue, onSomeoneElseSelect }: FirstCon
             {/* Chevron */}
             <div className="flex-shrink-0">
               {isSomeoneElseExpanded ? (
-                <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                <ChevronUp className={cn("w-4 h-4", isSomeoneElseExpanded ? "text-gray-100" : "text-muted-foreground")} />
               ) : (
                 <ChevronDown className="w-4 h-4 text-muted-foreground" />
               )}
