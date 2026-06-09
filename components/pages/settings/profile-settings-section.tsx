@@ -54,6 +54,7 @@ export function ProfileSettingsSection({
               }}
               hideCard={true}
               showPrimaryServiceCategories={true}
+              emailChangeMode={true}
             />
           </FormProvider>
         )}

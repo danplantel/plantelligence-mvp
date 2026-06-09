@@ -30,6 +30,9 @@ model User {
   password                    String?
   resetCode                   String?
   resetCodeExpiry             DateTime?
+  emailVerificationCode       String?
+  emailVerificationExpiry     DateTime?
+  pendingEmail                String?
   phone                       String?
   phoneExtension              String?
   company                     String?

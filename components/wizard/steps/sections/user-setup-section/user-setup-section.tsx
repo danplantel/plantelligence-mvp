@@ -19,6 +19,7 @@ import {
   normalizePhoneNumber,
   getRelevantDesignations,
 } from "@/components/wizard/steps/sections/user-setup-section/user-setup-section.funcs";
+import { EmailChangeSection } from "@/components/pages/settings/email-change-section";
 import { PrimaryServiceCategoriesSelect } from "@/components/ui/primary-service-categories-select";
 import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
 import { deleteFromR2 } from "@/lib/upload-to-r2";
@@ -33,6 +34,8 @@ interface UserSetupSectionProps {
   hideCard?: boolean;
   /** Show Primary Service Categories (e.g. in Settings). Hidden in Step 4 onboarding. */
   showPrimaryServiceCategories?: boolean;
+  /** When true, replaces the plain email input with a verified email-change flow (Settings page). */
+  emailChangeMode?: boolean;
 }
 
 export function UserSetupSection({
@@ -41,6 +44,7 @@ export function UserSetupSection({
   onDataChange,
   hideCard = false,
   showPrimaryServiceCategories = false,
+  emailChangeMode = false,
 }: UserSetupSectionProps) {
   const {
     name,
@@ -159,35 +163,45 @@ export function UserSetupSection({
       )}
 
       {/* Row 2: Email & Headshot */}
-      <div className="space-y-2">
-        <label className="block font-medium text-sm">
-          Your Email <span className="text-red-500">*</span>
-        </label>
-        <Controller
-          name="email"
-          control={control}
-          render={({ field }) => (
-            <Input
-              {...field}
-              type="email"
-              icon={<Mail className="h-4 w-4" />}
-              onChange={(e) => {
-                field.onChange(e);
-              }}
-              onBlur={async (e) => {
-                field.onBlur();
-                const value = e.target.value;
-                onDataChange("email", value);
-              }}
-              placeholder="your.email@example.com"
-              required
-              data-field="email"
-              destructive={errorFields.includes("email")}
-            />
-          )}
+      {emailChangeMode ? (
+        <EmailChangeSection
+          currentEmail={data.email || ""}
+          onEmailChanged={(newEmail) => {
+            setValue("email", newEmail);
+            onDataChange("email", newEmail);
+          }}
         />
-        <FormError message={errors.email?.message} />
-      </div>
+      ) : (
+        <div className="space-y-2">
+          <label className="block font-medium text-sm">
+            Your Email <span className="text-red-500">*</span>
+          </label>
+          <Controller
+            name="email"
+            control={control}
+            render={({ field }) => (
+              <Input
+                {...field}
+                type="email"
+                icon={<Mail className="h-4 w-4" />}
+                onChange={(e) => {
+                  field.onChange(e);
+                }}
+                onBlur={async (e) => {
+                  field.onBlur();
+                  const value = e.target.value;
+                  onDataChange("email", value);
+                }}
+                placeholder="your.email@example.com"
+                required
+                data-field="email"
+                destructive={errorFields.includes("email")}
+              />
+            )}
+          />
+          <FormError message={errors.email?.message} />
+        </div>
+      )}
 
       <div className="space-y-2">
         <label className="block font-medium text-sm text-left">
