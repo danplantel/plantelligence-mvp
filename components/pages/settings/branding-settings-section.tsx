@@ -29,7 +29,7 @@ export function BrandingSettingsSection({
             Branding Settings
           </CardTitle>
           <p className="text-sm text-gray-600 mt-1 dark:text-gray-400">
-            Customize your organization's branding and visual identity
+            Customize your organization branding and visual identity
           </p>
         </div>
       </CardHeader>
