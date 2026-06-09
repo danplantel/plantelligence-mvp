@@ -674,7 +674,7 @@ export default function SettingsPage() {
     <TooltipProvider>
       <div className="flex flex-col min-h-screen max-w-4xl mx-auto py-6 pb-28">
         <div className="mb-6">
-          <p className="text-gray-600 mt-2 dark:text-gray-400">
+          <p className="mt-2 text-muted-foreground">
             Manage your profile, branding, and organization settings
           </p>
         </div>
@@ -688,9 +688,6 @@ export default function SettingsPage() {
             <TabsTrigger value="profile" className="flex items-center gap-2 relative">
               <User className="h-4 w-4" />
               Profile
-              {tabDirty.profile && (
-                <Circle className="h-2 w-2 fill-amber-500 text-amber-500 absolute -top-0.5 -right-0.5" />
-              )}
             </TabsTrigger>
             <TabsTrigger value="branding" className="flex items-center gap-2 relative">
               <Building2 className="h-4 w-4" />

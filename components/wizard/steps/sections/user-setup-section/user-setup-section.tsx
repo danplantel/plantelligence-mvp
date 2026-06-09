@@ -226,21 +226,6 @@ export function UserSetupSection({
                   autoSizeOnOpen={true}
                 />
               </div>
-              {field.value && (
-                <div className="mt-2 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 rounded-lg p-4 flex flex-col items-center justify-center">
-                  <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-3">
-                    Headshot Preview
-                  </p>
-                  <div className="flex items-center justify-center w-full">
-                    <Headshot
-                      src={field.value || undefined}
-                      monogramName={watchedName}
-                      alt="Current headshot"
-                      wrapperClassName="w-32 h-32 rounded-full border-2 border-gray-300"
-                    />
-                  </div>
-                </div>
-              )}
             </div>
           )}
         />
@@ -340,7 +325,7 @@ export function UserSetupSection({
        <div>
         {relevantDesignations.length > 0 && (
           <div className="space-y-2">
-            <label className="block font-medium text-sm">
+            <label className="block font-medium text-sm dark:text-gray-200">
               Designations (Optional)
             </label>
             <MultiSelectDropdown

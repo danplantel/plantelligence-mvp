@@ -27,7 +27,7 @@ export function ProfileSettingsSection({
             <User className="h-5 w-5 text-accent-blue" />
             User Profile
           </CardTitle>
-          <p className="text-sm text-gray-600 mt-1 dark:text-gray-400">
+          <p className="text-sm text-muted-foreground mt-1">
             Update your personal information and credentials
           </p>
         </div>
