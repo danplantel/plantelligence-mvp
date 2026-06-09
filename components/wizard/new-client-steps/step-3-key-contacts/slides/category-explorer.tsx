@@ -48,7 +48,7 @@ export interface CategoryExplorerProps {
 // Display labels for categories (shorter / more user-friendly names)
 const CATEGORY_LABEL: Record<string, string> = {
   "Company / Plan Sponsor": "Company / Plan Sponsor",
-  "Third Party Contact": "Third Party Administrator",
+  "Third Party Contact": "External HR / Administrator",
 };
 
 // Category icons
@@ -161,7 +161,7 @@ export function CategoryExplorer({
   }, [contacts, initialMainContactCategory]);
 
   // Label for the Main Contact type (shown beneath "Main Contact" heading).
-  // Only two possibilities: Company/Plan Sponsor or Third Party Administrator.
+  // Only two possibilities: Company/Plan Sponsor or External HR / Administrator.
   const mainContactTypeLabel = useMemo(() => {
     if (mainContacts.length === 0) return "";
     const contact = mainContacts[0];
@@ -169,7 +169,7 @@ export function CategoryExplorer({
       contact.benefitsCategories ||
       (contact.benefitsCategory ? [contact.benefitsCategory] : []);
     if (cats.includes("Company / Plan Sponsor")) return "Company / Plan Sponsor";
-    if (cats.includes("Third Party Contact")) return "Third Party Administrator";
+    if (cats.includes("Third Party Contact")) return "External HR / Administrator";
     return "";
   }, [mainContacts]);
 
@@ -488,7 +488,7 @@ export function CategoryExplorer({
                         {name}
                       </span>
                       <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
-                        {companyName && mainContactTypeLabel === "Third Party Administrator" && (
+                        {companyName && mainContactTypeLabel === "External HR / Administrator" && (
                           <span className="flex items-center gap-1 truncate max-w-[120px]">
                             <Building2 className="w-3 h-3 flex-shrink-0" />
                             {companyName}

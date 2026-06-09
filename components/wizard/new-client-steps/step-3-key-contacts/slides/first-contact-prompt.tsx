@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { BrandingImage } from "@/components/ui/branding-image";
 
 export const SOMEONE_ELSE_OPTIONS = [
-  "3rd Party Administrator",
+  "External HR / Administrator",
   "Retirement Benefits Advisor",
   "Group Health Advisor",
   "Group Life Advisor",

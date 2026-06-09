@@ -65,7 +65,7 @@ const categoryAccent: Record<string, string> = {
   "Group Life": "#B91C1C",
   "Other Benefits": "#7C3AED",
   "Company / Plan Sponsor": "#1E40AF",
-  "Third Party Contact": "#6B7280",
+  "External HR / Administrator": "#6B7280",
 };
 
 // ==================== Contact Card Preview ====================
@@ -841,7 +841,7 @@ export function ContactFormSlide({
       : category === "Other Benefits"
         ? "Other Benefits"
         : category === "Third Party Contact"
-          ? "Third Party Contact"
+          ? "External HR / Administrator"
           : category;
 
   // Category emoji matching CategoryExplorer
@@ -851,7 +851,7 @@ export function ContactFormSlide({
     "Group Life": "❤️",
     "Other Benefits": "🎁",
     "Company / Plan Sponsor": "👥",
-    "Third Party Contact": "🤝",
+    "External HR / Administrator": "🤝",
   };
   const emoji = categoryEmoji[category] || "🏢";
 
