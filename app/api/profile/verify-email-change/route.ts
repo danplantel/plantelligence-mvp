@@ -100,6 +100,26 @@ export async function POST(request: Request) {
       },
     });
 
+    // Also update the most recent wizard session's userSetup email
+    // so the Settings page shows the correct value after a refresh.
+    try {
+      const latestSession = await prisma.wizardSession.findFirst({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+        select: { id: true },
+      });
+
+      if (latestSession) {
+        await prisma.wizardUserSetup.updateMany({
+          where: { sessionId: latestSession.id },
+          data: { email: newEmail },
+        });
+      }
+    } catch (wizardErr) {
+      // Non-critical — the User model is already updated
+      console.warn("Could not update wizard session email:", wizardErr);
+    }
+
     return NextResponse.json({
       success: true,
       message: "Email changed successfully",

@@ -59,7 +59,7 @@ export function UserSetupSection({
   } = data;
 
   // Get organization type from wizard store
-  const { stepData, validateCurrentStepFields, setErrorFields } =
+  const { stepData, validateCurrentStepFields, setErrorFields, loadAllWizardData } =
     useOnboardingWizardStore();
 
   // Use the parent form context instead of creating a new form
@@ -167,9 +167,16 @@ export function UserSetupSection({
       {emailChangeMode ? (
         <EmailChangeSection
           currentEmail={data.email || ""}
-          onEmailChanged={(newEmail) => {
+          onEmailChanged={async (newEmail) => {
             setValue("email", newEmail);
             onDataChange("email", newEmail);
+            // Refresh wizard store from server so the UI stays in sync
+            // with the DB update that verify-email-change just performed.
+            try {
+              await loadAllWizardData(true);
+            } catch {
+              // Silently fail — form value is already correct locally
+            }
           }}
         />
       ) : (
