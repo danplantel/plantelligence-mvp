@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import useSWR from "swr";
-import { useForm, FormProvider } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
 import { step2ServicesToCategories } from "@/lib/service-categories";
 import { ServiceType } from "@/types/wizard";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -17,7 +17,6 @@ import { OrganizationSettingsSection } from "@/components/pages/settings/organiz
 import { TeamAndDisclaimersSection } from "@/components/pages/settings/team-and-disclaimers-section";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -28,23 +27,20 @@ import {
 import { toast } from "sonner";
 import {
   Save,
+  RotateCcw,
   User,
   Building2,
   Briefcase,
-  Users,
   Users as UsersIcon,
-  Palette,
-  FileText,
   AlertTriangle,
+  Circle,
 } from "lucide-react";
-import axios from "axios";
 
 export default function SettingsPage() {
   const { setTitle } = usePageTitleContext();
-  const { stepData, loadAllWizardData, saveStepData, saveStepDataToServer } =
+  const { stepData, loadAllWizardData } =
     useOnboardingWizardStore();
   const [isSaving, setIsSaving] = useState(false);
-  // If the Zustand store already has data from a previous visit, skip the skeleton
   const [isLoading, setIsLoading] = useState(
     () => !useOnboardingWizardStore.getState().stepData?.userSetup,
   );
@@ -98,7 +94,7 @@ export default function SettingsPage() {
     },
   });
 
-  // Forms for Organization Tab - Combined form for organization and team size
+  // Forms for Organization Tab
   const organizationForm = useForm({
     defaultValues: {
       organizationType: "",
@@ -130,7 +126,7 @@ export default function SettingsPage() {
   // User profile data (for branding fallback)
   const [userProfile, setUserProfile] = useState<any>(null);
 
-  // SWR: cache /api/profile so branding/organization tabs show instantly on revisit
+  // SWR: cache /api/profile
   const { data: cachedProfile } = useSWR(
     "/api/profile",
     (url: string) => fetch(url).then((r) => r.json()),
@@ -146,18 +142,15 @@ export default function SettingsPage() {
     }
   }, [cachedProfile]);
 
-  // Load data for specific tab (profile tab always refetches so Step 2 categories autofill without pressing Save)
+  // Load data for specific tab
   const loadTabData = async (tab: string) => {
-    if (loadedTabs.has(tab) && tab !== "profile") return; // Already loaded (except profile: always refetch)
+    if (loadedTabs.has(tab) && tab !== "profile") return;
 
-    // Only show skeleton if there's no existing data — otherwise update silently in background
     const hasExistingData = Boolean(useOnboardingWizardStore.getState().stepData?.userSetup);
     try {
       if (!hasExistingData) setIsLoading(true);
-      // Load only necessary data for this tab
       switch (tab) {
         case "profile": {
-          // Always refetch so categories saved in Step 2 show in Primary Service Categories
           const loadedData = await loadAllWizardData(true);
           const userSetup = loadedData?.userSetup ?? useOnboardingWizardStore.getState().stepData?.userSetup ?? {};
           let primaryServiceCategories: string[] = Array.isArray(userSetup.primaryServiceCategories)
@@ -186,7 +179,6 @@ export default function SettingsPage() {
           break;
         }
         case "branding":
-          // Load wizard data; use SWR-cached profile if available to avoid extra fetch
           await loadAllWizardData();
           if (cachedProfile) {
             setUserProfile(cachedProfile);
@@ -203,7 +195,6 @@ export default function SettingsPage() {
           }
           break;
         case "organization":
-          // Load wizard data; use SWR-cached profile if available
           await loadAllWizardData();
           if (cachedProfile) {
             setUserProfile(cachedProfile);
@@ -220,7 +211,6 @@ export default function SettingsPage() {
           }
           break;
         case "team":
-          // Team data is loaded separately, no need for wizard data
           break;
       }
 
@@ -237,9 +227,9 @@ export default function SettingsPage() {
   useEffect(() => {
     loadTabData(activeTab);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only load once on mount
+  }, []);
 
-  // Load data when tab changes (Profile tab always refetches so Step 2 categories autofill)
+  // Load data when tab changes
   useEffect(() => {
     if (activeTab === "profile") {
       loadTabData(activeTab);
@@ -251,10 +241,8 @@ export default function SettingsPage() {
 
   // Populate forms when stepData changes
   useEffect(() => {
-    // Skip if still loading to avoid multiple updates
     if (isLoading) return;
 
-    // Populate User Setup form - always initialize even if empty (categories from Step 2)
     const userSetup = stepData.userSetup || ({} as any);
     let primaryServiceCategories: string[] = Array.isArray(userSetup.primaryServiceCategories)
       ? [...userSetup.primaryServiceCategories]
@@ -279,10 +267,7 @@ export default function SettingsPage() {
     userSetupForm.reset(userData, { keepDirtyValues: false });
     setInitialUserSetup(JSON.parse(JSON.stringify(userData)));
 
-    // Populate Branding form - use wizard data with User profile fallback
     const branding = stepData.branding || ({} as any);
-
-    // Get branding from completed wizard session if exists
     const completedBranding = userProfile?.wizardSessions?.[0]?.branding;
 
     const brandingData = {
@@ -337,11 +322,8 @@ export default function SettingsPage() {
     brandingForm.reset(brandingData, { keepDirtyValues: false });
     setInitialBranding(JSON.parse(JSON.stringify(brandingData)));
 
-    // Force re-render after all forms are reset
     setFormKey((prev) => prev + 1);
 
-    // Populate Organization forms - use wizard data with User profile fallback
-    // After wizard completion: organizationType → User.company, teamSize → User.teamSize
     const completedClientProfile =
       userProfile?.wizardSessions?.[0]?.clientProfile;
     const completedTeamSize = userProfile?.wizardSessions?.[0]?.teamSize;
@@ -366,8 +348,6 @@ export default function SettingsPage() {
     organizationForm.reset(orgData, { keepDirtyValues: false });
     setInitialOrganization(JSON.parse(JSON.stringify(orgData)));
 
-    // Populate Services form - use wizard data with User profile fallback
-    // After wizard completion: services → User.services (comma-separated string)
     const completedServices = userProfile?.wizardSessions?.[0]?.services;
     const wizardServices = stepData.services || {
       services: [],
@@ -391,17 +371,16 @@ export default function SettingsPage() {
     servicesForm.reset(servicesData, { keepDirtyValues: false });
     setInitialServices(JSON.parse(JSON.stringify(servicesData)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stepData, isLoading, userProfile]); // Include userProfile for branding fallback
+  }, [stepData, isLoading, userProfile]);
 
   const handleSaveUserSetup = async () => {
     setIsSaving(true);
     try {
       const data = userSetupForm.getValues();
+      const { saveStepDataToServer } = useOnboardingWizardStore.getState();
       const ok = await saveStepDataToServer("userSetup", data);
       if (!ok) throw new Error("Failed to save user setup");
-      // Reload data to ensure store is in sync (force refresh)
       await loadAllWizardData(true);
-      // Reset form dirty state and update initial values after successful save
       userSetupForm.reset(data, { keepDirtyValues: false });
       setInitialUserSetup(JSON.parse(JSON.stringify(data)));
       toast.success("User profile updated successfully!");
@@ -417,8 +396,8 @@ export default function SettingsPage() {
     setIsSaving(true);
     try {
       const data = brandingForm.getValues();
+      const { saveStepDataToServer } = useOnboardingWizardStore.getState();
 
-      // Only send fields accepted by the branding API (exclude UI-only flags)
       const brandingPayload = {
         organizationName: data.organizationName || "",
         website: data.website || "",
@@ -434,20 +413,15 @@ export default function SettingsPage() {
         subdomain: data.subdomain || "",
       };
 
-      // Save to wizard branding table
       const ok = await saveStepDataToServer("branding", brandingPayload);
       if (!ok) throw new Error("Failed to save branding");
 
-      // Also update User table with branding fields that exist on the User model
       try {
         const updateResponse = await fetch("/api/profile/update-profile", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             advisorLogo: data.logo,
-            // advisorLogoUrl is a legacy field used as fallback across the codebase
-            // (dashboard, new-client-wizard, marketing flyers). Both store the same R2 key
-            // and are resolved to display URLs at render time via useBrandingImageUrl() / BrandingImage.
             advisorLogoUrl: data.logo,
             organizationName: data.organizationName || undefined,
             website: data.website || undefined,
@@ -462,13 +436,9 @@ export default function SettingsPage() {
         }
       } catch (profileError) {
         console.error("Error updating user profile:", profileError);
-        // Don't fail the whole save if profile update fails
       }
 
-      // Reload data to ensure store is in sync (force refresh)
       await loadAllWizardData(true);
-
-      // Reset form dirty state and update initial values after successful save
       brandingForm.reset(brandingPayload, { keepDirtyValues: false });
       setInitialBranding(JSON.parse(JSON.stringify(brandingPayload)));
       toast.success("Branding settings updated successfully!");
@@ -485,8 +455,8 @@ export default function SettingsPage() {
     try {
       const formData = organizationForm.getValues();
       const servicesData = servicesForm.getValues();
+      const { saveStepDataToServer } = useOnboardingWizardStore.getState();
 
-      // Save all organization-related data to wizard tables
       await Promise.all([
         saveStepDataToServer("clientProfile", {
           organizationType: formData.organizationType,
@@ -499,9 +469,7 @@ export default function SettingsPage() {
         saveStepDataToServer("teamSize", { teamSize: formData.teamSize }),
       ]);
 
-      // Reload data to ensure store is in sync (force refresh)
       await loadAllWizardData(true);
-      // Reset form dirty state and update initial values after successful save
       organizationForm.reset(formData, { keepDirtyValues: false });
       servicesForm.reset(servicesData, { keepDirtyValues: false });
       setInitialOrganization(JSON.parse(JSON.stringify(formData)));
@@ -515,39 +483,39 @@ export default function SettingsPage() {
     }
   };
 
-  // Check if current tab has unsaved changes by comparing values
-  const hasUnsavedChanges = () => {
-    switch (activeTab) {
-      case "profile":
-        if (!initialUserSetup) return false;
-        const currentUserSetup = userSetupForm.getValues();
-        return (
-          JSON.stringify(currentUserSetup) !== JSON.stringify(initialUserSetup)
-        );
-      case "branding":
-        if (!initialBranding) return false;
-        const currentBranding = brandingForm.getValues();
-        return (
-          JSON.stringify(currentBranding) !== JSON.stringify(initialBranding)
-        );
-      case "organization":
-        if (!initialOrganization || !initialServices) return false;
-        const currentOrganization = organizationForm.getValues();
-        const currentServices = servicesForm.getValues();
-        return (
-          JSON.stringify(currentOrganization) !==
-            JSON.stringify(initialOrganization) ||
-          JSON.stringify(currentServices) !== JSON.stringify(initialServices)
-        );
-      default:
-        return false;
-    }
+  // ── Subscribe to form values for reactive dirty detection ───────────────
+  const watchedUserSetup = userSetupForm.watch();
+  const watchedBranding = brandingForm.watch();
+  const watchedOrg = organizationForm.watch();
+  const watchedServices = servicesForm.watch();
+
+  // ── Computed dirty state per tab (reactive via watch()) ─────────────────
+  const tabDirty = {
+    profile: initialUserSetup
+      ? JSON.stringify(watchedUserSetup) !== JSON.stringify(initialUserSetup)
+      : false,
+    branding: initialBranding
+      ? JSON.stringify(watchedBranding) !== JSON.stringify(initialBranding)
+      : false,
+    organization:
+      initialOrganization && initialServices
+        ? JSON.stringify(watchedOrg) !== JSON.stringify(initialOrganization) ||
+          JSON.stringify(watchedServices) !== JSON.stringify(initialServices)
+        : false,
   };
 
-  // Handle tab change with unsaved changes check
+  // ── Tab change with unsaved check ───────────────────────────────────────
   const handleTabChange = (newTab: string) => {
-    const hasChanges = hasUnsavedChanges();
-    if (hasChanges) {
+    const currentDirty =
+      activeTab === "profile"
+        ? tabDirty.profile
+        : activeTab === "branding"
+        ? tabDirty.branding
+        : activeTab === "organization"
+        ? tabDirty.organization
+        : false;
+
+    if (currentDirty) {
       setPendingTab(newTab);
       setShowUnsavedChangesDialog(true);
     } else {
@@ -555,13 +523,10 @@ export default function SettingsPage() {
     }
   };
 
-  // Save current tab and switch to pending tab
-  const handleSaveAndContinue = async () => {
-    if (!pendingTab) return;
-
+  // ── Save current tab's data ─────────────────────────────────────────────
+  const handleSaveCurrentTab = async () => {
     setIsSaving(true);
     try {
-      // Save based on current tab
       switch (activeTab) {
         case "profile":
           await handleSaveUserSetup();
@@ -573,7 +538,53 @@ export default function SettingsPage() {
           await handleSaveOrganization();
           break;
       }
-      // Switch to pending tab after save
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // ── Reset current tab's form ────────────────────────────────────────────
+  const handleResetCurrentTab = () => {
+    switch (activeTab) {
+      case "profile":
+        if (initialUserSetup) {
+          userSetupForm.reset(initialUserSetup);
+        }
+        break;
+      case "branding":
+        if (initialBranding) {
+          brandingForm.reset(initialBranding);
+        }
+        break;
+      case "organization":
+        if (initialOrganization) {
+          organizationForm.reset(initialOrganization);
+        }
+        if (initialServices) {
+          servicesForm.reset(initialServices);
+        }
+        break;
+    }
+    toast.info("Changes reverted");
+  };
+
+  // ── Save and continue (from dialog) ─────────────────────────────────────
+  const handleSaveAndContinue = async () => {
+    if (!pendingTab) return;
+
+    setIsSaving(true);
+    try {
+      switch (activeTab) {
+        case "profile":
+          await handleSaveUserSetup();
+          break;
+        case "branding":
+          await handleSaveBranding();
+          break;
+        case "organization":
+          await handleSaveOrganization();
+          break;
+      }
       setActiveTab(pendingTab);
       setPendingTab(null);
       setShowUnsavedChangesDialog(false);
@@ -585,14 +596,13 @@ export default function SettingsPage() {
     }
   };
 
-  // Confirm discard changes and switch tab
+  // ── Discard and switch tab ──────────────────────────────────────────────
   const handleDiscardChanges = () => {
     if (pendingTab) {
-      // Reset forms to server data based on current tab
       switch (activeTab) {
         case "profile":
           const userSetup = stepData.userSetup || ({} as any);
-          const userData = {
+          userSetupForm.reset({
             name: userSetup.name || "",
             email: userSetup.email || "",
             phone: userSetup.phone || "",
@@ -603,12 +613,11 @@ export default function SettingsPage() {
             headshotData: userSetup.headshotData || null,
             backgroundImage: userSetup.backgroundImage || "",
             backgroundFileName: userSetup.backgroundFileName || "",
-          };
-          userSetupForm.reset(userData, { keepDirtyValues: false });
+          });
           break;
-        case "branding":
+        case "branding": {
           const branding = stepData.branding || ({} as any);
-          const brandingData = {
+          brandingForm.reset({
             organizationName: branding.organizationName || "",
             website: branding.website || "",
             logo: branding.logo || "",
@@ -624,23 +633,18 @@ export default function SettingsPage() {
             subdomain: branding.subdomain || "",
             isColorPickerOpen: false,
             isGenerating: false,
-          };
-          brandingForm.reset(brandingData, { keepDirtyValues: false });
+          });
           break;
+        }
         case "organization":
-          const orgData = {
+          organizationForm.reset({
             organizationType: stepData.clientProfile?.organizationType || "",
-            customOrganization:
-              stepData.clientProfile?.customOrganization || "",
+            customOrganization: stepData.clientProfile?.customOrganization || "",
             teamSize: stepData.teamSize?.teamSize || "",
-          };
-          organizationForm.reset(orgData, { keepDirtyValues: false });
-
-          const servicesData = stepData.services || {
-            services: [],
-            customService: "",
-          };
-          servicesForm.reset(servicesData, { keepDirtyValues: false });
+          });
+          servicesForm.reset(
+            stepData.services || { services: [], customService: "" },
+          );
           break;
       }
       setActiveTab(pendingTab);
@@ -649,17 +653,27 @@ export default function SettingsPage() {
     }
   };
 
-  // Cancel tab change
   const handleCancelTabChange = () => {
     setPendingTab(null);
     setShowUnsavedChangesDialog(false);
   };
 
+  const currentHasUnsaved =
+    activeTab === "profile"
+      ? tabDirty.profile
+      : activeTab === "branding"
+      ? tabDirty.branding
+      : activeTab === "organization"
+      ? tabDirty.organization
+      : false;
+
+  // ── Save handler for sections (kept for compatibility but unused by UI) ─
+  const noopSave = async () => {};
+
   return (
     <TooltipProvider>
-      <div className="flex flex-col min-h-screen max-w-4xl mx-auto py-6">
+      <div className="flex flex-col min-h-screen max-w-4xl mx-auto py-6 pb-28">
         <div className="mb-6">
-          {/* <h1 className="text-3xl font-bold text-gray-900">Settings</h1> */}
           <p className="text-gray-600 mt-2 dark:text-gray-400">
             Manage your profile, branding, and organization settings
           </p>
@@ -670,21 +684,30 @@ export default function SettingsPage() {
           onValueChange={handleTabChange}
           className="space-y-6"
         >
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="profile" className="flex items-center gap-2">
+          <TabsList className="grid w-full grid-cols-4 relative">
+            <TabsTrigger value="profile" className="flex items-center gap-2 relative">
               <User className="h-4 w-4" />
               Profile
+              {tabDirty.profile && (
+                <Circle className="h-2 w-2 fill-amber-500 text-amber-500 absolute -top-0.5 -right-0.5" />
+              )}
             </TabsTrigger>
-            <TabsTrigger value="branding" className="flex items-center gap-2">
+            <TabsTrigger value="branding" className="flex items-center gap-2 relative">
               <Building2 className="h-4 w-4" />
               Branding
+              {tabDirty.branding && (
+                <Circle className="h-2 w-2 fill-amber-500 text-amber-500 absolute -top-0.5 -right-0.5" />
+              )}
             </TabsTrigger>
             <TabsTrigger
               value="organization"
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 relative"
             >
               <Briefcase className="h-4 w-4" />
               Organization
+              {tabDirty.organization && (
+                <Circle className="h-2 w-2 fill-amber-500 text-amber-500 absolute -top-0.5 -right-0.5" />
+              )}
             </TabsTrigger>
             <TabsTrigger value="team" className="flex items-center gap-2">
               <UsersIcon className="h-4 w-4" />
@@ -698,7 +721,7 @@ export default function SettingsPage() {
               isLoading={isLoading}
               isSaving={isSaving}
               userSetupForm={userSetupForm}
-              onSave={handleSaveUserSetup}
+              onSave={noopSave}
             />
           </TabsContent>
 
@@ -709,7 +732,7 @@ export default function SettingsPage() {
               isSaving={isSaving}
               brandingForm={brandingForm}
               formKey={formKey}
-              onSave={handleSaveBranding}
+              onSave={noopSave}
             />
           </TabsContent>
 
@@ -720,7 +743,7 @@ export default function SettingsPage() {
               isSaving={isSaving}
               organizationForm={organizationForm}
               servicesForm={servicesForm}
-              onSave={handleSaveOrganization}
+              onSave={noopSave}
             />
           </TabsContent>
 
@@ -729,6 +752,47 @@ export default function SettingsPage() {
             <TeamAndDisclaimersSection isLoading={isLoading} />
           </TabsContent>
         </Tabs>
+
+        {/* ── Sticky Bottom Save Bar ──────────────────────────────────────── */}
+        {currentHasUnsaved && (
+          <div
+            className="fixed bottom-0 bg-background border-t z-50 dark:border-gray-700 shadow-lg"
+            style={{
+              left: "var(--sidebar-width, 16rem)",
+              width: "calc(100% - var(--sidebar-width, 16rem))",
+              transition: "left 200ms ease-in-out, width 200ms ease-in-out",
+            }}
+          >
+            <div className="max-w-4xl mx-auto px-6">
+              <Card className="shadow-none border-0 bg-transparent">
+                <CardContent className="flex justify-between items-center p-4">
+                  <p className="text-sm text-muted-foreground">
+                    You have unsaved changes
+                  </p>
+                  <div className="flex gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={handleResetCurrentTab}
+                      disabled={isSaving}
+                      className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                    >
+                      <RotateCcw className="h-4 w-4 mr-2" />
+                      Reset
+                    </Button>
+                    <Button
+                      onClick={handleSaveCurrentTab}
+                      disabled={isSaving}
+                      className="bg-accent-blue hover:bg-accent-blue/90"
+                    >
+                      <Save className="h-4 w-4 mr-2" />
+                      {isSaving ? "Saving..." : "Save Changes"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Unsaved Changes Dialog */}

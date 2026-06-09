@@ -26,20 +26,14 @@ export function OrganizationSettingsSection({
   return (
     <Card>
       <CardHeader className="border-b">
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <Briefcase className="h-5 w-5 text-accent-blue" />
-              Organization Settings
-            </CardTitle>
-            <p className="text-sm text-gray-600 mt-1">
-              Configure your organization type, services, and team information
-            </p>
-          </div>
-          <Button onClick={onSave} disabled={isSaving} size="lg">
-            <Save className="h-4 w-4 mr-2" />
-            {isSaving ? "Saving..." : "Save Changes"}
-          </Button>
+        <div>
+          <CardTitle className="flex items-center gap-2">
+            <Briefcase className="h-5 w-5 text-accent-blue" />
+            Organization Settings
+          </CardTitle>
+          <p className="text-sm text-gray-600 mt-1 dark:text-gray-400">
+            Configure your organization type, services, and team information
+          </p>
         </div>
       </CardHeader>
       <CardContent className="pt-6">
