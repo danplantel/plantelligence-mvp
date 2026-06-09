@@ -30,15 +30,39 @@ export async function POST(request: Request) {
     // Get the current user to retrieve the original email
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { email: true },
+      select: { email: true, pendingEmail: true },
     });
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Check if new email is the same as current
+    // Check if new email is the same as current DB email
+    // BUT — if the form shows a different email (e.g. from a prior
+    // verification that never persisted), the user may be trying to
+    // change back to the original. Allow it if there is stale pendingEmail
+    // data (cleared below) or if the user just needs a fresh start.
     if (newEmail.toLowerCase() === user.email.toLowerCase()) {
+      // If there's stale pending email data, clear it and tell the user
+      // to retry with a different email.
+      if (user.pendingEmail) {
+        await prisma.user.update({
+          where: { id: userId },
+          data: {
+            emailVerificationCode: null,
+            emailVerificationExpiry: null,
+            pendingEmail: null,
+          },
+        });
+        return NextResponse.json(
+          {
+            error:
+              "A previous email change did not complete. Stale data has been cleared. Please try again with a different email.",
+          },
+          { status: 400 }
+        );
+      }
+
       return NextResponse.json(
         { error: "New email is the same as your current email" },
         { status: 400 }

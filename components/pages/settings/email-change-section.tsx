@@ -53,11 +53,6 @@ export function EmailChangeSection({
       return;
     }
 
-    if (newEmail.toLowerCase() === currentEmail.toLowerCase()) {
-      setError("New email is the same as your current email");
-      return;
-    }
-
     setIsSending(true);
     setError(null);
 
