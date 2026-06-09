@@ -238,10 +238,6 @@ function ContactCardPreview({
           </div>
         )}
 
-        {/* Live update hint */}
-        <p className="text-[9px] text-gray-400 dark:text-gray-500 italic text-center mt-0.5">
-          Live preview — updates as you type
-        </p>
       </CardContent>
     </Card>
   );
