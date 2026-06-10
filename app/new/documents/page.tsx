@@ -208,8 +208,8 @@ export default function DocumentsPage() {
   const [uploadSaveFn, setUploadSaveFn] = useState<(() => Promise<void>) | null>(null);
   const [previewLanguage, setPreviewLanguage] = useState<"EN" | "ES">("EN");
 
-  // Accordion state
-  const [openAccordions, setOpenAccordions] = useState<string[]>([]);
+  // Accordion state — single accordion open at a time
+  const [openAccordion, setOpenAccordion] = useState<string>("");
   const [docPreviews, setDocPreviews] = useState<Record<string, { blobUrl: string; loading: boolean }>>({});
 
   const leaveGuard = useNavigateAwayGuard({
@@ -353,7 +353,7 @@ export default function DocumentsPage() {
     setClientFilter(clientId);
     // Clear cached previews when switching plans
     setDocPreviews({});
-    setOpenAccordions([]);
+    setOpenAccordion("");
     const params = new URLSearchParams(window.location.search);
     params.set("planId", clientId);
     router.replace(`/new/documents?${params.toString()}`);
@@ -562,38 +562,40 @@ export default function DocumentsPage() {
 
   // ── Lazy-load document preview when accordion opens ──
   const handleAccordionChange = useCallback(
-    async (values: string[]) => {
-      setOpenAccordions(values);
+    async (value: string) => {
+      setOpenAccordion(value);
+      if (!value) return;
 
-      for (const docId of values) {
-        if (docPreviews[docId]) continue; // already fetched or loading
+      const docId = value;
 
-        setDocPreviews((prev) => ({
-          ...prev,
-          [docId]: { blobUrl: "", loading: true },
-        }));
+      // Skip if already fetched or loading
+      if (docPreviews[docId]) return;
 
-        try {
-          const response = await fetch(`/api/documents/${docId}/view`);
-          if (response.ok) {
-            const blob = await response.blob();
-            const blobUrl = URL.createObjectURL(blob);
-            setDocPreviews((prev) => ({
-              ...prev,
-              [docId]: { blobUrl, loading: false },
-            }));
-          } else {
-            setDocPreviews((prev) => ({
-              ...prev,
-              [docId]: { blobUrl: "", loading: false },
-            }));
-          }
-        } catch {
+      setDocPreviews((prev) => ({
+        ...prev,
+        [docId]: { blobUrl: "", loading: true },
+      }));
+
+      try {
+        const response = await fetch(`/api/documents/${docId}/view`);
+        if (response.ok) {
+          const blob = await response.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          setDocPreviews((prev) => ({
+            ...prev,
+            [docId]: { blobUrl, loading: false },
+          }));
+        } else {
           setDocPreviews((prev) => ({
             ...prev,
             [docId]: { blobUrl: "", loading: false },
           }));
         }
+      } catch {
+        setDocPreviews((prev) => ({
+          ...prev,
+          [docId]: { blobUrl: "", loading: false },
+        }));
       }
     },
     [docPreviews],
@@ -956,8 +958,9 @@ export default function DocumentsPage() {
                 {/* Accordion List */}
                 {retirementDocs.length > 0 && (
                   <Accordion
-                    type="multiple"
-                    value={openAccordions}
+                    type="single"
+                    collapsible
+                    value={openAccordion}
                     onValueChange={handleAccordionChange}
                     className="border rounded-lg bg-white"
                   >
