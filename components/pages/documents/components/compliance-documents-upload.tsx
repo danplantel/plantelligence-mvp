@@ -524,6 +524,12 @@ export function ComplianceDocumentsUpload({
   useEffect(() => {
     if (!clientId || isWizardControlled || showSaveButton) return; // Skip if in wizard mode or manual save mode
 
+    // Skip if there are no documents loaded yet (prevents spurious saves on mount / tab switch)
+    if (!initialized.current) return;
+
+    // Skip if documents haven't changed or are empty — avoid saving an empty list
+    if (retirementPlanDocuments.length === 0) return;
+
     // Create a serialized version to compare (same format as tracking)
     const currentDocumentsSerialized = JSON.stringify(
       retirementPlanDocuments
@@ -669,6 +675,11 @@ export function ComplianceDocumentsUpload({
   // Manual save function
   const handleManualSave = async () => {
     if (!clientId || isSaving) return;
+
+    // Don't attempt to save when there are no documents — prevents spurious success toast
+    if (retirementPlanDocuments.length === 0) {
+      return;
+    }
 
     const missingCategory = retirementPlanDocuments.filter(
       (d) => !d.category?.trim(),

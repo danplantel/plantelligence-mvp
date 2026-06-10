@@ -84,7 +84,7 @@ export function DocumentsTableView({
               </Button>
             </TableHead>
             <TableHead className="py-4">Category</TableHead>
-            <TableHead className="py-4">
+            {/* <TableHead className="py-4">
               <Button
                 variant="ghost"
                 onClick={() => onSort("client")}
@@ -93,7 +93,7 @@ export function DocumentsTableView({
                 Client
                 <ChevronsUpDown className="ml-2 h-4 w-4" />
               </Button>
-            </TableHead>
+            </TableHead> */}
             <TableHead className="py-4">
               <Button
                 variant="ghost"
@@ -192,12 +192,12 @@ export function DocumentsTableView({
                     </Badge>
                   )}
                 </TableCell>
-                <TableCell>
+                {/* <TableCell>
                   <div className="flex items-center text-sm text-gray-900 dark:text-gray-100">
                     <Building className="h-3 w-3 mr-1 text-gray-400 dark:text-gray-500" />
                     {document.client.companyName}
                   </div>
-                </TableCell>
+                </TableCell> */}
                 <TableCell>
                   <div className="space-y-1">
                     <div className="flex items-center text-sm text-gray-900 dark:text-gray-100">

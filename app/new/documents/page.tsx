@@ -717,7 +717,7 @@ export default function DocumentsPage() {
 
   return (
     <div className="p-6">
-      <div className="w-full space-y-6">
+      <div className="w-full space-y-6 max-w-4xl mx-auto">
         {/* Expiration Alerts */}
         {expiredDocuments.length > 0 && (
           <Alert variant="destructive">
