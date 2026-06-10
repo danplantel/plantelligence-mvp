@@ -7,15 +7,13 @@ import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { AlertTriangle, Clock } from "lucide-react";
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
+import { AlertTriangle, Clock, FileText, Download, Pencil, Trash2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { RetirementDocumentItem } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
 import { DocumentPreviewModal } from "@/components/pages/documents/components/document-preview-modal";
 import { DocumentEditModal } from "@/components/pages/documents/components/document-edit-modal";
-import { DocumentPreviewTab } from "@/components/pages/documents/tabs/document-preview-tab";
 import { DocumentUploadTab } from "@/components/pages/documents/tabs/document-upload-tab";
-import { DocumentListTab } from "@/components/pages/documents/tabs/document-list-tab";
 import type {
   Document,
   SortColumn,
@@ -30,88 +28,142 @@ import {
 import { useNavigateAwayGuard } from "@/hooks/use-navigate-away-guard";
 import { NavigateAwayWarningDialog } from "@/components/ui/navigate-away-warning-dialog";
 import { Button } from "@/components/ui/button";
-
-function DocumentsPreviewEmptyState(props: {
-  selectedPlan: string;
-  isLoading: boolean;
-  sortedCount: number;
-  filteredForPreviewCount: number;
-  previewLanguage: "EN" | "ES";
-  onGoToUpload: () => void;
-}) {
-  const {
-    selectedPlan,
-    isLoading,
-    sortedCount,
-    filteredForPreviewCount,
-    previewLanguage,
-    onGoToUpload,
-  } = props;
-
-  if (!selectedPlan) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-2 max-w-md mx-auto">
-        <p className="text-gray-800 text-lg font-semibold">Select a plan</p>
-        <p className="text-muted-foreground text-sm">
-          Choose a plan above to view and manage documents for that client.
-        </p>
-      </div>
-    );
-  }
-
-  if (isLoading && sortedCount === 0) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="flex items-center gap-2">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-accent-blue" />
-          <span className="text-gray-600">Loading documents…</span>
-        </div>
-      </div>
-    );
-  }
-
-  const noDocsForPlan = sortedCount === 0;
-  const onlyWrongLanguage =
-    sortedCount > 0 && filteredForPreviewCount === 0;
-
-  if (noDocsForPlan) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-4 max-w-lg mx-auto rounded-lg border border-dashed border-gray-200 bg-gray-50/80">
-        <p className="text-gray-900 text-lg font-semibold">
-          No documents for this plan yet
-        </p>
-        <p className="text-muted-foreground text-sm">
-          Upload retirement plan documents for this client on the Upload tab. After you save, they
-          show up in preview and on the portal.
-        </p>
-        <Button type="button" onClick={onGoToUpload}>
-          Upload documents
-        </Button>
-      </div>
-    );
-  }
-
-  if (onlyWrongLanguage) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-3 max-w-lg mx-auto">
-        <p className="text-gray-900 text-lg font-semibold">
-          No documents in {previewLanguage === "EN" ? "English" : "Spanish"}
-        </p>
-        <p className="text-muted-foreground text-sm">
-          This plan has documents in another language. Use the language toggle above, or upload a{" "}
-          {previewLanguage === "EN" ? "English" : "Spanish"} file on the Upload tab.
-        </p>
-        <Button type="button" variant="outline" onClick={onGoToUpload}>
-          Go to Upload
-        </Button>
-      </div>
-    );
-  }
-
-  return null;
-}
+import { Badge } from "@/components/ui/badge";
+import { formatUsDate } from "@/lib/date";
 
 const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
+
+// ── Document Accordion Header (rendered inside AccordionTrigger) ──
+function DocumentAccordionHeader({
+  doc,
+  docType,
+  onEdit,
+  onDelete,
+  onDownload,
+}: {
+  doc: RetirementDocumentItem;
+  docType: string;
+  onEdit: (docId: string, title: string) => void;
+  onDelete: (docId: string, title: string) => void;
+  onDownload: (docId: string, fileName: string) => void;
+}) {
+  const handleAction = (e: React.MouseEvent, fn: () => void) => {
+    e.stopPropagation();
+    e.preventDefault();
+    fn();
+  };
+
+  return (
+    <div className="flex items-center gap-3 w-full pr-4">
+      {/* Document info */}
+      <FileText className="h-5 w-5 text-gray-400 shrink-0" />
+      <div className="flex-1 min-w-0 text-left">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm font-medium text-gray-900 truncate max-w-[300px]">
+            {doc.title}
+          </span>
+          <Badge variant="outline" className="text-[10px] h-5 px-1.5 border-gray-200 text-gray-600">
+            {docType}
+          </Badge>
+          <Badge className="text-[10px] h-5 px-1.5 bg-[#002B5B]/10 text-[#002B5B] border-transparent">
+            {doc.language}
+          </Badge>
+        </div>
+        <p className="text-xs text-gray-500 mt-0.5">
+          {doc.meta?.uploadedAt ? formatUsDate(doc.meta.uploadedAt) : ""}
+          {" · "}
+          {doc.description}
+        </p>
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-1 shrink-0">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0"
+          title="Edit"
+          onClick={(e) =>
+            handleAction(e, () =>
+              onEdit(doc.meta?.id ?? doc.id, doc.title),
+            )
+          }
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0"
+          title="Download"
+          onClick={(e) =>
+            handleAction(e, () => onDownload(doc.meta?.id ?? doc.id, doc.title))
+          }
+        >
+          <Download className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+          title="Delete"
+          onClick={(e) =>
+            handleAction(e, () =>
+              onDelete(doc.meta?.id ?? doc.id, doc.title),
+            )
+          }
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ── Inline Document Preview (embedded inside AccordionContent) ──
+function DocumentAccordionPreview({
+  docId,
+  preview,
+}: {
+  docId: string;
+  preview: { blobUrl: string; loading: boolean } | undefined;
+}) {
+  if (!preview) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-accent-blue" />
+      </div>
+    );
+  }
+
+  if (preview.loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-accent-blue" />
+        <span className="ml-2 text-sm text-gray-500">Loading preview…</span>
+      </div>
+    );
+  }
+
+  if (!preview.blobUrl) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <p className="text-sm text-gray-500">Could not load document preview.</p>
+      </div>
+    );
+  }
+
+  return (
+    <iframe
+      src={`${preview.blobUrl}#view=FitH`}
+      className="w-full h-[70vh] border border-gray-200 rounded-md"
+      title="Document preview"
+    />
+  );
+}
 
 export default function DocumentsPage() {
   const { setTitle } = usePageTitleContext();
@@ -143,27 +195,26 @@ export default function DocumentsPage() {
     description?: string;
     fileName?: string;
   } | null>(null);
-  const [viewMode, setViewMode] = useState<"table" | "cards">(() => {
-    // Load from localStorage or default to "cards"
+  const [activeSection, setActiveSection] = useState<"upload" | "documents">(() => {
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("documentsViewMode");
-      return (saved === "table" || saved === "cards" ? saved : "cards") as
-        | "table"
-        | "cards";
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get("tab");
+      if (tab === "upload") return "upload";
     }
-    return "cards";
+    return "documents";
   });
-  const [activeTab, setActiveTab] = useState("preview");
   const [selectedPlan, setSelectedPlan] = useState<string>("");
   const [hasUnsavedUploadChanges, setHasUnsavedUploadChanges] = useState(false);
-  const [uploadSaveFn, setUploadSaveFn] = useState<(() => Promise<void>) | null>(
-    null,
-  );
-  // Language state for Document Preview
+  const [uploadSaveFn, setUploadSaveFn] = useState<(() => Promise<void>) | null>(null);
   const [previewLanguage, setPreviewLanguage] = useState<"EN" | "ES">("EN");
+
+  // Accordion state
+  const [openAccordions, setOpenAccordions] = useState<string[]>([]);
+  const [docPreviews, setDocPreviews] = useState<Record<string, { blobUrl: string; loading: boolean }>>({});
+
   const leaveGuard = useNavigateAwayGuard({
     enabled: true,
-    hasUnsavedChanges: activeTab === "upload" && hasUnsavedUploadChanges,
+    hasUnsavedChanges: activeSection === "upload" && hasUnsavedUploadChanges,
     onSaveAndExit: async () => {
       if (!uploadSaveFn) {
         throw new Error("No save action is available yet for uploaded documents.");
@@ -174,20 +225,23 @@ export default function DocumentsPage() {
     },
   });
 
-  // SWR: clients list — cached, shows instantly on revisit
-  // Declared before useEffects that depend on `clients`
-  const clientsKey = "/api/clients?status=all&limit=500&sortColumn=companyName&sortDirection=asc";
-  const { data: clientsData, mutate: refreshClientsSWR } = useSWR(clientsKey, jsonFetcher, {
+  // SWR: clients list
+  const clientsKey =
+    "/api/clients?status=all&limit=500&sortColumn=companyName&sortDirection=asc";
+  const { data: clientsData } = useSWR(clientsKey, jsonFetcher, {
     keepPreviousData: true,
     dedupingInterval: 60_000,
     revalidateOnFocus: false,
   });
   const clients: Client[] = useMemo(
-    () => ((clientsData?.data as Client[]) ?? []).filter((c) => (c.status ?? "Active") !== "Archived"),
+    () =>
+      ((clientsData?.data as Client[]) ?? []).filter(
+        (c) => (c.status ?? "Active") !== "Archived",
+      ),
     [clientsData],
   );
 
-  // SWR: documents — key changes with filters so each combo is cached separately
+  // SWR: documents
   const docsKey = useMemo(() => {
     const params = new URLSearchParams();
     if (searchTerm) params.append("search", searchTerm);
@@ -196,20 +250,19 @@ export default function DocumentsPage() {
     return `/api/documents?${params.toString()}`;
   }, [searchTerm, typeFilter, clientFilter]);
 
-  const { data: docsData, isLoading: docsLoading, mutate: refreshDocsSWR } = useSWR(
-    docsKey,
-    jsonFetcher,
-    {
-      keepPreviousData: true,
-      dedupingInterval: 60_000,
-      revalidateOnFocus: false,
-      onSuccess: () => setIsLoading(false),
-      onError: () => {
-        toast.error("Failed to fetch documents");
-        setIsLoading(false);
-      },
+  const {
+    data: docsData,
+    mutate: refreshDocsSWR,
+  } = useSWR(docsKey, jsonFetcher, {
+    keepPreviousData: true,
+    dedupingInterval: 60_000,
+    revalidateOnFocus: false,
+    onSuccess: () => setIsLoading(false),
+    onError: () => {
+      toast.error("Failed to fetch documents");
+      setIsLoading(false);
     },
-  );
+  });
   const documents: Document[] = docsData?.data ?? [];
 
   const fetchDocuments = useCallback(() => {
@@ -226,11 +279,7 @@ export default function DocumentsPage() {
       if (selectedClient) params.set("company", selectedClient.companyName);
     }
     if (selectedPlan) params.set("planId", selectedPlan);
-
-    const tabParam = searchParams.get("tab");
-    if (tabParam && ["preview", "upload", "list"].includes(tabParam)) {
-      params.set("tab", tabParam);
-    }
+    params.set("section", activeSection);
 
     const newURL = params.toString()
       ? `/new/documents?${params.toString()}`
@@ -253,12 +302,9 @@ export default function DocumentsPage() {
     if (searchParam) setSearchTerm(searchParam);
     if (typeParam) setTypeFilter(typeParam);
 
-    // Set active tab from URL parameter
-    if (tabParam && ["preview", "upload", "list"].includes(tabParam)) {
-      setActiveTab(tabParam);
-    }
+    if (tabParam === "upload") setActiveSection("upload");
+    else if (tabParam && ["preview", "list"].includes(tabParam)) setActiveSection("documents");
 
-    // If company param exists, find the client and set filter and selected plan
     if (companyParam && clients.length > 0) {
       const decodedCompany = decodeURIComponent(companyParam.replace(/\+/g, " "));
       let client = clients.find(
@@ -295,31 +341,23 @@ export default function DocumentsPage() {
     }
   }, [clients, searchParams]);
 
-  // Update URL when filters change (clients must be loaded first)
+  // Update URL when filters change
   useEffect(() => {
     if (clients.length > 0) {
       updateURL(searchTerm, typeFilter, clientFilter);
     }
-  }, [searchTerm, typeFilter, clientFilter, selectedPlan, clients.length, searchParams]);
+  }, [searchTerm, typeFilter, clientFilter, selectedPlan, activeSection, clients.length, searchParams]);
 
   const handlePlanChange = (clientId: string) => {
     setSelectedPlan(clientId);
     setClientFilter(clientId);
+    // Clear cached previews when switching plans
+    setDocPreviews({});
+    setOpenAccordions([]);
     const params = new URLSearchParams(window.location.search);
     params.set("planId", clientId);
     router.replace(`/new/documents?${params.toString()}`);
   };
-
-  // Set active tab from URL query parameter
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const tabParam = params.get("tab");
-      if (tabParam && ["preview", "upload", "list"].includes(tabParam)) {
-        setActiveTab(tabParam);
-      }
-    }
-  }, []);
 
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
@@ -332,29 +370,21 @@ export default function DocumentsPage() {
 
   const handleDownload = async (documentId: string, fileName: string) => {
     try {
-      // Fetch from the secure endpoint
       const response = await fetch(`/api/documents/${documentId}/view`);
-
       if (!response.ok) {
         toast.error("Failed to download document");
         return;
       }
-
-      // Create blob from response
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
-
-      // Create download link
       const link = document.createElement("a");
       link.href = url;
       link.download = fileName;
       document.body.appendChild(link);
       link.click();
-
-      // Cleanup
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-    } catch (error) {
+    } catch {
       toast.error("An error occurred while downloading the document");
     }
   };
@@ -366,19 +396,23 @@ export default function DocumentsPage() {
 
   const handleDeleteConfirm = async () => {
     if (!documentToDelete) return;
-
     try {
       const response = await fetch(`/api/documents/${documentToDelete.id}`, {
         method: "DELETE",
       });
-
       if (response.ok) {
         toast.success("Document deleted successfully!");
-        fetchDocuments(); // Refresh the documents list
+        // Remove from preview cache
+        setDocPreviews((prev) => {
+          const next = { ...prev };
+          delete next[documentToDelete.id];
+          return next;
+        });
+        fetchDocuments();
       } else {
         toast.error("Failed to delete document");
       }
-    } catch (error) {
+    } catch {
       toast.error("An error occurred while deleting the document");
     } finally {
       setDocumentToDelete(null);
@@ -392,30 +426,23 @@ export default function DocumentsPage() {
       titleLower.includes("spd") ||
       titleLower.includes("summary plan description") ||
       titleLower.includes("plan highlights")
-    ) {
-      return "SPD";
-    }
+    ) return "SPD";
     if (
       titleLower.includes("sbc") ||
       titleLower.includes("summary of benefits")
-    ) {
-      return "SBC";
-    }
+    ) return "SBC";
     return "Document";
   };
 
-  // Calculate expiration status for documents
   const getExpirationStatus = (doc: Document) => {
     if (!doc.expirationDate) return null;
     const expirationDate = new Date(doc.expirationDate);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     expirationDate.setHours(0, 0, 0, 0);
-
     const daysUntilExpiration = Math.ceil(
       (expirationDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
     );
-
     if (daysUntilExpiration < 0) {
       return { status: "expired", days: Math.abs(daysUntilExpiration) };
     } else if (daysUntilExpiration <= 30) {
@@ -424,7 +451,6 @@ export default function DocumentsPage() {
     return null;
   };
 
-  // Get documents with expiration alerts
   const expiredDocuments = useMemo(() => {
     return documents.filter((doc) => {
       const status = getExpirationStatus(doc);
@@ -440,19 +466,14 @@ export default function DocumentsPage() {
   }, [documents]);
 
   const sortedDocuments = [...documents].sort((a, b) => {
-    // First, sort by type (SPD, SBC, Document)
     const aType = getDocumentType(a);
     const bType = getDocumentType(b);
     const typeOrder = { SPD: 1, SBC: 2, Document: 3 };
     const typeDiff =
       (typeOrder[aType as keyof typeof typeOrder] || 3) -
       (typeOrder[bType as keyof typeof typeOrder] || 3);
+    if (typeDiff !== 0) return typeDiff;
 
-    if (typeDiff !== 0) {
-      return typeDiff;
-    }
-
-    // Then sort by selected column
     let aValue: any = a[sortColumn];
     let bValue: any = b[sortColumn];
 
@@ -474,7 +495,6 @@ export default function DocumentsPage() {
     }
   });
 
-  // Get available languages from documents
   const availableLanguages = useMemo<("EN" | "ES")[]>(() => {
     const languages = new Set<"EN" | "ES">();
     sortedDocuments.forEach((doc) => {
@@ -482,30 +502,24 @@ export default function DocumentsPage() {
       if (lang === "ES" || lang === "EN") {
         languages.add(lang);
       } else {
-        // Default to EN if language is not specified
         languages.add("EN");
       }
     });
     return Array.from(languages).sort((a, b) => {
-      // EN first, then ES (preview toggle order)
       if (a === "EN" && b === "ES") return -1;
       if (a === "ES" && b === "EN") return 1;
       return 0;
     });
   }, [sortedDocuments]);
 
-  // Sync previewLanguage with available languages
-  // If current language is not available, switch to first available language
   useEffect(() => {
     if (availableLanguages.length > 0) {
-      // If current previewLanguage is not in availableLanguages, switch to first available
       if (!availableLanguages.includes(previewLanguage)) {
         setPreviewLanguage(availableLanguages[0]);
       }
     }
   }, [availableLanguages, previewLanguage]);
 
-  // Convert documents to RetirementDocumentItem format
   const retirementDocs = useMemo<RetirementDocumentItem[]>(() => {
     const mappedDocs = sortedDocuments.map((doc) => {
       const docType = getDocumentType(doc);
@@ -518,7 +532,6 @@ export default function DocumentsPage() {
         id: doc.id,
         title: doc.title,
         description: (doc as any).shortDescription || doc.fileName || doc.title,
-        // Add cache-busting parameter to ensure updated files are loaded
         href: `/api/documents/${doc.id}/view?t=${doc.uploadedAt}`,
         language: language,
         category: (doc as any).category ?? undefined,
@@ -532,17 +545,12 @@ export default function DocumentsPage() {
           },
           uploadedAt: doc.uploadedAt,
         },
-        onEdit: undefined, // Edit functionality is handled by DocumentsCardsView internally
-        onDelete: () => {
-          handleDeleteClick(doc.id, doc.title);
-        },
-        onDownload: () => {
-          handleDownload(doc.id, doc.fileName);
-        },
+        onEdit: undefined,
+        onDelete: () => handleDeleteClick(doc.id, doc.title),
+        onDownload: () => handleDownload(doc.id, doc.fileName),
       };
     });
 
-    // Filter by current language (EN before ES when both appear)
     return mappedDocs
       .filter((doc) => doc.language === previewLanguage)
       .sort((a, b) => {
@@ -551,6 +559,45 @@ export default function DocumentsPage() {
         return 0;
       });
   }, [sortedDocuments, previewLanguage]);
+
+  // ── Lazy-load document preview when accordion opens ──
+  const handleAccordionChange = useCallback(
+    async (values: string[]) => {
+      setOpenAccordions(values);
+
+      for (const docId of values) {
+        if (docPreviews[docId]) continue; // already fetched or loading
+
+        setDocPreviews((prev) => ({
+          ...prev,
+          [docId]: { blobUrl: "", loading: true },
+        }));
+
+        try {
+          const response = await fetch(`/api/documents/${docId}/view`);
+          if (response.ok) {
+            const blob = await response.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            setDocPreviews((prev) => ({
+              ...prev,
+              [docId]: { blobUrl, loading: false },
+            }));
+          } else {
+            setDocPreviews((prev) => ({
+              ...prev,
+              [docId]: { blobUrl: "", loading: false },
+            }));
+          }
+        } catch {
+          setDocPreviews((prev) => ({
+            ...prev,
+            [docId]: { blobUrl: "", loading: false },
+          }));
+        }
+      }
+    },
+    [docPreviews],
+  );
 
   const handleSaveEdit = async (
     docId: string,
@@ -583,13 +630,14 @@ export default function DocumentsPage() {
             const result = await response.json();
             if (response.ok && result.success) {
               toast.success("Document updated successfully");
+              // Clear cached preview so it reloads
+              setDocPreviews((prev) => {
+                const next = { ...prev };
+                delete next[docId];
+                return next;
+              });
               setTimeout(() => {
                 fetchDocuments();
-                if (typeof window !== "undefined" && window.caches) {
-                  caches.keys().then((names) => {
-                    names.forEach((name) => caches.delete(name));
-                  });
-                }
               }, 500);
               return;
             }
@@ -602,9 +650,7 @@ export default function DocumentsPage() {
       const formData = new FormData();
       formData.append("title", title);
       formData.append("shortDescription", description);
-      if (file) {
-        formData.append("file", file);
-      }
+      if (file) formData.append("file", file);
 
       const response = await fetch(`/api/documents/${docId}`, {
         method: "PATCH",
@@ -612,21 +658,15 @@ export default function DocumentsPage() {
       });
 
       const result = await response.json();
-
       if (response.ok && result.success) {
         toast.success("Document updated successfully");
-        // Force refresh documents list and clear cache
-        // Add timestamp to break cache
+        setDocPreviews((prev) => {
+          const next = { ...prev };
+          delete next[docId];
+          return next;
+        });
         setTimeout(() => {
           fetchDocuments();
-          // Force browser to reload document URLs by clearing cache
-          if (typeof window !== "undefined" && window.caches) {
-            caches.keys().then((names) => {
-              names.forEach((name) => {
-                caches.delete(name);
-              });
-            });
-          }
         }, 500);
       } else {
         toast.error(result.error || "Failed to update document");
@@ -639,8 +679,7 @@ export default function DocumentsPage() {
     }
   };
 
-  const handleEditFromTable = (documentId: string, title: string) => {
-    // Find the document
+  const handleEditFromAccordion = (documentId: string, title: string) => {
     const doc = documents.find((d) => d.id === documentId);
     if (doc) {
       setDocumentToEdit({
@@ -653,10 +692,7 @@ export default function DocumentsPage() {
     }
   };
 
-  const handlePreview = async (
-    documentIdOrDoc: string | RetirementDocumentItem,
-    title?: string,
-  ) => {
+  const handlePreview = async (documentIdOrDoc: string | RetirementDocumentItem, title?: string) => {
     let documentId: string;
     let documentTitle: string;
 
@@ -672,9 +708,7 @@ export default function DocumentsPage() {
     setPreviewOpen(true);
 
     try {
-      // Fetch document as blob to create preview URL
       const response = await fetch(`/api/documents/${documentId}/view`);
-
       if (!response.ok) {
         const errorText = await response.text();
         console.error("Preview error response:", errorText);
@@ -684,9 +718,7 @@ export default function DocumentsPage() {
       }
 
       const blob = await response.blob();
-
       if (blob.size < 100) {
-        // If blob is too small, it's probably an error message
         const text = await blob.text();
         console.error("Small blob content:", text);
         toast.error("Document appears to be corrupted or empty");
@@ -695,7 +727,6 @@ export default function DocumentsPage() {
       }
 
       const blobUrl = URL.createObjectURL(blob);
-
       setPreviewDocument({ id: documentId, title: documentTitle, blobUrl });
     } catch (error) {
       console.error("Preview error:", error);
@@ -707,10 +738,19 @@ export default function DocumentsPage() {
   };
 
   const goToUploadTab = () => {
-    setActiveTab("upload");
+    setActiveSection("upload");
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
-      url.searchParams.set("tab", "upload");
+      url.searchParams.set("section", "upload");
+      window.history.pushState({}, "", url.toString());
+    }
+  };
+
+  const goToDocumentsSection = () => {
+    setActiveSection("documents");
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("section", "documents");
       window.history.pushState({}, "", url.toString());
     }
   };
@@ -766,12 +806,12 @@ export default function DocumentsPage() {
           </Alert>
         )}
 
-        {/* Plan Selector (sticky per module + recents + scalable search) */}
+        {/* ── Combined Plan Selector + Sections ── */}
         <Card>
-          <CardHeader>
-            <CardTitle className="text-2xl font-bold">Select Plan</CardTitle>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-2xl font-bold">Plan Documents</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pb-3">
             <StickyPlanCombobox
               module="documents"
               plans={clients}
@@ -779,119 +819,78 @@ export default function DocumentsPage() {
               onChange={handlePlanChange}
               disabled={clients.length === 0}
               required
-              label="Plan"
+              label="Select a plan"
               id="documents-plan"
             />
             {!selectedPlan && clients.length > 0 && (
               <p className="text-sm text-amber-600 mt-2">
-                Please select a plan to manage documents
+                Please select a plan to manage documents.
               </p>
             )}
           </CardContent>
-        </Card>
 
-        <Tabs
-          value={activeTab}
-          onValueChange={(value) => {
-            setActiveTab(value);
-            if (typeof window !== "undefined") {
-              const url = new URL(window.location.href);
-              url.searchParams.set("tab", value);
-              window.history.pushState({}, "", url.toString());
-            }
-          }}
-        >
-          <TabsList>
-            <TabsTrigger value="preview">Document Preview</TabsTrigger>
-            <TabsTrigger value="upload">Upload Documents</TabsTrigger>
-            <TabsTrigger value="list">Document List</TabsTrigger>
-          </TabsList>
+          {/* Section toggle tabs */}
+          {selectedPlan && (
+            <div className="px-6 flex gap-0 border-b">
+              <button
+                type="button"
+                onClick={goToUploadTab}
+                className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                  activeSection === "upload"
+                    ? "border-[#002B5B] text-[#002B5B]"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300"
+                }`}
+              >
+                Upload Documents
+              </button>
+              <button
+                type="button"
+                onClick={goToDocumentsSection}
+                className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                  activeSection === "documents"
+                    ? "border-[#002B5B] text-[#002B5B]"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300"
+                }`}
+              >
+                Documents
+              </button>
+            </div>
+          )}
 
-          <TabsContent value="preview" className="mt-6">
-            {/* Language Switcher */}
-            {availableLanguages.length > 1 && (
-              <div className="mb-6 flex flex-wrap gap-2">
-                {availableLanguages.map((lang) => {
-                  const isActive = previewLanguage === lang;
-                  return (
-                    <button
-                      key={lang}
-                      type="button"
-                      onClick={() => {
-                        setPreviewLanguage(lang);
-                      }}
-                      className={`rounded-full px-5 py-2 text-[16px] leading-tight font-red-hat font-semibold border transition-colors ${
-                        isActive
-                          ? "bg-[#002B5B] text-white border-[#002B5B]"
-                          : "bg-white text-[#002B5B] border-[#D1D5DB] hover:bg-gray-50"
-                      }`}
-                      style={
-                        isActive
-                          ? {
-                              backgroundColor: "#002B5B",
-                              borderColor: "#002B5B",
-                            }
-                          : { color: "#002B5B", borderColor: "#D1D5DB" }
-                      }
-                    >
-                      {lang === "EN" ? "ENGLISH" : "ESPAÑOL"}
-                    </button>
-                  );
-                })}
+          <CardContent className="pt-6">
+            {!selectedPlan ? (
+              <div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-2">
+                <p className="text-gray-800 text-lg font-semibold">Select a plan</p>
+                <p className="text-muted-foreground text-sm">
+                  Choose a plan above to view and manage documents for that client.
+                </p>
               </div>
-            )}
-
-            {/* Filtered Documents Preview */}
-            {retirementDocs.length === 0 ? (
-              <DocumentsPreviewEmptyState
+            ) : activeSection === "upload" ? (
+              /* ── Upload Documents Section ── */
+              <DocumentUploadTab
                 selectedPlan={selectedPlan}
-                isLoading={isLoading}
-                sortedCount={sortedDocuments.length}
-                filteredForPreviewCount={retirementDocs.length}
-                previewLanguage={previewLanguage}
-                onGoToUpload={goToUploadTab}
+                showSaveButton={true}
+                onHasUnsavedChangesChange={setHasUnsavedUploadChanges}
+                onSaveFunctionReady={setUploadSaveFn}
+                onDocumentsSaved={() => {
+                  setTimeout(() => {
+                    fetchDocuments();
+                  }, 500);
+                }}
               />
             ) : (
-              <DocumentPreviewTab
-                selectedPlan={selectedPlan}
-                isLoading={isLoading}
-                documents={retirementDocs}
-                onDelete={handleDeleteClick}
-                onDownload={handleDownload}
-                onDocumentsChange={fetchDocuments}
-                onSaveEdit={handleSaveEdit}
-              />
-            )}
-          </TabsContent>
-
-          <TabsContent value="upload" className="mt-6">
-            <DocumentUploadTab
-              selectedPlan={selectedPlan}
-              showSaveButton={true}
-              onHasUnsavedChangesChange={setHasUnsavedUploadChanges}
-              onSaveFunctionReady={setUploadSaveFn}
-              onDocumentsSaved={() => {
-                setTimeout(() => {
-                  fetchDocuments();
-                }, 500);
-              }}
-            />
-
-            {/* Document Preview with Language Switcher */}
-            {sortedDocuments.length > 0 && (
-              <div className="mt-6">
+              /* ── Documents Accordion Section (merged Preview + List) ── */
+              <div className="space-y-4">
                 {/* Language Switcher */}
                 {availableLanguages.length > 1 && (
-                  <div className="mb-6 flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2">
                     {availableLanguages.map((lang) => {
                       const isActive = previewLanguage === lang;
                       return (
                         <button
                           key={lang}
                           type="button"
-                          onClick={() => {
-                            setPreviewLanguage(lang);
-                          }}
+                          onClick={() => setPreviewLanguage(lang)}
                           className={`rounded-full px-5 py-2 text-[16px] leading-tight font-red-hat font-semibold border transition-colors ${
                             isActive
                               ? "bg-[#002B5B] text-white border-[#002B5B]"
@@ -899,10 +898,7 @@ export default function DocumentsPage() {
                           }`}
                           style={
                             isActive
-                              ? {
-                                  backgroundColor: "#002B5B",
-                                  borderColor: "#002B5B",
-                                }
+                              ? { backgroundColor: "#002B5B", borderColor: "#002B5B" }
                               : { color: "#002B5B", borderColor: "#D1D5DB" }
                           }
                         >
@@ -913,48 +909,90 @@ export default function DocumentsPage() {
                   </div>
                 )}
 
-                {/* Filtered Documents Preview */}
-                {retirementDocs.length === 0 ? (
-                  <DocumentsPreviewEmptyState
-                    selectedPlan={selectedPlan}
-                    isLoading={isLoading}
-                    sortedCount={sortedDocuments.length}
-                    filteredForPreviewCount={retirementDocs.length}
-                    previewLanguage={previewLanguage}
-                    onGoToUpload={goToUploadTab}
-                  />
-                ) : (
-                  <DocumentPreviewTab
-                    selectedPlan={selectedPlan}
-                    isLoading={isLoading}
-                    documents={retirementDocs}
-                    onDelete={handleDeleteClick}
-                    onDownload={handleDownload}
-                    onDocumentsChange={fetchDocuments}
-                    onSaveEdit={handleSaveEdit}
-                  />
+                {/* Skeleton loading state */}
+                {isLoading && sortedDocuments.length === 0 && (
+                  <div className="flex items-center justify-center py-20">
+                    <div className="flex items-center gap-2">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-accent-blue" />
+                      <span className="text-gray-600">Loading documents…</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Empty state */}
+                {!isLoading && sortedDocuments.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-4 rounded-lg border border-dashed border-gray-200 bg-gray-50/80">
+                    <p className="text-gray-900 text-lg font-semibold">
+                      No documents for this plan yet
+                    </p>
+                    <p className="text-muted-foreground text-sm">
+                      Upload retirement plan documents for this client on the Upload tab.
+                      After you save, they will appear here.
+                    </p>
+                    <Button type="button" onClick={goToUploadTab}>
+                      Upload documents
+                    </Button>
+                  </div>
+                )}
+
+                {/* Wrong-language-only empty state */}
+                {!isLoading && sortedDocuments.length > 0 && retirementDocs.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-3">
+                    <p className="text-gray-900 text-lg font-semibold">
+                      No documents in {previewLanguage === "EN" ? "English" : "Spanish"}
+                    </p>
+                    <p className="text-muted-foreground text-sm">
+                      This plan has documents in another language. Use the language toggle
+                      above, or upload a{" "}
+                      {previewLanguage === "EN" ? "English" : "Spanish"} file on the Upload
+                      tab.
+                    </p>
+                    <Button type="button" variant="outline" onClick={goToUploadTab}>
+                      Go to Upload
+                    </Button>
+                  </div>
+                )}
+
+                {/* Accordion List */}
+                {retirementDocs.length > 0 && (
+                  <Accordion
+                    type="multiple"
+                    value={openAccordions}
+                    onValueChange={handleAccordionChange}
+                    className="border rounded-lg bg-white"
+                  >
+                    {retirementDocs.map((doc) => {
+                      const docId = doc.meta?.id ?? doc.id;
+                      const docType = (doc.meta?.type as string) ?? "Document";
+                      const preview = docPreviews[docId];
+
+                      return (
+                        <AccordionItem
+                          key={docId}
+                          value={docId}
+                          className="px-4 first:rounded-t-lg last:rounded-b-lg"
+                        >
+                          <AccordionTrigger className="hover:no-underline py-3">
+                            <DocumentAccordionHeader
+                              doc={doc}
+                              docType={docType}
+                              onEdit={handleEditFromAccordion}
+                              onDelete={handleDeleteClick}
+                              onDownload={handleDownload}
+                            />
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <DocumentAccordionPreview docId={docId} preview={preview} />
+                          </AccordionContent>
+                        </AccordionItem>
+                      );
+                    })}
+                  </Accordion>
                 )}
               </div>
             )}
-          </TabsContent>
-
-          <TabsContent value="list" className="mt-6">
-            <DocumentListTab
-              selectedPlan={selectedPlan}
-              isLoading={isLoading}
-              documents={sortedDocuments}
-              sortColumn={sortColumn}
-              sortDirection={sortDirection}
-              onSort={handleSort}
-              onPreview={handlePreview}
-              onDownload={handleDownload}
-              onDelete={handleDeleteClick}
-              getDocumentType={getDocumentType}
-              onEdit={handleEditFromTable}
-              onGoToUpload={goToUploadTab}
-            />
-          </TabsContent>
-        </Tabs>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Delete Confirmation Dialog */}
@@ -973,7 +1011,7 @@ export default function DocumentsPage() {
         variant="destructive"
       />
 
-      {/* Document Preview Modal */}
+      {/* Document Preview Modal (kept for full-screen preview from other entry points) */}
       <DocumentPreviewModal
         isOpen={previewOpen}
         onClose={() => {
@@ -994,6 +1032,7 @@ export default function DocumentsPage() {
         document={documentToEdit}
         onSave={handleSaveEdit}
       />
+
       <NavigateAwayWarningDialog
         open={leaveGuard.dialogOpen}
         isSaving={leaveGuard.isSaving}
@@ -1004,7 +1043,6 @@ export default function DocumentsPage() {
         onDialogOpenChange={leaveGuard.dialogOnOpenChange}
         onDiscardPointerDownCapture={leaveGuard.suppressStayOnNextClose}
       />
-
     </div>
   );
 }
