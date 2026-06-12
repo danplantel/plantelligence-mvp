@@ -219,46 +219,67 @@ function RenderCardBySlot({
     isPrimary: isPrimaryContact,
   };
 
+  // Category badge for the card
+  const categoryBadge = contact.categoryLabel ? (
+    <div className="absolute top-2 right-2 z-10">
+      <Badge
+        variant="secondary"
+        className="text-[10px] px-2 py-0.5 font-medium bg-white/90 dark:bg-gray-800/90 border-gray-200 dark:border-gray-600 shadow-sm"
+      >
+        {contact.categoryLabel}
+      </Badge>
+    </div>
+  ) : null;
+
   switch (slot.type) {
     case "primary":
       return (
-        <PrimaryContactCard
-          contact={contactWithProps}
-          brandColor={brandColor}
-          secondaryColor={secondaryColor}
-          appointmentLink={appointmentLink}
-          companyName={companyName}
-          logoScale={logoScale}
-          baselineBackgroundColor={baselineBackgroundColor}
-          compact={true}
-        />
+        <div className="relative w-full h-full">
+          {categoryBadge}
+          <PrimaryContactCard
+            contact={contactWithProps}
+            brandColor={brandColor}
+            secondaryColor={secondaryColor}
+            appointmentLink={appointmentLink}
+            companyName={companyName}
+            logoScale={logoScale}
+            baselineBackgroundColor={baselineBackgroundColor}
+            compact={true}
+          />
+        </div>
       );
     case "large":
       return (
-        <LargeHorizontalCard
-          contact={contactWithProps}
-          brandColor={brandColor}
-          secondaryColor={secondaryColor}
-          appointmentLink={appointmentLink}
-          companyName={companyName}
-          index={index}
-          disableAnimation={true}
-          baselineBackgroundColor={baselineBackgroundColor}
-        />
+        <div className="relative w-full h-full">
+          {categoryBadge}
+          <LargeHorizontalCard
+            contact={contactWithProps}
+            brandColor={brandColor}
+            secondaryColor={secondaryColor}
+            appointmentLink={appointmentLink}
+            companyName={companyName}
+            index={index}
+            disableAnimation={true}
+            baselineBackgroundColor={baselineBackgroundColor}
+          />
+        </div>
       );
     case "small":
       return (
-        <SmallVerticalCard
-          contact={contactWithProps}
-          brandColor={brandColor}
-          secondaryColor={secondaryColor}
-          appointmentLink={appointmentLink}
-          companyName={companyName}
-          index={index}
-          disableAnimation={true}
-          baselineBackgroundColor={baselineBackgroundColor}
-          compact={compact}
-        />
+        <div className="relative w-full h-full">
+          {categoryBadge}
+          <SmallVerticalCard
+            contact={contactWithProps}
+            brandColor={brandColor}
+            secondaryColor={secondaryColor}
+            appointmentLink={appointmentLink}
+            companyName={companyName}
+            index={index}
+            disableAnimation={true}
+            baselineBackgroundColor={baselineBackgroundColor}
+            compact={compact}
+          />
+        </div>
       );
     default:
       return null;
@@ -496,8 +517,23 @@ export function NewClientStep3d({
         return "Other";
       };
 
-      const benefitsCategory =
+      const rawBenefitsCategory =
         contact.benefitsCategories?.[0] || contact.benefitsCategory || "Other";
+
+      // Display-friendly label for the category badge
+      const categoryLabel = rawBenefitsCategory === "Group Health"
+        ? "Group Health"
+        : rawBenefitsCategory === "Group Life"
+        ? "Group Life"
+        : rawBenefitsCategory === "Retirement"
+        ? "Retirement"
+        : rawBenefitsCategory === "Other Benefits"
+        ? "Other Benefits"
+        : rawBenefitsCategory === "Company / Plan Sponsor"
+        ? "Company / Plan Sponsor"
+        : rawBenefitsCategory === "Third Party Contact"
+        ? "External HR / Administrator"
+        : rawBenefitsCategory || "Other";
 
       return {
         id: contact.id,
@@ -509,11 +545,12 @@ export function NewClientStep3d({
         email: contact.email,
         phone: contact.phone,
         headshot: contact.headshot,
-        logo: contact.companyLogo || planCompanyLogo,
-        companyLogo: contact.companyLogo || planCompanyLogo,
+        logo: planCompanyLogo,
+        companyLogo: planCompanyLogo,
         showOnPortal: contact.showOnPortal !== false,
-        benefitsCategory: mapBenefitsCategory(benefitsCategory),
+        benefitsCategory: mapBenefitsCategory(rawBenefitsCategory),
         benefitsCategoryOther: contact.benefitsCategoryOther,
+        categoryLabel,
         companyName: contact.companyName || companyName,
         contactType: contact.contactType,
         displayName: contact.displayName,
