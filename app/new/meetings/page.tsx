@@ -2775,20 +2775,18 @@ export default function MeetingsPage() {
 
             {/* Submit Button */}
             <div className="flex gap-3">
-              {editingMeetingId && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleCancelEdit}
-                  disabled={isSubmitting}
-                  className="flex-1"
-                >
-                  Cancel Edit
-                </Button>
-              )}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCancelEdit}
+                disabled={isSubmitting}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
               <Button
                 type="submit"
-                className={`${editingMeetingId ? "flex-1" : "w-full"} ${
+                className={`flex-1 ${
                   timeConflictWarning && !hasConfirmedConflict
                     ? "bg-amber-600 hover:bg-amber-700"
                     : "bg-primary hover:bg-primary/90 dark:bg-accent-blue dark:text-white dark:hover:bg-accent-blue/90"
