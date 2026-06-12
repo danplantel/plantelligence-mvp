@@ -862,17 +862,6 @@ export default function DocumentsPage() {
           <CardContent className="pt-6">
             {!selectedPlan ? null : activeSection === "upload" ? (
               <>
-                {/* Info banner */}
-                <div className="bg-blue-50 border border-blue-200 rounded-md p-4 flex items-start gap-3 mb-6">
-                  <div className="text-blue-500 mt-0.5 shrink-0">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line x1="12" x2="12.01" y1="16" y2="16" /></svg>
-                  </div>
-                  <div>
-                    <p className="text-sm text-blue-800 font-medium">
-                      Upload retirement plan documents and forms here. After saving, they appear in the Documents tab and on the Benefits Hub.
-                    </p>
-                  </div>
-                </div>
                 <DocumentUploadTab
                   selectedPlan={selectedPlan}
                   showSaveButton={true}
@@ -896,17 +885,10 @@ export default function DocumentsPage() {
             ) : (
               /* ── Documents Accordion Section (merged Preview + List) ── */
               <div className="space-y-4">
-                {/* Info banner */}
-                <div className="bg-blue-50 border border-blue-200 rounded-md p-4 flex items-start gap-3">
-                  <div className="text-blue-500 mt-0.5 shrink-0">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line x1="12" x2="12.01" y1="16" y2="16" /></svg>
-                  </div>
-                  <div>
-                    <p className="text-sm text-blue-800 font-medium">
-                      This is how the documents will display on the Benefits Hub. Expand any document to preview its contents. You can edit titles, descriptions, download, or delete documents using the buttons on each card.
-                    </p>
-                  </div>
-                </div>
+                <h3 className="text-lg font-semibold text-gray-900">Documents List</h3>
+                <p className="text-sm text-muted-foreground">
+                  Review all documents for this plan. Expand any document to preview its contents, or use the action buttons to edit, download, or delete.
+                </p>
                 {/* Language Switcher */}
                 {availableLanguages.length > 1 && (
                   <div className="flex flex-wrap gap-2">

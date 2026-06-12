@@ -1222,7 +1222,7 @@ export function ComplianceDocumentsUpload({
           documents={retirementPlanDocuments}
           onDocumentsChange={setRetirementPlanDocuments}
           title={fixedCategory ? `${fixedCategory} Plan Documents` : "Upload Plan Documents"}
-          description="Add as many plan documents or forms as you like. Employees will see them in the Benefits Hub."
+          description="Upload plan documents and forms for this client. After saving, they appear in the Documents section. Employees will see them in the Benefits Hub."
           secondaryAction={
             secondaryAction
               ? {
