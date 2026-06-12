@@ -115,6 +115,7 @@ interface Meeting {
   city?: string;
   state?: string;
   zip?: string;
+  language?: string;
 }
 
 interface Client {
@@ -148,6 +149,7 @@ interface MeetingFormData {
   city: string;
   state: string;
   zip: string;
+  language: string;
 }
 
 const DEFAULT_MEETING_DESCRIPTION =
@@ -177,6 +179,7 @@ const DEFAULT_MEETING_FORM_DATA: MeetingFormData = {
   city: "",
   state: "",
   zip: "",
+  language: "",
 };
 
 function hasMeaningfulMeetingChanges(
@@ -204,6 +207,7 @@ function hasMeaningfulMeetingChanges(
     "city",
     "state",
     "zip",
+    "language",
   ];
 
   return keysToCheck.some((key) => formData[key] !== DEFAULT_MEETING_FORM_DATA[key]);
@@ -1203,6 +1207,7 @@ export default function MeetingsPage() {
           city: "",
           state: "",
           zip: "",
+          language: "",
         });
         setDurationHour("0");
         setDurationMinute("0");
@@ -1302,6 +1307,7 @@ export default function MeetingsPage() {
       city: meeting.city || "",
       state: meeting.state || "",
       zip: meeting.zip || "",
+      language: meeting.language || "",
     });
 
     // Set editing state
@@ -1376,6 +1382,7 @@ export default function MeetingsPage() {
       city: meeting.city || "",
       state: meeting.state || "",
       zip: meeting.zip || "",
+      language: meeting.language || "",
     });
 
     // Clear editing state for duplicate
@@ -1440,6 +1447,7 @@ export default function MeetingsPage() {
       city: "",
       state: "",
       zip: "",
+      language: "",
     });
     setDurationHour("0");
     setDurationMinute("0");
@@ -1512,7 +1520,7 @@ export default function MeetingsPage() {
   return (
     <div className="p-6 bg-background">
       {/* Meeting Sessions - Full Width */}
-      <Card className="shadow-sm">
+      <Card className="shadow-sm mx-auto max-w-4xl">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg font-semibold">
@@ -1623,7 +1631,7 @@ export default function MeetingsPage() {
             </div>
 
             {/* Meetings List */}
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {isLoading ? (
                 // Skeleton Loader
                 <div className="space-y-3">
@@ -1735,17 +1743,18 @@ export default function MeetingsPage() {
                   return (
                     <div
                       key={meeting.id}
-                      className="p-4 border rounded-lg hover:shadow-md transition-all bg-card"
+                      className="group p-4 border border-border/60 rounded-xl hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 transition-all duration-200 bg-card flex flex-col h-full relative"
                     >
+
                       {/* Header with Title and Status */}
-                      <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-start justify-between mb-3 pl-1">
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <h4 className="font-semibold text-base truncate">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h4 className="font-semibold text-sm truncate leading-tight">
                               {meeting.meeting}
                             </h4>
                             <Badge
-                              className={`text-xs border ${
+                              className={`text-[10px] border px-1.5 py-px shrink-0 ${
                                 statusColors[
                                   meeting.status as keyof typeof statusColors
                                 ] || statusColors.Scheduled
@@ -1753,11 +1762,16 @@ export default function MeetingsPage() {
                             >
                               {meeting.status}
                             </Badge>
+                            {meeting.language && (
+                              <span className="text-[10px] font-medium text-muted-foreground/60 border border-border/50 px-1.5 py-px rounded shrink-0 leading-tight">
+                                {meeting.language === "Spanish" ? "ES" : "EN"}
+                              </span>
+                            )}
                           </div>
 
                           {/* Description */}
                           {meeting.description && (
-                            <p className="text-sm text-muted-foreground line-clamp-2">
+                            <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed bg-muted/40 rounded-md px-2 py-1.5 border-l-2 border-primary/20">
                               {meeting.description}
                             </p>
                           )}
@@ -1767,9 +1781,9 @@ export default function MeetingsPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-6 w-6 p-0"
+                              className="h-7 w-7 p-0 shrink-0 opacity-50 group-hover:opacity-100 transition-opacity"
                             >
-                              <MoreHorizontal className="h-3 w-3" />
+                              <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
@@ -1817,20 +1831,20 @@ export default function MeetingsPage() {
                       </div>
 
                       {/* Meeting Details Grid */}
-                      <div className="grid grid-cols-2 gap-3 mb-3">
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-3 mb-3 pl-1">
                         {/* Date & Time */}
                         <div className="space-y-1">
-                          <div className="flex items-center space-x-1.5 text-xs text-muted-foreground">
-                            <Calendar className="h-3.5 w-3.5" />
-                            <span className="font-medium">Date & Time</span>
+                          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                            <Calendar className="h-3 w-3 shrink-0" />
+                            <span className="font-medium uppercase tracking-wider">Date</span>
                           </div>
-                          <div className="text-sm font-medium pl-5">
+                          <div className="text-xs font-semibold pl-[18px]">
                             {meetingDate}
                           </div>
-                          <div className="text-sm text-muted-foreground pl-5">
+                          <div className="text-[11px] text-muted-foreground pl-[18px]">
                             {meeting.time}
                             {meeting.timezone && (
-                              <span className="text-xs ml-1">
+                              <span className="text-[10px] ml-1 opacity-75">
                                 ({getTimezoneAbbr(meeting.timezone)})
                               </span>
                             )}
@@ -1839,22 +1853,22 @@ export default function MeetingsPage() {
 
                         {/* Duration */}
                         <div className="space-y-1">
-                          <div className="flex items-center space-x-1.5 text-xs text-muted-foreground">
-                            <Clock className="h-3.5 w-3.5" />
-                            <span className="font-medium">Duration</span>
+                          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                            <Clock className="h-3 w-3 shrink-0" />
+                            <span className="font-medium uppercase tracking-wider">Duration</span>
                           </div>
-                          <div className="text-sm font-medium pl-5">
+                          <div className="text-xs font-semibold pl-[18px]">
                             {meeting.duration}
                           </div>
                         </div>
 
                         {/* Attendees */}
                         <div className="space-y-1">
-                          <div className="flex items-center space-x-1.5 text-xs text-muted-foreground">
-                            <Users className="h-3.5 w-3.5" />
-                            <span className="font-medium">Attendees</span>
+                          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                            <Users className="h-3 w-3 shrink-0" />
+                            <span className="font-medium uppercase tracking-wider">Attendees</span>
                           </div>
-                          <div className="text-sm font-medium pl-5">
+                          <div className="text-xs font-semibold pl-[18px]">
                             {meeting.attendees}
                             {meeting.maxAttendees &&
                               ` / ${meeting.maxAttendees}`}
@@ -1862,65 +1876,50 @@ export default function MeetingsPage() {
                         </div>
 
                         {/* Location */}
-                        <div className="space-y-1">
-                          {/* For Virtual with link - show only button */}
-                          {meeting.format === "Virtual" &&
-                          meeting.meetingLink ? (
-                            <a
-                              href={meeting.meetingLink}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              <Button
-                                size="default"
-                                className="bg-primary hover:bg-primary/90"
-                              >
-                                <Video className="h-4 w-4 mr-2" />
-                                Join Meeting
-                              </Button>
-                            </a>
-                          ) : (
-                            <>
-                              <div className="flex items-center space-x-1.5 text-xs text-muted-foreground">
-                                <FormatIcon className="h-3.5 w-3.5" />
-                                <span className="font-medium">
-                                  {meeting.format === "Virtual" &&
-                                  meeting.platform
-                                    ? meeting.platform
-                                    : meeting.format}
-                                </span>
-                              </div>
+                        <div className="space-y-1 min-w-0">
+                          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                            <FormatIcon className="h-3 w-3 shrink-0" />
+                            <span className="font-medium uppercase tracking-wider truncate">
                               {meeting.format === "Virtual" &&
-                                !meeting.meetingLink && (
-                                  <div className="text-sm font-medium pl-5 text-muted-foreground">
-                                    No link provided
-                                  </div>
-                                )}
-                              {meeting.format === "In-Person" &&
-                                meeting.address && (
-                                  <div className="text-sm font-medium pl-5">
-                                    {meeting.address}, {meeting.city},{" "}
-                                    {meeting.state}
-                                  </div>
-                                )}
-                              {meeting.format === "In-Person" &&
-                                !meeting.address && (
-                                  <div className="text-sm font-medium pl-5">
-                                    Location TBA
-                                  </div>
-                                )}
-                            </>
-                          )}
+                              meeting.platform
+                                ? meeting.platform
+                                : meeting.format}
+                            </span>
+                          </div>
+                          {meeting.format === "Virtual" &&
+                            meeting.meetingLink && (
+                              <div className="text-xs font-medium pl-[18px] text-primary/80 truncate">
+                                View link &rarr;
+                              </div>
+                            )}
+                          {meeting.format === "Virtual" &&
+                            !meeting.meetingLink && (
+                              <div className="text-xs font-medium pl-[18px] text-muted-foreground truncate">
+                                No link
+                              </div>
+                            )}
+                          {meeting.format === "In-Person" &&
+                            meeting.address && (
+                              <div className="text-xs font-semibold pl-[18px] truncate">
+                                {meeting.city}, {meeting.state}
+                              </div>
+                            )}
+                          {meeting.format === "In-Person" &&
+                            !meeting.address && (
+                              <div className="text-xs font-medium pl-[18px] text-muted-foreground">
+                                TBA
+                              </div>
+                            )}
                         </div>
                       </div>
 
                       {/* Client */}
-                      <div className="flex items-center space-x-2 pt-2 border-t">
-                        <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="text-sm font-medium text-muted-foreground">
-                          Client:
+                      <div className="flex items-center gap-1.5 pt-2.5 border-t border-border/50 mt-auto bg-muted/30 -mx-4 -mb-4 px-4 pb-3 rounded-b-xl">
+                        <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span className="text-[11px] font-medium text-muted-foreground/70 shrink-0">
+                          Client
                         </span>
-                        <span className="text-sm font-semibold">
+                        <span className="text-xs font-semibold truncate">
                           {meeting.client}
                         </span>
                       </div>
@@ -2186,6 +2185,43 @@ export default function MeetingsPage() {
                   <Zap className="mr-2 h-4 w-4" />
                   Generate with AI
                 </Button>
+              </div>
+            </div>
+
+            {/* Language */}
+            <div className="space-y-2">
+              <Label>
+                Language <span className="text-red-500">*</span>
+              </Label>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleInputChange("language", "English")}
+                  disabled={!formData.clientId}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors text-sm ${
+                    !formData.clientId
+                      ? "opacity-50 cursor-not-allowed bg-gray-100"
+                      : formData.language === "English"
+                      ? "border-primary bg-primary/10 text-primary font-medium"
+                      : "border-border hover:bg-muted/50"
+                  }`}
+                >
+                  English
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleInputChange("language", "Spanish")}
+                  disabled={!formData.clientId}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors text-sm ${
+                    !formData.clientId
+                      ? "opacity-50 cursor-not-allowed bg-gray-100"
+                      : formData.language === "Spanish"
+                      ? "border-primary bg-primary/10 text-primary font-medium"
+                      : "border-border hover:bg-muted/50"
+                  }`}
+                >
+                  Spanish
+                </button>
               </div>
             </div>
 
