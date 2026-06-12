@@ -862,6 +862,10 @@ export default function DocumentsPage() {
           <CardContent className="pt-6">
             {!selectedPlan ? null : activeSection === "upload" ? (
               <>
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">Upload Documents</h3>
+                <p className="text-sm text-muted-foreground mb-6">
+                  Upload retirement plan documents and forms for this client. After saving, they appear in the Documents section.
+                </p>
                 <DocumentUploadTab
                   selectedPlan={selectedPlan}
                   showSaveButton={true}

@@ -62,7 +62,6 @@ interface DocumentsUploadSectionProps {
 export function DocumentsUploadSection({
   documents,
   onDocumentsChange,
-  title = "Documents",
   description = "Upload multiple documents",
   editingDocument = null,
   onSaveEdit,
@@ -846,21 +845,6 @@ export function DocumentsUploadSection({
 
   return (
     <Card className="dark:bg-gray-800 dark:border-gray-700">
-      <CardHeader className={compactDropzone ? "space-y-1 pb-2" : undefined}>
-        <CardTitle className="flex items-center gap-2 dark:text-gray-100">
-          <FileText className="w-5 h-5 text-accent-blue" />
-          {title}
-        </CardTitle>
-        <p
-          className={
-            compactDropzone
-              ? "text-xs text-muted-foreground leading-snug"
-              : "text-sm text-muted-foreground"
-          }
-        >
-          {description}
-        </p>
-      </CardHeader>
       <CardContent className={compactDropzone ? "space-y-3 pt-0" : "space-y-4"}>
         {pdfOnly && failedBatchFiles.length > 0 && !isUploading && (
           <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 dark:border-red-800/40 dark:bg-red-900/10">
@@ -960,7 +944,7 @@ export function DocumentsUploadSection({
           !currentDocumentFileUrl &&
           !editingDocument && (
             <div
-              className={`relative border-2 border-dashed rounded-lg transition-colors ${
+              className={`relative border-2 mt-6 border-dashed rounded-lg transition-colors ${
                 compactDropzone
                   ? "p-4 sm:p-5"
                   : "p-6 sm:p-8 md:p-12"
