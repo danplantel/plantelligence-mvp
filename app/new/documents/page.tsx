@@ -389,6 +389,20 @@ export default function DocumentsPage() {
     } catch { setDocPreviews((prev) => ({ ...prev, [docId]: { blobUrl: "", loading: false } })); }
   }, [expandedRow, docPreviews]);
 
+  const handlePreviewFromTable = async (documentId: string, documentTitle: string) => {
+    setIsLoadingPreview(true);
+    setPreviewOpen(true);
+    try {
+      const response = await fetch(`/api/documents/${documentId}/view`);
+      if (!response.ok) { toast.error(`Failed to load document preview: ${response.status}`); setPreviewOpen(false); return; }
+      const blob = await response.blob();
+      if (blob.size < 100) { toast.error("Document appears to be corrupted or empty"); setPreviewOpen(false); return; }
+      const blobUrl = URL.createObjectURL(blob);
+      setPreviewDocument({ id: documentId, title: documentTitle, blobUrl });
+    } catch { toast.error("Failed to load document preview"); setPreviewOpen(false); }
+    finally { setIsLoadingPreview(false); }
+  };
+
   const handleSaveEdit = async (docId: string, title: string, description: string, file?: File) => {
     try {
       if (file && selectedPlan) {
@@ -460,81 +474,50 @@ export default function DocumentsPage() {
                           <table className="w-full">
                             <thead className="bg-gray-50 border-b">
                               <tr>
-                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-6">#</th>
                                 <SortableTh column="title" label="Filename" currentColumn={sortColumn} direction={sortDirection} onSort={() => handleSort("title" as any)} />
                                 <SortableTh column="category" label="Category" currentColumn={sortColumn} direction={sortDirection} onSort={() => handleSort("category" as any)} className="w-32" />
                                 <SortableTh column="language" label="Language" currentColumn={sortColumn} direction={sortDirection} onSort={() => handleSort("language" as any)} className="w-24" />
                                 <SortableTh column="expirationDate" label="Expiration" currentColumn={sortColumn} direction={sortDirection} onSort={() => handleSort("expirationDate")} className="w-28" />
-                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Actions</th>
+                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">Actions</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                               {filteredDocs.map((doc) => {
                                 const docId = doc.meta?.id ?? doc.id;
-                                const docType = (doc.meta?.type as string) ?? "Document";
                                 const docCategory = (doc as any).category as string | undefined;
                                 const expiration = (doc as any).expirationDate as string | undefined;
-                                const isExpanded = expandedRow === docId;
-                                const preview = docPreviews[docId];
                                 return (
-                                  <React.Fragment key={docId}>
-                                    <tr
-                                      className={`hover:bg-gray-50 cursor-pointer ${isExpanded ? "bg-blue-50/50" : ""}`}
-                                      onClick={() => handleRowExpand(docId)}
-                                    >
-                                      <td className="px-3 py-3 text-xs text-gray-500">
-                                        <Eye className={`h-3.5 w-3.5 ${isExpanded ? "text-blue-600" : "text-gray-300"}`} />
-                                      </td>
-                                      <td className="px-3 py-3">
-                                        <div>
-                                          <p className="text-sm font-medium text-gray-900 truncate max-w-[280px]">{doc.title}</p>
-                                          <p className="text-xs text-gray-500 mt-0.5 truncate max-w-[280px]">{doc.description}</p>
-                                        </div>
-                                      </td>
-                                      <td className="px-3 py-3">
-                                        <Badge className="text-[10px] h-5 px-1.5 bg-[#002B5B]/10 text-[#002B5B] border-transparent">{docCategory || "—"}</Badge>
-                                      </td>
-                                      <td className="px-3 py-3">
-                                        <Badge className="text-[10px] h-5 px-1.5 bg-gray-100 text-gray-700 border-transparent">{doc.language}</Badge>
-                                      </td>
-                                      <td className="px-3 py-3 text-xs text-gray-600 whitespace-nowrap">{expiration ? formatUsDate(expiration) : "—"}</td>
-                                      <td className="px-3 py-3">
-                                        <div className="flex items-center gap-0.5">
-                                          <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" title="Edit" onClick={(e) => { e.stopPropagation(); handleEditFromTable(docId); }}>
-                                            <Pencil className="h-3 w-3" />
-                                          </Button>
-                                          <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" title="Download" onClick={(e) => { e.stopPropagation(); handleDownload(docId, doc.title); }}>
-                                            <Download className="h-3 w-3" />
-                                          </Button>
-                                          <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-600 hover:text-red-700" title="Delete" onClick={(e) => { e.stopPropagation(); handleDeleteClick(docId, doc.title); }}>
-                                            <Trash2 className="h-3 w-3" />
-                                          </Button>
-                                        </div>
-                                      </td>
-                                    </tr>
-                                    {isExpanded && (
-                                      <tr className="bg-gray-50/50">
-                                        <td colSpan={6} className="px-3 py-2">
-                                          {!preview ? (
-                                            <div className="flex items-center justify-center py-8">
-                                              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-accent-blue" />
-                                            </div>
-                                          ) : preview.loading ? (
-                                            <div className="flex items-center justify-center py-8">
-                                              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-accent-blue" />
-                                              <span className="ml-2 text-sm text-gray-500">Loading preview…</span>
-                                            </div>
-                                          ) : !preview.blobUrl ? (
-                                            <div className="flex items-center justify-center py-8">
-                                              <p className="text-sm text-gray-500">Could not load document preview.</p>
-                                            </div>
-                                          ) : (
-                                            <iframe src={`${preview.blobUrl}#view=FitH`} className="w-full h-[60vh] border border-gray-200 rounded-md" title="Document preview" />
-                                          )}
-                                        </td>
-                                      </tr>
-                                    )}
-                                  </React.Fragment>
+                                  <tr key={docId} className="hover:bg-gray-50">
+                                    <td className="px-3 py-3">
+                                      <div>
+                                        <p className="text-sm font-medium text-gray-900 truncate max-w-[280px]">{doc.title}</p>
+                                        <p className="text-xs text-gray-500 mt-0.5 truncate max-w-[280px]">{doc.description}</p>
+                                      </div>
+                                    </td>
+                                    <td className="px-3 py-3">
+                                      <Badge className="text-[10px] h-5 px-1.5 bg-[#002B5B]/10 text-[#002B5B] border-transparent">{docCategory || "—"}</Badge>
+                                    </td>
+                                    <td className="px-3 py-3">
+                                      <Badge className="text-[10px] h-5 px-1.5 bg-gray-100 text-gray-700 border-transparent">{doc.language}</Badge>
+                                    </td>
+                                    <td className="px-3 py-3 text-xs text-gray-600 whitespace-nowrap">{expiration ? formatUsDate(expiration) : "—"}</td>
+                                    <td className="px-3 py-3">
+                                      <div className="flex items-center gap-0.5">
+                                        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" title="View" onClick={(e) => { e.stopPropagation(); handlePreviewFromTable(docId, doc.title); }}>
+                                          <Eye className="h-3 w-3" />
+                                        </Button>
+                                        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" title="Edit" onClick={(e) => { e.stopPropagation(); handleEditFromTable(docId); }}>
+                                          <Pencil className="h-3 w-3" />
+                                        </Button>
+                                        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" title="Download" onClick={(e) => { e.stopPropagation(); handleDownload(docId, doc.title); }}>
+                                          <Download className="h-3 w-3" />
+                                        </Button>
+                                        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-600 hover:text-red-700" title="Delete" onClick={(e) => { e.stopPropagation(); handleDeleteClick(docId, doc.title); }}>
+                                          <Trash2 className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                    </td>
+                                  </tr>
                                 );
                               })}
                             </tbody>
