@@ -2175,6 +2175,7 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
           draftClientId: undefined, // Clear draft client ID when resetting
           sessionId: undefined,
           selectedCategoryStep3a: null,
+          step3SlideIndex: 0,
           duplicatePlanNameConflict: null,
           errorFields: [],
         });

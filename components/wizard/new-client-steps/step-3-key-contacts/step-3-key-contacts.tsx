@@ -132,20 +132,24 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
     [setStep3SlideIndex, saveStepDataLocally],
   );
 
-  // Sync from store (e.g., when wizard Next button changes step3SlideIndex)
+  // Sync from store (e.g., when wizard Next button changes step3SlideIndex).
+  // Only sync when contacts exist; without contacts a stale persisted index
+  // from a previous plan session would override the initial slide 0.
   useEffect(() => {
     if (
-      typeof step3SlideIndex === "number" &&
-      step3SlideIndex !== slideIndex &&
-      step3SlideIndex >= 0 &&
-      step3SlideIndex <= 3
+      contacts.length === 0 ||
+      typeof step3SlideIndex !== "number" ||
+      step3SlideIndex === slideIndex ||
+      step3SlideIndex < 0 ||
+      step3SlideIndex > 3
     ) {
-      const prev = prevSlideIndexRef.current;
-      setDirection(step3SlideIndex > prev ? 1 : -1);
-      prevSlideIndexRef.current = step3SlideIndex;
-      setSlideIndexLocal(step3SlideIndex);
+      return;
     }
-  }, [step3SlideIndex, slideIndex]);
+    const prev = prevSlideIndexRef.current;
+    setDirection(step3SlideIndex > prev ? 1 : -1);
+    prevSlideIndexRef.current = step3SlideIndex;
+    setSlideIndexLocal(step3SlideIndex);
+  }, [step3SlideIndex, slideIndex, contacts.length]);
 
   // Seed advisor contacts from profile for their primary service categories.
   // Only runs once the user has saved at least one main contact (slide 1 → slide 2
