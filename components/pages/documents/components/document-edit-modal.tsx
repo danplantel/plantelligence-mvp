@@ -12,6 +12,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Upload, FileText, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -23,12 +30,14 @@ interface DocumentEditModalProps {
     title: string;
     description?: string;
     fileName?: string;
+    category?: string;
   } | null;
   onSave: (
     docId: string,
     title: string,
     description: string,
     file?: File,
+    category?: string,
   ) => Promise<void>;
 }
 
@@ -40,6 +49,7 @@ export function DocumentEditModal({
 }: DocumentEditModalProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [category, setCategory] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -48,6 +58,7 @@ export function DocumentEditModal({
     if (document && isOpen) {
       setTitle(document.title || "");
       setDescription(document.description || "");
+      setCategory(String((document as any).category || ""));
       setFile(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -92,7 +103,7 @@ export function DocumentEditModal({
 
     setIsSaving(true);
     try {
-      await onSave(document.id, title.trim(), description.trim(), file || undefined);
+      await onSave(document.id, title.trim(), description.trim(), file || undefined, category || undefined);
       onClose();
     } catch (error) {
       // Error is handled by onSave
@@ -229,6 +240,22 @@ export function DocumentEditModal({
               placeholder="Enter document description"
               rows={3}
             />
+          </div>
+
+          {/* Category */}
+          <div className="space-y-2">
+            <Label htmlFor="category">Category</Label>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger id="category">
+                <SelectValue placeholder="Select a category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Retirement">Retirement</SelectItem>
+                <SelectItem value="Group Health">Group Health</SelectItem>
+                <SelectItem value="Group Life">Group Life</SelectItem>
+                <SelectItem value="Other Benefits">Other</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 

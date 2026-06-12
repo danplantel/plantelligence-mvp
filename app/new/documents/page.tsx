@@ -107,6 +107,7 @@ export default function DocumentsPage() {
     title: string;
     description?: string;
     fileName?: string;
+    category?: string;
   } | null>(null);
   const [activeSection, setActiveSection] = useState<"upload" | "documents">(() => {
     if (typeof window !== "undefined") {
@@ -403,20 +404,20 @@ export default function DocumentsPage() {
     finally { setIsLoadingPreview(false); }
   };
 
-  const handleSaveEdit = async (docId: string, title: string, description: string, file?: File) => {
+  const handleSaveEdit = async (docId: string, title: string, description: string, file?: File, category?: string) => {
     try {
       if (file && selectedPlan) {
         try {
           const { uploadFileToR2 } = await import("@/lib/upload-to-r2");
           const key = await uploadFileToR2({ file, purpose: "document", clientId: selectedPlan, fileName: file.name, category: "other" });
           if (key) {
-            const response = await fetch(`/api/documents/${docId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title, shortDescription: description, storageKey: key, fileName: file.name }) });
+            const response = await fetch(`/api/documents/${docId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title, shortDescription: description, storageKey: key, fileName: file.name, category }) });
             const result = await response.json();
             if (response.ok && result.success) { toast.success("Document updated successfully"); setDocPreviews((prev) => { const next = { ...prev }; delete next[docId]; return next; }); setTimeout(() => fetchDocuments(), 500); return; }
           }
         } catch (r2Err) { console.warn("[handleSaveEdit] R2 upload failed, falling back to FormData", r2Err); }
       }
-      const formData = new FormData(); formData.append("title", title); formData.append("shortDescription", description); if (file) formData.append("file", file);
+      const formData = new FormData(); formData.append("title", title); formData.append("shortDescription", description); if (file) formData.append("file", file); if (category) formData.append("category", category);
       const response = await fetch(`/api/documents/${docId}`, { method: "PATCH", body: formData });
       const result = await response.json();
       if (response.ok && result.success) { toast.success("Document updated successfully"); setDocPreviews((prev) => { const next = { ...prev }; delete next[docId]; return next; }); setTimeout(() => fetchDocuments(), 500); }
@@ -426,7 +427,7 @@ export default function DocumentsPage() {
 
   const handleEditFromTable = (documentId: string) => {
     const doc = documents.find((d) => d.id === documentId);
-    if (doc) { setDocumentToEdit({ id: doc.id, title: doc.title, description: (doc as any).shortDescription || "", fileName: doc.fileName }); setEditModalOpen(true); }
+    if (doc) { setDocumentToEdit({ id: doc.id, title: doc.title, description: (doc as any).shortDescription || "", fileName: doc.fileName, category: doc.category }); setEditModalOpen(true); }
   };
 
   const goToUploadTab = () => { setActiveSection("upload"); const url = new URL(window.location.href); url.searchParams.set("section", "upload"); window.history.pushState({}, "", url.toString()); };
