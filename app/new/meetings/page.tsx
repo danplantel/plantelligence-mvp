@@ -227,7 +227,7 @@ const AMPM_OPTIONS = ["AM", "PM"];
 
 // Custom duration picker options
 const DURATION_HOURS = Array.from({ length: 9 }, (_, i) => i); // 0-8
-const DURATION_MINUTES = Array.from({ length: 61 }, (_, i) => i); // 0-60
+const DURATION_MINUTES = Array.from({ length: 13 }, (_, i) => i * 5); // 0, 5, 10, ..., 60
 
 // Helper function to parse date string as local date (avoiding timezone issues)
 const parseLocalDate = (dateStr: string): Date => {
@@ -2074,7 +2074,7 @@ export default function MeetingsPage() {
               </div>
 
               {/* Max Attendees */}
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 <Label htmlFor="maxAttendees">Max Attendees</Label>
                 <Input
                   id="maxAttendees"
@@ -2088,7 +2088,7 @@ export default function MeetingsPage() {
                   disabled={!formData.clientId}
                   min="1"
                 />
-              </div>
+              </div> */}
 
               {/* Location */}
               <div className="space-y-2">
