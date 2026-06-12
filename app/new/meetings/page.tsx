@@ -116,6 +116,8 @@ interface Meeting {
   state?: string;
   zip?: string;
   language?: string;
+  benefitsCategory?: string;
+  customBenefitsCategory?: string;
 }
 
 interface Client {
@@ -150,6 +152,8 @@ interface MeetingFormData {
   state: string;
   zip: string;
   language: string;
+  benefitsCategory: string;
+  customBenefitsCategory: string;
 }
 
 const DEFAULT_MEETING_DESCRIPTION =
@@ -180,6 +184,8 @@ const DEFAULT_MEETING_FORM_DATA: MeetingFormData = {
   state: "",
   zip: "",
   language: "",
+  benefitsCategory: "",
+  customBenefitsCategory: "",
 };
 
 function hasMeaningfulMeetingChanges(
@@ -208,6 +214,7 @@ function hasMeaningfulMeetingChanges(
     "state",
     "zip",
     "language",
+    "benefitsCategory",
   ];
 
   return keysToCheck.some((key) => formData[key] !== DEFAULT_MEETING_FORM_DATA[key]);
@@ -1144,6 +1151,8 @@ export default function MeetingsPage() {
           state: "",
           zip: "",
           language: "",
+          benefitsCategory: "",
+          customBenefitsCategory: "",
         });
         setDurationHour("0");
         setDurationMinute("0");
@@ -1247,6 +1256,8 @@ export default function MeetingsPage() {
       state: meeting.state || "",
       zip: meeting.zip || "",
       language: meeting.language || "",
+      benefitsCategory: meeting.benefitsCategory || "",
+      customBenefitsCategory: meeting.customBenefitsCategory || "",
     });
 
     // Set editing state
@@ -1322,6 +1333,8 @@ export default function MeetingsPage() {
       state: meeting.state || "",
       zip: meeting.zip || "",
       language: meeting.language || "",
+      benefitsCategory: meeting.benefitsCategory || "",
+      customBenefitsCategory: meeting.customBenefitsCategory || "",
     });
 
     // Clear editing state for duplicate
@@ -1387,6 +1400,8 @@ export default function MeetingsPage() {
       state: "",
       zip: "",
       language: "",
+      benefitsCategory: "",
+      customBenefitsCategory: "",
     });
     setDurationHour("0");
     setDurationMinute("0");
@@ -1715,6 +1730,11 @@ export default function MeetingsPage() {
                             >
                               {meeting.status}
                             </Badge>
+                            {meeting.benefitsCategory && (
+                              <span className="text-[10px] font-medium text-muted-foreground/60 border border-border/40 px-1.5 py-px rounded shrink-0 leading-tight">
+                                {meeting.benefitsCategory}
+                              </span>
+                            )}
                           </div>
 
                           {/* Description */}
@@ -2145,6 +2165,52 @@ export default function MeetingsPage() {
                   Generate with AI
                 </Button>
               </div>
+            </div>
+
+            {/* Benefits Category */}
+            <div className="space-y-2">
+              <Label>
+                Benefits Category <span className="text-red-500">*</span>
+              </Label>
+              <div className="flex gap-3">
+                {["Retirement", "Group Health", "Group Life", "Other"].map((category) => (
+                  <button
+                    key={category}
+                    type="button"
+                    onClick={() => handleInputChange("benefitsCategory", category)}
+                    disabled={!formData.clientId}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors text-sm ${
+                      !formData.clientId
+                        ? "opacity-50 cursor-not-allowed bg-gray-100"
+                        : formData.benefitsCategory === category
+                        ? "border-primary bg-primary/10 text-primary font-medium"
+                        : "border-border hover:bg-muted/50"
+                    }`}
+                  >
+                    {category}
+                  </button>
+                ))}
+              </div>
+              {formData.benefitsCategory === "Other" && (
+                <div className="mt-3">
+                  <Label htmlFor="customBenefitsCategory">
+                    Custom Benefits Category{" "}
+                    <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="customBenefitsCategory"
+                    icon={<Hash className="h-4 w-4" />}
+                    type="text"
+                    value={formData.customBenefitsCategory || ""}
+                    onChange={(e) =>
+                      handleInputChange("customBenefitsCategory", e.target.value)
+                    }
+                    placeholder="Enter custom category..."
+                    disabled={!formData.clientId}
+                    className="mt-1"
+                  />
+                </div>
+              )}
             </div>
 
             {/* Language */}
