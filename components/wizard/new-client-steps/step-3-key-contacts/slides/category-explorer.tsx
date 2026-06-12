@@ -228,6 +228,43 @@ export function CategoryExplorer({
     ];
   }, [initialMainContactCategory]);
 
+  // Auto-assign primary for benefit categories that have exactly one contact.
+  // A sole contact in a category is automatically marked as primary.
+  useEffect(() => {
+    if (contacts.length === 0) return;
+    let needsUpdate = false;
+    const updatedContacts = contacts.map((c: any) => ({ ...c }));
+    for (const cat of orderedCategories) {
+      const catContacts = updatedContacts.filter((c: any) => {
+        const cats: BenefitsCategory[] =
+          c.benefitsCategories ||
+          (c.benefitsCategory ? [c.benefitsCategory] : []);
+        return cats.includes(cat);
+      });
+      if (catContacts.length === 1) {
+        const sole = catContacts[0];
+        if (!(sole.isPrimaryOverall || sole.isPrimary)) {
+          needsUpdate = true;
+          const idx = updatedContacts.findIndex((c: any) => c.id === sole.id);
+          if (idx !== -1) {
+            updatedContacts[idx] = {
+              ...updatedContacts[idx],
+              isPrimaryOverall: true,
+              isPrimary: true,
+            };
+          }
+        }
+      }
+    }
+    if (needsUpdate) {
+      const currentKeyData = stepData.keyContacts || { contacts: [] };
+      saveStepDataLocally("keyContacts", {
+        ...currentKeyData,
+        contacts: updatedContacts,
+      });
+    }
+  }, [contacts, stepData.keyContacts, saveStepDataLocally, orderedCategories]);
+
   const [expandedCategory, setExpandedCategory] =
     useState<BenefitsCategory | null>(null);
 
