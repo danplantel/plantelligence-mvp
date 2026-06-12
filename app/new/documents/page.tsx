@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
+import { Skeleton } from "@/components/ui/skeleton";
 import { AlertTriangle, Clock, FileText, Download, Pencil, Trash2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { RetirementDocumentItem } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
@@ -813,198 +814,237 @@ export default function DocumentsPage() {
           <CardHeader className="pb-3">
             <CardTitle className="text-2xl font-bold">Plan Documents</CardTitle>
           </CardHeader>
-          <CardContent className="pb-3">
-            <StickyPlanCombobox
-              module="documents"
-              plans={clients}
-              value={selectedPlan}
-              onChange={handlePlanChange}
-              disabled={clients.length === 0}
-              required
-              label="Select a plan"
-              id="documents-plan"
-            />
-            {!selectedPlan && clients.length > 0 && (
-              <p className="text-sm text-amber-600 mt-2">
-                Please select a plan to manage documents.
-              </p>
-            )}
-          </CardContent>
 
-          {/* Section toggle tabs */}
-          {selectedPlan && (
-            <div className="px-6 flex gap-0 border-b">
-              <button
-                type="button"
-                onClick={goToUploadTab}
-                className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
-                  activeSection === "upload"
-                    ? "border-[#002B5B] text-[#002B5B]"
-                    : "border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300"
-                }`}
-              >
-                Upload Documents
-              </button>
-              <button
-                type="button"
-                onClick={goToDocumentsSection}
-                className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
-                  activeSection === "documents"
-                    ? "border-[#002B5B] text-[#002B5B]"
-                    : "border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300"
-                }`}
-              >
-                Documents
-              </button>
-            </div>
-          )}
-
-          <CardContent className="pt-6">
-            {!selectedPlan ? null : activeSection === "upload" ? (
-              <>
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">Upload Documents</h3>
-                <p className="text-sm text-muted-foreground mb-6">
-                  Upload retirement plan documents and forms for this client. After saving, they appear in the Documents section.
-                </p>
-                <DocumentUploadTab
-                  selectedPlan={selectedPlan}
-                  showSaveButton={true}
-                  onHasUnsavedChangesChange={setHasUnsavedUploadChanges}
-                  onSaveFunctionReady={setUploadSaveFn}
-                  onDocumentsSaved={() => {
-                    toast.success("Document saved successfully");
-                    // Re-fetch the document list first, then navigate once data is ready.
-                    setTimeout(async () => {
-                      await fetchDocuments();
-                      setActiveSection("documents");
-                      if (typeof window !== "undefined") {
-                        const url = new URL(window.location.href);
-                        url.searchParams.set("section", "documents");
-                        window.history.pushState({}, "", url.toString());
-                      }
-                    }, 500);
-                  }}
-                />
-              </>
-            ) : (
-              /* ── Documents Accordion Section (merged Preview + List) ── */
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900">Documents List</h3>
-                <p className="text-sm text-muted-foreground">
-                  Review all documents for this plan. Expand any document to preview its contents, or use the action buttons to edit, download, or delete.
-                </p>
-                {/* Language Switcher */}
-                {availableLanguages.length > 1 && (
-                  <div className="flex flex-wrap gap-2">
-                    {availableLanguages.map((lang) => {
-                      const isActive = previewLanguage === lang;
-                      return (
-                        <button
-                          key={lang}
-                          type="button"
-                          onClick={() => setPreviewLanguage(lang)}
-                          className={`rounded-full px-5 py-2 text-[16px] leading-tight font-red-hat font-semibold border transition-colors ${
-                            isActive
-                              ? "bg-[#002B5B] text-white border-[#002B5B]"
-                              : "bg-white text-[#002B5B] border-[#D1D5DB] hover:bg-gray-50"
-                          }`}
-                          style={
-                            isActive
-                              ? { backgroundColor: "#002B5B", borderColor: "#002B5B" }
-                              : { color: "#002B5B", borderColor: "#D1D5DB" }
-                          }
-                        >
-                          {lang === "EN" ? "ENGLISH" : "ESPAÑOL"}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Skeleton loading state */}
-                {isLoading && sortedDocuments.length === 0 && (
-                  <div className="flex items-center justify-center py-20">
-                    <div className="flex items-center gap-2">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-accent-blue" />
-                      <span className="text-gray-600">Loading documents…</span>
+          {/* Skeleton while clients are loading */}
+          {!clientsData ? (
+            <CardContent className="pb-3 space-y-3">
+              <Skeleton className="h-10 w-full rounded-md" />
+              <Skeleton className="h-4 w-64" />
+              <div className="pt-4 space-y-3">
+                <Skeleton className="h-5 w-48" />
+                <Skeleton className="h-3 w-full" />
+                <div className="space-y-2 pt-2">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="flex items-center gap-3 py-2">
+                      <Skeleton className="h-5 w-5 shrink-0 rounded" />
+                      <div className="flex-1 min-w-0 space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <Skeleton className="h-4 w-48" />
+                          <Skeleton className="h-4 w-12 rounded-full" />
+                          <Skeleton className="h-4 w-8 rounded-full" />
+                        </div>
+                        <Skeleton className="h-3 w-72" />
+                      </div>
                     </div>
-                  </div>
-                )}
-
-                {/* Empty state */}
-                {!isLoading && sortedDocuments.length === 0 && (
-                  <div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-4 rounded-lg border border-dashed border-gray-200 bg-gray-50/80">
-                    <p className="text-gray-900 text-lg font-semibold">
-                      No documents for this plan yet
-                    </p>
-                    <p className="text-muted-foreground text-sm">
-                      Upload retirement plan documents for this client on the Upload tab.
-                      After you save, they will appear here.
-                    </p>
-                    <Button type="button" onClick={goToUploadTab}>
-                      Upload documents
-                    </Button>
-                  </div>
-                )}
-
-                {/* Wrong-language-only empty state */}
-                {!isLoading && sortedDocuments.length > 0 && retirementDocs.length === 0 && (
-                  <div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-3">
-                    <p className="text-gray-900 text-lg font-semibold">
-                      No documents in {previewLanguage === "EN" ? "English" : "Spanish"}
-                    </p>
-                    <p className="text-muted-foreground text-sm">
-                      This plan has documents in another language. Use the language toggle
-                      above, or upload a{" "}
-                      {previewLanguage === "EN" ? "English" : "Spanish"} file on the Upload
-                      tab.
-                    </p>
-                    <Button type="button" variant="outline" onClick={goToUploadTab}>
-                      Go to Upload
-                    </Button>
-                  </div>
-                )}
-
-                {/* Accordion List */}
-                {retirementDocs.length > 0 && (
-                  <Accordion
-                    type="single"
-                    collapsible
-                    value={openAccordion}
-                    onValueChange={handleAccordionChange}
-                    className="border rounded-lg bg-white"
-                  >
-                    {retirementDocs.map((doc) => {
-                      const docId = doc.meta?.id ?? doc.id;
-                      const docType = (doc.meta?.type as string) ?? "Document";
-                      const preview = docPreviews[docId];
-
-                      return (
-                        <AccordionItem
-                          key={docId}
-                          value={docId}
-                          className="px-4 first:rounded-t-lg last:rounded-b-lg"
-                        >
-                          <AccordionTrigger className="hover:no-underline py-3">
-                            <DocumentAccordionHeader
-                              doc={doc}
-                              docType={docType}
-                              onEdit={handleEditFromAccordion}
-                              onDelete={handleDeleteClick}
-                              onDownload={handleDownload}
-                            />
-                          </AccordionTrigger>
-                          <AccordionContent>
-                            <DocumentAccordionPreview docId={docId} preview={preview} />
-                          </AccordionContent>
-                        </AccordionItem>
-                      );
-                    })}
-                  </Accordion>
-                )}
+                  ))}
+                </div>
               </div>
-            )}
-          </CardContent>
+            </CardContent>
+          ) : (
+            <>
+              <CardContent className="pb-3">
+                <StickyPlanCombobox
+                  module="documents"
+                  plans={clients}
+                  value={selectedPlan}
+                  onChange={handlePlanChange}
+                  disabled={clients.length === 0}
+                  required
+                  label="Select a plan"
+                  id="documents-plan"
+                />
+                {!selectedPlan && clients.length > 0 && (
+                  <p className="text-sm text-amber-600 mt-2">
+                    Please select a plan to manage documents.
+                  </p>
+                )}
+              </CardContent>
+
+              {/* Section toggle tabs */}
+              {selectedPlan && (
+                <div className="px-6 flex gap-0 border-b">
+                  <button
+                    type="button"
+                    onClick={goToUploadTab}
+                    className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                      activeSection === "upload"
+                        ? "border-[#002B5B] text-[#002B5B]"
+                        : "border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300"
+                    }`}
+                  >
+                    Upload Documents
+                  </button>
+                  <button
+                    type="button"
+                    onClick={goToDocumentsSection}
+                    className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                      activeSection === "documents"
+                        ? "border-[#002B5B] text-[#002B5B]"
+                        : "border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300"
+                    }`}
+                  >
+                    Documents
+                  </button>
+                </div>
+              )}
+
+              <CardContent className="pt-6">
+                {!selectedPlan ? null : activeSection === "upload" ? (
+                  <>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1">Upload Documents</h3>
+                    <p className="text-sm text-muted-foreground mb-6">
+                      Upload retirement plan documents and forms for this client. After saving, they appear in the Documents section.
+                    </p>
+                    <DocumentUploadTab
+                      selectedPlan={selectedPlan}
+                      showSaveButton={true}
+                      onHasUnsavedChangesChange={setHasUnsavedUploadChanges}
+                      onSaveFunctionReady={setUploadSaveFn}
+                      onDocumentsSaved={() => {
+                        toast.success("Document saved successfully");
+                        // Re-fetch the document list first, then navigate once data is ready.
+                        setTimeout(async () => {
+                          await fetchDocuments();
+                          setActiveSection("documents");
+                          if (typeof window !== "undefined") {
+                            const url = new URL(window.location.href);
+                            url.searchParams.set("section", "documents");
+                            window.history.pushState({}, "", url.toString());
+                          }
+                        }, 500);
+                      }}
+                    />
+                  </>
+                ) : (
+                  /* ── Documents Accordion Section (merged Preview + List) ── */
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold text-gray-900">Documents List</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Review all documents for this plan. Expand any document to preview its contents, or use the action buttons to edit, download, or delete.
+                    </p>
+                    {/* Language Switcher */}
+                    {availableLanguages.length > 1 && (
+                      <div className="flex flex-wrap gap-2">
+                        {availableLanguages.map((lang) => {
+                          const isActive = previewLanguage === lang;
+                          return (
+                            <button
+                              key={lang}
+                              type="button"
+                              onClick={() => setPreviewLanguage(lang)}
+                              className={`rounded-full px-5 py-2 text-[16px] leading-tight font-red-hat font-semibold border transition-colors ${
+                                isActive
+                                  ? "bg-[#002B5B] text-white border-[#002B5B]"
+                                  : "bg-white text-[#002B5B] border-[#D1D5DB] hover:bg-gray-50"
+                              }`}
+                              style={
+                                isActive
+                                  ? { backgroundColor: "#002B5B", borderColor: "#002B5B" }
+                                  : { color: "#002B5B", borderColor: "#D1D5DB" }
+                              }
+                            >
+                              {lang === "EN" ? "ENGLISH" : "ESPAÑOL"}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Skeleton loading state — matches accordion item layout */}
+                    {isLoading && sortedDocuments.length === 0 && (
+                      <div className="space-y-2 rounded-lg border bg-white p-4">
+                        {[1, 2, 3, 4].map((i) => (
+                          <div key={i} className="flex items-center gap-3 py-2">
+                            <Skeleton className="h-5 w-5 shrink-0 rounded" />
+                            <div className="flex-1 min-w-0 space-y-1.5">
+                              <div className="flex items-center gap-2">
+                                <Skeleton className="h-4 w-48" />
+                                <Skeleton className="h-4 w-12 rounded-full" />
+                                <Skeleton className="h-4 w-8 rounded-full" />
+                              </div>
+                              <Skeleton className="h-3 w-72" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Empty state */}
+                    {!isLoading && sortedDocuments.length === 0 && (
+                      <div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-4 rounded-lg border border-dashed border-gray-200 bg-gray-50/80">
+                        <p className="text-gray-900 text-lg font-semibold">
+                          No documents for this plan yet
+                        </p>
+                        <p className="text-muted-foreground text-sm">
+                          Upload retirement plan documents for this client on the Upload tab.
+                          After you save, they will appear here.
+                        </p>
+                        <Button type="button" onClick={goToUploadTab}>
+                          Upload documents
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Wrong-language-only empty state */}
+                    {!isLoading && sortedDocuments.length > 0 && retirementDocs.length === 0 && (
+                      <div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-3">
+                        <p className="text-gray-900 text-lg font-semibold">
+                          No documents in {previewLanguage === "EN" ? "English" : "Spanish"}
+                        </p>
+                        <p className="text-muted-foreground text-sm">
+                          This plan has documents in another language. Use the language toggle
+                          above, or upload a{" "}
+                          {previewLanguage === "EN" ? "English" : "Spanish"} file on the Upload
+                          tab.
+                        </p>
+                        <Button type="button" variant="outline" onClick={goToUploadTab}>
+                          Go to Upload
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Accordion List */}
+                    {retirementDocs.length > 0 && (
+                      <Accordion
+                        type="single"
+                        collapsible
+                        value={openAccordion}
+                        onValueChange={handleAccordionChange}
+                        className="border rounded-lg bg-white"
+                      >
+                        {retirementDocs.map((doc) => {
+                          const docId = doc.meta?.id ?? doc.id;
+                          const docType = (doc.meta?.type as string) ?? "Document";
+                          const preview = docPreviews[docId];
+
+                          return (
+                            <AccordionItem
+                              key={docId}
+                              value={docId}
+                              className="px-4 first:rounded-t-lg last:rounded-b-lg"
+                            >
+                              <AccordionTrigger className="hover:no-underline py-3">
+                                <DocumentAccordionHeader
+                                  doc={doc}
+                                  docType={docType}
+                                  onEdit={handleEditFromAccordion}
+                                  onDelete={handleDeleteClick}
+                                  onDownload={handleDownload}
+                                />
+                              </AccordionTrigger>
+                              <AccordionContent>
+                                <DocumentAccordionPreview docId={docId} preview={preview} />
+                              </AccordionContent>
+                            </AccordionItem>
+                          );
+                        })}
+                      </Accordion>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </>
+          )}
         </Card>
       </div>
 
