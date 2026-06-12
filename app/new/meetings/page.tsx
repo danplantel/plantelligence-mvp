@@ -216,7 +216,6 @@ const PLATFORMS = [
   { value: "Zoom", label: "Zoom" },
   { value: "Teams", label: "Teams" },
   { value: "Google Meet", label: "Google Meet" },
-  { value: "Phone", label: "Phone" },
   { value: "Other", label: "Other" },
 ];
 
@@ -490,6 +489,7 @@ export default function MeetingsPage() {
     label: "",
     description: "",
   });
+  const [meetingModalOpen, setMeetingModalOpen] = useState(false);
 
   const hasClients = clients.length > 0;
 
@@ -1210,6 +1210,7 @@ export default function MeetingsPage() {
         setTimeConflictWarning("");
         setHasConfirmedConflict(false);
         setEditingMeetingId(null);
+        setMeetingModalOpen(false);
         // Refresh meetings list
         await fetchMeetings();
       } else {
@@ -1309,8 +1310,8 @@ export default function MeetingsPage() {
     // Reset conflict confirmation
     setHasConfirmedConflict(false);
 
-    // Scroll to top of form
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    // Open the meeting modal
+    setMeetingModalOpen(true);
 
     toast.success(
       "Meeting data loaded for editing. Make your changes and submit to update.",
@@ -1383,8 +1384,8 @@ export default function MeetingsPage() {
     // Reset conflict confirmation
     setHasConfirmedConflict(false);
 
-    // Scroll to top of form
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    // Open the meeting modal
+    setMeetingModalOpen(true);
 
     // Check for time conflicts (DO NOT exclude the original meeting - this is a duplicate!)
     // If duplicating to the same time, it IS a conflict that needs confirmation
@@ -1446,6 +1447,7 @@ export default function MeetingsPage() {
     setTimeConflictWarning("");
     setHasConfirmedConflict(false);
     setEditingMeetingId(null);
+    setMeetingModalOpen(false);
     toast.info("Edit cancelled. Form reset to create new meeting.");
   };
 
@@ -1509,901 +1511,14 @@ export default function MeetingsPage() {
 
   return (
     <div className="p-6 bg-background">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left Panel: Add New Meeting Form */}
-        <Card className="shadow-sm">
-          <CardHeader className="pb-3">
+      {/* Meeting Sessions - Full Width */}
+      <Card className="shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
             <CardTitle className="text-lg font-semibold">
-              {editingMeetingId ? "Edit Meeting" : "Add New Meeting"}
+              Meeting Sessions
             </CardTitle>
-            <p className="text-sm text-muted-foreground">
-              {editingMeetingId
-                ? "Make your changes below and submit to update the meeting"
-                : "Fill out the details below to add a meeting session"}
-            </p>
-          </CardHeader>
-          <CardContent>
-            {/* No Plans Warning */}
-            {!hasClients && !isLoadingClients && (
-              <div className="mb-6 p-6 bg-amber-50 border-2 border-amber-200 rounded-lg">
-                <div className="flex items-start gap-3">
-                  <AlertTriangle className="w-6 h-6 text-amber-600 mt-0.5 flex-shrink-0" />
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-amber-900 mb-2">
-                      No Plans Available
-                    </h3>
-                    <p className="text-sm text-amber-800 mb-4">
-                      You must create at least one plan before scheduling a
-                      meeting or event. Please add a plan first to proceed with
-                      meeting creation.
-                    </p>
-                    <Button
-                      onClick={() => router.push("/new/new-client")}
-                      className="bg-amber-600 hover:bg-amber-700 dark:bg-amber-600 dark:hover:bg-amber-700 dark:text-white"
-                    >
-                      <UserPlus className="mr-2 h-4 w-4" />
-                      Add Plan
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <form ref={meetingFormRef} onSubmit={handleSubmit} className="space-y-4">
-              {/* Select Plan */}
-              <div className="space-y-2">
-                <StickyPlanCombobox
-                  module="meetings"
-                  plans={clients}
-                  value={formData.clientId}
-                  onChange={handlePlanClientChange}
-                  disabled={!hasClients || isLoadingClients}
-                  required
-                  label="Select Plan"
-                  placeholder={
-                    isLoadingClients ? "Loading plans..." : "Choose a plan..."
-                  }
-                  id="meetings-plan"
-                  className={errors.client ? "[&_button]:border-red-500" : ""}
-                />
-                {errors.client && (
-                  <p className="text-sm text-red-500">This field is required</p>
-                )}
-              </div>
-
-              {/* Meeting Type */}
-              <div className="space-y-2">
-                <Label>
-                  Meeting Type <span className="text-red-500">*</span>
-                </Label>
-                {errors.meetingType && (
-                  <p className="text-sm text-red-500">This field is required</p>
-                )}
-                <div className="space-y-2">
-                  {allMeetingTypes.map((type) => (
-                    <div
-                      key={type.id ?? `${type.value}-${Math.random()}`}
-                      className={`relative p-3 border rounded-lg transition-colors group ${
-                        !formData.clientId
-                          ? "opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-800"
-                          : formData.meetingType === type.value
-                          ? "border-primary bg-primary/5 cursor-pointer"
-                          : errors.meetingType
-                          ? "border-red-500 hover:bg-muted/50 cursor-pointer"
-                          : "hover:bg-muted/50 cursor-pointer"
-                      }`}
-                      onClick={() =>
-                        !formData.clientId
-                          ? null
-                          : handleInputChange("meetingType", type.value)
-                      }
-                    >
-                      <div className="flex items-start space-x-2">
-                        <div
-                          className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                            formData.meetingType === type.value
-                              ? "border-primary bg-primary"
-                              : "border-gray-300"
-                          }`}
-                        >
-                          {formData.meetingType === type.value && (
-                            <div className="w-2 h-2 rounded-full bg-white"></div>
-                          )}
-                        </div>
-                        <div className="flex-1">
-                          <div className="cursor-pointer font-medium">
-                            {type.label}
-                          </div>
-                          {type.description && (
-                            <div className="text-xs text-muted-foreground mt-1">
-                              {type.description}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {type.id && type.value != "Custom" && (
-                        <button
-                          className="absolute top-2 right-2 hidden group-hover:flex items-center justify-center w-5 h-5 rounded-full bg-red-100 hover:bg-red-200 text-red-600 transition"
-                          onClick={(e) => {
-                            if (!formData.clientId) return;
-                            e.stopPropagation();
-                            const newMeeting = {
-                              value: type.value,
-                              label: type.label,
-                              description: type.description || "",
-                            };
-                            setSavedMeetingForm(newMeeting);
-                            setTypeId(type.id!);
-                            setValueCustomName(type.label);
-                            setOpenDeleteModel(true);
-                          }}
-                        >
-                          ✕
-                        </button>
-                      )}
-                      {useSaveMeetingDebugStore.getState().deletedMeeting && (
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            const deleted =
-                              useSaveMeetingDebugStore.getState()
-                                .deletedMeeting!;
-                            useSaveMeetingDebugStore
-                              .getState()
-                              .saveCustomMeeting(deleted);
-                            useSaveMeetingDebugStore.setState({
-                              deletedMeeting: undefined,
-                            });
-                          }}
-                        >
-                          Restore Last Deleted Meeting
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                  {MEETING_TYPES.some(
-                    (base) =>
-                      !allMeetingTypes.some(
-                        (type) => type.value === base.value,
-                      ),
-                  ) && (
-                    <Button
-                      variant="outline"
-                      onClick={() =>
-                        useMeetingStore.getState().resetToDefaultMeetings()
-                      }
-                    >
-                      Restore Default Meetings
-                    </Button>
-                  )}
-                  {debugSavedMeetings.length > 0 && (
-                    <Button
-                      variant="outline"
-                      onClick={() => rebaseCustomMeeting()}
-                    >
-                      {`Rebase ${debugSavedMeetings.length} Custom Meeting${
-                        debugSavedMeetings.length > 1 ? "s" : ""
-                      }`}
-                    </Button>
-                  )}
-                </div>
-
-                {/* Custom Meeting Type Input */}
-                {formData.meetingType === "Custom" && (
-                  <div className="mt-3">
-                    <Label htmlFor="customMeetingType">
-                      Custom Meeting Type{" "}
-                      <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="customMeetingType"
-                      icon={<FileText className="h-4 w-4" />}
-                      value={formData.customMeetingType}
-                      onChange={(e) =>
-                        handleInputChange("customMeetingType", e.target.value)
-                      }
-                      placeholder="Enter your custom meeting type..."
-                      disabled={!formData.clientId}
-                      className={`mt-1 ${
-                        errors.customMeetingType ? "border-red-500" : ""
-                      }`}
-                    />
-                    {errors.customMeetingType && (
-                      <p className="text-sm text-red-500 mt-1">
-                        This field is required
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Meeting Description */}
-              <div className="space-y-2">
-                <Label htmlFor="description">Meeting Description</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) =>
-                    handleInputChange("description", e.target.value)
-                  }
-                  placeholder={
-                    formData.meetingType === "Custom"
-                      ? "Enter your custom meeting description..."
-                      : "Meeting description will be populated automatically based on the selected meeting type"
-                  }
-                  disabled={!formData.clientId}
-                  className="min-h-20 resize-none"
-                />
-
-                {/* Helper text */}
-                {formData.meetingType && formData.meetingType !== "Custom" && (
-                  <p className="text-xs text-muted-foreground">
-                    Description automatically populated from &quot;
-                    {formData.meetingType}&quot; meeting type. You can edit it
-                    if needed.
-                  </p>
-                )}
-                {formData.meetingType === "Custom" && (
-                  <p className="text-xs text-muted-foreground">
-                    Enter a custom description for your meeting.
-                  </p>
-                )}
-
-                {/* Generate with AI Button - inside description section */}
-                <div className="pt-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleGenerateWithAI}
-                    disabled={!formData.clientId}
-                  >
-                    <Zap className="mr-2 h-4 w-4" />
-                    Generate with AI
-                  </Button>
-                </div>
-              </div>
-
-              {/* Date */}
-              <div className="space-y-2">
-                <Label>
-                  Date <span className="text-red-500">*</span>
-                </Label>
-                <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      disabled={!formData.clientId}
-                      className={`w-full justify-start text-left font-normal ${
-                        errors.date ? "border-red-500" : ""
-                      }`}
-                    >
-                      <Calendar className="mr-2 h-4 w-4" />
-                      {formData.date
-                        ? format(parseLocalDate(formData.date), "MM/dd/yyyy")
-                        : "Pick a date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarComponent
-                      mode="single"
-                      selected={
-                        formData.date
-                          ? parseLocalDate(formData.date)
-                          : undefined
-                      }
-                      onSelect={(date) => {
-                        if (date) {
-                          handleInputChange("date", format(date, "yyyy-MM-dd"));
-                          setDatePickerOpen(false);
-                        }
-                      }}
-                      disabled={(date) => date < new Date()}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-                {errors.date && (
-                  <p className="text-sm text-red-500">This field is required</p>
-                )}
-              </div>
-
-              {/* Time */}
-              <div className="space-y-2">
-                <Label>
-                  Time <span className="text-red-500">*</span>
-                </Label>
-                <Popover open={timePickerOpen} onOpenChange={setTimePickerOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      disabled={!formData.clientId}
-                      className={`w-full justify-start text-left font-normal ${
-                        errors.time ? "border-red-500" : ""
-                      }`}
-                    >
-                      <Clock className="mr-2 h-4 w-4" />
-                      {formData.hour && formData.minute && formData.ampm
-                        ? `${formData.hour}:${formData.minute.padStart(
-                            2,
-                            "0",
-                          )} ${formData.ampm}`
-                        : "Select time"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent
-                    className="w-auto p-0 rounded-md border bg-popover shadow-md"
-                    align="start"
-                  >
-                    <div className="flex rounded-md overflow-hidden">
-                      {/* Hour Column */}
-                      <div className="border-r border-border">
-                        <div className="px-3 py-2 text-sm font-medium text-center border-b border-border bg-muted/50 text-muted-foreground">
-                          Hour
-                        </div>
-                        <div className="max-h-60 overflow-y-auto w-28 flex flex-col items-center">
-                          {HOURS.map((hour) => {
-                            const isOccupied = !!(
-                              formData.minute &&
-                              formData.ampm &&
-                              isTimeOccupied(
-                                hour.toString(),
-                                formData.minute,
-                                formData.ampm,
-                              )
-                            );
-                            return (
-                              <button
-                                key={hour}
-                                onClick={() =>
-                                  !isOccupied &&
-                                  handleTimeChange("hour", hour.toString())
-                                }
-                                disabled={isOccupied}
-                                className={`w-2/3 px-4 py-2 text-sm transition-colors focus:outline-none ${
-                                  formData.hour === hour.toString()
-                                    ? "bg-accent-blue text-white rounded-md"
-                                    : isOccupied
-                                    ? "text-gray-400 cursor-not-allowed opacity-50"
-                                    : "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
-                                }`}
-                              >
-                                {hour}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Minute Column */}
-                      <div className="border-r border-border">
-                        <div className="px-3 py-2 text-sm font-medium text-center border-b border-border bg-muted/50 text-muted-foreground">
-                          Min
-                        </div>
-                        <div className="max-h-60 overflow-y-auto w-28 flex flex-col items-center">
-                          {MINUTES.map((minute) => {
-                            const isOccupied = !!(
-                              formData.hour &&
-                              formData.ampm &&
-                              isTimeOccupied(
-                                formData.hour,
-                                minute.toString(),
-                                formData.ampm,
-                              )
-                            );
-                            return (
-                              <button
-                                key={minute}
-                                onClick={() =>
-                                  !isOccupied &&
-                                  handleTimeChange("minute", minute.toString())
-                                }
-                                disabled={isOccupied}
-                                className={`w-2/3 py-2 text-sm transition-colors focus:outline-none ${
-                                  formData.minute === minute.toString()
-                                    ? "bg-accent-blue text-white rounded-md"
-                                    : isOccupied
-                                    ? "text-gray-400 cursor-not-allowed opacity-50"
-                                    : "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
-                                }`}
-                              >
-                                {minute.toString().padStart(2, "0")}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* AM/PM Column */}
-                      <div>
-                        <div className="px-3 py-2 text-sm font-medium text-center border-b border-border bg-muted/50 text-muted-foreground">
-                          AM/PM
-                        </div>
-                        <div className="max-h-60 overflow-y-auto w-28 flex flex-col items-center">
-                          {AMPM_OPTIONS.map((ampm) => {
-                            const isOccupied = !!(
-                              formData.hour &&
-                              formData.minute &&
-                              isTimeOccupied(
-                                formData.hour,
-                                formData.minute,
-                                ampm,
-                              )
-                            );
-                            return (
-                              <button
-                                key={ampm}
-                                onClick={() =>
-                                  !isOccupied && handleTimeChange("ampm", ampm)
-                                }
-                                disabled={isOccupied}
-                                className={`w-2/3 px-4 py-2 text-sm transition-colors focus:outline-none ${
-                                  formData.ampm === ampm
-                                    ? "bg-accent-blue text-white rounded-md"
-                                    : isOccupied
-                                    ? "text-gray-400 cursor-not-allowed opacity-50"
-                                    : "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
-                                }`}
-                              >
-                                {ampm}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-                {errors.time && (
-                  <p className="text-sm text-red-500 mt-1">
-                    This field is required
-                  </p>
-                )}
-              </div>
-
-              {/* Timezone */}
-              <div className="space-y-2">
-                <Label htmlFor="timezone">Timezone</Label>
-                <Select
-                  value={formData.timezone}
-                  onValueChange={(value) =>
-                    handleInputChange("timezone", value)
-                  }
-                  disabled={!formData.clientId}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[300px] overflow-y-auto">
-                    {TIMEZONE_OPTIONS.map((tz) => (
-                      <SelectItem key={tz.value} value={tz.value}>
-                        {tz.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Duration */}
-              <div className="space-y-2">
-                <Label htmlFor="duration">
-                  Duration <span className="text-red-500">*</span>
-                </Label>
-                <Popover
-                  open={durationPickerOpen}
-                  onOpenChange={setDurationPickerOpen}
-                >
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      disabled={!formData.clientId}
-                      className={`w-full justify-start text-left font-normal ${
-                        errors.duration ? "border-red-500" : ""
-                      }`}
-                    >
-                      <Clock className="mr-2 h-4 w-4" />
-                      {formData.duration
-                        ? formData.duration
-                        : "Select duration"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent
-                    className="w-auto p-0 rounded-md border bg-popover shadow-md"
-                    align="start"
-                  >
-                    <div className="flex rounded-md overflow-hidden">
-                      {/* Hour Column */}
-                      <div className="border-r border-border">
-                        <div className="px-3 py-2 text-sm font-medium text-center border-b border-border bg-muted/50 text-muted-foreground">
-                          Hour
-                        </div>
-                        <div className="max-h-60 overflow-y-auto w-28 flex flex-col items-center">
-                          {DURATION_HOURS.map((hour) => (
-                            <button
-                              key={hour}
-                              onClick={() =>
-                                handleDurationChange("hour", hour.toString())
-                              }
-                              className={`w-2/3 px-4 py-2 text-sm transition-colors focus:outline-none ${
-                                durationHour === hour.toString()
-                                  ? "bg-accent-blue text-white rounded-md"
-                                  : "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
-                              }`}
-                            >
-                              {hour}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Minute Column */}
-                      <div>
-                        <div className="px-3 py-2 text-sm font-medium text-center border-b border-border bg-muted/50 text-muted-foreground">
-                          Min
-                        </div>
-                        <div className="max-h-60 overflow-y-auto w-28 flex flex-col items-center">
-                          {DURATION_MINUTES.map((minute) => (
-                            <button
-                              key={minute}
-                              onClick={() =>
-                                handleDurationChange(
-                                  "minute",
-                                  minute.toString(),
-                                )
-                              }
-                              className={`w-2/3 py-2 text-sm transition-colors focus:outline-none ${
-                                durationMinute === minute.toString()
-                                  ? "bg-accent-blue text-white rounded-md"
-                                  : "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
-                              }`}
-                            >
-                              {minute.toString().padStart(2, "0")}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-                {errors.duration && (
-                  <p className="text-sm text-red-500 mt-1">
-                    This field is required
-                  </p>
-                )}
-              </div>
-
-              {/* Max Attendees */}
-              {/* <div className="space-y-2">
-                <Label htmlFor="maxAttendees">Max Attendees</Label>
-                <Input
-                  id="maxAttendees"
-                  icon={<Users className="h-4 w-4" />}
-                  type="number"
-                  value={formData.maxAttendees}
-                  onChange={(e) =>
-                    handleInputChange("maxAttendees", e.target.value)
-                  }
-                  placeholder="Enter maximum number of attendees"
-                  disabled={!formData.clientId}
-                  min="1"
-                />
-              </div> */}
-
-              {/* Location */}
-              <div className="space-y-2">
-                <Label>
-                  Location <span className="text-red-500">*</span>
-                </Label>
-                {errors.format && (
-                  <p className="text-sm text-red-500">This field is required</p>
-                )}
-                <div className="flex space-x-2">
-                  {FORMATS.map((format) => (
-                    <button
-                      key={format}
-                      type="button"
-                      onClick={() => handleInputChange("format", format)}
-                      disabled={!formData.clientId}
-                      className={`flex items-center space-x-2 px-4 py-2 rounded-lg border transition-colors dark:bg-gray-800 ${
-                        !formData.clientId
-                          ? "opacity-50 cursor-not-allowed bg-gray-100"
-                          : formData.format === format
-                          ? "border-primary bg-primary text-white"
-                          : errors.format
-                          ? "border-red-500 hover:bg-gray-50"
-                          : "border-gray-300 hover:bg-gray-50"
-                      }`}
-                    >
-                      {format === "Virtual" ? (
-                        <Video className="h-4 w-4" />
-                      ) : (
-                        <MapPin className="h-4 w-4" />
-                      )}
-                      <span>{format}</span>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Platform selection for Virtual */}
-                {formData.format === "Virtual" && (
-                  <div className="mt-3">
-                    <Label htmlFor="platform">
-                      Select Platform <span className="text-red-500">*</span>
-                    </Label>
-                    <Select
-                      value={formData.platform}
-                      onValueChange={(value) =>
-                        handleInputChange("platform", value)
-                      }
-                      disabled={!formData.clientId}
-                    >
-                      <SelectTrigger
-                        className={errors.platform ? "border-red-500" : ""}
-                      >
-                        <SelectValue>
-                          {formData.platform || "Select platform..."}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {PLATFORMS.map((platform) => (
-                          <SelectItem
-                            key={platform.value}
-                            value={platform.value}
-                          >
-                            {platform.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {errors.platform && (
-                      <p className="text-sm text-red-500 mt-1">
-                        This field is required
-                      </p>
-                    )}
-
-                    {/* Custom Platform Input */}
-                    {formData.platform === "Other" && (
-                      <div className="mt-3">
-                        <Label htmlFor="customPlatform">
-                          Custom Platform{" "}
-                          <span className="text-red-500">*</span>
-                        </Label>
-                        <Input
-                          id="customPlatform"
-                          type="text"
-                          value={formData.customPlatform}
-                          onChange={(e) =>
-                            handleInputChange("customPlatform", e.target.value)
-                          }
-                          placeholder="Enter platform name..."
-                          disabled={!formData.clientId}
-                          className={
-                            errors.customPlatform ? "border-red-500" : ""
-                          }
-                        />
-                        {errors.customPlatform && (
-                          <p className="text-sm text-red-500 mt-1">
-                            This field is required
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Meeting URL for Virtual */}
-              {formData.format === "Virtual" && (
-                <div className="space-y-2">
-                  <Label htmlFor="meetingUrl">Meeting URL (optional)</Label>
-                  <Input
-                    id="meetingUrl"
-                    icon={<Link className="h-4 w-4" />}
-                    type="text"
-                    value={formData.meetingUrl}
-                    onChange={(e) =>
-                      handleInputChange("meetingUrl", e.target.value)
-                    }
-                    placeholder="Enter meeting URL..."
-                    disabled={!formData.clientId}
-                  />
-                </div>
-              )}
-
-              {/* Location for In-Person */}
-              {formData.format === "In-Person" && (
-                <div className="space-y-2">
-                  <Label>
-                    Location <span className="text-red-500">*</span>
-                  </Label>
-                  <AddressSearch
-                    value={formData.address}
-                    onChange={(address) =>
-                      handleInputChange("address", address)
-                    }
-                    onLocationSelect={handleLocationSelect}
-                    disabled={!formData.clientId}
-                  />
-                  {errors.address && (
-                    <p className="text-sm text-red-500">
-                      This field is required
-                    </p>
-                  )}
-                  {formData.address && (
-                    <div className="text-sm text-muted-foreground">
-                      {formData.address}, {formData.city}, {formData.state}{" "}
-                      {formData.zip}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Time Conflict Warning */}
-              {timeConflictWarning && (
-                <div
-                  className={`rounded-lg border p-4 ${
-                    hasConfirmedConflict
-                      ? "border-green-200 bg-green-50"
-                      : "border-amber-200 bg-amber-50"
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    {hasConfirmedConflict ? (
-                      <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
-                    ) : (
-                      <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
-                    )}
-                    <div className="flex-1">
-                      <h4
-                        className={`font-medium ${
-                          hasConfirmedConflict
-                            ? "text-green-900"
-                            : "text-amber-900"
-                        }`}
-                      >
-                        {hasConfirmedConflict
-                          ? "Ready to Proceed"
-                          : "Time Conflict Detected"}
-                      </h4>
-                      <p
-                        className={`text-sm mt-1 ${
-                          hasConfirmedConflict
-                            ? "text-green-700"
-                            : "text-amber-700"
-                        }`}
-                      >
-                        {timeConflictWarning}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* RSVP URL */}
-              <div className="space-y-2">
-                <Label htmlFor="meetingLink">
-                  RSVP URL <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="meetingLink"
-                  icon={<Link className="h-4 w-4" />}
-                  type="text"
-                  value={formData.meetingLink}
-                  onChange={(e) =>
-                    handleInputChange("meetingLink", e.target.value)
-                  }
-                  placeholder="Enter RSVP URL..."
-                  disabled={!formData.clientId}
-                  className={errors.meetingLink ? "border-red-500" : ""}
-                />
-                {errors.meetingLink && (
-                  <p className="text-sm text-red-500 mt-1">
-                    Enter an RSVP URL. For virtual meetings you can paste the link in Meeting URL
-                    above instead.
-                  </p>
-                )}
-              </div>
-
-              {/* Submit Button */}
-              <div className="flex gap-3">
-                {editingMeetingId && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleCancelEdit}
-                    disabled={isSubmitting}
-                    className="flex-1"
-                  >
-                    Cancel Edit
-                  </Button>
-                )}
-                <Button
-                  type="submit"
-                  className={`${editingMeetingId ? "flex-1" : "w-full"} ${
-                    timeConflictWarning && !hasConfirmedConflict
-                      ? "bg-amber-600 hover:bg-amber-700"
-                      : "bg-primary hover:bg-primary/90 dark:bg-accent-blue dark:text-white dark:hover:bg-accent-blue/90"
-                  }`}
-                  disabled={isSubmitting || !formData.clientId}
-                >
-                  {isSubmitting
-                    ? editingMeetingId
-                      ? "Updating Meeting..."
-                      : "Adding Meeting..."
-                    : timeConflictWarning && !hasConfirmedConflict
-                    ? "⚠️ Confirm to Add Meeting"
-                    : editingMeetingId
-                    ? "Update Meeting"
-                    : "Add Meeting"}
-                </Button>
-              </div>
-              <Dialog open={openModel} onOpenChange={setOpenModel}>
-                <DialogContent className="max-w-md">
-                  <DialogHeader>
-                    <DialogDescription className="mt-2 text-base">
-                      Save this meeting type for future use?
-                    </DialogDescription>
-                  </DialogHeader>
-
-                  <DialogFooter className="mt-4 flex justify-end gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => handleSubmitDialod()}
-                    >
-                      NO
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        handleSubmitDialod(true);
-                      }}
-                    >
-                      YES
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-
-              <Dialog open={openDeleteModel} onOpenChange={setOpenDeleteModel}>
-                <DialogContent className="max-w-md">
-                  <DialogHeader>
-                    <DialogDescription className="mt-2 text-base">
-                      {`Are you sure you want to delete ${valueCustomName}? This action cannot be
-                      undone.`}
-                    </DialogDescription>
-                  </DialogHeader>
-
-                  <DialogFooter className="mt-4 flex justify-end gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => setOpenDeleteModel(false)}
-                    >
-                      NO
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        deleteCustomMeeting(typeId);
-                        saveDebugMeeting(savedMeetingForm);
-
-                        setOpenDeleteModel(false);
-                      }}
-                    >
-                      YES
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </form>
-          </CardContent>
-        </Card>
-
-        {/* Right Panel: Meeting Sessions */}
-        <Card className="shadow-sm">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg font-semibold">
-                Meeting Sessions
-              </CardTitle>
+            <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
@@ -2417,394 +1532,1278 @@ export default function MeetingsPage() {
                 <FileText className="h-4 w-4" />
                 Generate Preview
               </Button>
+              <Button
+                onClick={() => setMeetingModalOpen(true)}
+                size="sm"
+                className="gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Add Meeting
+              </Button>
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {/* Filters */}
-              <div className="flex items-center space-x-2">
-                <div className="relative flex-1">
-                  <Input
-                    placeholder="Search meetings..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="h-8"
-                  />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {/* Filters */}
+            <div className="flex items-center space-x-2">
+              <div className="relative flex-1">
+                <Input
+                  placeholder="Search meetings..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="h-8"
+                />
+              </div>
+              <Select value={clientFilter} onValueChange={setClientFilter}>
+                <SelectTrigger className="w-40 h-8">
+                  <SelectValue placeholder="All Clients" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Clients</SelectItem>
+                  {clients.map((client) => (
+                    <SelectItem key={client.id} value={client.companyName}>
+                      {client.companyName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="w-36 h-8">
+                  <SelectValue placeholder="All Types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="Enrollment">Enrollment</SelectItem>
+                  <SelectItem value="Annual Review">Annual Review</SelectItem>
+                  <SelectItem value="Plan Changes">Plan Changes</SelectItem>
+                  <SelectItem value="Education">Education</SelectItem>
+                  <SelectItem value="Consultation">Consultation</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-36 h-8">
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="Scheduled">Scheduled</SelectItem>
+                  <SelectItem value="Confirmed">Confirmed</SelectItem>
+                  <SelectItem value="Completed">Completed</SelectItem>
+                  <SelectItem value="Cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button onClick={fetchMeetings} variant="outline" size="sm">
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex space-x-1 bg-muted p-1 rounded-lg">
+              <button
+                onClick={() => setActiveTab("upcoming")}
+                className={`flex-1 px-3 py-1 text-sm rounded-md transition-colors ${
+                  activeTab === "upcoming"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Upcoming ({upcomingMeetings.length})
+              </button>
+              <button
+                onClick={() => setActiveTab("past")}
+                className={`flex-1 px-3 py-1 text-sm rounded-md transition-colors ${
+                  activeTab === "past"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Past ({pastMeetings.length})
+              </button>
+            </div>
+
+            {/* Meetings List */}
+            <div className="space-y-3">
+              {isLoading ? (
+                // Skeleton Loader
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <div
+                      key={i}
+                      className="p-4 border rounded-lg bg-card animate-pulse"
+                    >
+                      {/* Header with Title, Badge and Menu */}
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center space-x-2 mb-2">
+                            {/* Title */}
+                            <div className="h-5 bg-gray-200 rounded w-40" />
+                            {/* Status Badge */}
+                            <div className="h-5 w-20 bg-gray-200 rounded-full" />
+                          </div>
+                          {/* Description */}
+                          <div className="space-y-1.5">
+                            <div className="h-4 bg-gray-200 rounded w-full" />
+                            <div className="h-4 bg-gray-200 rounded w-2/3" />
+                          </div>
+                        </div>
+                        {/* Menu Button */}
+                        <div className="h-6 w-6 bg-gray-200 rounded ml-2" />
+                      </div>
+
+                      {/* Meeting Details Grid */}
+                      <div className="grid grid-cols-2 gap-3 mb-3 mt-3">
+                        {/* Date & Time */}
+                        <div className="space-y-1">
+                          <div className="flex items-center space-x-1.5">
+                            <div className="h-3.5 w-3.5 bg-gray-200 rounded" />
+                            <div className="h-3 bg-gray-200 rounded w-16" />
+                          </div>
+                          <div className="h-4 bg-gray-200 rounded w-24 ml-5" />
+                          <div className="h-3 bg-gray-200 rounded w-20 ml-5" />
+                        </div>
+
+                        {/* Duration */}
+                        <div className="space-y-1">
+                          <div className="flex items-center space-x-1.5">
+                            <div className="h-3.5 w-3.5 bg-gray-200 rounded" />
+                            <div className="h-3 bg-gray-200 rounded w-14" />
+                          </div>
+                          <div className="h-4 bg-gray-200 rounded w-16 ml-5" />
+                        </div>
+
+                        {/* Format */}
+                        <div className="space-y-1">
+                          <div className="flex items-center space-x-1.5">
+                            <div className="h-3.5 w-3.5 bg-gray-200 rounded" />
+                            <div className="h-3 bg-gray-200 rounded w-12" />
+                          </div>
+                          <div className="h-4 bg-gray-200 rounded w-20 ml-5" />
+                        </div>
+
+                        {/* Location/Platform */}
+                        <div className="space-y-1">
+                          <div className="flex items-center space-x-1.5">
+                            <div className="h-3.5 w-3.5 bg-gray-200 rounded" />
+                            <div className="h-3 bg-gray-200 rounded w-16" />
+                          </div>
+                          <div className="h-4 bg-gray-200 rounded w-28 ml-5" />
+                        </div>
+                      </div>
+
+                      {/* Client Info */}
+                      <div className="flex items-center space-x-2 pt-2 border-t">
+                        <div className="h-3.5 w-3.5 bg-gray-200 rounded" />
+                        <div className="h-3 bg-gray-200 rounded w-10" />
+                        <div className="h-4 bg-gray-200 rounded w-32" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <Select value={clientFilter} onValueChange={setClientFilter}>
-                  <SelectTrigger className="w-40 h-8">
-                    <SelectValue placeholder="All Clients" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Clients</SelectItem>
-                    {clients.map((client) => (
-                      <SelectItem key={client.id} value={client.companyName}>
-                        {client.companyName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={typeFilter} onValueChange={setTypeFilter}>
-                  <SelectTrigger className="w-36 h-8">
-                    <SelectValue placeholder="All Types" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Types</SelectItem>
-                    <SelectItem value="Enrollment">Enrollment</SelectItem>
-                    <SelectItem value="Annual Review">Annual Review</SelectItem>
-                    <SelectItem value="Plan Changes">Plan Changes</SelectItem>
-                    <SelectItem value="Education">Education</SelectItem>
-                    <SelectItem value="Consultation">Consultation</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-36 h-8">
-                    <SelectValue placeholder="All Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="Scheduled">Scheduled</SelectItem>
-                    <SelectItem value="Confirmed">Confirmed</SelectItem>
-                    <SelectItem value="Completed">Completed</SelectItem>
-                    <SelectItem value="Cancelled">Cancelled</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button onClick={fetchMeetings} variant="outline" size="sm">
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
-              </div>
+              ) : sortedMeetings.length === 0 ? (
+                <div className="text-center py-12">
+                  <CalendarDays className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    No meetings added yet
+                  </h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Add your first meeting to get started.
+                  </p>
+                  <Button
+                    onClick={() => setMeetingModalOpen(true)}
+                    className="gap-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add Meeting
+                  </Button>
+                </div>
+              ) : (
+                sortedMeetings.map((meeting) => {
+                  const FormatIcon =
+                    formatIcons[meeting.format as keyof typeof formatIcons];
+                  const meetingDate = formatUsDate(
+                    parseLocalDate(meeting.date),
+                  );
 
-              {/* Tabs */}
-              <div className="flex space-x-1 bg-muted p-1 rounded-lg">
-                <button
-                  onClick={() => setActiveTab("upcoming")}
-                  className={`flex-1 px-3 py-1 text-sm rounded-md transition-colors ${
-                    activeTab === "upcoming"
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Upcoming ({upcomingMeetings.length})
-                </button>
-                <button
-                  onClick={() => setActiveTab("past")}
-                  className={`flex-1 px-3 py-1 text-sm rounded-md transition-colors ${
-                    activeTab === "past"
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Past ({pastMeetings.length})
-                </button>
-              </div>
+                  // Status badge colors
+                  const statusColors = {
+                    Scheduled: "bg-blue-100 text-blue-700 border-blue-200",
+                    Completed: "bg-green-100 text-green-700 border-green-200",
+                    Cancelled: "bg-red-100 text-red-700 border-red-200",
+                  };
 
-              {/* Meetings List */}
-              <div className="space-y-3">
-                {isLoading ? (
-                  // Skeleton Loader
-                  <div className="space-y-3">
-                    {[1, 2, 3].map((i) => (
-                      <div
-                        key={i}
-                        className="p-4 border rounded-lg bg-card animate-pulse"
-                      >
-                        {/* Header with Title, Badge and Menu */}
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center space-x-2 mb-2">
-                              {/* Title */}
-                              <div className="h-5 bg-gray-200 rounded w-40" />
-                              {/* Status Badge */}
-                              <div className="h-5 w-20 bg-gray-200 rounded-full" />
-                            </div>
-                            {/* Description */}
-                            <div className="space-y-1.5">
-                              <div className="h-4 bg-gray-200 rounded w-full" />
-                              <div className="h-4 bg-gray-200 rounded w-2/3" />
-                            </div>
+                  return (
+                    <div
+                      key={meeting.id}
+                      className="p-4 border rounded-lg hover:shadow-md transition-all bg-card"
+                    >
+                      {/* Header with Title and Status */}
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <h4 className="font-semibold text-base truncate">
+                              {meeting.meeting}
+                            </h4>
+                            <Badge
+                              className={`text-xs border ${
+                                statusColors[
+                                  meeting.status as keyof typeof statusColors
+                                ] || statusColors.Scheduled
+                              }`}
+                            >
+                              {meeting.status}
+                            </Badge>
                           </div>
-                          {/* Menu Button */}
-                          <div className="h-6 w-6 bg-gray-200 rounded ml-2" />
+
+                          {/* Description */}
+                          {meeting.description && (
+                            <p className="text-sm text-muted-foreground line-clamp-2">
+                              {meeting.description}
+                            </p>
+                          )}
                         </div>
-
-                        {/* Meeting Details Grid */}
-                        <div className="grid grid-cols-2 gap-3 mb-3 mt-3">
-                          {/* Date & Time */}
-                          <div className="space-y-1">
-                            <div className="flex items-center space-x-1.5">
-                              <div className="h-3.5 w-3.5 bg-gray-200 rounded" />
-                              <div className="h-3 bg-gray-200 rounded w-16" />
-                            </div>
-                            <div className="h-4 bg-gray-200 rounded w-24 ml-5" />
-                            <div className="h-3 bg-gray-200 rounded w-20 ml-5" />
-                          </div>
-
-                          {/* Duration */}
-                          <div className="space-y-1">
-                            <div className="flex items-center space-x-1.5">
-                              <div className="h-3.5 w-3.5 bg-gray-200 rounded" />
-                              <div className="h-3 bg-gray-200 rounded w-14" />
-                            </div>
-                            <div className="h-4 bg-gray-200 rounded w-16 ml-5" />
-                          </div>
-
-                          {/* Format */}
-                          <div className="space-y-1">
-                            <div className="flex items-center space-x-1.5">
-                              <div className="h-3.5 w-3.5 bg-gray-200 rounded" />
-                              <div className="h-3 bg-gray-200 rounded w-12" />
-                            </div>
-                            <div className="h-4 bg-gray-200 rounded w-20 ml-5" />
-                          </div>
-
-                          {/* Location/Platform */}
-                          <div className="space-y-1">
-                            <div className="flex items-center space-x-1.5">
-                              <div className="h-3.5 w-3.5 bg-gray-200 rounded" />
-                              <div className="h-3 bg-gray-200 rounded w-16" />
-                            </div>
-                            <div className="h-4 bg-gray-200 rounded w-28 ml-5" />
-                          </div>
-                        </div>
-
-                        {/* Client Info */}
-                        <div className="flex items-center space-x-2 pt-2 border-t">
-                          <div className="h-3.5 w-3.5 bg-gray-200 rounded" />
-                          <div className="h-3 bg-gray-200 rounded w-10" />
-                          <div className="h-4 bg-gray-200 rounded w-32" />
-                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0"
+                            >
+                              <MoreHorizontal className="h-3 w-3" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() => handleEditMeeting(meeting)}
+                            >
+                              <Edit className="mr-2 h-4 w-4" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleDuplicateMeeting(meeting)}
+                            >
+                              <Copy className="mr-2 h-4 w-4" />
+                              Duplicate
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                toast.info(
+                                  "Spanish Translation - Coming Soon",
+                                );
+                              }}
+                            >
+                              <Languages className="mr-2 h-4 w-4" />
+                              Spanish Version
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                toast.info(
+                                  "Generate Meeting Page - Coming Soon",
+                                );
+                              }}
+                            >
+                              <FileText className="mr-2 h-4 w-4" />
+                              Generate Meeting Page
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleDeleteMeeting(meeting.id)}
+                              className="text-destructive"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
-                    ))}
-                  </div>
-                ) : sortedMeetings.length === 0 ? (
-                  <div className="text-center py-12">
-                    <CalendarDays className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">
-                      No meetings added yet
-                    </h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Add your first meeting to get started.
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Add meetings using the form on the left
-                    </p>
-                  </div>
-                ) : (
-                  sortedMeetings.map((meeting) => {
-                    const FormatIcon =
-                      formatIcons[meeting.format as keyof typeof formatIcons];
-                    const meetingDate = formatUsDate(
-                      parseLocalDate(meeting.date),
-                    );
 
-                    // Status badge colors
-                    const statusColors = {
-                      Scheduled: "bg-blue-100 text-blue-700 border-blue-200",
-                      Completed: "bg-green-100 text-green-700 border-green-200",
-                      Cancelled: "bg-red-100 text-red-700 border-red-200",
-                    };
-
-                    return (
-                      <div
-                        key={meeting.id}
-                        className="p-4 border rounded-lg hover:shadow-md transition-all bg-card"
-                      >
-                        {/* Header with Title and Status */}
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center space-x-2 mb-2">
-                              <h4 className="font-semibold text-base truncate">
-                                {meeting.meeting}
-                              </h4>
-                              <Badge
-                                className={`text-xs border ${
-                                  statusColors[
-                                    meeting.status as keyof typeof statusColors
-                                  ] || statusColors.Scheduled
-                                }`}
-                              >
-                                {meeting.status}
-                              </Badge>
-                            </div>
-
-                            {/* Description */}
-                            {meeting.description && (
-                              <p className="text-sm text-muted-foreground line-clamp-2">
-                                {meeting.description}
-                              </p>
+                      {/* Meeting Details Grid */}
+                      <div className="grid grid-cols-2 gap-3 mb-3">
+                        {/* Date & Time */}
+                        <div className="space-y-1">
+                          <div className="flex items-center space-x-1.5 text-xs text-muted-foreground">
+                            <Calendar className="h-3.5 w-3.5" />
+                            <span className="font-medium">Date & Time</span>
+                          </div>
+                          <div className="text-sm font-medium pl-5">
+                            {meetingDate}
+                          </div>
+                          <div className="text-sm text-muted-foreground pl-5">
+                            {meeting.time}
+                            {meeting.timezone && (
+                              <span className="text-xs ml-1">
+                                ({getTimezoneAbbr(meeting.timezone)})
+                              </span>
                             )}
                           </div>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
+                        </div>
+
+                        {/* Duration */}
+                        <div className="space-y-1">
+                          <div className="flex items-center space-x-1.5 text-xs text-muted-foreground">
+                            <Clock className="h-3.5 w-3.5" />
+                            <span className="font-medium">Duration</span>
+                          </div>
+                          <div className="text-sm font-medium pl-5">
+                            {meeting.duration}
+                          </div>
+                        </div>
+
+                        {/* Attendees */}
+                        <div className="space-y-1">
+                          <div className="flex items-center space-x-1.5 text-xs text-muted-foreground">
+                            <Users className="h-3.5 w-3.5" />
+                            <span className="font-medium">Attendees</span>
+                          </div>
+                          <div className="text-sm font-medium pl-5">
+                            {meeting.attendees}
+                            {meeting.maxAttendees &&
+                              ` / ${meeting.maxAttendees}`}
+                          </div>
+                        </div>
+
+                        {/* Location */}
+                        <div className="space-y-1">
+                          {/* For Virtual with link - show only button */}
+                          {meeting.format === "Virtual" &&
+                          meeting.meetingLink ? (
+                            <a
+                              href={meeting.meetingLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
                               <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0"
+                                size="default"
+                                className="bg-primary hover:bg-primary/90"
                               >
-                                <MoreHorizontal className="h-3 w-3" />
+                                <Video className="h-4 w-4 mr-2" />
+                                Join Meeting
                               </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={() => handleEditMeeting(meeting)}
-                              >
-                                <Edit className="mr-2 h-4 w-4" />
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleDuplicateMeeting(meeting)}
-                              >
-                                <Copy className="mr-2 h-4 w-4" />
-                                Duplicate
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  toast.info(
-                                    "Spanish Translation - Coming Soon",
-                                  );
-                                }}
-                              >
-                                <Languages className="mr-2 h-4 w-4" />
-                                Spanish Version
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  toast.info(
-                                    "Generate Meeting Page - Coming Soon",
-                                  );
-                                }}
-                              >
-                                <FileText className="mr-2 h-4 w-4" />
-                                Generate Meeting Page
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleDeleteMeeting(meeting.id)}
-                                className="text-destructive"
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-
-                        {/* Meeting Details Grid */}
-                        <div className="grid grid-cols-2 gap-3 mb-3">
-                          {/* Date & Time */}
-                          <div className="space-y-1">
-                            <div className="flex items-center space-x-1.5 text-xs text-muted-foreground">
-                              <Calendar className="h-3.5 w-3.5" />
-                              <span className="font-medium">Date & Time</span>
-                            </div>
-                            <div className="text-sm font-medium pl-5">
-                              {meetingDate}
-                            </div>
-                            <div className="text-sm text-muted-foreground pl-5">
-                              {meeting.time}
-                              {meeting.timezone && (
-                                <span className="text-xs ml-1">
-                                  ({getTimezoneAbbr(meeting.timezone)})
+                            </a>
+                          ) : (
+                            <>
+                              <div className="flex items-center space-x-1.5 text-xs text-muted-foreground">
+                                <FormatIcon className="h-3.5 w-3.5" />
+                                <span className="font-medium">
+                                  {meeting.format === "Virtual" &&
+                                  meeting.platform
+                                    ? meeting.platform
+                                    : meeting.format}
                                 </span>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Duration */}
-                          <div className="space-y-1">
-                            <div className="flex items-center space-x-1.5 text-xs text-muted-foreground">
-                              <Clock className="h-3.5 w-3.5" />
-                              <span className="font-medium">Duration</span>
-                            </div>
-                            <div className="text-sm font-medium pl-5">
-                              {meeting.duration}
-                            </div>
-                          </div>
-
-                          {/* Attendees */}
-                          <div className="space-y-1">
-                            <div className="flex items-center space-x-1.5 text-xs text-muted-foreground">
-                              <Users className="h-3.5 w-3.5" />
-                              <span className="font-medium">Attendees</span>
-                            </div>
-                            <div className="text-sm font-medium pl-5">
-                              {meeting.attendees}
-                              {meeting.maxAttendees &&
-                                ` / ${meeting.maxAttendees}`}
-                            </div>
-                          </div>
-
-                          {/* Location */}
-                          <div className="space-y-1">
-                            {/* For Virtual with link - show only button */}
-                            {meeting.format === "Virtual" &&
-                            meeting.meetingLink ? (
-                              <a
-                                href={meeting.meetingLink}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                <Button
-                                  size="default"
-                                  className="bg-primary hover:bg-primary/90"
-                                >
-                                  <Video className="h-4 w-4 mr-2" />
-                                  Join Meeting
-                                </Button>
-                              </a>
-                            ) : (
-                              <>
-                                <div className="flex items-center space-x-1.5 text-xs text-muted-foreground">
-                                  <FormatIcon className="h-3.5 w-3.5" />
-                                  <span className="font-medium">
-                                    {meeting.format === "Virtual" &&
-                                    meeting.platform
-                                      ? meeting.platform
-                                      : meeting.format}
-                                  </span>
-                                </div>
-                                {meeting.format === "Virtual" &&
-                                  !meeting.meetingLink && (
-                                    <div className="text-sm font-medium pl-5 text-muted-foreground">
-                                      No link provided
-                                    </div>
-                                  )}
-                                {meeting.format === "In-Person" &&
-                                  meeting.address && (
-                                    <div className="text-sm font-medium pl-5">
-                                      {meeting.address}, {meeting.city},{" "}
-                                      {meeting.state}
-                                    </div>
-                                  )}
-                                {meeting.format === "In-Person" &&
-                                  !meeting.address && (
-                                    <div className="text-sm font-medium pl-5">
-                                      Location TBA
-                                    </div>
-                                  )}
-                              </>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Client */}
-                        <div className="flex items-center space-x-2 pt-2 border-t">
-                          <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span className="text-sm font-medium text-muted-foreground">
-                            Client:
-                          </span>
-                          <span className="text-sm font-semibold">
-                            {meeting.client}
-                          </span>
+                              </div>
+                              {meeting.format === "Virtual" &&
+                                !meeting.meetingLink && (
+                                  <div className="text-sm font-medium pl-5 text-muted-foreground">
+                                    No link provided
+                                  </div>
+                                )}
+                              {meeting.format === "In-Person" &&
+                                meeting.address && (
+                                  <div className="text-sm font-medium pl-5">
+                                    {meeting.address}, {meeting.city},{" "}
+                                    {meeting.state}
+                                  </div>
+                                )}
+                              {meeting.format === "In-Person" &&
+                                !meeting.address && (
+                                  <div className="text-sm font-medium pl-5">
+                                    Location TBA
+                                  </div>
+                                )}
+                            </>
+                          )}
                         </div>
                       </div>
-                    );
-                  })
+
+                      {/* Client */}
+                      <div className="flex items-center space-x-2 pt-2 border-t">
+                        <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-sm font-medium text-muted-foreground">
+                          Client:
+                        </span>
+                        <span className="text-sm font-semibold">
+                          {meeting.client}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Add New Meeting Modal */}
+      <Dialog open={meetingModalOpen} onOpenChange={setMeetingModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {editingMeetingId ? "Edit Meeting" : "Add New Meeting"}
+            </DialogTitle>
+            <DialogDescription>
+              {editingMeetingId
+                ? "Make your changes below and submit to update the meeting"
+                : "Fill out the details below to add a meeting session"}
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* No Plans Warning */}
+          {!hasClients && !isLoadingClients && (
+            <div className="mb-6 p-6 bg-amber-50 border-2 border-amber-200 rounded-lg">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-6 h-6 text-amber-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <h3 className="font-semibold text-amber-900 mb-2">
+                    No Plans Available
+                  </h3>
+                  <p className="text-sm text-amber-800 mb-4">
+                    You must create at least one plan before scheduling a
+                    meeting or event. Please add a plan first to proceed with
+                    meeting creation.
+                  </p>
+                  <Button
+                    onClick={() => router.push("/new/new-client")}
+                    className="bg-amber-600 hover:bg-amber-700 dark:bg-amber-600 dark:hover:bg-amber-700 dark:text-white"
+                  >
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    Add Plan
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <form ref={meetingFormRef} onSubmit={handleSubmit} className="space-y-4 mt-4">
+            {/* Select Plan */}
+            <div className="space-y-2">
+              <StickyPlanCombobox
+                module="meetings"
+                plans={clients}
+                value={formData.clientId}
+                onChange={handlePlanClientChange}
+                disabled={!hasClients || isLoadingClients}
+                required
+                label="Select Plan"
+                placeholder={
+                  isLoadingClients ? "Loading plans..." : "Choose a plan..."
+                }
+                id="meetings-plan"
+                className={errors.client ? "[&_button]:border-red-500" : ""}
+              />
+              {errors.client && (
+                <p className="text-sm text-red-500">This field is required</p>
+              )}
+            </div>
+
+            {/* Meeting Type */}
+            <div className="space-y-2">
+              <Label>
+                Meeting Type <span className="text-red-500">*</span>
+              </Label>
+              {errors.meetingType && (
+                <p className="text-sm text-red-500">This field is required</p>
+              )}
+              <div className="space-y-2">
+                {allMeetingTypes.map((type) => (
+                  <div
+                    key={type.id ?? `${type.value}-${Math.random()}`}
+                    className={`relative p-3 border rounded-lg transition-colors group ${
+                      !formData.clientId
+                        ? "opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-800"
+                        : formData.meetingType === type.value
+                        ? "border-primary bg-primary/5 cursor-pointer"
+                        : errors.meetingType
+                        ? "border-red-500 hover:bg-muted/50 cursor-pointer"
+                        : "hover:bg-muted/50 cursor-pointer"
+                    }`}
+                    onClick={() =>
+                      !formData.clientId
+                        ? null
+                        : handleInputChange("meetingType", type.value)
+                    }
+                  >
+                    <div className="flex items-start space-x-2">
+                      <div
+                        className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                          formData.meetingType === type.value
+                            ? "border-primary bg-primary"
+                            : "border-gray-300"
+                        }`}
+                      >
+                        {formData.meetingType === type.value && (
+                          <div className="w-2 h-2 rounded-full bg-white"></div>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <div className="cursor-pointer font-medium">
+                          {type.label}
+                        </div>
+                        {type.description && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {type.description}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {type.id && type.value != "Custom" && (
+                      <button
+                        className="absolute top-2 right-2 hidden group-hover:flex items-center justify-center w-5 h-5 rounded-full bg-red-100 hover:bg-red-200 text-red-600 transition"
+                        onClick={(e) => {
+                          if (!formData.clientId) return;
+                          e.stopPropagation();
+                          const newMeeting = {
+                            value: type.value,
+                            label: type.label,
+                            description: type.description || "",
+                          };
+                          setSavedMeetingForm(newMeeting);
+                          setTypeId(type.id!);
+                          setValueCustomName(type.label);
+                          setOpenDeleteModel(true);
+                        }}
+                      >
+                        ✕
+                      </button>
+                    )}
+                    {useSaveMeetingDebugStore.getState().deletedMeeting && (
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          const deleted =
+                            useSaveMeetingDebugStore.getState()
+                              .deletedMeeting!;
+                          useSaveMeetingDebugStore
+                            .getState()
+                            .saveCustomMeeting(deleted);
+                          useSaveMeetingDebugStore.setState({
+                            deletedMeeting: undefined,
+                          });
+                        }}
+                      >
+                        Restore Last Deleted Meeting
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                {MEETING_TYPES.some(
+                  (base) =>
+                    !allMeetingTypes.some(
+                      (type) => type.value === base.value,
+                    ),
+                ) && (
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      useMeetingStore.getState().resetToDefaultMeetings()
+                    }
+                  >
+                    Restore Default Meetings
+                  </Button>
+                )}
+                {debugSavedMeetings.length > 0 && (
+                  <Button
+                    variant="outline"
+                    onClick={() => rebaseCustomMeeting()}
+                  >
+                    {`Rebase ${debugSavedMeetings.length} Custom Meeting${
+                      debugSavedMeetings.length > 1 ? "s" : ""
+                    }`}
+                  </Button>
                 )}
               </div>
+
+              {/* Custom Meeting Type Input */}
+              {formData.meetingType === "Custom" && (
+                <div className="mt-3">
+                  <Label htmlFor="customMeetingType">
+                    Custom Meeting Type{" "}
+                    <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="customMeetingType"
+                    icon={<FileText className="h-4 w-4" />}
+                    value={formData.customMeetingType}
+                    onChange={(e) =>
+                      handleInputChange("customMeetingType", e.target.value)
+                    }
+                    placeholder="Enter your custom meeting type..."
+                    disabled={!formData.clientId}
+                    className={`mt-1 ${
+                      errors.customMeetingType ? "border-red-500" : ""
+                    }`}
+                  />
+                  {errors.customMeetingType && (
+                    <p className="text-sm text-red-500 mt-1">
+                      This field is required
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
-          </CardContent>
-        </Card>
-      </div>
+
+            {/* Meeting Description */}
+            <div className="space-y-2">
+              <Label htmlFor="description">Meeting Description</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) =>
+                  handleInputChange("description", e.target.value)
+                }
+                placeholder={
+                  formData.meetingType === "Custom"
+                    ? "Enter your custom meeting description..."
+                    : "Meeting description will be populated automatically based on the selected meeting type"
+                }
+                disabled={!formData.clientId}
+                className="min-h-20 resize-none"
+              />
+
+              {/* Helper text */}
+              {formData.meetingType && formData.meetingType !== "Custom" && (
+                <p className="text-xs text-muted-foreground">
+                  Description automatically populated from "
+                  {formData.meetingType}" meeting type. You can edit it
+                  if needed.
+                </p>
+              )}
+              {formData.meetingType === "Custom" && (
+                <p className="text-xs text-muted-foreground">
+                  Enter a custom description for your meeting.
+                </p>
+              )}
+
+              {/* Generate with AI Button - inside description section */}
+              <div className="pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGenerateWithAI}
+                  disabled={!formData.clientId}
+                >
+                  <Zap className="mr-2 h-4 w-4" />
+                  Generate with AI
+                </Button>
+              </div>
+            </div>
+
+            {/* Date */}
+            <div className="space-y-2">
+              <Label>
+                Date <span className="text-red-500">*</span>
+              </Label>
+              <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    disabled={!formData.clientId}
+                    className={`w-full justify-start text-left font-normal ${
+                      errors.date ? "border-red-500" : ""
+                    }`}
+                  >
+                    <Calendar className="mr-2 h-4 w-4" />
+                    {formData.date
+                      ? format(parseLocalDate(formData.date), "MM/dd/yyyy")
+                      : "Pick a date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={
+                      formData.date
+                        ? parseLocalDate(formData.date)
+                        : undefined
+                    }
+                    onSelect={(date) => {
+                      if (date) {
+                        handleInputChange("date", format(date, "yyyy-MM-dd"));
+                        setDatePickerOpen(false);
+                      }
+                    }}
+                    disabled={(date) => date < new Date()}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+              {errors.date && (
+                <p className="text-sm text-red-500">This field is required</p>
+              )}
+            </div>
+
+            {/* Time */}
+            <div className="space-y-2">
+              <Label>
+                Time <span className="text-red-500">*</span>
+              </Label>
+              <Popover open={timePickerOpen} onOpenChange={setTimePickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    disabled={!formData.clientId}
+                    className={`w-full justify-start text-left font-normal ${
+                      errors.time ? "border-red-500" : ""
+                    }`}
+                  >
+                    <Clock className="mr-2 h-4 w-4" />
+                    {formData.hour && formData.minute && formData.ampm
+                      ? `${formData.hour}:${formData.minute.padStart(
+                          2,
+                          "0",
+                        )} ${formData.ampm}`
+                      : "Select time"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="w-auto p-0 rounded-md border bg-popover shadow-md"
+                  align="start"
+                >
+                  <div className="flex rounded-md overflow-hidden">
+                    {/* Hour Column */}
+                    <div className="border-r border-border">
+                      <div className="px-3 py-2 text-sm font-medium text-center border-b border-border bg-muted/50 text-muted-foreground">
+                        Hour
+                      </div>
+                      <div className="max-h-60 overflow-y-auto w-28 flex flex-col items-center">
+                        {HOURS.map((hour) => {
+                          const isOccupied = !!(
+                            formData.minute &&
+                            formData.ampm &&
+                            isTimeOccupied(
+                              hour.toString(),
+                              formData.minute,
+                              formData.ampm,
+                            )
+                          );
+                          return (
+                            <button
+                              key={hour}
+                              onClick={() =>
+                                !isOccupied &&
+                                handleTimeChange("hour", hour.toString())
+                              }
+                              disabled={isOccupied}
+                              className={`w-2/3 px-4 py-2 text-sm transition-colors focus:outline-none ${
+                                formData.hour === hour.toString()
+                                  ? "bg-accent-blue text-white rounded-md"
+                                  : isOccupied
+                                  ? "text-gray-400 cursor-not-allowed opacity-50"
+                                  : "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+                              }`}
+                            >
+                              {hour}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Minute Column */}
+                    <div className="border-r border-border">
+                      <div className="px-3 py-2 text-sm font-medium text-center border-b border-border bg-muted/50 text-muted-foreground">
+                        Min
+                      </div>
+                      <div className="max-h-60 overflow-y-auto w-28 flex flex-col items-center">
+                        {MINUTES.map((minute) => {
+                          const isOccupied = !!(
+                            formData.hour &&
+                            formData.ampm &&
+                            isTimeOccupied(
+                              formData.hour,
+                              minute.toString(),
+                              formData.ampm,
+                            )
+                          );
+                          return (
+                            <button
+                              key={minute}
+                              onClick={() =>
+                                !isOccupied &&
+                                handleTimeChange("minute", minute.toString())
+                              }
+                              disabled={isOccupied}
+                              className={`w-2/3 py-2 text-sm transition-colors focus:outline-none ${
+                                formData.minute === minute.toString()
+                                  ? "bg-accent-blue text-white rounded-md"
+                                  : isOccupied
+                                  ? "text-gray-400 cursor-not-allowed opacity-50"
+                                  : "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+                              }`}
+                            >
+                              {minute.toString().padStart(2, "0")}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* AM/PM Column */}
+                    <div>
+                      <div className="px-3 py-2 text-sm font-medium text-center border-b border-border bg-muted/50 text-muted-foreground">
+                        AM/PM
+                      </div>
+                      <div className="max-h-60 overflow-y-auto w-28 flex flex-col items-center">
+                        {AMPM_OPTIONS.map((ampm) => {
+                          const isOccupied = !!(
+                            formData.hour &&
+                            formData.minute &&
+                            isTimeOccupied(
+                              formData.hour,
+                              formData.minute,
+                              ampm,
+                            )
+                          );
+                          return (
+                            <button
+                              key={ampm}
+                              onClick={() =>
+                                !isOccupied && handleTimeChange("ampm", ampm)
+                              }
+                              disabled={isOccupied}
+                              className={`w-2/3 px-4 py-2 text-sm transition-colors focus:outline-none ${
+                                formData.ampm === ampm
+                                  ? "bg-accent-blue text-white rounded-md"
+                                  : isOccupied
+                                  ? "text-gray-400 cursor-not-allowed opacity-50"
+                                  : "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+                              }`}
+                            >
+                              {ampm}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+              {errors.time && (
+                <p className="text-sm text-red-500 mt-1">
+                  This field is required
+                </p>
+              )}
+            </div>
+
+            {/* Timezone */}
+            <div className="space-y-2">
+              <Label htmlFor="timezone">Timezone</Label>
+              <Select
+                value={formData.timezone}
+                onValueChange={(value) =>
+                  handleInputChange("timezone", value)
+                }
+                disabled={!formData.clientId}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px] overflow-y-auto">
+                  {TIMEZONE_OPTIONS.map((tz) => (
+                    <SelectItem key={tz.value} value={tz.value}>
+                      {tz.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Duration */}
+            <div className="space-y-2">
+              <Label htmlFor="duration">
+                Duration <span className="text-red-500">*</span>
+              </Label>
+              <Popover
+                open={durationPickerOpen}
+                onOpenChange={setDurationPickerOpen}
+              >
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    disabled={!formData.clientId}
+                    className={`w-full justify-start text-left font-normal ${
+                      errors.duration ? "border-red-500" : ""
+                    }`}
+                  >
+                    <Clock className="mr-2 h-4 w-4" />
+                    {formData.duration
+                      ? formData.duration
+                      : "Select duration"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="w-auto p-0 rounded-md border bg-popover shadow-md"
+                  align="start"
+                >
+                  <div className="flex rounded-md overflow-hidden">
+                    {/* Hour Column */}
+                    <div className="border-r border-border">
+                      <div className="px-3 py-2 text-sm font-medium text-center border-b border-border bg-muted/50 text-muted-foreground">
+                        Hour
+                      </div>
+                      <div className="max-h-60 overflow-y-auto w-28 flex flex-col items-center">
+                        {DURATION_HOURS.map((hour) => (
+                          <button
+                            key={hour}
+                            onClick={() =>
+                              handleDurationChange("hour", hour.toString())
+                            }
+                            className={`w-2/3 px-4 py-2 text-sm transition-colors focus:outline-none ${
+                              durationHour === hour.toString()
+                                ? "bg-accent-blue text-white rounded-md"
+                                : "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+                            }`}
+                          >
+                            {hour}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Minute Column */}
+                    <div>
+                      <div className="px-3 py-2 text-sm font-medium text-center border-b border-border bg-muted/50 text-muted-foreground">
+                        Min
+                      </div>
+                      <div className="max-h-60 overflow-y-auto w-28 flex flex-col items-center">
+                        {DURATION_MINUTES.map((minute) => (
+                          <button
+                            key={minute}
+                            onClick={() =>
+                              handleDurationChange(
+                                "minute",
+                                minute.toString(),
+                              )
+                            }
+                            className={`w-2/3 py-2 text-sm transition-colors focus:outline-none ${
+                              durationMinute === minute.toString()
+                                ? "bg-accent-blue text-white rounded-md"
+                                : "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+                            }`}
+                          >
+                            {minute.toString().padStart(2, "0")}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+              {errors.duration && (
+                <p className="text-sm text-red-500 mt-1">
+                  This field is required
+                </p>
+              )}
+            </div>
+
+            {/* Location */}
+            <div className="space-y-2">
+              <Label>
+                Location <span className="text-red-500">*</span>
+              </Label>
+              {errors.format && (
+                <p className="text-sm text-red-500">This field is required</p>
+              )}
+              <div className="flex space-x-2">
+                {FORMATS.map((format) => (
+                  <button
+                    key={format}
+                    type="button"
+                    onClick={() => handleInputChange("format", format)}
+                    disabled={!formData.clientId}
+                    className={`flex items-center space-x-2 px-4 py-2 rounded-lg border transition-colors dark:bg-gray-800 ${
+                      !formData.clientId
+                        ? "opacity-50 cursor-not-allowed bg-gray-100"
+                        : formData.format === format
+                        ? "border-primary bg-primary text-white"
+                        : errors.format
+                        ? "border-red-500 hover:bg-gray-50"
+                        : "border-gray-300 hover:bg-gray-50"
+                    }`}
+                  >
+                    {format === "Virtual" ? (
+                      <Video className="h-4 w-4" />
+                    ) : (
+                      <MapPin className="h-4 w-4" />
+                    )}
+                    <span>{format}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Platform selection for Virtual */}
+              {formData.format === "Virtual" && (
+                <div className="mt-3">
+                  <Label htmlFor="platform">
+                    Select Platform <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={formData.platform}
+                    onValueChange={(value) =>
+                      handleInputChange("platform", value)
+                    }
+                    disabled={!formData.clientId}
+                  >
+                    <SelectTrigger
+                      className={errors.platform ? "border-red-500" : ""}
+                    >
+                      <SelectValue>
+                        {formData.platform || "Select platform..."}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PLATFORMS.map((platform) => (
+                        <SelectItem
+                          key={platform.value}
+                          value={platform.value}
+                        >
+                          {platform.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.platform && (
+                    <p className="text-sm text-red-500 mt-1">
+                      This field is required
+                    </p>
+                  )}
+
+                  {/* Custom Platform Input */}
+                  {formData.platform === "Other" && (
+                    <div className="mt-3">
+                      <Label htmlFor="customPlatform">
+                        Custom Platform{" "}
+                        <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="customPlatform"
+                        type="text"
+                        value={formData.customPlatform}
+                        onChange={(e) =>
+                          handleInputChange("customPlatform", e.target.value)
+                        }
+                        placeholder="Enter platform name..."
+                        disabled={!formData.clientId}
+                        className={
+                          errors.customPlatform ? "border-red-500" : ""
+                        }
+                      />
+                      {errors.customPlatform && (
+                        <p className="text-sm text-red-500 mt-1">
+                          This field is required
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Meeting URL for Virtual */}
+            {formData.format === "Virtual" && (
+              <div className="space-y-2">
+                <Label htmlFor="meetingUrl">Meeting URL (optional)</Label>
+                <Input
+                  id="meetingUrl"
+                  icon={<Link className="h-4 w-4" />}
+                  type="text"
+                  value={formData.meetingUrl}
+                  onChange={(e) =>
+                    handleInputChange("meetingUrl", e.target.value)
+                  }
+                  placeholder="Enter meeting URL..."
+                  disabled={!formData.clientId}
+                />
+              </div>
+            )}
+
+            {/* Location for In-Person */}
+            {formData.format === "In-Person" && (
+              <div className="space-y-2">
+                <Label>
+                  Location <span className="text-red-500">*</span>
+                </Label>
+                <AddressSearch
+                  value={formData.address}
+                  onChange={(address) =>
+                    handleInputChange("address", address)
+                  }
+                  onLocationSelect={handleLocationSelect}
+                  disabled={!formData.clientId}
+                />
+                {errors.address && (
+                  <p className="text-sm text-red-500">
+                    This field is required
+                  </p>
+                )}
+                {formData.address && (
+                  <div className="text-sm text-muted-foreground">
+                    {formData.address}, {formData.city}, {formData.state}{" "}
+                    {formData.zip}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Time Conflict Warning */}
+            {timeConflictWarning && (
+              <div
+                className={`rounded-lg border p-4 ${
+                  hasConfirmedConflict
+                    ? "border-green-200 bg-green-50"
+                    : "border-amber-200 bg-amber-50"
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  {hasConfirmedConflict ? (
+                    <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+                  ) : (
+                    <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                  )}
+                  <div className="flex-1">
+                    <h4
+                      className={`font-medium ${
+                        hasConfirmedConflict
+                          ? "text-green-900"
+                          : "text-amber-900"
+                      }`}
+                    >
+                      {hasConfirmedConflict
+                        ? "Ready to Proceed"
+                        : "Time Conflict Detected"}
+                    </h4>
+                    <p
+                      className={`text-sm mt-1 ${
+                        hasConfirmedConflict
+                          ? "text-green-700"
+                          : "text-amber-700"
+                      }`}
+                    >
+                      {timeConflictWarning}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* RSVP URL */}
+            <div className="space-y-2">
+              <Label htmlFor="meetingLink">
+                RSVP URL <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="meetingLink"
+                icon={<Link className="h-4 w-4" />}
+                type="text"
+                value={formData.meetingLink}
+                onChange={(e) =>
+                  handleInputChange("meetingLink", e.target.value)
+                }
+                placeholder="Enter RSVP URL..."
+                disabled={!formData.clientId}
+                className={errors.meetingLink ? "border-red-500" : ""}
+              />
+              {errors.meetingLink && (
+                <p className="text-sm text-red-500 mt-1">
+                  Enter an RSVP URL. For virtual meetings you can paste the link in Meeting URL
+                  above instead.
+                </p>
+              )}
+            </div>
+
+            {/* Submit Button */}
+            <div className="flex gap-3">
+              {editingMeetingId && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleCancelEdit}
+                  disabled={isSubmitting}
+                  className="flex-1"
+                >
+                  Cancel Edit
+                </Button>
+              )}
+              <Button
+                type="submit"
+                className={`${editingMeetingId ? "flex-1" : "w-full"} ${
+                  timeConflictWarning && !hasConfirmedConflict
+                    ? "bg-amber-600 hover:bg-amber-700"
+                    : "bg-primary hover:bg-primary/90 dark:bg-accent-blue dark:text-white dark:hover:bg-accent-blue/90"
+                }`}
+                disabled={isSubmitting || !formData.clientId}
+              >
+                {isSubmitting
+                  ? editingMeetingId
+                    ? "Updating Meeting..."
+                    : "Adding Meeting..."
+                  : timeConflictWarning && !hasConfirmedConflict
+                  ? "⚠️ Confirm to Add Meeting"
+                  : editingMeetingId
+                  ? "Update Meeting"
+                  : "Add Meeting"}
+              </Button>
+            </div>
+            <Dialog open={openModel} onOpenChange={setOpenModel}>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogDescription className="mt-2 text-base">
+                    Save this meeting type for future use?
+                  </DialogDescription>
+                </DialogHeader>
+
+                <DialogFooter className="mt-4 flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => handleSubmitDialod()}
+                  >
+                    NO
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      handleSubmitDialod(true);
+                    }}
+                  >
+                    YES
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={openDeleteModel} onOpenChange={setOpenDeleteModel}>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogDescription className="mt-2 text-base">
+                    {`Are you sure you want to delete ${valueCustomName}? This action cannot be
+                    undone.`}
+                  </DialogDescription>
+                </DialogHeader>
+
+                <DialogFooter className="mt-4 flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setOpenDeleteModel(false)}
+                  >
+                    NO
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      deleteCustomMeeting(typeId);
+                      saveDebugMeeting(savedMeetingForm);
+
+                      setOpenDeleteModel(false);
+                    }}
+                  >
+                    YES
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       <NavigateAwayWarningDialog
         open={leaveGuard.dialogOpen}
         isSaving={leaveGuard.isSaving}
