@@ -204,16 +204,18 @@ export function CategoryExplorer({
     });
   }, [mainContacts, contacts, stepData.keyContacts, saveStepDataLocally]);
 
-  // Ordered accordion list — chosen category first, the other second, then benefit categories
+  // Ordered accordion list — based on what the user chose on FirstContactPrompt.
+  // Company/Plan Sponsor selected → Third Party Contact goes LAST (after benefit cats).
+  // Someone Else selected → Third Party Contact goes FIRST.
   const orderedCategories = useMemo((): BenefitsCategory[] => {
-    if (companyContactCount > 0) {
+    if (initialMainContactCategory === "Company / Plan Sponsor") {
       return [
         "Company / Plan Sponsor",
-        "Third Party Contact",
         "Retirement",
         "Group Health",
         "Group Life",
         "Other Benefits",
+        "Third Party Contact",
       ];
     }
     return [
@@ -224,7 +226,7 @@ export function CategoryExplorer({
       "Group Life",
       "Other Benefits",
     ];
-  }, [companyContactCount]);
+  }, [initialMainContactCategory]);
 
   const [expandedCategory, setExpandedCategory] =
     useState<BenefitsCategory | null>(null);
