@@ -2024,26 +2024,6 @@ export default function MeetingsPage() {
                       </div>
                     </div>
 
-                    {type.id && type.value != "Custom" && (
-                      <button
-                        className="absolute top-2 right-2 hidden group-hover:flex items-center justify-center w-5 h-5 rounded-full bg-red-100 hover:bg-red-200 text-red-600 transition"
-                        onClick={(e) => {
-                          if (!formData.clientId) return;
-                          e.stopPropagation();
-                          const newMeeting = {
-                            value: type.value,
-                            label: type.label,
-                            description: type.description || "",
-                          };
-                          setSavedMeetingForm(newMeeting);
-                          setTypeId(type.id!);
-                          setValueCustomName(type.label);
-                          setOpenDeleteModel(true);
-                        }}
-                      >
-                        ✕
-                      </button>
-                    )}
                     {useSaveMeetingDebugStore.getState().deletedMeeting && (
                       <Button
                         variant="outline"
