@@ -494,6 +494,7 @@ export default function MeetingsPage() {
     description: "",
   });
   const [meetingModalOpen, setMeetingModalOpen] = useState(false);
+  const [deletingMeetingId, setDeletingMeetingId] = useState<string | null>(null);
 
   const hasClients = clients.length > 0;
 
@@ -1250,6 +1251,7 @@ export default function MeetingsPage() {
   };
 
   const handleDeleteMeeting = async (meetingId: string) => {
+    setDeletingMeetingId(meetingId);
     try {
       const response = await fetch(`/api/meetings/${meetingId}`, {
         method: "DELETE",
@@ -1263,6 +1265,8 @@ export default function MeetingsPage() {
       }
     } catch (error) {
       toast.error("An error occurred while deleting the meeting");
+    } finally {
+      setDeletingMeetingId(null);
     }
   };
 
@@ -1743,8 +1747,18 @@ export default function MeetingsPage() {
                   return (
                     <div
                       key={meeting.id}
-                      className="group p-4 border border-border/60 rounded-xl hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 transition-all duration-200 bg-card flex flex-col h-full relative"
+                      className={`group p-4 border border-border/60 rounded-xl hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 transition-all duration-200 bg-card flex flex-col h-full relative ${
+                        deletingMeetingId === meeting.id ? "opacity-50 pointer-events-none" : ""
+                      }`}
                     >
+                      {deletingMeetingId === meeting.id && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-background/40 rounded-xl z-10">
+                          <div className="flex items-center gap-2 px-3 py-2 bg-card border border-border/60 rounded-lg shadow-sm">
+                            <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground font-medium">Deleting...</span>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Header with Title and Status */}
                       <div className="flex items-start justify-between mb-3 pl-1">
