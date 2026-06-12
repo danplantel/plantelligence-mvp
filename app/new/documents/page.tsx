@@ -860,14 +860,7 @@ export default function DocumentsPage() {
           )}
 
           <CardContent className="pt-6">
-            {!selectedPlan ? (
-              <div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-2">
-                <p className="text-gray-800 text-lg font-semibold">Select a plan</p>
-                <p className="text-muted-foreground text-sm">
-                  Choose a plan above to view and manage documents for that client.
-                </p>
-              </div>
-            ) : activeSection === "upload" ? (
+            {!selectedPlan ? null : activeSection === "upload" ? (
               /* ── Upload Documents Section ── */
               <DocumentUploadTab
                 selectedPlan={selectedPlan}
