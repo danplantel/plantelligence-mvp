@@ -108,6 +108,7 @@ export function ComplianceDocumentsUpload({
   const editSectionRef = useRef<HTMLDivElement>(null);
   const initialized = useRef(false);
   const [isSaving, setIsSaving] = useState(false);
+  const isSavingRef = useRef(false);
   const lastSavedDocumentsRef = useRef<string>("");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -437,18 +438,37 @@ export function ComplianceDocumentsUpload({
   }, [clientId, isWizardControlled, onHasUnsavedChangesChange]);
 
   // Documents page: persist new R2 uploads immediately so they appear in Preview/List without requiring Save
+  // DISABLED when showSaveButton is true (the user must click Save manually)
   const isPersistingRef = useRef(false);
+  const persistedStorageKeys = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!clientId || isWizardControlled || !showSaveButton) return;
+    // Don't auto-persist while a manual save is in progress (and vice versa)
+    if (isSavingRef.current) return;
+
     const isTempPersistId = (id: string) =>
       String(id).startsWith("temp-") ||
       String(id).startsWith("doc-") ||
       String(id).startsWith("plan-doc-") ||
       String(id).startsWith("optional-doc-");
     const tempDocs = retirementPlanDocuments.filter(
-      (d) => (d as any).storageKey && isTempPersistId(String(d.id)),
+      (d) => {
+        const key = (d as any).storageKey as string | undefined;
+        return (
+          key &&
+          key.trim() !== "" &&
+          isTempPersistId(String(d.id)) &&
+          !persistedStorageKeys.current.has(key.trim())
+        );
+      },
     );
     if (tempDocs.length === 0 || isPersistingRef.current) return;
+
+    // Mark these storage keys as persisted BEFORE the async call,
+    // so re-entrant effect runs skip them.
+    for (const d of tempDocs) {
+      persistedStorageKeys.current.add((d as any).storageKey.trim());
+    }
 
     isPersistingRef.current = true;
     persistNewDocumentsToApi(clientId, retirementPlanDocuments)
@@ -468,11 +488,16 @@ export function ComplianceDocumentsUpload({
         lastSavedDocumentsRef.current = savedState;
         setHasUnsavedChanges(false);
         if (onHasUnsavedChangesChange) onHasUnsavedChangesChange(false);
-        // Don't call onSave here – the callbacks creates a cascading re-fetch that can trigger
-        // duplicate persistence in effect re-runs.
+        // Notify the parent so it can re-fetch SWR data — mutual exclusion
+        // guards now prevent duplicate persistence from cascading re-fetches.
+        onSave?.(updated);
       })
       .catch((err) => {
         console.error("Persist new documents failed:", err);
+        // Re-allow these keys to be retried on next effect run
+        for (const d of tempDocs) {
+          persistedStorageKeys.current.delete((d as any).storageKey.trim());
+        }
       })
       .finally(() => {
         isPersistingRef.current = false;
@@ -675,10 +700,13 @@ export function ComplianceDocumentsUpload({
 
   // Manual save function
   const handleManualSave = async () => {
-    if (!clientId || isSaving) return;
+    // Don't manually save while auto-persist is in flight
+    if (!clientId || isSavingRef.current || isPersistingRef.current) return;
+    isSavingRef.current = true;
 
     // Don't attempt to save when there are no documents — prevents spurious success toast
     if (retirementPlanDocuments.length === 0) {
+      isSavingRef.current = false;
       return;
     }
 
@@ -687,12 +715,31 @@ export function ComplianceDocumentsUpload({
     );
     if (missingCategory.length > 0 && !hasSkippedCategorization) {
       toast.error("Assign a category to every document before saving.");
+      isSavingRef.current = false;
       return;
     }
 
     setIsSaving(true);
     try {
-      const optionalFiles = retirementPlanDocuments.map((doc) => {
+      // Only send documents that haven't been persisted yet (temp IDs with storageKey).
+      // Already-persisted documents with real DB IDs are skipped to avoid duplicates.
+      const isTempId = (id: string) =>
+        String(id).startsWith("temp-") ||
+        String(id).startsWith("doc-") ||
+        String(id).startsWith("plan-doc-") ||
+        String(id).startsWith("optional-doc-");
+
+      const docsToSave = retirementPlanDocuments.filter(
+        (d) => isTempId(String(d.id)) && (d as any).storageKey,
+      );
+
+      if (docsToSave.length === 0) {
+        setIsSaving(false);
+        isSavingRef.current = false;
+        return;
+      }
+
+      const optionalFiles = docsToSave.map((doc) => {
         let fileData = doc.file;
         if (fileData && fileData.startsWith("data:")) {
           const base64Index = fileData.indexOf(",");
@@ -710,6 +757,7 @@ export function ComplianceDocumentsUpload({
             : guessLanguageFromDocument(doc);
 
         return {
+          title: doc.name || doc.originalFileName || "Document",
           fileName: doc.originalFileName || doc.name,
           fileData,
           fileType,
@@ -771,6 +819,7 @@ export function ComplianceDocumentsUpload({
       toast.error("Error saving documents. Please try again.");
     } finally {
       setIsSaving(false);
+      isSavingRef.current = false;
     }
   };
 

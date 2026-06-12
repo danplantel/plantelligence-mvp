@@ -90,7 +90,7 @@ export function DocumentsUploadSection({
   >(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [isAdding, setIsAdding] = useState(false);
+  const isAddingRef = useRef(false);
   const [uploadProgress, setUploadProgress] = useState<{
     total: number;
     completed: number;
@@ -603,8 +603,8 @@ export function DocumentsUploadSection({
 
   const handleAddDocument = async () => {
     // Prevent double-clicks / duplicate submissions
-    if (isAdding) return;
-    setIsAdding(true);
+    if (isAddingRef.current) return;
+    isAddingRef.current = true;
 
     try {
       if (!currentDocumentName.trim()) {
@@ -832,7 +832,7 @@ export function DocumentsUploadSection({
         }
       }
     } finally {
-      setIsAdding(false);
+      isAddingRef.current = false;
     }
   };
 
@@ -1238,7 +1238,7 @@ export function DocumentsUploadSection({
                 onClick={handleAddDocument}
                 className="flex-1 w-full sm:w-auto"
                 disabled={
-                  isAdding ||
+                  isAddingRef.current ||
                   !currentDocumentName.trim() ||
                   currentDocumentName.length > 60 ||
                   currentDocumentDescription.length > 200
@@ -1252,9 +1252,8 @@ export function DocumentsUploadSection({
                   </>
                 ) : (
                   <>
-                    <Plus className="w-4 h-4 mr-2" />
                     <span className="hidden sm:inline">
-                      Add Document & Upload Another
+                      Add Document
                     </span>
                     <span className="sm:hidden">Add Document</span>
                   </>

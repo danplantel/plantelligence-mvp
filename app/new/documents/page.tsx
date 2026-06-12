@@ -879,6 +879,13 @@ export default function DocumentsPage() {
                   onHasUnsavedChangesChange={setHasUnsavedUploadChanges}
                   onSaveFunctionReady={setUploadSaveFn}
                   onDocumentsSaved={() => {
+                    toast.success("Document saved successfully");
+                    setActiveSection("documents");
+                    if (typeof window !== "undefined") {
+                      const url = new URL(window.location.href);
+                      url.searchParams.set("section", "documents");
+                      window.history.pushState({}, "", url.toString());
+                    }
                     setTimeout(() => {
                       fetchDocuments();
                     }, 500);

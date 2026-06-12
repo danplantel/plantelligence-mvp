@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
                 : null;
             const document = await prisma.document.create({
               data: {
-                title: file.description || file.fileName || "Document",
+                title: (file as any).title || file.fileName || file.description || "Document",
                 fileName: file.fileName || "document.pdf",
                 fileUrl: "r2:stored",
                 storageKey: storageKey.trim(),
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
               : null;
           const document = await prisma.document.create({
             data: {
-              title: file.description || file.fileName || "Document",
+              title: (file as any).title || file.fileName || file.description || "Document",
               fileName: file.fileName || "document.pdf",
               fileUrl,
               shortDescription: file.description || null,
