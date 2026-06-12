@@ -19,11 +19,22 @@ import { useRouter } from "next/navigation";
 import { Settings, LayoutDashboard, FileText, LogOut, Bell, AlertTriangle, Clock, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getNameMonogram } from "@/lib/name-monogram";
+import { LoadingOverlay } from "@/components/ui/loading-overlay";
 
 export function UserNav() {
   const { data: session } = useSession();
   const { stepData, loadStepData } = useOnboardingWizardStore();
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const handleLogout = () => {
+    setIsLoggingOut(true);
+    // Keep the loading overlay visible for at least 2 seconds
+    // so the user clearly sees "Logging out" before redirect
+    setTimeout(() => {
+      signOut({ callbackUrl: "/signin" });
+    }, 2000);
+  };
 
   // Load only user-related data (branding and userSetup) - only once on mount
   useEffect(() => {
@@ -75,43 +86,46 @@ export function UserNav() {
     }
 
     return (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            className="relative flex items-center gap-3 h-12 px-3 rounded-lg hover:bg-accent-blue hover:text-white"
-          >
-            <Avatar className="w-10 h-10">
-              <AvatarImage src={userImage} alt={userName} />
-              <AvatarFallback className="bg-muted text-muted-foreground text-sm font-semibold">
-                {getNameMonogram(userName)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex flex-col items-start">
-              <span className="text-sm font-medium">{userName}</span>
-              {userTitle && (
-                <span className="text-xs">
-                  {userTitle}
-                </span>
-              )}
-            </div>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-56" align="end" forceMount>
-          <DropdownMenuLabel className="font-normal">
-            <div className="flex flex-col space-y-1">
-              <p className="text-sm font-medium leading-none">{userName}</p>
-              <p className="text-xs leading-none text-muted-foreground">
-                {userEmail}
-              </p>
-            </div>
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => signOut({ callbackUrl: "/signin" })}>
-            Log out
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              className="relative flex items-center gap-3 h-12 px-3 rounded-lg hover:bg-accent-blue hover:text-white"
+            >
+              <Avatar className="w-10 h-10">
+                <AvatarImage src={userImage} alt={userName} />
+                <AvatarFallback className="bg-muted text-muted-foreground text-sm font-semibold">
+                  {getNameMonogram(userName)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex flex-col items-start">
+                <span className="text-sm font-medium">{userName}</span>
+                {userTitle && (
+                  <span className="text-xs">
+                    {userTitle}
+                  </span>
+                )}
+              </div>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-56" align="end" forceMount>
+            <DropdownMenuLabel className="font-normal">
+              <div className="flex flex-col space-y-1">
+                <p className="text-sm font-medium leading-none">{userName}</p>
+                <p className="text-xs leading-none text-muted-foreground">
+                  {userEmail}
+                </p>
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleLogout}>
+              Log out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <LoadingOverlay isLoading={isLoggingOut} message="Logging out" hideLogo className="[&>div]:scale-150" />
+      </>
     );
   }
 
