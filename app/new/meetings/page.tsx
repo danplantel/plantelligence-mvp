@@ -1713,21 +1713,25 @@ export default function MeetingsPage() {
                   ))}
                 </div>
               ) : sortedMeetings.length === 0 ? (
-                <div className="text-center py-12">
-                  <CalendarDays className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    No meetings added yet
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Add your first meeting to get started.
-                  </p>
-                  <Button
-                    onClick={() => setMeetingModalOpen(true)}
-                    className="gap-2"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add Meeting
-                  </Button>
+                <div className="col-span-full flex items-center justify-center py-20">
+                  <div className="text-center max-w-sm">
+                    <div className="mx-auto w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-5">
+                      <CalendarDays className="h-8 w-8 text-muted-foreground/60" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-foreground mb-2">
+                      No meetings added yet
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
+                      Get started by scheduling your first meeting session for a client.
+                    </p>
+                    <Button
+                      onClick={() => setMeetingModalOpen(true)}
+                      className="gap-2"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add Meeting
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 sortedMeetings.map((meeting) => {
