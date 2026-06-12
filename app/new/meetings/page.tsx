@@ -316,80 +316,15 @@ const getTimezoneAbbr = (timezone: string) => {
   return tzMap[timezone] || timezone.split("/")[1] || timezone;
 };
 
+// For MVP, limit timezone options to common US timezones to avoid overwhelming
+//  users and because our main user base is in the US. Can expand later if needed.
 const TIMEZONE_OPTIONS = [
-  // North America
   { value: "America/New_York", label: "Eastern Time (ET)" },
   { value: "America/Chicago", label: "Central Time (CT)" },
   { value: "America/Denver", label: "Mountain Time (MT)" },
   { value: "America/Los_Angeles", label: "Pacific Time (PT)" },
   { value: "America/Anchorage", label: "Alaska Time (AT)" },
-  { value: "Pacific/Honolulu", label: "Hawaii Time (HT)" },
-  // Europe
-  { value: "Europe/London", label: "Greenwich Mean Time (GMT)" },
-  { value: "Europe/Paris", label: "Central European Time (CET)" },
-  { value: "Europe/Berlin", label: "Central European Time (CET)" },
-  { value: "Europe/Rome", label: "Central European Time (CET)" },
-  { value: "Europe/Madrid", label: "Central European Time (CET)" },
-  { value: "Europe/Amsterdam", label: "Central European Time (CET)" },
-  { value: "Europe/Zurich", label: "Central European Time (CET)" },
-  { value: "Europe/Vienna", label: "Central European Time (CET)" },
-  { value: "Europe/Stockholm", label: "Central European Time (CET)" },
-  { value: "Europe/Oslo", label: "Central European Time (CET)" },
-  { value: "Europe/Copenhagen", label: "Central European Time (CET)" },
-  { value: "Europe/Helsinki", label: "Eastern European Time (EET)" },
-  { value: "Europe/Warsaw", label: "Central European Time (CET)" },
-  { value: "Europe/Prague", label: "Central European Time (CET)" },
-  { value: "Europe/Budapest", label: "Central European Time (CET)" },
-  { value: "Europe/Athens", label: "Eastern European Time (EET)" },
-  { value: "Europe/Istanbul", label: "Turkey Time (TRT)" },
-  { value: "Europe/Moscow", label: "Moscow Time (MSK)" },
-  // Asia
-  { value: "Asia/Tokyo", label: "Japan Standard Time (JST)" },
-  { value: "Asia/Shanghai", label: "China Standard Time (CST)" },
-  { value: "Asia/Hong_Kong", label: "Hong Kong Time (HKT)" },
-  { value: "Asia/Singapore", label: "Singapore Time (SGT)" },
-  { value: "Asia/Seoul", label: "Korea Standard Time (KST)" },
-  { value: "Asia/Taipei", label: "Taiwan Time (CST)" },
-  { value: "Asia/Bangkok", label: "Indochina Time (ICT)" },
-  { value: "Asia/Jakarta", label: "Western Indonesia Time (WIB)" },
-  { value: "Asia/Manila", label: "Philippine Time (PHT)" },
-  { value: "Asia/Kolkata", label: "India Standard Time (IST)" },
-  { value: "Asia/Dubai", label: "Gulf Standard Time (GST)" },
-  { value: "Asia/Tehran", label: "Iran Standard Time (IRST)" },
-  { value: "Asia/Karachi", label: "Pakistan Standard Time (PKT)" },
-  { value: "Asia/Dhaka", label: "Bangladesh Standard Time (BST)" },
-  { value: "Asia/Kathmandu", label: "Nepal Time (NPT)" },
-  { value: "Asia/Colombo", label: "Sri Lanka Standard Time (SLST)" },
-  { value: "Asia/Riyadh", label: "Arabia Standard Time (AST)" },
-  { value: "Asia/Jerusalem", label: "Israel Standard Time (IST)" },
-  // Australia
-  { value: "Australia/Sydney", label: "Australian Eastern Time (AEST)" },
-  { value: "Australia/Melbourne", label: "Australian Eastern Time (AEST)" },
-  { value: "Australia/Brisbane", label: "Australian Eastern Time (AEST)" },
-  { value: "Australia/Perth", label: "Australian Western Time (AWST)" },
-  { value: "Australia/Adelaide", label: "Australian Central Time (ACST)" },
-  { value: "Australia/Darwin", label: "Australian Central Time (ACST)" },
-  // Pacific
-  { value: "Pacific/Auckland", label: "New Zealand Time (NZST)" },
-  { value: "Pacific/Fiji", label: "Fiji Time (FJT)" },
-  // South America
-  { value: "America/Sao_Paulo", label: "Brasilia Time (BRT)" },
-  { value: "America/Buenos_Aires", label: "Argentina Time (ART)" },
-  { value: "America/Lima", label: "Peru Time (PET)" },
-  { value: "America/Bogota", label: "Colombia Time (COT)" },
-  { value: "America/Santiago", label: "Chile Time (CLT)" },
-  { value: "America/Caracas", label: "Venezuela Time (VET)" },
-  // Africa
-  { value: "Africa/Cairo", label: "Eastern European Time (EET)" },
-  { value: "Africa/Johannesburg", label: "South Africa Time (SAST)" },
-  { value: "Africa/Lagos", label: "West Africa Time (WAT)" },
-  { value: "Africa/Nairobi", label: "East Africa Time (EAT)" },
-  { value: "Africa/Casablanca", label: "Western European Time (WET)" },
-  { value: "Africa/Tunis", label: "Central European Time (CET)" },
-  { value: "Africa/Algiers", label: "Central European Time (CET)" },
-  // UTC
-  { value: "UTC", label: "Coordinated Universal Time (UTC)" },
-  { value: "GMT", label: "Greenwich Mean Time (GMT)" },
+  { value: "Pacific/Honolulu", label: "Hawaii Time (HT)" }
 ];
 
 const formatIcons = {
