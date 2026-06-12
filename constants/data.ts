@@ -1201,18 +1201,6 @@ export const navItems: NavItem[] = [
     href: "/new/documents",
     icon: "fileText",
     label: "Documents",
-    items: [
-      {
-        title: "Manage/Edit",
-        href: "/new/documents?tab=preview",
-        label: "Manage/Edit",
-      },
-      {
-        title: "Upload",
-        href: "/new/documents?tab=upload",
-        label: "Upload",
-      },
-    ],
   },
   {
     title: "Video",
