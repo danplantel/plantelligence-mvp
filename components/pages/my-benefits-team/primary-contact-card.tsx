@@ -169,7 +169,7 @@ export function PrimaryContactCard({
   if (buttons.length === 0 && contact.enableContactButton === undefined) {
     buttons.push({
       type: "schedule",
-      label: "Book Now",
+      label: "Schedule Appt.",
       url: appointmentLink,
     });
     primaryIndex = 0;

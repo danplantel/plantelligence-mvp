@@ -127,7 +127,7 @@ export function SmallVerticalCard({
       if (primaryIndex === -1) primaryIndex = buttons.length;
       buttons.push({
         type: "schedule",
-        label: "Book Now",
+        label: "Schedule Appt.",
         url: contact.schedulingUrl || appointmentLink,
       });
     } else if (ctaBtnType === "phone") {
@@ -161,9 +161,9 @@ export function SmallVerticalCard({
       ) {
         if (primaryIndex === -1) primaryIndex = buttons.length;
         buttons.push({
-          type: "schedule",
-          label: "Book Now",
-          url: contact.schedulingUrl || appointmentLink,
+            type: "schedule",
+            label: "Schedule Appt.",
+            url: contact.schedulingUrl || appointmentLink,
         });
       } else if (
         buttonType === "website" &&
@@ -187,7 +187,7 @@ export function SmallVerticalCard({
   if (buttons.length === 0 && contact.enableContactButton === undefined) {
     buttons.push({
       type: "schedule",
-      label: "Book Now",
+      label: "Schedule Appt.",
       url: appointmentLink,
     });
     primaryIndex = 0;
