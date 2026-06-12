@@ -2261,12 +2261,28 @@ export default function MeetingsPage() {
                     onSelect={(date) => {
                       if (date) {
                         handleInputChange("date", format(date, "yyyy-MM-dd"));
-                        setDatePickerOpen(false);
                       }
                     }}
                     disabled={(date) => date < new Date()}
                     initialFocus
                   />
+                  <div className="flex items-center justify-end gap-2 px-3 py-2 border-t border-border">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDatePickerOpen(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => setDatePickerOpen(false)}
+                    >
+                      OK
+                    </Button>
+                  </div>
                 </PopoverContent>
               </Popover>
               {errors.date && (
@@ -2418,6 +2434,23 @@ export default function MeetingsPage() {
                       </div>
                     </div>
                   </div>
+                  <div className="flex items-center justify-end gap-2 px-3 py-2 border-t border-border">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setTimePickerOpen(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => setTimePickerOpen(false)}
+                    >
+                      OK
+                    </Button>
+                  </div>
                 </PopoverContent>
               </Popover>
               {errors.time && (
@@ -2528,6 +2561,23 @@ export default function MeetingsPage() {
                         ))}
                       </div>
                     </div>
+                  </div>
+                  <div className="flex items-center justify-end gap-2 px-3 py-2 border-t border-border">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDurationPickerOpen(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => setDurationPickerOpen(false)}
+                    >
+                      OK
+                    </Button>
                   </div>
                 </PopoverContent>
               </Popover>
