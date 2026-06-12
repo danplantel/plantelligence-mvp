@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { Loader2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,6 +23,8 @@ interface ConfirmDialogProps {
   confirmText?: string;
   cancelText?: string;
   variant?: "default" | "destructive" | "warning" | "info";
+  /** When true, confirm button shows a spinner and buttons are disabled */
+  isLoading?: boolean;
 }
 
 export function ConfirmDialog({
@@ -32,10 +36,19 @@ export function ConfirmDialog({
   confirmText = "Continue",
   cancelText = "Cancel",
   variant = "default",
+  isLoading = false,
 }: ConfirmDialogProps) {
-  const handleConfirm = () => {
-    onConfirm();
-    onOpenChange(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const busy = isLoading || isProcessing;
+
+  const handleConfirm = async () => {
+    setIsProcessing(true);
+    try {
+      await onConfirm();
+    } finally {
+      setIsProcessing(false);
+      onOpenChange(false);
+    }
   };
 
   const getVariantStyles = () => {
@@ -74,7 +87,14 @@ export function ConfirmDialog({
   const variantStyles = getVariantStyles();
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialog
+      open={open}
+      onOpenChange={(next) => {
+        // Prevent closing while deletion is in progress
+        if (!next && busy) return;
+        onOpenChange(next);
+      }}
+    >
       <AlertDialogContent className="max-w-md">
         <AlertDialogHeader>
           <div className="flex items-start gap-4">
@@ -94,14 +114,22 @@ export function ConfirmDialog({
           </div>
         </AlertDialogHeader>
         <AlertDialogFooter className="flex-row gap-2 sm:gap-2">
-          <AlertDialogCancel className="flex-1 m-0">
+          <AlertDialogCancel className="flex-1 m-0" disabled={busy}>
             {cancelText}
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={handleConfirm}
+            disabled={busy}
             className={`flex-1 ${variantStyles.confirmButtonClass}`}
           >
-            {confirmText}
+            {busy ? (
+              <span className="flex items-center justify-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Deleting...
+              </span>
+            ) : (
+              confirmText
+            )}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

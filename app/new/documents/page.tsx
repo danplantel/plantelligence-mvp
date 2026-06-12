@@ -408,7 +408,7 @@ export default function DocumentsPage() {
           delete next[documentToDelete.id];
           return next;
         });
-        fetchDocuments();
+        await fetchDocuments();
       } else {
         toast.error("Failed to delete document");
       }
