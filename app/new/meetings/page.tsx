@@ -1655,10 +1655,14 @@ export default function MeetingsPage() {
                       {/* Header with Title and Status */}
                       <div className="flex items-start justify-between mb-3 pl-1">
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-2">
+                          <div className="flex items-center gap-2 mb-1">
                             <h4 className="font-semibold text-sm truncate leading-tight">
                               {meeting.meeting}
                             </h4>
+                          </div>
+
+                          {/* Tags row */}
+                          <div className="flex items-center gap-1.5 flex-wrap mb-2">
                             <Badge
                               className={`text-[10px] border px-1.5 py-px shrink-0 ${
                                 statusColors[
@@ -1671,6 +1675,17 @@ export default function MeetingsPage() {
                             {meeting.benefitsCategory && (
                               <span className="text-[10px] font-medium text-muted-foreground/60 border border-border/40 px-1.5 py-px rounded shrink-0 leading-tight">
                                 {meeting.benefitsCategory}
+                              </span>
+                            )}
+                            {meeting.language && (
+                              <span
+                                className={`text-[10px] font-semibold px-1.5 py-px rounded shrink-0 leading-tight ${
+                                  meeting.language === "Spanish"
+                                    ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                    : "bg-sky-50 text-sky-700 border border-sky-200"
+                                }`}
+                              >
+                                {meeting.language === "Spanish" ? "ES" : "EN"}
                               </span>
                             )}
                           </div>
@@ -1819,25 +1834,14 @@ export default function MeetingsPage() {
                         </div>
                       </div>
 
-                      {/* Client + Language */}
-                      <div className="flex items-center justify-between pt-2.5 border-t border-border/50 mt-auto bg-muted/30 -mx-4 -mb-4 px-4 pb-3 rounded-b-xl">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          <span className="text-[11px] font-medium text-muted-foreground/70 shrink-0">
-                            Client
-                          </span>
-                          <span className="text-xs font-semibold truncate">
-                            {meeting.client}
-                          </span>
-                        </div>
-                        <span
-                          className={`text-[10px] font-semibold px-1.5 py-px rounded shrink-0 leading-tight ${
-                            meeting.language === "Spanish"
-                              ? "bg-amber-50 text-amber-700 border border-amber-200"
-                              : "bg-sky-50 text-sky-700 border border-sky-200"
-                          }`}
-                        >
-                          {meeting.language === "Spanish" ? "ES" : "EN"}
+                      {/* Client */}
+                      <div className="flex items-center gap-1.5 pt-2.5 border-t border-border/50 mt-auto bg-muted/30 -mx-4 -mb-4 px-4 pb-3 rounded-b-xl">
+                        <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span className="text-[11px] font-medium text-muted-foreground/70 shrink-0">
+                          Client
+                        </span>
+                        <span className="text-xs font-semibold truncate">
+                          {meeting.client}
                         </span>
                       </div>
                     </div>
