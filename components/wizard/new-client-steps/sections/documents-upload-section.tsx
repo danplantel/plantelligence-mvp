@@ -90,6 +90,7 @@ export function DocumentsUploadSection({
   >(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{
     total: number;
     completed: number;
@@ -601,26 +602,13 @@ export function DocumentsUploadSection({
   };
 
   const handleAddDocument = async () => {
-    if (!currentDocumentName.trim()) {
-      alert("Document name is required");
-      return;
-    }
+    // Prevent double-clicks / duplicate submissions
+    if (isAdding) return;
+    setIsAdding(true);
 
-    // Validate character limits
-    if (currentDocumentName.length > 60) {
-      alert("Document name cannot exceed 60 characters");
-      return;
-    }
-
-    if (currentDocumentDescription.length > 200) {
-      alert("Description cannot exceed 200 characters");
-      return;
-    }
-
-    // In edit mode, file can be existing (from URL) or new (from File)
-    if (editingDocument) {
-      if (!currentDocumentFile && !currentDocumentFileUrl) {
-        alert("Please select a file");
+    try {
+      if (!currentDocumentName.trim()) {
+        alert("Document name is required");
         return;
       }
 
@@ -635,14 +623,108 @@ export function DocumentsUploadSection({
         return;
       }
 
-      try {
-        let fileData = currentDocumentFileUrl || "";
-        let fileSize = editingDocument.size;
-        let originalFileName = editingDocument.originalFileName || "";
-        let storageKeyPayload: string | undefined;
+      // In edit mode, file can be existing (from URL) or new (from File)
+      if (editingDocument) {
+        if (!currentDocumentFile && !currentDocumentFileUrl) {
+          alert("Please select a file");
+          return;
+        }
 
-        // If new file is selected: try R2 when clientId set, else base64
-        if (currentDocumentFile) {
+        // Validate character limits
+        if (currentDocumentName.length > 60) {
+          alert("Document name cannot exceed 60 characters");
+          return;
+        }
+
+        if (currentDocumentDescription.length > 200) {
+          alert("Description cannot exceed 200 characters");
+          return;
+        }
+
+        try {
+          let fileData = currentDocumentFileUrl || "";
+          let fileSize = editingDocument.size;
+          let originalFileName = editingDocument.originalFileName || "";
+          let storageKeyPayload: string | undefined;
+
+          // If new file is selected: try R2 when clientId set, else base64
+          if (currentDocumentFile) {
+            if (clientId) {
+              try {
+                const category = (currentDocumentCategory || fixedCategory || "Other Benefits") as string;
+                const key = await uploadFileToR2({
+                  file: currentDocumentFile,
+                  purpose: "document",
+                  clientId,
+                  fileName: currentDocumentFile.name,
+                  category: toCanonicalCategory(category),
+                });
+                if (key) {
+                  fileData = "r2:stored";
+                  storageKeyPayload = key;
+                } else {
+                  fileData = await fileToBase64(currentDocumentFile);
+                }
+              } catch {
+                fileData = await fileToBase64(currentDocumentFile);
+              }
+            } else {
+              fileData = await fileToBase64(currentDocumentFile);
+            }
+            fileSize = currentDocumentFile.size;
+            originalFileName = currentDocumentFile.name;
+          }
+
+          // Truncate to limits if somehow exceeded
+          const truncatedName = currentDocumentName.trim().substring(0, 60);
+          const truncatedDescription = currentDocumentDescription
+            .trim()
+            .substring(0, 200);
+
+          const updatedDocument: Document = {
+            ...editingDocument,
+            name: truncatedName,
+            file: fileData,
+            size: fileSize,
+            shortDescription: truncatedDescription || undefined,
+            originalFileName,
+            expirationDate: currentDocumentExpirationDate
+              ? new Date(currentDocumentExpirationDate).toISOString()
+              : undefined,
+            category: currentDocumentCategory,
+            ...(storageKeyPayload && { storageKey: storageKeyPayload }),
+          };
+
+          if (onSaveEdit) {
+            onSaveEdit(updatedDocument);
+          }
+
+          resetCurrentFormState();
+        } catch (error) {
+          console.error("Error processing file:", error);
+          alert("Failed to process file");
+        }
+      } else {
+        // Add new document mode
+        if (!currentDocumentFile) {
+          alert("Please select a file");
+          return;
+        }
+
+        const fileName = currentDocumentFile.name;
+        setIsUploading(true);
+        setUploadProgress({
+          total: 1,
+          completed: 0,
+          currentFile: fileName,
+          fileStatuses: [{ fileName, status: "uploading" as const }],
+        });
+
+        try {
+          const base64ForAnalysis = await fileToBase64(currentDocumentFile);
+          let filePayload: string = base64ForAnalysis;
+          let storageKeyPayload: string | undefined;
+
           if (clientId) {
             try {
               const category = (currentDocumentCategory || fixedCategory || "Other Benefits") as string;
@@ -652,178 +734,105 @@ export function DocumentsUploadSection({
                 clientId,
                 fileName: currentDocumentFile.name,
                 category: toCanonicalCategory(category),
+                onProgress: (loaded, total) => {
+                  setUploadProgress((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          currentFileBytes: { loaded, total },
+                          currentFile: currentDocumentFile.name,
+                        }
+                      : null,
+                  );
+                },
               });
               if (key) {
-                fileData = "r2:stored";
+                filePayload = "r2:stored";
                 storageKeyPayload = key;
-              } else {
-                fileData = await fileToBase64(currentDocumentFile);
               }
             } catch {
-              fileData = await fileToBase64(currentDocumentFile);
+              // keep filePayload as base64
             }
+          }
+
+          const tempDoc: Document = {
+            id: `temp-${Date.now()}-${Math.random()}`,
+            name: currentDocumentName.trim(),
+            file: base64ForAnalysis,
+            type: "other",
+            size: currentDocumentFile.size,
+            status: "success",
+            shortDescription: currentDocumentDescription.trim() || undefined,
+            originalFileName: currentDocumentFile.name,
+          };
+
+          const detectedLanguage = await guessLanguageFromDocument(tempDoc);
+
+          const truncatedName = currentDocumentName.trim().substring(0, 60);
+          const truncatedDescription = currentDocumentDescription
+            .trim()
+            .substring(0, 200);
+
+          const newDocument: Document = {
+            ...tempDoc,
+            id: `doc-${Date.now()}-${Math.random()}`,
+            name: truncatedName,
+            file: filePayload,
+            ...(storageKeyPayload && { storageKey: storageKeyPayload }),
+            shortDescription: truncatedDescription || undefined,
+            language: detectedLanguage, // Store detected language
+            expirationDate: currentDocumentExpirationDate
+              ? new Date(currentDocumentExpirationDate).toISOString()
+              : undefined,
+            category: currentDocumentCategory,
+            categorySuggested: (currentDocumentFile as any)?._autoDetection?.category,
+            categoryConfidence: (currentDocumentFile as any)?._autoDetection?.confidence,
+          };
+
+          const sameFile = documents.some(
+            (d) => {
+              const sameName =
+                (d.originalFileName || d.name || "").toLowerCase() ===
+                (newDocument.originalFileName || newDocument.name || "").toLowerCase();
+              if (!sameName) return false;
+              // When fixedCategory is set (e.g. create benefits for Group Health), only treat as duplicate if same category
+              if (fixedCategory) return (d.category || "") === fixedCategory;
+              return true;
+            },
+          );
+          if (!sameFile) {
+            onDocumentsChange([...documents, newDocument]);
           } else {
-            fileData = await fileToBase64(currentDocumentFile);
+            toast.info("A document with this file name already exists in this category.");
           }
-          fileSize = currentDocumentFile.size;
-          originalFileName = currentDocumentFile.name;
+
+          setUploadProgress({
+            total: 1,
+            completed: 1,
+            currentFile: null,
+            currentFileBytes: undefined,
+            fileStatuses: [{ fileName, status: "ready" }],
+          });
+          resetCurrentFormState();
+        } catch (error) {
+          console.error("Error processing file:", error);
+          setUploadProgress({
+            total: 1,
+            completed: 1,
+            currentFile: null,
+            currentFileBytes: undefined,
+            fileStatuses: [{ fileName, status: "error" }],
+          });
+          toast.error("Failed to process file");
+        } finally {
+          setTimeout(() => {
+            setIsUploading(false);
+            setUploadProgress(null);
+          }, 400);
         }
-
-        // Truncate to limits if somehow exceeded
-        const truncatedName = currentDocumentName.trim().substring(0, 60);
-        const truncatedDescription = currentDocumentDescription
-          .trim()
-          .substring(0, 200);
-
-        const updatedDocument: Document = {
-          ...editingDocument,
-          name: truncatedName,
-          file: fileData,
-          size: fileSize,
-          shortDescription: truncatedDescription || undefined,
-          originalFileName,
-          expirationDate: currentDocumentExpirationDate
-            ? new Date(currentDocumentExpirationDate).toISOString()
-            : undefined,
-          category: currentDocumentCategory,
-          ...(storageKeyPayload && { storageKey: storageKeyPayload }),
-        };
-
-        if (onSaveEdit) {
-          onSaveEdit(updatedDocument);
-        }
-
-        resetCurrentFormState();
-      } catch (error) {
-        console.error("Error processing file:", error);
-        alert("Failed to process file");
       }
-    } else {
-      // Add new document mode
-      if (!currentDocumentFile) {
-        alert("Please select a file");
-        return;
-      }
-
-      const fileName = currentDocumentFile.name;
-      setIsUploading(true);
-      setUploadProgress({
-        total: 1,
-        completed: 0,
-        currentFile: fileName,
-        fileStatuses: [{ fileName, status: "uploading" as const }],
-      });
-
-      try {
-        const base64ForAnalysis = await fileToBase64(currentDocumentFile);
-        let filePayload: string = base64ForAnalysis;
-        let storageKeyPayload: string | undefined;
-
-        if (clientId) {
-          try {
-            const category = (currentDocumentCategory || fixedCategory || "Other Benefits") as string;
-            const key = await uploadFileToR2({
-              file: currentDocumentFile,
-              purpose: "document",
-              clientId,
-              fileName: currentDocumentFile.name,
-              category: toCanonicalCategory(category),
-              onProgress: (loaded, total) => {
-                setUploadProgress((prev) =>
-                  prev
-                    ? {
-                        ...prev,
-                        currentFileBytes: { loaded, total },
-                        currentFile: currentDocumentFile.name,
-                      }
-                    : null,
-                );
-              },
-            });
-            if (key) {
-              filePayload = "r2:stored";
-              storageKeyPayload = key;
-            }
-          } catch {
-            // keep filePayload as base64
-          }
-        }
-
-        const tempDoc: Document = {
-          id: `temp-${Date.now()}-${Math.random()}`,
-          name: currentDocumentName.trim(),
-          file: base64ForAnalysis,
-          type: "other",
-          size: currentDocumentFile.size,
-          status: "success",
-          shortDescription: currentDocumentDescription.trim() || undefined,
-          originalFileName: currentDocumentFile.name,
-        };
-
-        const detectedLanguage = await guessLanguageFromDocument(tempDoc);
-
-        const truncatedName = currentDocumentName.trim().substring(0, 60);
-        const truncatedDescription = currentDocumentDescription
-          .trim()
-          .substring(0, 200);
-
-        const newDocument: Document = {
-          ...tempDoc,
-          id: `doc-${Date.now()}-${Math.random()}`,
-          name: truncatedName,
-          file: filePayload,
-          ...(storageKeyPayload && { storageKey: storageKeyPayload }),
-          shortDescription: truncatedDescription || undefined,
-          language: detectedLanguage, // Store detected language
-          expirationDate: currentDocumentExpirationDate
-            ? new Date(currentDocumentExpirationDate).toISOString()
-            : undefined,
-          category: currentDocumentCategory,
-          categorySuggested: (currentDocumentFile as any)?._autoDetection?.category,
-          categoryConfidence: (currentDocumentFile as any)?._autoDetection?.confidence,
-        };
-
-        const sameFile = documents.some(
-          (d) => {
-            const sameName =
-              (d.originalFileName || d.name || "").toLowerCase() ===
-              (newDocument.originalFileName || newDocument.name || "").toLowerCase();
-            if (!sameName) return false;
-            // When fixedCategory is set (e.g. create benefits for Group Health), only treat as duplicate if same category
-            if (fixedCategory) return (d.category || "") === fixedCategory;
-            return true;
-          },
-        );
-        if (!sameFile) {
-          onDocumentsChange([...documents, newDocument]);
-        } else {
-          toast.info("A document with this file name already exists in this category.");
-        }
-
-        setUploadProgress({
-          total: 1,
-          completed: 1,
-          currentFile: null,
-          currentFileBytes: undefined,
-          fileStatuses: [{ fileName, status: "ready" }],
-        });
-        resetCurrentFormState();
-      } catch (error) {
-        console.error("Error processing file:", error);
-        setUploadProgress({
-          total: 1,
-          completed: 1,
-          currentFile: null,
-          currentFileBytes: undefined,
-          fileStatuses: [{ fileName, status: "error" }],
-        });
-        toast.error("Failed to process file");
-      } finally {
-        setTimeout(() => {
-          setIsUploading(false);
-          setUploadProgress(null);
-        }, 400);
-      }
+    } finally {
+      setIsAdding(false);
     }
   };
 
@@ -1229,6 +1238,7 @@ export function DocumentsUploadSection({
                 onClick={handleAddDocument}
                 className="flex-1 w-full sm:w-auto"
                 disabled={
+                  isAdding ||
                   !currentDocumentName.trim() ||
                   currentDocumentName.length > 60 ||
                   currentDocumentDescription.length > 200

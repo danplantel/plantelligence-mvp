@@ -468,7 +468,8 @@ export function ComplianceDocumentsUpload({
         lastSavedDocumentsRef.current = savedState;
         setHasUnsavedChanges(false);
         if (onHasUnsavedChangesChange) onHasUnsavedChangesChange(false);
-        onSave?.(updated);
+        // Don't call onSave here – the callbacks creates a cascading re-fetch that can trigger
+        // duplicate persistence in effect re-runs.
       })
       .catch((err) => {
         console.error("Persist new documents failed:", err);
