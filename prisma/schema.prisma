@@ -750,6 +750,10 @@ model Meeting {
   state   String? // State
   zip     String? // ZIP code
 
+  language              String? // Meeting language (English, Spanish)
+  benefitsCategory      String? // Retirement, Group Health, Group Life, Other
+  customBenefitsCategory String? // Custom benefits category when Other is selected
+
   // Plan / Benefits Hub (3b.1)
   hubLocation      String? // Single location: join link or physical address
   displayOnPortal  Boolean  @default(true)

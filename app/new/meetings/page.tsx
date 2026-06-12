@@ -2798,7 +2798,8 @@ export default function MeetingsPage() {
               variant="outline"
               className="justify-start gap-3 h-auto py-3"
               onClick={() => {
-                handleInputChange("language", formData.language === "Spanish" ? "English" : "Spanish");
+                const newLang = formData.language === "Spanish" ? "English" : "Spanish";
+                setFormData((prev) => ({ ...prev, language: newLang }));
                 setPostSaveDialogOpen(false);
               }}
             >

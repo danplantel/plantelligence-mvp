@@ -28,6 +28,9 @@ export async function POST(request: NextRequest) {
       city,
       state,
       zip,
+      language,
+      benefitsCategory,
+      customBenefitsCategory,
     } = body;
 
     // Validate required fields
@@ -95,6 +98,9 @@ export async function POST(request: NextRequest) {
         status: "Scheduled",
         attendees: 0,
         displayOnPortal: true,
+        language: language || null,
+        benefitsCategory: benefitsCategory || null,
+        customBenefitsCategory: customBenefitsCategory || null,
         // Address fields
         address: address || null,
         city: city || null,

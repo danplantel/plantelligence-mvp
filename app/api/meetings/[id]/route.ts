@@ -32,6 +32,9 @@ export async function PUT(
       city,
       state,
       zip,
+      language,
+      benefitsCategory,
+      customBenefitsCategory,
     } = body;
 
     // Check if meeting exists and belongs to current user
@@ -106,6 +109,9 @@ export async function PUT(
         city,
         state,
         zip,
+        language: language || null,
+        benefitsCategory: benefitsCategory || null,
+        customBenefitsCategory: customBenefitsCategory || null,
       },
     });
 
