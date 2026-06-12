@@ -2799,7 +2799,7 @@ export default function MeetingsPage() {
               className="justify-start gap-3 h-auto py-3"
               onClick={() => {
                 const newLang = formData.language === "Spanish" ? "English" : "Spanish";
-                setFormData((prev) => ({ ...prev, language: newLang }));
+                setFormData((prev) => ({ ...prev, language: newLang, date: "", time: "", hour: "", minute: "", ampm: "" }));
                 setPostSaveDialogOpen(false);
               }}
             >
@@ -2815,7 +2815,7 @@ export default function MeetingsPage() {
               variant="outline"
               className="justify-start gap-3 h-auto py-3"
               onClick={() => {
-                setFormData((prev) => ({ ...prev, address: "", city: "", state: "", zip: "", format: "" }));
+                setFormData((prev) => ({ ...prev, date: "", time: "", hour: "", minute: "", ampm: "" }));
                 setPostSaveDialogOpen(false);
               }}
             >
@@ -2829,7 +2829,7 @@ export default function MeetingsPage() {
               variant="outline"
               className="justify-start gap-3 h-auto py-3"
               onClick={() => {
-                setFormData((prev) => ({ ...prev, benefitsCategory: "", customBenefitsCategory: "" }));
+                setFormData((prev) => ({ ...prev, benefitsCategory: "", customBenefitsCategory: "", date: "", time: "", hour: "", minute: "", ampm: "" }));
                 setPostSaveDialogOpen(false);
               }}
             >
