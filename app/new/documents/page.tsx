@@ -880,14 +880,15 @@ export default function DocumentsPage() {
                   onSaveFunctionReady={setUploadSaveFn}
                   onDocumentsSaved={() => {
                     toast.success("Document saved successfully");
-                    setActiveSection("documents");
-                    if (typeof window !== "undefined") {
-                      const url = new URL(window.location.href);
-                      url.searchParams.set("section", "documents");
-                      window.history.pushState({}, "", url.toString());
-                    }
-                    setTimeout(() => {
-                      fetchDocuments();
+                    // Re-fetch the document list first, then navigate once data is ready.
+                    setTimeout(async () => {
+                      await fetchDocuments();
+                      setActiveSection("documents");
+                      if (typeof window !== "undefined") {
+                        const url = new URL(window.location.href);
+                        url.searchParams.set("section", "documents");
+                        window.history.pushState({}, "", url.toString());
+                      }
                     }, 500);
                   }}
                 />
