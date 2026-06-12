@@ -437,6 +437,7 @@ export default function MeetingsPage() {
   });
   const [meetingModalOpen, setMeetingModalOpen] = useState(false);
   const [deletingMeetingId, setDeletingMeetingId] = useState<string | null>(null);
+  const [postSaveDialogOpen, setPostSaveDialogOpen] = useState(false);
 
   const hasClients = clients.length > 0;
 
@@ -811,6 +812,11 @@ export default function MeetingsPage() {
         return false;
       }
 
+      if (meetings.length === 0) {
+        setTimeConflictWarning("");
+        return false;
+      }
+
       // Normalize dates for comparison (both to YYYY-MM-DD format)
       const normalizeDate = (dateStr: string) => {
         const d = new Date(dateStr);
@@ -889,29 +895,6 @@ export default function MeetingsPage() {
     }
   };
 
-  // Check for conflicts when relevant fields change
-  useEffect(() => {
-    // Reset conflict confirmation when any conflict-related field changes
-    setHasConfirmedConflict(false);
-
-    if (formData.date && formData.time) {
-      checkTimeConflict(
-        formData.date,
-        formData.time,
-        formData.address || "",
-        formData.format,
-      );
-    } else {
-      // Clear warning if fields are empty
-      setTimeConflictWarning("");
-    }
-  }, [
-    formData.date,
-    formData.time,
-    formData.address,
-    formData.format,
-    checkTimeConflict,
-  ]);
 
   const handleDurationChange = useCallback(
     (field: "hour" | "minute", value: string) => {
@@ -1029,56 +1012,6 @@ export default function MeetingsPage() {
       return;
     }
 
-    if (formData.date && formData.time) {
-      const normalizeDate = (dateStr: string) => {
-        const d = new Date(dateStr);
-        return d.toISOString().split("T")[0];
-      };
-
-      const formDateNormalized = normalizeDate(formData.date);
-
-      const conflictingMeetings = meetings.filter((meeting) => {
-        if (editingMeetingId && meeting.id === editingMeetingId) {
-          return false;
-        }
-
-        const meetingDateNormalized = normalizeDate(meeting.date);
-
-        const dateMatch = meetingDateNormalized === formDateNormalized;
-        const timeMatch = meeting.time === formData.time;
-
-        let isConflict = dateMatch && timeMatch;
-
-        if (
-          formData.format === "In-Person" &&
-          meeting.format === "In-Person" &&
-          formData.address
-        ) {
-          const addressMatch = meeting.address === formData.address;
-          isConflict = dateMatch && timeMatch && addressMatch;
-        }
-
-        return isConflict;
-      });
-
-      if (conflictingMeetings.length > 0 && !hasConfirmedConflict) {
-        // First click: confirm the conflict automatically and ask user to click again
-        setHasConfirmedConflict(true);
-        setTimeConflictWarning(
-          "Conflict confirmed. Click 'Confirm to Add Meeting' again to proceed.",
-        );
-
-        toast.warning(
-          "⚠️ Time conflict confirmed! Click 'Confirm to Add Meeting' once more to proceed.",
-          {
-            duration: 5000,
-          },
-        );
-        // Scroll to the conflict warning
-        window.scrollTo({ top: 0, behavior: "smooth" });
-        return;
-      }
-    }
 
     if (isValueCastom === "Custom") {
       setOpenModel(true);
@@ -1125,42 +1058,47 @@ export default function MeetingsPage() {
             ? "Meeting updated successfully!"
             : "Meeting created successfully!",
         );
-        // Reset form
-        setFormData({
-          meetingType: formData.meetingType,
-          customMeetingType: "",
-          client: formData.client,
-          clientId: formData.clientId,
-          date: "",
-          time: "",
-          hour: "",
-          minute: "",
-          ampm: "",
-          timezone: "America/New_York",
-          duration: "",
-          customDuration: "",
-          format: "",
-          platform: "",
-          customPlatform: "",
-          meetingUrl: "",
-          meetingLink: "",
-          maxAttendees: "",
-          description: "", // Start with empty description
-          address: "",
-          city: "",
-          state: "",
-          zip: "",
-          language: "",
-          benefitsCategory: "",
-          customBenefitsCategory: "",
-        });
-        setDurationHour("0");
-        setDurationMinute("0");
-        setErrors({});
-        setTimeConflictWarning("");
-        setHasConfirmedConflict(false);
-        setEditingMeetingId(null);
-        setMeetingModalOpen(false);
+        if (isEditing) {
+          // Reset form for editing
+          setFormData({
+            meetingType: formData.meetingType,
+            customMeetingType: "",
+            client: formData.client,
+            clientId: formData.clientId,
+            date: "",
+            time: "",
+            hour: "",
+            minute: "",
+            ampm: "",
+            timezone: "America/New_York",
+            duration: "",
+            customDuration: "",
+            format: "",
+            platform: "",
+            customPlatform: "",
+            meetingUrl: "",
+            meetingLink: "",
+            maxAttendees: "",
+            description: "",
+            address: "",
+            city: "",
+            state: "",
+            zip: "",
+            language: "",
+            benefitsCategory: "",
+            customBenefitsCategory: "",
+          });
+          setDurationHour("0");
+          setDurationMinute("0");
+          setErrors({});
+          setTimeConflictWarning("");
+          setHasConfirmedConflict(false);
+          setEditingMeetingId(null);
+          setMeetingModalOpen(false);
+        } else {
+          // Show post-save dialog for new meetings
+          setPostSaveDialogOpen(true);
+        }
         // Refresh meetings list
         await fetchMeetings();
       } else {
@@ -2737,47 +2675,6 @@ export default function MeetingsPage() {
               </div>
             )}
 
-            {/* Time Conflict Warning */}
-            {timeConflictWarning && (
-              <div
-                className={`rounded-lg border p-4 ${
-                  hasConfirmedConflict
-                    ? "border-green-200 bg-green-50"
-                    : "border-amber-200 bg-amber-50"
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  {hasConfirmedConflict ? (
-                    <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
-                  ) : (
-                    <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
-                  )}
-                  <div className="flex-1">
-                    <h4
-                      className={`font-medium ${
-                        hasConfirmedConflict
-                          ? "text-green-900"
-                          : "text-amber-900"
-                      }`}
-                    >
-                      {hasConfirmedConflict
-                        ? "Ready to Proceed"
-                        : "Time Conflict Detected"}
-                    </h4>
-                    <p
-                      className={`text-sm mt-1 ${
-                        hasConfirmedConflict
-                          ? "text-green-700"
-                          : "text-amber-700"
-                      }`}
-                    >
-                      {timeConflictWarning}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* RSVP URL */}
             <div className="space-y-2">
               <Label htmlFor="meetingLink">
@@ -2816,19 +2713,13 @@ export default function MeetingsPage() {
               </Button>
               <Button
                 type="submit"
-                className={`flex-1 ${
-                  timeConflictWarning && !hasConfirmedConflict
-                    ? "bg-amber-600 hover:bg-amber-700"
-                    : "bg-primary hover:bg-primary/90 dark:bg-accent-blue dark:text-white dark:hover:bg-accent-blue/90"
-                }`}
+                className="flex-1 bg-primary hover:bg-primary/90 dark:bg-accent-blue dark:text-white dark:hover:bg-accent-blue/90"
                 disabled={isSubmitting || !formData.clientId}
               >
                 {isSubmitting
                   ? editingMeetingId
                     ? "Updating Meeting..."
                     : "Adding Meeting..."
-                  : timeConflictWarning && !hasConfirmedConflict
-                  ? "⚠️ Confirm to Add Meeting"
                   : editingMeetingId
                   ? "Update Meeting"
                   : "Add Meeting"}
@@ -2890,6 +2781,138 @@ export default function MeetingsPage() {
               </DialogContent>
             </Dialog>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Post-Save Duplicate Dialog */}
+      <Dialog open={postSaveDialogOpen} onOpenChange={setPostSaveDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Meeting Created!</DialogTitle>
+            <DialogDescription>
+              What would you like to do next?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2 mt-2">
+            <Button
+              variant="outline"
+              className="justify-start gap-3 h-auto py-3"
+              onClick={() => {
+                handleInputChange("language", formData.language === "Spanish" ? "English" : "Spanish");
+                setPostSaveDialogOpen(false);
+              }}
+            >
+              <Languages className="h-4 w-4" />
+              <div className="text-left">
+                <div className="text-sm font-medium">Duplicate for Another Language</div>
+                <div className="text-xs text-muted-foreground">
+                  {formData.language === "Spanish" ? "Create an English version" : "Create a Spanish version"}
+                </div>
+              </div>
+            </Button>
+            <Button
+              variant="outline"
+              className="justify-start gap-3 h-auto py-3"
+              onClick={() => {
+                setFormData((prev) => ({ ...prev, address: "", city: "", state: "", zip: "", format: "" }));
+                setPostSaveDialogOpen(false);
+              }}
+            >
+              <MapPin className="h-4 w-4" />
+              <div className="text-left">
+                <div className="text-sm font-medium">Duplicate for Another Location</div>
+                <div className="text-xs text-muted-foreground">Change the location/format</div>
+              </div>
+            </Button>
+            <Button
+              variant="outline"
+              className="justify-start gap-3 h-auto py-3"
+              onClick={() => {
+                setFormData((prev) => ({ ...prev, benefitsCategory: "", customBenefitsCategory: "" }));
+                setPostSaveDialogOpen(false);
+              }}
+            >
+              <CalendarDays className="h-4 w-4" />
+              <div className="text-left">
+                <div className="text-sm font-medium">Duplicate for Another Benefit</div>
+                <div className="text-xs text-muted-foreground">Change the benefits category</div>
+              </div>
+            </Button>
+            <Button
+              variant="outline"
+              className="justify-start gap-3 h-auto py-3"
+              onClick={() => {
+                setFormData((prev) => ({
+                  ...prev,
+                  date: "",
+                  time: "",
+                  hour: "",
+                  minute: "",
+                  ampm: "",
+                  duration: "",
+                  address: "",
+                  city: "",
+                  state: "",
+                  zip: "",
+                }));
+                setDurationHour("0");
+                setDurationMinute("0");
+                setPostSaveDialogOpen(false);
+              }}
+            >
+              <Plus className="h-4 w-4" />
+              <div className="text-left">
+                <div className="text-sm font-medium">Add Another Meeting</div>
+                <div className="text-xs text-muted-foreground">Clear date/time to schedule a new one</div>
+              </div>
+            </Button>
+          </div>
+          <DialogFooter className="mt-4">
+            <Button
+              variant="secondary"
+              className="w-full"
+              onClick={() => {
+                setFormData({
+                  meetingType: formData.meetingType,
+                  customMeetingType: "",
+                  client: formData.client,
+                  clientId: formData.clientId,
+                  date: "",
+                  time: "",
+                  hour: "",
+                  minute: "",
+                  ampm: "",
+                  timezone: "America/New_York",
+                  duration: "",
+                  customDuration: "",
+                  format: "",
+                  platform: "",
+                  customPlatform: "",
+                  meetingUrl: "",
+                  meetingLink: "",
+                  maxAttendees: "",
+                  description: "",
+                  address: "",
+                  city: "",
+                  state: "",
+                  zip: "",
+                  language: "",
+                  benefitsCategory: "",
+                  customBenefitsCategory: "",
+                });
+                setDurationHour("0");
+                setDurationMinute("0");
+                setErrors({});
+                setTimeConflictWarning("");
+                setHasConfirmedConflict(false);
+                setEditingMeetingId(null);
+                setMeetingModalOpen(false);
+                setPostSaveDialogOpen(false);
+              }}
+            >
+              Close
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
