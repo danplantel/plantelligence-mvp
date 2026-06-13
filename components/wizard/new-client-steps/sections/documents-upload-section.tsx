@@ -19,6 +19,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { LoadingOverlay } from "@/components/ui/loading-overlay";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -104,6 +110,8 @@ export function DocumentsUploadSection({
   const [batchCategoryDialogOpen, setBatchCategoryDialogOpen] = useState(false);
   const [pendingBatchFiles, setPendingBatchFiles] = useState<File[]>([]);
   const [batchCategory, setBatchCategory] = useState<BenefitsCategory>("Retirement");
+  const [reviewDocuments, setReviewDocuments] = useState<Document[]>([]);
+  const [isReviewing, setIsReviewing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{
     total: number;
     completed: number;
@@ -568,27 +576,33 @@ export function DocumentsUploadSection({
         toAdd.forEach((d) =>
           existingNames.add((d.originalFileName || d.name || "").toLowerCase()),
         );
+        if (toAdd.length < newDocuments.length) {
+          toast.info("Some files were skipped as duplicates.");
+        }
         if (toAdd.length > 0) {
-          onDocumentsChange([...documents, ...toAdd]);
-          if (toAdd.length < newDocuments.length) {
-            toast.info("Some files were skipped as duplicates.");
-          }
-          const needsCategory = toAdd.filter((d) => !d.category?.trim());
-          if (needsCategory.length > 0) {
-            toast.info("Category required", {
-              description: `Pick a category for ${needsCategory.length} file(s) (use “Apply to all” or each row).`,
-            });
-            if (
-              pdfOnly &&
-              onBulkCategoryAssignmentHint &&
-              !fixedCategory &&
-              needsCategory.length > 1
-            ) {
-              const hint = computeBulkCategoryAssignmentHint(
-                needsCategory as BulkSuggestInputDoc[],
-              );
-              if (hint) {
-                onBulkCategoryAssignmentHint(hint);
+          // For multi-file uploads without fixed category, show review UI first
+          if (files.length > 1 && !fixedCategory) {
+            setReviewDocuments(toAdd);
+            setIsReviewing(true);
+          } else {
+            onDocumentsChange([...documents, ...toAdd]);
+            const needsCategory = toAdd.filter((d) => !d.category?.trim());
+            if (needsCategory.length > 0) {
+              toast.info("Category required", {
+                description: `Pick a category for ${needsCategory.length} file(s) (use "Apply to all" or each row).`,
+              });
+              if (
+                pdfOnly &&
+                onBulkCategoryAssignmentHint &&
+                !fixedCategory &&
+                needsCategory.length > 1
+              ) {
+                const hint = computeBulkCategoryAssignmentHint(
+                  needsCategory as BulkSuggestInputDoc[],
+                );
+                if (hint) {
+                  onBulkCategoryAssignmentHint(hint);
+                }
               }
             }
           }
@@ -875,6 +889,59 @@ export function DocumentsUploadSection({
     onDocumentsChange(documents.filter((doc) => doc.id !== id));
   };
 
+  // Review UI handlers
+  const handleReviewFieldUpdate = (
+    docId: string,
+    field: "name" | "shortDescription" | "expirationDate",
+    value: string,
+  ) => {
+    setReviewDocuments((prev) =>
+      prev.map((d) => (d.id === docId ? { ...d, [field]: value } : d)),
+    );
+  };
+
+  const handleReviewRemoveOne = (docId: string) => {
+    setReviewDocuments((prev) => prev.filter((d) => d.id !== docId));
+  };
+
+  const handleReviewConfirm = () => {
+    const existingNames = new Set(
+      documents.map((d) => (d.originalFileName || d.name || "").toLowerCase()),
+    );
+    const unique = reviewDocuments.filter(
+      (d) => !existingNames.has((d.originalFileName || d.name || "").toLowerCase()),
+    );
+    if (unique.length === 0) {
+      toast.info("All files are duplicates of existing documents.");
+      setReviewDocuments([]);
+      setIsReviewing(false);
+      return;
+    }
+    if (unique.length < reviewDocuments.length) {
+      toast.info(
+        `${reviewDocuments.length - unique.length} duplicate file(s) skipped.`,
+      );
+    }
+    onDocumentsChange([...documents, ...unique]);
+    toast.success(`${unique.length} document(s) added`);
+    setReviewDocuments([]);
+    setIsReviewing(false);
+  };
+
+  const handleReviewCancel = () => {
+    setReviewDocuments([]);
+    setIsReviewing(false);
+  };
+
+  const formatDateForInput = (isoDate?: string): string => {
+    if (!isoDate) return "";
+    try {
+      return isoDate.split("T")[0];
+    } catch {
+      return "";
+    }
+  };
+
   const handleButtonClick = () => {
     fileInputRef.current?.click();
   };
@@ -975,6 +1042,141 @@ export function DocumentsUploadSection({
             </ul>
           </div>
         )}
+        {/* Batch Review UI — shown after multi-file upload processing before committing */}
+        {isReviewing && reviewDocuments.length > 0 && !isUploading && (
+          <div className="rounded-lg border border-accent-blue/40 bg-accent-blue/5 p-4 space-y-4 dark:border-accent-blue/30 dark:bg-accent-blue/10">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-semibold text-accent-blue">
+                Review {reviewDocuments.length} file
+                {reviewDocuments.length !== 1 ? "s" : ""} before adding
+              </h4>
+              <Badge className="bg-accent-blue/10 text-accent-blue border-transparent text-[10px] dark:bg-accent-blue/20 dark:text-accent-blue-light">
+                {batchCategory || "—"}
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Adjust file names, descriptions, and expiration dates below. Click
+              &ldquo;Add all documents&rdquo; when ready.
+            </p>
+            <Accordion
+              type="multiple"
+              defaultValue={[reviewDocuments[0]?.id].filter(Boolean)}
+              className="space-y-3 max-h-[400px] overflow-y-auto pr-1"
+            >
+              {reviewDocuments.map((doc, idx) => (
+                <AccordionItem
+                  key={doc.id}
+                  value={doc.id}
+                  className="rounded-lg border bg-white dark:bg-gray-800 dark:border-gray-700 overflow-hidden"
+                >
+                  {/* File info header with prominent index badge — acts as accordion trigger */}
+                  <AccordionTrigger className="flex items-center gap-3 px-4 py-3 bg-gray-50/80 border-b border-gray-100 hover:no-underline hover:bg-gray-100/80 dark:bg-gray-700/50 dark:border-gray-700 dark:hover:bg-gray-700/80 [&>svg]:text-gray-400 [&>svg]:dark:text-gray-500">
+                    <span className="flex items-center justify-center w-7 h-7 rounded-full bg-accent-blue text-white text-xs font-bold shrink-0 shadow-sm dark:bg-accent-blue">
+                      {idx + 1}
+                    </span>
+                    <div className="flex items-center gap-2 min-w-0 flex-1 text-left">
+                      <FileText className="h-4 w-4 text-accent-blue flex-shrink-0" />
+                      <span className="text-xs font-medium truncate dark:text-gray-200">
+                        {doc.originalFileName || doc.name}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                      {doc.size && (
+                        <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                          {Math.round(doc.size / 1024)} KB
+                        </span>
+                      )}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:text-gray-500 dark:hover:text-red-400 dark:hover:bg-red-900/20"
+                        onClick={() => handleReviewRemoveOne(doc.id)}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </AccordionTrigger>
+
+                  {/* Editable fields — shown when expanded */}
+                  <AccordionContent className="px-4 pb-4 pt-3 space-y-3">
+                    <div className="space-y-1">
+                      <Label className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                        Document Name
+                      </Label>
+                      <Input
+                        value={doc.name}
+                        onChange={(e) =>
+                          handleReviewFieldUpdate(doc.id, "name", e.target.value)
+                        }
+                        maxLength={60}
+                        className="h-8 text-xs dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                        Description{" "}
+                        <span className="text-gray-400 font-normal">(optional)</span>
+                      </Label>
+                      <Textarea
+                        value={doc.shortDescription || ""}
+                        onChange={(e) =>
+                          handleReviewFieldUpdate(
+                            doc.id,
+                            "shortDescription",
+                            e.target.value,
+                          )
+                        }
+                        maxLength={200}
+                        rows={2}
+                        className="text-xs dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 resize-none"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                        Expiration Date{" "}
+                        <span className="text-gray-400 font-normal">(optional)</span>
+                      </Label>
+                      <Input
+                        type="date"
+                        value={formatDateForInput(doc.expirationDate)}
+                        onChange={(e) =>
+                          handleReviewFieldUpdate(
+                            doc.id,
+                            "expirationDate",
+                            e.target.value
+                              ? new Date(e.target.value).toISOString()
+                              : "",
+                          )
+                        }
+                        className="h-8 text-xs dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600"
+                      />
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+            <div className="flex flex-col sm:flex-row gap-2 pt-2">
+              <Button
+                type="button"
+                onClick={handleReviewConfirm}
+                className="flex-1"
+              >
+                Add all {reviewDocuments.length} document
+                {reviewDocuments.length !== 1 ? "s" : ""}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleReviewCancel}
+                className="flex-1 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Drag & Drop Upload Area - shown when no file selected and not editing */}
         {!currentDocumentFile &&
           !currentDocumentFileUrl &&
