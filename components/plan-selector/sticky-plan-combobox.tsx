@@ -209,7 +209,7 @@ export function StickyPlanCombobox({
       <div
         ref={menuRef}
         role="listbox"
-        className="rounded-md border border-input bg-white shadow-lg flex flex-col overflow-hidden"
+        className="rounded-md border border-input bg-white dark:bg-gray-800 shadow-lg flex flex-col overflow-hidden"
         style={{
           position: "fixed",
           top: menuLayout.top,

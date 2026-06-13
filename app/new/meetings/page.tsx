@@ -350,10 +350,10 @@ const formatIcons = {
 };
 
 const statusColors = {
-  Scheduled: "bg-blue-100 text-blue-800 border-blue-200",
-  "In Progress": "bg-amber-100 text-amber-800 border-amber-200",
-  Completed: "bg-green-100 text-green-800 border-green-200",
-  Cancelled: "bg-red-100 text-red-800 border-red-200",
+  Scheduled: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-700/50",
+  "In Progress": "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-700/50",
+  Completed: "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 border-green-200 dark:border-green-700/50",
+  Cancelled: "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 border-red-200 dark:border-red-700/50",
 };
 
 interface MeetingSaveType {
@@ -1536,7 +1536,7 @@ export default function MeetingsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {isLoading ? (
                 // Skeleton Loader
-                <div className="space-y-3">
+                <div className="col-span-full space-y-3">
                   {[1, 2, 3].map((i) => (
                     <div
                       key={i}
@@ -1547,18 +1547,18 @@ export default function MeetingsPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-2 mb-2">
                             {/* Title */}
-                            <div className="h-5 bg-gray-200 rounded w-40" />
+                            <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-40" />
                             {/* Status Badge */}
-                            <div className="h-5 w-20 bg-gray-200 rounded-full" />
+                            <div className="h-5 w-20 bg-gray-200 dark:bg-gray-700 rounded-full" />
                           </div>
                           {/* Description */}
                           <div className="space-y-1.5">
-                            <div className="h-4 bg-gray-200 rounded w-full" />
-                            <div className="h-4 bg-gray-200 rounded w-2/3" />
+                            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full" />
+                            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3" />
                           </div>
                         </div>
                         {/* Menu Button */}
-                        <div className="h-6 w-6 bg-gray-200 rounded ml-2" />
+                        <div className="h-6 w-6 bg-gray-200 dark:bg-gray-700 rounded ml-2" />
                       </div>
 
                       {/* Meeting Details Grid */}
@@ -1566,46 +1566,46 @@ export default function MeetingsPage() {
                         {/* Date & Time */}
                         <div className="space-y-1">
                           <div className="flex items-center space-x-1.5">
-                            <div className="h-3.5 w-3.5 bg-gray-200 rounded" />
-                            <div className="h-3 bg-gray-200 rounded w-16" />
+                            <div className="h-3.5 w-3.5 bg-gray-200 dark:bg-gray-700 rounded" />
+                            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16" />
                           </div>
-                          <div className="h-4 bg-gray-200 rounded w-24 ml-5" />
-                          <div className="h-3 bg-gray-200 rounded w-20 ml-5" />
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24 ml-5" />
+                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-20 ml-5" />
                         </div>
 
                         {/* Duration */}
                         <div className="space-y-1">
                           <div className="flex items-center space-x-1.5">
-                            <div className="h-3.5 w-3.5 bg-gray-200 rounded" />
-                            <div className="h-3 bg-gray-200 rounded w-14" />
+                            <div className="h-3.5 w-3.5 bg-gray-200 dark:bg-gray-700 rounded" />
+                            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-14" />
                           </div>
-                          <div className="h-4 bg-gray-200 rounded w-16 ml-5" />
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16 ml-5" />
                         </div>
 
                         {/* Format */}
                         <div className="space-y-1">
                           <div className="flex items-center space-x-1.5">
-                            <div className="h-3.5 w-3.5 bg-gray-200 rounded" />
-                            <div className="h-3 bg-gray-200 rounded w-12" />
+                            <div className="h-3.5 w-3.5 bg-gray-200 dark:bg-gray-700 rounded" />
+                            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-12" />
                           </div>
-                          <div className="h-4 bg-gray-200 rounded w-20 ml-5" />
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20 ml-5" />
                         </div>
 
                         {/* Location/Platform */}
                         <div className="space-y-1">
                           <div className="flex items-center space-x-1.5">
-                            <div className="h-3.5 w-3.5 bg-gray-200 rounded" />
-                            <div className="h-3 bg-gray-200 rounded w-16" />
+                            <div className="h-3.5 w-3.5 bg-gray-200 dark:bg-gray-700 rounded" />
+                            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16" />
                           </div>
-                          <div className="h-4 bg-gray-200 rounded w-28 ml-5" />
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-28 ml-5" />
                         </div>
                       </div>
 
                       {/* Client Info */}
                       <div className="flex items-center space-x-2 pt-2 border-t">
-                        <div className="h-3.5 w-3.5 bg-gray-200 rounded" />
-                        <div className="h-3 bg-gray-200 rounded w-10" />
-                        <div className="h-4 bg-gray-200 rounded w-32" />
+                        <div className="h-3.5 w-3.5 bg-gray-200 dark:bg-gray-700 rounded" />
+                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-10" />
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32" />
                       </div>
                     </div>
                   ))}
@@ -1641,9 +1641,9 @@ export default function MeetingsPage() {
 
                   // Status badge colors
                   const statusColors = {
-                    Scheduled: "bg-blue-100 text-blue-700 border-blue-200",
-                    Completed: "bg-green-100 text-green-700 border-green-200",
-                    Cancelled: "bg-red-100 text-red-700 border-red-200",
+                    Scheduled: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200 border-blue-200 dark:border-blue-700/50",
+                    Completed: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-200 border-green-200 dark:border-green-700/50",
+                    Cancelled: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-200 border-red-200 dark:border-red-700/50",
                   };
 
                   return (
@@ -1691,8 +1691,8 @@ export default function MeetingsPage() {
                               <span
                                 className={`text-[10px] font-semibold px-1.5 py-px rounded shrink-0 leading-tight ${
                                   meeting.language === "Spanish"
-                                    ? "bg-amber-50 text-amber-700 border border-amber-200"
-                                    : "bg-sky-50 text-sky-700 border border-sky-200"
+                                    ? "bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-200 border border-amber-200 dark:border-amber-700/50"
+                                    : "bg-sky-50 dark:bg-sky-900/30 text-sky-700 dark:text-sky-200 border border-sky-200 dark:border-sky-700/50"
                                 }`}
                               >
                                 {meeting.language === "Spanish" ? "ES" : "EN"}
@@ -1879,14 +1879,14 @@ export default function MeetingsPage() {
 
           {/* No Plans Warning */}
           {!hasClients && !isLoadingClients && (
-            <div className="mb-6 p-6 bg-amber-50 border-2 border-amber-200 rounded-lg">
+            <div className="mb-6 p-6 bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-200 dark:border-amber-700/50 rounded-lg">
               <div className="flex items-start gap-3">
-                <AlertTriangle className="w-6 h-6 text-amber-600 mt-0.5 flex-shrink-0" />
+                <AlertTriangle className="w-6 h-6 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
                 <div className="flex-1">
-                  <h3 className="font-semibold text-amber-900 mb-2">
+                  <h3 className="font-semibold text-amber-900 dark:text-amber-100 mb-2">
                     No Plans Available
                   </h3>
-                  <p className="text-sm text-amber-800 mb-4">
+                  <p className="text-sm text-amber-800 dark:text-amber-200 mb-4">
                     You must create at least one plan before scheduling a
                     meeting or event. Please add a plan first to proceed with
                     meeting creation.
@@ -1957,7 +1957,7 @@ export default function MeetingsPage() {
                         className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center ${
                           formData.meetingType === type.value
                             ? "border-primary bg-primary"
-                            : "border-gray-300"
+                            : "border-gray-300 dark:border-gray-600"
                         }`}
                       >
                         {formData.meetingType === type.value && (
@@ -2111,12 +2111,12 @@ export default function MeetingsPage() {
                     type="button"
                     onClick={() => handleInputChange("benefitsCategory", category)}
                     disabled={!formData.clientId}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors text-sm ${
+                    className={`flex items-center space-x-2 px-4 py-2 rounded-lg border transition-colors dark:bg-gray-800 dark:hover:bg-gray-700 ${
                       !formData.clientId
-                        ? "opacity-50 cursor-not-allowed bg-gray-100"
+                        ? "opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-800"
                         : formData.benefitsCategory === category
-                        ? "border-primary bg-primary/10 text-primary font-medium"
-                        : "border-border hover:bg-muted/50"
+                        ? "border-primary bg-primary/10 text-accent-blue font-medium"
+                        : "border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800"
                     }`}
                   >
                     {category}
@@ -2155,12 +2155,12 @@ export default function MeetingsPage() {
                   type="button"
                   onClick={() => handleInputChange("language", "English")}
                   disabled={!formData.clientId}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors text-sm ${
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg border transition-colors dark:bg-gray-800 dark:hover:bg-gray-700 ${
                     !formData.clientId
-                      ? "opacity-50 cursor-not-allowed bg-gray-100"
+                      ? "opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-800"
                       : formData.language === "English"
-                      ? "border-primary bg-primary/10 text-primary font-medium"
-                      : "border-border hover:bg-muted/50"
+                      ? "border-primary bg-primary/10 text-accent-blue font-medium"
+                      : "border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800"
                   }`}
                 >
                   English
@@ -2169,12 +2169,12 @@ export default function MeetingsPage() {
                   type="button"
                   onClick={() => handleInputChange("language", "Spanish")}
                   disabled={!formData.clientId}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors text-sm ${
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg border transition-colors dark:bg-gray-800 dark:hover:bg-gray-700 ${
                     !formData.clientId
-                      ? "opacity-50 cursor-not-allowed bg-gray-100"
+                      ? "opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-800"
                       : formData.language === "Spanish"
-                      ? "border-primary bg-primary/10 text-primary font-medium"
-                      : "border-border hover:bg-muted/50"
+                      ? "border-primary bg-primary/10 text-accent-blue font-medium"
+                      : "border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800"
                   }`}
                 >
                   Spanish
@@ -2192,7 +2192,7 @@ export default function MeetingsPage() {
                   <Button
                     variant="outline"
                     disabled={!formData.clientId}
-                    className={`w-full justify-start text-left font-normal ${
+                    className={`w-full justify-start text-left font-normal bg-white dark:bg-gray-800 ${
                       errors.date ? "border-red-500" : ""
                     }`}
                   >
@@ -2252,7 +2252,7 @@ export default function MeetingsPage() {
                   <Button
                     variant="outline"
                     disabled={!formData.clientId}
-                    className={`w-full justify-start text-left font-normal ${
+                    className={`w-full justify-start text-left font-normal bg-white dark:bg-gray-800 ${
                       errors.time ? "border-red-500" : ""
                     }`}
                   >
@@ -2422,7 +2422,7 @@ export default function MeetingsPage() {
                 }
                 disabled={!formData.clientId}
               >
-                <SelectTrigger>
+                <SelectTrigger className="bg-white dark:bg-gray-800">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px] overflow-y-auto">
@@ -2448,7 +2448,7 @@ export default function MeetingsPage() {
                   <Button
                     variant="outline"
                     disabled={!formData.clientId}
-                    className={`w-full justify-start text-left font-normal ${
+                    className={`w-full justify-start text-left font-normal bg-white dark:bg-gray-800 ${
                       errors.duration ? "border-red-500" : ""
                     }`}
                   >
@@ -2555,14 +2555,14 @@ export default function MeetingsPage() {
                     type="button"
                     onClick={() => handleInputChange("format", format)}
                     disabled={!formData.clientId}
-                    className={`flex items-center space-x-2 px-4 py-2 rounded-lg border transition-colors dark:bg-gray-800 ${
+                    className={`flex items-center space-x-2 px-4 py-2 rounded-lg border transition-colors dark:bg-gray-800 dark:hover:bg-gray-700 ${
                       !formData.clientId
-                        ? "opacity-50 cursor-not-allowed bg-gray-100"
+                        ? "opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-800"
                         : formData.format === format
-                        ? "border-primary bg-primary text-white"
+                        ? "border-primary bg-primary/10 text-accent-blue font-medium"
                         : errors.format
-                        ? "border-red-500 hover:bg-gray-50"
-                        : "border-gray-300 hover:bg-gray-50"
+                        ? "border-red-500 hover:bg-gray-50 dark:hover:bg-gray-800"
+                        : "border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800"
                     }`}
                   >
                     {format === "Virtual" ? (
@@ -2589,7 +2589,7 @@ export default function MeetingsPage() {
                     disabled={!formData.clientId}
                   >
                     <SelectTrigger
-                      className={errors.platform ? "border-red-500" : ""}
+                      className={`${errors.platform ? "border-red-500" : ""} bg-white dark:bg-gray-800`}
                     >
                       <SelectValue>
                         {formData.platform || "Select platform..."}
