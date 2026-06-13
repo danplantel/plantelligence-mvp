@@ -6639,6 +6639,10 @@ body{
   transition-duration: 1000ms;
 }
 
+.duration-150{
+  transition-duration: 150ms;
+}
+
 .duration-200{
   transition-duration: 200ms;
 }
@@ -6737,6 +6741,10 @@ body{
 
 .duration-1000{
   animation-duration: 1000ms;
+}
+
+.duration-150{
+  animation-duration: 150ms;
 }
 
 .duration-200{
@@ -7274,6 +7282,10 @@ input:focus::placeholder,
 
 .hover\:bg-white\/25:hover{
   background-color: rgb(255 255 255 / 0.25);
+}
+
+.hover\:bg-white\/50:hover{
+  background-color: rgb(255 255 255 / 0.5);
 }
 
 .hover\:bg-yellow-600:hover{
@@ -10131,6 +10143,10 @@ input:focus::placeholder,
 :is(:where(.dark) .dark\:hover\:bg-gray-800:hover){
   --tw-bg-opacity: 1;
   background-color: rgb(31 41 55 / var(--tw-bg-opacity));
+}
+
+:is(:where(.dark) .dark\:hover\:bg-gray-800\/50:hover){
+  background-color: rgb(31 41 55 / 0.5);
 }
 
 :is(:where(.dark) .dark\:hover\:bg-red-900\/20:hover){

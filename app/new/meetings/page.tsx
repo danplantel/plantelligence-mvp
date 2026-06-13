@@ -1509,12 +1509,12 @@ export default function MeetingsPage() {
             </div>
 
             {/* Tabs */}
-            <div className="flex space-x-1 bg-muted p-1 rounded-lg">
+            <div className="flex space-x-1 bg-[#F2F2F4] dark:bg-[#030303] border border-[#efefef] dark:border-[#1c1c1c] p-1 rounded-lg">
               <button
                 onClick={() => setActiveTab("upcoming")}
-                className={`flex-1 px-3 py-1 text-sm rounded-md transition-colors ${
+                className={`flex-1 inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
                   activeTab === "upcoming"
-                    ? "bg-background text-foreground shadow-sm"
+                    ? "bg-accent-blue-light dark:bg-accent-blue-light text-foreground shadow"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -1522,9 +1522,9 @@ export default function MeetingsPage() {
               </button>
               <button
                 onClick={() => setActiveTab("past")}
-                className={`flex-1 px-3 py-1 text-sm rounded-md transition-colors ${
+                className={`flex-1 inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
                   activeTab === "past"
-                    ? "bg-background text-foreground shadow-sm"
+                    ? "bg-accent-blue-light dark:bg-accent-blue-light text-foreground shadow"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -1534,10 +1534,8 @@ export default function MeetingsPage() {
 
             {/* Meetings List */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {isLoading ? (
-                // Skeleton Loader
-                <div className="col-span-full space-y-3">
-                  {[1, 2, 3].map((i) => (
+              {meetingsLoading ? (
+                [1, 2, 3].map((i) => (
                     <div
                       key={i}
                       className="p-4 border rounded-lg bg-card animate-pulse"
@@ -1608,10 +1606,10 @@ export default function MeetingsPage() {
                         <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32" />
                       </div>
                     </div>
-                  ))}
-                </div>
-              ) : sortedMeetings.length === 0 ? (
-                <div className="col-span-full flex items-center justify-center py-20">
+                    ))
+                  ) : (
+                    sortedMeetings.length === 0 ? (
+                  <div className="col-span-full flex items-center justify-center py-20">
                   <div className="text-center max-w-sm">
                     <div className="mx-auto w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-5">
                       <CalendarDays className="h-8 w-8 text-muted-foreground/60" />
@@ -1837,8 +1835,9 @@ export default function MeetingsPage() {
                     </div>
                   );
                 })
-              )}
-            </div>
+              )
+            )}
+          </div>
           </div>
         </CardContent>
       </Card>
