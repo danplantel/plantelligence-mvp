@@ -40,6 +40,7 @@ import {
   type BulkSuggestInputDoc,
 } from "@/lib/document-bulk-category-suggest";
 
+const MAX_BATCH_FILE_COUNT = 15;
 const MAX_BATCH_PDF_COUNT = 25;
 const MAX_PDF_BYTES = 50 * 1024 * 1024;
 
@@ -613,6 +614,14 @@ export function DocumentsUploadSection({
 
     if (files.length === 1) {
       processFile(files[0]);
+      return;
+    }
+
+    // Enforce batch limit
+    if (files.length > MAX_BATCH_FILE_COUNT) {
+      toast.error(
+        `You can upload up to ${MAX_BATCH_FILE_COUNT} files at once. ${files.length} files were selected.`,
+      );
       return;
     }
 
