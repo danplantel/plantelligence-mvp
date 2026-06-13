@@ -1466,7 +1466,7 @@ export default function MeetingsPage() {
                 />
               </div>
               <Select value={clientFilter} onValueChange={setClientFilter}>
-                <SelectTrigger className="w-40 h-8">
+                <SelectTrigger className="w-40 h-8 bg-white dark:bg-gray-800">
                   <SelectValue placeholder="All Clients" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1479,7 +1479,7 @@ export default function MeetingsPage() {
                 </SelectContent>
               </Select>
               <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="w-36 h-8">
+                <SelectTrigger className="w-36 h-8 bg-white dark:bg-gray-800">
                   <SelectValue placeholder="All Types" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1492,7 +1492,7 @@ export default function MeetingsPage() {
                 </SelectContent>
               </Select>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-36 h-8">
+                <SelectTrigger className="w-36 h-8 bg-white dark:bg-gray-800">
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1649,7 +1649,7 @@ export default function MeetingsPage() {
                   return (
                     <div
                       key={meeting.id}
-                      className={`group p-4 border border-border/60 rounded-xl hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 transition-all duration-200 bg-card flex flex-col h-full relative ${
+                      className={`group p-4 dark:bg-gray-800 border border-border/60 rounded-xl hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 transition-all duration-200 bg-card flex flex-col h-full relative ${
                         deletingMeetingId === meeting.id ? "opacity-50 pointer-events-none" : ""
                       }`}
                     >
