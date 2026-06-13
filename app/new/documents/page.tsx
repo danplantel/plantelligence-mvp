@@ -62,7 +62,7 @@ function SortableTh({
   const isActive = currentColumn === column;
   return (
     <th
-      className={`px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700 ${className}`}
+      className={`px-3 py-3 text-left text-xs font-medium text-gray-500 dark:!text-gray-200 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200 ${className}`}
       onClick={() => onSort(column)}
     >
       <span className="inline-flex items-center gap-1">
@@ -70,7 +70,7 @@ function SortableTh({
         {isActive ? (
           direction === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
         ) : (
-          <ArrowUpDown className="h-3 w-3 text-gray-300" />
+          <ArrowUpDown className="h-3 w-3 text-gray-300 dark:text-gray-600" />
         )}
       </span>
     </th>
@@ -442,7 +442,7 @@ export default function DocumentsPage() {
           <Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertTitle>Expired Documents</AlertTitle><AlertDescription>{expiredDocuments.length} document{expiredDocuments.length > 1 ? "s have" : " has"} expired. Please update or remove them.<ul className="mt-2 list-disc list-inside">{expiredDocuments.slice(0, 5).map((doc) => (<li key={doc.id}>{doc.title} - Expired {getExpirationStatus(doc)?.days} day{getExpirationStatus(doc)?.days !== 1 ? "s" : ""} ago</li>))}{expiredDocuments.length > 5 && <li>...and {expiredDocuments.length - 5} more</li>}</ul></AlertDescription></Alert>
         )}
         {expiringSoonDocuments.length > 0 && (
-          <Alert className="border-amber-200 bg-amber-50 text-amber-800"><Clock className="h-4 w-4" /><AlertTitle>Documents Expiring Soon</AlertTitle><AlertDescription>{expiringSoonDocuments.length} document{expiringSoonDocuments.length > 1 ? "s are" : " is"} expiring within the next 30 days. Please review and update them.<ul className="mt-2 list-disc list-inside">{expiringSoonDocuments.slice(0, 5).map((doc) => (<li key={doc.id}>{doc.title} - Expires in {getExpirationStatus(doc)?.days} day{getExpirationStatus(doc)?.days !== 1 ? "s" : ""}</li>))}{expiringSoonDocuments.length > 5 && <li>...and {expiringSoonDocuments.length - 5} more</li>}</ul></AlertDescription></Alert>
+          <Alert className="border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"><Clock className="h-4 w-4" /><AlertTitle>Documents Expiring Soon</AlertTitle><AlertDescription>{expiringSoonDocuments.length} document{expiringSoonDocuments.length > 1 ? "s are" : " is"} expiring within the next 30 days. Please review and update them.<ul className="mt-2 list-disc list-inside">{expiringSoonDocuments.slice(0, 5).map((doc) => (<li key={doc.id}>{doc.title} - Expires in {getExpirationStatus(doc)?.days} day{getExpirationStatus(doc)?.days !== 1 ? "s" : ""}</li>))}{expiringSoonDocuments.length > 5 && <li>...and {expiringSoonDocuments.length - 5} more</li>}</ul></AlertDescription></Alert>
         )}
         <Card>
           <CardHeader className="pb-3"><CardTitle className="text-2xl font-bold">Plan Documents</CardTitle></CardHeader>
@@ -450,57 +450,57 @@ export default function DocumentsPage() {
             <CardContent className="pb-3 space-y-3"><Skeleton className="h-10 w-full rounded-md" /><Skeleton className="h-4 w-64" /><div className="pt-4 space-y-3"><Skeleton className="h-5 w-48" /><Skeleton className="h-3 w-full" /><div className="space-y-2 pt-2">{[1, 2, 3, 4].map((i) => (<div key={i} className="flex items-center gap-3 py-2"><Skeleton className="h-5 w-5 shrink-0 rounded" /><div className="flex-1 min-w-0 space-y-1.5"><div className="flex items-center gap-2"><Skeleton className="h-4 w-48" /><Skeleton className="h-4 w-12 rounded-full" /><Skeleton className="h-4 w-8 rounded-full" /></div><Skeleton className="h-3 w-72" /></div></div>))}</div></div></CardContent>
           ) : (
             <>
-              <CardContent className="pb-3"><StickyPlanCombobox module="documents" plans={clients} value={selectedPlan} onChange={handlePlanChange} disabled={clients.length === 0} required label="Select a plan" id="documents-plan" className="w-full sm:flex sm:items-center sm:gap-3 [&>div.relative]:sm:flex-1" />{!selectedPlan && clients.length > 0 && <p className="text-sm text-amber-600 mt-2">Please select a plan to manage documents.</p>}</CardContent>
-              {selectedPlan && (<div className="px-6 flex gap-0 border-b"><button type="button" onClick={goToUploadTab} className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${activeSection === "upload" ? "border-accent-blue text-accent-blue" : "border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300"}`}>Upload Documents</button><button type="button" onClick={goToDocumentsSection} className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${activeSection === "documents" ? "border-accent-blue text-accent-blue" : "border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300"}`}>Documents</button></div>)}
+              <CardContent className="pb-3"><StickyPlanCombobox module="documents" plans={clients} value={selectedPlan} onChange={handlePlanChange} disabled={clients.length === 0} required label="Select a plan" id="documents-plan" className="w-full sm:flex sm:items-center sm:gap-3 [&>div.relative]:sm:flex-1" />{!selectedPlan && clients.length > 0 && <p className="text-sm text-amber-600 dark:text-amber-400 mt-2">Please select a plan to manage documents.</p>}</CardContent>
+              {selectedPlan && (<div className="px-6 flex gap-0 border-b dark:border-gray-700"><button type="button" onClick={goToUploadTab} className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${activeSection === "upload" ? "border-accent-blue text-accent-blue" : "border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300 dark:hover:border-gray-600"}`}>Upload Documents</button><button type="button" onClick={goToDocumentsSection} className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${activeSection === "documents" ? "border-accent-blue text-accent-blue" : "border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300 dark:hover:border-gray-600"}`}>View Documents</button></div>)}
               <CardContent className="pt-6">
                 {!selectedPlan ? null : activeSection === "upload" ? (
-                  <><h3 className="text-lg font-semibold text-gray-900 mb-1">Upload Documents</h3><p className="text-sm text-muted-foreground mb-6">Upload retirement plan documents and forms for this client. After saving, they appear in the Documents section.</p><DocumentUploadTab selectedPlan={selectedPlan} showSaveButton={true} onHasUnsavedChangesChange={setHasUnsavedUploadChanges} onSaveFunctionReady={setUploadSaveFn} onDocumentsSaved={() => { toast.success("Document saved successfully"); setTimeout(async () => { await fetchDocuments(); setActiveSection("documents"); const url = new URL(window.location.href); url.searchParams.set("section", "documents"); window.history.pushState({}, "", url.toString()); }, 500); }} /></>
+                  <><h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Upload Documents</h3><p className="text-sm text-muted-foreground mb-6">Upload retirement plan documents and forms for this client. After saving, they appear in the Documents section.</p><DocumentUploadTab selectedPlan={selectedPlan} showSaveButton={true} onHasUnsavedChangesChange={setHasUnsavedUploadChanges} onSaveFunctionReady={setUploadSaveFn} onDocumentsSaved={() => { toast.success("Document saved successfully"); setTimeout(async () => { await fetchDocuments(); setActiveSection("documents"); const url = new URL(window.location.href); url.searchParams.set("section", "documents"); window.history.pushState({}, "", url.toString()); }, 500); }} /></>
                 ) : (
                   <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-gray-900">Documents List</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Documents List</h3>
                     <p className="text-sm text-muted-foreground">Review and manage all documents for this plan. Use the filters to narrow results, click column headers to sort, and expand rows to preview.</p>
                     <div className="flex flex-wrap items-center gap-3">
-                      {availableLanguages.length > 1 && (<div className="flex gap-2">{availableLanguages.map((lang) => { const isActive = previewLanguage === lang; return (<button key={lang} type="button" onClick={() => setPreviewLanguage(lang)} className={`rounded-full px-4 py-1.5 text-xs font-semibold border transition-colors ${isActive ? "bg-[#002B5B] text-white border-[#002B5B]" : "bg-white text-[#002B5B] border-[#D1D5DB] hover:bg-gray-50"}`}>{lang === "EN" ? "ENGLISH" : "ESPAÑOL"}</button>); })})</div>)}
+                      {availableLanguages.length > 1 && (<div className="flex gap-2">{availableLanguages.map((lang) => { const isActive = previewLanguage === lang; return (<button key={lang} type="button" onClick={() => setPreviewLanguage(lang)} className={`rounded-full px-4 py-1.5 text-xs font-semibold border transition-colors ${isActive ? "bg-[#002B5B] text-white border-[#002B5B] dark:bg-blue-900 dark:border-blue-900" : "bg-white text-[#002B5B] border-[#D1D5DB] hover:bg-gray-50 dark:bg-gray-800 dark:text-blue-300 dark:border-gray-600 dark:hover:bg-gray-700"}`}>{lang === "EN" ? "ENGLISH" : "ESPAÑOL"}</button>); })})</div>)}
                       <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v)}><SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue placeholder="Category" /></SelectTrigger><SelectContent><SelectItem value="all">All Categories</SelectItem><SelectItem value="Retirement">Retirement</SelectItem><SelectItem value="Group Health">Group Health</SelectItem><SelectItem value="Group Life">Group Life</SelectItem><SelectItem value="Other Benefits">Other</SelectItem>{uniqueCategories.filter((c) => !["Retirement","Group Health","Group Life","Other Benefits"].includes(c)).map((cat) => (<SelectItem key={cat} value={cat}>{cat}</SelectItem>))}</SelectContent></Select>
                       {filteredDocs.length !== retirementDocs.length && <span className="text-xs text-muted-foreground">{filteredDocs.length} of {retirementDocs.length} documents</span>}
                     </div>
-                    {isLoading && sortedDocuments.length === 0 && (<div className="space-y-2 rounded-lg border bg-white p-4">{[1, 2, 3, 4].map((i) => (<div key={i} className="flex items-center gap-3 py-2"><Skeleton className="h-5 w-5 shrink-0 rounded" /><div className="flex-1 min-w-0 space-y-1.5"><div className="flex items-center gap-2"><Skeleton className="h-4 w-48" /><Skeleton className="h-4 w-12 rounded-full" /><Skeleton className="h-4 w-8 rounded-full" /></div><Skeleton className="h-3 w-72" /></div></div>))}</div>)}
-                    {!isLoading && sortedDocuments.length === 0 && (<div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-4 rounded-lg border border-dashed border-gray-200 bg-gray-50/80"><p className="text-gray-900 text-lg font-semibold">No documents for this plan yet</p><p className="text-muted-foreground text-sm">Upload retirement plan documents for this client on the Upload tab. After you save, they will appear here.</p><Button type="button" onClick={goToUploadTab}>Upload documents</Button></div>)}
-                    {!isLoading && sortedDocuments.length > 0 && retirementDocs.length === 0 && (<div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-3"><p className="text-gray-900 text-lg font-semibold">No documents in {previewLanguage === "EN" ? "English" : "Spanish"}</p><p className="text-muted-foreground text-sm">This plan has documents in another language. Use the language toggle above, or upload a {previewLanguage === "EN" ? "English" : "Spanish"} file on the Upload tab.</p><Button type="button" variant="outline" onClick={goToUploadTab}>Go to Upload</Button></div>)}
-                    {!isLoading && retirementDocs.length > 0 && filteredDocs.length === 0 && (<div className="flex flex-col items-center justify-center py-12 px-4 text-center gap-3"><p className="text-gray-900 text-base font-semibold">No documents match the current filters</p><p className="text-muted-foreground text-sm">Try adjusting the type or category filters above.</p><Button size="sm" variant="outline" onClick={() => { setTypeFilter("all"); setCategoryFilter("all"); }}>Clear Filters</Button></div>)}
+                    {isLoading && sortedDocuments.length === 0 && (<div className="space-y-2 rounded-lg border bg-white dark:border-gray-700 dark:bg-gray-900 p-4">{[1, 2, 3, 4].map((i) => (<div key={i} className="flex items-center gap-3 py-2"><Skeleton className="h-5 w-5 shrink-0 rounded" /><div className="flex-1 min-w-0 space-y-1.5"><div className="flex items-center gap-2"><Skeleton className="h-4 w-48" /><Skeleton className="h-4 w-12 rounded-full" /><Skeleton className="h-4 w-8 rounded-full" /></div><Skeleton className="h-3 w-72" /></div></div>))}</div>)}
+                    {!isLoading && sortedDocuments.length === 0 && (<div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-4 rounded-lg border border-dashed border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/50"><p className="text-gray-900 dark:text-gray-100 text-lg font-semibold">No documents for this plan yet</p><p className="text-muted-foreground text-sm">Upload retirement plan documents for this client on the Upload tab. After you save, they will appear here.</p><Button type="button" onClick={goToUploadTab}>Upload documents</Button></div>)}
+                    {!isLoading && sortedDocuments.length > 0 && retirementDocs.length === 0 && (<div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-3"><p className="text-gray-900 dark:text-gray-100 text-lg font-semibold">No documents in {previewLanguage === "EN" ? "English" : "Spanish"}</p><p className="text-muted-foreground text-sm">This plan has documents in another language. Use the language toggle above, or upload a {previewLanguage === "EN" ? "English" : "Spanish"} file on the Upload tab.</p><Button type="button" variant="outline" onClick={goToUploadTab}>Go to Upload</Button></div>)}
+                    {!isLoading && retirementDocs.length > 0 && filteredDocs.length === 0 && (<div className="flex flex-col items-center justify-center py-12 px-4 text-center gap-3"><p className="text-gray-900 dark:text-gray-100 text-base font-semibold">No documents match the current filters</p><p className="text-muted-foreground text-sm">Try adjusting the type or category filters above.</p><Button size="sm" variant="outline" onClick={() => { setTypeFilter("all"); setCategoryFilter("all"); }}>Clear Filters</Button></div>)}
                     {filteredDocs.length > 0 && (
-                      <div className="rounded-lg border bg-white overflow-hidden">
+                      <div className="rounded-lg border bg-white dark:border-gray-700 dark:bg-gray-900 overflow-hidden">
                         <div className="overflow-x-auto">
                           <table className="w-full">
-                            <thead className="bg-gray-50 border-b">
+                            <thead className="bg-gray-50 dark:bg-gray-800/50 border-b dark:border-gray-700">
                               <tr>
                                 <SortableTh column="title" label="Filename" currentColumn={sortColumn} direction={sortDirection} onSort={() => handleSort("title" as any)} />
                                 <SortableTh column="category" label="Category" currentColumn={sortColumn} direction={sortDirection} onSort={() => handleSort("category" as any)} className="w-32" />
                                 <SortableTh column="language" label="Language" currentColumn={sortColumn} direction={sortDirection} onSort={() => handleSort("language" as any)} className="w-24" />
                                 <SortableTh column="expirationDate" label="Expiration" currentColumn={sortColumn} direction={sortDirection} onSort={() => handleSort("expirationDate")} className="w-28" />
-                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">Actions</th>
+                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:!text-gray-200 uppercase tracking-wider w-28">Actions</th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-100">
+                            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                               {filteredDocs.map((doc) => {
                                 const docId = doc.meta?.id ?? doc.id;
                                 const docCategory = (doc as any).category as string | undefined;
                                 const expiration = (doc as any).expirationDate as string | undefined;
                                 return (
-                                  <tr key={docId} className="hover:bg-gray-50">
+                                  <tr key={docId} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                                     <td className="px-3 py-3">
                                       <div>
-                                        <p className="text-sm font-medium text-gray-900 truncate max-w-[280px]">{doc.title}</p>
-                                        <p className="text-xs text-gray-500 mt-0.5 truncate max-w-[280px]">{doc.description}</p>
+                                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate max-w-[280px]">{doc.title}</p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate max-w-[280px]">{doc.description}</p>
                                       </div>
                                     </td>
                                     <td className="px-3 py-3">
-                                      <Badge className="text-[10px] h-5 px-1.5 bg-[#002B5B]/10 text-[#002B5B] border-transparent">{docCategory || "—"}</Badge>
+                                      <Badge className="text-[10px] h-5 px-1.5 bg-[#002B5B]/10 text-[#002B5B] dark:bg-blue-900/30 dark:text-blue-300 border-transparent">{docCategory || "—"}</Badge>
                                     </td>
                                     <td className="px-3 py-3">
-                                      <Badge className="text-[10px] h-5 px-1.5 bg-gray-100 text-gray-700 border-transparent">{doc.language}</Badge>
+                                      <Badge className="text-[10px] h-5 px-1.5 bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 border-transparent">{doc.language}</Badge>
                                     </td>
-                                    <td className="px-3 py-3 text-xs text-gray-600 whitespace-nowrap">{expiration ? formatUsDate(expiration) : "—"}</td>
+                                    <td className="px-3 py-3 text-xs text-gray-600 dark:!text-gray-200 whitespace-nowrap">{expiration ? formatUsDate(expiration) : "—"}</td>
                                     <td className="px-3 py-3">
                                       <div className="flex items-center gap-0.5">
                                         <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" title="View" onClick={(e) => { e.stopPropagation(); handlePreviewFromTable(docId, doc.title); }}>
@@ -512,7 +512,7 @@ export default function DocumentsPage() {
                                         <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" title="Download" onClick={(e) => { e.stopPropagation(); handleDownload(docId, doc.title); }}>
                                           <Download className="h-3 w-3" />
                                         </Button>
-                                        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-600 hover:text-red-700" title="Delete" onClick={(e) => { e.stopPropagation(); handleDeleteClick(docId, doc.title); }}>
+                                        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400" title="Delete" onClick={(e) => { e.stopPropagation(); handleDeleteClick(docId, doc.title); }}>
                                           <Trash2 className="h-3 w-3" />
                                         </Button>
                                       </div>
