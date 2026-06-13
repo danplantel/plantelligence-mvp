@@ -21,6 +21,16 @@ import {
 } from "@/components/ui/select";
 import { LoadingOverlay } from "@/components/ui/loading-overlay";
 import { Progress } from "@/components/ui/progress";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { uploadFileToR2 } from "@/lib/upload-to-r2";
 import { CheckCircle2, Loader2, AlertCircle, Circle } from "lucide-react";
 import { toCanonicalCategory } from "@/lib/r2";
@@ -90,6 +100,9 @@ export function DocumentsUploadSection({
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const isAddingRef = useRef(false);
+  const [batchCategoryDialogOpen, setBatchCategoryDialogOpen] = useState(false);
+  const [pendingBatchFiles, setPendingBatchFiles] = useState<File[]>([]);
+  const [batchCategory, setBatchCategory] = useState<BenefitsCategory>("Retirement");
   const [uploadProgress, setUploadProgress] = useState<{
     total: number;
     completed: number;
@@ -360,7 +373,10 @@ export function DocumentsUploadSection({
     }
   };
 
-  const addDocumentsFromFiles = async (files: File[]) => {
+  const addDocumentsFromFiles = async (
+    files: File[],
+    groupCategory?: BenefitsCategory,
+  ) => {
     const validFiles = files.filter((file) => validateFile(file));
     if (validFiles.length === 0) {
       return;
@@ -413,7 +429,7 @@ export function DocumentsUploadSection({
           const docType = detectDocumentType(file.name);
           const defaultName = getFileNameWithoutExtension(file.name);
           const defaultDescription = getDescriptionByType(docType);
-          const category = (fixedCategory || "Other Benefits") as string;
+          const category = (groupCategory || fixedCategory || "Other Benefits") as string;
           const canonicalCategory = toCanonicalCategory(category);
 
           let filePayload: string;
@@ -483,13 +499,16 @@ export function DocumentsUploadSection({
             pdfText = await extractTextFromPDF(base64ForAnalysis);
           }
           const { category: suggestedCategory, confidence } = analyzeDocumentCategory(file.name, pdfText);
-          // Multi-file: require explicit category per file unless fixedCategory or high-confidence auto-detect (3b.2).
+          // Multi-file: require explicit category per file unless fixedCategory,
+          // groupCategory (batch dialog), or high-confidence auto-detect (3b.2).
           const detectedCategory = (
             fixedCategory
               ? fixedCategory
-              : confidence >= 70
-                ? suggestedCategory
-                : undefined
+              : groupCategory
+                ? groupCategory
+                : confidence >= 70
+                  ? suggestedCategory
+                  : undefined
           ) as BenefitsCategory | undefined;
 
           // Default expiration date: 1 year from now
@@ -594,6 +613,14 @@ export function DocumentsUploadSection({
 
     if (files.length === 1) {
       processFile(files[0]);
+      return;
+    }
+
+    // Multiple files — show category dialog before processing
+    if (!fixedCategory) {
+      setBatchCategory("Retirement");
+      setPendingBatchFiles(files);
+      setBatchCategoryDialogOpen(true);
       return;
     }
 
@@ -1259,7 +1286,87 @@ export function DocumentsUploadSection({
             </div>
           </div>
         )}
-      </CardContent>
-    </Card>
-  );
+    </CardContent>
+
+    {/* Batch category selection dialog — shown when multiple files are dropped */}
+    <AlertDialog
+      open={batchCategoryDialogOpen}
+      onOpenChange={(open) => {
+        if (!open) {
+          setBatchCategoryDialogOpen(false);
+          setPendingBatchFiles([]);
+        }
+      }}
+    >
+      <AlertDialogContent className="dark:bg-gray-800 dark:border-gray-700 max-w-md">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="dark:text-gray-100">
+            Assign a category
+          </AlertDialogTitle>
+          <AlertDialogDescription className="dark:text-gray-400">
+            <span className="block mb-3">
+              You&rsquo;re uploading{" "}
+              <span className="font-semibold text-foreground">
+                {pendingBatchFiles.length} files
+              </span>{" "}
+              at once. Which category should be assigned to this group of
+              documents?
+            </span>
+            <span className="block text-muted-foreground text-xs">
+              You can change individual categories later in the review list.
+            </span>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        <div className="py-4">
+          <Label
+            htmlFor="batch-category"
+            className="text-sm font-medium mb-2 block dark:text-gray-300"
+          >
+            Category
+          </Label>
+          <Select
+            value={batchCategory}
+            onValueChange={(v: any) => setBatchCategory(v)}
+          >
+            <SelectTrigger
+              id="batch-category"
+              className="w-full dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"
+            >
+              <SelectValue placeholder="Select Category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Retirement">Retirement</SelectItem>
+              <SelectItem value="Group Life">Group Life</SelectItem>
+              <SelectItem value="Group Health">Group Health</SelectItem>
+              <SelectItem value="Other Benefits">Other</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <AlertDialogFooter>
+          <AlertDialogCancel
+            className="dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+            onClick={() => {
+              setBatchCategoryDialogOpen(false);
+              setPendingBatchFiles([]);
+            }}
+          >
+            Cancel
+          </AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => {
+              setBatchCategoryDialogOpen(false);
+              void addDocumentsFromFiles(pendingBatchFiles, batchCategory);
+              setPendingBatchFiles([]);
+            }}
+          >
+            Start uploading {pendingBatchFiles.length} file
+            {pendingBatchFiles.length !== 1 ? "s" : ""}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  </Card>
+);
 }
