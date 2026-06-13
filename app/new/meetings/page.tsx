@@ -1731,28 +1731,8 @@ export default function MeetingsPage() {
                               Duplicate
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() => {
-                                toast.info(
-                                  "Spanish Translation - Coming Soon",
-                                );
-                              }}
-                            >
-                              <Languages className="mr-2 h-4 w-4" />
-                              Spanish Version
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => {
-                                toast.info(
-                                  "Generate Meeting Page - Coming Soon",
-                                );
-                              }}
-                            >
-                              <FileText className="mr-2 h-4 w-4" />
-                              Generate Meeting Page
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
                               onClick={() => handleDeleteMeeting(meeting.id)}
-                              className="text-destructive"
+                              className="text-destructive dark:text-red-500"
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
                               Delete
