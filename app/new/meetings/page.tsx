@@ -323,6 +323,16 @@ const getTimezoneAbbr = (timezone: string) => {
   return tzMap[timezone] || timezone.split("/")[1] || timezone;
 };
 
+// Helper function to convert 24-hour time string to 12-hour AM/PM format
+const formatTime12h = (time24: string): string => {
+  if (!time24) return "";
+  const [hour24, minute] = time24.split(":").map(Number);
+  if (isNaN(hour24) || isNaN(minute)) return time24;
+  const ampm = hour24 >= 12 ? "PM" : "AM";
+  const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
+  return `${hour12}:${minute.toString().padStart(2, "0")} ${ampm}`;
+};
+
 // For MVP, limit timezone options to common US timezones to avoid overwhelming
 //  users and because our main user base is in the US. Can expand later if needed.
 const TIMEZONE_OPTIONS = [
@@ -1763,7 +1773,7 @@ export default function MeetingsPage() {
                             {meetingDate}
                           </div>
                           <div className="text-[11px] text-muted-foreground pl-[18px]">
-                            {meeting.time}
+                            {formatTime12h(meeting.time)}
                             {meeting.timezone && (
                               <span className="text-[10px] ml-1 opacity-75">
                                 ({getTimezoneAbbr(meeting.timezone)})
