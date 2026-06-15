@@ -622,8 +622,8 @@ export function DocumentsUploadSection({
           toast.info("Some files were skipped as duplicates.");
         }
         if (toAdd.length > 0) {
-          // For multi-file uploads without fixed category, show review UI first
-          if (files.length > 1 && !fixedCategory) {
+          // Show review UI for uploads without fixed category (single + multi-file)
+          if (!fixedCategory) {
             setReviewDocuments(toAdd);
             setIsReviewing(true);
           } else {
@@ -670,7 +670,14 @@ export function DocumentsUploadSection({
     }
 
     if (files.length === 1) {
-      processFile(files[0]);
+      // Route single file through the same flow as multi-file (category dialog + AI naming + review UI)
+      if (!fixedCategory) {
+        setBatchCategory("Retirement");
+        setPendingBatchFiles(files);
+        setBatchCategoryDialogOpen(true);
+        return;
+      }
+      void addDocumentsFromFiles(files);
       return;
     }
 
