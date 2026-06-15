@@ -94,6 +94,7 @@ export default function DocumentsPage() {
   }, []);
   const [clientFilter, setClientFilter] = useState("all");
   const [selectedDocs, setSelectedDocs] = useState<Set<string>>(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
   const [sortColumn, setSortColumn] = useState<SortColumn>("uploadedAt");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [isLoading, setIsLoading] = useState(false);
@@ -464,16 +465,18 @@ export default function DocumentsPage() {
     setDeleteDialogOpen(true);
   };
   const handleBulkDeleteConfirm = async () => {
+    setIsDeleting(true);
+    setDeleteDialogOpen(false);
+    let deleted = 0;
     try {
-      let deleted = 0;
       for (const docId of selectedDocs) {
         const response = await fetch(`/api/documents/${docId}`, { method: "DELETE" });
         if (response.ok) { deleted++; setDocPreviews((prev) => { const next = { ...prev }; delete next[docId]; return next; }); }
       }
-      if (deleted > 0) { toast.success(`${deleted} document(s) deleted`); clearSelectedDocs(); await fetchDocuments(); }
+      if (deleted > 0) { clearSelectedDocs(); await fetchDocuments(); }
       else toast.error("Failed to delete documents");
     } catch { toast.error("An error occurred while deleting documents"); }
-    finally { setDeleteDialogOpen(false); setDocumentToDelete(null); }
+    finally { setIsDeleting(false); setDeleteDialogOpen(false); setDocumentToDelete(null); }
   };
 
   return (
@@ -528,8 +531,18 @@ export default function DocumentsPage() {
                     {!isLoading && sortedDocuments.length === 0 && (<div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-4 rounded-lg border border-dashed border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/50"><p className="text-gray-900 dark:text-gray-100 text-lg font-semibold">No documents for this plan yet</p><p className="text-muted-foreground text-sm">Upload retirement plan documents for this client on the Upload tab. After you save, they will appear here.</p><Button type="button" onClick={goToUploadTab}>Upload documents</Button></div>)}
                     {!isLoading && sortedDocuments.length > 0 && retirementDocs.length === 0 && (<div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-3"><p className="text-gray-900 dark:text-gray-100 text-lg font-semibold">No documents in {previewLanguage === "EN" ? "English" : "Spanish"}</p><p className="text-muted-foreground text-sm">This plan has documents in another language. Use the language toggle above, or upload a {previewLanguage === "EN" ? "English" : "Spanish"} file on the Upload tab.</p><Button type="button" variant="outline" onClick={goToUploadTab}>Go to Upload</Button></div>)}
                     {!isLoading && retirementDocs.length > 0 && filteredDocs.length === 0 && (<div className="flex flex-col items-center justify-center py-12 px-4 text-center gap-3"><p className="text-gray-900 dark:text-gray-100 text-base font-semibold">No documents match the current filters</p><p className="text-muted-foreground text-sm">Try adjusting the type, category or language filters above.</p><Button size="sm" variant="outline" onClick={() => { setTypeFilter("all"); setCategoryFilter("all"); setLanguageFilter("all"); }}>Clear Filters</Button></div>)}
+                    {/* Deleting loading indicator */}
+                    {isDeleting && (
+                      <div className="flex items-center justify-center rounded-lg border border-accent-blue/30 bg-accent-blue/5 px-4 py-4 dark:border-accent-blue/20 dark:bg-accent-blue/10">
+                        <div className="flex items-center gap-3">
+                          <div className="animate-spin rounded-full h-5 w-5 border-2 border-accent-blue border-t-transparent" />
+                          <span className="text-sm font-medium text-accent-blue">Deleting documents...</span>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Bulk action bar */}
-                    {selectedDocs.size > 0 && (
+                    {selectedDocs.size > 0 && !isDeleting && (
                       <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 dark:border-red-800 dark:bg-red-900/20">
                         <span className="text-sm font-medium text-red-800 dark:text-red-300">
                           {selectedDocs.size} document{selectedDocs.size !== 1 ? "s" : ""} selected
