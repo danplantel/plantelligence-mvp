@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const API_KEY = "AQ.Ab8RN6JuXvpetka66XF09lwV8aa0oE-HfF0kcm63BHzXh5IAqg";
+const API_KEY = process.env.GEMINI_API_KEY || "";
 
 const SYSTEM_PROMPT = `You are a document naming assistant. Your job is to read a PDF document and produce a concise, human-readable name that captures what the document actually is.
 
