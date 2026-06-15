@@ -38,8 +38,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { uploadFileToR2 } from "@/lib/upload-to-r2";
-import { CheckCircle2, Loader2, AlertCircle, Circle } from "lucide-react";
+import { CheckCircle2, Loader2, AlertCircle, Circle, Sparkles } from "lucide-react";
 import { toCanonicalCategory } from "@/lib/r2";
+import { suggestDocumentNamesBatch } from "@/lib/gemini-suggest-doc-name";
 import {
   computeBulkCategoryAssignmentHint,
   type BulkCategoryAssignmentHint,
@@ -417,6 +418,8 @@ export function DocumentsUploadSection({
       fileStatuses: validFiles.map((f) => ({ fileName: f.name, status: "pending" as const })),
     });
     const newDocuments: Document[] = [];
+    /** Parallel arrays mapping to newDocuments for Gemini name suggestion */
+    const geminiInputs: Array<{ pdfText: string; originalFileName: string; category: string }> = [];
     try {
       await new Promise((resolve) => setTimeout(resolve, 300));
 
@@ -536,6 +539,12 @@ export function DocumentsUploadSection({
             expirationDate: defaultExpirationDate.toISOString(),
           });
 
+          geminiInputs.push({
+            pdfText,
+            originalFileName: file.name,
+            category: (detectedCategory || groupCategory || fixedCategory || "Other Benefits") as string,
+          });
+
           setUploadProgress((prev) =>
             prev
               ? {
@@ -567,6 +576,36 @@ export function DocumentsUploadSection({
       }
 
       if (newDocuments.length > 0) {
+        // ── Gemini LLM: suggest document names for the batch ──
+        if (geminiInputs.length > 0) {
+          try {
+            const suggestedNames = await suggestDocumentNamesBatch(geminiInputs);
+            if (suggestedNames.length === newDocuments.length) {
+              let applied = 0;
+              for (let i = 0; i < newDocuments.length; i++) {
+                if (suggestedNames[i] && suggestedNames[i].trim()) {
+                  newDocuments[i] = {
+                    ...newDocuments[i],
+                    name: suggestedNames[i].trim(),
+                  };
+                  applied++;
+                }
+              }
+              if (applied > 0) {
+                toast.success(
+                  `Gemini suggested names for ${applied} file${applied !== 1 ? "s" : ""}`,
+                  { duration: 4000 },
+                );
+              } else {
+                toast.info("Gemini was unable to suggest names for these files");
+              }
+            }
+          } catch (err) {
+            console.error("[gemini] Name suggestion failed:", err);
+            toast.error("AI name suggestion failed — using filenames instead");
+          }
+        }
+
         const existingNames = new Set(
           documents.map((d) => (d.originalFileName || d.name || "").toLowerCase()),
         );
@@ -1086,15 +1125,20 @@ export function DocumentsUploadSection({
                           {Math.round(doc.size / 1024)} KB
                         </span>
                       )}
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:text-gray-500 dark:hover:text-red-400 dark:hover:bg-red-900/20"
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        className="inline-flex items-center justify-center h-6 w-6 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 cursor-pointer dark:text-gray-500 dark:hover:text-red-400 dark:hover:bg-red-900/20"
                         onClick={() => handleReviewRemoveOne(doc.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            handleReviewRemoveOne(doc.id);
+                          }
+                        }}
                       >
                         <X className="h-3.5 w-3.5" />
-                      </Button>
+                      </span>
                     </div>
                   </AccordionTrigger>
 
