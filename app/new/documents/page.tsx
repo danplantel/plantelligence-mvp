@@ -38,6 +38,7 @@ import {
 import { useNavigateAwayGuard } from "@/hooks/use-navigate-away-guard";
 import { NavigateAwayWarningDialog } from "@/components/ui/navigate-away-warning-dialog";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { formatUsDate } from "@/lib/date";
 
@@ -92,6 +93,7 @@ export default function DocumentsPage() {
     setLoadedCards((prev) => { const next = new Set(prev); next.add(docId); return next; });
   }, []);
   const [clientFilter, setClientFilter] = useState("all");
+  const [selectedDocs, setSelectedDocs] = useState<Set<string>>(new Set());
   const [sortColumn, setSortColumn] = useState<SortColumn>("uploadedAt");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [isLoading, setIsLoading] = useState(false);
@@ -298,6 +300,9 @@ export default function DocumentsPage() {
 
   const handleDeleteConfirm = async () => {
     if (!documentToDelete) return;
+    if (documentToDelete.id === "__bulk__") {
+      return handleBulkDeleteConfirm();
+    }
     try {
       const response = await fetch(`/api/documents/${documentToDelete.id}`, { method: "DELETE" });
       if (response.ok) {
@@ -443,6 +448,34 @@ export default function DocumentsPage() {
 
   const uniqueCategories = useMemo(() => { const cats = new Set<string>(); retirementDocs.forEach((doc) => { const cat = (doc as any).category as string | undefined; if (cat) cats.add(cat); }); return Array.from(cats).sort(); }, [retirementDocs]);
 
+  const toggleSelectDoc = (docId: string) => {
+    setSelectedDocs((prev) => { const next = new Set(prev); if (next.has(docId)) next.delete(docId); else next.add(docId); return next; });
+  };
+  const toggleSelectAll = () => {
+    setSelectedDocs((prev) => {
+      if (prev.size === filteredDocs.length) return new Set();
+      return new Set(filteredDocs.map((d) => d.meta?.id ?? d.id));
+    });
+  };
+  const clearSelectedDocs = () => setSelectedDocs(new Set());
+  const handleBulkDelete = async () => {
+    if (selectedDocs.size === 0) return;
+    setDocumentToDelete({ id: "__bulk__", title: `${selectedDocs.size} document${selectedDocs.size !== 1 ? "s" : ""}` });
+    setDeleteDialogOpen(true);
+  };
+  const handleBulkDeleteConfirm = async () => {
+    try {
+      let deleted = 0;
+      for (const docId of selectedDocs) {
+        const response = await fetch(`/api/documents/${docId}`, { method: "DELETE" });
+        if (response.ok) { deleted++; setDocPreviews((prev) => { const next = { ...prev }; delete next[docId]; return next; }); }
+      }
+      if (deleted > 0) { toast.success(`${deleted} document(s) deleted`); clearSelectedDocs(); await fetchDocuments(); }
+      else toast.error("Failed to delete documents");
+    } catch { toast.error("An error occurred while deleting documents"); }
+    finally { setDeleteDialogOpen(false); setDocumentToDelete(null); }
+  };
+
   return (
     <div className="p-6">
       <div className="w-full space-y-6 max-w-4xl mx-auto">
@@ -495,12 +528,28 @@ export default function DocumentsPage() {
                     {!isLoading && sortedDocuments.length === 0 && (<div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-4 rounded-lg border border-dashed border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/50"><p className="text-gray-900 dark:text-gray-100 text-lg font-semibold">No documents for this plan yet</p><p className="text-muted-foreground text-sm">Upload retirement plan documents for this client on the Upload tab. After you save, they will appear here.</p><Button type="button" onClick={goToUploadTab}>Upload documents</Button></div>)}
                     {!isLoading && sortedDocuments.length > 0 && retirementDocs.length === 0 && (<div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-3"><p className="text-gray-900 dark:text-gray-100 text-lg font-semibold">No documents in {previewLanguage === "EN" ? "English" : "Spanish"}</p><p className="text-muted-foreground text-sm">This plan has documents in another language. Use the language toggle above, or upload a {previewLanguage === "EN" ? "English" : "Spanish"} file on the Upload tab.</p><Button type="button" variant="outline" onClick={goToUploadTab}>Go to Upload</Button></div>)}
                     {!isLoading && retirementDocs.length > 0 && filteredDocs.length === 0 && (<div className="flex flex-col items-center justify-center py-12 px-4 text-center gap-3"><p className="text-gray-900 dark:text-gray-100 text-base font-semibold">No documents match the current filters</p><p className="text-muted-foreground text-sm">Try adjusting the type, category or language filters above.</p><Button size="sm" variant="outline" onClick={() => { setTypeFilter("all"); setCategoryFilter("all"); setLanguageFilter("all"); }}>Clear Filters</Button></div>)}
+                    {/* Bulk action bar */}
+                    {selectedDocs.size > 0 && (
+                      <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 dark:border-red-800 dark:bg-red-900/20">
+                        <span className="text-sm font-medium text-red-800 dark:text-red-300">
+                          {selectedDocs.size} document{selectedDocs.size !== 1 ? "s" : ""} selected
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <Button type="button" variant="ghost" size="sm" className="text-xs h-7" onClick={clearSelectedDocs}>Clear</Button>
+                          <Button type="button" variant="destructive" size="sm" className="text-xs h-7" onClick={handleBulkDelete}>Delete selected</Button>
+                        </div>
+                      </div>
+                    )}
+
                     {filteredDocs.length > 0 && viewMode === "list" && (
                       <div className="rounded-lg border bg-white dark:border-gray-700 dark:bg-gray-900 overflow-hidden">
                         <div className="overflow-x-auto">
                           <table className="w-full">
                             <thead className="bg-gray-50 dark:bg-gray-800/50 border-b dark:border-gray-700">
                               <tr>
+                                <th className="px-3 py-3 w-10">
+                                  <Checkbox checked={selectedDocs.size === filteredDocs.length && filteredDocs.length > 0} onCheckedChange={() => toggleSelectAll()} />
+                                </th>
                                 <SortableTh column="title" label="Filename" currentColumn={sortColumn} direction={sortDirection} onSort={() => handleSort("title" as any)} />
                                 <SortableTh column="category" label="Category" currentColumn={sortColumn} direction={sortDirection} onSort={() => handleSort("category" as any)} className="w-32" />
                                 <SortableTh column="language" label="Language" currentColumn={sortColumn} direction={sortDirection} onSort={() => handleSort("language" as any)} className="w-24" />
@@ -515,6 +564,9 @@ export default function DocumentsPage() {
                                 const expiration = (doc as any).expirationDate as string | undefined;
                                 return (
                                   <tr key={docId} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                    <td className="px-3 py-3 w-10">
+                                      <Checkbox checked={selectedDocs.has(docId)} onCheckedChange={() => toggleSelectDoc(docId)} />
+                                    </td>
                                     <td className="px-3 py-3">
                                       <div>
                                         <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate max-w-[280px]">{doc.title}</p>
@@ -564,7 +616,10 @@ export default function DocumentsPage() {
                           return (
                             <Card key={docId} className="overflow-hidden dark:bg-gray-800 dark:border-gray-700">
                               {/* PDF Preview */}
-                              <div className="h-48 bg-gray-100 dark:bg-gray-700 flex items-center justify-center relative overflow-hidden">
+                              <div className="h-48 bg-gray-100 dark:bg-gray-700 flex items-center justify-center relative overflow-hidden group">
+                                <div className={`absolute top-2 left-2 z-10 transition-opacity ${selectedDocs.has(docId) ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
+                                  <Checkbox checked={selectedDocs.has(docId)} onCheckedChange={() => toggleSelectDoc(docId)} className="bg-white/90 dark:bg-gray-800/90" />
+                                </div>
                                 {!loadedCards.has(docId) && (
                                   <div className="flex flex-col items-center gap-2 text-gray-400 dark:text-gray-500">
                                     <div className="animate-spin rounded-full h-6 w-6 border-2 border-accent-blue border-t-transparent" />

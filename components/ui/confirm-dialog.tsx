@@ -104,10 +104,10 @@ export function ConfirmDialog({
               {variantStyles.icon}
             </div>
             <div className="flex-1 pt-1">
-              <AlertDialogTitle className="text-lg font-semibold text-gray-900">
+              <AlertDialogTitle className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                 {title}
               </AlertDialogTitle>
-              <AlertDialogDescription className="mt-2 text-sm text-gray-600">
+              <AlertDialogDescription className="mt-2 text-sm text-gray-600 dark:text-gray-400 text-muted-foreground">
                 {description}
               </AlertDialogDescription>
             </div>
