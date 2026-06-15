@@ -601,18 +601,11 @@ export function DocumentsUploadSection({
                   applied++;
                 }
               }
-              if (applied > 0) {
-                toast.success(
-                  `Gemini suggested names for ${applied} file${applied !== 1 ? "s" : ""}`,
-                  { duration: 4000 },
-                );
-              } else {
-                toast.info("Gemini was unable to suggest names for these files");
-              }
+              // Gemini suggestions applied silently to document names
             }
           } catch (err) {
             console.error("[gemini] Name suggestion failed:", err);
-            toast.error("AI name suggestion failed — using filenames instead");
+            // Gemini naming failed silently — filenames used as fallback
           }
         }
 
