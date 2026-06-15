@@ -113,6 +113,7 @@ export function DocumentsUploadSection({
   const [batchCategory, setBatchCategory] = useState<BenefitsCategory>("Retirement");
   const [reviewDocuments, setReviewDocuments] = useState<Document[]>([]);
   const [isReviewing, setIsReviewing] = useState(false);
+  const [isAnalyzingNames, setIsAnalyzingNames] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{
     total: number;
     completed: number;
@@ -419,7 +420,7 @@ export function DocumentsUploadSection({
     });
     const newDocuments: Document[] = [];
     /** Parallel arrays mapping to newDocuments for Gemini name suggestion */
-    const geminiInputs: Array<{ pdfText: string; originalFileName: string; category: string }> = [];
+    const geminiInputs: Array<{ pdfText: string; originalFileName: string; category: string; pdfBase64?: string }> = [];
     try {
       await new Promise((resolve) => setTimeout(resolve, 300));
 
@@ -539,10 +540,13 @@ export function DocumentsUploadSection({
             expirationDate: defaultExpirationDate.toISOString(),
           });
 
+          // Pass the raw base64 data URL so Gemini can read the PDF directly (handles both text and image-based PDFs)
+          const isPdf = file.name.toLowerCase().endsWith(".pdf");
           geminiInputs.push({
             pdfText,
             originalFileName: file.name,
             category: (detectedCategory || groupCategory || fixedCategory || "Other Benefits") as string,
+            pdfBase64: isPdf ? base64ForAnalysis : undefined,
           });
 
           setUploadProgress((prev) =>
@@ -579,6 +583,12 @@ export function DocumentsUploadSection({
         // ── Gemini LLM: suggest document names for the batch ──
         if (geminiInputs.length > 0) {
           try {
+            setIsAnalyzingNames(true);
+            setUploadProgress((prev) => prev ? {
+              ...prev,
+              currentFile: "AI naming in progress...",
+              fileStatuses: prev.fileStatuses.map((s) => ({ ...s, status: "ready" as const })),
+            } : null);
             const suggestedNames = await suggestDocumentNamesBatch(geminiInputs);
             if (suggestedNames.length === newDocuments.length) {
               let applied = 0;
@@ -653,6 +663,7 @@ export function DocumentsUploadSection({
         setFailedBatchFiles(failedFiles);
       }
       setIsUploading(false);
+      setIsAnalyzingNames(false);
       setUploadProgress(null);
     }
   };
@@ -986,7 +997,7 @@ export function DocumentsUploadSection({
   };
 
   return (
-    <Card className="dark:bg-gray-800 dark:border-gray-700">
+    <Card className="dark:bg-gray-800 dark:border-gray-700 pt-6">
       <CardContent className={compactDropzone ? "space-y-3 pt-0" : "space-y-4"}>
         {pdfOnly && failedBatchFiles.length > 0 && !isUploading && (
           <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 dark:border-red-800/40 dark:bg-red-900/10">
@@ -1016,8 +1027,11 @@ export function DocumentsUploadSection({
         {uploadProgress && uploadProgress.total > 0 && (
           <div className="rounded-lg border border-accent-blue/30 bg-accent-blue/5 p-4 space-y-3 dark:border-accent-blue/20 dark:bg-accent-blue/10">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-sm font-medium text-accent-blue">
-                Uploading {uploadProgress.completed} of {uploadProgress.total}
+              <span className="text-sm font-medium text-accent-blue flex items-center gap-2">
+                {isAnalyzingNames && (
+                  <span className="animate-spin inline-block h-4 w-4 rounded-full border-2 border-accent-blue border-t-transparent" />
+                )}
+                {isAnalyzingNames ? "Naming" : "Uploading"} {uploadProgress.completed} of {uploadProgress.total}
                 {uploadProgress.currentFile ? ` — ${uploadProgress.currentFile}` : ""}
               </span>
               <span className="text-sm tabular-nums text-muted-foreground">
@@ -1081,6 +1095,21 @@ export function DocumentsUploadSection({
             </ul>
           </div>
         )}
+        {/* AI Naming in progress indicator — shown while Gemini processes names */}
+        {isAnalyzingNames && !isUploading && !isReviewing && (
+          <div className="rounded-lg border border-violet-300 bg-violet-50 p-5 flex items-center gap-4 dark:border-violet-700 dark:bg-violet-900/20">
+            <div className="animate-spin rounded-full h-6 w-6 border-2 border-violet-500 border-t-transparent dark:border-violet-400 dark:border-t-transparent" />
+            <div>
+              <p className="text-sm font-semibold text-violet-900 dark:text-violet-200">
+                Generating document names with AI
+              </p>
+              <p className="text-xs text-violet-700/80 dark:text-violet-300/80 mt-0.5">
+                Gemini is reading each document and suggesting a descriptive name...
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Batch Review UI — shown after multi-file upload processing before committing */}
         {isReviewing && reviewDocuments.length > 0 && !isUploading && (
           <div className="rounded-lg border border-accent-blue/40 bg-accent-blue/5 p-4 space-y-4 dark:border-accent-blue/30 dark:bg-accent-blue/10">
@@ -1089,7 +1118,7 @@ export function DocumentsUploadSection({
                 Review {reviewDocuments.length} file
                 {reviewDocuments.length !== 1 ? "s" : ""} before adding
               </h4>
-              <Badge className="bg-accent-blue/10 text-accent-blue border-transparent text-[10px] dark:bg-accent-blue/20 dark:text-accent-blue-light">
+              <Badge className="bg-accent-blue/10 text-accent-blue border-transparent text-[10px] dark:bg-accent-blue/20 dark:text-accent-blue dark:bg-accent-blue-light">
                 {batchCategory || "—"}
               </Badge>
             </div>
@@ -1541,7 +1570,7 @@ export function DocumentsUploadSection({
             </div>
           </div>
         )}
-    </CardContent>
+      </CardContent>
 
     {/* Batch category selection dialog — shown when multiple files are dropped */}
     <AlertDialog
