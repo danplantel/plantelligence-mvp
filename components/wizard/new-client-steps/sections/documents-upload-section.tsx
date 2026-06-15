@@ -1142,6 +1142,19 @@ export function DocumentsUploadSection({
                       </span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                      {(doc as any).language === "ES" ? (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400">
+                          ES
+                        </span>
+                      ) : (doc as any).language === "EN" ? (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400">
+                          EN
+                        </span>
+                      ) : (doc as any).language ? (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                          {(doc as any).language}
+                        </span>
+                      ) : null}
                       {doc.size && (
                         <span className="text-[10px] text-gray-400 dark:text-gray-500">
                           {Math.round(doc.size / 1024)} KB
