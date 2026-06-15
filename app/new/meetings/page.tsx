@@ -2052,8 +2052,8 @@ export default function MeetingsPage() {
               {/* Helper text */}
               {formData.meetingType && formData.meetingType !== "Custom" && (
                 <p className="text-xs text-muted-foreground">
-                  Description automatically populated from "
-                  {formData.meetingType}" meeting type. You can edit it
+                  Description automatically populated from &ldquo;
+                 {formData.meetingType}&rdquo; meeting type. You can edit it
                   if needed.
                 </p>
               )}
