@@ -85,6 +85,7 @@ export default function DocumentsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [languageFilter, setLanguageFilter] = useState("all");
   const [clientFilter, setClientFilter] = useState("all");
   const [sortColumn, setSortColumn] = useState<SortColumn>("uploadedAt");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
@@ -372,11 +373,13 @@ export default function DocumentsPage() {
     return retirementDocs.filter((doc) => {
       const docType = (doc.meta?.type as string) || "Document";
       const docCategory = (doc as any).category as string | undefined;
+      const docLanguage = (doc as any).language as string | undefined;
       if (typeFilter !== "all" && docType !== typeFilter) return false;
       if (categoryFilter !== "all" && docCategory !== categoryFilter) return false;
+      if (languageFilter !== "all" && docLanguage !== languageFilter) return false;
       return true;
     });
-  }, [retirementDocs, typeFilter, categoryFilter]);
+  }, [retirementDocs, typeFilter, categoryFilter, languageFilter]);
 
   const handleRowExpand = useCallback(async (docId: string) => {
     if (expandedRow === docId) { setExpandedRow(""); return; }
@@ -462,12 +465,13 @@ export default function DocumentsPage() {
                     <div className="flex flex-wrap items-center gap-3">
                       {availableLanguages.length > 1 && (<div className="flex gap-2">{availableLanguages.map((lang) => { const isActive = previewLanguage === lang; return (<button key={lang} type="button" onClick={() => setPreviewLanguage(lang)} className={`rounded-full px-4 py-1.5 text-xs font-semibold border transition-colors ${isActive ? "bg-[#002B5B] text-white border-[#002B5B] dark:bg-blue-900 dark:border-blue-900" : "bg-white text-[#002B5B] border-[#D1D5DB] hover:bg-gray-50 dark:bg-gray-800 dark:text-blue-300 dark:border-gray-600 dark:hover:bg-gray-700"}`}>{lang === "EN" ? "ENGLISH" : "ESPAÑOL"}</button>); })})</div>)}
                       <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v)}><SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue placeholder="Category" /></SelectTrigger><SelectContent><SelectItem value="all">All Categories</SelectItem><SelectItem value="Retirement">Retirement</SelectItem><SelectItem value="Group Health">Group Health</SelectItem><SelectItem value="Group Life">Group Life</SelectItem><SelectItem value="Other Benefits">Other</SelectItem>{uniqueCategories.filter((c) => !["Retirement","Group Health","Group Life","Other Benefits"].includes(c)).map((cat) => (<SelectItem key={cat} value={cat}>{cat}</SelectItem>))}</SelectContent></Select>
+                      <Select value={languageFilter} onValueChange={(v) => setLanguageFilter(v)}><SelectTrigger className="h-8 w-[120px] text-xs"><SelectValue placeholder="Language" /></SelectTrigger><SelectContent><SelectItem value="all">All Languages</SelectItem><SelectItem value="EN">English</SelectItem><SelectItem value="ES">Español</SelectItem></SelectContent></Select>
                       {filteredDocs.length !== retirementDocs.length && <span className="text-xs text-muted-foreground">{filteredDocs.length} of {retirementDocs.length} documents</span>}
                     </div>
                     {isLoading && sortedDocuments.length === 0 && (<div className="space-y-2 rounded-lg border bg-white dark:border-gray-700 dark:bg-gray-900 p-4">{[1, 2, 3, 4].map((i) => (<div key={i} className="flex items-center gap-3 py-2"><Skeleton className="h-5 w-5 shrink-0 rounded" /><div className="flex-1 min-w-0 space-y-1.5"><div className="flex items-center gap-2"><Skeleton className="h-4 w-48" /><Skeleton className="h-4 w-12 rounded-full" /><Skeleton className="h-4 w-8 rounded-full" /></div><Skeleton className="h-3 w-72" /></div></div>))}</div>)}
                     {!isLoading && sortedDocuments.length === 0 && (<div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-4 rounded-lg border border-dashed border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/50"><p className="text-gray-900 dark:text-gray-100 text-lg font-semibold">No documents for this plan yet</p><p className="text-muted-foreground text-sm">Upload retirement plan documents for this client on the Upload tab. After you save, they will appear here.</p><Button type="button" onClick={goToUploadTab}>Upload documents</Button></div>)}
                     {!isLoading && sortedDocuments.length > 0 && retirementDocs.length === 0 && (<div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-3"><p className="text-gray-900 dark:text-gray-100 text-lg font-semibold">No documents in {previewLanguage === "EN" ? "English" : "Spanish"}</p><p className="text-muted-foreground text-sm">This plan has documents in another language. Use the language toggle above, or upload a {previewLanguage === "EN" ? "English" : "Spanish"} file on the Upload tab.</p><Button type="button" variant="outline" onClick={goToUploadTab}>Go to Upload</Button></div>)}
-                    {!isLoading && retirementDocs.length > 0 && filteredDocs.length === 0 && (<div className="flex flex-col items-center justify-center py-12 px-4 text-center gap-3"><p className="text-gray-900 dark:text-gray-100 text-base font-semibold">No documents match the current filters</p><p className="text-muted-foreground text-sm">Try adjusting the type or category filters above.</p><Button size="sm" variant="outline" onClick={() => { setTypeFilter("all"); setCategoryFilter("all"); }}>Clear Filters</Button></div>)}
+                    {!isLoading && retirementDocs.length > 0 && filteredDocs.length === 0 && (<div className="flex flex-col items-center justify-center py-12 px-4 text-center gap-3"><p className="text-gray-900 dark:text-gray-100 text-base font-semibold">No documents match the current filters</p><p className="text-muted-foreground text-sm">Try adjusting the type, category or language filters above.</p><Button size="sm" variant="outline" onClick={() => { setTypeFilter("all"); setCategoryFilter("all"); setLanguageFilter("all"); }}>Clear Filters</Button></div>)}
                     {filteredDocs.length > 0 && (
                       <div className="rounded-lg border bg-white dark:border-gray-700 dark:bg-gray-900 overflow-hidden">
                         <div className="overflow-x-auto">
