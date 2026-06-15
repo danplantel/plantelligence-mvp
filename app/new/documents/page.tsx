@@ -87,6 +87,10 @@ export default function DocumentsPage() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [languageFilter, setLanguageFilter] = useState("all");
   const [viewMode, setViewMode] = useState<"list" | "cards">("list");
+  const [loadedCards, setLoadedCards] = useState<Set<string>>(new Set());
+  const handleCardLoad = useCallback((docId: string) => {
+    setLoadedCards((prev) => { const next = new Set(prev); next.add(docId); return next; });
+  }, []);
   const [clientFilter, setClientFilter] = useState("all");
   const [sortColumn, setSortColumn] = useState<SortColumn>("uploadedAt");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
@@ -561,10 +565,17 @@ export default function DocumentsPage() {
                             <Card key={docId} className="overflow-hidden dark:bg-gray-800 dark:border-gray-700">
                               {/* PDF Preview */}
                               <div className="h-48 bg-gray-100 dark:bg-gray-700 flex items-center justify-center relative overflow-hidden">
+                                {!loadedCards.has(docId) && (
+                                  <div className="flex flex-col items-center gap-2 text-gray-400 dark:text-gray-500">
+                                    <div className="animate-spin rounded-full h-6 w-6 border-2 border-accent-blue border-t-transparent" />
+                                    <span className="text-xs">Loading preview...</span>
+                                  </div>
+                                )}
                                 <embed
                                   src={`/api/documents/${docId}/view#toolbar=0&navpanes=0`}
-                                  className="w-full h-full border-0"
+                                  className={`w-full h-full border-0 ${!loadedCards.has(docId) ? "absolute inset-0 opacity-0" : ""}`}
                                   type="application/pdf"
+                                  onLoad={() => handleCardLoad(docId)}
                                 />
                               </div>
                               {/* Card body */}
