@@ -156,6 +156,10 @@ export default function SettingsPage() {
           let primaryServiceCategories: string[] = Array.isArray(userSetup.primaryServiceCategories)
             ? [...userSetup.primaryServiceCategories]
             : [];
+          // Fallback to User-level primaryServiceCategories from /api/profile
+          if (primaryServiceCategories.length === 0 && cachedProfile?.primaryServiceCategories?.length > 0) {
+            primaryServiceCategories = [...cachedProfile.primaryServiceCategories];
+          }
           const servicesArray = loadedData?.services?.services ?? useOnboardingWizardStore.getState().stepData?.services?.services ?? [];
           if (primaryServiceCategories.length === 0 && Array.isArray(servicesArray) && servicesArray.length > 0) {
             primaryServiceCategories = step2ServicesToCategories(servicesArray);
@@ -247,6 +251,10 @@ export default function SettingsPage() {
     let primaryServiceCategories: string[] = Array.isArray(userSetup.primaryServiceCategories)
       ? [...userSetup.primaryServiceCategories]
       : [];
+    // Fallback to User-level primaryServiceCategories from /api/profile
+    if (primaryServiceCategories.length === 0 && userProfile?.primaryServiceCategories?.length > 0) {
+      primaryServiceCategories = [...userProfile.primaryServiceCategories];
+    }
     if (primaryServiceCategories.length === 0 && stepData.services?.services?.length) {
       primaryServiceCategories = step2ServicesToCategories(stepData.services.services);
     }
