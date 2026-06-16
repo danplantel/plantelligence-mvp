@@ -1012,13 +1012,18 @@ export default function DocumentsPage() {
                                             {docLanguage && (
                                               <Badge className="text-[10px] h-5 px-1.5 bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 border-transparent">{docLanguage}</Badge>
                                             )}
-                                            {expiration && (
-                                              <span className="text-[10px] text-gray-500 dark:text-gray-400 ml-auto">{formatUsDate(expiration)}</span>
+                                            {expiration ? (
+                                              <span className="text-[10px] text-gray-500 dark:text-gray-400 ml-auto flex items-center gap-1">
+                                                <span className="font-medium text-gray-400 dark:text-gray-500">Review Date:</span>
+                                                {formatUsDate(expiration)}
+                                              </span>
+                                            ) : (
+                                              <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-auto">No review date</span>
                                             )}
                                           </div>
 
                                           {/* Action buttons */}
-                                          <div className="flex items-center gap-1.5 pt-1 border-t border-gray-100 dark:border-gray-700">
+                                          <div className="flex items-center justify-center gap-2 pt-3 border-t border-gray-100 dark:border-gray-700">
                                             <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" title="View" onClick={(e) => { e.stopPropagation(); handlePreviewFromTable(docId, doc.title); }}>
                                               <Eye className="h-3.5 w-3.5" />
                                             </Button>
