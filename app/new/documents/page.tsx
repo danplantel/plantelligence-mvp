@@ -797,6 +797,7 @@ export default function DocumentsPage() {
                     <p className="text-sm text-muted-foreground">Review and manage all documents for this plan. Use the filters to narrow results, click column headers to sort, and expand rows to preview.</p>
                     <div className="flex flex-wrap items-center gap-3 justify-between">
                       <div className="flex items-center gap-3 flex-wrap">
+                        <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v)}><SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue placeholder="Category" /></SelectTrigger><SelectContent><SelectItem value="all">All Categories</SelectItem><SelectItem value="Retirement">Retirement</SelectItem><SelectItem value="Group Health">Group Health</SelectItem><SelectItem value="Group Life">Group Life</SelectItem><SelectItem value="Other Benefits">Other</SelectItem>{uniqueCategories.filter((c) => !["Retirement","Group Health","Group Life","Other Benefits"].includes(c)).map((cat) => (<SelectItem key={cat} value={cat}>{cat}</SelectItem>))}</SelectContent></Select>
                         {availableLanguages.length > 1 && (
                           <div className="flex gap-2">
                             {availableLanguages.map((lang) => {
@@ -810,8 +811,6 @@ export default function DocumentsPage() {
                             })}
                           </div>
                         )}
-                        <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v)}><SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue placeholder="Category" /></SelectTrigger><SelectContent><SelectItem value="all">All Categories</SelectItem><SelectItem value="Retirement">Retirement</SelectItem><SelectItem value="Group Health">Group Health</SelectItem><SelectItem value="Group Life">Group Life</SelectItem><SelectItem value="Other Benefits">Other</SelectItem>{uniqueCategories.filter((c) => !["Retirement","Group Health","Group Life","Other Benefits"].includes(c)).map((cat) => (<SelectItem key={cat} value={cat}>{cat}</SelectItem>))}</SelectContent></Select>
-                        <Select value={languageFilter} onValueChange={(v) => setLanguageFilter(v)}><SelectTrigger className="h-8 w-[120px] text-xs"><SelectValue placeholder="Language" /></SelectTrigger><SelectContent><SelectItem value="all">All Languages</SelectItem><SelectItem value="EN">English</SelectItem><SelectItem value="ES">Español</SelectItem></SelectContent></Select>
                         {filteredDocs.length !== retirementDocs.length && <span className="text-xs text-muted-foreground">{filteredDocs.length} of {retirementDocs.length} documents</span>}
                       </div>
                       <div className="flex items-center border rounded-md overflow-hidden dark:border-gray-600 shrink-0">
