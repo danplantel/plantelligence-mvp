@@ -802,10 +802,17 @@ export default function DocumentsPage() {
                           <div className="flex gap-2">
                             {availableLanguages.map((lang) => {
                               const isActive = previewLanguage === lang;
+                              const count = sortedDocuments.filter((doc) => {
+                                const docLang = (doc as any).language;
+                                const langMatch = docLang === lang || (!docLang && lang === "EN");
+                                const docCategory = (doc as any).category as string | undefined;
+                                const catMatch = categoryFilter === "all" || docCategory === categoryFilter;
+                                return langMatch && catMatch;
+                              }).length;
                               return (
                                 <button key={lang} type="button" onClick={() => setPreviewLanguage(lang)}
                                   className={`rounded-full px-4 py-1.5 text-xs font-semibold border transition-colors ${isActive ? "bg-[#002B5B] text-white border-[#002B5B] dark:bg-blue-900 dark:border-blue-900" : "bg-white text-[#002B5B] border-[#D1D5DB] hover:bg-gray-50 dark:bg-gray-800 dark:text-blue-300 dark:border-gray-600 dark:hover:bg-gray-700"}`}>
-                                  {lang === "EN" ? "ENGLISH" : "ESPAÑOL"}
+                                  {lang === "EN" ? `ENGLISH (${count})` : `ESPAÑOL (${count})`}
                                 </button>
                               );
                             })}
