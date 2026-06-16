@@ -102,3 +102,28 @@ export function resolveStickyPlanId(
   if (last && valid.has(last)) return last;
   return plans[0]?.id ?? null;
 }
+
+/** Remove all per-module sticky plan selections + global recents from localStorage.
+ *  Call on logout so the user starts fresh when they sign back in. */
+export function clearAllPlanSelections(): void {
+  if (typeof window === "undefined") return;
+  const modules: PlanSelectorModule[] = [
+    "documents",
+    "meetings",
+    "marketing",
+    "video",
+    "benefits",
+  ];
+  for (const mod of modules) {
+    try {
+      localStorage.removeItem(lastPlanStorageKey(mod));
+    } catch {
+      /* ignore */
+    }
+  }
+  try {
+    localStorage.removeItem(PLAN_RECENTS_STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
