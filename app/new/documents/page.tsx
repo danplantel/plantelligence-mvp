@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
+import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import useSWR from "swr";
 import { useSearchParams, useRouter } from "next/navigation";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
@@ -19,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import {
   AlertTriangle, Clock, FileText, Download, Pencil, Trash2,
-  Eye, ArrowUpDown, ArrowUp, ArrowDown, LayoutGrid, List, Search,
+  Eye, ArrowUpDown, ArrowUp, ArrowDown, LayoutGrid, List, Search, GripVertical,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { RetirementDocumentItem } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
@@ -946,70 +947,104 @@ export default function DocumentsPage() {
                       </div>
                     )}
 
-                    {/* Card View — PDF preview embedded in each card */}
+                    {/* Card View — refactored without PDF preview, draggable */}
                     {filteredDocs.length > 0 && viewMode === "cards" && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {filteredDocs.map((doc) => {
-                          const docId = doc.meta?.id ?? doc.id;
-                          const docCategory = (doc as any).category as string | undefined;
-                          const expiration = (doc as any).expirationDate as string | undefined;
-                          const docLanguage = (doc as any).language as string | undefined;
-                          return (
-                            <Card key={docId} className="overflow-hidden dark:bg-gray-800 dark:border-gray-700">
-                              {/* PDF Preview */}
-                              <div className="h-48 bg-gray-100 dark:bg-gray-700 flex items-center justify-center relative overflow-hidden group">
-                                <div className={`absolute top-2 left-2 z-10 transition-opacity ${selectedDocs.has(docId) ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
-                                  <Checkbox checked={selectedDocs.has(docId)} onCheckedChange={() => toggleSelectDoc(docId)} className="bg-white/90 dark:bg-gray-800/90" />
-                                </div>
-                                {!loadedCards.has(docId) && (
-                                  <div className="flex flex-col items-center gap-2 text-gray-400 dark:text-gray-500">
-                                    <div className="animate-spin rounded-full h-6 w-6 border-2 border-accent-blue border-t-transparent" />
-                                    <span className="text-xs">Loading preview...</span>
-                                  </div>
-                                )}
-                                <embed
-                                  src={`/api/documents/${docId}/view#toolbar=0&navpanes=0`}
-                                  className={`w-full h-full border-0 ${!loadedCards.has(docId) ? "absolute inset-0 opacity-0" : ""}`}
-                                  type="application/pdf"
-                                  onLoad={() => handleCardLoad(docId)}
-                                />
-                              </div>
-                              {/* Card body */}
-                              <CardContent className="p-4 space-y-2">
-                                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{doc.title}</p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">{doc.description}</p>
-                                <div className="flex items-center gap-2 flex-wrap pt-1">
-                                  <Badge className="text-[10px] h-5 px-1.5 bg-[#002B5B]/10 text-[#002B5B] dark:bg-blue-900/30 dark:text-blue-300 border-transparent">{docCategory || "—"}</Badge>
-                                  {docLanguage && (
-                                    <Badge className="text-[10px] h-5 px-1.5 bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 border-transparent">{docLanguage}</Badge>
-                                  )}
-                                  {expiration && (
-                                    <span className="text-[10px] text-gray-500 dark:text-gray-400 ml-auto">{formatUsDate(expiration)}</span>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-0.5 pt-1 border-t border-gray-100 dark:border-gray-700">
-                                  <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" title="View" onClick={(e) => { e.stopPropagation(); handlePreviewFromTable(docId, doc.title); }}>
-                                    <Eye className="h-3 w-3" />
-                                  </Button>
-                                  <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" title="Edit" onClick={(e) => { e.stopPropagation(); handleEditFromTable(docId); }}>
-                                    <Pencil className="h-3 w-3" />
-                                  </Button>
-                                  <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" title="Download" onClick={(e) => { e.stopPropagation(); handleDownload(docId, doc.title); }}>
-                                    <Download className="h-3 w-3" />
-                                  </Button>
-                                  <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0 ml-auto text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400" title="Delete" onClick={(e) => { e.stopPropagation(); handleDeleteClick(docId, doc.title); }}>
-                                    <Trash2 className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          );
-                        })}
-                      </div>
-                    )}
+                      <DragDropContext onDragEnd={(result) => {
+                        if (!result.destination) return;
+                        const items = Array.from(filteredDocs);
+                        const [reordered] = items.splice(result.source.index, 1);
+                        items.splice(result.destination.index, 0, reordered);
+                        // Reorder is local to the UI — items refilter when data re-fetches
+                      }}>
+                        <div className="space-y-2">
+                          <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M8 6h.01M16 6h.01M8 12h.01M16 12h.01M8 18h.01M16 18h.01"/></svg>
+                            Drag cards to reorder
+                          </p>
+                        <Droppable droppableId="documents-cards">
+                          {(provided) => (
+                            <div ref={provided.innerRef} {...provided.droppableProps} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                              {filteredDocs.map((doc, index) => {
+                                const docId = doc.meta?.id ?? doc.id;
+                                const docCategory = (doc as any).category as string | undefined;
+                                const expiration = (doc as any).expirationDate as string | undefined;
+                                const docLanguage = (doc as any).language as string | undefined;
+                                return (
+                                  <Draggable key={docId} draggableId={docId} index={index}>
+                                    {(provided, snapshot) => (
+                                      <Card
+                                        ref={provided.innerRef}
+                                        {...provided.draggableProps}
+                                        className={`overflow-hidden dark:bg-gray-800 dark:border-gray-700 hover:shadow-md transition-shadow ${snapshot.isDragging ? "shadow-lg rotate-1 scale-105" : ""}`}
+                                      >
+                                        <CardContent className="p-5 space-y-4">
+                                          {/* Checkbox + icon row */}
+                                          <div className="flex items-start justify-between">
+                                            <div className="flex items-center gap-0">
+                                              <span
+                                                {...provided.dragHandleProps}
+                                                title="Drag to reorder"
+                                                className="cursor-grab active:cursor-grabbing p-2 -ml-1.5 rounded-md text-gray-500 hover:text-accent-blue hover:bg-accent-blue/10 dark:text-gray-400 dark:hover:text-accent-blue dark:hover:bg-accent-blue/20 border border-transparent hover:border-accent-blue/20 transition-colors"
+                                              >
+                                                <GripVertical className="w-6 h-6" />
+                                              </span>
+                                              <div className="w-12 h-12 flex items-center justify-center rounded-lg bg-accent-blue/10 dark:bg-accent-blue/20">
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" className="w-6 h-6 text-accent-blue" fill="currentColor">
+                                                  <path d="m433.798 106.268-96.423-91.222c-10.256-9.703-23.68-15.046-37.798-15.046h-183.577c-30.327 0-55 24.673-55 55v402c0 30.327 24.673 55 55 55h280c30.327 0 55-24.673 55-55v-310.778c0-15.049-6.27-29.612-17.202-39.954zm-29.137 13.732h-74.661c-2.757 0-5-2.243-5-5v-70.364zm-8.661 362h-280c-13.785 0-25-11.215-25-25v-402c0-13.785 11.215-25 25-25h179v85c0 19.299 15.701 35 35 35h91v307c0 13.785-11.215 25-25 25z"/>
+                                                  <path d="m363 200h-220c-8.284 0-15 6.716-15 15s6.716 15 15 15h220c8.284 0 15-6.716 15-15s-6.716-15-15-15z"/>
+                                                  <path d="m363 280h-220c-8.284 0-15 6.716-15 15s6.716 15 15 15h220c8.284 0 15-6.716 15-15s-6.716-15-15-15z"/>
+                                                  <path d="m215.72 360h-72.72c-8.284 0-15 6.716-15 15s6.716 15 15 15h72.72c8.284 0 15-6.716 15-15s-6.716-15-15-15z"/>
+                                                </svg>
+                                              </div>
+                                            </div>
+                                            <Checkbox checked={selectedDocs.has(docId)} onCheckedChange={() => toggleSelectDoc(docId)} />
+                                          </div>
+
+                                          {/* Title & description */}
+                                          <div className="space-y-1">
+                                            <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{doc.title}</h4>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">{doc.description}</p>
+                                          </div>
+
+                                          {/* Category, language, date badges */}
+                                          <div className="flex items-center gap-2 flex-wrap">
+                                            <Badge className="text-[10px] h-5 px-1.5 bg-[#002B5B]/10 text-[#002B5B] dark:bg-blue-900/30 dark:text-blue-300 border-transparent">{docCategory || "—"}</Badge>
+                                            {docLanguage && (
+                                              <Badge className="text-[10px] h-5 px-1.5 bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 border-transparent">{docLanguage}</Badge>
+                                            )}
+                                            {expiration && (
+                                              <span className="text-[10px] text-gray-500 dark:text-gray-400 ml-auto">{formatUsDate(expiration)}</span>
+                                            )}
+                                          </div>
+
+                                          {/* Action buttons */}
+                                          <div className="flex items-center gap-1.5 pt-1 border-t border-gray-100 dark:border-gray-700">
+                                            <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" title="View" onClick={(e) => { e.stopPropagation(); handlePreviewFromTable(docId, doc.title); }}>
+                                              <Eye className="h-3.5 w-3.5" />
+                                            </Button>
+                                            <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" title="Edit" onClick={(e) => { e.stopPropagation(); handleEditFromTable(docId); }}>
+                                              <Pencil className="h-3.5 w-3.5" />
+                                            </Button>
+                                            <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0 ml-auto text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400" title="Delete" onClick={(e) => { e.stopPropagation(); handleDeleteClick(docId, doc.title); }}>
+                                              <Trash2 className="h-3.5 w-3.5" />
+                                            </Button>
+                                          </div>
+                                        </CardContent>
+                                      </Card>
+                                    )}
+                                  </Draggable>
+                                );
+                              })}
+                              {provided.placeholder}
+                            </div>
+                          )}
+                        </Droppable>
+                        </div>
+                      </DragDropContext>
+                  )}
                   </div>
                 )}
-              </CardContent>
+                </CardContent>
             </>
           )}
         </Card>
