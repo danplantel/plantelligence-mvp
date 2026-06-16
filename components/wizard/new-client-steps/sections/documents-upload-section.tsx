@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from "react";
-import { FileText, Upload, X, Plus, Save } from "lucide-react";
+import { FileText, Upload, X, Plus, Save, AlertTriangle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -114,6 +116,7 @@ export function DocumentsUploadSection({
   const [batchCategory, setBatchCategory] = useState<BenefitsCategory>("Retirement");
   const [reviewDocuments, setReviewDocuments] = useState<Document[]>([]);
   const [isReviewing, setIsReviewing] = useState(false);
+  const [confirmedReview, setConfirmedReview] = useState(false);
   const [isAnalyzingNames, setIsAnalyzingNames] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{
     total: number;
@@ -983,6 +986,7 @@ export function DocumentsUploadSection({
       toast.info("All files are duplicates of existing documents.");
       setReviewDocuments([]);
       setIsReviewing(false);
+      setConfirmedReview(false);
       return;
     }
     if (unique.length < reviewDocuments.length) {
@@ -994,11 +998,13 @@ export function DocumentsUploadSection({
     toast.success(`${unique.length} document(s) added`);
     setReviewDocuments([]);
     setIsReviewing(false);
+    setConfirmedReview(false);
   };
 
   const handleReviewCancel = () => {
     setReviewDocuments([]);
     setIsReviewing(false);
+    setConfirmedReview(false);
   };
 
   const formatDateForInput = (isoDate?: string): string => {
@@ -1034,6 +1040,16 @@ export function DocumentsUploadSection({
               Retry failed
             </Button>
           </div>
+        )}
+        {/* Admin notice shown during upload/analyze/naming */}
+        {(isUploading || isAnalyzingNames) && (
+          <Alert className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30">
+            <AlertTriangle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <AlertTitle className="text-sm font-semibold text-blue-800 dark:text-blue-300">Admin Notice</AlertTitle>
+            <AlertDescription className="text-xs text-blue-700 dark:text-blue-400">
+              Suggested names, categories, and review dates are for organization only. Please review before publishing.
+            </AlertDescription>
+          </Alert>
         )}
         {/* Upload Loading Overlay - hidden when progress bar is shown (multi-file) */}
         <LoadingOverlay
@@ -1275,10 +1291,21 @@ export function DocumentsUploadSection({
                 </AccordionItem>
               ))}
             </Accordion>
+            <label className="flex items-start gap-3 pt-3 pb-1 cursor-pointer">
+              <Checkbox
+                checked={confirmedReview}
+                onCheckedChange={(checked: boolean | "indeterminate") => setConfirmedReview(checked === true)}
+                className="mt-0.5"
+              />
+              <span className="text-xs text-muted-foreground leading-relaxed select-none">
+                I confirm these documents are accurate, authorized for use, and ready to publish to this Benefits Hub.
+              </span>
+            </label>
             <div className="flex flex-col sm:flex-row gap-2 pt-2">
               <Button
                 type="button"
                 onClick={handleReviewConfirm}
+                disabled={!confirmedReview}
                 className="flex-1"
               >
                 Add all {reviewDocuments.length} document
