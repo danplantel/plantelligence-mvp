@@ -1096,7 +1096,7 @@ export function DocumentsUploadSection({
                   />
                 </div>
               )}
-            <ul className="space-y-1.5 max-h-32 overflow-y-auto">
+            <ul className="space-y-1.5">
               {uploadProgress.fileStatuses.map((f, i) => (
                 <li key={i} className="flex items-center gap-2 text-sm">
                   {(f.status === "ready" || (f.status as string) === "done") && (
