@@ -32,6 +32,7 @@ import type {
 } from "@/components/pages/documents/types";
 import { StickyPlanCombobox } from "@/components/plan-selector/sticky-plan-combobox";
 import {
+  getLastPlanId,
   persistPlanSelection,
   resolveStickyPlanId,
 } from "@/lib/plan-selector-storage";
@@ -240,6 +241,9 @@ export default function DocumentsPage() {
   useEffect(() => {
     if (clients.length === 0) return;
     const urlPlanId = searchParams.get("planId")?.trim() || null;
+    // Don't auto-select a plan when there's neither a URL param nor a previously stored
+    // selection (e.g. after logout + login where clearAllPlanSelections() was called).
+    if (!urlPlanId && !getLastPlanId("documents")) return;
     const resolved = resolveStickyPlanId(clients, "documents", urlPlanId);
     if (!resolved) return;
     setSelectedPlan((prev) => (urlPlanId ? resolved : prev || resolved));

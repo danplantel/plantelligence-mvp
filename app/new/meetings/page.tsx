@@ -85,6 +85,7 @@ import {
 } from "@/lib/meetings";
 import { StickyPlanCombobox } from "@/components/plan-selector/sticky-plan-combobox";
 import {
+  getLastPlanId,
   persistPlanSelection,
   resolveStickyPlanId,
 } from "@/lib/plan-selector-storage";
@@ -585,6 +586,9 @@ export default function MeetingsPage() {
       meetingsStickyInit.current = true;
       return;
     }
+    // Don't auto-select a plan when there's no previously stored selection
+    // (e.g. after logout + login where clearAllPlanSelections() was called).
+    if (!getLastPlanId("meetings")) return;
     const resolved = resolveStickyPlanId(clients, "meetings", null);
     if (!resolved) return;
     const c = clients.find((x) => x.id === resolved);
