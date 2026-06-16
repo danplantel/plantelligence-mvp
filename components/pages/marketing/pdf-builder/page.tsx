@@ -129,12 +129,14 @@ export function MarketingPdfBuilderPage() {
       const response = await fetch("/api/clients");
       const result = await response.json();
 
-      if (result.success) {
-        const activeClients = (result.data || []).filter(
-          (client: Client) => client.status === "Active",
-        );
-        setClients(activeClients);
-      }
+      const clientsList = result.data ?? [];
+      const activeClients = (Array.isArray(clientsList) ? clientsList : []).filter(
+        (client: Client) =>
+          client.status === "Active" ||
+          client.status === "Draft" ||
+          !client.status,
+      );
+      setClients(activeClients);
     } catch (error) {
       console.error("Failed to fetch plans", error);
     } finally {
