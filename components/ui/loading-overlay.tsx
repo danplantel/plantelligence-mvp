@@ -1,13 +1,8 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import dynamic from "next/dynamic";
 import { useTheme } from "next-themes";
-
-// Dynamically import Lottie to avoid SSR issues
-const Lottie = dynamic(() => import("lottie-react"), { ssr: false });
 
 interface LoadingOverlayProps {
   isLoading: boolean;
@@ -27,23 +22,7 @@ export function LoadingOverlay({
   hideLogo = false,
 }: LoadingOverlayProps) {
   const { resolvedTheme } = useTheme();
-  const [animationData, setAnimationData] = useState<any>(null);
-  const [isClient, setIsClient] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    setIsClient(true);
-
-    // Load Lottie animation data
-    import("@/public/animations/loading.json")
-      .then((data) => {
-        setAnimationData(data.default);
-      })
-      .catch(() => {
-        console.error("Failed to load Lottie animation, using fallback");
-      });
-  }, []);
+  const mounted = true;
 
   if (!isLoading) return null;
 
@@ -74,33 +53,12 @@ export function LoadingOverlay({
           />
         )}
 
-        {/* Animation */}
-        <div className="w-24 h-24">
-          {isClient && animationData ? (
-            <Lottie
-              animationData={animationData}
-              loop={true}
-              autoplay={true}
-              style={{ width: "100%", height: "100%" }}
-            />
-          ) : (
-            // Fallback CSS spinner
-            <div className="relative w-16 h-16">
-              <div className="absolute inset-0 border-4 border-gray-200 dark:border-gray-700 rounded-full"></div>
-              <div className="absolute inset-0 border-4 border-transparent border-t-blue-600 rounded-full animate-spin"></div>
-              <div
-                className="absolute inset-2 border-4 border-transparent border-r-blue-400 rounded-full animate-spin"
-                style={{
-                  animationDirection: "reverse",
-                  animationDuration: "1.5s",
-                }}
-              ></div>
-              <div
-                className="absolute inset-4 border-4 border-transparent border-b-blue-300 rounded-full animate-spin"
-                style={{ animationDuration: "2s" }}
-              ></div>
-            </div>
-          )}
+        {/* Simple CSS spinner — replaces Lottie animation */}
+        <div className="w-16 h-16">
+          <div className="relative w-full h-full">
+            <div className="absolute inset-0 border-4 border-gray-200 dark:border-gray-700 rounded-full" />
+            <div className="absolute inset-0 border-4 border-transparent border-t-accent-blue rounded-full animate-spin" />
+          </div>
         </div>
 
         {/* Loading message */}

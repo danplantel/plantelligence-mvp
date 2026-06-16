@@ -107,6 +107,7 @@ export function DocumentsUploadSection({
   >(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
   const isAddingRef = useRef(false);
   const [batchCategoryDialogOpen, setBatchCategoryDialogOpen] = useState(false);
   const [pendingBatchFiles, setPendingBatchFiles] = useState<File[]>([]);
@@ -126,6 +127,7 @@ export function DocumentsUploadSection({
     }[];
   } | null>(null);
   const [failedBatchFiles, setFailedBatchFiles] = useState<File[]>([]);
+  const cancelUploadRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isAutoCategorized = useMemo(() => {
@@ -411,6 +413,7 @@ export function DocumentsUploadSection({
 
     setFailedBatchFiles([]);
     const failedFiles: File[] = [];
+    cancelUploadRef.current = false;
     setIsUploading(true);
     setUploadProgress({
       total: validFiles.length,
@@ -425,6 +428,7 @@ export function DocumentsUploadSection({
       await new Promise((resolve) => setTimeout(resolve, 300));
 
       for (let i = 0; i < validFiles.length; i++) {
+        if (cancelUploadRef.current) break;
         const file = validFiles[i];
         setUploadProgress((prev) =>
           prev
@@ -482,6 +486,8 @@ export function DocumentsUploadSection({
           } else {
             filePayload = base64ForAnalysis;
           }
+
+          if (cancelUploadRef.current) break;
 
           setUploadProgress((prev) =>
             prev
@@ -542,6 +548,8 @@ export function DocumentsUploadSection({
 
           // Pass the raw base64 data URL so Gemini can read the PDF directly (handles both text and image-based PDFs)
           const isPdf = file.name.toLowerCase().endsWith(".pdf");
+          if (cancelUploadRef.current) break;
+
           geminiInputs.push({
             pdfText,
             originalFileName: file.name,
@@ -621,6 +629,10 @@ export function DocumentsUploadSection({
         if (toAdd.length < newDocuments.length) {
           toast.info("Some files were skipped as duplicates.");
         }
+        if (cancelUploadRef.current) {
+          // If cancelled, bail out without adding documents or showing review
+          return;
+        }
         if (toAdd.length > 0) {
           // Show review UI for uploads without fixed category (single + multi-file)
           if (!fixedCategory) {
@@ -649,7 +661,13 @@ export function DocumentsUploadSection({
             }
           }
         }
-        resetCurrentFormState();
+        if (!cancelUploadRef.current) {
+          resetCurrentFormState();
+        }
+      }
+      if (cancelUploadRef.current) {
+        setIsCancelling(false);
+        toast.info("Upload cancelled");
       }
     } finally {
       if (pdfOnly && failedFiles.length > 0) {
@@ -1034,9 +1052,24 @@ export function DocumentsUploadSection({
                 {isAnalyzingNames ? "Naming" : "Uploading"} {uploadProgress.completed} of {uploadProgress.total}
                 {uploadProgress.currentFile ? ` — ${uploadProgress.currentFile}` : ""}
               </span>
-              <span className="text-sm tabular-nums text-muted-foreground">
-                {Math.round((uploadProgress.completed / uploadProgress.total) * 100)}%
-              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={isCancelling}
+                  className="h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
+                  onClick={() => {
+                    cancelUploadRef.current = true;
+                    setIsCancelling(true);
+                  }}
+                >
+                  {isCancelling ? "Cancelling..." : "Cancel"}
+                </Button>
+                <span className="text-sm tabular-nums text-muted-foreground">
+                  {Math.round((uploadProgress.completed / uploadProgress.total) * 100)}%
+                </span>
+              </div>
             </div>
             <Progress value={(uploadProgress.completed / uploadProgress.total) * 100} className="h-2" />
             {uploadProgress.currentFileBytes &&
@@ -1664,6 +1697,6 @@ export function DocumentsUploadSection({
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-  </Card>
+    </Card>
 );
 }
