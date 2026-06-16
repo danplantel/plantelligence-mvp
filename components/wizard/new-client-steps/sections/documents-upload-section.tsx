@@ -1123,7 +1123,7 @@ export function DocumentsUploadSection({
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground">
-              Adjust file names, descriptions, and expiration dates below. Click
+              Adjust file names, descriptions, and review dates below. Click
               &ldquo;Add all documents&rdquo; when ready.
             </p>
             <Accordion
@@ -1220,7 +1220,7 @@ export function DocumentsUploadSection({
                     </div>
                     <div className="space-y-1">
                       <Label className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
-                        Expiration Date{" "}
+                        Review Date{" "}
                         <span className="text-gray-400 font-normal">(optional)</span>
                       </Label>
                       <Input
@@ -1517,10 +1517,10 @@ export function DocumentsUploadSection({
             </div>
 
 
-            {/* Expiration Date */}
+            {/* Review Date */}
             <div className="space-y-2">
               <Label htmlFor="document-expiration-date" className="dark:text-gray-300">
-                Expiration Date{" "}
+                Review Date{" "}
                 <span className="text-gray-400 dark:text-gray-500">(optional)</span>
               </Label>
               <Input
@@ -1534,8 +1534,8 @@ export function DocumentsUploadSection({
                 className="dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600"
               />
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Set an expiration date to receive notifications when this
-                document expires
+                Set a review date to receive notifications when this
+                document is due for review
               </p>
             </div>
 

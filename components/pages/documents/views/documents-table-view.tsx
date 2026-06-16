@@ -110,7 +110,7 @@ export function DocumentsTableView({
                 onClick={() => onSort("expirationDate")}
                 className="h-auto p-0 font-semibold"
               >
-                Expiration Date
+                Review Date
                 <ChevronsUpDown className="ml-2 h-4 w-4" />
               </Button>
             </TableHead>
@@ -220,7 +220,7 @@ export function DocumentsTableView({
                         className="h-6 w-6 ml-1 text-gray-400 hover:text-accent-blue dark:text-gray-500"
                         onClick={(e) => {
                           e.stopPropagation();
-                          toast.success("Notification set for expiration");
+                          toast.success("Notification set for review date");
                         }}
                       >
                         <Bell className="h-3 w-3" />

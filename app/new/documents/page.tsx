@@ -63,7 +63,7 @@ function SortableTh({
   const isActive = currentColumn === column;
   return (
     <th
-      className={`px-3 py-3 text-left text-xs font-medium text-gray-500 dark:!text-gray-200 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200 ${className}`}
+      className={`px-3 py-3 text-left text-[0.6em] font-medium text-gray-500 dark:!text-gray-200 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200 ${className}`}
       onClick={() => onSort(column)}
     >
       <span className="inline-flex items-center gap-1">
@@ -483,10 +483,10 @@ export default function DocumentsPage() {
     <div className="p-6">
       <div className="w-full space-y-6 max-w-4xl mx-auto">
         {expiredDocuments.length > 0 && (
-          <Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertTitle>Expired Documents</AlertTitle><AlertDescription>{expiredDocuments.length} document{expiredDocuments.length > 1 ? "s have" : " has"} expired. Please update or remove them.<ul className="mt-2 list-disc list-inside">{expiredDocuments.slice(0, 5).map((doc) => (<li key={doc.id}>{doc.title} - Expired {getExpirationStatus(doc)?.days} day{getExpirationStatus(doc)?.days !== 1 ? "s" : ""} ago</li>))}{expiredDocuments.length > 5 && <li>...and {expiredDocuments.length - 5} more</li>}</ul></AlertDescription></Alert>
+          <Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertTitle>Documents Past Review Date</AlertTitle><AlertDescription>{expiredDocuments.length} document{expiredDocuments.length > 1 ? "s have" : " has"} passed their review date. Please update or remove them.<ul className="mt-2 list-disc list-inside">{expiredDocuments.slice(0, 5).map((doc) => (<li key={doc.id}>{doc.title} - {getExpirationStatus(doc)?.days} day{getExpirationStatus(doc)?.days !== 1 ? "s" : ""} past review date</li>))}{expiredDocuments.length > 5 && <li>...and {expiredDocuments.length - 5} more</li>}</ul></AlertDescription></Alert>
         )}
         {expiringSoonDocuments.length > 0 && (
-          <Alert className="border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"><Clock className="h-4 w-4" /><AlertTitle>Documents Expiring Soon</AlertTitle><AlertDescription>{expiringSoonDocuments.length} document{expiringSoonDocuments.length > 1 ? "s are" : " is"} expiring within the next 30 days. Please review and update them.<ul className="mt-2 list-disc list-inside">{expiringSoonDocuments.slice(0, 5).map((doc) => (<li key={doc.id}>{doc.title} - Expires in {getExpirationStatus(doc)?.days} day{getExpirationStatus(doc)?.days !== 1 ? "s" : ""}</li>))}{expiringSoonDocuments.length > 5 && <li>...and {expiringSoonDocuments.length - 5} more</li>}</ul></AlertDescription></Alert>
+          <Alert className="border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"><Clock className="h-4 w-4" /><AlertTitle>Documents Due for Review</AlertTitle><AlertDescription>{expiringSoonDocuments.length} document{expiringSoonDocuments.length > 1 ? "s are" : " is"} due for review within the next 30 days. Please review and update them.<ul className="mt-2 list-disc list-inside">{expiringSoonDocuments.slice(0, 5).map((doc) => (<li key={doc.id}>{doc.title} - Due for review in {getExpirationStatus(doc)?.days} day{getExpirationStatus(doc)?.days !== 1 ? "s" : ""}</li>))}{expiringSoonDocuments.length > 5 && <li>...and {expiringSoonDocuments.length - 5} more</li>}</ul></AlertDescription></Alert>
         )}
         <Card>
           <CardHeader className="pb-3"><CardTitle className="text-2xl font-bold">Plan Documents</CardTitle></CardHeader>
@@ -566,8 +566,8 @@ export default function DocumentsPage() {
                                 <SortableTh column="title" label="Filename" currentColumn={sortColumn} direction={sortDirection} onSort={() => handleSort("title" as any)} />
                                 <SortableTh column="category" label="Category" currentColumn={sortColumn} direction={sortDirection} onSort={() => handleSort("category" as any)} className="w-32" />
                                 <SortableTh column="language" label="Language" currentColumn={sortColumn} direction={sortDirection} onSort={() => handleSort("language" as any)} className="w-24" />
-                                <SortableTh column="expirationDate" label="Expiration" currentColumn={sortColumn} direction={sortDirection} onSort={() => handleSort("expirationDate")} className="w-28" />
-                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:!text-gray-200 uppercase tracking-wider w-28">Actions</th>
+                                <SortableTh column="expirationDate" label="Review Date" currentColumn={sortColumn} direction={sortDirection} onSort={() => handleSort("expirationDate")} className="w-28" />
+                                <th className="px-3 py-3 text-left text-[0.6em] font-medium text-gray-500 dark:!text-gray-200 uppercase tracking-wider w-28">Actions</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
