@@ -1191,7 +1191,7 @@ export const navItems: NavItem[] = [
       },
       {
         title: "Marketing",
-        href: "/new/marketing",
+        href: "/new/meetings/marketing",
         label: "Marketing",
       },
     ],
