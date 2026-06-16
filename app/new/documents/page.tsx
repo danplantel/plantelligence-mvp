@@ -369,12 +369,27 @@ function RecentPlanLabels({
 
 export default function DocumentsPage() {
   const { setTitle } = usePageTitleContext();
+
+  // Fetch user profile to derive default categoryFilter from primaryServiceCategories
+  const { data: profileData } = useSWR("/api/profile", jsonFetcher, {
+    dedupingInterval: 60_000,
+    revalidateOnFocus: false,
+  });
   const searchParams = useSearchParams();
   const router = useRouter();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
-  const [categoryFilter, setCategoryFilter] = useState("all");
+  // Initialize from localStorage so the default category is available immediately
+  // on page reload, avoiding a visible flip from "All Categories" to the real default.
+  const [categoryFilter, setCategoryFilter] = useState<string>(() => {
+    if (typeof window === "undefined") return "all";
+    try {
+      return localStorage.getItem("plantelligence:defaultDocCategory") || "all";
+    } catch {
+      return "all";
+    }
+  });
   const [languageFilter, setLanguageFilter] = useState("all");
   const [viewMode, setViewMode] = useState<"list" | "cards">("list");
   const [loadedCards, setLoadedCards] = useState<Set<string>>(new Set());
@@ -493,6 +508,21 @@ export default function DocumentsPage() {
       : "/new/documents";
     router.replace(newURL);
   };
+
+  // Set default category filter from user's primaryServiceCategories once profile loads,
+  // then persist to localStorage so the value is available instantly on next page load.
+  const defaultCategorySetRef = useRef(false);
+  useEffect(() => {
+    if (!profileData || defaultCategorySetRef.current) return;
+    const cats: string[] = (profileData as any)?.primaryServiceCategories ?? [];
+    if (cats.length === 0) return;
+    const defaultCat = cats.includes("Retirement") ? "Retirement" : cats[0];
+    setCategoryFilter(defaultCat);
+    try {
+      localStorage.setItem("plantelligence:defaultDocCategory", defaultCat);
+    } catch {}
+    defaultCategorySetRef.current = true;
+  }, [profileData]);
 
   useEffect(() => {
     setTitle("Documents");
