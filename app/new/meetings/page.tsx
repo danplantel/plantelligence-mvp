@@ -817,6 +817,7 @@ export default function MeetingsPage() {
 
 
   // Sync URL params with filters on mount
+  const toastShownRef = useRef(false);
   useEffect(() => {
     const clientParam = searchParams.get("client");
     const idFromUrl =
@@ -841,9 +842,12 @@ export default function MeetingsPage() {
           clientId: found?.id ?? "",
         }));
         if (found) setSelectedPlan(found.id);
-        setTimeout(() => {
-          toast.success(`Meeting form pre-filled with ${clientParam}`);
-        }, 300);
+        if (!toastShownRef.current) {
+          toastShownRef.current = true;
+          setTimeout(() => {
+            toast.success(`Meeting form pre-filled with ${clientParam}`);
+          }, 300);
+        }
       }
     } else if (idFromUrl && clients.length > 0) {
       const client = clients.find((c) => c.id === idFromUrl);
@@ -856,9 +860,12 @@ export default function MeetingsPage() {
         setClientFilter(client.companyName);
         setSelectedPlan(client.id);
         persistPlanSelection("meetings", client.id);
-        setTimeout(() => {
-          toast.success(`Meeting form pre-filled with ${client.companyName}`);
-        }, 300);
+        if (!toastShownRef.current) {
+          toastShownRef.current = true;
+          setTimeout(() => {
+            toast.success(`Meeting form pre-filled with ${client.companyName}`);
+          }, 300);
+        }
       }
     }
   }, [searchParams, clients]);
