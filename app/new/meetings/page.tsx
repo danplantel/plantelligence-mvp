@@ -21,14 +21,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -359,6 +351,15 @@ const statusColors: Record<string, string> = {
   Upcoming: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-700/50",
   Past: "bg-gray-100 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700/50",
   Draft: "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-700/50",
+};
+
+// Map legacy status values to new display labels
+const STATUS_LABEL_MAP: Record<string, string> = {
+  Scheduled: "Upcoming",
+  Confirmed: "Upcoming",
+  Completed: "Past",
+  Cancelled: "Past",
+  "In Progress": "Upcoming",
 };
 
 interface MeetingSaveType {
@@ -1317,7 +1318,6 @@ export default function MeetingsPage() {
       return;
     }
 
-
     if (isValueCastom === "Custom") {
       setOpenModel(true);
       return;
@@ -1351,6 +1351,7 @@ export default function MeetingsPage() {
           meetingType: meetingTypeToSend,
           duration: durationToSend,
           meetingLink: resolveRsvpUrl(formData),
+          status: "Upcoming",
           // Remove meetingTitle since we're not using it anymore
         }),
       });
@@ -1434,6 +1435,56 @@ export default function MeetingsPage() {
     } else {
       setSortColumn(column);
       setSortDirection("asc");
+    }
+  };
+
+  const handleSaveAsDraft = async () => {
+    setIsSubmitting(true);
+    try {
+      const today = new Date();
+      const todayStr = format(today, "yyyy-MM-dd");
+
+      const response = await fetch("/api/meetings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          meeting: formData.meetingType || "Draft Meeting",
+          meetingType: formData.meetingType || "Open Enrollment",
+          client: formData.client || "Draft",
+          clientId: formData.clientId || selectedPlan,
+          date: formData.date || todayStr,
+          time: formData.time || "12:00",
+          timezone: formData.timezone || "America/New_York",
+          duration: formData.duration || "1 hour",
+          format: formData.format || "Virtual",
+          platform: formData.platform || "Zoom",
+          meetingUrl: formData.meetingUrl || "",
+          meetingLink: formData.meetingLink || "",
+          maxAttendees: formData.maxAttendees || "50",
+          description: formData.description || "",
+          address: formData.address || "",
+          city: formData.city || "",
+          state: formData.state || "",
+          zip: formData.zip || "",
+          language: formData.language || "English",
+          benefitsCategory: formData.benefitsCategory || "",
+          status: "Draft",
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        toast.success("Draft meeting saved successfully!");
+        setMeetingModalOpen(false);
+        await fetchMeetings();
+      } else {
+        toast.error(result.error || "Failed to save draft meeting");
+      }
+    } catch {
+      toast.error("An error occurred while saving the draft");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -1667,6 +1718,8 @@ export default function MeetingsPage() {
   // Separate meetings into upcoming and past
   const now = new Date();
   const upcomingMeetings = meetings.filter((meeting) => {
+    // Draft meetings always appear in Upcoming
+    if (meeting.status === "Draft") return true;
     const meetingDate = parseLocalDate(meeting.date);
     const [hours, minutes] = meeting.time.split(":").map(Number);
     const meetingDateTime = new Date(meetingDate);
@@ -1676,6 +1729,8 @@ export default function MeetingsPage() {
   });
 
   const pastMeetings = meetings.filter((meeting) => {
+    // Draft meetings never appear in Past
+    if (meeting.status === "Draft") return false;
     const meetingDate = parseLocalDate(meeting.date);
     const [hours, minutes] = meeting.time.split(":").map(Number);
     const meetingDateTime = new Date(meetingDate);
@@ -1939,6 +1994,8 @@ export default function MeetingsPage() {
                           Draft: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-200 border-amber-200 dark:border-amber-700/50",
                         };
 
+                        const displayStatus = STATUS_LABEL_MAP[meeting.status] || meeting.status;
+
                         return (
                           <div
                             key={meeting.id}
@@ -1969,11 +2026,11 @@ export default function MeetingsPage() {
                                   <Badge
                                     className={`text-[10px] border px-1.5 py-px shrink-0 ${
                                       statusColors[
-                                        meeting.status as keyof typeof statusColors
+                                        STATUS_LABEL_MAP[meeting.status] || meeting.status
                                       ] || statusColors.Upcoming
                                     }`}
                                   >
-                                    {meeting.status}
+                                    {STATUS_LABEL_MAP[meeting.status] || meeting.status}
                                   </Badge>
                                   {meeting.benefitsCategory && (
                                     <span className="text-[10px] font-medium text-muted-foreground/60 border border-border/40 px-1.5 py-px rounded shrink-0 leading-tight">
@@ -3002,6 +3059,17 @@ export default function MeetingsPage() {
               >
                 Cancel
               </Button>
+              {!editingMeetingId && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleSaveAsDraft}
+                  disabled={isSubmitting || !formData.clientId}
+                  className="flex-1 border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30"
+                >
+                  {isSubmitting ? "Saving Draft..." : "Save as Draft"}
+                </Button>
+              )}
               <Button
                 type="submit"
                 className="flex-1 bg-primary hover:bg-primary/90 dark:bg-accent-blue dark:text-white dark:hover:bg-accent-blue/90"

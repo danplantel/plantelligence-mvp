@@ -13,6 +13,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       meetingType,
+      meeting: meetingTitle,
       client,
       clientId: planClientId,
       date,
@@ -31,6 +32,7 @@ export async function POST(request: NextRequest) {
       language,
       benefitsCategory,
       customBenefitsCategory,
+      status,
     } = body;
 
     // Validate required fields
@@ -82,7 +84,7 @@ export async function POST(request: NextRequest) {
     const meeting = await prisma.meeting.create({
       data: {
         userId: session.user.id,
-        meeting: meetingType, // Use meetingType as the meeting name
+        meeting: meetingTitle || meetingType, // Use meeting name if provided, fallback to meetingType
         meetingType,
         client,
         ...(resolvedClientId ? { clientId: resolvedClientId } : {}),
@@ -95,7 +97,7 @@ export async function POST(request: NextRequest) {
         meetingLink: meetingLink || null,
         maxAttendees: maxAttendees ? parseInt(maxAttendees) : null,
         description: description || null,
-        status: "Scheduled",
+        status: status || "Upcoming",
         attendees: 0,
         displayOnPortal: true,
         language: language || null,
