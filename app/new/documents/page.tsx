@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import {
   AlertTriangle, Clock, FileText, Download, Pencil, Trash2,
-  Eye, ArrowUpDown, ArrowUp, ArrowDown, LayoutGrid, List, Search, GripVertical,
+  Eye, ArrowUpDown, ArrowUp, ArrowDown, LayoutGrid, List, Search, GripVertical, X,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { RetirementDocumentItem } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
@@ -44,6 +44,14 @@ import {
 import { useNavigateAwayGuard } from "@/hooks/use-navigate-away-guard";
 import { NavigateAwayWarningDialog } from "@/components/ui/navigate-away-warning-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { DialogClose } from "@radix-ui/react-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatUsDate } from "@/lib/date";
 
@@ -435,6 +443,7 @@ export default function DocumentsPage() {
   const [hasUnsavedUploadChanges, setHasUnsavedUploadChanges] = useState(false);
   const [uploadSaveFn, setUploadSaveFn] = useState<(() => Promise<void>) | null>(null);
   const [previewLanguage, setPreviewLanguage] = useState<"EN" | "ES">("EN");
+  const [docPortalPreviewOpen, setDocPortalPreviewOpen] = useState(false);
 
   const [docPreviews, setDocPreviews] = useState<Record<string, { blobUrl: string; loading: boolean }>>({});
   const [expandedRow, setExpandedRow] = useState<string>("");
@@ -856,6 +865,7 @@ export default function DocumentsPage() {
                       <div className="flex items-center border rounded-md overflow-hidden dark:border-gray-600 shrink-0">
                         <button type="button" onClick={() => setViewMode("list")} className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${viewMode === "list" ? "bg-accent-blue text-white" : "bg-white text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"}`}><List className="h-3.5 w-3.5 mr-1 inline" />List</button>
                         <button type="button" onClick={() => setViewMode("cards")} className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${viewMode === "cards" ? "bg-accent-blue text-white" : "bg-white text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"}`}><LayoutGrid className="h-3.5 w-3.5 mr-1 inline" />Cards</button>
+                        <button type="button" onClick={() => setDocPortalPreviewOpen(true)} className="px-2.5 py-1.5 text-xs font-medium transition-colors bg-white text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"><Eye className="h-3.5 w-3.5 mr-1 inline" />Preview</button>
                       </div>
                     </div>
                     {isLoading && sortedDocuments.length === 0 && (<div className="space-y-2 rounded-lg border bg-white dark:border-gray-700 dark:bg-gray-900 p-4">{[1, 2, 3, 4].map((i) => (<div key={i} className="flex items-center gap-3 py-2"><Skeleton className="h-5 w-5 shrink-0 rounded" /><div className="flex-1 min-w-0 space-y-1.5"><div className="flex items-center gap-2"><Skeleton className="h-4 w-48" /><Skeleton className="h-4 w-12 rounded-full" /><Skeleton className="h-4 w-8 rounded-full" /></div><Skeleton className="h-3 w-72" /></div></div>))}</div>)}
@@ -1056,6 +1066,98 @@ export default function DocumentsPage() {
           )}
         </Card>
       </div>
+      {/* Portal Preview Dialog — shows document cards in the portal layout */}
+      <Dialog open={docPortalPreviewOpen} onOpenChange={setDocPortalPreviewOpen}>
+        <DialogContent className="max-w-5xl p-0 flex flex-col max-h-[90vh] [&>button.absolute]:hidden">
+          {/* Fixed header */}
+          <div className="flex items-start justify-between border-b px-6 py-4 shrink-0">
+            <div>
+              <DialogTitle>Portal Preview — Documents</DialogTitle>
+              <DialogDescription className="mt-1">
+                See how your documents appear to plan members on the Benefits Hub.
+              </DialogDescription>
+            </div>
+            <DialogClose asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                <X className="h-4 w-4" />
+              </Button>
+            </DialogClose>
+          </div>
+          {/* Scrollable body */}
+          <div className="overflow-y-auto p-6">
+            {retirementDocs.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+                <FileText className="h-12 w-12 text-gray-300 mb-4" />
+                <p className="text-gray-500 text-sm">No documents available for preview.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-x-[16px] gap-y-[24px] md:grid-cols-2 lg:grid-cols-3">
+                {retirementDocs.map((doc) => {
+                  const docId = doc.meta?.id ?? doc.id;
+                  const docTitle = doc.title;
+                  // Find Spanish version of the same document
+                  const esDoc = sortedDocuments.find(
+                    (d) =>
+                      (d as any).language === "ES" &&
+                      d.title.toLowerCase() === docTitle.toLowerCase() &&
+                      d.id !== docId
+                  );
+                  const hasSpanish = !!esDoc;
+                  return (
+                    <div
+                      key={docId}
+                      className="border-b-[4px] bg-white pt-[10px] px-[15px] pb-[30px] lg:h-[260px] lg:p-[30px]"
+                      style={{ borderBottomColor: "#1F3A60" }}
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        height="512"
+                        width="512"
+                        viewBox="0 0 512 512"
+                        className="h-[45px] w-[45px]"
+                        style={{ fill: "#1F3A60" }}
+                      >
+                        <path d="m433.798 106.268-96.423-91.222c-10.256-9.703-23.68-15.046-37.798-15.046h-183.577c-30.327 0-55 24.673-55 55v402c0 30.327 24.673 55 55 55h280c30.327 0 55-24.673 55-55v-310.778c0-15.049-6.27-29.612-17.202-39.954zm-29.137 13.732h-74.661c-2.757 0-5-2.243-5-5v-70.364zm-8.661 362h-280c-13.785 0-25-11.215-25-25v-402c0-13.785 11.215-25 25-25h179v85c0 19.299 15.701 35 35 35h91v307c0 13.785-11.215 25-25 25z"></path>
+                        <path d="m363 200h-220c-8.284 0-15 6.716-15 15s6.716 15 15 15h220c8.284 0 15-6.716 15-15s-6.716-15-15-15z"></path>
+                        <path d="m363 280h-220c-8.284 0-15 6.716-15 15s6.716 15 15 15h220c8.284 0 15-6.716 15-15s-6.716-15-15-15z"></path>
+                        <path d="m215.72 360h-72.72c-8.284 0-15 6.716-15 15s6.716 15 15 15h72.72c8.284 0 15-6.716 15-15s-6.716-15-15-15z"></path>
+                      </svg>
+                      <p className="dm-serif mt-[20px] text-[20px] font-medium text-black lg:text-[16px] h-16">
+                        {docTitle}
+                      </p>
+                      <div className="mt-[20px] flex flex-col gap-2">
+                        <a
+                          href={doc.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 text-sm font-medium uppercase"
+                          style={{ color: "#DAC287" }}
+                        >
+                          Download
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                        </a>
+                        {hasSpanish && esDoc && (
+                          <a
+                            href={`/api/documents/${esDoc.id}/view?t=${esDoc.uploadedAt}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 text-sm font-medium uppercase"
+                            style={{ color: "#DAC287" }}
+                          >
+                            Descargar en español
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <ConfirmDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen} onConfirm={handleDeleteConfirm} title="Delete Document" description={documentToDelete ? `Are you sure you want to delete "${documentToDelete.title}"? This action cannot be undone and the document will be permanently removed.` : ""} confirmText="Delete" cancelText="Cancel" variant="destructive" />
       <DocumentPreviewModal isOpen={previewOpen} onClose={() => { setPreviewOpen(false); setPreviewDocument(null); }} document={previewDocument} isLoading={isLoadingPreview} />
       <DocumentEditModal isOpen={editModalOpen} onClose={() => { setEditModalOpen(false); setDocumentToEdit(null); }} document={documentToEdit} onSave={handleSaveEdit} />

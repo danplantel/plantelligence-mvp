@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   AnimatedSection,
   RevealText,
@@ -11,11 +12,47 @@ import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { PageFade } from "@/components/animations/page-fade";
 import { useClientPortal } from "@/contexts/client-portal-context";
+import { Skeleton } from "@/components/ui/skeleton";
+
+interface PortalDocument {
+  id: string;
+  title: string;
+  fileName: string;
+  fileUrl?: string;
+  storageKey?: string;
+  type?: string;
+  shortDescription?: string;
+  language?: string;
+  category?: string;
+  uploadedAt: string | Date;
+}
 
 export default function PlanMaterialsPage() {
-  const { clientData } = useClientPortal();
+  const { clientData, loading } = useClientPortal();
   const brandColor = clientData?.brandColor || "#1F3A60";
   const secondaryColor = clientData?.secondaryColor || "#DAC287";
+
+  // Documents come from the client portal context (fetched via /api/clients/[id]?forPortal=1)
+  const documents: PortalDocument[] = (clientData?.documents as PortalDocument[]) ?? [];
+  const isLoading = loading;
+
+  // Build a map: for each document title, find the ES version
+  const esDocByTitle = useMemo(() => {
+    const map = new Map<string, PortalDocument>();
+    if (!documents.length) return map;
+    documents.forEach((doc) => {
+      if ((doc.language ?? "EN") === "ES") {
+        map.set(doc.title.toLowerCase(), doc);
+      }
+    });
+    return map;
+  }, [documents]);
+
+  // Only show English documents in the grid; Spanish docs are paired via the "Descargar en español" button
+  const enDocuments = useMemo(
+    () => documents.filter((doc) => (doc.language ?? "EN") === "EN"),
+    [documents]
+  );
 
   return (
     <ScrollArea className="h-full">
@@ -77,44 +114,90 @@ export default function PlanMaterialsPage() {
               </RevealText>
             </AnimatedSection>
 
-            <div className="grid grid-cols-1 gap-x-[16px] gap-y-[24px] md:grid-cols-2 lg:grid-cols-3">
-              {documents.map((item, index) => (
-                <AnimatedSection
-                  key={item}
-                  delay={0.1 * index}
-                  parallaxFactor={0.08}
-                >
+            {isLoading ? (
+              <div className="grid grid-cols-1 gap-x-[16px] gap-y-[24px] md:grid-cols-2 lg:grid-cols-3">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
                   <div
+                    key={i}
                     className="border-b-[4px] bg-white pt-[10px] px-[15px] pb-[30px] lg:h-[260px] lg:p-[30px]"
                     style={{ borderBottomColor: brandColor }}
                   >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      height="512"
-                      width="512"
-                      viewBox="0 0 512 512"
-                      className="h-[45px] w-[45px]"
-                      style={{ fill: brandColor }}
-                    >
-                      <path d="m433.798 106.268-96.423-91.222c-10.256-9.703-23.68-15.046-37.798-15.046h-183.577c-30.327 0-55 24.673-55 55v402c0 30.327 24.673 55 55 55h280c30.327 0 55-24.673 55-55v-310.778c0-15.049-6.27-29.612-17.202-39.954zm-29.137 13.732h-74.661c-2.757 0-5-2.243-5-5v-70.364zm-8.661 362h-280c-13.785 0-25-11.215-25-25v-402c0-13.785 11.215-25 25-25h179v85c0 19.299 15.701 35 35 35h91v307c0 13.785-11.215 25-25 25z"></path>
-                      <path d="m363 200h-220c-8.284 0-15 6.716-15 15s6.716 15 15 15h220c8.284 0 15-6.716 15-15s-6.716-15-15-15z"></path>
-                      <path d="m363 280h-220c-8.284 0-15 6.716-15 15s6.716 15 15 15h220c8.284 0 15-6.716 15-15s-6.716-15-15-15z"></path>
-                      <path d="m215.72 360h-72.72c-8.284 0-15 6.716-15 15s6.716 15 15 15h72.72c8.284 0 15-6.716 15-15s-6.716-15-15-15z"></path>
-                    </svg>
-                    <p className="dm-serif mt-[20px] text-[20px] font-medium text-black lg:text-[24px]">
-                      {item}
-                    </p>
-                    <div
-                      className="mt-[20px] flex items-center"
-                      style={{ color: secondaryColor }}
-                    >
-                      <span className="font-medium uppercase">Download</span>
-                      <ArrowRight />
+                    <Skeleton className="h-[45px] w-[45px]" />
+                    <Skeleton className="h-6 w-3/4 mt-[20px]" />
+                    <div className="mt-[20px] flex flex-col gap-2">
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="h-4 w-40" />
                     </div>
                   </div>
-                </AnimatedSection>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : enDocuments.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+                <p className="text-gray-500 text-lg">No plan materials available yet.</p>
+                <p className="text-gray-400 text-sm mt-2">Documents will appear here once they are uploaded.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-x-[16px] gap-y-[24px] md:grid-cols-2 lg:grid-cols-3">
+                {enDocuments.map((doc, index) => {
+                  const esDoc = esDocByTitle.get(doc.title.toLowerCase());
+                  const hasSpanish = !!esDoc && esDoc.id !== doc.id;
+                  const docUrl = `/api/documents/${doc.id}/view?t=${doc.uploadedAt}`;
+                  return (
+                    <AnimatedSection
+                      key={doc.id}
+                      delay={0.1 * index}
+                      parallaxFactor={0.08}
+                    >
+                      <div
+                        className="border-b-[4px] bg-white pt-[10px] px-[15px] pb-[30px] lg:h-[260px] lg:p-[30px] flex flex-col"
+                        style={{ borderBottomColor: brandColor }}
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          height="512"
+                          width="512"
+                          viewBox="0 0 512 512"
+                          className="h-[45px] w-[45px]"
+                          style={{ fill: brandColor }}
+                        >
+                          <path d="m433.798 106.268-96.423-91.222c-10.256-9.703-23.68-15.046-37.798-15.046h-183.577c-30.327 0-55 24.673-55 55v402c0 30.327 24.673 55 55 55h280c30.327 0 55-24.673 55-55v-310.778c0-15.049-6.27-29.612-17.202-39.954zm-29.137 13.732h-74.661c-2.757 0-5-2.243-5-5v-70.364zm-8.661 362h-280c-13.785 0-25-11.215-25-25v-402c0-13.785 11.215-25 25-25h179v85c0 19.299 15.701 35 35 35h91v307c0 13.785-11.215 25-25 25z"></path>
+                          <path d="m363 200h-220c-8.284 0-15 6.716-15 15s6.716 15 15 15h220c8.284 0 15-6.716 15-15s-6.716-15-15-15z"></path>
+                          <path d="m363 280h-220c-8.284 0-15 6.716-15 15s6.716 15 15 15h220c8.284 0 15-6.716 15-15s-6.716-15-15-15z"></path>
+                          <path d="m215.72 360h-72.72c-8.284 0-15 6.716-15 15s6.716 15 15 15h72.72c8.284 0 15-6.716 15-15s-6.716-15-15-15z"></path>
+                        </svg>
+                        <p className="dm-serif mt-[20px] text-[20px] font-medium text-black lg:text-[24px] min-h-[3.5rem] line-clamp-2">
+                          {doc.title}
+                        </p>
+                        <div className="mt-auto pt-[20px] flex flex-col gap-2">
+                          <a
+                            href={docUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity"
+                            style={{ color: secondaryColor }}
+                          >
+                            <span className="font-medium uppercase">Download</span>
+                            <ArrowRight />
+                          </a>
+                          {hasSpanish && esDoc && (
+                            <a
+                              href={`/api/documents/${esDoc.id}/view?t=${esDoc.uploadedAt}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity"
+                              style={{ color: secondaryColor }}
+                            >
+                              <span className="font-medium uppercase">Descargar en español</span>
+                              <ArrowRight />
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    </AnimatedSection>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
@@ -123,15 +206,3 @@ export default function PlanMaterialsPage() {
     </ScrollArea>
   );
 }
-
-const documents = [
-  "Enrollment Booklet",
-  "Enrollment Worksheet",
-  "Qualified Default Investment Alternative Notice",
-  "Automatic Enrollment Contribution Notice",
-  "Participant Fee Disclosure",
-  "Beneficiary Form",
-  "Incoming Rollover Form",
-  "Summary Plan Description",
-  "Summary Annual Report",
-];
