@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { flushSync } from "react-dom";
+import { flushSync, createPortal } from "react-dom";
 import useSWR from "swr";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -64,6 +65,7 @@ import {
   Link,
   Hash,
   CheckCircle,
+  Search,
 } from "lucide-react";
 import { format } from "date-fns";
 import { formatUsDate } from "@/lib/date";
@@ -86,6 +88,7 @@ import {
 import { StickyPlanCombobox } from "@/components/plan-selector/sticky-plan-combobox";
 import {
   getLastPlanId,
+  getRecentPlanIds,
   persistPlanSelection,
   resolveStickyPlanId,
 } from "@/lib/plan-selector-storage";
@@ -369,6 +372,292 @@ type SortDirection = "asc" | "desc";
 
 const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
 
+// ── Plan search bar (replaces StickyPlanCombobox at top level) ──
+function PlanSearchBar({
+  plans,
+  value,
+  onChange,
+  disabled,
+}: {
+  plans: Client[];
+  value: string;
+  onChange: (planId: string) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [highlight, setHighlight] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const recentIds = getRecentPlanIds();
+  const planMap = useMemo(() => {
+    const m = new Map<string, Client>();
+    plans.forEach((p) => m.set(p.id, p));
+    return m;
+  }, [plans]);
+
+  // Resolve recent plan objects from localStorage recents list
+  const recentPlanObjects = useMemo(() => {
+    const result: Client[] = [];
+    const seen = new Set<string>();
+    for (const id of recentIds) {
+      const p = planMap.get(id);
+      if (p && !seen.has(id)) {
+        result.push(p);
+        seen.add(id);
+      }
+    }
+    return result;
+  }, [recentIds, planMap]);
+
+  // Dropdown items: all plans sorted with recents first, filtered by query when typing
+  const allPlansSorted = useMemo(() => {
+    const recentSet = new Set(recentPlanObjects.map((p) => p.id));
+    const recents: Client[] = [];
+    const others: Client[] = [];
+    for (const p of plans) {
+      if (recentSet.has(p.id)) {
+        recents.push(p);
+      } else {
+        others.push(p);
+      }
+    }
+    others.sort((a, b) => a.companyName.localeCompare(b.companyName, undefined, { sensitivity: "base" }));
+    return [...recents, ...others];
+  }, [plans, recentPlanObjects]);
+
+  const dropdownItems = useMemo(() => {
+    if (!query.trim()) return allPlansSorted;
+    const q = query.toLowerCase();
+    return allPlansSorted.filter((p) => p.companyName.toLowerCase().includes(q));
+  }, [query, allPlansSorted]);
+
+  const selectedPlan = useMemo(
+    () => plans.find((p) => p.id === value),
+    [plans, value],
+  );
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (containerRef.current?.contains(t)) return;
+      if (dropdownRef.current?.contains(t)) return;
+      setOpen(false);
+      setQuery("");
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  useEffect(() => {
+    setHighlight(0);
+  }, [dropdownItems.length, open]);
+
+  const selectPlan = (planId: string) => {
+    persistPlanSelection("meetings", planId);
+    onChange(planId);
+    setOpen(false);
+    setQuery("");
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!open) return;
+    if (e.key === "Escape") {
+      setOpen(false);
+      setQuery("");
+      return;
+    }
+    if (dropdownItems.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlight((h) => (h + 1) % dropdownItems.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlight((h) => (h - 1 + dropdownItems.length) % dropdownItems.length);
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const item = dropdownItems[highlight];
+      if (item) selectPlan(item.id);
+    }
+  };
+
+  return (
+    <div className="space-y-2" ref={containerRef}>
+      <CardTitle className="text-2xl font-bold pb-2">Meeting Sessions</CardTitle>
+      <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+        Select a plan
+        <span className="text-red-500"> *</span>
+      </label>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+        <Input
+          ref={inputRef}
+          type="text"
+          placeholder={selectedPlan ? selectedPlan.companyName : "Search plans…"}
+          value={query}
+          onChange={(e) => {
+            if (!open) setOpen(true);
+            setQuery(e.target.value);
+          }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={handleKeyDown}
+          disabled={disabled}
+          className="h-9 pl-9 pr-3 bg-white dark:bg-gray-800"
+          aria-label="Search plans"
+          aria-expanded={open}
+          aria-haspopup="listbox"
+          autoComplete="off"
+        />
+      </div>
+
+      {/* Dropdown */}
+      {open && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              ref={dropdownRef}
+              role="listbox"
+              className="rounded-md border border-input bg-white dark:bg-gray-800 shadow-lg overflow-hidden z-50"
+              style={{
+                position: "fixed",
+                top: (containerRef.current?.getBoundingClientRect().bottom ?? 0) + 4,
+                left: containerRef.current?.getBoundingClientRect().left ?? 0,
+                width: containerRef.current?.getBoundingClientRect().width ?? 300,
+                maxHeight: 288,
+              }}
+            >
+              {query.trim() && (
+                <div className="px-3 py-1.5 border-b border-border/60">
+                  <p className="text-xs text-muted-foreground">
+                    {dropdownItems.length} plan{dropdownItems.length !== 1 ? "s" : ""} found
+                  </p>
+                </div>
+              )}
+              <div className="overflow-y-auto max-h-[256px] py-1">
+                {dropdownItems.length > 0 && (
+                  <>
+                    {/* Recent plans section */}
+                    {recentPlanObjects.length > 0 && (
+                      <div className="px-2 pb-1">
+                        <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground px-2 py-1.5">
+                          <Clock className="h-3 w-3" />
+                          Recent
+                        </div>
+                        {recentPlanObjects.map((plan, idx) => {
+                          const isHi = highlight === idx;
+                          return (
+                            <button
+                              key={`r-${plan.id}`}
+                              type="button"
+                              role="option"
+                              aria-selected={value === plan.id}
+                              className={cn(
+                                "w-full rounded-sm px-3 py-2 text-left text-sm transition-colors",
+                                isHi && "bg-accent-blue/10 text-accent-blue font-medium",
+                                !isHi && "hover:bg-muted",
+                              )}
+                              onClick={() => selectPlan(plan.id)}
+                              onMouseEnter={() => setHighlight(idx)}
+                            >
+                              {plan.companyName}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {/* All other plans */}
+                    {dropdownItems.length > recentPlanObjects.length && (
+                      <div className={cn("px-2", recentPlanObjects.length > 0 && "pt-1 border-t border-border/60")}>
+                        <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground px-2 py-1.5">
+                          {query.trim() ? "Matching plans" : "All plans"}
+                        </div>
+                        {dropdownItems.slice(recentPlanObjects.length).map((plan, idx) => {
+                          const globalIdx = recentPlanObjects.length + idx;
+                          const isHi = highlight === globalIdx;
+                          return (
+                            <button
+                              key={plan.id}
+                              type="button"
+                              role="option"
+                              aria-selected={value === plan.id}
+                              className={cn(
+                                "w-full rounded-sm px-3 py-2 text-left text-sm transition-colors",
+                                isHi && "bg-accent-blue/10 text-accent-blue font-medium",
+                                !isHi && "hover:bg-muted",
+                              )}
+                              onClick={() => selectPlan(plan.id)}
+                              onMouseEnter={() => setHighlight(globalIdx)}
+                            >
+                              {plan.companyName}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                )}
+                {dropdownItems.length === 0 && (
+                  <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+                    {query.trim() ? "No plans match your search." : "No plans available."}
+                  </div>
+                )}
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+    </div>
+  );
+}
+
+// ── Recent plan labels shown when no plan is selected ──
+function RecentPlanLabels({
+  plans,
+  onSelect,
+}: {
+  plans: Client[];
+  onSelect: (planId: string) => void;
+}) {
+  const recentIds = getRecentPlanIds();
+  const recentPlanObjects = useMemo(() => {
+    const planMap = new Map(plans.map((p) => [p.id, p]));
+    const result: Client[] = [];
+    const seen = new Set<string>();
+    for (const id of recentIds) {
+      const p = planMap.get(id);
+      if (p && !seen.has(id)) {
+        result.push(p);
+        seen.add(id);
+      }
+    }
+    return result;
+  }, [recentIds, plans]);
+
+  if (recentPlanObjects.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 pt-2">
+      <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
+      {recentPlanObjects.slice(0, 5).map((plan) => (
+        <button
+          key={plan.id}
+          type="button"
+          onClick={() => {
+            persistPlanSelection("meetings", plan.id);
+            onSelect(plan.id);
+          }}
+          className="inline-flex items-center rounded-md border border-accent-blue/30 bg-accent-blue/5 px-2 py-0.5 text-xs font-medium text-accent-blue hover:bg-accent-blue/10 hover:border-accent-blue/50 transition-colors"
+        >
+          {plan.companyName}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function MeetingsPage() {
   const router = useRouter();
   const { setTitle } = usePageTitleContext();
@@ -449,6 +738,7 @@ export default function MeetingsPage() {
   const [meetingModalOpen, setMeetingModalOpen] = useState(false);
   const [deletingMeetingId, setDeletingMeetingId] = useState<string | null>(null);
   const [postSaveDialogOpen, setPostSaveDialogOpen] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<string>("");
 
   const hasClients = clients.length > 0;
 
@@ -552,6 +842,7 @@ export default function MeetingsPage() {
           client: found?.companyName ?? clientParam,
           clientId: found?.id ?? "",
         }));
+        if (found) setSelectedPlan(found.id);
         setTimeout(() => {
           toast.success(`Meeting form pre-filled with ${clientParam}`);
         }, 300);
@@ -565,6 +856,7 @@ export default function MeetingsPage() {
           clientId: client.id,
         }));
         setClientFilter(client.companyName);
+        setSelectedPlan(client.id);
         persistPlanSelection("meetings", client.id);
         setTimeout(() => {
           toast.success(`Meeting form pre-filled with ${client.companyName}`);
@@ -594,6 +886,7 @@ export default function MeetingsPage() {
     const c = clients.find((x) => x.id === resolved);
     if (!c) return;
     meetingsStickyInit.current = true;
+    setSelectedPlan(resolved);
     setFormData((prev) => {
       if (prev.clientId) return prev;
       return { ...prev, clientId: resolved, client: c.companyName };
@@ -645,6 +938,11 @@ export default function MeetingsPage() {
     const params = new URLSearchParams(window.location.search);
     params.set("planId", clientId);
     router.replace(`/new/meetings?${params.toString()}`);
+  };
+
+  const handlePlanChange = (clientId: string) => {
+    setSelectedPlan(clientId);
+    handlePlanClientChange(clientId);
   };
 
   const handleInputChange = (field: keyof MeetingFormData, value: string) => {
@@ -1425,207 +1723,50 @@ export default function MeetingsPage() {
 
   return (
     <div className="p-6 bg-background">
-      {/* Meeting Sessions - Full Width */}
-      <Card className="shadow-sm mx-auto max-w-4xl">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg font-semibold">
-              Meeting Sessions
-            </CardTitle>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  toast.info(
-                    "Meeting Preview feature will be implemented soon!",
-                  )
-                }
-                className="gap-2"
-              >
-                <FileText className="h-4 w-4" />
-                Generate Preview
-              </Button>
-              <Button
-                onClick={() => setMeetingModalOpen(true)}
-                size="sm"
-                className="gap-2"
-              >
-                <Plus className="h-4 w-4" />
-                Add Meeting
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {/* Filters */}
-            <div className="flex items-center space-x-2">
-              <div className="relative flex-1">
-                <Input
-                  placeholder="Search meetings..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="h-8"
-                />
+      <div className="w-full space-y-6 max-w-4xl mx-auto">
+        {/* Plan Search */}
+        <Card className="shadow-sm">
+          <CardContent className="p-6">
+            {!clientsData ? (
+              <div className="space-y-3">
+                <div className="h-4 w-24 bg-muted rounded animate-pulse" />
+                <div className="h-9 bg-muted rounded animate-pulse" />
               </div>
-              <Select value={clientFilter} onValueChange={setClientFilter}>
-                <SelectTrigger className="w-40 h-8 bg-white dark:bg-gray-800">
-                  <SelectValue placeholder="All Clients" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Clients</SelectItem>
-                  {clients.map((client) => (
-                    <SelectItem key={client.id} value={client.companyName}>
-                      {client.companyName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="w-36 h-8 bg-white dark:bg-gray-800">
-                  <SelectValue placeholder="All Types" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="Enrollment">Enrollment</SelectItem>
-                  <SelectItem value="Annual Review">Annual Review</SelectItem>
-                  <SelectItem value="Plan Changes">Plan Changes</SelectItem>
-                  <SelectItem value="Education">Education</SelectItem>
-                  <SelectItem value="Consultation">Consultation</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-36 h-8 bg-white dark:bg-gray-800">
-                  <SelectValue placeholder="All Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="Scheduled">Scheduled</SelectItem>
-                  <SelectItem value="Confirmed">Confirmed</SelectItem>
-                  <SelectItem value="Completed">Completed</SelectItem>
-                  <SelectItem value="Cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button onClick={fetchMeetings} variant="outline" size="sm">
-                <RefreshCw className="h-4 w-4" />
-              </Button>
-            </div>
+            ) : (
+              <>
+                <PlanSearchBar plans={clients} value={selectedPlan} onChange={handlePlanChange} disabled={clients.length === 0} />
+                {!selectedPlan && clients.length > 0 && <RecentPlanLabels plans={clients} onSelect={handlePlanChange} />}
+              </>
+            )}
+          </CardContent>
+        </Card>
 
-            {/* Tabs */}
-            <div className="flex space-x-1 bg-[#F2F2F4] dark:bg-[#030303] border border-[#efefef] dark:border-[#1c1c1c] p-1 rounded-lg">
-              <button
-                onClick={() => setActiveTab("upcoming")}
-                className={`flex-1 inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
-                  activeTab === "upcoming"
-                    ? "bg-accent-blue-light dark:bg-accent-blue-light text-foreground shadow"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Upcoming ({upcomingMeetings.length})
-              </button>
-              <button
-                onClick={() => setActiveTab("past")}
-                className={`flex-1 inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
-                  activeTab === "past"
-                    ? "bg-accent-blue-light dark:bg-accent-blue-light text-foreground shadow"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Past ({pastMeetings.length})
-              </button>
-            </div>
-
-            {/* Meetings List */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {meetingsLoading ? (
-                [1, 2, 3].map((i) => (
-                    <div
-                      key={i}
-                      className="p-4 border rounded-lg bg-card animate-pulse"
+        {selectedPlan && (
+          <>
+            {/* Meeting Sessions - Full Width */}
+            <Card className="shadow-sm">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg font-semibold">
+                    Meeting Sessions
+                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        toast.info(
+                          "Meeting Preview feature will be implemented soon!",
+                        )
+                      }
+                      className="gap-2"
                     >
-                      {/* Header with Title, Badge and Menu */}
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-2 mb-2">
-                            {/* Title */}
-                            <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-40" />
-                            {/* Status Badge */}
-                            <div className="h-5 w-20 bg-gray-200 dark:bg-gray-700 rounded-full" />
-                          </div>
-                          {/* Description */}
-                          <div className="space-y-1.5">
-                            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full" />
-                            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3" />
-                          </div>
-                        </div>
-                        {/* Menu Button */}
-                        <div className="h-6 w-6 bg-gray-200 dark:bg-gray-700 rounded ml-2" />
-                      </div>
-
-                      {/* Meeting Details Grid */}
-                      <div className="grid grid-cols-2 gap-3 mb-3 mt-3">
-                        {/* Date & Time */}
-                        <div className="space-y-1">
-                          <div className="flex items-center space-x-1.5">
-                            <div className="h-3.5 w-3.5 bg-gray-200 dark:bg-gray-700 rounded" />
-                            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16" />
-                          </div>
-                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24 ml-5" />
-                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-20 ml-5" />
-                        </div>
-
-                        {/* Duration */}
-                        <div className="space-y-1">
-                          <div className="flex items-center space-x-1.5">
-                            <div className="h-3.5 w-3.5 bg-gray-200 dark:bg-gray-700 rounded" />
-                            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-14" />
-                          </div>
-                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16 ml-5" />
-                        </div>
-
-                        {/* Format */}
-                        <div className="space-y-1">
-                          <div className="flex items-center space-x-1.5">
-                            <div className="h-3.5 w-3.5 bg-gray-200 dark:bg-gray-700 rounded" />
-                            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-12" />
-                          </div>
-                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20 ml-5" />
-                        </div>
-
-                        {/* Location/Platform */}
-                        <div className="space-y-1">
-                          <div className="flex items-center space-x-1.5">
-                            <div className="h-3.5 w-3.5 bg-gray-200 dark:bg-gray-700 rounded" />
-                            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16" />
-                          </div>
-                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-28 ml-5" />
-                        </div>
-                      </div>
-
-                      {/* Client Info */}
-                      <div className="flex items-center space-x-2 pt-2 border-t">
-                        <div className="h-3.5 w-3.5 bg-gray-200 dark:bg-gray-700 rounded" />
-                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-10" />
-                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32" />
-                      </div>
-                    </div>
-                    ))
-                  ) : (
-                    sortedMeetings.length === 0 ? (
-                  <div className="col-span-full flex items-center justify-center py-20">
-                  <div className="text-center max-w-sm">
-                    <div className="mx-auto w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-5">
-                      <CalendarDays className="h-8 w-8 text-muted-foreground/60" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-foreground mb-2">
-                      No meetings added yet
-                    </h3>
-                    <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
-                      Get started by scheduling your first meeting session for a client.
-                    </p>
+                      <FileText className="h-4 w-4" />
+                      Generate Preview
+                    </Button>
                     <Button
                       onClick={() => setMeetingModalOpen(true)}
+                      size="sm"
                       className="gap-2"
                     >
                       <Plus className="h-4 w-4" />
@@ -1633,218 +1774,398 @@ export default function MeetingsPage() {
                     </Button>
                   </div>
                 </div>
-              ) : (
-                sortedMeetings.map((meeting) => {
-                  const FormatIcon =
-                    formatIcons[meeting.format as keyof typeof formatIcons];
-                  const meetingDate = formatUsDate(
-                    parseLocalDate(meeting.date),
-                  );
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {/* Filters */}
+                  <div className="flex items-center space-x-2">
+                    <div className="relative flex-1">
+                      <Input
+                        placeholder="Search meetings..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="h-8"
+                      />
+                    </div>
+                    <Select value={clientFilter} onValueChange={setClientFilter}>
+                      <SelectTrigger className="w-40 h-8 bg-white dark:bg-gray-800">
+                        <SelectValue placeholder="All Clients" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Clients</SelectItem>
+                        {clients.map((client) => (
+                          <SelectItem key={client.id} value={client.companyName}>
+                            {client.companyName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select value={typeFilter} onValueChange={setTypeFilter}>
+                      <SelectTrigger className="w-36 h-8 bg-white dark:bg-gray-800">
+                        <SelectValue placeholder="All Types" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Types</SelectItem>
+                        <SelectItem value="Enrollment">Enrollment</SelectItem>
+                        <SelectItem value="Annual Review">Annual Review</SelectItem>
+                        <SelectItem value="Plan Changes">Plan Changes</SelectItem>
+                        <SelectItem value="Education">Education</SelectItem>
+                        <SelectItem value="Consultation">Consultation</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="w-36 h-8 bg-white dark:bg-gray-800">
+                        <SelectValue placeholder="All Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="Scheduled">Scheduled</SelectItem>
+                        <SelectItem value="Confirmed">Confirmed</SelectItem>
+                        <SelectItem value="Completed">Completed</SelectItem>
+                        <SelectItem value="Cancelled">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button onClick={fetchMeetings} variant="outline" size="sm">
+                      <RefreshCw className="h-4 w-4" />
+                    </Button>
+                  </div>
 
-                  // Status badge colors
-                  const statusColors = {
-                    Scheduled: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200 border-blue-200 dark:border-blue-700/50",
-                    Completed: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-200 border-green-200 dark:border-green-700/50",
-                    Cancelled: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-200 border-red-200 dark:border-red-700/50",
-                  };
-
-                  return (
-                    <div
-                      key={meeting.id}
-                      className={`group p-4 dark:bg-gray-800 border border-border/60 rounded-xl hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 transition-all duration-200 bg-card flex flex-col h-full relative ${
-                        deletingMeetingId === meeting.id ? "opacity-50 pointer-events-none" : ""
+                  {/* Tabs */}
+                  <div className="flex space-x-1 bg-[#F2F2F4] dark:bg-[#030303] border border-[#efefef] dark:border-[#1c1c1c] p-1 rounded-lg">
+                    <button
+                      onClick={() => setActiveTab("upcoming")}
+                      className={`flex-1 inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                        activeTab === "upcoming"
+                          ? "bg-accent-blue-light dark:bg-accent-blue-light text-foreground shadow"
+                          : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                      {deletingMeetingId === meeting.id && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-background/40 rounded-xl z-10">
-                          <div className="flex items-center gap-2 px-3 py-2 bg-card border border-border/60 rounded-lg shadow-sm">
-                            <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />
-                            <span className="text-xs text-muted-foreground font-medium">Deleting...</span>
-                          </div>
-                        </div>
-                      )}
+                      Upcoming ({upcomingMeetings.length})
+                    </button>
+                    <button
+                      onClick={() => setActiveTab("past")}
+                      className={`flex-1 inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                        activeTab === "past"
+                          ? "bg-accent-blue-light dark:bg-accent-blue-light text-foreground shadow"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Past ({pastMeetings.length})
+                    </button>
+                  </div>
 
-                      {/* Header with Title and Status */}
-                      <div className="flex items-start justify-between mb-3 pl-1">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-semibold text-sm truncate leading-tight">
-                              {meeting.meeting}
-                            </h4>
-                          </div>
-
-                          {/* Tags row */}
-                          <div className="flex items-center gap-1.5 flex-wrap mb-2">
-                            <Badge
-                              className={`text-[10px] border px-1.5 py-px shrink-0 ${
-                                statusColors[
-                                  meeting.status as keyof typeof statusColors
-                                ] || statusColors.Scheduled
-                              }`}
-                            >
-                              {meeting.status}
-                            </Badge>
-                            {meeting.benefitsCategory && (
-                              <span className="text-[10px] font-medium text-muted-foreground/60 border border-border/40 px-1.5 py-px rounded shrink-0 leading-tight">
-                                {meeting.benefitsCategory}
-                              </span>
-                            )}
-                            {meeting.language && (
-                              <span
-                                className={`text-[10px] font-semibold px-1.5 py-px rounded shrink-0 leading-tight ${
-                                  meeting.language === "Spanish"
-                                    ? "bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-200 border border-amber-200 dark:border-amber-700/50"
-                                    : "bg-sky-50 dark:bg-sky-900/30 text-sky-700 dark:text-sky-200 border border-sky-200 dark:border-sky-700/50"
-                                }`}
-                              >
-                                {meeting.language === "Spanish" ? "ES" : "EN"}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Description */}
-                          {meeting.description && (
-                            <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed bg-muted/40 rounded-md px-2 py-1.5 border-l-2 border-primary/20">
-                              {meeting.description}
-                            </p>
-                          )}
-                        </div>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0 shrink-0 opacity-50 group-hover:opacity-100 transition-opacity"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => handleEditMeeting(meeting)}
-                            >
-                              <Edit className="mr-2 h-4 w-4" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleDuplicateMeeting(meeting)}
-                            >
-                              <Copy className="mr-2 h-4 w-4" />
-                              Duplicate
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleDeleteMeeting(meeting.id)}
-                              className="text-destructive dark:text-red-500"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-
-                      {/* Meeting Details Grid */}
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-3 mb-3 pl-1">
-                        {/* Date & Time */}
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                            <Calendar className="h-3 w-3 shrink-0" />
-                            <span className="font-medium uppercase tracking-wider">Date</span>
-                          </div>
-                          <div className="text-xs font-semibold pl-[18px]">
-                            {meetingDate}
-                          </div>
-                          <div className="text-[11px] text-muted-foreground pl-[18px]">
-                            {formatTime12h(meeting.time)}
-                            {meeting.timezone && (
-                              <span className="text-[10px] ml-1 opacity-75">
-                                ({getTimezoneAbbr(meeting.timezone)})
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Duration */}
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                            <Clock className="h-3 w-3 shrink-0" />
-                            <span className="font-medium uppercase tracking-wider">Duration</span>
-                          </div>
-                          <div className="text-xs font-semibold pl-[18px]">
-                            {meeting.duration}
-                          </div>
-                        </div>
-
-                        {/* Attendees */}
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                            <Users className="h-3 w-3 shrink-0" />
-                            <span className="font-medium uppercase tracking-wider">Attendees</span>
-                          </div>
-                          <div className="text-xs font-semibold pl-[18px]">
-                            {meeting.attendees}
-                            {meeting.maxAttendees &&
-                              ` / ${meeting.maxAttendees}`}
-                          </div>
-                        </div>
-
-                        {/* Location */}
-                        <div className="space-y-1 min-w-0">
-                          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                            <FormatIcon className="h-3 w-3 shrink-0" />
-                            <span className="font-medium uppercase tracking-wider truncate">
-                              {meeting.format === "Virtual" &&
-                              meeting.platform
-                                ? meeting.platform
-                                : meeting.format}
-                            </span>
-                          </div>
-                          {meeting.format === "Virtual" &&
-                            meeting.meetingLink && (
-                              <div className="text-xs font-medium pl-[18px] text-primary/80 truncate">
-                                View link &rarr;
+                  {/* Meetings List */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {meetingsLoading ? (
+                      [1, 2, 3].map((i) => (
+                          <div
+                            key={i}
+                            className="p-4 border rounded-lg bg-card animate-pulse"
+                          >
+                            {/* Header with Title, Badge and Menu */}
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center space-x-2 mb-2">
+                                  {/* Title */}
+                                  <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-40" />
+                                  {/* Status Badge */}
+                                  <div className="h-5 w-20 bg-gray-200 dark:bg-gray-700 rounded-full" />
+                                </div>
+                                {/* Description */}
+                                <div className="space-y-1.5">
+                                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full" />
+                                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3" />
+                                </div>
                               </div>
-                            )}
-                          {meeting.format === "Virtual" &&
-                            !meeting.meetingLink && (
-                              <div className="text-xs font-medium pl-[18px] text-muted-foreground truncate">
-                                No link
+                              {/* Menu Button */}
+                              <div className="h-6 w-6 bg-gray-200 dark:bg-gray-700 rounded ml-2" />
+                            </div>
+
+                            {/* Meeting Details Grid */}
+                            <div className="grid grid-cols-2 gap-3 mb-3 mt-3">
+                              {/* Date & Time */}
+                              <div className="space-y-1">
+                                <div className="flex items-center space-x-1.5">
+                                  <div className="h-3.5 w-3.5 bg-gray-200 dark:bg-gray-700 rounded" />
+                                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16" />
+                                </div>
+                                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24 ml-5" />
+                                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-20 ml-5" />
                               </div>
-                            )}
-                          {meeting.format === "In-Person" &&
-                            meeting.address && (
-                              <div className="text-xs font-semibold pl-[18px] truncate">
-                                {meeting.city}, {meeting.state}
+
+                              {/* Duration */}
+                              <div className="space-y-1">
+                                <div className="flex items-center space-x-1.5">
+                                  <div className="h-3.5 w-3.5 bg-gray-200 dark:bg-gray-700 rounded" />
+                                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-14" />
+                                </div>
+                                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16 ml-5" />
                               </div>
-                            )}
-                          {meeting.format === "In-Person" &&
-                            !meeting.address && (
-                              <div className="text-xs font-medium pl-[18px] text-muted-foreground">
-                                TBA
+
+                              {/* Format */}
+                              <div className="space-y-1">
+                                <div className="flex items-center space-x-1.5">
+                                  <div className="h-3.5 w-3.5 bg-gray-200 dark:bg-gray-700 rounded" />
+                                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-12" />
+                                </div>
+                                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20 ml-5" />
                               </div>
-                            )}
+
+                              {/* Location/Platform */}
+                              <div className="space-y-1">
+                                <div className="flex items-center space-x-1.5">
+                                  <div className="h-3.5 w-3.5 bg-gray-200 dark:bg-gray-700 rounded" />
+                                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16" />
+                                </div>
+                                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-28 ml-5" />
+                              </div>
+                            </div>
+
+                            {/* Client Info */}
+                            <div className="flex items-center space-x-2 pt-2 border-t">
+                              <div className="h-3.5 w-3.5 bg-gray-200 dark:bg-gray-700 rounded" />
+                              <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-10" />
+                              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32" />
+                            </div>
+                          </div>
+                          ))
+                        ) : (
+                          sortedMeetings.length === 0 ? (
+                        <div className="col-span-full flex items-center justify-center py-20">
+                        <div className="text-center max-w-sm">
+                          <div className="mx-auto w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-5">
+                            <CalendarDays className="h-8 w-8 text-muted-foreground/60" />
+                          </div>
+                          <h3 className="text-lg font-semibold text-foreground mb-2">
+                            No meetings added yet
+                          </h3>
+                          <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
+                            Get started by scheduling your first meeting session for a client.
+                          </p>
+                          <Button
+                            onClick={() => setMeetingModalOpen(true)}
+                            className="gap-2"
+                          >
+                            <Plus className="h-4 w-4" />
+                            Add Meeting
+                          </Button>
                         </div>
                       </div>
+                    ) : (
+                      sortedMeetings.map((meeting) => {
+                        const FormatIcon =
+                          formatIcons[meeting.format as keyof typeof formatIcons];
+                        const meetingDate = formatUsDate(
+                          parseLocalDate(meeting.date),
+                        );
 
-                      {/* Client */}
-                      <div className="flex items-center gap-1.5 pt-2.5 border-t border-border/50 mt-auto bg-muted/30 -mx-4 -mb-4 px-4 pb-3 rounded-b-xl">
-                        <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        <span className="text-[11px] font-medium text-muted-foreground/70 shrink-0">
-                          Client
-                        </span>
-                        <span className="text-xs font-semibold truncate">
-                          {meeting.client}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })
-              )
-            )}
-          </div>
-          </div>
-        </CardContent>
-      </Card>
+                        // Status badge colors
+                        const statusColors = {
+                          Scheduled: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200 border-blue-200 dark:border-blue-700/50",
+                          Completed: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-200 border-green-200 dark:border-green-700/50",
+                          Cancelled: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-200 border-red-200 dark:border-red-700/50",
+                        };
+
+                        return (
+                          <div
+                            key={meeting.id}
+                            className={`group p-4 dark:bg-gray-800 border border-border/60 rounded-xl hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 transition-all duration-200 bg-card flex flex-col h-full relative ${
+                              deletingMeetingId === meeting.id ? "opacity-50 pointer-events-none" : ""
+                            }`}
+                          >
+                            {deletingMeetingId === meeting.id && (
+                              <div className="absolute inset-0 flex items-center justify-center bg-background/40 rounded-xl z-10">
+                                <div className="flex items-center gap-2 px-3 py-2 bg-card border border-border/60 rounded-lg shadow-sm">
+                                  <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />
+                                  <span className="text-xs text-muted-foreground font-medium">Deleting...</span>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Header with Title and Status */}
+                            <div className="flex items-start justify-between mb-3 pl-1">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h4 className="font-semibold text-sm truncate leading-tight">
+                                    {meeting.meeting}
+                                  </h4>
+                                </div>
+
+                                {/* Tags row */}
+                                <div className="flex items-center gap-1.5 flex-wrap mb-2">
+                                  <Badge
+                                    className={`text-[10px] border px-1.5 py-px shrink-0 ${
+                                      statusColors[
+                                        meeting.status as keyof typeof statusColors
+                                      ] || statusColors.Scheduled
+                                    }`}
+                                  >
+                                    {meeting.status}
+                                  </Badge>
+                                  {meeting.benefitsCategory && (
+                                    <span className="text-[10px] font-medium text-muted-foreground/60 border border-border/40 px-1.5 py-px rounded shrink-0 leading-tight">
+                                      {meeting.benefitsCategory}
+                                    </span>
+                                  )}
+                                  {meeting.language && (
+                                    <span
+                                      className={`text-[10px] font-semibold px-1.5 py-px rounded shrink-0 leading-tight ${
+                                        meeting.language === "Spanish"
+                                          ? "bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-200 border border-amber-200 dark:border-amber-700/50"
+                                          : "bg-sky-50 dark:bg-sky-900/30 text-sky-700 dark:text-sky-200 border border-sky-200 dark:border-sky-700/50"
+                                      }`}
+                                    >
+                                      {meeting.language === "Spanish" ? "ES" : "EN"}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Description */}
+                                {meeting.description && (
+                                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed bg-muted/40 rounded-md px-2 py-1.5 border-l-2 border-primary/20">
+                                    {meeting.description}
+                                  </p>
+                                )}
+                              </div>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 w-7 p-0 shrink-0 opacity-50 group-hover:opacity-100 transition-opacity"
+                                  >
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem
+                                    onClick={() => handleEditMeeting(meeting)}
+                                  >
+                                    <Edit className="mr-2 h-4 w-4" />
+                                    Edit
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => handleDuplicateMeeting(meeting)}
+                                  >
+                                    <Copy className="mr-2 h-4 w-4" />
+                                    Duplicate
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => handleDeleteMeeting(meeting.id)}
+                                    className="text-destructive dark:text-red-500"
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+
+                            {/* Meeting Details Grid */}
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-3 mb-3 pl-1">
+                              {/* Date & Time */}
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                                  <Calendar className="h-3 w-3 shrink-0" />
+                                  <span className="font-medium uppercase tracking-wider">Date</span>
+                                </div>
+                                <div className="text-xs font-semibold pl-[18px]">
+                                  {meetingDate}
+                                </div>
+                                <div className="text-[11px] text-muted-foreground pl-[18px]">
+                                  {formatTime12h(meeting.time)}
+                                  {meeting.timezone && (
+                                    <span className="text-[10px] ml-1 opacity-75">
+                                      ({getTimezoneAbbr(meeting.timezone)})
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Duration */}
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                                  <Clock className="h-3 w-3 shrink-0" />
+                                  <span className="font-medium uppercase tracking-wider">Duration</span>
+                                </div>
+                                <div className="text-xs font-semibold pl-[18px]">
+                                  {meeting.duration}
+                                </div>
+                              </div>
+
+                              {/* Attendees */}
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                                  <Users className="h-3 w-3 shrink-0" />
+                                  <span className="font-medium uppercase tracking-wider">Attendees</span>
+                                </div>
+                                <div className="text-xs font-semibold pl-[18px]">
+                                  {meeting.attendees}
+                                  {meeting.maxAttendees &&
+                                    ` / ${meeting.maxAttendees}`}
+                                </div>
+                              </div>
+
+                              {/* Location */}
+                              <div className="space-y-1 min-w-0">
+                                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                                  <FormatIcon className="h-3 w-3 shrink-0" />
+                                  <span className="font-medium uppercase tracking-wider truncate">
+                                    {meeting.format === "Virtual" &&
+                                    meeting.platform
+                                      ? meeting.platform
+                                      : meeting.format}
+                                  </span>
+                                </div>
+                                {meeting.format === "Virtual" &&
+                                  meeting.meetingLink && (
+                                    <div className="text-xs font-medium pl-[18px] text-primary/80 truncate">
+                                      View link &rarr;
+                                    </div>
+                                  )}
+                                {meeting.format === "Virtual" &&
+                                  !meeting.meetingLink && (
+                                    <div className="text-xs font-medium pl-[18px] text-muted-foreground truncate">
+                                      No link
+                                    </div>
+                                  )}
+                                {meeting.format === "In-Person" &&
+                                  meeting.address && (
+                                    <div className="text-xs font-semibold pl-[18px] truncate">
+                                      {meeting.city}, {meeting.state}
+                                    </div>
+                                  )}
+                                {meeting.format === "In-Person" &&
+                                  !meeting.address && (
+                                    <div className="text-xs font-medium pl-[18px] text-muted-foreground">
+                                      TBA
+                                    </div>
+                                  )}
+                              </div>
+                            </div>
+
+                            {/* Client */}
+                            <div className="flex items-center gap-1.5 pt-2.5 border-t border-border/50 mt-auto bg-muted/30 -mx-4 -mb-4 px-4 pb-3 rounded-b-xl">
+                              <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                              <span className="text-[11px] font-medium text-muted-foreground/70 shrink-0">
+                                Client
+                              </span>
+                              <span className="text-xs font-semibold truncate">
+                                {meeting.client}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )
+                  )}
+                </div>
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
+      </div>
 
       {/* Add New Meeting Modal */}
       <Dialog open={meetingModalOpen} onOpenChange={setMeetingModalOpen}>
