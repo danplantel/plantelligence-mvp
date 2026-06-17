@@ -35,6 +35,7 @@ export async function PUT(
       language,
       benefitsCategory,
       customBenefitsCategory,
+      status,
     } = body;
 
     // Check if meeting exists and belongs to current user
@@ -93,6 +94,7 @@ export async function PUT(
       where: { id },
       data: {
         meeting: meetingType,
+        ...(status ? { status } : {}),
         meetingType,
         client,
         clientId: nextClientId ?? null,
