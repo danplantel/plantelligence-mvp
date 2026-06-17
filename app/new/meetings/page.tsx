@@ -1802,39 +1802,38 @@ export default function MeetingsPage() {
           <>
             {/* Meeting Sessions - Full Width */}
             <Card className="shadow-sm">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        toast.info(
-                          "Meeting Preview feature will be implemented soon!",
-                        )
-                      }
-                      className="gap-2"
-                    >
-                      <FileText className="h-4 w-4" />
-                      Generate Preview
-                    </Button>
-                    <Button
-                      onClick={() => setMeetingModalOpen(true)}
-                      size="sm"
-                      className="gap-2"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Add Meeting
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
+              <CardContent className="pt-6">
                 <div className="space-y-4">
-                  {/* Filters */}
-                  <div className="flex items-center space-x-2">
+                  {/* Toolbar: buttons, filters, tabs all in one row */}
+                  <div className="flex items-center gap-2 flex-wrap">
+
+                    <div className="flex space-x-1 bg-[#F2F2F4] dark:bg-[#030303] border border-[#efefef] dark:border-[#1c1c1c] p-0.5 rounded-lg shrink-0">
+                      <button
+                        onClick={() => setActiveTab("upcoming")}
+                        className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-[0.75em] font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 min-w-[100px] ${
+                          activeTab === "upcoming"
+                            ? "bg-accent-blue dark:bg-accent-blue text-white shadow"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        Upcoming ({upcomingMeetings.length})
+                      </button>
+                      <button
+                        onClick={() => setActiveTab("past")}
+                        className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-[0.75em] font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 min-w-[100px] ${
+                          activeTab === "past"
+                            ? "bg-accent-blue dark:bg-accent-blue text-white shadow"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        Past ({pastMeetings.length})
+                      </button>
+                    </div>
+
+                    <div className="w-px h-6 bg-border mx-1 shrink-0" />
+
                     <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="w-36 h-8 bg-white dark:bg-gray-800">
+                      <SelectTrigger className="w-32 h-8 bg-white dark:bg-gray-800 text-xs">
                         <SelectValue placeholder="All Status" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1845,41 +1844,40 @@ export default function MeetingsPage() {
                       </SelectContent>
                     </Select>
                     <Select value={benefitsCategoryFilter} onValueChange={setBenefitsCategoryFilter}>
-                      <SelectTrigger className="w-44 h-8 bg-white dark:bg-gray-800">
-                        <SelectValue placeholder="All Benefit Categories" />
+                      <SelectTrigger className="w-40 h-8 bg-white dark:bg-gray-800 text-xs">
+                        <SelectValue placeholder="All Categories" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Benefit Categories</SelectItem>
+                        <SelectItem value="all">All Categories</SelectItem>
                         <SelectItem value="Retirement">Retirement</SelectItem>
                         <SelectItem value="Group Health">Group Health</SelectItem>
                         <SelectItem value="Group Life">Group Life</SelectItem>
                         <SelectItem value="Other">Other</SelectItem>
                       </SelectContent>
                     </Select>
-                  </div>
 
-                  {/* Tabs */}
-                  <div className="flex space-x-1 bg-[#F2F2F4] dark:bg-[#030303] border border-[#efefef] dark:border-[#1c1c1c] p-1 rounded-lg">
-                    <button
-                      onClick={() => setActiveTab("upcoming")}
-                      className={`flex-1 inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
-                        activeTab === "upcoming"
-                          ? "bg-accent-blue-light dark:bg-accent-blue-light text-foreground shadow"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
+                    <div className="w-px h-6 bg-border mx-1 shrink-0" />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        toast.info(
+                          "Meeting Preview feature will be implemented soon!",
+                        )
+                      }
+                      className="gap-1.5 shrink-0"
                     >
-                      Upcoming ({upcomingMeetings.length})
-                    </button>
-                    <button
-                      onClick={() => setActiveTab("past")}
-                      className={`flex-1 inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
-                        activeTab === "past"
-                          ? "bg-accent-blue-light dark:bg-accent-blue-light text-foreground shadow"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
+                      <FileText className="h-4 w-4" />
+                      Generate Preview
+                    </Button>
+                    <Button
+                      onClick={() => setMeetingModalOpen(true)}
+                      size="sm"
+                      className="gap-1.5 shrink-0"
                     >
-                      Past ({pastMeetings.length})
-                    </button>
+                      <Plus className="h-4 w-4" />
+                      Add Meeting
+                    </Button>
                   </div>
 
                   {/* Meetings List */}
