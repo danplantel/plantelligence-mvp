@@ -17,10 +17,10 @@ export default function NewsEventsPage() {
       <main>
         <NewsEventsHeader />
 
-        <NewsEventsAnnouncements
+        {/* <NewsEventsAnnouncements
           brandColor={brandColor}
           secondaryColor={secondaryColor}
-        />
+        /> */}
 
         <WebinarsDashboard
           brandColor={brandColor}

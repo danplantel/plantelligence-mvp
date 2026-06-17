@@ -147,77 +147,118 @@ export function UpcomingWebinarCard({
   webinar: UpcomingWebinar;
   secondaryColor?: string;
 }) {
-  const buttonColor = secondaryColor ?? "#C9A961";
+  const accentColor = secondaryColor ?? "#C9A961";
   const registerHref =
     (webinar.registrationLink?.trim() || webinar.link?.trim() || "").trim();
   const canRegister = isHttpUrl(registerHref);
   const locationLabel = webinar.location?.trim();
   const timeLabel = webinar.time || "";
-  const formatLabel = webinar.format || "Virtual, Webinar";
+  const formatLabel = webinar.format || "Group Sessions";
   const isPast = Boolean(webinar.isPast);
   const replayHref = webinar.replayLink?.trim();
   const canReplay = isHttpUrl(replayHref);
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-8 space-y-6 transition-all duration-200 hover:shadow-md">
-      {/* Icon */}
-      <div
-        className="inline-flex p-3 rounded-lg"
-        style={{ backgroundColor: secondaryColor + "20" }}
-      >
-        <Calendar className="w-7 h-7" style={{ color: secondaryColor }} />
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-full">
+      {/* Top accent bar */}
+      <div style={{ backgroundColor: accentColor }} className="h-2 w-full shrink-0" />
+
+      {/* Calendar icon + session type row */}
+      <div className="flex items-center gap-3 px-6 pt-6 pb-3">
+        <div
+          className="inline-flex p-2.5 rounded-lg shrink-0"
+          style={{ backgroundColor: accentColor + "18" }}
+        >
+          <Calendar className="w-5 h-5" style={{ color: accentColor }} />
+        </div>
+        <span className="text-sm font-semibold uppercase tracking-wider" style={{ color: accentColor }}>
+          {formatLabel}
+        </span>
       </div>
 
-      {/* Content */}
-      <div className="space-y-3">
-        <h3 className="text-2xl font-bold text-[#002B5B]">{webinar.title}</h3>
+      {/* Content body */}
+      <div className="px-6 pb-4 flex-1 space-y-4">
+        <h3 className="text-xl font-bold text-[#002B5B] leading-snug">
+          {webinar.title}
+        </h3>
 
-        <p className="text-gray-600 text-base">
-          {webinar.date}
-          {timeLabel ? ` • ${timeLabel}` : ""}
-        </p>
+        {/* Description placeholder */}
+        <div className="text-sm text-gray-600 space-y-2 leading-relaxed">
+          <p>
+            Join us for this informative session covering key plan features and strategies
+            to help you make informed decisions about your benefits.
+          </p>
+          <p className="font-semibold text-gray-800">What we'll cover:</p>
+          <ul className="list-disc list-inside space-y-1 text-gray-600">
+            <li>Plan features and investment options</li>
+            <li>How to make the most of your benefits</li>
+            <li>Key dates and deadlines</li>
+            <li>Resources available to help</li>
+          </ul>
+        </div>
 
-        <p className="text-gray-500 text-sm">Type ({formatLabel})</p>
-
-        {locationLabel && (
-          <p className="text-gray-500 text-sm">{locationLabel}</p>
-        )}
+        {/* Details */}
+        <div className="space-y-3 pt-2 border-t border-gray-100">
+          {webinar.date && (
+            <div className="flex items-center gap-2.5 text-sm text-gray-700">
+              <Calendar className="w-4 h-4 shrink-0" style={{ color: accentColor }} />
+              <span className="font-medium">{webinar.date}</span>
+            </div>
+          )}
+          {timeLabel && (
+            <div className="flex items-center gap-2.5 text-sm text-gray-700">
+              <Clock className="w-4 h-4 shrink-0" style={{ color: accentColor }} />
+              <span>{timeLabel}</span>
+            </div>
+          )}
+          {locationLabel && (
+            <div className="flex items-center gap-2.5 text-sm text-gray-700">
+              <MapPin className="w-4 h-4 shrink-0" style={{ color: accentColor }} />
+              <span>{locationLabel}</span>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Actions */}
-      {isPast ? (
-        canReplay ? (
+      {/* CTA footer */}
+      <div className="px-6 pb-6 pt-0">
+        {isPast ? (
+          canReplay ? (
+            <a
+              href={replayHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold uppercase tracking-wide text-white rounded-lg transition-opacity hover:opacity-90"
+              style={{ backgroundColor: accentColor }}
+            >
+              <Clock className="w-4 h-4" />
+              Watch replay
+            </a>
+          ) : (
+            <p className="text-xs text-gray-400">Replay not available</p>
+          )
+        ) : canRegister ? (
           <a
-            href={replayHref}
+            href={registerHref}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-block px-6 py-3 font-semibold uppercase tracking-wide text-white rounded transition-opacity hover:opacity-90"
-            style={{ backgroundColor: buttonColor }}
+            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold uppercase tracking-wide text-white rounded-lg transition-opacity hover:opacity-90"
+            style={{ backgroundColor: accentColor }}
           >
-            Watch replay
+            <ArrowUpRight className="w-4 h-4" />
+            Register for this Session
           </a>
         ) : (
-          <p className="text-sm text-gray-500">Replay not available</p>
-        )
-      ) : canRegister ? (
-        <a
-          href={registerHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-block px-6 py-3 font-semibold uppercase tracking-wide text-white rounded transition-opacity hover:opacity-90"
-          style={{ backgroundColor: buttonColor }}
-        >
-          Register
-        </a>
-      ) : (
-        <button
-          disabled
-          className="inline-block px-6 py-3 font-semibold uppercase tracking-wide text-white rounded opacity-50 cursor-not-allowed"
-          style={{ backgroundColor: buttonColor }}
-        >
-          Register
-        </button>
-      )}
+          <button
+            disabled
+            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold uppercase tracking-wide text-white rounded-lg opacity-50 cursor-not-allowed"
+            style={{ backgroundColor: accentColor }}
+          >
+            <ArrowUpRight className="w-4 h-4" />
+            Register for this Session
+          </button>
+        )}
+      </div>
     </div>
   );
 }
