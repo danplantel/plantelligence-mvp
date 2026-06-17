@@ -1997,7 +1997,7 @@ export default function MeetingsPage() {
                         return (
                           <div
                             key={meeting.id}
-                            className={`group p-4 dark:bg-gray-800 border border-border/60 rounded-xl hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 transition-all duration-200 bg-card flex flex-col h-full relative ${
+                            className={`p-4 dark:bg-gray-800 border border-border/60 rounded-xl bg-card flex flex-col h-full relative ${
                               deletingMeetingId === meeting.id ? "opacity-50 pointer-events-none" : ""
                             }`}
                           >
@@ -2022,7 +2022,7 @@ export default function MeetingsPage() {
                                 {/* Tags row */}
                                 <div className="flex items-center gap-1.5 flex-wrap mb-2">
                                   <Badge
-                                    className={`text-[10px] border px-1.5 py-px shrink-0 ${
+                                    className={`text-[10px] border px-1.5 py-px shrink-0 hover:bg-transparent ${
                                       statusColors[
                                         STATUS_LABEL_MAP[meeting.status] || meeting.status
                                       ] || statusColors.Upcoming
@@ -2060,7 +2060,7 @@ export default function MeetingsPage() {
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-7 w-7 p-0 shrink-0 opacity-50 group-hover:opacity-100 transition-opacity"
+                                    className="h-7 w-7 p-0 shrink-0 opacity-50"
                                   >
                                     <MoreHorizontal className="h-4 w-4" />
                                   </Button>
