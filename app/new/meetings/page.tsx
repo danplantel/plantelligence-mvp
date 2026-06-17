@@ -66,6 +66,7 @@ import { toast } from "sonner";
 import { AddressSearch } from "@/components/ui/address-search";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -88,6 +89,7 @@ import {
 import { useNavigateAwayGuard } from "@/hooks/use-navigate-away-guard";
 import { NavigateAwayWarningDialog } from "@/components/ui/navigate-away-warning-dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { WebinarsSection } from "@/components/pages/client-portal/sections/webinars-section";
 import { resolveRsvpUrl } from "@/lib/meetings/meeting-schedule-shared";
 
 interface Meeting {
@@ -740,6 +742,8 @@ export default function MeetingsPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [meetingToDelete, setMeetingToDelete] = useState<{ id: string; title: string } | null>(null);
   const [postSaveDialogOpen, setPostSaveDialogOpen] = useState(false);
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string>("");
 
   const hasClients = clients.length > 0;
@@ -1867,15 +1871,15 @@ export default function MeetingsPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() =>
-                        toast.info(
-                          "Meeting Preview feature will be implemented soon!",
-                        )
-                      }
+                      onClick={() => {
+                        setPreviewDialogOpen(true);
+                        setPreviewLoading(true);
+                        setTimeout(() => setPreviewLoading(false), 1000);
+                      }}
                       className="gap-1.5 shrink-0"
                     >
                       <FileText className="h-4 w-4" />
-                      Generate Preview
+                      Preview
                     </Button>
                     <Button
                       onClick={() => setMeetingModalOpen(true)}
@@ -3278,6 +3282,67 @@ export default function MeetingsPage() {
               Close
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Preview Dialog - shows meeting cards as they appear on the portal */}
+      <Dialog open={previewDialogOpen} onOpenChange={setPreviewDialogOpen}>
+        <DialogContent className="max-w-5xl p-0 flex flex-col max-h-[90vh] [&>button.absolute]:hidden">
+          {/* Fixed header */}
+          <div className="flex items-start justify-between border-b px-6 py-4 shrink-0">
+            <div>
+              <DialogTitle>Portal Preview — News & Events</DialogTitle>
+              <DialogDescription className="mt-1">
+                See how your meetings appear to plan members on the Benefits Hub.
+              </DialogDescription>
+            </div>
+            <DialogClose asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                <X className="h-4 w-4" />
+              </Button>
+            </DialogClose>
+          </div>
+          {/* Scrollable body */}
+          <div className="overflow-y-auto p-6 [&_section]:!py-4">
+            {previewLoading ? (
+              <div className="space-y-12">
+                {/* Upcoming Meetings skeleton */}
+                <div className="space-y-6">
+                  <Skeleton className="h-10 w-80 mx-auto" />
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                        <Skeleton className="h-2 w-full" />
+                        <div className="p-6 space-y-4">
+                          <div className="flex items-center gap-3">
+                            <Skeleton className="w-10 h-10 rounded-lg" />
+                            <Skeleton className="h-4 w-32" />
+                          </div>
+                          <Skeleton className="h-6 w-3/4" />
+                          <div className="space-y-2">
+                            <Skeleton className="h-3 w-full" />
+                            <Skeleton className="h-3 w-5/6" />
+                            <Skeleton className="h-3 w-2/3" />
+                          </div>
+                          <div className="space-y-2 pt-2 border-t">
+                            <Skeleton className="h-4 w-40" />
+                            <Skeleton className="h-4 w-32" />
+                          </div>
+                          <Skeleton className="h-10 w-44" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <WebinarsSection
+                key={selectedPlan + String(previewDialogOpen)}
+                clientId={selectedPlan}
+                secondaryColor={clients.find(c => c.id === selectedPlan)?.status ? "#C9A961" : "#C9A961"}
+              />
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 
