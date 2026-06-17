@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { format } from "date-fns";
 import {
   ArrowUpRight,
@@ -52,6 +52,7 @@ interface RecentMessage {
 interface WebinarsSectionProps {
   secondaryColor?: string;
   clientId?: string;
+  onLoadComplete?: () => void;
 }
 
 const parseLocalDate = (dateStr: string): Date => {
@@ -94,6 +95,16 @@ function firstRegisterableUrl(...candidates: (string | undefined)[]) {
   return undefined;
 }
 
+/** Convert 24h time string to 12h AM/PM format */
+function formatTime12h(time24: string): string {
+  if (!time24) return "";
+  const [hour24, minute] = time24.split(":").map(Number);
+  if (isNaN(hour24) || isNaN(minute)) return time24;
+  const ampm = hour24 >= 12 ? "PM" : "AM";
+  const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
+  return `${hour12}:${minute.toString().padStart(2, "0")} ${ampm}`;
+}
+
 function mapHubMeetingToWebinar(
   m: Record<string, unknown>,
   isPast: boolean,
@@ -126,7 +137,7 @@ function mapHubMeetingToWebinar(
     id: typeof m.id === "string" ? m.id : undefined,
     title,
     date: format(parseLocalDate(hubDateKey(dateRaw)), "MM/dd/yyyy"),
-    time: tz ? `${time} (${tz})` : time,
+    time: tz ? `${formatTime12h(time)} (${tz})` : formatTime12h(time),
     format: meetingType,
     link: locAsLink,
     registrationLink: registerUrl,
@@ -628,14 +639,16 @@ function RecentMessageCard({
 export function WebinarsSection({
   secondaryColor,
   clientId,
+  onLoadComplete,
 }: WebinarsSectionProps) {
+  const loadCompleteCalled = useRef(false);
   const [upcomingWebinars, setUpcomingWebinars] = useState<UpcomingWebinar[]>(
     [],
   );
   const [pastMeetings, setPastMeetings] = useState<UpcomingWebinar[]>([]);
   const [webinarReplays, setWebinarReplays] = useState<WebinarReplay[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingReplays, setIsLoadingReplays] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingReplays, setIsLoadingReplays] = useState(true);
 
   useEffect(() => {
     const fetchPlanMeetings = async () => {
@@ -740,6 +753,13 @@ export function WebinarsSection({
     fetchWebinarReplays();
   }, [clientId]);
 
+  // Notify parent when meetings data has loaded
+  useEffect(() => {
+    if (!isLoading && !isLoadingReplays && onLoadComplete && !loadCompleteCalled.current) {
+      loadCompleteCalled.current = true;
+      onLoadComplete();
+    }
+  }, [isLoading, isLoadingReplays]);
 
   const recentMessages: RecentMessage[] = [
     {

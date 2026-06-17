@@ -1874,7 +1874,7 @@ export default function MeetingsPage() {
                       onClick={() => {
                         setPreviewDialogOpen(true);
                         setPreviewLoading(true);
-                        setTimeout(() => setPreviewLoading(false), 1000);
+                        setTimeout(() => setPreviewLoading(false), 5000);
                       }}
                       className="gap-1.5 shrink-0"
                     >
@@ -3303,10 +3303,10 @@ export default function MeetingsPage() {
             </DialogClose>
           </div>
           {/* Scrollable body */}
-          <div className="overflow-y-auto p-6 [&_section]:!py-4">
-            {previewLoading ? (
-              <div className="space-y-12">
-                {/* Upcoming Meetings skeleton */}
+          <div className="overflow-y-auto p-6 [&_section]:!py-4 relative min-h-[400px]">
+            {/* Skeleton overlay — covers WebinarsSection while data loads */}
+            {previewLoading && (
+              <div className="absolute inset-0 z-10 bg-white p-6 space-y-12">
                 <div className="space-y-6">
                   <Skeleton className="h-10 w-80 mx-auto" />
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -3335,13 +3335,14 @@ export default function MeetingsPage() {
                   </div>
                 </div>
               </div>
-            ) : (
-              <WebinarsSection
-                key={selectedPlan + String(previewDialogOpen)}
-                clientId={selectedPlan}
-                secondaryColor={clients.find(c => c.id === selectedPlan)?.status ? "#C9A961" : "#C9A961"}
-              />
             )}
+            {/* Always rendered — loads data while skeleton is on top */}
+            <WebinarsSection
+              key={selectedPlan + String(previewDialogOpen)}
+              clientId={selectedPlan}
+              secondaryColor={clients.find(c => c.id === selectedPlan)?.status ? "#C9A961" : "#C9A961"}
+              onLoadComplete={() => setPreviewLoading(false)}
+            />
           </div>
         </DialogContent>
       </Dialog>
