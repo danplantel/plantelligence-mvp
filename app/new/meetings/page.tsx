@@ -95,6 +95,7 @@ import {
 } from "@/lib/plan-selector-storage";
 import { useNavigateAwayGuard } from "@/hooks/use-navigate-away-guard";
 import { NavigateAwayWarningDialog } from "@/components/ui/navigate-away-warning-dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { resolveRsvpUrl } from "@/lib/meetings/meeting-schedule-shared";
 
 interface Meeting {
@@ -354,11 +355,10 @@ const formatIcons = {
   "In-Person": MapPin,
 };
 
-const statusColors = {
-  Scheduled: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-700/50",
-  "In Progress": "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-700/50",
-  Completed: "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 border-green-200 dark:border-green-700/50",
-  Cancelled: "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 border-red-200 dark:border-red-700/50",
+const statusColors: Record<string, string> = {
+  Upcoming: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-700/50",
+  Past: "bg-gray-100 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700/50",
+  Draft: "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-700/50",
 };
 
 interface MeetingSaveType {
@@ -676,9 +676,9 @@ export default function MeetingsPage() {
   const searchParams = useSearchParams();
 
   // Meetings list state
-  const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [benefitsCategoryFilter, setBenefitsCategoryFilter] = useState("all");
   const [clientFilter, setClientFilter] = useState("all");
   const [sortColumn, setSortColumn] = useState<SortColumn>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
@@ -704,11 +704,9 @@ export default function MeetingsPage() {
   // SWR: meetings — key changes with filters so each combo is cached
   const meetingsKey = useMemo(() => {
     const params = new URLSearchParams();
-    if (searchTerm) params.append("search", searchTerm);
-    if (typeFilter !== "all") params.append("type", typeFilter);
     if (statusFilter !== "all") params.append("status", statusFilter);
     return `/api/meetings?${params.toString()}`;
-  }, [searchTerm, typeFilter, statusFilter]);
+  }, [statusFilter]);
 
   const { data: meetingsData, isLoading: meetingsLoading, mutate: refreshMeetings } = useSWR(
     meetingsKey,
@@ -738,6 +736,8 @@ export default function MeetingsPage() {
   });
   const [meetingModalOpen, setMeetingModalOpen] = useState(false);
   const [deletingMeetingId, setDeletingMeetingId] = useState<string | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [meetingToDelete, setMeetingToDelete] = useState<{ id: string; title: string } | null>(null);
   const [postSaveDialogOpen, setPostSaveDialogOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string>("");
 
@@ -822,12 +822,8 @@ export default function MeetingsPage() {
       searchParams.get("planId")?.trim() ||
       searchParams.get("clientId")?.trim() ||
       null;
-    const searchParam = searchParams.get("search");
-    const typeParam = searchParams.get("type");
     const statusParam = searchParams.get("status");
 
-    if (searchParam) setSearchTerm(searchParam);
-    if (typeParam) setTypeFilter(typeParam);
     if (statusParam) setStatusFilter(statusParam);
 
     // If client param exists, set the filter
@@ -898,8 +894,6 @@ export default function MeetingsPage() {
   // Update URL when filters change
   const updateURL = useCallback(() => {
     const params = new URLSearchParams();
-    if (searchTerm) params.set("search", searchTerm);
-    if (typeFilter !== "all") params.set("type", typeFilter);
     if (statusFilter !== "all") params.set("status", statusFilter);
     if (clientFilter !== "all") params.set("client", clientFilter);
     if (formData.clientId) params.set("planId", formData.clientId);
@@ -909,8 +903,6 @@ export default function MeetingsPage() {
       : "/new/meetings";
     router.replace(newURL);
   }, [
-    searchTerm,
-    typeFilter,
     statusFilter,
     clientFilter,
     formData.clientId,
@@ -1445,10 +1437,17 @@ export default function MeetingsPage() {
     }
   };
 
-  const handleDeleteMeeting = async (meetingId: string) => {
-    setDeletingMeetingId(meetingId);
+  const handleDeleteMeeting = (meeting: Meeting) => {
+    setMeetingToDelete({ id: meeting.id, title: meeting.meeting });
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!meetingToDelete) return;
+    setDeletingMeetingId(meetingToDelete.id);
+    setDeleteConfirmOpen(false);
     try {
-      const response = await fetch(`/api/meetings/${meetingId}`, {
+      const response = await fetch(`/api/meetings/${meetingToDelete.id}`, {
         method: "DELETE",
       });
 
@@ -1462,6 +1461,7 @@ export default function MeetingsPage() {
       toast.error("An error occurred while deleting the meeting");
     } finally {
       setDeletingMeetingId(null);
+      setMeetingToDelete(null);
     }
   };
 
@@ -1689,18 +1689,16 @@ export default function MeetingsPage() {
     activeTab === "upcoming" ? upcomingMeetings : pastMeetings;
 
   const filteredMeetings = currentMeetings.filter((meeting) => {
-    const matchesSearch =
-      meeting.meeting.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      meeting.client.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType =
-      typeFilter === "all" || meeting.meetingType === typeFilter;
     const matchesStatus =
       statusFilter === "all" || meeting.status === statusFilter;
     const matchesClient =
       clientFilter === "all" ||
       meeting.client.toLowerCase() === clientFilter.toLowerCase();
+    const matchesBenefitsCategory =
+      benefitsCategoryFilter === "all" ||
+      meeting.benefitsCategory === benefitsCategoryFilter;
 
-    return matchesSearch && matchesType && matchesStatus && matchesClient;
+    return matchesStatus && matchesClient && matchesBenefitsCategory;
   });
 
   const sortedMeetings = [...filteredMeetings].sort((a, b) => {
@@ -1751,9 +1749,6 @@ export default function MeetingsPage() {
             <Card className="shadow-sm">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg font-semibold">
-                    Meeting Sessions
-                  </CardTitle>
                   <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
@@ -1783,55 +1778,29 @@ export default function MeetingsPage() {
                 <div className="space-y-4">
                   {/* Filters */}
                   <div className="flex items-center space-x-2">
-                    <div className="relative flex-1">
-                      <Input
-                        placeholder="Search meetings..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="h-8"
-                      />
-                    </div>
-                    <Select value={clientFilter} onValueChange={setClientFilter}>
-                      <SelectTrigger className="w-40 h-8 bg-white dark:bg-gray-800">
-                        <SelectValue placeholder="All Clients" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Clients</SelectItem>
-                        {clients.map((client) => (
-                          <SelectItem key={client.id} value={client.companyName}>
-                            {client.companyName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Select value={typeFilter} onValueChange={setTypeFilter}>
-                      <SelectTrigger className="w-36 h-8 bg-white dark:bg-gray-800">
-                        <SelectValue placeholder="All Types" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Types</SelectItem>
-                        <SelectItem value="Enrollment">Enrollment</SelectItem>
-                        <SelectItem value="Annual Review">Annual Review</SelectItem>
-                        <SelectItem value="Plan Changes">Plan Changes</SelectItem>
-                        <SelectItem value="Education">Education</SelectItem>
-                        <SelectItem value="Consultation">Consultation</SelectItem>
-                      </SelectContent>
-                    </Select>
                     <Select value={statusFilter} onValueChange={setStatusFilter}>
                       <SelectTrigger className="w-36 h-8 bg-white dark:bg-gray-800">
                         <SelectValue placeholder="All Status" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Status</SelectItem>
-                        <SelectItem value="Scheduled">Scheduled</SelectItem>
-                        <SelectItem value="Confirmed">Confirmed</SelectItem>
-                        <SelectItem value="Completed">Completed</SelectItem>
-                        <SelectItem value="Cancelled">Cancelled</SelectItem>
+                        <SelectItem value="Upcoming">Upcoming</SelectItem>
+                        <SelectItem value="Past">Past</SelectItem>
+                        <SelectItem value="Draft">Draft</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Button onClick={fetchMeetings} variant="outline" size="sm">
-                      <RefreshCw className="h-4 w-4" />
-                    </Button>
+                    <Select value={benefitsCategoryFilter} onValueChange={setBenefitsCategoryFilter}>
+                      <SelectTrigger className="w-44 h-8 bg-white dark:bg-gray-800">
+                        <SelectValue placeholder="All Benefit Categories" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Benefit Categories</SelectItem>
+                        <SelectItem value="Retirement">Retirement</SelectItem>
+                        <SelectItem value="Group Health">Group Health</SelectItem>
+                        <SelectItem value="Group Life">Group Life</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   {/* Tabs */}
@@ -1964,10 +1933,10 @@ export default function MeetingsPage() {
                         );
 
                         // Status badge colors
-                        const statusColors = {
-                          Scheduled: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200 border-blue-200 dark:border-blue-700/50",
-                          Completed: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-200 border-green-200 dark:border-green-700/50",
-                          Cancelled: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-200 border-red-200 dark:border-red-700/50",
+                        const statusColors: Record<string, string> = {
+                          Upcoming: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200 border-blue-200 dark:border-blue-700/50",
+                          Past: "bg-gray-100 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700/50",
+                          Draft: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-200 border-amber-200 dark:border-amber-700/50",
                         };
 
                         return (
@@ -2001,7 +1970,7 @@ export default function MeetingsPage() {
                                     className={`text-[10px] border px-1.5 py-px shrink-0 ${
                                       statusColors[
                                         meeting.status as keyof typeof statusColors
-                                      ] || statusColors.Scheduled
+                                      ] || statusColors.Upcoming
                                     }`}
                                   >
                                     {meeting.status}
@@ -2055,7 +2024,7 @@ export default function MeetingsPage() {
                                     Duplicate
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
-                                    onClick={() => handleDeleteMeeting(meeting.id)}
+                                    onClick={() => handleDeleteMeeting(meeting)}
                                     className="text-destructive dark:text-red-500"
                                   >
                                     <Trash2 className="mr-2 h-4 w-4" />
@@ -3238,6 +3207,17 @@ export default function MeetingsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        onConfirm={handleConfirmDelete}
+        title="Delete Meeting"
+        description={meetingToDelete ? `Are you sure you want to delete "${meetingToDelete.title}"? This action cannot be undone and the meeting will be permanently removed.` : ""}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
+      />
 
       <NavigateAwayWarningDialog
         open={leaveGuard.dialogOpen}
