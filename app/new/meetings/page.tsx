@@ -1816,7 +1816,7 @@ export default function MeetingsPage() {
               <CardContent className="pt-6">
                 <div className="space-y-4">
                   {/* Toolbar: buttons, filters, tabs all in one row */}
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center justify-center gap-2 flex-wrap">
 
                     <div className="flex space-x-1 bg-[#F2F2F4] dark:bg-[#030303] border border-[#efefef] dark:border-[#1c1c1c] p-0.5 rounded-lg shrink-0">
                       <button
