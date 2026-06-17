@@ -753,7 +753,7 @@ export function WebinarsSection({
     fetchWebinarReplays();
   }, [clientId]);
 
-  // Notify parent when meetings data has loaded
+  // Notify parent when all sections have finished loading
   useEffect(() => {
     if (!isLoading && !isLoadingReplays && onLoadComplete && !loadCompleteCalled.current) {
       loadCompleteCalled.current = true;
