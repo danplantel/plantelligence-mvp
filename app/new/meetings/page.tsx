@@ -6,6 +6,7 @@ import useSWR from "swr";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -1729,8 +1730,11 @@ export default function MeetingsPage() {
           <CardContent className="p-6">
             {!clientsData ? (
               <div className="space-y-3">
-                <div className="h-4 w-24 bg-muted rounded animate-pulse" />
-                <div className="h-9 bg-muted rounded animate-pulse" />
+                <Skeleton className="h-4 w-24" />
+                <div className="relative">
+                  <Skeleton className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 rounded" />
+                  <Skeleton className="h-9 w-full rounded-md" />
+                </div>
               </div>
             ) : (
               <>
