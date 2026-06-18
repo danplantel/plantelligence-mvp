@@ -360,7 +360,7 @@ function RecentPlanLabels({ plans, onSelect }: { plans: Client[]; onSelect: (pla
 export default function MeetingsPage() {
   const router = useRouter();
   const { setTitle } = usePageTitleContext();
-  useEffect(() => { setTitle("Communications"); }, [setTitle]);
+  useEffect(() => { setTitle("Meetings"); }, [setTitle]);
   const [formData, setFormData] = useState<MeetingFormData>({ ...DEFAULT_MEETING_FORM_DATA });
   const searchParams = useSearchParams();
   const [typeFilter, setTypeFilter] = useState("all");
