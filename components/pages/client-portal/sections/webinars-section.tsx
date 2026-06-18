@@ -199,7 +199,7 @@ export function UpcomingWebinarCard({
             Join us for this informative session covering key plan features and strategies
             to help you make informed decisions about your benefits.
           </p>
-          <p className="font-semibold text-gray-800">What we'll cover:</p>
+          <p className="font-semibold text-gray-800">What we&rsquo;ll cover:</p>
           <ul className="list-disc list-inside space-y-1 text-gray-600">
             <li>Plan features and investment options</li>
             <li>How to make the most of your benefits</li>
