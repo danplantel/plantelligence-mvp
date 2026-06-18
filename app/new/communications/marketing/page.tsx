@@ -33,6 +33,13 @@ interface MarketingOption {
   illustration: React.ReactNode;
 }
 
+interface SavedAsset {
+  id: string;
+  type: AssetType;
+  headline: string;
+  createdAt: string;
+}
+
 const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
 
 function PlanSearchBar({
@@ -462,6 +469,7 @@ export default function MarketingPage() {
   const [selectedPlan, setSelectedPlan] = useState<string>("");
   const [modalOpen, setModalOpen] = useState(false);
   const [activeAssetType, setActiveAssetType] = useState<AssetType>("flyer");
+  const [savedAssets, setSavedAssets] = useState<SavedAsset[]>([]);
 
   const { data: clientsData, isLoading: isLoadingClients } = useSWR(
     "/api/clients?status=all&limit=500&sortColumn=companyName&sortDirection=asc",
@@ -535,14 +543,73 @@ export default function MarketingPage() {
 
         {selectedPlan && selectedClient && (
           <div className="space-y-6">
-            <div className="text-center">
-              <h2 className="text-xl font-semibold text-foreground">
-                {selectedClient.companyName}
-              </h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                What would you like to create?
-              </p>
-            </div>
+            {/* ── Saved Marketing Assets ── */}
+            {savedAssets.length > 0 && (
+              <div className="rounded-xl border bg-white dark:bg-gray-900 dark:border-gray-700 shadow-sm overflow-hidden">
+                <div className="flex items-center gap-2 px-5 py-3 border-b bg-gray-50/50 dark:border-gray-700">
+                  <svg className="h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="16" y1="13" x2="8" y2="13" />
+                    <line x1="16" y1="17" x2="8" y2="17" />
+                  </svg>
+                  <h3 className="text-sm font-semibold text-foreground">Edit Marketing Assets</h3>
+                  <span className="text-xs text-muted-foreground">({savedAssets.length})</span>
+                </div>
+                <div className="divide-y dark:divide-gray-700">
+                  {savedAssets.map((asset) => (
+                    <div key={asset.id} className="flex items-center gap-3 px-5 py-3">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-blue)]/10 text-sm">
+                        {asset.type === "flyer" ? "📄" : asset.type === "portal-notice" ? "📢" : asset.type === "pop-up" ? "💬" : "📰"}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{asset.headline}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {asset.type.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} · {asset.createdAt}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className="text-xs font-medium text-[var(--accent-blue)] hover:underline shrink-0"
+                        onClick={() => {
+                          setActiveAssetType(asset.type);
+                          setModalOpen(true);
+                        }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className="text-xs font-medium text-red-500 hover:underline shrink-0"
+                        onClick={() => setSavedAssets((prev) => prev.filter((a) => a.id !== asset.id))}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── Empty state when no assets saved (above the cards) ── */}
+            {savedAssets.length === 0 && (
+              <div className="flex flex-col items-center justify-center pb-2 px-4 text-center">
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--accent-blue-light)]/40 dark:bg-[var(--accent-blue-light)]/20">
+                  <svg className="h-6 w-6 text-[var(--accent-blue)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="12" y1="12" x2="12" y2="18" />
+                    <line x1="9" y1="15" x2="15" y2="15" />
+                  </svg>
+                </div>
+                <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+                  No Communications Added Yet
+                </h3>
+                <p className="mt-1.5 text-sm text-muted-foreground max-w-sm">
+                  Create your first flyer, notice, pop-up, or news update for this Benefits Hub.
+                </p>
+              </div>
+            )}
 
             {/* Creation cards — 4-column grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -590,6 +657,17 @@ export default function MarketingPage() {
             assetType={activeAssetType}
             planName={selectedClient.companyName}
             planId={selectedPlan}
+            onSave={(headline) => {
+              setSavedAssets((prev) => [
+                ...prev,
+                {
+                  id: `${activeAssetType}-${Date.now()}`,
+                  type: activeAssetType,
+                  headline: headline || `${activeAssetType.charAt(0).toUpperCase() + activeAssetType.slice(1).replace("-", " ")}`,
+                  createdAt: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+                },
+              ]);
+            }}
           />
         )}
       </div>

@@ -30,6 +30,7 @@ interface MarketingAssetModalProps {
   assetType: AssetType;
   planName: string;
   planId: string;
+  onSave?: (headline: string) => void;
 }
 
 interface Meeting {
@@ -65,6 +66,7 @@ export default function MarketingAssetModal({
   assetType,
   planName,
   planId,
+  onSave,
 }: MarketingAssetModalProps) {
   const meta = ASSET_META[assetType];
 
@@ -156,10 +158,10 @@ export default function MarketingAssetModal({
       : body || "Your content will appear here…";
 
   const handleSave = () => {
-    // TODO: persist the asset
     console.log(`[MarketingAssetModal] Save ${assetType} for ${planName}`, {
       headline, body, startDate, endDate, bgColor, flyerQrUrl,
     });
+    onSave?.(headline || meta.label);
     onOpenChange(false);
   };
 
