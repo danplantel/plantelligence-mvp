@@ -85,6 +85,9 @@ export default function MarketingAssetModal({
 
   // Flyer-specific
   const [flyerSubtitle, setFlyerSubtitle] = useState("");
+  const [meetingTime, setMeetingTime] = useState("");
+  const [meetingPlatform, setMeetingPlatform] = useState("");
+  const [meetingLocation, setMeetingLocation] = useState("");
   const [selectedMeetingId, setSelectedMeetingId] = useState("");
   const [flyerImage, setFlyerImage] = useState<string>("");
   const [flyerImageLoading, setFlyerImageLoading] = useState(false);
@@ -114,6 +117,9 @@ export default function MarketingAssetModal({
     setEndDate("");
     setBgColor("#23919c");
     setFlyerSubtitle("");
+    setMeetingTime("");
+    setMeetingPlatform("");
+    setMeetingLocation("");
     setSelectedMeetingId("");
     setFlyerImage("");
     setFlyerQrUrl("");
@@ -129,6 +135,13 @@ export default function MarketingAssetModal({
       setBody(m.description || "");
       setFlyerSubtitle(`${m.meetingType} — ${formatUsDate(m.date)}`);
       setStartDate(m.date);
+      setMeetingTime(m.time || "");
+      setMeetingPlatform(m.platform || "");
+      setMeetingLocation(
+        m.format === "In-Person"
+          ? [m.city, m.state].filter(Boolean).join(", ") || "In-Person"
+          : m.platform || m.format || "Virtual"
+      );
     }
   };
 
@@ -211,7 +224,17 @@ export default function MarketingAssetModal({
                     </div>
                     <div className="flex items-center gap-1.5">
                       <Clock className="h-3 w-3" />
-                      {selectedMeeting.time}
+                      {selectedMeeting.time
+                        ? (() => {
+                            const [h, m] = selectedMeeting.time.split(":").map(Number);
+                            if (!isNaN(h) && !isNaN(m)) {
+                              const ampm = h >= 12 ? "PM" : "AM";
+                              const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+                              return `${h12}:${m.toString().padStart(2, "0")} ${ampm}`;
+                            }
+                            return selectedMeeting.time;
+                          })()
+                        : ""}
                       {selectedMeeting.timezone && ` (${selectedMeeting.timezone})`}
                     </div>
                     {selectedMeeting.format === "In-Person" && selectedMeeting.city && (
@@ -378,19 +401,8 @@ export default function MarketingAssetModal({
               </div>
             )}
 
-            {/* Date range */}
-            {assetType === "flyer" && isFlyerLocked ? (
-              <div className="grid grid-cols-2 gap-3 opacity-50 pointer-events-none">
-                <div className="space-y-1.5">
-                  <Label htmlFor="startDate">Start date</Label>
-                  <Input id="startDate" type="date" disabled />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="endDate">End date</Label>
-                  <Input id="endDate" type="date" disabled />
-                </div>
-              </div>
-            ) : (
+            {/* Date range — only for non-flyer assets (flyer date comes from the meeting) */}
+            {assetType !== "flyer" && (
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="startDate">Start date</Label>
@@ -491,6 +503,8 @@ export default function MarketingAssetModal({
                 planName={planName}
                 flyerImage={flyerImage}
                 flyerQrUrl={flyerQrUrl}
+                meetingTime={meetingTime}
+                meetingLocation={meetingLocation}
               />
             </div>
           </div>
@@ -523,6 +537,8 @@ function PreviewPane({
   planName,
   flyerImage,
   flyerQrUrl,
+  meetingTime,
+  meetingLocation,
 }: {
   assetType: AssetType;
   headline: string;
@@ -535,10 +551,12 @@ function PreviewPane({
   planName: string;
   flyerImage?: string;
   flyerQrUrl?: string;
+  meetingTime?: string;
+  meetingLocation?: string;
 }) {
   switch (assetType) {
     case "flyer":
-      return <FlyerPreview headline={headline} body={body} ctaText={ctaText} bgColor={bgColor} startDate={startDate} planName={planName} flyerImage={flyerImage} flyerQrUrl={flyerQrUrl} />;
+      return <FlyerPreview headline={headline} body={body} ctaText={ctaText} bgColor={bgColor} startDate={startDate} planName={planName} flyerImage={flyerImage} flyerQrUrl={flyerQrUrl} meetingTime={meetingTime} meetingLocation={meetingLocation} />;
     case "portal-notice":
       return <NoticePreview headline={headline} body={body} bgColor={bgColor} startDate={startDate} endDate={endDate} />;
     case "pop-up":
@@ -557,6 +575,8 @@ function FlyerPreview({
   planName,
   flyerImage,
   flyerQrUrl,
+  meetingTime,
+  meetingLocation,
 }: {
   headline: string;
   body: string;
@@ -566,17 +586,33 @@ function FlyerPreview({
   planName: string;
   flyerImage?: string;
   flyerQrUrl?: string;
+  meetingTime?: string;
+  meetingLocation?: string;
 }) {
   const formatDate = (d: string) => {
     if (!d) return "";
     try {
-      return new Date(d + "T00:00:00").toLocaleDateString("en-US", {
+      const clean = d.split("T")[0].split(" ")[0];
+      const parsed = new Date(clean + "T12:00:00");
+      if (isNaN(parsed.getTime())) return d;
+      return parsed.toLocaleDateString("en-US", {
         weekday: "long",
         month: "long",
         day: "numeric",
         year: "numeric",
       });
     } catch { return d; }
+  };
+
+  const formatTime12h = (t: string) => {
+    if (!t) return "";
+    try {
+      const [h, m] = t.split(":").map(Number);
+      if (isNaN(h) || isNaN(m)) return t;
+      const ampm = h >= 12 ? "PM" : "AM";
+      const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+      return `${h12}:${m.toString().padStart(2, "0")} ${ampm}`;
+    } catch { return t; }
   };
 
   const formattedDate = formatDate(startDate);
@@ -668,7 +704,7 @@ function FlyerPreview({
       <g transform="translate(60, 415)">
         <circle cx="14" cy="14" r="14" fill={bgColor} opacity="0.1" />
         <text x="14" y="19" textAnchor="middle" fill={bgColor} fontSize="15" fontWeight="600">🕐</text>
-        <text x="44" y="19" fill="#555" fontSize="15">Time to be announced</text>
+        <text x="44" y="19" fill="#555" fontSize="15">{formatTime12h(meetingTime || "") || "Time TBD"}</text>
       </g>
 
       {/* Vertical divider in card */}
@@ -678,8 +714,8 @@ function FlyerPreview({
       <g transform="translate(350, 375)">
         <circle cx="14" cy="14" r="14" fill={bgColor} opacity="0.1" />
         <text x="14" y="19" textAnchor="middle" fill={bgColor} fontSize="15" fontWeight="600">📍</text>
-        <text x="44" y="19" fill="#333" fontSize="15" fontWeight="600">Format TBD</text>
-        <text x="44" y="36" fill="#888" fontSize="12">Details to be announced</text>
+        <text x="44" y="19" fill="#333" fontSize="15" fontWeight="600">{meetingLocation || "Format TBD"}</text>
+        <text x="44" y="36" fill="#888" fontSize="12">{meetingLocation ? "Check-in details provided" : "Details to be announced"}</text>
       </g>
 
       {/* ═══ Description Section ═══ */}
