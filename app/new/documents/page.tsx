@@ -206,6 +206,7 @@ function PlanSearchBar({
 
   return (
     <div className="space-y-2" ref={containerRef}>
+      <CardTitle className="text-2xl font-bold pb-2">View Documents</CardTitle>
       <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
         Select a plan
         <span className="text-red-500"> *</span>
@@ -820,16 +821,27 @@ export default function DocumentsPage() {
         {expiringSoonDocuments.length > 0 && (
           <Alert className="border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"><Clock className="h-4 w-4" /><AlertTitle>Documents Due for Review</AlertTitle><AlertDescription>{expiringSoonDocuments.length} document{expiringSoonDocuments.length > 1 ? "s are" : " is"} due for review within the next 30 days. Please review and update them.<ul className="mt-2 list-disc list-inside">{expiringSoonDocuments.slice(0, 5).map((doc) => (<li key={doc.id}>{doc.title} - Due for review in {getExpirationStatus(doc)?.days} day{getExpirationStatus(doc)?.days !== 1 ? "s" : ""}</li>))}{expiringSoonDocuments.length > 5 && <li>...and {expiringSoonDocuments.length - 5} more</li>}</ul></AlertDescription></Alert>
         )}
-        <Card>
-          <CardHeader className="pb-3"><CardTitle className="text-2xl font-bold">Plan Documents</CardTitle></CardHeader>
-          {!clientsData ? (
-            <CardContent className="pb-3 space-y-3"><Skeleton className="h-10 w-full rounded-md" /><Skeleton className="h-4 w-64" /><div className="pt-4 space-y-3"><Skeleton className="h-5 w-48" /><Skeleton className="h-3 w-full" /><div className="space-y-2 pt-2">{[1, 2, 3, 4].map((i) => (<div key={i} className="flex items-center gap-3 py-2"><Skeleton className="h-5 w-5 shrink-0 rounded" /><div className="flex-1 min-w-0 space-y-1.5"><div className="flex items-center gap-2"><Skeleton className="h-4 w-48" /><Skeleton className="h-4 w-12 rounded-full" /><Skeleton className="h-4 w-8 rounded-full" /></div><Skeleton className="h-3 w-72" /></div></div>))}</div></div></CardContent>
-          ) : (
-            <>
-              <CardContent className="p-6"><PlanSearchBar plans={clients} value={selectedPlan} onChange={handlePlanChange} disabled={clients.length === 0} />{!selectedPlan && clients.length > 0 && <RecentPlanLabels plans={clients} onSelect={handlePlanChange} />}</CardContent>
+        <Card className="shadow-sm">
+          <CardContent className="p-6">
+            {!clientsData ? (
+              <div className="space-y-3">
+                <Skeleton className="h-4 w-24" />
+                <div className="relative">
+                  <Skeleton className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 rounded" />
+                  <Skeleton className="h-9 w-full rounded-md" />
+                </div>
+              </div>
+            ) : (
+              <>
+                <PlanSearchBar plans={clients} value={selectedPlan} onChange={handlePlanChange} disabled={clients.length === 0} />
+                {!selectedPlan && clients.length > 0 && <RecentPlanLabels plans={clients} onSelect={handlePlanChange} />}
+              </>
+            )}
+          </CardContent>
               {selectedPlan && (<div className="px-6 flex gap-0 border-b dark:border-gray-700"><button type="button" onClick={goToUploadTab} className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${activeSection === "upload" ? "border-accent-blue text-accent-blue" : "border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300 dark:hover:border-gray-600"}`}>Upload Documents</button><button type="button" onClick={goToDocumentsSection} className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${activeSection === "documents" ? "border-accent-blue text-accent-blue" : "border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300 dark:hover:border-gray-600"}`}>View Documents</button></div>)}
-              <CardContent className="pt-6">
-                {!selectedPlan ? null : activeSection === "upload" ? (
+              {selectedPlan && (
+                <CardContent className="pt-6">
+                  {activeSection === "upload" ? (
                   <><h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Upload Documents</h3><p className="text-sm text-muted-foreground mb-6">
                     Upload PDFs for this Benefits Hub. Suggestions should be reviewed before publishing.</p>
                     <DocumentUploadTab selectedPlan={selectedPlan} showSaveButton={true} onHasUnsavedChangesChange={setHasUnsavedUploadChanges} onSaveFunctionReady={setUploadSaveFn} onDocumentsSaved={() => { toast.success("Document saved successfully"); setTimeout(async () => { await fetchDocuments(); setActiveSection("documents"); const url = new URL(window.location.href); url.searchParams.set("section", "documents"); window.history.pushState({}, "", url.toString()); }, 500); }} /></>
@@ -868,7 +880,6 @@ export default function DocumentsPage() {
                         <button type="button" onClick={() => setDocPortalPreviewOpen(true)} className="px-2.5 py-1.5 text-xs font-medium transition-colors bg-white text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"><Eye className="h-3.5 w-3.5 mr-1 inline" />Preview</button>
                       </div>
                     </div>
-                    {isLoading && sortedDocuments.length === 0 && (<div className="space-y-2 rounded-lg border bg-white dark:border-gray-700 dark:bg-gray-900 p-4">{[1, 2, 3, 4].map((i) => (<div key={i} className="flex items-center gap-3 py-2"><Skeleton className="h-5 w-5 shrink-0 rounded" /><div className="flex-1 min-w-0 space-y-1.5"><div className="flex items-center gap-2"><Skeleton className="h-4 w-48" /><Skeleton className="h-4 w-12 rounded-full" /><Skeleton className="h-4 w-8 rounded-full" /></div><Skeleton className="h-3 w-72" /></div></div>))}</div>)}
                     {!isLoading && sortedDocuments.length === 0 && (<div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-4 rounded-lg border border-dashed border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/50"><p className="text-gray-900 dark:text-gray-100 text-lg font-semibold">No documents for this plan yet</p><p className="text-muted-foreground text-sm">Upload retirement plan documents for this client on the Upload tab. After you save, they will appear here.</p><Button type="button" onClick={goToUploadTab}>Upload documents</Button></div>)}
                     {!isLoading && sortedDocuments.length > 0 && retirementDocs.length === 0 && (<div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-3"><p className="text-gray-900 dark:text-gray-100 text-lg font-semibold">No documents in {previewLanguage === "EN" ? "English" : "Spanish"}</p><p className="text-muted-foreground text-sm">This plan has documents in another language. Use the language toggle above, or upload a {previewLanguage === "EN" ? "English" : "Spanish"} file on the Upload tab.</p><Button type="button" variant="outline" onClick={goToUploadTab}>Go to Upload</Button></div>)}
                     {!isLoading && retirementDocs.length > 0 && filteredDocs.length === 0 && (<div className="flex flex-col items-center justify-center py-12 px-4 text-center gap-3"><p className="text-gray-900 dark:text-gray-100 text-base font-semibold">No documents match the current filters</p><p className="text-muted-foreground text-sm">Try adjusting the type, category or language filters above.</p><Button size="sm" variant="outline" onClick={() => { setTypeFilter("all"); setCategoryFilter("all"); setLanguageFilter("all"); }}>Clear Filters</Button></div>)}
@@ -1062,8 +1073,7 @@ export default function DocumentsPage() {
                   </div>
                 )}
                 </CardContent>
-            </>
-          )}
+              )}
         </Card>
       </div>
       {/* Portal Preview Dialog — shows document cards in the portal layout */}
