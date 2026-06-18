@@ -589,6 +589,7 @@ export default function MarketingPage() {
             onOpenChange={setModalOpen}
             assetType={activeAssetType}
             planName={selectedClient.companyName}
+            planId={selectedPlan}
           />
         )}
       </div>

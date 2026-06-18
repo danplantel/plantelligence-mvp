@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import useSWR from "swr";
 import {
   Dialog,
   DialogContent,
@@ -11,7 +12,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { X, Eye, EyeOff } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { X, Eye, Calendar, Clock, MapPin } from "lucide-react";
+import { formatUsDate } from "@/lib/date";
 
 export type AssetType = "flyer" | "portal-notice" | "pop-up" | "news-post";
 
@@ -20,7 +29,28 @@ interface MarketingAssetModalProps {
   onOpenChange: (open: boolean) => void;
   assetType: AssetType;
   planName: string;
+  planId: string;
 }
+
+interface Meeting {
+  id: string;
+  meeting: string;
+  meetingType: string;
+  client: string;
+  clientId?: string | null;
+  date: string;
+  time: string;
+  timezone?: string;
+  duration: string;
+  format: string;
+  platform?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  description?: string;
+}
+
+const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
 
 const ASSET_META: Record<AssetType, { label: string; icon: string }> = {
   "flyer": { label: "Flyer", icon: "📄" },
@@ -34,8 +64,17 @@ export default function MarketingAssetModal({
   onOpenChange,
   assetType,
   planName,
+  planId,
 }: MarketingAssetModalProps) {
   const meta = ASSET_META[assetType];
+
+  // ── Fetch meetings for flyer creation ──
+  const { data: meetingsData } = useSWR(
+    assetType === "flyer" && planId ? `/api/meetings?clientId=${planId}` : null,
+    jsonFetcher,
+    { dedupingInterval: 30_000, revalidateOnFocus: false },
+  );
+  const meetings: Meeting[] = useMemo(() => meetingsData?.data ?? [], [meetingsData]);
 
   // ── Shared form fields ──
   const [headline, setHeadline] = useState("");
@@ -48,12 +87,57 @@ export default function MarketingAssetModal({
 
   // Flyer-specific
   const [flyerSubtitle, setFlyerSubtitle] = useState("");
+  const [selectedMeetingId, setSelectedMeetingId] = useState("");
 
   // Pop-up specific
   const [showEveryVisit, setShowEveryVisit] = useState(false);
 
   // News post specific
   const [postCategory, setPostCategory] = useState("Announcement");
+
+  // When a meeting is selected, populate flyer fields from it
+  const selectedMeeting = useMemo(
+    () => meetings.find((m) => m.id === selectedMeetingId),
+    [meetings, selectedMeetingId],
+  );
+
+  // Reset fields when modal opens/closes or asset type changes
+  useEffect(() => {
+    setHeadline("");
+    setBody("");
+    setCtaText("");
+    setCtaUrl("");
+    setStartDate("");
+    setEndDate("");
+    setBgColor("#23919c");
+    setFlyerSubtitle("");
+    setSelectedMeetingId("");
+    setShowEveryVisit(false);
+    setPostCategory("Announcement");
+  }, [open, assetType]);
+
+  const handleMeetingSelect = (meetingId: string) => {
+    setSelectedMeetingId(meetingId);
+    const m = meetings.find((x) => x.id === meetingId);
+    if (m) {
+      setHeadline(m.meeting);
+      setBody(m.description || "");
+      setFlyerSubtitle(`${m.meetingType} — ${formatUsDate(m.date)}`);
+      setStartDate(m.date);
+      setCtaText("Learn More & Register");
+    }
+  };
+
+  // Preview defaults for the right column when flyer has no meeting selected
+  const previewHeadline =
+    assetType === "flyer" && !selectedMeeting
+      ? "Select a meeting below"
+      : headline || meta.label;
+  const previewBody =
+    assetType === "flyer" && !selectedMeeting
+      ? "Choose a meeting to populate the flyer content automatically."
+      : body || "Your content will appear here…";
+  const previewCta = ctaText || "Learn More";
 
   const handleSave = () => {
     // TODO: persist the asset
@@ -62,10 +146,6 @@ export default function MarketingAssetModal({
     });
     onOpenChange(false);
   };
-
-  const previewHeadline = headline || meta.label;
-  const previewBody = body || "Your content will appear here…";
-  const previewCta = ctaText || "Learn More";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -92,6 +172,57 @@ export default function MarketingAssetModal({
         <div className="flex flex-1 overflow-hidden">
           {/* ═══ Left Column — Form ═══ */}
           <div className="w-1/2 overflow-y-auto border-r p-6 space-y-5">
+            {/* ── Flyer: Meeting selector ── */}
+            {assetType === "flyer" && (
+              <div className="space-y-1.5">
+                <Label htmlFor="meeting-select">
+                  Base meeting <span className="text-red-500">*</span>
+                </Label>
+                <Select value={selectedMeetingId} onValueChange={handleMeetingSelect}>
+                  <SelectTrigger id="meeting-select" className="w-full">
+                    <SelectValue placeholder="Select a meeting…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {meetings.length === 0 && (
+                      <div className="px-3 py-4 text-center text-sm text-muted-foreground">
+                        No meetings found for this plan.
+                      </div>
+                    )}
+                    {meetings.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        <span className="flex items-center gap-2">
+                          <span>{m.meeting}</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {formatUsDate(m.date)}
+                          </span>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedMeeting && (
+                  <div className="rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground space-y-1 mt-1">
+                    <div className="flex items-center gap-1.5">
+                      <Calendar className="h-3 w-3" />
+                      {formatUsDate(selectedMeeting.date)}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="h-3 w-3" />
+                      {selectedMeeting.time}
+                      {selectedMeeting.timezone && ` (${selectedMeeting.timezone})`}
+                    </div>
+                    {selectedMeeting.format === "In-Person" && selectedMeeting.city && (
+                      <div className="flex items-center gap-1.5">
+                        <MapPin className="h-3 w-3" />
+                        {selectedMeeting.city}, {selectedMeeting.state}
+                      </div>
+                    )}
+                    <div className="text-[11px] opacity-70">{selectedMeeting.duration}</div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Headline */}
             <div className="space-y-1.5">
               <Label htmlFor="headline">Headline</Label>
@@ -109,7 +240,7 @@ export default function MarketingAssetModal({
                 <Label htmlFor="subtitle">Subtitle</Label>
                 <Input
                   id="subtitle"
-                  placeholder="A short subtitle…"
+                  placeholder="Meeting type — date"
                   value={flyerSubtitle}
                   onChange={(e) => setFlyerSubtitle(e.target.value)}
                 />
