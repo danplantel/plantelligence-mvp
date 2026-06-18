@@ -133,7 +133,7 @@ export default function MarketingAssetModal({
     if (m) {
       setHeadline(m.meeting);
       setBody(m.description || "");
-      setFlyerSubtitle(`${m.meetingType} — ${formatUsDate(m.date)}`);
+      setFlyerSubtitle(`Join us for this important session`);
       setStartDate(m.date);
       setMeetingTime(m.time || "");
       setMeetingPlatform(m.platform || "");
@@ -351,7 +351,7 @@ export default function MarketingAssetModal({
                   <Label htmlFor="subtitle">Subtitle</Label>
                   <Input
                     id="subtitle"
-                    placeholder="Meeting type — date"
+                    placeholder="A short promotional tagline…"
                     value={flyerSubtitle}
                     onChange={(e) => setFlyerSubtitle(e.target.value)}
                   />
@@ -505,6 +505,7 @@ export default function MarketingAssetModal({
                 flyerQrUrl={flyerQrUrl}
                 meetingTime={meetingTime}
                 meetingLocation={meetingLocation}
+                flyerSubtitle={flyerSubtitle}
               />
             </div>
           </div>
@@ -539,6 +540,7 @@ function PreviewPane({
   flyerQrUrl,
   meetingTime,
   meetingLocation,
+  flyerSubtitle,
 }: {
   assetType: AssetType;
   headline: string;
@@ -553,10 +555,11 @@ function PreviewPane({
   flyerQrUrl?: string;
   meetingTime?: string;
   meetingLocation?: string;
+  flyerSubtitle?: string;
 }) {
   switch (assetType) {
     case "flyer":
-      return <FlyerPreview headline={headline} body={body} ctaText={ctaText} bgColor={bgColor} startDate={startDate} planName={planName} flyerImage={flyerImage} flyerQrUrl={flyerQrUrl} meetingTime={meetingTime} meetingLocation={meetingLocation} />;
+      return <FlyerPreview headline={headline} body={body} ctaText={ctaText} bgColor={bgColor} startDate={startDate} planName={planName} flyerImage={flyerImage} flyerQrUrl={flyerQrUrl} meetingTime={meetingTime} meetingLocation={meetingLocation} flyerSubtitle={flyerSubtitle} />;
     case "portal-notice":
       return <NoticePreview headline={headline} body={body} bgColor={bgColor} startDate={startDate} endDate={endDate} />;
     case "pop-up":
@@ -577,6 +580,7 @@ function FlyerPreview({
   flyerQrUrl,
   meetingTime,
   meetingLocation,
+  flyerSubtitle,
 }: {
   headline: string;
   body: string;
@@ -588,6 +592,7 @@ function FlyerPreview({
   flyerQrUrl?: string;
   meetingTime?: string;
   meetingLocation?: string;
+  flyerSubtitle?: string;
 }) {
   const formatDate = (d: string) => {
     if (!d) return "";
@@ -679,15 +684,19 @@ function FlyerPreview({
         <rect width="612" height="320" fill="none" stroke={bgColor} strokeWidth="2" opacity="0.15" />
       </g>
 
-      {/* ═══ Headline (overlaid on image area) ═══ */}
-      <text x="50" y="250" fill="white" fontSize="34" fontWeight="800" letterSpacing="-0.5">
+      {/* ═══ Headline & Subtitle (overlaid on image area) ═══ */}
+      <text x="50" y="235" fill="white" fontSize="34" fontWeight="800" letterSpacing="-0.5">
         {truncateText(headline, 30)}
       </text>
-      {headline.length > 22 && (
-        <text x="50" y="290" fill="white" fontSize="26" fontWeight="700" opacity="0.95">
+      {flyerSubtitle ? (
+        <text x="50" y="265" fill="white" fontSize="16" fontWeight="500" opacity="0.85">
+          {truncateText(flyerSubtitle, 45)}
+        </text>
+      ) : headline.length > 22 ? (
+        <text x="50" y="275" fill="white" fontSize="26" fontWeight="700" opacity="0.95">
           {headline.slice(0, 22)}{headline.length > 22 ? headline.slice(22, 44) : ""}
         </text>
-      )}
+      ) : null}
 
       {/* ═══ Event Info Card ═══ */}
       <rect x="40" y="340" width="532" height="130" rx="12" fill={bgColor} opacity="0.04" />
