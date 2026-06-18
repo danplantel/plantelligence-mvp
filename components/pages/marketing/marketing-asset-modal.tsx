@@ -344,13 +344,19 @@ export default function MarketingAssetModal({
               </div>
             ) : (
               <div className="space-y-1.5">
-                <Label htmlFor="body">Body text</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="body">Body text</Label>
+                  {assetType === "flyer" && (
+                    <span className="text-[11px] text-muted-foreground tabular-nums">{body.length}/680</span>
+                  )}
+                </div>
                 <Textarea
                   id="body"
                   rows={4}
                   placeholder="Write your message…"
                   value={body}
                   onChange={(e) => setBody(e.target.value)}
+                  maxLength={assetType === "flyer" ? 680 : undefined}
                 />
               </div>
             )}
@@ -683,7 +689,7 @@ function FlyerPreview({
       </g>
       {bodyLines.length > 0 ? (
         bodyLines.slice(0, 8).map((line, i) => (
-          <text key={i} x="50" y={555 + i * 22} fill="#444" fontSize="14">
+          <text key={i} x="50" y={545 + i * 22} fill="#444" fontSize="13">
             {line}
           </text>
         ))
@@ -693,43 +699,33 @@ function FlyerPreview({
         </text>
       )}
 
-      {/* ═══ QR Code & Bottom Section ═══ */}
-      <g transform="translate(460, 595)">
-        {/* QR code placeholder / visual */}
-        <rect x="0" y="0" width="100" height="100" rx="4" fill="white" stroke={bgColor} strokeWidth="1" strokeOpacity="0.3" />
-        {flyerQrUrl ? (
-          <>
-            {/* Stylized QR code pattern */}
-            <rect x="8" y="8" width="18" height="18" rx="2" fill={bgColor} opacity="0.9" />
-            <rect x="74" y="8" width="18" height="18" rx="2" fill={bgColor} opacity="0.9" />
-            <rect x="8" y="74" width="18" height="18" rx="2" fill={bgColor} opacity="0.9" />
-            <rect x="42" y="42" width="16" height="16" rx="2" fill={bgColor} opacity="0.9" />
-            <rect x="28" y="28" width="6" height="6" rx="1" fill={bgColor} opacity="0.7" />
-            <rect x="60" y="60" width="6" height="6" rx="1" fill={bgColor} opacity="0.7" />
-            <rect x="28" y="60" width="6" height="6" rx="1" fill={bgColor} opacity="0.5" />
-            <rect x="60" y="28" width="6" height="6" rx="1" fill={bgColor} opacity="0.5" />
-            <rect x="64" y="42" width="10" height="6" rx="1" fill={bgColor} opacity="0.4" />
-            <rect x="42" y="64" width="6" height="10" rx="1" fill={bgColor} opacity="0.4" />
-            <text x="50" y="116" textAnchor="middle" fill="#888" fontSize="7">Scan for info</text>
-          </>
-        ) : (
-          <>
-            {/* Dashed placeholder when no QR URL set */}
-            <rect x="10" y="10" width="80" height="80" rx="2" fill="none" stroke={bgColor} strokeWidth="0.5" strokeDasharray="3,3" opacity="0.3" />
-            <text x="50" y="55" textAnchor="middle" fill={bgColor} fontSize="7" opacity="0.25">QR</text>
-            <text x="50" y="116" textAnchor="middle" fill="#ccc" fontSize="7">Add a QR link</text>
-          </>
-        )}
-      </g>
-
-      {/* ═══ Bottom Footer ═══ */}
+      {/* ═══ Bottom Footer (with QR code in bottom-right corner) ═══ */}
       <rect y="720" width="612" height="72" fill={bgColor} opacity="0.06" />
-      <text x="306" y="750" textAnchor="middle" fill={bgColor} fontSize="13" fontWeight="600" opacity="0.7">
+      <text x="50" y="750" fill={bgColor} fontSize="13" fontWeight="600" opacity="0.7">
         Presented by {planName} · Benefits Team
       </text>
-      <text x="306" y="770" textAnchor="middle" fill="#999" fontSize="11">
+      <text x="50" y="770" fill="#999" fontSize="11">
         Questions? Contact your plan administrator
       </text>
+
+      {/* QR code in bottom-right of footer */}
+      <g transform="translate(482, 728)">
+        <rect x="0" y="0" width="56" height="56" rx="3" fill="white" stroke={bgColor} strokeWidth="0.6" strokeOpacity="0.25" />
+        {flyerQrUrl ? (
+          <>
+            <rect x="5" y="5" width="10" height="10" rx="1.5" fill={bgColor} opacity="0.9" />
+            <rect x="41" y="5" width="10" height="10" rx="1.5" fill={bgColor} opacity="0.9" />
+            <rect x="5" y="41" width="10" height="10" rx="1.5" fill={bgColor} opacity="0.9" />
+            <rect x="23" y="23" width="10" height="10" rx="1.5" fill={bgColor} opacity="0.9" />
+            <rect x="16" y="16" width="4" height="4" rx="0.8" fill={bgColor} opacity="0.6" />
+            <rect x="36" y="36" width="4" height="4" rx="0.8" fill={bgColor} opacity="0.6" />
+            <rect x="16" y="36" width="4" height="4" rx="0.8" fill={bgColor} opacity="0.4" />
+            <rect x="36" y="16" width="4" height="4" rx="0.8" fill={bgColor} opacity="0.4" />
+          </>
+        ) : (
+          <rect x="8" y="8" width="40" height="40" rx="2" fill="none" stroke={bgColor} strokeWidth="0.4" strokeDasharray="2,2" opacity="0.2" />
+        )}
+      </g>
     </svg>
   );
 }
