@@ -4,16 +4,10 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import useSWR from "swr";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
-import { MarketingPdfBuilderPage } from "@/components/pages/marketing/pdf-builder/page";
-import { MarketingSpanishPdfBuilderPage } from "@/components/pages/marketing/meeting-flyer/page";
-import { MarketingMissingRetirementBuilderPage } from "@/components/pages/marketing/missing-retirement/page";
-import { MarketingPdfManagerPage } from "@/components/pages/marketing/pdf-manager/page";
-import { MarketingFlyerGeneratorPage } from "@/components/pages/marketing/flyer-generator/page";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { Search, Clock } from "lucide-react";
+import { Search, Clock, FileText, Bell, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   getLastPlanId,
@@ -26,6 +20,13 @@ interface Client {
   id: string;
   companyName: string;
   status?: string;
+}
+
+interface MarketingOption {
+  id: string;
+  label: string;
+  description: string;
+  icon: React.ReactNode;
 }
 
 const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
@@ -321,9 +322,29 @@ function RecentPlanLabels({
   );
 }
 
+const OPTIONS: MarketingOption[] = [
+  {
+    id: "create-flyer",
+    label: "Create a Flyer",
+    description: "Design and generate a marketing flyer for this plan.",
+    icon: <FileText className="h-8 w-8" />,
+  },
+  {
+    id: "top-banner",
+    label: "Top Banner Notification",
+    description: "Create a banner announcement to display at the top of the Benefits Hub.",
+    icon: <Bell className="h-8 w-8" />,
+  },
+  {
+    id: "edit-assets",
+    label: "Edit Marketing Assets",
+    description: "Review, update, or remove existing marketing materials for this plan.",
+    icon: <Pencil className="h-8 w-8" />,
+  },
+];
+
 export default function MarketingPage() {
   const { setTitle } = usePageTitleContext();
-  const [activeTab, setActiveTab] = useState("pdf-builder");
   const [selectedPlan, setSelectedPlan] = useState<string>("");
 
   const { data: clientsData, isLoading: isLoadingClients } = useSWR(
@@ -362,6 +383,11 @@ export default function MarketingPage() {
     setSelectedPlan(clientId);
   };
 
+  const selectedClient = useMemo(
+    () => clients.find((c) => c.id === selectedPlan),
+    [clients, selectedPlan]
+  );
+
   return (
     <div className="p-6 bg-background">
       <div className="w-full space-y-6 max-w-4xl mx-auto">
@@ -391,39 +417,48 @@ export default function MarketingPage() {
           </CardContent>
         </Card>
 
-        {selectedPlan && (
+        {selectedPlan && selectedClient && (
           <div className="space-y-6">
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="flex-wrap h-auto gap-1">
-                <TabsTrigger value="pdf-builder">PDF Builder</TabsTrigger>
-                <TabsTrigger value="spanish-pdf-builder">Meeting Flyer</TabsTrigger>
-                <TabsTrigger value="missing-retirement">
-                  Missing Retirement
-                </TabsTrigger>
-                <TabsTrigger value="flyer-generator">Hub flyers</TabsTrigger>
-                <TabsTrigger value="pdf-manager">Manage PDFs</TabsTrigger>
-              </TabsList>
+            <div>
+              <h2 className="text-xl font-semibold text-foreground">
+                {selectedClient.companyName}
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Choose a marketing action below to get started.
+              </p>
+            </div>
 
-              <TabsContent value="pdf-builder" className="mt-6">
-                <MarketingPdfBuilderPage />
-              </TabsContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {OPTIONS.map((option) => (
+                <Card
+                  key={option.id}
+                  className="group cursor-pointer hover:shadow-md hover:border-accent-blue/40 transition-all duration-200"
+                  onClick={() => {
+                    // TODO: Navigate to the respective sub-page or open a drawer/modal
+                    console.log(`[Marketing] Selected option: ${option.id} for plan ${selectedPlan}`);
+                  }}
+                >
+                  <CardContent className="p-6 flex flex-col items-start gap-4">
+                    <div className="flex items-center gap-3 w-full">
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-accent-blue/10 text-accent-blue group-hover:bg-accent-blue group-hover:text-white transition-colors duration-200">
+                        {option.icon}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-base font-semibold text-foreground">
+                            {option.label}
+                          </h3>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {option.description}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
 
-              <TabsContent value="spanish-pdf-builder" className="mt-6">
-                <MarketingSpanishPdfBuilderPage />
-              </TabsContent>
-
-              <TabsContent value="missing-retirement" className="mt-6">
-                <MarketingMissingRetirementBuilderPage />
-              </TabsContent>
-
-              <TabsContent value="flyer-generator" className="mt-6">
-                <MarketingFlyerGeneratorPage />
-              </TabsContent>
-
-              <TabsContent value="pdf-manager" className="mt-6">
-                <MarketingPdfManagerPage />
-              </TabsContent>
-            </Tabs>
+            </div>
           </div>
         )}
       </div>
