@@ -79,8 +79,6 @@ export default function MarketingAssetModal({
   // ── Shared form fields ──
   const [headline, setHeadline] = useState("");
   const [body, setBody] = useState("");
-  const [ctaText, setCtaText] = useState("");
-  const [ctaUrl, setCtaUrl] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [bgColor, setBgColor] = useState("#23919c");
@@ -90,6 +88,7 @@ export default function MarketingAssetModal({
   const [selectedMeetingId, setSelectedMeetingId] = useState("");
   const [flyerImage, setFlyerImage] = useState<string>("");
   const [flyerImageLoading, setFlyerImageLoading] = useState(false);
+  const [flyerQrUrl, setFlyerQrUrl] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Pop-up specific
@@ -97,6 +96,9 @@ export default function MarketingAssetModal({
 
   // News post specific
   const [postCategory, setPostCategory] = useState("Announcement");
+
+  // Flyer inputs are locked until a base meeting is selected
+  const isFlyerLocked = assetType === "flyer" && !selectedMeetingId;
 
   // When a meeting is selected, populate flyer fields from it
   const selectedMeeting = useMemo(
@@ -108,14 +110,13 @@ export default function MarketingAssetModal({
   useEffect(() => {
     setHeadline("");
     setBody("");
-    setCtaText("");
-    setCtaUrl("");
     setStartDate("");
     setEndDate("");
     setBgColor("#23919c");
     setFlyerSubtitle("");
     setSelectedMeetingId("");
     setFlyerImage("");
+    setFlyerQrUrl("");
     setShowEveryVisit(false);
     setPostCategory("Announcement");
   }, [open, assetType]);
@@ -128,7 +129,6 @@ export default function MarketingAssetModal({
       setBody(m.description || "");
       setFlyerSubtitle(`${m.meetingType} — ${formatUsDate(m.date)}`);
       setStartDate(m.date);
-      setCtaText("Learn More & Register");
     }
   };
 
@@ -141,12 +141,11 @@ export default function MarketingAssetModal({
     assetType === "flyer" && !selectedMeeting
       ? "Choose a meeting to populate the flyer content automatically."
       : body || "Your content will appear here…";
-  const previewCta = ctaText || "Learn More";
 
   const handleSave = () => {
     // TODO: persist the asset
     console.log(`[MarketingAssetModal] Save ${assetType} for ${planName}`, {
-      headline, body, ctaText, ctaUrl, startDate, endDate, bgColor,
+      headline, body, startDate, endDate, bgColor, flyerQrUrl,
     });
     onOpenChange(false);
   };
@@ -227,6 +226,13 @@ export default function MarketingAssetModal({
               </div>
             )}
 
+            {/* Locked notice when no meeting selected */}
+            {assetType === "flyer" && isFlyerLocked && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
+                Select a base meeting above to unlock the flyer form fields.
+              </div>
+            )}
+
             {/* Flyer image upload */}
             {assetType === "flyer" && (
               <div className="space-y-1.5">
@@ -239,11 +245,12 @@ export default function MarketingAssetModal({
                     type="button"
                     variant="outline"
                     size="sm"
+                    disabled={isFlyerLocked}
                     onClick={() => fileInputRef.current?.click()}
                   >
                     {flyerImage ? "Change Image" : "Upload Image"}
                   </Button>
-                  {flyerImage && (
+                  {flyerImage && !isFlyerLocked && (
                     <Button
                       type="button"
                       variant="ghost"
@@ -292,99 +299,138 @@ export default function MarketingAssetModal({
             )}
 
             {/* Headline */}
-            <div className="space-y-1.5">
-              <Label htmlFor="headline">Headline</Label>
-              <Input
-                id="headline"
-                placeholder="Enter a headline…"
-                value={headline}
-                onChange={(e) => setHeadline(e.target.value)}
-              />
-            </div>
-
-            {/* Flyer subtitle */}
-            {assetType === "flyer" && (
+            {assetType === "flyer" && isFlyerLocked ? (
+              <div className="space-y-1.5 opacity-50 pointer-events-none">
+                <Label htmlFor="headline">Headline</Label>
+                <Input id="headline" placeholder="Select a meeting first…" disabled />
+              </div>
+            ) : (
               <div className="space-y-1.5">
-                <Label htmlFor="subtitle">Subtitle</Label>
+                <Label htmlFor="headline">Headline</Label>
                 <Input
-                  id="subtitle"
-                  placeholder="Meeting type — date"
-                  value={flyerSubtitle}
-                  onChange={(e) => setFlyerSubtitle(e.target.value)}
+                  id="headline"
+                  placeholder="Enter a headline…"
+                  value={headline}
+                  onChange={(e) => setHeadline(e.target.value)}
                 />
               </div>
             )}
 
+            {/* Flyer subtitle */}
+            {assetType === "flyer" && (
+              isFlyerLocked ? (
+                <div className="space-y-1.5 opacity-50 pointer-events-none">
+                  <Label htmlFor="subtitle">Subtitle</Label>
+                  <Input id="subtitle" placeholder="Select a meeting first…" disabled />
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <Label htmlFor="subtitle">Subtitle</Label>
+                  <Input
+                    id="subtitle"
+                    placeholder="Meeting type — date"
+                    value={flyerSubtitle}
+                    onChange={(e) => setFlyerSubtitle(e.target.value)}
+                  />
+                </div>
+              )
+            )}
+
             {/* Body / Description */}
-            <div className="space-y-1.5">
-              <Label htmlFor="body">Body text</Label>
-              <Textarea
-                id="body"
-                rows={4}
-                placeholder="Write your message…"
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-              />
-            </div>
+            {assetType === "flyer" && isFlyerLocked ? (
+              <div className="space-y-1.5 opacity-50 pointer-events-none">
+                <Label htmlFor="body">Body text</Label>
+                <Textarea id="body" rows={4} placeholder="Select a meeting first…" disabled />
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <Label htmlFor="body">Body text</Label>
+                <Textarea
+                  id="body"
+                  rows={4}
+                  placeholder="Write your message…"
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                />
+              </div>
+            )}
 
-            {/* CTA text */}
-            <div className="space-y-1.5">
-              <Label htmlFor="ctaText">CTA button text</Label>
-              <Input
-                id="ctaText"
-                placeholder='e.g. "Learn More", "Register Now"'
-                value={ctaText}
-                onChange={(e) => setCtaText(e.target.value)}
-              />
-            </div>
-
-            {/* CTA URL */}
-            <div className="space-y-1.5">
-              <Label htmlFor="ctaUrl">CTA link (optional)</Label>
-              <Input
-                id="ctaUrl"
-                placeholder="https://…"
-                value={ctaUrl}
-                onChange={(e) => setCtaUrl(e.target.value)}
-              />
-            </div>
+            {/* QR code URL (replaces CTA — flyers are print-only, no clickable buttons) */}
+            {assetType === "flyer" && (
+              <div className="space-y-1.5">
+                <Label htmlFor="flyerQrUrl">
+                  QR code link (optional)
+                  <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">(scannable link for the flyer)</span>
+                </Label>
+                <Input
+                  id="flyerQrUrl"
+                  placeholder="https://example.com/registration"
+                  value={flyerQrUrl}
+                  onChange={(e) => setFlyerQrUrl(e.target.value)}
+                  disabled={isFlyerLocked}
+                />
+              </div>
+            )}
 
             {/* Date range */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="startDate">Start date</Label>
-                <Input
-                  id="startDate"
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                />
+            {assetType === "flyer" && isFlyerLocked ? (
+              <div className="grid grid-cols-2 gap-3 opacity-50 pointer-events-none">
+                <div className="space-y-1.5">
+                  <Label htmlFor="startDate">Start date</Label>
+                  <Input id="startDate" type="date" disabled />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="endDate">End date</Label>
+                  <Input id="endDate" type="date" disabled />
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="endDate">End date</Label>
-                <Input
-                  id="endDate"
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                />
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="startDate">Start date</Label>
+                  <Input
+                    id="startDate"
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="endDate">End date</Label>
+                  <Input
+                    id="endDate"
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Background color */}
-            <div className="space-y-1.5">
-              <Label htmlFor="bgColor">Accent color</Label>
-              <div className="flex items-center gap-3">
-                <Input
-                  id="bgColor"
-                  type="color"
-                  className="w-12 h-9 p-1 cursor-pointer"
-                  value={bgColor}
-                  onChange={(e) => setBgColor(e.target.value)}
-                />
-                <span className="text-xs text-muted-foreground font-mono">{bgColor}</span>
+            {assetType === "flyer" && isFlyerLocked ? (
+              <div className="space-y-1.5 opacity-50 pointer-events-none">
+                <Label htmlFor="bgColor">Accent color</Label>
+                <div className="flex items-center gap-3">
+                  <Input id="bgColor" type="color" className="w-12 h-9 p-1 cursor-pointer" disabled />
+                  <span className="text-xs text-muted-foreground font-mono">#23919c</span>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-1.5">
+                <Label htmlFor="bgColor">Accent color</Label>
+                <div className="flex items-center gap-3">
+                  <Input
+                    id="bgColor"
+                    type="color"
+                    className="w-12 h-9 p-1 cursor-pointer"
+                    value={bgColor}
+                    onChange={(e) => setBgColor(e.target.value)}
+                  />
+                  <span className="text-xs text-muted-foreground font-mono">{bgColor}</span>
+                </div>
+              </div>
+            )}
 
             {/* Pop-up specific */}
             {assetType === "pop-up" && (
@@ -431,13 +477,14 @@ export default function MarketingAssetModal({
                 assetType={assetType}
                 headline={previewHeadline}
                 body={previewBody}
-                ctaText={previewCta}
-                ctaUrl={ctaUrl}
+                ctaText=""
+                ctaUrl=""
                 bgColor={bgColor}
                 startDate={startDate}
                 endDate={endDate}
                 planName={planName}
                 flyerImage={flyerImage}
+                flyerQrUrl={flyerQrUrl}
               />
             </div>
           </div>
@@ -469,6 +516,7 @@ function PreviewPane({
   endDate,
   planName,
   flyerImage,
+  flyerQrUrl,
 }: {
   assetType: AssetType;
   headline: string;
@@ -480,10 +528,11 @@ function PreviewPane({
   endDate: string;
   planName: string;
   flyerImage?: string;
+  flyerQrUrl?: string;
 }) {
   switch (assetType) {
     case "flyer":
-      return <FlyerPreview headline={headline} body={body} ctaText={ctaText} bgColor={bgColor} startDate={startDate} planName={planName} flyerImage={flyerImage} />;
+      return <FlyerPreview headline={headline} body={body} ctaText={ctaText} bgColor={bgColor} startDate={startDate} planName={planName} flyerImage={flyerImage} flyerQrUrl={flyerQrUrl} />;
     case "portal-notice":
       return <NoticePreview headline={headline} body={body} bgColor={bgColor} startDate={startDate} endDate={endDate} />;
     case "pop-up":
@@ -501,6 +550,7 @@ function FlyerPreview({
   startDate,
   planName,
   flyerImage,
+  flyerQrUrl,
 }: {
   headline: string;
   body: string;
@@ -509,6 +559,7 @@ function FlyerPreview({
   startDate: string;
   planName: string;
   flyerImage?: string;
+  flyerQrUrl?: string;
 }) {
   const formatDate = (d: string) => {
     if (!d) return "";
@@ -642,15 +693,34 @@ function FlyerPreview({
         </text>
       )}
 
-      {/* ═══ CTA Section ═══ */}
-      <rect x="50" y="610" width="512" height="70" rx="12" fill={bgColor} opacity="0.07" />
-      <rect x="50" y="610" width="512" height="70" rx="12" stroke={bgColor} strokeWidth="1.5" strokeOpacity="0.2" fill="none" />
-      <text x="306" y="640" textAnchor="middle" fill={bgColor} fontSize="20" fontWeight="800" letterSpacing="0.5">
-        {ctaText}
-      </text>
-      <text x="306" y="662" textAnchor="middle" fill="#777" fontSize="13">
-        Scan to register · Space is limited
-      </text>
+      {/* ═══ QR Code & Bottom Section ═══ */}
+      <g transform="translate(460, 595)">
+        {/* QR code placeholder / visual */}
+        <rect x="0" y="0" width="100" height="100" rx="4" fill="white" stroke={bgColor} strokeWidth="1" strokeOpacity="0.3" />
+        {flyerQrUrl ? (
+          <>
+            {/* Stylized QR code pattern */}
+            <rect x="8" y="8" width="18" height="18" rx="2" fill={bgColor} opacity="0.9" />
+            <rect x="74" y="8" width="18" height="18" rx="2" fill={bgColor} opacity="0.9" />
+            <rect x="8" y="74" width="18" height="18" rx="2" fill={bgColor} opacity="0.9" />
+            <rect x="42" y="42" width="16" height="16" rx="2" fill={bgColor} opacity="0.9" />
+            <rect x="28" y="28" width="6" height="6" rx="1" fill={bgColor} opacity="0.7" />
+            <rect x="60" y="60" width="6" height="6" rx="1" fill={bgColor} opacity="0.7" />
+            <rect x="28" y="60" width="6" height="6" rx="1" fill={bgColor} opacity="0.5" />
+            <rect x="60" y="28" width="6" height="6" rx="1" fill={bgColor} opacity="0.5" />
+            <rect x="64" y="42" width="10" height="6" rx="1" fill={bgColor} opacity="0.4" />
+            <rect x="42" y="64" width="6" height="10" rx="1" fill={bgColor} opacity="0.4" />
+            <text x="50" y="116" textAnchor="middle" fill="#888" fontSize="7">Scan for info</text>
+          </>
+        ) : (
+          <>
+            {/* Dashed placeholder when no QR URL set */}
+            <rect x="10" y="10" width="80" height="80" rx="2" fill="none" stroke={bgColor} strokeWidth="0.5" strokeDasharray="3,3" opacity="0.3" />
+            <text x="50" y="55" textAnchor="middle" fill={bgColor} fontSize="7" opacity="0.25">QR</text>
+            <text x="50" y="116" textAnchor="middle" fill="#ccc" fontSize="7">Add a QR link</text>
+          </>
+        )}
+      </g>
 
       {/* ═══ Bottom Footer ═══ */}
       <rect y="720" width="612" height="72" fill={bgColor} opacity="0.06" />
