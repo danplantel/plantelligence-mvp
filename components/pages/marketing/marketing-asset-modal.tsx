@@ -652,75 +652,74 @@ function FlyerPreview({
           <stop offset="100%" stopColor="#000" stopOpacity="0.55" />
         </linearGradient>
         <clipPath id="roundedTop">
-          <rect width="612" height="320" rx="8" />
+          <rect width="612" height="200" rx="8" />
         </clipPath>
       </defs>
 
       {/* White background */}
       <rect width="612" height="792" fill="white" rx="8" />
 
-      {/* ═══ Hero Image Slot ═══ */}
+      {/* ═══ Hero Image Slot (compact) ═══ */}
       <g clipPath="url(#roundedTop)">
         {flyerImage ? (
-          <image href={flyerImage} width="612" height="320" preserveAspectRatio="xMidYMid slice" />
+          <image href={flyerImage} width="612" height="200" preserveAspectRatio="xMidYMid slice" />
         ) : (
           <>
-            <rect width="612" height="320" fill={bgColor} opacity="0.08" />
-            <circle cx="460" cy="160" r="180" fill={bgColor} opacity="0.06" />
-            <circle cx="510" cy="220" r="100" fill={bgColor} opacity="0.04" />
-            <g transform="translate(140, 80)" opacity="0.12">
-              <rect x="0" y="60" width="40" height="40" rx="2" fill={bgColor} />
-              <rect x="40" y="40" width="40" height="60" rx="2" fill={bgColor} />
-              <rect x="80" y="20" width="40" height="80" rx="2" fill={bgColor} />
-              <rect x="120" y="50" width="40" height="50" rx="2" fill={bgColor} />
-              <rect x="160" y="70" width="40" height="30" rx="2" fill={bgColor} />
+            <rect width="612" height="200" fill={bgColor} opacity="0.08" />
+            <circle cx="460" cy="100" r="120" fill={bgColor} opacity="0.06" />
+            <circle cx="510" cy="140" r="70" fill={bgColor} opacity="0.04" />
+            <g transform="translate(180, 50)" opacity="0.12">
+              <rect x="0" y="40" width="30" height="25" rx="2" fill={bgColor} />
+              <rect x="35" y="25" width="30" height="40" rx="2" fill={bgColor} />
+              <rect x="70" y="10" width="30" height="55" rx="2" fill={bgColor} />
+              <rect x="105" y="35" width="30" height="30" rx="2" fill={bgColor} />
             </g>
-            <text x="306" y="170" textAnchor="middle" fill={bgColor} fontSize="16" fontWeight="600" opacity="0.25">
+            <text x="306" y="110" textAnchor="middle" fill={bgColor} fontSize="16" fontWeight="600" opacity="0.25">
               Upload an image above
             </text>
           </>
         )}
-        <rect y="200" width="612" height="120" fill="url(#imgOverlay)" />
-        <rect width="612" height="320" fill="none" stroke={bgColor} strokeWidth="2" opacity="0.15" />
+        <rect y="130" width="612" height="70" fill="url(#imgOverlay)" />
+        <rect width="612" height="200" fill="none" stroke={bgColor} strokeWidth="2" opacity="0.15" />
       </g>
 
       {/* ═══ Headline & Subtitle (overlaid on image area) ═══ */}
-      <text x="50" y="235" fill="white" fontSize="34" fontWeight="800" letterSpacing="-0.5">
+      <text x="50" y="165" fill="white" fontSize="34" fontWeight="800" letterSpacing="-0.5">
         {truncateText(headline, 30)}
       </text>
       {flyerSubtitle ? (
-        <text x="50" y="265" fill="white" fontSize="16" fontWeight="500" opacity="0.85">
+        <text x="50" y="190" fill="white" fontSize="16" fontWeight="500" opacity="0.85">
           {truncateText(flyerSubtitle, 45)}
         </text>
       ) : headline.length > 22 ? (
-        <text x="50" y="275" fill="white" fontSize="26" fontWeight="700" opacity="0.95">
+        <text x="50" y="185" fill="white" fontSize="26" fontWeight="700" opacity="0.95">
           {headline.slice(0, 22)}{headline.length > 22 ? headline.slice(22, 44) : ""}
         </text>
       ) : null}
 
       {/* ═══ Event Info Card ═══ */}
-      <rect x="40" y="340" width="532" height="130" rx="12" fill={bgColor} opacity="0.04" />
-      <rect x="40" y="340" width="532" height="130" rx="12" stroke={bgColor} strokeWidth="1" strokeOpacity="0.12" fill="none" />
+      <rect x="40" y="240" width="532" height="130" rx="12" fill={bgColor} opacity="0.04" />
+      <rect x="40" y="240" width="532" height="130" rx="12" stroke={bgColor} strokeWidth="1" strokeOpacity="0.12" fill="none" />
 
       {/* Date */}
-      <g transform="translate(60, 375)">
+      <g transform="translate(60, 275)">
         <circle cx="14" cy="14" r="14" fill={bgColor} opacity="0.1" />
         <text x="14" y="19" textAnchor="middle" fill={bgColor} fontSize="15" fontWeight="600">📅</text>
         <text x="44" y="19" fill="#333" fontSize="16" fontWeight="700">{formattedDate || "Date TBD"}</text>
       </g>
 
       {/* Time */}
-      <g transform="translate(60, 415)">
+      <g transform="translate(60, 315)">
         <circle cx="14" cy="14" r="14" fill={bgColor} opacity="0.1" />
         <text x="14" y="19" textAnchor="middle" fill={bgColor} fontSize="15" fontWeight="600">🕐</text>
         <text x="44" y="19" fill="#555" fontSize="15">{formatTime12h(meetingTime || "") || "Time TBD"}</text>
       </g>
 
       {/* Vertical divider in card */}
-      <line x1="330" y1="355" x2="330" y2="455" stroke={bgColor} strokeOpacity="0.1" strokeWidth="1" />
+      <line x1="330" y1="255" x2="330" y2="355" stroke={bgColor} strokeOpacity="0.1" strokeWidth="1" />
 
       {/* Location / format */}
-      <g transform="translate(350, 375)">
+      <g transform="translate(350, 275)">
         <circle cx="14" cy="14" r="14" fill={bgColor} opacity="0.1" />
         <text x="14" y="19" textAnchor="middle" fill={bgColor} fontSize="15" fontWeight="600">📍</text>
         <text x="44" y="19" fill="#333" fontSize="15" fontWeight="600">{meetingLocation || "Format TBD"}</text>
@@ -728,47 +727,47 @@ function FlyerPreview({
       </g>
 
       {/* ═══ Description Section ═══ */}
-      <g transform="translate(50, 510)">
+      <g transform="translate(50, 420)">
         <text x="0" y="0" fill={bgColor} fontSize="18" fontWeight="700" letterSpacing="0.5">ABOUT THIS EVENT</text>
         <rect x="0" y="10" width="50" height="3.5" rx="1.75" fill={bgColor} />
       </g>
       {bodyLines.length > 0 ? (
         bodyLines.slice(0, 8).map((line, i) => (
-          <text key={i} x="50" y={545 + i * 22} fill="#444" fontSize="13">
+          <text key={i} x="50" y={455 + i * 22} fill="#444" fontSize="13">
             {line}
           </text>
         ))
       ) : (
-        <text x="50" y="555" fill="#444" fontSize="14">
+        <text x="50" y="465" fill="#444" fontSize="14">
           Join us for this important event. Details will be shared with registered attendees.
         </text>
       )}
 
       {/* ═══ Bottom Footer (with QR code in bottom-right corner) ═══ */}
-      <rect y="720" width="612" height="72" fill={bgColor} opacity="0.06" />
-      <text x="50" y="750" fill={bgColor} fontSize="13" fontWeight="600" opacity="0.7">
+      <rect y="640" width="612" height="152" fill={bgColor} opacity="0.06" />
+      <text x="50" y="706" fill={bgColor} fontSize="16" fontWeight="600" opacity="0.7">
         Presented by {planName} · Benefits Team
       </text>
-      <text x="50" y="770" fill="#999" fontSize="11">
+      <text x="50" y="732" fill="#999" fontSize="14">
         Questions? Contact your plan administrator
       </text>
 
-      {/* QR code in bottom-right of footer */}
-      <g transform="translate(482, 728)">
-        <rect x="0" y="0" width="56" height="56" rx="3" fill="white" stroke={bgColor} strokeWidth="0.6" strokeOpacity="0.25" />
+      {/* QR code — 112×112 (exactly 2× the original 56×56) */}
+      <g transform="translate(448, 652)">
+        <rect x="0" y="0" width="112" height="112" rx="4" fill="white" stroke={bgColor} strokeWidth="1" strokeOpacity="0.25" />
         {flyerQrUrl ? (
           <>
-            <rect x="5" y="5" width="10" height="10" rx="1.5" fill={bgColor} opacity="0.9" />
-            <rect x="41" y="5" width="10" height="10" rx="1.5" fill={bgColor} opacity="0.9" />
-            <rect x="5" y="41" width="10" height="10" rx="1.5" fill={bgColor} opacity="0.9" />
-            <rect x="23" y="23" width="10" height="10" rx="1.5" fill={bgColor} opacity="0.9" />
-            <rect x="16" y="16" width="4" height="4" rx="0.8" fill={bgColor} opacity="0.6" />
-            <rect x="36" y="36" width="4" height="4" rx="0.8" fill={bgColor} opacity="0.6" />
-            <rect x="16" y="36" width="4" height="4" rx="0.8" fill={bgColor} opacity="0.4" />
-            <rect x="36" y="16" width="4" height="4" rx="0.8" fill={bgColor} opacity="0.4" />
+            <rect x="10" y="10" width="20" height="20" rx="2" fill={bgColor} opacity="0.9" />
+            <rect x="82" y="10" width="20" height="20" rx="2" fill={bgColor} opacity="0.9" />
+            <rect x="10" y="82" width="20" height="20" rx="2" fill={bgColor} opacity="0.9" />
+            <rect x="46" y="46" width="20" height="20" rx="2" fill={bgColor} opacity="0.9" />
+            <rect x="32" y="32" width="7" height="7" rx="1" fill={bgColor} opacity="0.6" />
+            <rect x="73" y="73" width="7" height="7" rx="1" fill={bgColor} opacity="0.6" />
+            <rect x="32" y="73" width="7" height="7" rx="1" fill={bgColor} opacity="0.4" />
+            <rect x="73" y="32" width="7" height="7" rx="1" fill={bgColor} opacity="0.4" />
           </>
         ) : (
-          <rect x="8" y="8" width="40" height="40" rx="2" fill="none" stroke={bgColor} strokeWidth="0.4" strokeDasharray="2,2" opacity="0.2" />
+          <rect x="14" y="14" width="84" height="84" rx="2" fill="none" stroke={bgColor} strokeWidth="0.6" strokeDasharray="4,4" opacity="0.2" />
         )}
       </g>
     </svg>
