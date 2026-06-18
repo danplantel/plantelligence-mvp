@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import useSWR from "swr";
 import {
   Dialog,
@@ -88,6 +88,9 @@ export default function MarketingAssetModal({
   // Flyer-specific
   const [flyerSubtitle, setFlyerSubtitle] = useState("");
   const [selectedMeetingId, setSelectedMeetingId] = useState("");
+  const [flyerImage, setFlyerImage] = useState<string>("");
+  const [flyerImageLoading, setFlyerImageLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Pop-up specific
   const [showEveryVisit, setShowEveryVisit] = useState(false);
@@ -112,6 +115,7 @@ export default function MarketingAssetModal({
     setBgColor("#23919c");
     setFlyerSubtitle("");
     setSelectedMeetingId("");
+    setFlyerImage("");
     setShowEveryVisit(false);
     setPostCategory("Announcement");
   }, [open, assetType]);
@@ -218,6 +222,70 @@ export default function MarketingAssetModal({
                       </div>
                     )}
                     <div className="text-[11px] opacity-70">{selectedMeeting.duration}</div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Flyer image upload */}
+            {assetType === "flyer" && (
+              <div className="space-y-1.5">
+                <Label htmlFor="flyer-image">
+                  Flyer image (optional)
+                  <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">(recommended: 1200×630px or similar landscape)</span>
+                </Label>
+                <div className="flex items-center gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    {flyerImage ? "Change Image" : "Upload Image"}
+                  </Button>
+                  {flyerImage && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="text-red-500 hover:text-red-700"
+                      onClick={() => setFlyerImage("")}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setFlyerImageLoading(true);
+                      const reader = new FileReader();
+                      reader.onload = (ev) => {
+                        setFlyerImage(ev.target?.result as string);
+                        setFlyerImageLoading(false);
+                      };
+                      reader.onerror = () => setFlyerImageLoading(false);
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
+                {(flyerImage || flyerImageLoading) && (
+                  <div className="mt-1 rounded-lg overflow-hidden border w-32 h-20 relative">
+                    {flyerImageLoading ? (
+                      <div className="flex items-center justify-center w-full h-full bg-muted">
+                        <svg className="animate-spin h-5 w-5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                      </div>
+                    ) : (
+                      <img src={flyerImage} alt="Flyer preview" className="w-full h-full object-cover" />
+                    )}
                   </div>
                 )}
               </div>
@@ -369,6 +437,7 @@ export default function MarketingAssetModal({
                 startDate={startDate}
                 endDate={endDate}
                 planName={planName}
+                flyerImage={flyerImage}
               />
             </div>
           </div>
@@ -399,6 +468,7 @@ function PreviewPane({
   startDate,
   endDate,
   planName,
+  flyerImage,
 }: {
   assetType: AssetType;
   headline: string;
@@ -409,10 +479,11 @@ function PreviewPane({
   startDate: string;
   endDate: string;
   planName: string;
+  flyerImage?: string;
 }) {
   switch (assetType) {
     case "flyer":
-      return <FlyerPreview headline={headline} body={body} ctaText={ctaText} bgColor={bgColor} />;
+      return <FlyerPreview headline={headline} body={body} ctaText={ctaText} bgColor={bgColor} startDate={startDate} planName={planName} flyerImage={flyerImage} />;
     case "portal-notice":
       return <NoticePreview headline={headline} body={body} bgColor={bgColor} startDate={startDate} endDate={endDate} />;
     case "pop-up":
@@ -427,32 +498,185 @@ function FlyerPreview({
   body,
   ctaText,
   bgColor,
+  startDate,
+  planName,
+  flyerImage,
 }: {
   headline: string;
   body: string;
   ctaText: string;
   bgColor: string;
+  startDate: string;
+  planName: string;
+  flyerImage?: string;
 }) {
+  const formatDate = (d: string) => {
+    if (!d) return "";
+    try {
+      return new Date(d + "T00:00:00").toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      });
+    } catch { return d; }
+  };
+
+  const formattedDate = formatDate(startDate);
+
+  // Split body text into lines that fit within the flyer (≈85 chars per line for 14px text at 512px width)
+  const wrapText = (text: string, maxChars: number): string[] => {
+    const words = text.split(" ");
+    const lines: string[] = [];
+    let current = "";
+    for (const word of words) {
+      if ((current + " " + word).trim().length > maxChars) {
+        lines.push(current.trim());
+        current = word;
+      } else {
+        current += " " + word;
+      }
+    }
+    if (current.trim()) lines.push(current.trim());
+    return lines.length ? lines : [text];
+  };
+  const bodyLines = body ? wrapText(body, 85) : [];
+
   return (
-    <div className="w-full max-w-[420px] rounded-xl border bg-white shadow-sm overflow-hidden">
-      <div className="h-2" style={{ background: bgColor }} />
-      <div className="p-6 space-y-4">
-        <h3 className="text-xl font-bold text-gray-900" style={{ fontFamily: "'DM Serif Display', serif" }}>
-          {headline}
-        </h3>
-        <p className="text-sm text-gray-600 leading-relaxed">{body}</p>
-        <div className="pt-2">
-          <span
-            className="inline-flex items-center rounded-lg px-4 py-2 text-sm font-semibold text-white"
-            style={{ background: bgColor }}
-          >
-            {ctaText}
-          </span>
-        </div>
-      </div>
-      <div className="h-1.5" style={{ background: bgColor, opacity: 0.3 }} />
-    </div>
+    <svg viewBox="0 0 612 792" xmlns="http://www.w3.org/2000/svg" className="w-full h-auto max-w-[420px] rounded-xl shadow-sm border" style={{ fontFamily: "system-ui, -apple-system, sans-serif" }}>
+      <defs>
+        <linearGradient id="flyerGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={adjustColor(bgColor, -40)} />
+          <stop offset="100%" stopColor={bgColor} />
+        </linearGradient>
+        <linearGradient id="imgOverlay" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#000" stopOpacity="0.15" />
+          <stop offset="100%" stopColor="#000" stopOpacity="0.55" />
+        </linearGradient>
+        <clipPath id="roundedTop">
+          <rect width="612" height="320" rx="8" />
+        </clipPath>
+      </defs>
+
+      {/* White background */}
+      <rect width="612" height="792" fill="white" rx="8" />
+
+      {/* ═══ Hero Image Slot ═══ */}
+      <g clipPath="url(#roundedTop)">
+        {flyerImage ? (
+          <image href={flyerImage} width="612" height="320" preserveAspectRatio="xMidYMid slice" />
+        ) : (
+          <>
+            <rect width="612" height="320" fill={bgColor} opacity="0.08" />
+            <circle cx="460" cy="160" r="180" fill={bgColor} opacity="0.06" />
+            <circle cx="510" cy="220" r="100" fill={bgColor} opacity="0.04" />
+            <g transform="translate(140, 80)" opacity="0.12">
+              <rect x="0" y="60" width="40" height="40" rx="2" fill={bgColor} />
+              <rect x="40" y="40" width="40" height="60" rx="2" fill={bgColor} />
+              <rect x="80" y="20" width="40" height="80" rx="2" fill={bgColor} />
+              <rect x="120" y="50" width="40" height="50" rx="2" fill={bgColor} />
+              <rect x="160" y="70" width="40" height="30" rx="2" fill={bgColor} />
+            </g>
+            <text x="306" y="170" textAnchor="middle" fill={bgColor} fontSize="16" fontWeight="600" opacity="0.25">
+              Upload an image above
+            </text>
+          </>
+        )}
+        <rect y="200" width="612" height="120" fill="url(#imgOverlay)" />
+        <rect width="612" height="320" fill="none" stroke={bgColor} strokeWidth="2" opacity="0.15" />
+      </g>
+
+      {/* ═══ Headline (overlaid on image area) ═══ */}
+      <text x="50" y="250" fill="white" fontSize="34" fontWeight="800" letterSpacing="-0.5">
+        {truncateText(headline, 30)}
+      </text>
+      {headline.length > 22 && (
+        <text x="50" y="290" fill="white" fontSize="26" fontWeight="700" opacity="0.95">
+          {headline.slice(0, 22)}{headline.length > 22 ? headline.slice(22, 44) : ""}
+        </text>
+      )}
+
+      {/* ═══ Event Info Card ═══ */}
+      <rect x="40" y="340" width="532" height="130" rx="12" fill={bgColor} opacity="0.04" />
+      <rect x="40" y="340" width="532" height="130" rx="12" stroke={bgColor} strokeWidth="1" strokeOpacity="0.12" fill="none" />
+
+      {/* Date */}
+      <g transform="translate(60, 375)">
+        <circle cx="14" cy="14" r="14" fill={bgColor} opacity="0.1" />
+        <text x="14" y="19" textAnchor="middle" fill={bgColor} fontSize="15" fontWeight="600">📅</text>
+        <text x="44" y="19" fill="#333" fontSize="16" fontWeight="700">{formattedDate || "Date TBD"}</text>
+      </g>
+
+      {/* Time */}
+      <g transform="translate(60, 415)">
+        <circle cx="14" cy="14" r="14" fill={bgColor} opacity="0.1" />
+        <text x="14" y="19" textAnchor="middle" fill={bgColor} fontSize="15" fontWeight="600">🕐</text>
+        <text x="44" y="19" fill="#555" fontSize="15">Time to be announced</text>
+      </g>
+
+      {/* Vertical divider in card */}
+      <line x1="330" y1="355" x2="330" y2="455" stroke={bgColor} strokeOpacity="0.1" strokeWidth="1" />
+
+      {/* Location / format */}
+      <g transform="translate(350, 375)">
+        <circle cx="14" cy="14" r="14" fill={bgColor} opacity="0.1" />
+        <text x="14" y="19" textAnchor="middle" fill={bgColor} fontSize="15" fontWeight="600">📍</text>
+        <text x="44" y="19" fill="#333" fontSize="15" fontWeight="600">Format TBD</text>
+        <text x="44" y="36" fill="#888" fontSize="12">Details to be announced</text>
+      </g>
+
+      {/* ═══ Description Section ═══ */}
+      <g transform="translate(50, 510)">
+        <text x="0" y="0" fill={bgColor} fontSize="18" fontWeight="700" letterSpacing="0.5">ABOUT THIS EVENT</text>
+        <rect x="0" y="10" width="50" height="3.5" rx="1.75" fill={bgColor} />
+      </g>
+      {bodyLines.length > 0 ? (
+        bodyLines.slice(0, 8).map((line, i) => (
+          <text key={i} x="50" y={555 + i * 22} fill="#444" fontSize="14">
+            {line}
+          </text>
+        ))
+      ) : (
+        <text x="50" y="555" fill="#444" fontSize="14">
+          Join us for this important event. Details will be shared with registered attendees.
+        </text>
+      )}
+
+      {/* ═══ CTA Section ═══ */}
+      <rect x="50" y="610" width="512" height="70" rx="12" fill={bgColor} opacity="0.07" />
+      <rect x="50" y="610" width="512" height="70" rx="12" stroke={bgColor} strokeWidth="1.5" strokeOpacity="0.2" fill="none" />
+      <text x="306" y="640" textAnchor="middle" fill={bgColor} fontSize="20" fontWeight="800" letterSpacing="0.5">
+        {ctaText}
+      </text>
+      <text x="306" y="662" textAnchor="middle" fill="#777" fontSize="13">
+        Scan to register · Space is limited
+      </text>
+
+      {/* ═══ Bottom Footer ═══ */}
+      <rect y="720" width="612" height="72" fill={bgColor} opacity="0.06" />
+      <text x="306" y="750" textAnchor="middle" fill={bgColor} fontSize="13" fontWeight="600" opacity="0.7">
+        Presented by {planName} · Benefits Team
+      </text>
+      <text x="306" y="770" textAnchor="middle" fill="#999" fontSize="11">
+        Questions? Contact your plan administrator
+      </text>
+    </svg>
   );
+}
+
+// ── Helpers ──
+
+function truncateText(text: string, maxLen: number): string {
+  if (text.length <= maxLen) return text;
+  return text.slice(0, maxLen - 3) + "...";
+}
+
+function adjustColor(hex: string, amount: number): string {
+  const num = parseInt(hex.replace("#", ""), 16);
+  const r = Math.min(255, Math.max(0, ((num >> 16) & 0xff) + amount));
+  const g = Math.min(255, Math.max(0, ((num >> 8) & 0xff) + amount));
+  const b = Math.min(255, Math.max(0, (num & 0xff) + amount));
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
 }
 
 function NoticePreview({
