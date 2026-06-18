@@ -2,13 +2,13 @@
  * Per-module sticky plan selection + global MRU recents (Dev Notes — Plan Selector UX).
  *
  * Storage keys:
- * - `lastPlanId_<module>` — last selected plan for that surface (documents, meetings, …)
+ * - `lastPlanId_<module>` — last selected plan for that surface (documents, communications, …)
  * - `planRecents` — JSON array of up to 5 plan ids, most-recent-first (shared across modules)
  */
 
 export type PlanSelectorModule =
   | "documents"
-  | "meetings"
+  | "communications"
   | "marketing"
   | "video"
   | "benefits";
@@ -110,7 +110,7 @@ export function clearAllPlanSelections(): void {
   if (typeof window === "undefined") return;
   const modules: PlanSelectorModule[] = [
     "documents",
-    "meetings",
+    "communications",
     "marketing",
     "video",
     "benefits",

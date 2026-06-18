@@ -123,7 +123,7 @@ export function MeetingsPanel() {
           className="w-full bg-accent-blue font-semibold text-white mt-4 dark:bg-accent-blue"
           asChild
         >
-          <a href="/new/meetings/create">
+          <a href="/new/communications/create">
             <Calendar className="mr-2 size-6" />
             Create Meeting/Event
           </a>

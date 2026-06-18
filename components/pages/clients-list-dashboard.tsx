@@ -695,7 +695,7 @@ export function ClientsListDashboardPage() {
                                             clientId: client.id,
                                           });
                                         router.push(
-                                          `/new/meetings?${searchParams.toString()}`,
+                                          `/new/communications?${searchParams.toString()}`,
                                         );
                                       }}
                                     >

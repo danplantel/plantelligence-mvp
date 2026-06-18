@@ -1181,17 +1181,17 @@ export const navItems: NavItem[] = [
     items: [
       {
         title: "Meetings",
-        href: "/new/meetings",
+        href: "/new/communications/meetings",
         label: "Meetings",
       },
       {
         title: "Webinars & Replays",
-        href: "/new/meetings/webinars",
+        href: "/new/communications/webinars",
         label: "Webinars & Replays",
       },
       {
         title: "Marketing",
-        href: "/new/meetings/marketing",
+        href: "/new/communications/marketing",
         label: "Marketing",
       },
     ],
