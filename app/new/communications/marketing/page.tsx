@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import useSWR from "swr";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
@@ -9,6 +9,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Search, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import MarketingAssetModal, {
+  type AssetType,
+} from "@/components/pages/marketing/marketing-asset-modal";
 import {
   getLastPlanId,
   getRecentPlanIds,
@@ -457,6 +460,8 @@ const OPTIONS: MarketingOption[] = [
 export default function MarketingPage() {
   const { setTitle } = usePageTitleContext();
   const [selectedPlan, setSelectedPlan] = useState<string>("");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [activeAssetType, setActiveAssetType] = useState<AssetType>("flyer");
 
   const { data: clientsData, isLoading: isLoadingClients } = useSWR(
     "/api/clients?status=all&limit=500&sortColumn=companyName&sortDirection=asc",
@@ -547,7 +552,8 @@ export default function MarketingPage() {
                   type="button"
                   className="group relative flex flex-col items-center text-center rounded-2xl border-2 border-transparent bg-white dark:bg-gray-900 shadow-sm hover:shadow-xl hover:border-[var(--accent-blue)]/40 transition-all duration-300 ease-out hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--accent-blue)] overflow-hidden"
                   onClick={() => {
-                    console.log(`[Marketing] Selected: ${option.id} for plan ${selectedPlan}`);
+                    setActiveAssetType(option.id as AssetType);
+                    setModalOpen(true);
                   }}
                 >
                   {/* Illustration area — fixed height so all card headers align */}
@@ -574,6 +580,16 @@ export default function MarketingPage() {
               ))}
             </div>
           </div>
+        )}
+
+        {/* ── Marketing Asset Creation Modal ── */}
+        {selectedClient && (
+          <MarketingAssetModal
+            open={modalOpen}
+            onOpenChange={setModalOpen}
+            assetType={activeAssetType}
+            planName={selectedClient.companyName}
+          />
         )}
       </div>
     </div>
