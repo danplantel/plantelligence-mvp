@@ -26,6 +26,14 @@ import { formatUsDate } from "@/lib/date";
 
 export type AssetType = "flyer" | "portal-notice" | "pop-up" | "news-post";
 
+export type MarketingAssetStatus =
+  | "Draft"
+  | "Ready for Review"
+  | "Published"
+  | "Scheduled"
+  | "Hidden"
+  | "Archived";
+
 export interface FlyerSaveData {
   headline: string;
   body: string;
@@ -38,6 +46,7 @@ export interface FlyerSaveData {
   flyerQrUrl?: string;
   meetingTime?: string;
   meetingLocation?: string;
+  status: MarketingAssetStatus;
 }
 
 interface MarketingAssetModalProps {
@@ -123,6 +132,7 @@ export default function MarketingAssetModal({
   const [flyerQrUrl, setFlyerQrUrl] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const flyerPreviewRef = useRef<HTMLDivElement>(null);
+  const [assetStatus, setAssetStatus] = useState<MarketingAssetStatus>("Draft");
 
   // Pop-up specific
   const [showEveryVisit, setShowEveryVisit] = useState(false);
@@ -154,6 +164,7 @@ export default function MarketingAssetModal({
     setFlyerImage("");
     setFlyerQrUrl("");
     setShowEveryVisit(false);
+    setAssetStatus("Draft");
     setPostCategory("Announcement");
   }, [open, assetType]);
 
@@ -210,6 +221,7 @@ export default function MarketingAssetModal({
             flyerQrUrl,
             meetingTime,
             meetingLocation,
+            status: assetStatus,
           }
         : undefined;
     onSave?.(headline || meta.label, flyerData);
@@ -502,6 +514,24 @@ export default function MarketingAssetModal({
                 </div>
               </div>
             )}
+
+            {/* Status — shown for all asset types */}
+            <div className="space-y-1.5">
+              <Label htmlFor="asset-status">Status</Label>
+              <select
+                id="asset-status"
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                value={assetStatus}
+                onChange={(e) => setAssetStatus(e.target.value as MarketingAssetStatus)}
+              >
+                <option value="Draft">Draft</option>
+                <option value="Ready for Review">Ready for Review</option>
+                <option value="Published">Published</option>
+                <option value="Scheduled">Scheduled</option>
+                <option value="Hidden">Hidden</option>
+                <option value="Archived">Archived</option>
+              </select>
+            </div>
 
             {/* Pop-up specific */}
             {assetType === "pop-up" && (
