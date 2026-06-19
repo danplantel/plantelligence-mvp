@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import useSWR from "swr";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
+import { downloadFlyerPdf } from "@/lib/marketing/flyer-pdf";
 import {
   Dialog,
   DialogContent,
@@ -25,13 +26,27 @@ import { formatUsDate } from "@/lib/date";
 
 export type AssetType = "flyer" | "portal-notice" | "pop-up" | "news-post";
 
+export interface FlyerSaveData {
+  headline: string;
+  body: string;
+  startDate: string;
+  bgColor: string;
+  planName: string;
+  planLogo?: string;
+  flyerSubtitle?: string;
+  flyerImage?: string;
+  flyerQrUrl?: string;
+  meetingTime?: string;
+  meetingLocation?: string;
+}
+
 interface MarketingAssetModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   assetType: AssetType;
   planName: string;
   planId: string;
-  onSave?: (headline: string) => void;
+  onSave?: (headline: string, flyerData?: FlyerSaveData) => void;
 }
 
 interface Meeting {
@@ -107,6 +122,7 @@ export default function MarketingAssetModal({
   const [flyerImageLoading, setFlyerImageLoading] = useState(false);
   const [flyerQrUrl, setFlyerQrUrl] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const flyerPreviewRef = useRef<HTMLDivElement>(null);
 
   // Pop-up specific
   const [showEveryVisit, setShowEveryVisit] = useState(false);
@@ -169,11 +185,34 @@ export default function MarketingAssetModal({
       ? "Choose a meeting to populate the flyer content automatically."
       : body || "Your content will appear here…";
 
+  const handleDownloadPdf = useCallback(async () => {
+    const svgEl = flyerPreviewRef.current?.querySelector("svg");
+    if (!svgEl) return;
+    const safeName = planName.replace(/[^a-zA-Z0-9_-]/g, "_");
+    await downloadFlyerPdf(svgEl, `${safeName}_flyer.pdf`);
+  }, [planName]);
+
   const handleSave = () => {
     console.log(`[MarketingAssetModal] Save ${assetType} for ${planName}`, {
       headline, body, startDate, endDate, bgColor, flyerQrUrl,
     });
-    onSave?.(headline || meta.label);
+    const flyerData: FlyerSaveData | undefined =
+      assetType === "flyer"
+        ? {
+            headline: headline || meta.label,
+            body,
+            startDate,
+            bgColor,
+            planName,
+            planLogo,
+            flyerSubtitle,
+            flyerImage,
+            flyerQrUrl,
+            meetingTime,
+            meetingLocation,
+          }
+        : undefined;
+    onSave?.(headline || meta.label, flyerData);
     onOpenChange(false);
   };
 
@@ -504,7 +543,7 @@ export default function MarketingAssetModal({
                 Preview
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto p-6 flex items-start justify-center">
+            <div ref={flyerPreviewRef} className="flex-1 overflow-y-auto p-6 flex items-start justify-center">
               <PreviewPane
                 assetType={assetType}
                 headline={previewHeadline}
@@ -527,13 +566,33 @@ export default function MarketingAssetModal({
         </div>
 
         {/* ── Fixed footer ── */}
-        <div className="flex items-center justify-end gap-3 border-t px-6 py-4 shrink-0">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave}>
-            Save {meta.label}
-          </Button>
+        <div className="flex items-center justify-between gap-3 border-t px-6 py-4 shrink-0">
+          <div className="flex items-center gap-3">
+            {assetType === "flyer" && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadPdf}
+                disabled={isFlyerLocked}
+                className="gap-1.5"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                Download PDF
+              </Button>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave}>
+              Save {meta.label}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

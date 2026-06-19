@@ -7,11 +7,19 @@ import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { Search, Clock } from "lucide-react";
+import { Search, Clock, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import MarketingAssetModal, {
   type AssetType,
+  type FlyerSaveData,
 } from "@/components/pages/marketing/marketing-asset-modal";
+import {
+  buildFlyerSvgFromData,
+  downloadFlyerPdf,
+  svgElementToDataUrl,
+  generateFlyerPdfBlob,
+} from "@/lib/marketing/flyer-pdf";
+import { toR2BrandingKey, getR2ObjectProxyUrl } from "@/lib/branding-image-url";
 import {
   getLastPlanId,
   getRecentPlanIds,
@@ -36,8 +44,19 @@ interface MarketingOption {
 interface SavedAsset {
   id: string;
   type: AssetType;
-  headline: string;
   createdAt: string;
+  // Flyer-specific fields (populated when type === "flyer")
+  headline?: string;
+  body?: string;
+  startDate?: string;
+  bgColor?: string;
+  planName?: string;
+  planLogo?: string;
+  flyerSubtitle?: string;
+  flyerImage?: string;
+  flyerQrUrl?: string;
+  meetingTime?: string;
+  meetingLocation?: string;
 }
 
 const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
@@ -470,6 +489,7 @@ export default function MarketingPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [activeAssetType, setActiveAssetType] = useState<AssetType>("flyer");
   const [savedAssets, setSavedAssets] = useState<SavedAsset[]>([]);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const { data: clientsData, isLoading: isLoadingClients } = useSWR(
     "/api/clients?status=all&limit=500&sortColumn=companyName&sortDirection=asc",
@@ -568,6 +588,63 @@ export default function MarketingPage() {
                           {asset.type.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} · {asset.createdAt}
                         </p>
                       </div>
+                      {asset.type === "flyer" && (
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-700 hover:underline shrink-0 disabled:opacity-50"
+                          disabled={downloadingId === asset.id}
+                          onClick={async () => {
+                            setDownloadingId(asset.id);
+                            try {
+                              const logoUrl = asset.planLogo
+                                ? getR2ObjectProxyUrl(toR2BrandingKey(asset.planLogo) ?? "") || asset.planLogo
+                                : null;
+                              const svgEl = buildFlyerSvgFromData(
+                                {
+                                  headline: asset.headline ?? "",
+                                  body: asset.body ?? "",
+                                  startDate: asset.startDate ?? "",
+                                  bgColor: asset.bgColor ?? "#23919c",
+                                  planName: asset.planName ?? "",
+                                  planLogo: asset.planLogo,
+                                  flyerSubtitle: asset.flyerSubtitle,
+                                  flyerImage: asset.flyerImage,
+                                  flyerQrUrl: asset.flyerQrUrl,
+                                  meetingTime: asset.meetingTime,
+                                  meetingLocation: asset.meetingLocation,
+                                },
+                                logoUrl,
+                              );
+                              const dataUrl = await svgElementToDataUrl(svgEl);
+                              const blob = await generateFlyerPdfBlob(dataUrl);
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement("a");
+                              a.href = url;
+                              const safeName = (asset.planName ?? "flyer").replace(/[^a-zA-Z0-9_-]/g, "_");
+                              a.download = `${safeName}_flyer.pdf`;
+                              document.body.appendChild(a);
+                              a.click();
+                              document.body.removeChild(a);
+                              URL.revokeObjectURL(url);
+                            } catch (err) {
+                              console.error("Failed to download flyer PDF:", err);
+                            } finally {
+                              setDownloadingId(null);
+                            }
+                          }}
+                        >
+                          {downloadingId === asset.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                              <polyline points="7 10 12 15 17 10" />
+                              <line x1="12" y1="15" x2="12" y2="3" />
+                            </svg>
+                          )}
+                          Download
+                        </button>
+                      )}
                       <button
                         type="button"
                         className="text-xs font-medium text-[var(--accent-blue)] hover:underline shrink-0"
@@ -657,14 +734,16 @@ export default function MarketingPage() {
             assetType={activeAssetType}
             planName={selectedClient.companyName}
             planId={selectedPlan}
-            onSave={(headline) => {
+            onSave={(headline, flyerData) => {
+              const id = `${activeAssetType}-${Date.now()}`;
               setSavedAssets((prev) => [
                 ...prev,
                 {
-                  id: `${activeAssetType}-${Date.now()}`,
+                  id,
                   type: activeAssetType,
                   headline: headline || `${activeAssetType.charAt(0).toUpperCase() + activeAssetType.slice(1).replace("-", " ")}`,
                   createdAt: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+                  ...(flyerData ?? {}),
                 },
               ]);
             }}
