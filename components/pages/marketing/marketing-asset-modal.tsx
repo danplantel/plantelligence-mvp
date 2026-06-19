@@ -134,6 +134,10 @@ export default function MarketingAssetModal({
   const flyerPreviewRef = useRef<HTMLDivElement>(null);
   const [assetStatus, setAssetStatus] = useState<MarketingAssetStatus>("Draft");
 
+  // Portal-notice specific
+  const [noticeType, setNoticeType] = useState<"text" | "countdown">("text");
+  const [countdownTarget, setCountdownTarget] = useState("");
+
   // Pop-up specific
   const [showEveryVisit, setShowEveryVisit] = useState(false);
 
@@ -165,6 +169,8 @@ export default function MarketingAssetModal({
     setFlyerQrUrl("");
     setShowEveryVisit(false);
     setAssetStatus("Draft");
+    setNoticeType("text");
+    setCountdownTarget("");
     setPostCategory("Announcement");
   }, [open, assetType]);
 
@@ -386,6 +392,45 @@ export default function MarketingAssetModal({
               </div>
             )}
 
+            {/* Portal-notice specific — at the top of inputs */}
+            {assetType === "portal-notice" && (
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label>Notice type</Label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                        noticeType === "text"
+                          ? "border-gray-900 bg-gray-900 text-white dark:border-gray-100 dark:bg-gray-100 dark:text-gray-900"
+                          : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                      }`}
+                      onClick={() => setNoticeType("text")}
+                    >
+                      Text Banner
+                    </button>
+                    <button
+                      type="button"
+                      className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                        noticeType === "countdown"
+                          ? "border-gray-900 bg-gray-900 text-white dark:border-gray-100 dark:bg-gray-100 dark:text-gray-900"
+                          : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                      }`}
+                      onClick={() => setNoticeType("countdown")}
+                    >
+                      Countdown Banner
+                    </button>
+                  </div>
+                </div>
+                {noticeType === "countdown" && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="countdownTarget">Countdown target date/time</Label>
+                    <Input id="countdownTarget" type="datetime-local" value={countdownTarget} onChange={(e) => setCountdownTarget(e.target.value)} />
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Headline */}
             {assetType === "flyer" && isFlyerLocked ? (
               <div className="space-y-1.5 opacity-50 pointer-events-none">
@@ -424,8 +469,8 @@ export default function MarketingAssetModal({
               )
             )}
 
-            {/* Body / Description */}
-            {assetType === "flyer" && isFlyerLocked ? (
+            {/* Body / Description — hidden for portal-notice (uses banner text only) */}
+            {assetType !== "portal-notice" && (assetType === "flyer" && isFlyerLocked ? (
               <div className="space-y-1.5 opacity-50 pointer-events-none">
                 <Label htmlFor="body">Body text</Label>
                 <Textarea id="body" rows={4} placeholder="Select a meeting first…" disabled />
@@ -447,7 +492,7 @@ export default function MarketingAssetModal({
                   maxLength={assetType === "flyer" ? 680 : undefined}
                 />
               </div>
-            )}
+            ))}
 
             {/* QR code URL (replaces CTA — flyers are print-only, no clickable buttons) */}
             {assetType === "flyer" && (
@@ -467,7 +512,7 @@ export default function MarketingAssetModal({
             )}
 
             {/* Date range — only for non-flyer assets (flyer date comes from the meeting) */}
-            {assetType !== "flyer" && (
+            {assetType !== "flyer" && !(assetType === "portal-notice" && noticeType === "countdown") && (
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="startDate">Start date</Label>
@@ -590,6 +635,8 @@ export default function MarketingAssetModal({
                 meetingTime={meetingTime}
                 meetingLocation={meetingLocation}
                 flyerSubtitle={flyerSubtitle}
+                noticeType={noticeType}
+                countdownTarget={countdownTarget}
               />
             </div>
           </div>
@@ -646,6 +693,8 @@ function PreviewPane({
   meetingTime,
   meetingLocation,
   flyerSubtitle,
+  noticeType,
+  countdownTarget,
 }: {
   assetType: AssetType;
   headline: string;
@@ -662,12 +711,14 @@ function PreviewPane({
   meetingTime?: string;
   meetingLocation?: string;
   flyerSubtitle?: string;
+  noticeType?: "text" | "countdown";
+  countdownTarget?: string;
 }) {
   switch (assetType) {
     case "flyer":
       return <FlyerPreview headline={headline} body={body} ctaText={ctaText} bgColor={bgColor} startDate={startDate} planName={planName} planLogo={planLogo} flyerImage={flyerImage} flyerQrUrl={flyerQrUrl} meetingTime={meetingTime} meetingLocation={meetingLocation} flyerSubtitle={flyerSubtitle} />;
     case "portal-notice":
-      return <NoticePreview headline={headline} body={body} bgColor={bgColor} startDate={startDate} endDate={endDate} />;
+      return <NoticePreview headline={headline} body={body} bgColor={bgColor} startDate={startDate} endDate={endDate} planName={planName} noticeType={noticeType} countdownTarget={countdownTarget} />;
     case "pop-up":
       return <PopUpPreview headline={headline} body={body} ctaText={ctaText} bgColor={bgColor} />;
     case "news-post":
@@ -910,47 +961,105 @@ function adjustColor(hex: string, amount: number): string {
   return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
 }
 
+function formatLocalDate(d: string): string {
+  if (!d) return "";
+  try {
+    const clean = d.split("T")[0].split(" ")[0];
+    const parsed = new Date(clean + "T12:00:00");
+    if (isNaN(parsed.getTime())) return d;
+    return parsed.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  } catch { return d; }
+}
+
 function NoticePreview({
   headline,
   body,
   bgColor,
   startDate,
   endDate,
+  planName,
+  noticeType,
+  countdownTarget,
 }: {
   headline: string;
   body: string;
   bgColor: string;
   startDate: string;
   endDate: string;
+  planName?: string;
+  noticeType?: "text" | "countdown";
+  countdownTarget?: string;
 }) {
+  // ── Live countdown (days + HH:MM:SS) ──
+  const [countdown, setCountdown] = useState({ d: 0, h: 0, m: 0, s: 0, expired: false });
+  useEffect(() => {
+    if (noticeType !== "countdown" || !countdownTarget) return;
+    const target = new Date(countdownTarget).getTime();
+    if (isNaN(target)) return;
+    const tick = () => {
+      const diff = target - Date.now();
+      if (diff <= 0) { setCountdown({ d: 0, h: 0, m: 0, s: 0, expired: true }); return; }
+      const totalSec = Math.floor(diff / 1000);
+      setCountdown({
+        d: Math.floor(totalSec / 86400),
+        h: Math.floor((totalSec % 86400) / 3600),
+        m: Math.floor((totalSec % 3600) / 60),
+        s: totalSec % 60,
+        expired: false,
+      });
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [noticeType, countdownTarget]);
+
+  const pad = (n: number) => n.toString().padStart(2, "0");
+
   return (
-    <div className="w-full max-w-[520px] rounded-xl border bg-white shadow-sm overflow-hidden">
-      {/* Browser chrome */}
-      <div className="flex items-center gap-1.5 px-4 py-2.5 bg-gray-50 border-b">
-        <div className="h-2.5 w-2.5 rounded-full bg-red-400" />
-        <div className="h-2.5 w-2.5 rounded-full bg-yellow-400" />
-        <div className="h-2.5 w-2.5 rounded-full bg-green-400" />
-        <div className="ml-3 flex-1 h-5 rounded bg-gray-200" />
+    <div
+      className="relative w-full max-w-[600px] overflow-hidden rounded-lg shadow-sm"
+      style={{ background: bgColor }}
+    >
+      <div className="relative px-4 py-3 text-center text-white">
+        {noticeType === "countdown" && countdownTarget ? (
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-sm font-medium">{headline || "Countdown"}</span>
+            {countdown.expired ? (
+              <span className="text-lg font-bold">Expired</span>
+            ) : (
+              <div className="flex items-center gap-2 text-lg font-bold tabular-nums tracking-wider">
+                {countdown.d > 0 && (
+                  <>
+                    <span className="min-w-[2ch]">{countdown.d}</span>
+                    <span className="text-base opacity-70">d</span>
+                  </>
+                )}
+                <span className="min-w-[2ch]">{pad(countdown.h)}</span>
+                <span className="opacity-60">:</span>
+                <span className="min-w-[2ch]">{pad(countdown.m)}</span>
+                <span className="opacity-60">:</span>
+                <span className="min-w-[2ch]">{pad(countdown.s)}</span>
+              </div>
+            )}
+          </div>
+        ) : (
+          <span className="text-sm font-medium">{headline || "Portal Notice"}</span>
+        )}
+        {/* Close button */}
+        <button
+          type="button"
+          className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full p-1 transition-colors hover:bg-white/20"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden="true">
+            <path d="M18 6 6 18" />
+            <path d="m6 6 12 12" />
+          </svg>
+        </button>
       </div>
-      {/* Notice banner */}
-      <div className="px-4 py-3 text-center text-sm font-medium text-white" style={{ background: bgColor }}>
-        ⚡ {headline}
-      </div>
-      {/* Page content */}
-      <div className="p-4 space-y-3">
-        <div className="h-4 w-3/4 rounded bg-gray-200" />
-        <div className="h-3 w-1/2 rounded bg-gray-100" />
-        <div className="h-20 rounded bg-gray-50 border border-dashed border-gray-200 flex items-center justify-center">
-          <span className="text-xs text-gray-400">Page content</span>
-        </div>
-      </div>
-      {/* Date badge */}
-      {(startDate || endDate) && (
-        <div className="px-4 pb-3 flex items-center gap-2 text-[11px] text-gray-500">
-          {startDate && <span>From: {startDate}</span>}
-          {endDate && <span>To: {endDate}</span>}
-        </div>
-      )}
     </div>
   );
 }
