@@ -5,13 +5,18 @@ import { createPortal } from "react-dom";
 import useSWR from "swr";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "@/components/ui/accordion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { Search, Clock, Loader2 } from "lucide-react";
+import { Search, Clock, ChevronDown, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import MarketingAssetModal, {
   type AssetType,
-  type FlyerSaveData,
 } from "@/components/pages/marketing/marketing-asset-modal";
 import {
   buildFlyerSvgFromData,
@@ -516,10 +521,12 @@ export default function MarketingPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [activeAssetType, setActiveAssetType] = useState<AssetType>("flyer");
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isDeletingLoading, setIsDeletingLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<MarketingAssetStatus | "All">("All");
 
   // ── Fetch assets from API ──
-  const { data: assetsData, mutate: mutateAssets } = useSWR(
+  const { data: assetsData, isLoading: isLoadingAssets, mutate: mutateAssets } = useSWR(
     selectedPlan ? `/api/marketing/assets?clientId=${selectedPlan}` : null,
     jsonFetcher,
     { dedupingInterval: 10_000, revalidateOnFocus: true },
@@ -602,212 +609,248 @@ export default function MarketingPage() {
         </Card>
 
         {selectedPlan && selectedClient && (
-        <div className="space-y-6">
-          {/* ── Saved Marketing Assets ── */}
-          {savedAssets.length > 0 && (
-            <div className="rounded-xl border bg-white dark:bg-gray-900 dark:border-gray-700 shadow-sm overflow-hidden">
-              {/* Header */}
-              <div className="flex items-center gap-2 px-5 py-3 border-b bg-gray-50/50 dark:border-gray-700">
-                <svg className="h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-                  <polyline points="14 2 14 8 20 8" />
-                  <line x1="16" y1="13" x2="8" y2="13" />
-                  <line x1="16" y1="17" x2="8" y2="17" />
-                </svg>
-                <h3 className="text-sm font-semibold text-foreground">Edit Marketing Assets</h3>
-                <span className="text-xs text-muted-foreground">({savedAssets.length})</span>
-              </div>
-
-              {/* Status filter tabs */}
-              <div className="flex items-center gap-1.5 px-5 py-2.5 border-b bg-white dark:bg-gray-900 overflow-x-auto">
-                {(["All", ...ASSET_STATUSES] as const).map((s) => {
-                  const count = s === "All" ? savedAssets.length : savedAssets.filter((a) => a.status === s).length;
-                  return (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => setStatusFilter(s)}
-                      className={cn(
-                        "whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                        statusFilter === s
-                          ? "bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900"
-                          : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700",
-                      )}
-                    >
-                      {s === "All" ? "All" : s} <span className="opacity-60">({count})</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Asset rows */}
-              {filteredAssets.length === 0 ? (
-                <div className="flex flex-col items-center justify-center px-5 py-8 text-center">
-                  <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800">
-                    <svg className="h-5 w-5 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="11" cy="11" r="8" />
-                      <path d="m21 21-4.35-4.35" />
-                    </svg>
-                  </div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    {statusFilter === "All"
-                      ? "No marketing assets created yet"
-                      : `No assets with "${statusFilter}" status`}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {statusFilter === "All"
-                      ? "Create your first flyer, notice, pop-up, or news post above."
-                      : "Try selecting a different status filter or create a new asset."}
-                  </p>
+        <div className="space-y-4">
+          <Accordion type="multiple" defaultValue={["create"]} className="space-y-4">
+            {/* ── Create Marketing Asset Accordion ── */}
+            <AccordionItem value="create" className="rounded-xl border bg-white dark:bg-gray-900 dark:border-gray-700 shadow-sm">
+              <AccordionTrigger className="px-5 py-3 hover:no-underline [&[data-state=open]>svg]:rotate-180">
+                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <svg className="h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                  Create Marketing Asset
                 </div>
-              ) : (
-                <div className="divide-y dark:divide-gray-700">
-                  {filteredAssets.map((asset) => (
-                    <div key={asset.id} className="flex items-center gap-3 px-5 py-3">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-blue)]/10 text-sm">
-                        {asset.type === "flyer" ? "📄" : asset.type === "portal-notice" ? "📢" : asset.type === "pop-up" ? "💬" : "📰"}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{asset.headline}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {asset.type.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} · {asset.createdAt}
-                        </p>
-                      </div>
-                      <div className="relative group">
-                        <select
-                          value={asset.status}
-                          onChange={async (e) => {
-                            const newStatus = e.target.value as MarketingAssetStatus;
-                            try {
-                              await fetch(`/api/marketing/assets/${asset.id}`, {
-                                method: "PATCH",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ status: newStatus }),
-                              });
-                              mutateAssets();
-                            } catch (err) {
-                              console.error("Failed to update status:", err);
-                            }
-                          }}
-                          className={cn(
-                            "appearance-none rounded-full border px-2.5 py-0.5 text-[11px] font-semibold cursor-pointer transition-colors",
-                            STATUS_COLORS[asset.status],
-                          )}
-                        >
-                          {ASSET_STATUSES.map((s) => (
-                            <option key={s} value={s}>{s}</option>
-                          ))}
-                        </select>
-                      </div>
-                      {asset.type === "flyer" && (
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-700 hover:underline shrink-0 disabled:opacity-50"
-                          disabled={downloadingId === asset.id}
-                          onClick={async () => {
-                            setDownloadingId(asset.id);
-                            try {
-                              const logoUrl = asset.planLogo
-                                ? getR2ObjectProxyUrl(toR2BrandingKey(asset.planLogo) ?? "") || asset.planLogo
-                                : null;
-                              const svgEl = buildFlyerSvgFromData(
-                                { headline: asset.headline ?? "", body: asset.body ?? "", startDate: asset.startDate ?? "", bgColor: asset.bgColor ?? "#23919c", planName: asset.planName ?? "", planLogo: asset.planLogo, flyerSubtitle: asset.flyerSubtitle, flyerImage: asset.flyerImage, flyerQrUrl: asset.flyerQrUrl, meetingTime: asset.meetingTime, meetingLocation: asset.meetingLocation },
-                                logoUrl,
-                              );
-                              const dataUrl = await svgElementToDataUrl(svgEl);
-                              const blob = await generateFlyerPdfBlob(dataUrl);
-                              const url = URL.createObjectURL(blob);
-                              const a = document.createElement("a");
-                              a.href = url;
-                              const safeName = (asset.planName ?? "flyer").replace(/[^a-zA-Z0-9_-]/g, "_");
-                              a.download = `${safeName}_flyer.pdf`;
-                              document.body.appendChild(a);
-                              a.click();
-                              document.body.removeChild(a);
-                              URL.revokeObjectURL(url);
-                            } catch (err) {
-                              console.error("Failed to download flyer PDF:", err);
-                            } finally {
-                              setDownloadingId(null);
-                            }
-                          }}
-                        >
-                          {downloadingId === asset.id ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                              <polyline points="7 10 12 15 17 10" />
-                              <line x1="12" y1="15" x2="12" y2="3" />
-                            </svg>
-                          )}
-                          Download
-                        </button>
-                      )}
-                      <button type="button" className="text-xs font-medium text-[var(--accent-blue)] hover:underline shrink-0" onClick={() => { setActiveAssetType(asset.type); setModalOpen(true); }}>Edit</button>
-                      <button type="button" className="text-xs font-medium text-red-500 hover:underline shrink-0" onClick={async () => { try { await fetch(`/api/marketing/assets/${asset.id}`, { method: "DELETE" }); mutateAssets(); } catch (err) { console.error("Failed to delete:", err); } }}>Delete</button>
+              </AccordionTrigger>
+              <AccordionContent className="px-5 pb-5">
+                {/* Empty state when no assets */}
+                {savedAssets.length === 0 && (
+                  <div className="flex flex-col items-center justify-center pb-4 pt-2 px-4 text-center">
+                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[var(--accent-blue-light)]/40 dark:bg-[var(--accent-blue-light)]/20">
+                      <svg className="h-6 w-6 text-[var(--accent-blue)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="12" y1="12" x2="12" y2="18" />
+                        <line x1="9" y1="15" x2="15" y2="15" />
+                      </svg>
                     </div>
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mt-3">
+                      No Communications Added Yet
+                    </h3>
+                    <p className="mt-1 text-sm text-muted-foreground max-w-sm">
+                      Create your first flyer, notice, pop-up, or news update for this Benefits Hub.
+                    </p>
+                  </div>
+                )}
+                {/* Creation cards — 4-column grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                  {OPTIONS.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      className="group relative flex flex-col items-center text-center rounded-2xl border-2 border-transparent bg-white dark:bg-gray-900 shadow-sm hover:shadow-xl hover:border-[var(--accent-blue)]/40 transition-all duration-300 ease-out hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--accent-blue)] overflow-hidden"
+                      onClick={() => {
+                        setActiveAssetType(option.id as AssetType);
+                        setModalOpen(true);
+                      }}
+                    >
+                      <div className="flex h-32 w-full items-center justify-center bg-[var(--accent-blue-light)]/30 dark:bg-[var(--accent-blue-light)]/20 px-6">
+                        <div className="flex items-center justify-center h-full w-full max-w-[180px] text-[var(--accent-blue)]">
+                          {option.illustration}
+                        </div>
+                      </div>
+                      <div className="flex flex-1 flex-col items-center px-4 pt-3.5 pb-5">
+                        <div className="flex flex-col items-center justify-start flex-1">
+                          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                            {option.label}
+                          </h3>
+                          <p className="mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400 max-w-[180px]">
+                            {option.description}
+                          </p>
+                        </div>
+                        <span className="mt-auto inline-flex items-center rounded-lg bg-[var(--accent-blue)]/10 px-3 py-1.5 text-xs font-semibold text-[var(--accent-blue)] group-hover:bg-[var(--accent-blue)] group-hover:text-white transition-colors duration-200">
+                          {option.cta}
+                        </span>
+                      </div>
+                    </button>
                   ))}
                 </div>
-              )}
-            </div>
-            )}
+              </AccordionContent>
+            </AccordionItem>
 
-            {/* ── Empty state when no assets saved (above the cards) ── */}
-            {savedAssets.length === 0 && (
-              <div className="flex flex-col items-center justify-center pb-2 px-4 text-center">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[var(--accent-blue-light)]/40 dark:bg-[var(--accent-blue-light)]/20">
-                  <svg className="h-6 w-6 text-[var(--accent-blue)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            {/* ── Edit Marketing Assets Accordion ── */}
+            <AccordionItem value="edit" className="rounded-xl border bg-white dark:bg-gray-900 dark:border-gray-700 shadow-sm">
+              <AccordionTrigger className="px-5 py-3 hover:no-underline [&[data-state=open]>svg]:rotate-180">
+                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <svg className="h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
                     <polyline points="14 2 14 8 20 8" />
-                    <line x1="12" y1="12" x2="12" y2="18" />
-                    <line x1="9" y1="15" x2="15" y2="15" />
+                    <line x1="16" y1="13" x2="8" y2="13" />
+                    <line x1="16" y1="17" x2="8" y2="17" />
                   </svg>
+                  Edit Marketing Assets
+                  <span className="text-xs text-muted-foreground font-normal">({savedAssets.length})</span>
                 </div>
-                <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
-                  No Communications Added Yet
-                </h3>
-                <p className="mt-1.5 text-sm text-muted-foreground max-w-sm">
-                  Create your first flyer, notice, pop-up, or news update for this Benefits Hub.
-                </p>
-              </div>
-            )}
+              </AccordionTrigger>
+              <AccordionContent className="px-0 pb-0">
+                {isLoadingAssets ? (
+                  /* Loading skeleton */
+                  <div className="divide-y dark:divide-gray-700">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="flex items-center gap-3 px-5 py-3">
+                        <Skeleton className="h-8 w-8 rounded-lg" />
+                        <div className="flex-1 space-y-1.5">
+                          <Skeleton className="h-4 w-48" />
+                          <Skeleton className="h-3 w-32" />
+                        </div>
+                        <Skeleton className="h-5 w-20 rounded-full" />
+                        <Skeleton className="h-3 w-12" />
+                        <Skeleton className="h-3 w-10" />
+                      </div>
+                    ))}
+                  </div>
+                ) : hasAssets ? (
+                  <>
+                    {savedAssets.length > 0 && (
+                      <div className="flex items-center gap-1.5 px-5 py-2.5 border-b bg-white dark:bg-gray-900 overflow-x-auto">
+                        {(["All", ...ASSET_STATUSES] as const).map((s) => {
+                          const count = s === "All" ? savedAssets.length : savedAssets.filter((a) => a.status === s).length;
+                          return (
+                            <button
+                              key={s}
+                              type="button"
+                              onClick={() => setStatusFilter(s)}
+                              className={cn(
+                                "whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                                statusFilter === s
+                                  ? "bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900"
+                                  : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700",
+                              )}
+                            >
+                              {s === "All" ? "All" : s} <span className="opacity-60">({count})</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <div className="divide-y dark:divide-gray-700">
+                      {filteredAssets.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center px-5 py-8 text-center">
+                          <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800">
+                            <svg className="h-5 w-5 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="11" cy="11" r="8" />
+                              <path d="m21 21-4.35-4.35" />
+                            </svg>
+                          </div>
+                          <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                            {statusFilter === "All"
+                              ? "No marketing assets created yet"
+                              : `No assets with "${statusFilter}" status`}
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {statusFilter === "All"
+                              ? "Create your first flyer, notice, pop-up, or news post above."
+                              : "Try selecting a different status filter or create a new asset."}
+                          </p>
+                        </div>
+                      ) : (
+                        filteredAssets.map((asset) => (
+                          <div key={asset.id} className="flex items-center gap-3 px-5 py-3">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-blue)]/10 text-sm">
+                              {asset.type === "flyer" ? "📄" : asset.type === "portal-notice" ? "📢" : asset.type === "pop-up" ? "💬" : "📰"}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{asset.headline}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {asset.type.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} · {asset.createdAt}
+                              </p>
+                            </div>
 
-            {/* Creation cards — 4-column grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              {OPTIONS.map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  className="group relative flex flex-col items-center text-center rounded-2xl border-2 border-transparent bg-white dark:bg-gray-900 shadow-sm hover:shadow-xl hover:border-[var(--accent-blue)]/40 transition-all duration-300 ease-out hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--accent-blue)] overflow-hidden"
-                  onClick={() => {
-                    setActiveAssetType(option.id as AssetType);
-                    setModalOpen(true);
-                  }}
-                >
-                  {/* Illustration area — fixed height so all card headers align */}
-                  <div className="flex h-32 w-full items-center justify-center bg-[var(--accent-blue-light)]/30 dark:bg-[var(--accent-blue-light)]/20 px-6">
-                    <div className="flex items-center justify-center h-full w-full max-w-[180px] text-[var(--accent-blue)]">
-                      {option.illustration}
+                            {asset.type === "flyer" && (
+                              <button type="button" className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-700 hover:underline shrink-0 disabled:opacity-50"
+                                disabled={downloadingId === asset.id}
+                                onClick={async () => {
+                                  setDownloadingId(asset.id);
+                                  try {
+                                    const logoUrl = asset.planLogo ? getR2ObjectProxyUrl(toR2BrandingKey(asset.planLogo) ?? "") || asset.planLogo : null;
+                                    const svgEl = buildFlyerSvgFromData(
+                                      { headline: asset.headline ?? "", body: asset.body ?? "", startDate: asset.startDate ?? "", bgColor: asset.bgColor ?? "#23919c", planName: asset.planName ?? "", planLogo: asset.planLogo, flyerSubtitle: asset.flyerSubtitle, flyerImage: asset.flyerImage, flyerQrUrl: asset.flyerQrUrl, meetingTime: asset.meetingTime, meetingLocation: asset.meetingLocation },
+                                      logoUrl,
+                                    );
+                                    const dataUrl = await svgElementToDataUrl(svgEl);
+                                    const blob = await generateFlyerPdfBlob(dataUrl);
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement("a");
+                                    a.href = url;
+                                    const safeName = (asset.planName ?? "flyer").replace(/[^a-zA-Z0-9_-]/g, "_");
+                                    a.download = `${safeName}_flyer.pdf`;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    document.body.removeChild(a);
+                                    URL.revokeObjectURL(url);
+                                  } catch (err) { console.error("Failed to download flyer PDF:", err); } finally { setDownloadingId(null); }
+                                }}
+                              >
+                                {downloadingId === asset.id ? <Loader2 className="h-3 w-3 animate-spin" /> : (
+                                  <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+                                  </svg>
+                                )}
+                                Download
+                              </button>
+                            )}
+                            <button type="button" className="text-xs font-medium text-[var(--accent-blue)] hover:underline shrink-0" onClick={() => { setActiveAssetType(asset.type); setModalOpen(true); }}>Edit</button>
+
+                            {deletingId === asset.id ? (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs text-gray-500">Are you sure?</span>
+                                <button type="button" className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:underline shrink-0 disabled:opacity-50" disabled={isDeletingLoading}
+                                  onClick={async () => {
+                                    setIsDeletingLoading(true);
+                                    try { await fetch(`/api/marketing/assets/${asset.id}`, { method: "DELETE" }); mutateAssets(); } catch (err) { console.error("Failed to delete:", err); }
+                                    setDeletingId(null); setIsDeletingLoading(false);
+                                  }}
+                                >
+                                  {isDeletingLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : null} Yes
+                                </button>
+                                <button type="button" className="text-xs font-medium text-gray-500 hover:underline shrink-0" onClick={() => setDeletingId(null)}>No</button>
+                              </div>
+                            ) : (
+                              <button type="button" className="text-xs font-medium text-red-500 hover:underline shrink-0" onClick={() => setDeletingId(asset.id)}>Delete</button>
+                            )}
+
+                            <div className="relative shrink-0 ml-2">
+                              <select value={asset.status}
+                                onChange={async (e) => {
+                                  const newStatus = e.target.value as MarketingAssetStatus;
+                                  try { await fetch(`/api/marketing/assets/${asset.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: newStatus }) }); mutateAssets(); } catch (err) { console.error("Failed to update status:", err); }
+                                }}
+                                className={cn("appearance-none rounded-full border px-2.5 py-0.5 pr-6 text-[11px] font-semibold cursor-pointer transition-colors", STATUS_COLORS[asset.status])}
+                              >
+                                {ASSET_STATUSES.map((s) => (<option key={s} value={s}>{s}</option>))}
+                              </select>
+                              <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-current opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="6 9 12 15 18 9" />
+                              </svg>
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
-                  </div>
-                  {/* Content — uniform height so CTA buttons align */}
-                  <div className="flex flex-1 flex-col items-center px-4 pt-3.5 pb-5">
-                    <div className="flex flex-col items-center justify-start flex-1">
-                      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                        {option.label}
-                      </h3>
-                      <p className="mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400 max-w-[180px]">
-                        {option.description}
-                      </p>
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center justify-center px-5 py-8 text-center">
+                    <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800">
+                      <svg className="h-5 w-5 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+                      </svg>
                     </div>
-                    <span className="mt-auto inline-flex items-center rounded-lg bg-[var(--accent-blue)]/10 px-3 py-1.5 text-xs font-semibold text-[var(--accent-blue)] group-hover:bg-[var(--accent-blue)] group-hover:text-white transition-colors duration-200">
-                      {option.cta}
-                    </span>
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">No marketing assets yet</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Create your first asset above.</p>
                   </div>
-                </button>
-              ))}
-            </div>
+                )}
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
           </div>
         )}
 
