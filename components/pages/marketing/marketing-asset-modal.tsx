@@ -431,6 +431,19 @@ export default function MarketingAssetModal({
               </div>
             )}
 
+            {/* Pop-up specific — at the top of inputs */}
+            {assetType === "pop-up" && (
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showEveryVisit}
+                  onChange={(e) => setShowEveryVisit(e.target.checked)}
+                  className="rounded border-gray-300"
+                />
+                Show on every visit
+              </label>
+            )}
+
             {/* Headline */}
             {assetType === "flyer" && isFlyerLocked ? (
               <div className="space-y-1.5 opacity-50 pointer-events-none">
@@ -479,8 +492,8 @@ export default function MarketingAssetModal({
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="body">Body text</Label>
-                  {assetType === "flyer" && (
-                    <span className="text-[11px] text-muted-foreground tabular-nums">{body.length}/680</span>
+                  {(assetType === "flyer" || assetType === "pop-up") && (
+                    <span className="text-[11px] text-muted-foreground tabular-nums">{body.length}/{assetType === "flyer" ? 680 : 300}</span>
                   )}
                 </div>
                 <Textarea
@@ -489,7 +502,7 @@ export default function MarketingAssetModal({
                   placeholder="Write your message…"
                   value={body}
                   onChange={(e) => setBody(e.target.value)}
-                  maxLength={assetType === "flyer" ? 680 : undefined}
+                  maxLength={assetType === "flyer" ? 680 : assetType === "pop-up" ? 300 : undefined}
                 />
               </div>
             ))}
@@ -558,37 +571,6 @@ export default function MarketingAssetModal({
                   <span className="text-xs text-muted-foreground font-mono">{bgColor}</span>
                 </div>
               </div>
-            )}
-
-            {/* Status — shown for all asset types */}
-            <div className="space-y-1.5">
-              <Label htmlFor="asset-status">Status</Label>
-              <select
-                id="asset-status"
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                value={assetStatus}
-                onChange={(e) => setAssetStatus(e.target.value as MarketingAssetStatus)}
-              >
-                <option value="Draft">Draft</option>
-                <option value="Ready for Review">Ready for Review</option>
-                <option value="Published">Published</option>
-                <option value="Scheduled">Scheduled</option>
-                <option value="Hidden">Hidden</option>
-                <option value="Archived">Archived</option>
-              </select>
-            </div>
-
-            {/* Pop-up specific */}
-            {assetType === "pop-up" && (
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={showEveryVisit}
-                  onChange={(e) => setShowEveryVisit(e.target.checked)}
-                  className="rounded border-gray-300"
-                />
-                Show on every visit
-              </label>
             )}
 
             {/* News post category */}
@@ -662,10 +644,24 @@ export default function MarketingAssetModal({
               </Button>
             )}
           </div>
+
           <div className="flex items-center gap-3">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
+            <div className="h-9 w-px bg-border" />
+            <select
+              value={assetStatus}
+              onChange={(e) => setAssetStatus(e.target.value as MarketingAssetStatus)}
+              className="h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              <option value="Draft">Draft</option>
+              <option value="Ready for Review">Ready for Review</option>
+              <option value="Published">Published</option>
+              <option value="Scheduled">Scheduled</option>
+              <option value="Hidden">Hidden</option>
+              <option value="Archived">Archived</option>
+            </select>
             <Button onClick={handleSave}>
               Save {meta.label}
             </Button>
@@ -720,7 +716,7 @@ function PreviewPane({
     case "portal-notice":
       return <NoticePreview headline={headline} body={body} bgColor={bgColor} startDate={startDate} endDate={endDate} planName={planName} noticeType={noticeType} countdownTarget={countdownTarget} />;
     case "pop-up":
-      return <PopUpPreview headline={headline} body={body} ctaText={ctaText} bgColor={bgColor} />;
+      return <PopUpPreview headline={headline} body={body} ctaText={ctaText} bgColor={bgColor} planName={planName} planLogo={planLogo} />;
     case "news-post":
       return <NewsPostPreview headline={headline} body={body} planName={planName} />;
   }
@@ -1069,35 +1065,78 @@ function PopUpPreview({
   body,
   ctaText,
   bgColor,
+  planName,
+  planLogo,
 }: {
   headline: string;
   body: string;
   ctaText: string;
   bgColor: string;
+  planName?: string;
+  planLogo?: string;
 }) {
+  const { url: resolvedPlanLogo } = useBrandingImageUrl(planLogo);
+
   return (
     <div className="w-full max-w-[420px] relative">
       {/* Page background (dimmed) */}
-      <div className="rounded-xl border bg-gray-100 p-4 space-y-3 opacity-40">
-        <div className="h-4 w-3/4 rounded bg-gray-300" />
-        <div className="h-3 w-1/2 rounded bg-gray-200" />
-        <div className="h-16 rounded bg-gray-200" />
+      <div className="rounded-xl border bg-gray-100 p-5 space-y-3 opacity-30">
+        <div className="flex items-center gap-3 pb-2 border-b border-gray-200">
+          {resolvedPlanLogo ? (
+            <img src={resolvedPlanLogo} alt="" className="h-8 w-8 object-contain rounded" />
+          ) : (
+            <div className="h-8 w-8 rounded bg-gray-300" />
+          )}
+          <div className="h-4 w-32 rounded bg-gray-300" />
+        </div>
+        <div className="h-3 w-full rounded bg-gray-200" />
+        <div className="h-3 w-5/6 rounded bg-gray-200" />
+        <div className="h-3 w-4/6 rounded bg-gray-200" />
+        <div className="h-3 w-3/4 rounded bg-gray-200" />
+        <div className="h-20 rounded-lg bg-gray-200 mt-2" />
       </div>
+
       {/* Modal overlay */}
-      <div className="absolute inset-0 flex items-center justify-center p-6">
-        <div className="w-full rounded-xl border-2 bg-white shadow-xl p-5 space-y-3" style={{ borderColor: bgColor }}>
-          <div className="flex items-center justify-between">
-            <h3 className="text-base font-bold text-gray-900">{headline}</h3>
-            <div className="h-5 w-5 rounded-full border border-gray-300 flex items-center justify-center text-gray-400 text-xs cursor-default">✕</div>
+      <div className="absolute inset-0 flex items-center justify-center p-5">
+        <div
+          className="w-full rounded-2xl border-2 bg-white shadow-2xl p-6 space-y-4"
+          style={{ borderColor: bgColor }}
+        >
+          {/* Header */}
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <h3 className="text-lg font-bold text-gray-900 leading-snug">
+                {headline || "Announcement"}
+              </h3>
+              {planName && (
+                <p className="text-xs text-gray-500 mt-0.5">{planName}</p>
+              )}
+            </div>
+            <div className="h-6 w-6 shrink-0 rounded-full border-2 border-gray-300 flex items-center justify-center text-gray-400 text-xs cursor-default hover:bg-gray-100 transition-colors">
+              ✕
+            </div>
           </div>
-          <p className="text-sm text-gray-600 leading-relaxed">{body}</p>
-          <div className="pt-1">
+
+          {/* Body */}
+          {body ? (
+            <p className="text-sm text-gray-600 leading-relaxed">{body}</p>
+          ) : (
+            <div className="space-y-2">
+              <div className="h-3 w-full rounded bg-gray-100" />
+              <div className="h-3 w-5/6 rounded bg-gray-100" />
+              <div className="h-3 w-4/6 rounded bg-gray-100" />
+            </div>
+          )}
+
+          {/* CTA */}
+          <div className="pt-1 flex items-center gap-3">
             <span
-              className="inline-flex items-center rounded-lg px-4 py-2 text-sm font-semibold text-white"
+              className="inline-flex items-center rounded-lg px-5 py-2.5 text-sm font-semibold text-white shadow-sm"
               style={{ background: bgColor }}
             >
-              {ctaText}
+              {ctaText || "Learn More"}
             </span>
+            <span className="text-xs text-gray-400">Dismiss</span>
           </div>
         </div>
       </div>
