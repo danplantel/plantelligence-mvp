@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef } from "react";
 import useSWR from "swr";
+import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import {
   Dialog,
   DialogContent,
@@ -77,6 +78,17 @@ export default function MarketingAssetModal({
     { dedupingInterval: 30_000, revalidateOnFocus: false },
   );
   const meetings: Meeting[] = useMemo(() => meetingsData?.data ?? [], [meetingsData]);
+
+  // ── Fetch plan branding data (logo) ──
+  const { data: planData } = useSWR(
+    planId ? `/api/clients/${planId}` : null,
+    jsonFetcher,
+    { dedupingInterval: 60_000, revalidateOnFocus: false },
+  );
+  const planLogo: string | undefined = useMemo(
+    () => (planData?.data as { companyLogo?: string })?.companyLogo,
+    [planData],
+  );
 
   // ── Shared form fields ──
   const [headline, setHeadline] = useState("");
@@ -503,6 +515,7 @@ export default function MarketingAssetModal({
                 startDate={startDate}
                 endDate={endDate}
                 planName={planName}
+                planLogo={planLogo}
                 flyerImage={flyerImage}
                 flyerQrUrl={flyerQrUrl}
                 meetingTime={meetingTime}
@@ -538,6 +551,7 @@ function PreviewPane({
   startDate,
   endDate,
   planName,
+  planLogo,
   flyerImage,
   flyerQrUrl,
   meetingTime,
@@ -553,6 +567,7 @@ function PreviewPane({
   startDate: string;
   endDate: string;
   planName: string;
+  planLogo?: string;
   flyerImage?: string;
   flyerQrUrl?: string;
   meetingTime?: string;
@@ -561,7 +576,7 @@ function PreviewPane({
 }) {
   switch (assetType) {
     case "flyer":
-      return <FlyerPreview headline={headline} body={body} ctaText={ctaText} bgColor={bgColor} startDate={startDate} planName={planName} flyerImage={flyerImage} flyerQrUrl={flyerQrUrl} meetingTime={meetingTime} meetingLocation={meetingLocation} flyerSubtitle={flyerSubtitle} />;
+      return <FlyerPreview headline={headline} body={body} ctaText={ctaText} bgColor={bgColor} startDate={startDate} planName={planName} planLogo={planLogo} flyerImage={flyerImage} flyerQrUrl={flyerQrUrl} meetingTime={meetingTime} meetingLocation={meetingLocation} flyerSubtitle={flyerSubtitle} />;
     case "portal-notice":
       return <NoticePreview headline={headline} body={body} bgColor={bgColor} startDate={startDate} endDate={endDate} />;
     case "pop-up":
@@ -578,6 +593,7 @@ function FlyerPreview({
   bgColor,
   startDate,
   planName,
+  planLogo,
   flyerImage,
   flyerQrUrl,
   meetingTime,
@@ -590,12 +606,16 @@ function FlyerPreview({
   bgColor: string;
   startDate: string;
   planName: string;
+  planLogo?: string;
   flyerImage?: string;
   flyerQrUrl?: string;
   meetingTime?: string;
   meetingLocation?: string;
   flyerSubtitle?: string;
 }) {
+  // Resolve R2 branding key to a proxy URL that <image> in SVG can display
+  const { url: resolvedPlanLogo } = useBrandingImageUrl(planLogo);
+
   const formatDate = (d: string) => {
     if (!d) return "";
     try {
@@ -745,12 +765,22 @@ function FlyerPreview({
         </text>
       )}
 
-      {/* ═══ Bottom Footer (with QR code in bottom-right corner) ═══ */}
+      {/* ═══ Bottom Footer (with brand logo, text, and QR code) ═══ */}
       <rect y="640" width="612" height="152" fill={bgColor} opacity="0.06" />
-      <text x="50" y="706" fill={bgColor} fontSize="16" fontWeight="600" opacity="0.7">
+
+      {/* Brand Logo — compact, left side, aligned with text */}
+      {resolvedPlanLogo ? (
+        <g transform="translate(48, 668)">
+          <rect x="0" y="0" width="100" height="36" rx="4" fill="white" opacity="0.95" />
+          <image href={resolvedPlanLogo} x="5" y="5" width="90" height="26" preserveAspectRatio="xMidYMid contain" />
+        </g>
+      ) : null}
+
+      {/* Text block — consistent vertical rhythm, centered in footer */}
+      <text x="50" y="724" fill={bgColor} fontSize="16" fontWeight="600" opacity="0.7">
         Presented by {planName} · Benefits Team
       </text>
-      <text x="50" y="732" fill="#999" fontSize="14">
+      <text x="50" y="748" fill="#999" fontSize="14">
         Questions? Contact your plan administrator
       </text>
 

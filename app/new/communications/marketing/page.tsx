@@ -594,7 +594,7 @@ export default function MarketingPage() {
             {/* ── Empty state when no assets saved (above the cards) ── */}
             {savedAssets.length === 0 && (
               <div className="flex flex-col items-center justify-center pb-2 px-4 text-center">
-                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--accent-blue-light)]/40 dark:bg-[var(--accent-blue-light)]/20">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[var(--accent-blue-light)]/40 dark:bg-[var(--accent-blue-light)]/20">
                   <svg className="h-6 w-6 text-[var(--accent-blue)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
                     <polyline points="14 2 14 8 20 8" />
