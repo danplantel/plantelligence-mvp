@@ -120,6 +120,7 @@ export default function MarketingAssetModal({
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [bgColor, setBgColor] = useState("#23919c");
+  const [ctaText, setCtaText] = useState("");
 
   // Flyer-specific
   const [flyerSubtitle, setFlyerSubtitle] = useState("");
@@ -171,6 +172,7 @@ export default function MarketingAssetModal({
     setAssetStatus("Draft");
     setNoticeType("text");
     setCountdownTarget("");
+    setCtaText("");
     setPostCategory("Announcement");
   }, [open, assetType]);
 
@@ -573,21 +575,32 @@ export default function MarketingAssetModal({
               </div>
             )}
 
-            {/* News post category */}
+            {/* News post — CTA text */}
             {assetType === "news-post" && (
-              <div className="space-y-1.5">
-                <Label htmlFor="category">Category</Label>
-                <select
-                  id="category"
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  value={postCategory}
-                  onChange={(e) => setPostCategory(e.target.value)}
-                >
-                  <option value="Announcement">Announcement</option>
-                  <option value="News">News</option>
-                  <option value="Event">Event</option>
-                  <option value="Reminder">Reminder</option>
-                </select>
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="category">Category</Label>
+                  <select
+                    id="category"
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    value={postCategory}
+                    onChange={(e) => setPostCategory(e.target.value)}
+                  >
+                    <option value="Announcement">Announcement</option>
+                    <option value="News">News</option>
+                    <option value="Event">Event</option>
+                    <option value="Reminder">Reminder</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="ctaText">Button text</Label>
+                  <Input
+                    id="ctaText"
+                    placeholder="Learn More"
+                    value={ctaText}
+                    onChange={(e) => setCtaText(e.target.value)}
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -605,7 +618,7 @@ export default function MarketingAssetModal({
                 assetType={assetType}
                 headline={previewHeadline}
                 body={previewBody}
-                ctaText=""
+                ctaText={ctaText}
                 ctaUrl=""
                 bgColor={bgColor}
                 startDate={startDate}
@@ -718,7 +731,7 @@ function PreviewPane({
     case "pop-up":
       return <PopUpPreview headline={headline} body={body} ctaText={ctaText} bgColor={bgColor} planName={planName} planLogo={planLogo} />;
     case "news-post":
-      return <NewsPostPreview headline={headline} body={body} planName={planName} />;
+      return <NewsPostPreview headline={headline} body={body} planName={planName} ctaText={ctaText} />;
   }
 }
 
@@ -1148,38 +1161,51 @@ function NewsPostPreview({
   headline,
   body,
   planName,
+  ctaText,
 }: {
   headline: string;
   body: string;
   planName: string;
+  ctaText?: string;
 }) {
   return (
-    <div className="w-full max-w-[520px] rounded-xl border bg-white shadow-sm overflow-hidden">
-      <div className="px-5 py-4 border-b bg-gray-50/50">
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500">Latest Updates</h4>
-      </div>
-      <div className="divide-y">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="flex items-start gap-3 px-5 py-4">
-            <div
-              className="h-9 w-9 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
-              style={{ background: i === 1 ? "#23919c" : i === 2 ? "#5a9eae" : "#8fbcc8" }}
-            >
-              {planName.charAt(0)}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-900 truncate">
-                {i === 1 ? headline : i === 2 ? "Upcoming Events" : "Plan Reminder"}
+    <div className="w-full max-w-[520px] group transition-all duration-300 hover:-translate-y-1">
+      {/* Announcement card — Elementor-style */}
+      <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
+        <div className="p-6 space-y-4">
+          {/* Heading */}
+          <div>
+            <h3 className="text-lg font-bold text-gray-900 leading-snug">
+              {headline || "Announcement Title"}
+            </h3>
+            {planName && (
+              <p className="text-xs text-gray-500 mt-1 font-medium uppercase tracking-wide">
+                {planName}
               </p>
-              <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
-                {i === 1 ? body : i === 2 ? "Check out our upcoming events this quarter." : "Don't forget to review your plan details."}
-              </p>
-              <p className="text-[11px] text-gray-400 mt-1">
-                {i === 1 ? "2 hours ago" : i === 2 ? "1 day ago" : "3 days ago"}
-              </p>
-            </div>
+            )}
           </div>
-        ))}
+
+          {/* Body text */}
+          {body ? (
+            <p className="text-sm text-gray-600 leading-relaxed">
+              {body}
+            </p>
+          ) : (
+            <div className="space-y-2">
+              <div className="h-3 w-full rounded bg-gray-100" />
+              <div className="h-3 w-5/6 rounded bg-gray-100" />
+              <div className="h-3 w-4/6 rounded bg-gray-100" />
+              <div className="h-3 w-3/4 rounded bg-gray-100" />
+            </div>
+          )}
+
+          {/* CTA Button */}
+          <div className="pt-1">
+            <span className="inline-flex items-center rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-transform duration-200 hover:scale-105 cursor-default">
+              {ctaText || "Learn more"}
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );
