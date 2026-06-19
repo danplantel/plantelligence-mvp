@@ -74,6 +74,7 @@ model User {
   meetings                    Meeting[]
   webinars                    Webinar[]
   marketingFlyers             MarketingFlyer[]
+  marketingAssets             MarketingAsset[]
   headshots                   Headshot[]
 
   futureContacts    FutureContact[]   @relation("UserFutureContacts")
@@ -718,6 +719,7 @@ model Client {
   videos    Video[]    // ✅ Videos belong to Client (Benefits Hub)
   meetings  Meeting[]
   marketingFlyers MarketingFlyer[]
+  marketingAssets MarketingAsset[]
 
   @@index([companyName])
   @@index([userId])
@@ -870,6 +872,32 @@ model MarketingFlyer {
   @@index([userId])
   @@index([clientId, archivedAt])
   @@index([createdAt])
+}
+
+// Unified marketing assets (flyer, portal-notice, pop-up, news-post)
+model MarketingAsset {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  clientId  String   @db.ObjectId
+  userId    String   @db.ObjectId
+  type      String   // "flyer" | "portal-notice" | "pop-up" | "news-post"
+  status    String   @default("Draft") // Draft | Ready for Review | Published | Scheduled | Hidden | Archived
+  headline  String
+  body      String   @default("")
+  ctaText   String   @default("")
+  startDate String?
+  endDate   String?
+  bgColor   String   @default("#23919c")
+  data      Json?    // Type-specific payload: { subtitle?, meetingTime?, noticeType?, showEveryVisit?, category?, ... }
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([clientId])
+  @@index([userId])
+  @@index([clientId, type])
+  @@index([clientId, status])
 }
 
 // Headshot model for processed user headshots

@@ -55,7 +55,7 @@ interface MarketingAssetModalProps {
   assetType: AssetType;
   planName: string;
   planId: string;
-  onSave?: (headline: string, flyerData?: FlyerSaveData) => void;
+  onSave?: () => void;
 }
 
 interface Meeting {
@@ -211,28 +211,60 @@ export default function MarketingAssetModal({
     await downloadFlyerPdf(svgEl, `${safeName}_flyer.pdf`);
   }, [planName]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     console.log(`[MarketingAssetModal] Save ${assetType} for ${planName}`, {
       headline, body, startDate, endDate, bgColor, flyerQrUrl,
     });
-    const flyerData: FlyerSaveData | undefined =
-      assetType === "flyer"
-        ? {
-            headline: headline || meta.label,
-            body,
-            startDate,
-            bgColor,
-            planName,
-            planLogo,
-            flyerSubtitle,
-            flyerImage,
-            flyerQrUrl,
-            meetingTime,
-            meetingLocation,
-            status: assetStatus,
-          }
-        : undefined;
-    onSave?.(headline || meta.label, flyerData);
+
+    // Build type-specific data payload
+    const data: Record<string, unknown> = {};
+    if (assetType === "flyer") {
+      data.flyerSubtitle = flyerSubtitle;
+      data.meetingTime = meetingTime;
+      data.meetingLocation = meetingLocation;
+      data.flyerImage = flyerImage;
+      data.flyerQrUrl = flyerQrUrl;
+    }
+    if (assetType === "portal-notice") {
+      data.noticeType = noticeType;
+      data.countdownTarget = countdownTarget || null;
+    }
+    if (assetType === "pop-up") {
+      data.showEveryVisit = showEveryVisit;
+    }
+    if (assetType === "news-post") {
+      data.category = postCategory;
+    }
+
+    try {
+      const res = await fetch("/api/marketing/assets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId: planId,
+          type: assetType,
+          status: assetStatus,
+          headline: headline || meta.label,
+          body,
+          ctaText: ctaText || "",
+          startDate: startDate || null,
+          endDate: endDate || null,
+          bgColor,
+          data,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        console.error("Failed to save asset:", err);
+        return;
+      }
+
+      onSave?.();
+    } catch (error) {
+      console.error("Failed to save asset:", error);
+    }
+
     onOpenChange(false);
   };
 

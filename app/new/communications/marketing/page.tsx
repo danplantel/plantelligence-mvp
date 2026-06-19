@@ -515,9 +515,16 @@ export default function MarketingPage() {
   const [selectedPlan, setSelectedPlan] = useState<string>("");
   const [modalOpen, setModalOpen] = useState(false);
   const [activeAssetType, setActiveAssetType] = useState<AssetType>("flyer");
-  const [savedAssets, setSavedAssets] = useState<SavedAsset[]>([]);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<MarketingAssetStatus | "All">("All");
+
+  // ── Fetch assets from API ──
+  const { data: assetsData, mutate: mutateAssets } = useSWR(
+    selectedPlan ? `/api/marketing/assets?clientId=${selectedPlan}` : null,
+    jsonFetcher,
+    { dedupingInterval: 10_000, revalidateOnFocus: true },
+  );
+  const savedAssets: SavedAsset[] = useMemo(() => assetsData?.data ?? [], [assetsData]);
   const filteredAssets = useMemo(
     () => savedAssets.filter((a) => statusFilter === "All" || a.status === statusFilter),
     [savedAssets, statusFilter],
@@ -669,11 +676,18 @@ export default function MarketingPage() {
                       <div className="relative group">
                         <select
                           value={asset.status}
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             const newStatus = e.target.value as MarketingAssetStatus;
-                            setSavedAssets((prev) =>
-                              prev.map((a) => (a.id === asset.id ? { ...a, status: newStatus } : a)),
-                            );
+                            try {
+                              await fetch(`/api/marketing/assets/${asset.id}`, {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ status: newStatus }),
+                              });
+                              mutateAssets();
+                            } catch (err) {
+                              console.error("Failed to update status:", err);
+                            }
                           }}
                           className={cn(
                             "appearance-none rounded-full border px-2.5 py-0.5 text-[11px] font-semibold cursor-pointer transition-colors",
@@ -731,7 +745,7 @@ export default function MarketingPage() {
                         </button>
                       )}
                       <button type="button" className="text-xs font-medium text-[var(--accent-blue)] hover:underline shrink-0" onClick={() => { setActiveAssetType(asset.type); setModalOpen(true); }}>Edit</button>
-                      <button type="button" className="text-xs font-medium text-red-500 hover:underline shrink-0" onClick={() => setSavedAssets((prev) => prev.filter((a) => a.id !== asset.id))}>Delete</button>
+                      <button type="button" className="text-xs font-medium text-red-500 hover:underline shrink-0" onClick={async () => { try { await fetch(`/api/marketing/assets/${asset.id}`, { method: "DELETE" }); mutateAssets(); } catch (err) { console.error("Failed to delete:", err); } }}>Delete</button>
                     </div>
                   ))}
                 </div>
@@ -805,19 +819,8 @@ export default function MarketingPage() {
             assetType={activeAssetType}
             planName={selectedClient.companyName}
             planId={selectedPlan}
-            onSave={(headline, flyerData) => {
-              const id = `${activeAssetType}-${Date.now()}`;
-              setSavedAssets((prev) => [
-                ...prev,
-                {
-                  id,
-                  type: activeAssetType,
-                  status: "Draft",
-                  headline: headline || `${activeAssetType.charAt(0).toUpperCase() + activeAssetType.slice(1).replace("-", " ")}`,
-                  createdAt: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-                  ...(flyerData ?? {}),
-                } as SavedAsset,
-              ]);
+            onSave={() => {
+              mutateAssets();
             }}
           />
         )}
