@@ -139,6 +139,7 @@ export default function MarketingAssetModal({
   // Portal-notice specific
   const [noticeType, setNoticeType] = useState<"text" | "countdown">("text");
   const [countdownTarget, setCountdownTarget] = useState("");
+  const [portalCtaUrl, setPortalCtaUrl] = useState("");
 
   // Pop-up specific
   const [showEveryVisit, setShowEveryVisit] = useState(false);
@@ -174,6 +175,7 @@ export default function MarketingAssetModal({
     setAssetStatus("Draft");
     setNoticeType("text");
     setCountdownTarget("");
+    setPortalCtaUrl("");
     setCtaText("");
     setPostCategory("Announcement");
   }, [open, assetType]);
@@ -231,6 +233,7 @@ export default function MarketingAssetModal({
     if (assetType === "portal-notice") {
       data.noticeType = noticeType;
       data.countdownTarget = countdownTarget || null;
+      data.portalCtaUrl = portalCtaUrl || null;
     }
     if (assetType === "pop-up") {
       data.showEveryVisit = showEveryVisit;
@@ -465,6 +468,15 @@ export default function MarketingAssetModal({
                     <Input id="countdownTarget" type="datetime-local" value={countdownTarget} onChange={(e) => setCountdownTarget(e.target.value)} />
                   </div>
                 )}
+                {/* CTA button / link */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="portalCtaText">Button text (optional)</Label>
+                  <Input id="portalCtaText" placeholder="Learn More" value={ctaText} onChange={(e) => setCtaText(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="portalCtaUrl">Button link (optional)</Label>
+                  <Input id="portalCtaUrl" placeholder="https://example.com" value={portalCtaUrl} onChange={(e) => setPortalCtaUrl(e.target.value)} />
+                </div>
               </div>
             )}
 
@@ -687,6 +699,7 @@ export default function MarketingAssetModal({
                 flyerSubtitle={flyerSubtitle}
                 noticeType={noticeType}
                 countdownTarget={countdownTarget}
+                portalCtaUrl={portalCtaUrl}
               />
             </div>
           </div>
@@ -759,6 +772,7 @@ function PreviewPane({
   flyerSubtitle,
   noticeType,
   countdownTarget,
+  portalCtaUrl,
 }: {
   assetType: AssetType;
   headline: string;
@@ -777,12 +791,13 @@ function PreviewPane({
   flyerSubtitle?: string;
   noticeType?: "text" | "countdown";
   countdownTarget?: string;
+  portalCtaUrl?: string;
 }) {
   switch (assetType) {
     case "flyer":
       return <FlyerPreview headline={headline} body={body} ctaText={ctaText} bgColor={bgColor} startDate={startDate} planName={planName} planLogo={planLogo} flyerImage={flyerImage} flyerQrUrl={flyerQrUrl} meetingTime={meetingTime} meetingLocation={meetingLocation} flyerSubtitle={flyerSubtitle} />;
     case "portal-notice":
-      return <NoticePreview headline={headline} body={body} bgColor={bgColor} startDate={startDate} endDate={endDate} planName={planName} noticeType={noticeType} countdownTarget={countdownTarget} />;
+      return <NoticePreview headline={headline} body={body} bgColor={bgColor} startDate={startDate} endDate={endDate} planName={planName} noticeType={noticeType} countdownTarget={countdownTarget} ctaText={ctaText} portalCtaUrl={portalCtaUrl} />;
     case "pop-up":
       return <PopUpPreview headline={headline} body={body} ctaText={ctaText} bgColor={bgColor} planName={planName} planLogo={planLogo} />;
     case "news-post":
@@ -1043,6 +1058,8 @@ function NoticePreview({
   planName,
   noticeType,
   countdownTarget,
+  ctaText,
+  portalCtaUrl,
 }: {
   headline: string;
   body: string;
@@ -1052,6 +1069,8 @@ function NoticePreview({
   planName?: string;
   noticeType?: "text" | "countdown";
   countdownTarget?: string;
+  ctaText?: string;
+  portalCtaUrl?: string;
 }) {
   // ── Live countdown (days + HH:MM:SS) ──
   const [countdown, setCountdown] = useState({ d: 0, h: 0, m: 0, s: 0, expired: false });
@@ -1083,41 +1102,57 @@ function NoticePreview({
       className="relative w-full max-w-[600px] overflow-hidden rounded-lg shadow-sm"
       style={{ background: bgColor }}
     >
-      <div className="relative px-4 py-3 text-center text-white">
-        {noticeType === "countdown" && countdownTarget ? (
-          <div className="flex flex-col items-center gap-1">
-            <span className="text-sm font-medium">{headline || "Countdown"}</span>
-            {countdown.expired ? (
-              <span className="text-lg font-bold">Expired</span>
-            ) : (
-              <div className="flex items-center gap-2 text-lg font-bold tabular-nums tracking-wider">
-                {countdown.d > 0 && (
-                  <>
-                    <span className="min-w-[2ch]">{countdown.d}</span>
-                    <span className="text-base opacity-70">d</span>
-                  </>
-                )}
-                <span className="min-w-[2ch]">{pad(countdown.h)}</span>
-                <span className="opacity-60">:</span>
-                <span className="min-w-[2ch]">{pad(countdown.m)}</span>
-                <span className="opacity-60">:</span>
-                <span className="min-w-[2ch]">{pad(countdown.s)}</span>
-              </div>
-            )}
-          </div>
-        ) : (
-          <span className="text-sm font-medium">{headline || "Portal Notice"}</span>
-        )}
-        {/* Close button */}
-        <button
-          type="button"
-          className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full p-1 transition-colors hover:bg-white/20"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden="true">
-            <path d="M18 6 6 18" />
-            <path d="m6 6 12 12" />
-          </svg>
-        </button>
+      <div className="relative flex items-center justify-between gap-3 px-4 py-3 text-white">
+        {/* Left: headline + countdown */}
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          {noticeType === "countdown" && countdownTarget ? (
+            <>
+              <span className="text-sm font-medium whitespace-nowrap">{headline || "Countdown"}</span>
+              {countdown.expired ? (
+                <span className="text-base font-bold whitespace-nowrap">Expired</span>
+              ) : (
+                <div className="flex items-center gap-1.5 text-base font-bold tabular-nums tracking-wider whitespace-nowrap">
+                  {countdown.d > 0 && (
+                    <><span>{countdown.d}</span><span className="text-sm opacity-70">d</span></>
+                  )}
+                  <span>{pad(countdown.h)}</span>
+                  <span className="opacity-60">:</span>
+                  <span>{pad(countdown.m)}</span>
+                  <span className="opacity-60">:</span>
+                  <span>{pad(countdown.s)}</span>
+                </div>
+              )}
+            </>
+          ) : (
+            <span className="text-sm font-medium truncate">{headline || "Portal Notice"}</span>
+          )}
+        </div>
+
+        {/* Right: CTA button + URL + close button */}
+        <div className="flex items-center gap-2 shrink-0">
+          {ctaText && (
+            <span
+              className="inline-flex items-center rounded-lg px-4 py-1.5 text-xs font-semibold text-white shadow-sm"
+              style={{ background: adjustColor(bgColor, -30) }}
+            >
+              {ctaText}
+            </span>
+          )}
+          {portalCtaUrl && (
+            <span className="text-[11px] text-white/70 underline underline-offset-2 truncate max-w-[100px] hidden sm:inline">
+              {portalCtaUrl}
+            </span>
+          )}
+          <button
+            type="button"
+            className="rounded-full p-1 transition-colors hover:bg-white/20"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden="true">
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   );
