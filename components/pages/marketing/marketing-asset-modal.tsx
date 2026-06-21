@@ -134,6 +134,7 @@ export default function MarketingAssetModal({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const flyerPreviewRef = useRef<HTMLDivElement>(null);
   const [assetStatus, setAssetStatus] = useState<MarketingAssetStatus>("Draft");
+  const [flyerCategory, setFlyerCategory] = useState("");
 
   // Portal-notice specific
   const [noticeType, setNoticeType] = useState<"text" | "countdown">("text");
@@ -168,6 +169,7 @@ export default function MarketingAssetModal({
     setSelectedMeetingId("");
     setFlyerImage("");
     setFlyerQrUrl("");
+    setFlyerCategory("");
     setShowEveryVisit(false);
     setAssetStatus("Draft");
     setNoticeType("text");
@@ -224,6 +226,7 @@ export default function MarketingAssetModal({
       data.meetingLocation = meetingLocation;
       data.flyerImage = flyerImage;
       data.flyerQrUrl = flyerQrUrl;
+      data.flyerCategory = flyerCategory || null;
     }
     if (assetType === "portal-notice") {
       data.noticeType = noticeType;
@@ -555,6 +558,26 @@ export default function MarketingAssetModal({
                   onChange={(e) => setFlyerQrUrl(e.target.value)}
                   disabled={isFlyerLocked}
                 />
+              </div>
+            )}
+
+            {/* Flyer benefit category */}
+            {assetType === "flyer" && (
+              <div className="space-y-1.5">
+                <Label htmlFor="flyer-category">Benefit category</Label>
+                <select
+                  id="flyer-category"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={flyerCategory}
+                  onChange={(e) => setFlyerCategory(e.target.value)}
+                  disabled={isFlyerLocked}
+                >
+                  <option value="">All Benefits</option>
+                  <option value="Retirement">Retirement</option>
+                  <option value="Group Health">Group Health</option>
+                  <option value="Group Life">Group Life</option>
+                  <option value="Other">Other</option>
+                </select>
               </div>
             )}
 
