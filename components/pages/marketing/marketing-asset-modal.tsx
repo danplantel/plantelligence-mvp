@@ -988,20 +988,15 @@ function FlyerPreview({
         Questions? Contact your plan administrator
       </text>
 
-      {/* QR code — 112×112 (exactly 2× the original 56×56) */}
+      {/* QR code — 112×112 rendered via QR.io API */}
       <g transform="translate(448, 652)">
         <rect x="0" y="0" width="112" height="112" rx="4" fill="white" stroke={bgColor} strokeWidth="1" strokeOpacity="0.25" />
         {flyerQrUrl ? (
-          <>
-            <rect x="10" y="10" width="20" height="20" rx="2" fill={bgColor} opacity="0.9" />
-            <rect x="82" y="10" width="20" height="20" rx="2" fill={bgColor} opacity="0.9" />
-            <rect x="10" y="82" width="20" height="20" rx="2" fill={bgColor} opacity="0.9" />
-            <rect x="46" y="46" width="20" height="20" rx="2" fill={bgColor} opacity="0.9" />
-            <rect x="32" y="32" width="7" height="7" rx="1" fill={bgColor} opacity="0.6" />
-            <rect x="73" y="73" width="7" height="7" rx="1" fill={bgColor} opacity="0.6" />
-            <rect x="32" y="73" width="7" height="7" rx="1" fill={bgColor} opacity="0.4" />
-            <rect x="73" y="32" width="7" height="7" rx="1" fill={bgColor} opacity="0.4" />
-          </>
+          <image
+            href={`https://api.qrserver.com/v1/create-qr-code/?size=112x112&data=${encodeURIComponent(flyerQrUrl)}`}
+            x="4" y="4" width="104" height="104"
+            preserveAspectRatio="xMidYMid meet"
+          />
         ) : (
           <rect x="14" y="14" width="84" height="84" rx="2" fill="none" stroke={bgColor} strokeWidth="0.6" strokeDasharray="4,4" opacity="0.2" />
         )}
