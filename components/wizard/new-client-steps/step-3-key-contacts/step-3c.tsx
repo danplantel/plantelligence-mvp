@@ -51,6 +51,7 @@ export function NewClientStep3c({
     "Company / Plan Sponsor": Users,
     "Recordkeeper / Vendor": Building2,
     "Third Party Contact": Building2,
+    Multiple: Building2,
   };
 
   // Map categories to their logos (same as step-3a)
@@ -62,6 +63,7 @@ export function NewClientStep3c({
     "Company / Plan Sponsor": "",
     "Recordkeeper / Vendor": "",
     "Third Party Contact": "",
+    Multiple: "",
   };
 
   // Get saved benefits category selection or default to null; when clearSelectionOnMount (after creating a contact) start with null so auto-saved focus is not restored

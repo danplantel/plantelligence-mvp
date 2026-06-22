@@ -43,6 +43,7 @@ export function AddMoreContactsModal({
     "Company / Plan Sponsor": Users,
     "Recordkeeper / Vendor": Building2,
     "Third Party Contact": Building2,
+    Multiple: Building2,
   };
 
   // Count contacts for each category

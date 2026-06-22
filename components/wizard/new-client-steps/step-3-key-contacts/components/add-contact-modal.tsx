@@ -74,6 +74,7 @@ export function AddContactModal({
     "Company / Plan Sponsor": Users,
     "Recordkeeper / Vendor": Briefcase,
     "Third Party Contact": Briefcase,
+    Multiple: Briefcase,
   };
 
   // Count contacts for each category

@@ -1159,6 +1159,7 @@ export function NewClientStep3b({
     "Company / Plan Sponsor": "",
     "Recordkeeper / Vendor": "",
     "Third Party Contact": "",
+    Multiple: "",
   };
 
   // Get step3a data for logo selection (step3aData already declared above)

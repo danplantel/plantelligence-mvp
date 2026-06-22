@@ -61,6 +61,7 @@ export function NewClientStep3a({
     "Company / Plan Sponsor": Building2,
     "Recordkeeper / Vendor": Building2,
     "Third Party Contact": Building2,
+    Multiple: Building2,
   };
 
   // Map categories to their logos
@@ -72,6 +73,7 @@ export function NewClientStep3a({
     "Company / Plan Sponsor": "",
     "Recordkeeper / Vendor": "",
     "Third Party Contact": "",
+    Multiple: "",
   };
 
   const step3aData = (stepData as any).step3a || {};

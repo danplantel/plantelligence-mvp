@@ -45,6 +45,7 @@ const CATEGORY_ICONS: Record<BenefitsCategory, typeof Building2> = {
   "Company / Plan Sponsor": Users,
   "Recordkeeper / Vendor": Briefcase,
   "Third Party Contact": Briefcase,
+  Multiple: Briefcase,
 };
 
 const CATEGORY_LOGOS: Record<BenefitsCategory, string> = {
@@ -55,6 +56,7 @@ const CATEGORY_LOGOS: Record<BenefitsCategory, string> = {
   "Company / Plan Sponsor": "",
   "Recordkeeper / Vendor": "",
   "Third Party Contact": "",
+  Multiple: "",
 };
 
 /** Count complete contacts per category */
