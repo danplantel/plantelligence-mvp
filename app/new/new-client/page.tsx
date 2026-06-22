@@ -19,6 +19,7 @@ import {
 import { hasUnsavedWizardWork } from "@/lib/new-client-wizard-dirty";
 import { useNavigateAwayGuard } from "@/hooks/use-navigate-away-guard";
 import { NavigateAwayWarningDialog } from "@/components/ui/navigate-away-warning-dialog";
+import { ResumeOrNewPlanDialog } from "@/components/ui/resume-or-new-plan-dialog";
 
 export default function NewClientPage() {
   const { setTitle } = usePageTitleContext();
@@ -44,6 +45,13 @@ export default function NewClientPage() {
     updateCurrentStep,
     errorFields,
   } = useNewClientWizardStore();
+
+  // ── Resume-or-new-plan dialog state ───────────────────────────────────
+  const [showResumeDialog, setShowResumeDialog] = useState(false);
+  const [resumePlanName, setResumePlanName] = useState("");
+  const [resumeSavedAt, setResumeSavedAt] = useState("");
+  // Tracks which path was chosen so the rest of init can finalise correctly.
+  const resumeActionRef = useRef<"continue" | "new" | null>(null);
 
   const handleDiscardLeaveCreatePlan = useCallback(async () => {
     const draftClientId = useNewClientWizardStore.getState().draftClientId;
@@ -76,11 +84,10 @@ export default function NewClientPage() {
     setTitle("Create Plan");
   }, [setTitle]);
 
-  // Guard to ensure the "Resuming" toast appears only once per page load,
-  // even if the initialization effect re-fires due to Strict Mode or
-  // dependency reference shifts.
-  const resumeToastGuardRef = useRef(false);
-
+  // ── Initialization ─────────────────────────────────────────────────────
+  // On mount, detect any in-progress draft (server-side via sessionStorage or
+  // client-side via Zustand persist rehydration).  If found, load its metadata
+  // and show the resume-or-new-plan dialog instead of auto-resuming.
   useEffect(() => {
     let cancelled = false;
 
@@ -92,155 +99,81 @@ export default function NewClientPage() {
             ? window.sessionStorage.getItem("plantelligence:selectedDraftId")
             : null;
 
-        let resumedFromDraft = false;
         let hasExistingData = false;
+        let planName = "";
 
         if (pendingDraftId) {
+          // Load draft data so the dialog can show the company name.
           await loadDraftById(pendingDraftId);
-          const { consumePendingDraftSelection } = await import("@/lib/draft-utils");
-          consumePendingDraftSelection();
-          resumedFromDraft = true;
+          if (cancelled) return;
 
-          // Show a toast indicating the user is resuming a server-side draft.
-          // Prefer the client record's updatedAt from the API; fall back to the
-          // companion localStorage timestamp written by createSafeStorage.setItem.
-          const planName =
+          planName =
             useNewClientWizardStore.getState().stepData.companyBasics
-              ?.companyName || "Plan";
-          let toastShown = false;
+              ?.companyName || "";
+
+          // Try to fetch the server-side saved-at timestamp.
+          let savedAt = "";
           try {
             const draftRes = await fetch(`/api/clients/${pendingDraftId}`);
             const draftJson = await draftRes.json();
             const draftClient = draftJson?.data || draftJson;
             const updatedAt: string | undefined = draftClient?.updatedAt;
             if (updatedAt) {
-              const savedAt = new Date(updatedAt);
-              const formatted = savedAt.toLocaleString(undefined, {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-                hour: "numeric",
-                minute: "2-digit",
-              });
-              if (!resumeToastGuardRef.current) {
-                toast.info(`Resuming "${planName}" draft saved ${formatted}`, {
-                  duration: 5000,
-                });
-                resumeToastGuardRef.current = true;
-              }
-              toastShown = true;
+              savedAt = formatSavedAt(updatedAt);
             }
           } catch {
-            // API fetch failed — fall through to localStorage timestamp below
+            // Fall through — we'll try localStorage below.
           }
 
-          if (!toastShown) {
-            try {
-              const raw = localStorage.getItem("new-client-wizard-saved-at");
-              if (raw) {
-                const ts = Number(raw);
-                if (!Number.isNaN(ts) && ts > 0) {
-                  const savedAt = new Date(ts);
-                  const formatted = savedAt.toLocaleString(undefined, {
-                    year: "numeric",
-                    month: "short",
-                    day: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  });
-                  if (!resumeToastGuardRef.current) {
-                    toast.info(`Resuming "${planName}" draft saved ${formatted}`, {
-                      duration: 5000,
-                    });
-                    resumeToastGuardRef.current = true;
-                  }
-                }
-              }
-            } catch {
-              // Ignore — the toast is non-critical
-            }
+          // If the API call didn't yield a timestamp, try the companion localStorage key
+          // written by createSafeStorage.setItem on the previous page load.
+          if (!savedAt) {
+            savedAt = readLocalStorageSavedAt();
           }
-        } else {
-          // Wait for Zustand persist middleware to rehydrate from localStorage
-          // before checking for existing data, otherwise stepData is always {}
-          // and resetWizard() wipes all previously saved data on page reload.
-          await useNewClientWizardStore.persist.rehydrate();
 
-          const sd = useNewClientWizardStore.getState().stepData;
-          hasExistingData =
-            !!sd.companyBasics?.companyName ||
-            !!sd.companyBasics?.planType?.trim() ||
-            (!!sd.welcomeStatement?.headline &&
-              sd.welcomeStatement.headline !==
-                "Welcome to the <Company Name> Benefits Hub!") ||
-            !!(sd.keyContacts?.contacts && sd.keyContacts.contacts.length > 0);
+          setResumePlanName(planName);
+          setResumeSavedAt(savedAt);
+          setShowResumeDialog(true);
+          hasExistingData = true;
 
-          if (!hasExistingData) {
-            resetWizard();
-            await createNewSession();
-            await seedAdvisorDefaultsFromProfile();
-          } else {
-            // Seed advisor defaults for any empty fields (e.g. companyWebsite,
-            // colors, advisor name). This is safe because mergeAdvisorProfileIntoWizardStepData
-            // only fills fields that are empty/falsy — it never overwrites user data.
-            await seedAdvisorDefaultsFromProfile();
-
-            // Show a toast indicating the user is resuming a draft.
-            // Zustand v4 stores { state, version } — there is no _persist.time
-            // like v5, so we read the companion timestamp written by
-            // createSafeStorage.setItem.
-            const planName =
-              useNewClientWizardStore.getState().stepData.companyBasics
-                ?.companyName || "Plan";
-            try {
-              const raw = localStorage.getItem("new-client-wizard-saved-at");
-              if (raw) {
-                const ts = Number(raw);
-                if (!Number.isNaN(ts) && ts > 0) {
-                  const savedAt = new Date(ts);
-                  const formatted = savedAt.toLocaleString(undefined, {
-                    year: "numeric",
-                    month: "short",
-                    day: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  });
-                  if (!resumeToastGuardRef.current) {
-                    toast.info(`Resuming "${planName}" draft saved ${formatted}`, {
-                      duration: 5000,
-                    });
-                    resumeToastGuardRef.current = true;
-                  }
-                }
-              }
-            } catch {
-              // Ignore parse errors — the toast is non-critical
-            }
-          }
+          // Keep isInitialLoading = true — the dialog callbacks will finalise.
+          return;
         }
 
+        // No pending draft — check localStorage via persist rehydration.
+        await useNewClientWizardStore.persist.rehydrate();
         if (cancelled) return;
 
-        const params = new URLSearchParams(
-          typeof window !== "undefined" ? window.location.search : "",
-        );
-        const rawStep = params.get("step");
-        const parsed = rawStep ? parseInt(rawStep, 10) : NaN;
-        if (!Number.isNaN(parsed) && parsed >= 1 && parsed <= 5) {
-          goToStep(parsed);
-          await updateCurrentStep(parsed);
-        } else if (!resumedFromDraft && !hasExistingData) {
-          // Resuming a draft already set currentStep from the client record; do not jump to
-          // "first incomplete" or the user loses their last-saved step (e.g. Finish Setup).
-          // Also skip when resuming with existing localStorage data — the user's persisted
-          // currentStep should be honored. Otherwise seedAdvisorDefaultsFromProfile may have
-          // pre-filled fields (e.g. companyWebsite) making the current step appear complete
-          // and auto-advancing the user before they've finished.
-          await syncCurrentStepToFirstIncomplete();
+        const sd = useNewClientWizardStore.getState().stepData;
+        hasExistingData =
+          !!sd.companyBasics?.companyName ||
+          !!sd.companyBasics?.planType?.trim() ||
+          (!!sd.welcomeStatement?.headline &&
+            sd.welcomeStatement.headline !==
+              "Welcome to the <Company Name> Benefits Hub!") ||
+          !!(sd.keyContacts?.contacts && sd.keyContacts.contacts.length > 0);
+
+        if (hasExistingData) {
+          planName = sd.companyBasics?.companyName || "";
+          const savedAt = readLocalStorageSavedAt();
+
+          setResumePlanName(planName);
+          setResumeSavedAt(savedAt);
+          setShowResumeDialog(true);
+
+          // Keep isInitialLoading = true — the dialog callbacks will finalise.
+          return;
         }
+
+        // No existing data at all — start a fresh session immediately.
+        resetWizard();
+        await createNewSession();
+        await seedAdvisorDefaultsFromProfile();
+
+        if (cancelled) return;
+        setIsInitialLoading(false);
       } catch (error) {
         console.error("Failed to initialize wizard:", error);
-      } finally {
         if (!cancelled) setIsInitialLoading(false);
       }
     };
@@ -258,6 +191,80 @@ export default function NewClientPage() {
     goToStep,
     updateCurrentStep,
   ]);
+
+  // ── Resume-dialog callbacks ────────────────────────────────────────────
+  // These are called AFTER the dialog state is set, so the store already has
+  // the loaded draft data (for pendingDraftId) or rehydrated localStorage data.
+
+  const handleResumeContinue = useCallback(async () => {
+    resumeActionRef.current = "continue";
+    setShowResumeDialog(false);
+
+    // Consume the pending draft selection so it won't re-fire on next load.
+    try {
+      const pendingDraftId = sessionStorage.getItem(
+        "plantelligence:selectedDraftId",
+      );
+      if (pendingDraftId) {
+        const { consumePendingDraftSelection } = await import(
+          "@/lib/draft-utils"
+        );
+        consumePendingDraftSelection();
+      }
+    } catch {
+      /* ignore */
+    }
+
+    // Re-seed advisor defaults for any empty fields (safe — only fills empty).
+    await seedAdvisorDefaultsFromProfile();
+
+    // Navigate to the correct step based on URL param or first incomplete.
+    const params = new URLSearchParams(
+      typeof window !== "undefined" ? window.location.search : "",
+    );
+    const rawStep = params.get("step");
+    const parsed = rawStep ? parseInt(rawStep, 10) : NaN;
+    if (!Number.isNaN(parsed) && parsed >= 1 && parsed <= 5) {
+      goToStep(parsed);
+      await updateCurrentStep(parsed);
+    } else {
+      await syncCurrentStepToFirstIncomplete();
+    }
+
+    setIsInitialLoading(false);
+  }, [seedAdvisorDefaultsFromProfile, goToStep, updateCurrentStep, syncCurrentStepToFirstIncomplete]);
+
+  const handleResumeNewPlan = useCallback(async () => {
+    resumeActionRef.current = "new";
+    setShowResumeDialog(false);
+
+    // Delete the server-side draft if one exists (for pendingDraftId path).
+    const draftClientId = useNewClientWizardStore.getState().draftClientId;
+    if (draftClientId) {
+      try {
+        const res = await fetch(`/api/clients/${draftClientId}`, {
+          method: "DELETE",
+        });
+        if (res.ok) {
+          toast.success("Draft plan deleted");
+        }
+      } catch {
+        /* best-effort */
+      }
+    }
+
+    resetWizard();
+    await createNewSession();
+    await seedAdvisorDefaultsFromProfile();
+
+    try {
+      sessionStorage.removeItem("plantelligence:selectedDraftId");
+    } catch {
+      /* ignore */
+    }
+
+    setIsInitialLoading(false);
+  }, [resetWizard, createNewSession, seedAdvisorDefaultsFromProfile]);
 
   // ── Stale-draft guard (non-blocking) ────────────────────────────────────
   // After initialization finishes, verify that any draftClientId still
@@ -503,6 +510,55 @@ export default function NewClientPage() {
         onDialogOpenChange={leaveGuard.dialogOnOpenChange}
         onDiscardPointerDownCapture={leaveGuard.suppressStayOnNextClose}
       />
+
+      <ResumeOrNewPlanDialog
+        open={showResumeDialog}
+        planName={resumePlanName}
+        savedAt={resumeSavedAt}
+        onContinue={handleResumeContinue}
+        onCreateNew={handleResumeNewPlan}
+      />
     </>
   );
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────
+
+/** Parse an ISO timestamp into a human-readable "saved at" string. */
+function formatSavedAt(iso: string): string {
+  try {
+    const savedAt = new Date(iso);
+    return savedAt.toLocaleString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  } catch {
+    return "";
+  }
+}
+
+/** Read the companion localStorage timestamp written by createSafeStorage.setItem. */
+function readLocalStorageSavedAt(): string {
+  try {
+    const raw = localStorage.getItem("new-client-wizard-saved-at");
+    if (raw) {
+      const ts = Number(raw);
+      if (!Number.isNaN(ts) && ts > 0) {
+        const savedAt = new Date(ts);
+        return savedAt.toLocaleString(undefined, {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        });
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return "";
 }

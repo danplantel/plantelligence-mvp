@@ -813,6 +813,9 @@ export async function DELETE(
           OR: [{ clientId }, { client: clientName, clientId: null }],
         },
       }),
+      () => prisma.marketingAsset.deleteMany({ where: { clientId } }),
+      () => prisma.marketingFlyer.deleteMany({ where: { clientId } }),
+      () => prisma.video.deleteMany({ where: { clientId } }),
       ...(wizardSession
         ? [
             () => prisma.newClientCompanyBasics.deleteMany({ where: { sessionId: wizardSession.id } }),
