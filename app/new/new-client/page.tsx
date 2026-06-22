@@ -45,13 +45,11 @@ export default function NewClientPage() {
     updateCurrentStep,
     errorFields,
   } = useNewClientWizardStore();
+// ── Resume-or-new-plan dialog state ───────────────────────────────────
+const [showResumeDialog, setShowResumeDialog] = useState(false);
+const [resumePlanName, setResumePlanName] = useState("");
+const [resumeSavedAt, setResumeSavedAt] = useState("");
 
-  // ── Resume-or-new-plan dialog state ───────────────────────────────────
-  const [showResumeDialog, setShowResumeDialog] = useState(false);
-  const [resumePlanName, setResumePlanName] = useState("");
-  const [resumeSavedAt, setResumeSavedAt] = useState("");
-  // Tracks which path was chosen so the rest of init can finalise correctly.
-  const resumeActionRef = useRef<"continue" | "new" | null>(null);
 
   const handleDiscardLeaveCreatePlan = useCallback(async () => {
     const draftClientId = useNewClientWizardStore.getState().draftClientId;
@@ -197,7 +195,6 @@ export default function NewClientPage() {
   // the loaded draft data (for pendingDraftId) or rehydrated localStorage data.
 
   const handleResumeContinue = useCallback(async () => {
-    resumeActionRef.current = "continue";
     setShowResumeDialog(false);
 
     // Consume the pending draft selection so it won't re-fire on next load.
@@ -235,24 +232,11 @@ export default function NewClientPage() {
   }, [seedAdvisorDefaultsFromProfile, goToStep, updateCurrentStep, syncCurrentStepToFirstIncomplete]);
 
   const handleResumeNewPlan = useCallback(async () => {
-    resumeActionRef.current = "new";
     setShowResumeDialog(false);
 
-    // Delete the server-side draft if one exists (for pendingDraftId path).
-    const draftClientId = useNewClientWizardStore.getState().draftClientId;
-    if (draftClientId) {
-      try {
-        const res = await fetch(`/api/clients/${draftClientId}`, {
-          method: "DELETE",
-        });
-        if (res.ok) {
-          toast.success("Draft plan deleted");
-        }
-      } catch {
-        /* best-effort */
-      }
-    }
-
+    // Reset local state and start a fresh session.
+    // The existing draft on the server is preserved so it remains visible
+    // in View Plans if the user wants to come back to it later.
     resetWizard();
     await createNewSession();
     await seedAdvisorDefaultsFromProfile();
@@ -471,46 +455,9 @@ export default function NewClientPage() {
     }
   };
 
-  if (isInitialLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-background">
-        <div className="flex flex-col items-center space-y-4">
-          <div className="w-12 h-12 border-4 border-accent-blue border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-gray-500 font-medium animate-pulse">
-            Loading your plan...
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <>
-      <NewClientWizard
-        steps={newClientWizardSteps}
-        currentStep={currentStep}
-        totalSteps={totalSteps}
-        onNext={onNext}
-        onPrevious={onPrevious}
-        onComplete={onComplete}
-        isFirstStep={isFirstStep}
-        isLastStep={isLastStep}
-        isLoading={isLoading}
-      >
-        {renderStep()}
-      </NewClientWizard>
-
-      <NavigateAwayWarningDialog
-        open={leaveGuard.dialogOpen}
-        isSaving={leaveGuard.isSaving}
-        isDiscarding={leaveGuard.isDiscarding}
-        onStay={leaveGuard.stayAndKeepEditing}
-        onSaveAndExit={leaveGuard.saveAndExit}
-        onDiscardWithoutSaving={leaveGuard.discardWithoutSaving}
-        onDialogOpenChange={leaveGuard.dialogOnOpenChange}
-        onDiscardPointerDownCapture={leaveGuard.suppressStayOnNextClose}
-      />
-
+      {/* Always-mounted dialog — renders even over the loading spinner */}
       <ResumeOrNewPlanDialog
         open={showResumeDialog}
         planName={resumePlanName}
@@ -518,6 +465,44 @@ export default function NewClientPage() {
         onContinue={handleResumeContinue}
         onCreateNew={handleResumeNewPlan}
       />
+
+      {isInitialLoading ? (
+        <div className="flex flex-col items-center justify-center min-h-screen bg-background">
+          <div className="flex flex-col items-center space-y-4">
+            <div className="w-12 h-12 border-4 border-accent-blue border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-gray-500 font-medium animate-pulse">
+              Loading your plan...
+            </p>
+          </div>
+        </div>
+      ) : (
+        <>
+          <NewClientWizard
+            steps={newClientWizardSteps}
+            currentStep={currentStep}
+            totalSteps={totalSteps}
+            onNext={onNext}
+            onPrevious={onPrevious}
+            onComplete={onComplete}
+            isFirstStep={isFirstStep}
+            isLastStep={isLastStep}
+            isLoading={isLoading}
+          >
+            {renderStep()}
+          </NewClientWizard>
+
+          <NavigateAwayWarningDialog
+            open={leaveGuard.dialogOpen}
+            isSaving={leaveGuard.isSaving}
+            isDiscarding={leaveGuard.isDiscarding}
+            onStay={leaveGuard.stayAndKeepEditing}
+            onSaveAndExit={leaveGuard.saveAndExit}
+            onDiscardWithoutSaving={leaveGuard.discardWithoutSaving}
+            onDialogOpenChange={leaveGuard.dialogOnOpenChange}
+            onDiscardPointerDownCapture={leaveGuard.suppressStayOnNextClose}
+          />
+        </>
+      )}
     </>
   );
 }
