@@ -113,7 +113,7 @@ const Sidebar = memo(function Sidebar() {
       </button>
 
       {/* Logo */}
-      <div className="flex items-center p-4 flex-shrink-0">
+      <div className="flex items-center p-4 flex-shrink-0 overflow-hidden">
         <Link href={"#"} target="_blank" className="flex w-full">
           <div className="">
             {isOpen ? (
