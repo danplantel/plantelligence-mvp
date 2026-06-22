@@ -114,6 +114,7 @@ export function DocumentsUploadSection({
   const [batchCategoryDialogOpen, setBatchCategoryDialogOpen] = useState(false);
   const [pendingBatchFiles, setPendingBatchFiles] = useState<File[]>([]);
   const [batchCategory, setBatchCategory] = useState<BenefitsCategory>("Retirement");
+  const [batchMultipleCategories, setBatchMultipleCategories] = useState<string[]>(["Retirement"]);
   const [reviewDocuments, setReviewDocuments] = useState<Document[]>([]);
   const [isReviewing, setIsReviewing] = useState(false);
   const [confirmedReview, setConfirmedReview] = useState(false);
@@ -1493,6 +1494,7 @@ export function DocumentsUploadSection({
                   <SelectItem value="Retirement">{getDocumentCategoryDisplayLabel("Retirement")}</SelectItem>
                   <SelectItem value="Group Life">{getDocumentCategoryDisplayLabel("Group Life")}</SelectItem>
                   <SelectItem value="Group Health">{getDocumentCategoryDisplayLabel("Group Health")}</SelectItem>
+                  <SelectItem value="Multiple">{getDocumentCategoryDisplayLabel("Multiple")}</SelectItem>
                   <SelectItem value="Other Benefits">{getDocumentCategoryDisplayLabel("Other Benefits")}</SelectItem>
                 </SelectContent>
               </Select>
@@ -1675,30 +1677,77 @@ export function DocumentsUploadSection({
           </AlertDialogDescription>
         </AlertDialogHeader>
 
-        <div className="py-4">
+        <div className="py-4 space-y-3">
           <Label
             htmlFor="batch-category"
-            className="text-sm font-medium mb-2 block dark:text-gray-300"
+            className="text-sm font-medium block dark:text-gray-300"
           >
             Category
           </Label>
-          <Select
-            value={batchCategory}
-            onValueChange={(v: any) => setBatchCategory(v)}
-          >
-            <SelectTrigger
-              id="batch-category"
-              className="w-full dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"
+
+          {batchCategory === "Multiple" ? (
+            <div className="space-y-3 border rounded-md p-3 bg-gray-50 dark:bg-gray-900/50 dark:border-gray-700">
+              <p className="text-xs text-muted-foreground">Select all categories that apply:</p>
+              <div className="space-y-2">
+                {["Retirement", "Group Health", "Group Life", "Other Benefits"].map((cat) => (
+                  <label
+                    key={cat}
+                    className="flex items-center gap-2 cursor-pointer text-sm hover:text-accent-blue transition-colors"
+                  >
+                    <Checkbox
+                      checked={batchMultipleCategories.includes(cat)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setBatchMultipleCategories((prev) => [...prev, cat]);
+                        } else {
+                          setBatchMultipleCategories((prev) =>
+                            prev.filter((c) => c !== cat)
+                          );
+                        }
+                      }}
+                    />
+                    {cat}
+                  </label>
+                ))}
+              </div>
+              {batchMultipleCategories.length === 0 && (
+                <p className="text-xs text-red-500">Select at least one category</p>
+              )}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-xs h-7"
+                onClick={() => setBatchCategory("Retirement")}
+              >
+                ← Back to single category
+              </Button>
+            </div>
+          ) : (
+            <Select
+              value={batchCategory}
+              onValueChange={(v: any) => {
+                setBatchCategory(v);
+                if (v === "Multiple") {
+                  setBatchMultipleCategories(["Retirement"]);
+                }
+              }}
             >
-              <SelectValue placeholder="Select Category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Retirement">Retirement</SelectItem>
-              <SelectItem value="Group Life">Group Life</SelectItem>
-              <SelectItem value="Group Health">Group Health</SelectItem>
-              <SelectItem value="Other Benefits">Other</SelectItem>
-            </SelectContent>
-          </Select>
+              <SelectTrigger
+                id="batch-category"
+                className="w-full dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"
+              >
+                <SelectValue placeholder="Select Category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Retirement">Retirement</SelectItem>
+                <SelectItem value="Group Life">Group Life</SelectItem>
+                <SelectItem value="Group Health">Group Health</SelectItem>
+                <SelectItem value="Multiple">Multiple</SelectItem>
+                <SelectItem value="Other Benefits">Other</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         <AlertDialogFooter>
@@ -1712,9 +1761,13 @@ export function DocumentsUploadSection({
             Cancel
           </AlertDialogCancel>
           <AlertDialogAction
+            disabled={batchCategory === "Multiple" && batchMultipleCategories.length === 0}
             onClick={() => {
               setBatchCategoryDialogOpen(false);
-              void addDocumentsFromFiles(pendingBatchFiles, batchCategory);
+              const effectiveCategory = batchCategory === "Multiple"
+                ? batchMultipleCategories.join(",")
+                : batchCategory;
+              void addDocumentsFromFiles(pendingBatchFiles, effectiveCategory as BenefitsCategory);
               setPendingBatchFiles([]);
             }}
           >

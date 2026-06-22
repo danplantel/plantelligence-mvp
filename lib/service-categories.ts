@@ -57,5 +57,6 @@ export function step2ServicesToCategories(step2Services: string[]): string[] {
 /** Display label for document/benefits category (e.g. in Step 4 uploaded docs). Matches Settings names. */
 export function getDocumentCategoryDisplayLabel(category: string): string {
   if (category === "Other Benefits") return "Other";
+  if (category && category.includes(",")) return "Multiple";
   return category || "";
 }

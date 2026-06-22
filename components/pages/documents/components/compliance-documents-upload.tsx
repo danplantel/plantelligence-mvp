@@ -1127,6 +1127,7 @@ export function ComplianceDocumentsUpload({
                   <SelectItem value="Retirement">Retirement</SelectItem>
                   <SelectItem value="Group Life">Group Life</SelectItem>
                   <SelectItem value="Group Health">Group Health</SelectItem>
+                  <SelectItem value="Multiple">Multiple</SelectItem>
                   <SelectItem value="Other Benefits">Other</SelectItem>
                 </SelectContent>
               </Select>
@@ -1177,6 +1178,7 @@ export function ComplianceDocumentsUpload({
                         <SelectItem value="Retirement">Retirement</SelectItem>
                         <SelectItem value="Group Life">Group Life</SelectItem>
                         <SelectItem value="Group Health">Group Health</SelectItem>
+                        <SelectItem value="Multiple">Multiple</SelectItem>
                         <SelectItem value="Other Benefits">Other</SelectItem>
                       </SelectContent>
                     </Select>

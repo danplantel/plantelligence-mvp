@@ -179,7 +179,8 @@ export function DocumentsTableView({
                   ) : document.category ? (
                     <Badge
                       variant="outline"
-                      className="bg-purple-50 text-purple-700 border-purple-100 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800"
+                      className="bg-purple-50 text-purple-700 hover:bg-purple-700 hover:text-white border-purple-100 dark:bg-purple-900/20 dark:text-purple-300 dark:hover:bg-purple-800 dark:hover:text-white dark:border-purple-800 cursor-default transition-colors"
+                      title={document.category.includes(",") ? document.category : undefined}
                     >
                       {getDocumentCategoryDisplayLabel(document.category)}
                     </Badge>

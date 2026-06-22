@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Upload, FileText, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -50,6 +51,7 @@ export function DocumentEditModal({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
+  const [editMultipleCategories, setEditMultipleCategories] = useState<string[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -58,7 +60,14 @@ export function DocumentEditModal({
     if (document && isOpen) {
       setTitle(document.title || "");
       setDescription(document.description || "");
-      setCategory(String((document as any).category || ""));
+      const docCat = String((document as any).category || "");
+      setCategory(docCat);
+      // If category contains commas, pre-populate the multiple selection
+      if (docCat.includes(",")) {
+        setEditMultipleCategories(docCat.split(",").map((c) => c.trim()).filter(Boolean));
+      } else {
+        setEditMultipleCategories([]);
+      }
       setFile(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -101,9 +110,17 @@ export function DocumentEditModal({
       return;
     }
 
+    if (category === "Multiple" && editMultipleCategories.length === 0) {
+      toast.error("Select at least one category");
+      return;
+    }
+
     setIsSaving(true);
     try {
-      await onSave(document.id, title.trim(), description.trim(), file || undefined, category || undefined);
+      const effectiveCategory = category === "Multiple"
+        ? editMultipleCategories.join(",")
+        : category;
+      await onSave(document.id, title.trim(), description.trim(), file || undefined, effectiveCategory || undefined);
       onClose();
     } catch (error) {
       // Error is handled by onSave
@@ -245,17 +262,63 @@ export function DocumentEditModal({
           {/* Category */}
           <div className="space-y-2">
             <Label htmlFor="category">Category</Label>
-            <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger id="category">
-                <SelectValue placeholder="Select a category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Retirement">Retirement</SelectItem>
-                <SelectItem value="Group Health">Group Health</SelectItem>
-                <SelectItem value="Group Life">Group Life</SelectItem>
-                <SelectItem value="Other Benefits">Other</SelectItem>
-              </SelectContent>
-            </Select>
+            {category === "Multiple" ? (
+              <div className="space-y-2 border rounded-md p-3 bg-gray-50 dark:bg-gray-900/50 dark:border-gray-700">
+                <p className="text-xs text-muted-foreground">Select all categories that apply:</p>
+                {["Retirement", "Group Health", "Group Life", "Other Benefits"].map((cat) => (
+                  <label
+                    key={cat}
+                    className="flex items-center gap-2 cursor-pointer text-sm hover:text-accent-blue transition-colors"
+                  >
+                    <Checkbox
+                      checked={editMultipleCategories.includes(cat)}
+                      onCheckedChange={(checked: boolean) => {
+                        if (checked) {
+                          setEditMultipleCategories((prev) => [...prev, cat]);
+                        } else {
+                          setEditMultipleCategories((prev) =>
+                            prev.filter((c) => c !== cat)
+                          );
+                        }
+                      }}
+                    />
+                    {cat}
+                  </label>
+                ))}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs h-7 mt-1"
+                  onClick={() => setCategory("")}
+                >
+                  ← Back to single category
+                </Button>
+              </div>
+            ) : (
+              <Select
+                value={category}
+                onValueChange={(v) => {
+                  setCategory(v);
+                  if (v !== "Multiple") {
+                    setEditMultipleCategories([]);
+                  } else {
+                    setEditMultipleCategories(["Retirement"]);
+                  }
+                }}
+              >
+                <SelectTrigger id="category">
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Retirement">Retirement</SelectItem>
+                  <SelectItem value="Group Health">Group Health</SelectItem>
+                  <SelectItem value="Group Life">Group Life</SelectItem>
+                  <SelectItem value="Multiple">Multiple</SelectItem>
+                  <SelectItem value="Other Benefits">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
           </div>
         </div>
 

@@ -719,7 +719,11 @@ export default function DocumentsPage() {
       const docCategory = (doc as any).category as string | undefined;
       const docLanguage = (doc as any).language as string | undefined;
       if (typeFilter !== "all" && docType !== typeFilter) return false;
-      if (categoryFilter !== "all" && docCategory !== categoryFilter) return false;
+      if (categoryFilter !== "all") {
+        // Support comma-separated categories: match if docCategory contains the filter value
+        const docCategories = (docCategory || "").split(",").map((c) => c.trim()).filter(Boolean);
+        if (!docCategories.includes(categoryFilter)) return false;
+      }
       if (languageFilter !== "all" && docLanguage !== languageFilter) return false;
       return true;
     });
@@ -851,7 +855,7 @@ export default function DocumentsPage() {
                     <p className="text-sm text-muted-foreground">Review and manage all documents for this plan. Use the filters to narrow results, click column headers to sort, and expand rows to preview.</p>
                     <div className="flex flex-wrap items-center gap-3 justify-between">
                       <div className="flex items-center gap-3 flex-wrap">
-                        <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v)}><SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue placeholder="Category" /></SelectTrigger><SelectContent><SelectItem value="all">All Categories</SelectItem><SelectItem value="Retirement">Retirement</SelectItem><SelectItem value="Group Health">Group Health</SelectItem><SelectItem value="Group Life">Group Life</SelectItem><SelectItem value="Other Benefits">Other</SelectItem>{uniqueCategories.filter((c) => !["Retirement","Group Health","Group Life","Other Benefits"].includes(c)).map((cat) => (<SelectItem key={cat} value={cat}>{cat}</SelectItem>))}</SelectContent></Select>
+                        <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v)}><SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue placeholder="Category" /></SelectTrigger><SelectContent><SelectItem value="all">All Categories</SelectItem><SelectItem value="Retirement">Retirement</SelectItem><SelectItem value="Group Health">Group Health</SelectItem><SelectItem value="Group Life">Group Life</SelectItem><SelectItem value="Multiple">Multiple</SelectItem><SelectItem value="Other Benefits">Other</SelectItem>{uniqueCategories.filter((c) => !["Retirement","Group Health","Group Life","Multiple","Other Benefits"].includes(c)).map((cat) => (<SelectItem key={cat} value={cat}>{cat}</SelectItem>))}</SelectContent></Select>
                         {availableLanguages.length > 1 && (
                           <div className="flex gap-2">
                             {availableLanguages.map((lang) => {
@@ -860,7 +864,8 @@ export default function DocumentsPage() {
                                 const docLang = (doc as any).language;
                                 const langMatch = docLang === lang || (!docLang && lang === "EN");
                                 const docCategory = (doc as any).category as string | undefined;
-                                const catMatch = categoryFilter === "all" || docCategory === categoryFilter;
+                                const docCategories = (docCategory || "").split(",").map((c) => c.trim()).filter(Boolean);
+                                const catMatch = categoryFilter === "all" || docCategories.includes(categoryFilter);
                                 return langMatch && catMatch;
                               }).length;
                               return (
@@ -939,7 +944,12 @@ export default function DocumentsPage() {
                                       </div>
                                     </td>
                                     <td className="px-3 py-3">
-                                      <Badge className="text-[10px] h-5 px-1.5 bg-[#002B5B]/10 text-[#002B5B] dark:bg-blue-900/30 dark:text-blue-300 border-transparent">{docCategory || "—"}</Badge>
+                                      <Badge
+                                        className="text-[10px] h-5 px-1.5 bg-[#002B5B]/10 text-[#002B5B] hover:bg-[#002B5B] hover:text-white dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-800 dark:hover:text-white border-transparent cursor-default transition-colors"
+                                        title={docCategory?.includes(",") ? docCategory : undefined}
+                                      >
+                                        {docCategory && docCategory.includes(",") ? "Multiple" : docCategory || "—"}
+                                      </Badge>
                                     </td>
                                     <td className="px-3 py-3">
                                       <Badge className="text-[10px] h-5 px-1.5 bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 border-transparent">{doc.language}</Badge>
@@ -1031,7 +1041,12 @@ export default function DocumentsPage() {
 
                                           {/* Category, language, date badges */}
                                           <div className="flex items-center gap-2 flex-wrap">
-                                            <Badge className="text-[10px] h-5 px-1.5 bg-[#002B5B]/10 text-[#002B5B] dark:bg-blue-900/30 dark:text-blue-300 border-transparent">{docCategory || "—"}</Badge>
+                                            <Badge
+                                              className="text-[10px] h-5 px-1.5 bg-[#002B5B]/10 text-[#002B5B] hover:bg-[#002B5B] hover:text-white dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-800 dark:hover:text-white border-transparent cursor-default transition-colors"
+                                              title={docCategory?.includes(",") ? docCategory : undefined}
+                                            >
+                                              {docCategory && docCategory.includes(",") ? "Multiple" : docCategory || "—"}
+                                            </Badge>
                                             {docLanguage && (
                                               <Badge className="text-[10px] h-5 px-1.5 bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 border-transparent">{docLanguage}</Badge>
                                             )}

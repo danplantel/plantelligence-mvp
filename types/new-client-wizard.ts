@@ -96,6 +96,7 @@ export type BenefitsCategory =
   | "Retirement"
   | "Group Health"
   | "Group Life"
+  | "Multiple"
   | "Other Benefits"
   | "Company / Plan Sponsor"
   | "Recordkeeper / Vendor"
