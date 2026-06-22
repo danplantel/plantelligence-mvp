@@ -143,6 +143,14 @@ export default function MarketingAssetModal({
 
   // Pop-up specific
   const [showEveryVisit, setShowEveryVisit] = useState(false);
+  const POPUP_PAGES = [
+    { id: "all", label: "All Pages" },
+    { id: "home", label: "Home Page" },
+    { id: "benefits", label: "Benefits" },
+    { id: "news-events", label: "News & Events" },
+    { id: "my-benefits-team", label: "My Benefits Team" },
+  ] as const;
+  const [popupPages, setPopupPages] = useState<string[]>(["all"]);
 
   // News post specific
   const [postCategory, setPostCategory] = useState("Announcement");
@@ -172,6 +180,7 @@ export default function MarketingAssetModal({
     setFlyerQrUrl("");
     setFlyerCategory("");
     setShowEveryVisit(false);
+    setPopupPages(["all"]);
     setAssetStatus("Draft");
     setNoticeType("text");
     setCountdownTarget("");
@@ -237,6 +246,7 @@ export default function MarketingAssetModal({
     }
     if (assetType === "pop-up") {
       data.showEveryVisit = showEveryVisit;
+      data.popupPages = popupPages;
     }
     if (assetType === "news-post") {
       data.category = postCategory;
@@ -482,15 +492,45 @@ export default function MarketingAssetModal({
 
             {/* Pop-up specific — at the top of inputs */}
             {assetType === "pop-up" && (
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={showEveryVisit}
-                  onChange={(e) => setShowEveryVisit(e.target.checked)}
-                  className="rounded border-gray-300"
-                />
-                Show on every visit
-              </label>
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-sm font-medium">Show on pages</Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">Select which pages this pop-up will appear on.</p>
+                </div>
+                <div className="space-y-2">
+                  {POPUP_PAGES.map((page) => (
+                    <label key={page.id} className="flex items-center gap-2.5 text-sm cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={popupPages.includes(page.id)}
+                        onChange={() => {
+                          if (page.id === "all") {
+                            setPopupPages(popupPages.includes("all") ? [] : ["all"]);
+                          } else {
+                            const next = popupPages.filter((p) => p !== "all");
+                            if (next.includes(page.id)) {
+                              setPopupPages(next.filter((p) => p !== page.id));
+                            } else {
+                              setPopupPages([...next, page.id]);
+                            }
+                          }
+                        }}
+                        className="rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                      />
+                      <span>{page.label}</span>
+                    </label>
+                  ))}
+                </div>
+                <label className="flex items-center gap-2.5 text-sm cursor-pointer pt-1 border-t border-gray-100 dark:border-gray-800">
+                  <input
+                    type="checkbox"
+                    checked={showEveryVisit}
+                    onChange={(e) => setShowEveryVisit(e.target.checked)}
+                    className="rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                  />
+                  Show on every visit
+                </label>
+              </div>
             )}
 
             {/* Headline */}
