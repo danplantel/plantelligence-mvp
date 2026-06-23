@@ -215,7 +215,7 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
     // Re-seed advisor defaults for any empty fields (safe — only fills empty).
     await seedAdvisorDefaultsFromProfile();
 
-    // Navigate to the correct step based on URL param or first incomplete.
+    // Navigate to the correct step based on URL param or the saved currentStep.
     const params = new URLSearchParams(
       typeof window !== "undefined" ? window.location.search : "",
     );
@@ -225,11 +225,16 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
       goToStep(parsed);
       await updateCurrentStep(parsed);
     } else {
-      await syncCurrentStepToFirstIncomplete();
+      // Use the step the user was last on (restored by loadDraftById or persist rehydration)
+      // instead of recalculating from data completeness, so the user returns to
+      // their most recent position in the wizard.
+      const savedStep = useNewClientWizardStore.getState().currentStep;
+      goToStep(savedStep);
+      await updateCurrentStep(savedStep);
     }
 
     setIsInitialLoading(false);
-  }, [seedAdvisorDefaultsFromProfile, goToStep, updateCurrentStep, syncCurrentStepToFirstIncomplete]);
+  }, [seedAdvisorDefaultsFromProfile, goToStep, updateCurrentStep]);
 
   const handleResumeNewPlan = useCallback(async () => {
     setShowResumeDialog(false);
