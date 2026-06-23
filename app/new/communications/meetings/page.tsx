@@ -678,7 +678,7 @@ export default function MeetingsPage() {
                     <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger className="w-32 h-8 bg-white dark:bg-gray-800 text-xs"><SelectValue placeholder="All Status" /></SelectTrigger><SelectContent><SelectItem value="all">All Status</SelectItem><SelectItem value="Upcoming">Upcoming</SelectItem><SelectItem value="Past">Past</SelectItem><SelectItem value="Draft">Draft</SelectItem></SelectContent></Select>
                     <Select value={benefitsCategoryFilter} onValueChange={setBenefitsCategoryFilter}><SelectTrigger className="w-40 h-8 bg-white dark:bg-gray-800 text-xs"><SelectValue placeholder="All Categories" /></SelectTrigger><SelectContent><SelectItem value="all">All Categories</SelectItem><SelectItem value="Retirement">Retirement</SelectItem><SelectItem value="Group Health">Group Health</SelectItem><SelectItem value="Group Life">Group Life</SelectItem><SelectItem value="Other">Other</SelectItem></SelectContent></Select>
                     <div className="w-px h-6 bg-border mx-1 shrink-0" />
-                    <Button variant="outline" size="sm" onClick={() => { setPreviewDialogOpen(true); setPreviewLoading(true); setTimeout(() => setPreviewLoading(false), 5000); }} className="gap-1.5 shrink-0"><FileText className="h-4 w-4" />Preview</Button>
+                    <Button variant="outline" size="sm" onClick={() => setPreviewDialogOpen(true)} className="gap-1.5 shrink-0"><FileText className="h-4 w-4" />Preview</Button>
                     <Button onClick={() => setMeetingModalOpen(true)} size="sm" className="gap-1.5 shrink-0"><Plus className="h-4 w-4" />Add Meeting</Button>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1000,6 +1000,35 @@ export default function MeetingsPage() {
               toast.success("Form pre-filled for duplication. Adjust any details and submit.");
             }}>
               Yes, duplicate
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Preview Dialog — shows meetings as they appear in the client portal */}
+      <Dialog open={previewDialogOpen} onOpenChange={setPreviewDialogOpen}>
+        <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Meeting Preview</DialogTitle>
+            <DialogDescription>
+              This is how meetings will appear to clients in the portal.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            {formData.clientId ? (
+              <WebinarsSection
+                clientId={formData.clientId}
+                onLoadComplete={() => setPreviewLoading(false)}
+              />
+            ) : (
+              <div className="flex items-center justify-center py-20 text-muted-foreground">
+                <p>Select a plan first to preview its meetings.</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPreviewDialogOpen(false)}>
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>
