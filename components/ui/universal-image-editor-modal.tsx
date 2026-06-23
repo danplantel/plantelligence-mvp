@@ -328,6 +328,7 @@ export function UniversalImageEditorModal({
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [showGuidelines, setShowGuidelines] = useState(true);
   const [isBeyondMaxAspectRatio, setIsBeyondMaxAspectRatio] = useState(false);
@@ -2475,17 +2476,27 @@ export function UniversalImageEditorModal({
 
                 <button
                   type="button"
-                  onClick={(e) => {
+                  disabled={isDeleting}
+                  onClick={async (e) => {
                     e.stopPropagation();
-                    onRemove();
+                    setIsDeleting(true);
+                    try {
+                      await onRemove();
+                    } finally {
+                      setIsDeleting(false);
+                    }
                     if (inputRef.current) {
                       inputRef.current.value = "";
                     }
                   }}
-                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-full hover:bg-red-100 transition-colors"
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-full hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  <X className="w-3.5 h-3.5" />
-                  Delete
+                  {isDeleting ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <X className="w-3.5 h-3.5" />
+                  )}
+                  {isDeleting ? "Deleting..." : "Delete"}
                 </button>
               </div>
             </div>
