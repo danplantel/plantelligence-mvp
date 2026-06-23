@@ -73,6 +73,9 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
   // Always start with checkbox checked by default
   const [useDefaultWelcomeMessage, setUseDefaultWelcomeMessage] = useState(true);
 
+  const editorIsOpen =
+    editorState.isEditorOpen || editorState.isEditorAnimating;
+
   // Lenis scroll setup
   const { editorScrollContainerRef, scrollSyncSourceRef } = useLenisScroll(
     editorState.isEditorOpen,
@@ -746,6 +749,38 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
           "margin-left 200ms ease-in-out, padding-left 200ms ease-in-out",
       }}
     >
+      {/* Toggle edit panel button */}
+      <div className="flex items-center gap-3 px-4 py-3 -mx-4 rounded-lg bg-gray-100 dark:bg-gray-800">
+        <button
+          type="button"
+          onClick={() => {
+            if (editorIsOpen) {
+              editorState.handleCloseEditor();
+            } else {
+              editorState.setIsEditorOpen(true);
+              setTimeout(() => editorState.setIsEditorAnimating(true), 10);
+            }
+          }}
+          className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+        >
+          {editorIsOpen ? (
+            <>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Close Edit Panel
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Edit Branding & Messaging
+            </>
+          )}
+        </button>
+      </div>
+
       {/* Banner Preview only (no editing controls) */}
       <div ref={bannerPreviewSectionRef} data-preview-section="banner">
         <BannerPreviewSection
