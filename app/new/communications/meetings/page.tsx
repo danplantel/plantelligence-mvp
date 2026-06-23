@@ -59,6 +59,7 @@ import {
   Hash,
   CheckCircle,
   Search,
+  Loader2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { formatUsDate } from "@/lib/date";
@@ -612,7 +613,7 @@ export default function MeetingsPage() {
   const handleDeleteMeeting = (meeting: Meeting) => { setMeetingToDelete({ id: meeting.id, title: meeting.meeting }); setDeleteConfirmOpen(true); };
   const handleConfirmDelete = async () => {
     if (!meetingToDelete) return;
-    setDeletingMeetingId(meetingToDelete.id); setDeleteConfirmOpen(false);
+    setDeletingMeetingId(meetingToDelete.id);
     try { const response = await fetch(`/api/meetings/${meetingToDelete.id}`, { method: "DELETE" }); if (response.ok) { toast.success("Meeting deleted successfully!"); fetchMeetings(); } else toast.error("Failed to delete meeting"); }
     catch (error) { toast.error("An error occurred while deleting the meeting"); }
     finally { setDeletingMeetingId(null); setMeetingToDelete(null); }
@@ -1003,6 +1004,19 @@ export default function MeetingsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        onConfirm={handleConfirmDelete}
+        title="Delete Meeting"
+        description={`Are you sure you want to delete "${meetingToDelete?.title ?? "this meeting"}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
+        isLoading={!!deletingMeetingId}
+      />
     </div>
   );
 }
