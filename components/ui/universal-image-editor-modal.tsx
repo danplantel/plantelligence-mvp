@@ -907,50 +907,20 @@ export function UniversalImageEditorModal({
     const safePad = config.safeZonePadding ?? Math.min(cw, ch) * 0.1;
     const innerPad = config.innerPadding ?? safePad * 0.5;
 
-    const maxDotW = Math.max(0, cw - 2 * (safePad + innerPad));
-    const maxDotH = Math.max(0, ch - 2 * (safePad + innerPad));
-
-    const outlinePct = 0.1;
-
-    let dottedW: number, dottedH: number;
-    if (ar > 2) {
-      dottedH = Math.round(ch - 2 * safePad);
-      dottedH = Math.min(dottedH, maxDotH);
-
-      const desiredW = Math.round(baseW + outlinePct * baseW * 0.5);
-      dottedW = Math.min(desiredW, maxDotW);
-    } else {
-      const desiredW = Math.round(baseW + outlinePct);
-      dottedW = Math.min(desiredW, maxDotW);
-      dottedH = Math.round(ch - 2 * safePad);
-      dottedH = Math.min(dottedH, maxDotH);
-    }
-
+    // Stationary guideline boundaries — computed from canvas dimensions only,
+    // never from the image's current size. This keeps the guidelines fixed
+    // while the user scales/repositions the image.
+    const dottedW = Math.round(cw - 2 * (safePad + innerPad));
+    const dottedH = Math.round(ch - 2 * (safePad + innerPad));
     const dottedLeft = Math.round((cw - dottedW) / 2);
     const dottedTop = Math.round((ch - dottedH) / 2);
     const dottedRight = dottedLeft + dottedW;
     const dottedBottom = dottedTop + dottedH;
 
-    let solidW: number, solidH: number, solidLeft: number, solidTop: number;
-    if (type === "logo" || type === "normalizer") {
-      if (ar > 2) {
-        const desiredW = Math.round(baseW + outlinePct * baseW * 0.5);
-        solidW = Math.min(desiredW, Math.max(0, cw - 2 * safePad));
-        solidH = Math.round(ch - 2 * safePad);
-      } else {
-        const desiredW = Math.round(baseW + outlinePct * baseW);
-        const desiredH = Math.round(baseH + outlinePct * baseH * 1.5);
-        solidW = Math.min(desiredW, Math.max(0, cw - 2 * safePad));
-        solidH = Math.min(desiredH, Math.max(0, ch - 2 * safePad));
-      }
-      solidLeft = Math.round((cw - solidW) / 2);
-      solidTop = Math.round((ch - solidH) / 2);
-    } else {
-      solidLeft = Math.round(safePad);
-      solidTop = Math.round(safePad);
-      solidW = Math.round(cw - 2 * safePad);
-      solidH = Math.round(ch - 2 * safePad);
-    }
+    const solidLeft = Math.round(safePad);
+    const solidTop = Math.round(safePad);
+    const solidW = Math.round(cw - 2 * safePad);
+    const solidH = Math.round(ch - 2 * safePad);
     const solidRight = solidLeft + solidW;
     const solidBottom = solidTop + solidH;
 
@@ -1473,57 +1443,27 @@ export function UniversalImageEditorModal({
       const innerPad = safePad * 0.5;
       const activeObject = canvas.getActiveObject();
       if (!activeObject) return;
-      const rect = activeObject.getBoundingRect();
-      const photoWidth = rect.width;
-      const photoHeight = rect.height;
 
-      const outlinePct = 0.1;
-
+      // Stationary solid (safe-zone) line — fixed 10% inset from canvas edges.
       ctx.save();
       ctx.strokeStyle = isOutsideSafeZone ? "#ef4444" : "#3b82f6";
       ctx.lineWidth = 2;
-      if (type === "logo" || type === "normalizer") {
-        const ar = photoWidth / photoHeight;
-
-        let dottedX: number,
-          dottedY: number,
-          dottedWidth: number,
-          dottedHeight: number;
-
-        if (ar > 2.5) {
-          const desiredW = Math.round(
-            photoWidth + outlinePct * photoWidth * 0.5,
-          );
-
-          dottedWidth = desiredW;
-          dottedHeight = ch - safePad * 2;
-          dottedY = Math.round((ch - dottedHeight) / 2);
-          dottedX = Math.round((cw - dottedWidth) / 2);
-        } else {
-          const desiredH = Math.round(
-            photoHeight + outlinePct * photoHeight * 1.5,
-          );
-          const desiredW = Math.round(photoWidth + outlinePct * photoWidth);
-
-          dottedHeight = desiredH;
-          dottedWidth = desiredW;
-
-          dottedY = Math.round((ch - dottedHeight) / 2);
-          dottedX = Math.round((cw - dottedWidth) / 2);
-        }
-
-        ctx.strokeRect(dottedX, dottedY, dottedWidth, dottedHeight);
-      } else if (type === "headshot" || forceCircularGuidelines) {
+      if (type === "headshot" || forceCircularGuidelines) {
         const radius = Math.min(cw, ch) / 2 - safePad - 36;
-
         ctx.beginPath();
         ctx.arc(cw / 2, ch / 2, radius, 0, Math.PI * 2);
         ctx.stroke();
       } else {
-        ctx.strokeRect(safePad, safePad, cw - safePad * 2, ch - safePad * 2);
+        ctx.strokeRect(
+          Math.round(safePad),
+          Math.round(safePad),
+          Math.round(cw - 2 * safePad),
+          Math.round(ch - 2 * safePad),
+        );
       }
       ctx.restore();
-      // Draw dotted line (recommended area)
+
+      // Stationary dotted (recommended) line — fixed 15% inset from canvas edges.
       ctx.save();
       ctx.setLineDash([5, 5]);
       ctx.lineWidth = 1;
@@ -1534,45 +1474,16 @@ export function UniversalImageEditorModal({
           : isTooSmall || isOutsideDottedLine
             ? "#f97316"
             : "#9ca3af";
-      if (type === "logo" || type === "normalizer") {
-        const ar = photoWidth / photoHeight;
-        const maxDottedH = ch - (safePad + innerPad) * 2;
-        const maxDottedW = cw - (safePad + innerPad) * 2;
-
-        let dottedX: number,
-          dottedY: number,
-          dottedWidth: number,
-          dottedHeight: number;
-
-        if (ar > 2.5) {
-          dottedHeight = Math.round(maxDottedH);
-          dottedWidth = Math.round(photoWidth + 2);
-          dottedWidth = Math.min(dottedWidth, maxDottedW);
-
-          dottedY = Math.round((ch - dottedHeight) / 2);
-          dottedX = Math.round((cw - dottedWidth) / 2);
-        } else {
-          const desiredH = Math.round(photoHeight + outlinePct);
-          const desiredW = Math.round(photoWidth + 2);
-
-          dottedHeight = Math.min(desiredH, maxDottedH);
-          dottedWidth = Math.min(desiredW, maxDottedW);
-
-          dottedY = Math.round((ch - dottedHeight) / 2);
-          dottedX = Math.round((cw - dottedWidth) / 2);
-        }
-
-        ctx.strokeRect(dottedX, dottedY, dottedWidth, dottedHeight);
-      } else if (type === "headshot" || forceCircularGuidelines) {
+      if (type === "headshot" || forceCircularGuidelines) {
+        // No dotted line for headshot — circle acts as the guideline.
       } else {
         ctx.strokeRect(
-          safePad + innerPad,
-          safePad + innerPad,
-          cw - (safePad + innerPad) * 2,
-          ch - (safePad + innerPad) * 2,
+          Math.round(safePad + innerPad),
+          Math.round(safePad + innerPad),
+          Math.round(cw - (safePad + innerPad) * 2),
+          Math.round(ch - (safePad + innerPad) * 2),
         );
       }
-
       ctx.restore();
 
       // Draw center guidelines
@@ -2538,7 +2449,7 @@ export function UniversalImageEditorModal({
                 <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
                   {modalTitle || previewTitle || config.modalTitle}
                 </h2>
-                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 mt-1">
+                <p className="text-xs sm:text-sm text-gray-600 text-muted-foreground mt-1">
                   {modalDescription
                     ? modalDescription
                     : config.modalDescription}
