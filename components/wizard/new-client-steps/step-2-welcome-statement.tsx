@@ -5,7 +5,6 @@ import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import { BannerPreviewSection } from "./sections/banner-preview-section";
 import { BrandingPreviewCard } from "./sections/branding-preview-card";
 import { SimpleImageEditorModal } from "@/components/ui/simple-image-editor-modal";
-import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { ModalGallery } from "@/components/ui/modalGallery";
 import type {
   BrandImageData,
@@ -1093,25 +1092,6 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
           />
         )}
 
-      {/* UniversalImageEditorModal for Company Logo */}
-      {modalStates.isLogoModalOpen &&
-        modalStates.pendingLogoData &&
-        modalStates.logoModalHandlers && (
-          <UniversalImageEditorModal
-            type="normalizer"
-            modalTitle="Company Logo"
-            modalDescription="Upload and edit your company logo."
-            value={modalStates.pendingLogoData.url || ""}
-            originalValue={modalStates.pendingLogoData.originalUrl}
-            fileName={modalStates.pendingLogoData.fileName || ""}
-            existingCropData={modalStates.pendingLogoData.cropData}
-            onChange={handleModalSave}
-            onRemove={handleLogoRemove}
-            isOpen={modalStates.isLogoModalOpen}
-            onClose={modalStates.logoModalHandlers.onClose}
-            saveButtonText="Save Logo"
-          />
-        )}
     </div>
   );
 }
