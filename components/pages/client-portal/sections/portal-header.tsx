@@ -127,11 +127,11 @@ export function PortalHeader({
     img.onload = () => {
       const ar = img.width / img.height;
 
-      if (ar >= 1.4) setHeaderHeight(108);
-      else if (ar >= 1.0 && ar < 1.4) setHeaderHeight(118);
-      else if (ar >= 0.85 && ar < 1.0) setHeaderHeight(128);
+      if (ar >= 1.4) setHeaderHeight(76);
+      else if (ar >= 1.0 && ar < 1.4) setHeaderHeight(83);
+      else if (ar >= 0.85 && ar < 1.0) setHeaderHeight(90);
       else {
-        setHeaderHeight(140);
+        setHeaderHeight(98);
         setShowTallTip(true);
       }
     };
@@ -224,7 +224,7 @@ export function PortalHeader({
       )}
 
       {/* Header */}
-      <header className="bg-white px-4 py-4 transition-all duration-300 sm:px-6 lg:px-20">
+      <header className="bg-white px-4 py-4 shadow-md transition-all duration-300 sm:px-6 lg:px-20">
         <div className="flex h-full items-center justify-between">
           {/* Logo */}
           {enableNavigation ? (
