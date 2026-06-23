@@ -2452,18 +2452,20 @@ export function UniversalImageEditorModal({
               >
                 <div
                   className={
-                    "relative overflow-hidden border border-gray-200 bg-gray-50 inline-block " +
+                    "relative overflow-hidden border border-gray-200 bg-gray-50 " +
                     (type === "headshot"
                       ? "h-[140px] w-[140px] rounded-full"
-                      : "min-h-[140px] min-w-[100px] rounded-xl")
+                      : "flex items-center justify-center w-full max-w-[300px] h-[150px] rounded-xl")
                   }
                 >
                   <img
                     src={previewSrc}
                     alt={fileName || "Uploaded file"}
                     className={
-                      "h-full w-full object-cover" +
-                      (type === "headshot" ? " rounded-full" : "")
+                      "max-h-full max-w-full" +
+                      (type === "headshot"
+                        ? " h-full w-full object-cover rounded-full"
+                        : " object-contain")
                     }
                   />
                 </div>
