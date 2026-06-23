@@ -9,6 +9,8 @@ interface BrandingImageProps
   extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, "src"> {
   src: string | null | undefined;
   fillContainer?: boolean;
+  /** Override the default object-fit when fillContainer is true. Defaults to "cover". */
+  objectFit?: React.CSSProperties["objectFit"];
 }
 
 function r2StableBoxStyle(style?: React.CSSProperties): React.CSSProperties {
@@ -29,6 +31,7 @@ function r2StableBoxStyle(style?: React.CSSProperties): React.CSSProperties {
 export function BrandingImage({
   src,
   fillContainer = false,
+  objectFit: objectFitProp,
   className,
   style,
   ...imgProps
@@ -89,7 +92,7 @@ export function BrandingImage({
             alt={imgProps.alt ?? ""}
             className="absolute inset-0 h-full w-full"
             style={{
-              objectFit: "cover",
+              objectFit: objectFitProp ?? "cover",
               objectPosition: "center",
               opacity: loading ? 0.85 : 1,
             }}

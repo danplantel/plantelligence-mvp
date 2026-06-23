@@ -532,6 +532,7 @@ export function ClientsListDashboardPage() {
                                     src={client.companyLogo}
                                     alt={client.companyName}
                                     fillContainer
+                                    objectFit="contain"
                                   />
                                 </div>
                               ) : (
@@ -802,7 +803,8 @@ export function ClientsListDashboardPage() {
                                   Delete
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem
+                                {/* Hide until Team Invite feature is implemented */}
+                                {/* <DropdownMenuItem
                                   onClick={() =>
                                     toast.info(
                                       "Invite collaborator feature coming soon",
@@ -811,7 +813,7 @@ export function ClientsListDashboardPage() {
                                 >
                                   <UserPlus className="mr-2 h-4 w-4" />
                                   Invite Collaborator
-                                </DropdownMenuItem>
+                                </DropdownMenuItem> */}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>

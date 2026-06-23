@@ -484,6 +484,7 @@ export function PlanListDashboardPage() {
                               src={item.clientLogo}
                               alt=""
                               fillContainer
+                              objectFit="contain"
                             />
                           ) : (
                             <div className="h-[46px] w-[46px] rounded-[8px] bg-transparent flex items-center justify-center">
