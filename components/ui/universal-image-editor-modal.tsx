@@ -2432,24 +2432,16 @@ export function UniversalImageEditorModal({
           }`}
       >
         {value ? (
-          <div className="w-full space-y-3">
+          <div className="w-full">
             <div
               className={
-                "relative grid gap-2 p-2 rounded-xl bg-muted/20 border border-gray-200 md:grid-cols-[60%_40%] " +
-                (type === "headshot" ? "md:items-center" : "md:items-start")
+                "relative flex flex-col md:flex-row items-center gap-4 p-4 rounded-xl bg-muted/20 border border-gray-200 " +
+                (type === "headshot" ? "" : "min-h-[180px]")
               }
-              style={{ minHeight: type === "headshot" ? "auto" : "180px" }}
             >
 
               {/* Preview Column */}
-              <div
-                className={
-                  "flex flex-col space-y-1 " +
-                  (type === "headshot"
-                    ? "items-center justify-center self-center"
-                    : "md:sticky md:top-0 md:self-start")
-                }
-              >
+              <div className="flex items-center justify-center flex-shrink-0">
                 <div
                   className={
                     "relative overflow-hidden border border-gray-200 bg-gray-50 " +
@@ -2472,8 +2464,8 @@ export function UniversalImageEditorModal({
               </div>
 
               {/* Controls Column */}
-              <div className="flex flex-col gap-2 overflow-y-auto max-h-[200px] pr-1">
-                <p className="text-xs font-bold text-foreground break-words truncate">
+              <div className="flex flex-col items-center md:items-start gap-3 flex-1 min-w-0">
+                <p className="text-xs font-bold text-foreground break-words truncate text-center md:text-left w-full">
                   {type === "headshot"
                     ? fileName
                       ? fileName.replace(/-cropped\.\w+$/, (m) => m.replace("-cropped", ""))
@@ -2481,44 +2473,20 @@ export function UniversalImageEditorModal({
                     : (fileName || `${placeholder} uploaded`).replace(/(\.\w+)$/, "-cropped$1")}
                 </p>
 
-                <div className="flex flex-col gap-1.5">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      inputRef.current?.click();
-                    }}
-                    className="text-accent-blue border border-accent-blue hover:bg-accent-blue/10 text-xs px-2 py-0.5 h-7 w-full justify-center rounded-md flex items-center"
-                  >
-                    <Upload className="w-3 h-3 mr-1" />
-                    Replace
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      inputRef.current?.click();
-                    }}
-                    className="text-accent-blue border border-accent-blue hover:bg-accent-blue/10 text-xs px-2 py-0.5 h-7 w-full justify-center rounded-md flex items-center"
-                  >
-                    <Upload className="w-3 h-3 mr-1" />
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onRemove();
-                      if (inputRef.current) {
-                        inputRef.current.value = "";
-                      }
-                    }}
-                    className="text-red-600 border border-red-300 hover:bg-red-50 text-xs px-2 py-0.5 h-7 w-full justify-center rounded-md flex items-center"
-                  >
-                    <X className="w-3 h-3 mr-1" />
-                    Delete
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemove();
+                    if (inputRef.current) {
+                      inputRef.current.value = "";
+                    }
+                  }}
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-full hover:bg-red-100 transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  Delete
+                </button>
               </div>
             </div>
           </div>
