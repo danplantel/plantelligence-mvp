@@ -589,7 +589,7 @@ export default function MeetingsPage() {
       if (response.ok) {
         toast.success(isEditing ? "Meeting updated successfully!" : "Meeting created successfully!");
         if (isEditing) { setFormData({ ...DEFAULT_MEETING_FORM_DATA, meetingType: formData.meetingType, client: formData.client, clientId: formData.clientId }); setDurationHour("0"); setDurationMinute("0"); setErrors({}); setTimeConflictWarning(""); setHasConfirmedConflict(false); setEditingMeetingId(null); setMeetingModalOpen(false); }
-        else setPostSaveDialogOpen(true);
+        else { setMeetingModalOpen(false); setPostSaveDialogOpen(true); }
         await fetchMeetings();
       } else toast.error(result.error || `Failed to ${isEditing ? "update" : "create"} meeting`);
     } catch (error) { toast.error(`An error occurred while ${editingMeetingId ? "updating" : "creating"} the meeting`); }
@@ -727,6 +727,282 @@ export default function MeetingsPage() {
           </>
         )}
       </div>
+
+      {/* Add/Edit Meeting Dialog */}
+      <Dialog open={meetingModalOpen} onOpenChange={setMeetingModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingMeetingId ? "Edit Meeting" : "Schedule a Meeting"}</DialogTitle>
+            <DialogDescription>
+              Fill in the details below to {editingMeetingId ? "update the" : "create a new"} meeting session.
+            </DialogDescription>
+          </DialogHeader>
+          <form ref={meetingFormRef} onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Meeting Type */}
+              <div className="space-y-2">
+                <Label>Meeting Type <span className="text-red-500">*</span></Label>
+                <Select value={formData.meetingType} onValueChange={(v) => handleInputChange("meetingType", v)}>
+                  <SelectTrigger className={errors.meetingType ? "border-red-500" : ""}>
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allMeetingTypes.map((type) => (
+                      <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {formData.meetingType === "Custom" && (
+                  <Input placeholder="Enter custom meeting type" value={formData.customMeetingType}
+                    onChange={(e) => handleInputChange("customMeetingType", e.target.value)}
+                    className={errors.customMeetingType ? "border-red-500" : ""} />
+                )}
+              </div>
+
+              {/* Date */}
+              <div className="space-y-2">
+                <Label>Date <span className="text-red-500">*</span></Label>
+                <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={`w-full justify-start text-left font-normal ${!formData.date && "text-muted-foreground"} ${errors.date ? "border-red-500" : ""}`}>
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {formData.date ? format(parseLocalDate(formData.date), "PPP") : "Pick a date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent mode="single" selected={formData.date ? parseLocalDate(formData.date) : undefined}
+                      onSelect={(d) => { if (d) { handleInputChange("date", format(d, "yyyy-MM-dd")); setDatePickerOpen(false); } }} initialFocus />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* Time */}
+              <div className="space-y-2">
+                <Label>Time <span className="text-red-500">*</span></Label>
+                <Popover open={timePickerOpen} onOpenChange={setTimePickerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={`w-full justify-start text-left font-normal ${!formData.time && "text-muted-foreground"} ${errors.time ? "border-red-500" : ""}`}>
+                      <Clock className="mr-2 h-4 w-4" />
+                      {formData.time ? formatTime12h(formData.time) : "Select time"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-72 p-4" align="start">
+                    <div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Hour</Label>
+                        <Select value={formData.hour} onValueChange={(v) => handleTimeChange("hour", v)}>
+                          <SelectTrigger><SelectValue placeholder="-" /></SelectTrigger>
+                          <SelectContent>{HOURS.map((h) => <SelectItem key={h} value={h.toString()}>{h}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Minute</Label>
+                        <Select value={formData.minute} onValueChange={(v) => handleTimeChange("minute", v)}>
+                          <SelectTrigger><SelectValue placeholder="-" /></SelectTrigger>
+                          <SelectContent>{MINUTES.map((m) => <SelectItem key={m} value={m.toString().padStart(2, "0")}>{m.toString().padStart(2, "0")}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">AM/PM</Label>
+                        <Select value={formData.ampm} onValueChange={(v) => handleTimeChange("ampm", v)}>
+                          <SelectTrigger><SelectValue placeholder="-" /></SelectTrigger>
+                          <SelectContent>{AMPM_OPTIONS.map((ap) => <SelectItem key={ap} value={ap}>{ap}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* Duration */}
+              <div className="space-y-2">
+                <Label>Duration <span className="text-red-500">*</span></Label>
+                <Popover open={durationPickerOpen} onOpenChange={setDurationPickerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={`w-full justify-start text-left font-normal ${!formData.duration && "text-muted-foreground"} ${errors.duration ? "border-red-500" : ""}`}>
+                      <Clock className="mr-2 h-4 w-4" />
+                      {formData.duration || "Select duration"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-72 p-4" align="start">
+                    <div className="grid grid-cols-2 gap-2 items-end">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Hours</Label>
+                        <Select value={durationHour} onValueChange={(v) => handleDurationChange("hour", v)}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>{DURATION_HOURS.map((h) => <SelectItem key={h} value={h.toString()}>{h}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Minutes</Label>
+                        <Select value={durationMinute} onValueChange={(v) => handleDurationChange("minute", v)}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>{DURATION_MINUTES.filter((m) => m > 0 || durationHour !== "0").map((m) => <SelectItem key={m} value={m.toString()}>{m}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* Format */}
+              <div className="space-y-2">
+                <Label>Format <span className="text-red-500">*</span></Label>
+                <Select value={formData.format} onValueChange={(v) => handleInputChange("format", v)}>
+                  <SelectTrigger className={errors.format ? "border-red-500" : ""}>
+                    <SelectValue placeholder="Select format" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FORMATS.map((fmt) => <SelectItem key={fmt} value={fmt}>{fmt}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Platform (Virtual) */}
+              {formData.format === "Virtual" && (
+                <div className="space-y-2">
+                  <Label>Platform <span className="text-red-500">*</span></Label>
+                  <Select value={formData.platform} onValueChange={(v) => handleInputChange("platform", v)}>
+                    <SelectTrigger className={errors.platform ? "border-red-500" : ""}>
+                      <SelectValue placeholder="Select platform" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PLATFORMS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  {formData.platform === "Other" && (
+                    <Input placeholder="Enter platform name" value={formData.customPlatform}
+                      onChange={(e) => handleInputChange("customPlatform", e.target.value)}
+                      className={errors.customPlatform ? "border-red-500" : ""} />
+                  )}
+                </div>
+              )}
+
+              {/* Address (In-Person) */}
+              {formData.format === "In-Person" && (
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Location <span className="text-red-500">*</span></Label>
+                  <AddressSearch value={formData.address} onChange={(v) => handleInputChange("address", v)} onLocationSelect={handleLocationSelect} />
+                  {formData.address && (
+                    <p className="text-xs text-muted-foreground">{formData.address}, {formData.city}, {formData.state} {formData.zip}</p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Description */}
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea value={formData.description} onChange={(e) => handleInputChange("description", e.target.value)}
+                rows={3} placeholder={DEFAULT_MEETING_DESCRIPTION} />
+            </div>
+
+            {/* RSVP Link */}
+            <div className="space-y-2">
+              <Label>Meeting Link <span className="text-red-500">*</span></Label>
+              <Input value={formData.meetingLink} onChange={(e) => handleInputChange("meetingLink", e.target.value)}
+                placeholder="https://" className={errors.meetingLink ? "border-red-500" : ""} />
+            </div>
+
+            {/* Max Attendees */}
+            <div className="space-y-2">
+              <Label>Max Attendees</Label>
+              <Input type="number" value={formData.maxAttendees} onChange={(e) => handleInputChange("maxAttendees", e.target.value)}
+                placeholder="50" />
+            </div>
+
+            {/* Timezone */}
+            <div className="space-y-2">
+              <Label>Timezone</Label>
+              <Select value={formData.timezone} onValueChange={(v) => handleInputChange("timezone", v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {TIMEZONE_OPTIONS.map((tz) => <SelectItem key={tz.value} value={tz.value}>{tz.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Language */}
+            <div className="space-y-2">
+              <Label>Language</Label>
+              <Select value={formData.language} onValueChange={(v) => handleInputChange("language", v)}>
+                <SelectTrigger><SelectValue placeholder="Select language" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="English">English</SelectItem>
+                  <SelectItem value="Spanish">Spanish</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Benefits Category */}
+            <div className="space-y-2">
+              <Label>Benefits Category</Label>
+              <Select value={formData.benefitsCategory} onValueChange={(v) => handleInputChange("benefitsCategory", v)}>
+                <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Retirement">Retirement</SelectItem>
+                  <SelectItem value="Group Health">Group Health</SelectItem>
+                  <SelectItem value="Group Life">Group Life</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Time Conflict Warning */}
+            {timeConflictWarning && (
+              <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700/50 rounded-md">
+                <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                <div className="text-xs text-amber-700 dark:text-amber-200">
+                  <p className="font-medium mb-1">Time Conflict</p>
+                  <p>{timeConflictWarning}</p>
+                </div>
+              </div>
+            )}
+
+            <DialogFooter className="gap-2 pt-4">
+              <Button type="button" variant="outline" onClick={() => setMeetingModalOpen(false)}>Cancel</Button>
+              {!editingMeetingId && (
+                <Button type="button" variant="secondary" onClick={handleSaveAsDraft} disabled={isSubmitting}>
+                  Save as Draft
+                </Button>
+              )}
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Saving..." : editingMeetingId ? "Update Meeting" : "Schedule Meeting"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Post-Save Dialog — ask if user wants to duplicate */}
+      <Dialog open={postSaveDialogOpen} onOpenChange={setPostSaveDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Meeting Created</DialogTitle>
+            <DialogDescription>
+              The meeting has been successfully scheduled. Would you like to create a duplicate of this meeting?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => {
+              setFormData({ ...DEFAULT_MEETING_FORM_DATA, client: formData.client, clientId: formData.clientId });
+              setDurationHour("0");
+              setDurationMinute("0");
+              setPostSaveDialogOpen(false);
+            }}>
+              No
+            </Button>
+            <Button onClick={() => {
+              const currentData = { ...formData };
+              setPostSaveDialogOpen(false);
+              setMeetingModalOpen(true);
+              toast.success("Form pre-filled for duplication. Adjust any details and submit.");
+            }}>
+              Yes, duplicate
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
