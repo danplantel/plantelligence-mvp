@@ -131,6 +131,11 @@ function PlanSearchBar({
     return result;
   }, [recentIds, planMap]);
 
+  const isCurrentPlan = useCallback(
+    (id: string) => value === id,
+    [value],
+  );
+
   // Dropdown items: all plans sorted with recents first, filtered by query when typing
   const allPlansSorted = useMemo(() => {
     const recentSet = new Set(recentPlanObjects.map((p) => p.id));
@@ -211,6 +216,29 @@ function PlanSearchBar({
         Select a plan
         <span className="text-red-500"> *</span>
       </label>
+
+      {/* Recent Plans chips (same style as benefits page) */}
+      {recentPlanObjects.length > 0 && (
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <Clock className="size-3 text-gray-400 shrink-0" />
+          {recentPlanObjects.slice(0, 5).map((plan) => (
+            <button
+              key={plan.id}
+              type="button"
+              onClick={() => selectPlan(plan.id)}
+              className={cn(
+                "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all border",
+                isCurrentPlan(plan.id)
+                  ? "bg-[#23919C]/10 text-[#23919C] border-[#23919C]/30"
+                  : "bg-gray-50 text-gray-600 border-gray-200 hover:border-[#23919C]/40 hover:text-[#23919C] dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:border-[#23919C]/50",
+              )}
+            >
+              {plan.companyName}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="relative">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
         <Input
@@ -838,7 +866,6 @@ export default function DocumentsPage() {
             ) : (
               <>
                 <PlanSearchBar plans={clients} value={selectedPlan} onChange={handlePlanChange} disabled={clients.length === 0} />
-                {!selectedPlan && clients.length > 0 && <RecentPlanLabels plans={clients} onSelect={handlePlanChange} />}
               </>
             )}
           </CardContent>

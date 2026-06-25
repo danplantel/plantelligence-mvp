@@ -127,6 +127,11 @@ interface Client {
   status?: string;
 }
 
+const benefitsChipStyles = {
+  current: "bg-[#23919C]/10 text-[#23919C] border-[#23919C]/30",
+  other: "bg-gray-50 text-gray-600 border-gray-200 hover:border-[#23919C]/40 hover:text-[#23919C] dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:border-[#23919C]/50",
+};
+
 interface MeetingFormData {
   meetingType: string;
   customMeetingType: string;
@@ -299,6 +304,7 @@ function PlanSearchBar({ plans, value, onChange, disabled }: { plans: Client[]; 
   const selectedPlan = useMemo(() => plans.find((p) => p.id === value), [plans, value]);
   useEffect(() => { if (!open) return; const handler = (e: MouseEvent) => { const t = e.target as Node; if (containerRef.current?.contains(t)) return; if (dropdownRef.current?.contains(t)) return; setOpen(false); setQuery(""); }; document.addEventListener("mousedown", handler); return () => document.removeEventListener("mousedown", handler); }, [open]);
   useEffect(() => { setHighlight(0); }, [dropdownItems.length, open]);
+  const isCurrentPlan = (id: string) => value === id;
   const selectPlan = (planId: string) => { persistPlanSelection("communications", planId); onChange(planId); setOpen(false); setQuery(""); };
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (!open) return;
@@ -312,6 +318,29 @@ function PlanSearchBar({ plans, value, onChange, disabled }: { plans: Client[]; 
     <div className="space-y-2" ref={containerRef}>
       <CardTitle className="text-2xl font-bold pb-2">Meeting Sessions</CardTitle>
       <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Select a plan<span className="text-red-500"> *</span></label>
+
+      {/* Recent Plans chips (same style as benefits page) */}
+      {recentPlanObjects.length > 0 && (
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <Clock className="size-3 text-gray-400 shrink-0" />
+          {recentPlanObjects.slice(0, 5).map((plan) => (
+            <button
+              key={plan.id}
+              type="button"
+              onClick={() => selectPlan(plan.id)}
+              className={cn(
+                "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all border",
+                isCurrentPlan(plan.id)
+                  ? "bg-[#23919C]/10 text-[#23919C] border-[#23919C]/30"
+                  : "bg-gray-50 text-gray-600 border-gray-200 hover:border-[#23919C]/40 hover:text-[#23919C] dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:border-[#23919C]/50",
+              )}
+            >
+              {plan.companyName}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="relative">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
         <Input ref={inputRef} type="text" placeholder={selectedPlan ? selectedPlan.companyName : "Search plans\u2026"} value={query} onChange={(e) => { if (!open) setOpen(true); setQuery(e.target.value); }} onFocus={() => setOpen(true)} onKeyDown={handleKeyDown} disabled={disabled} className="h-9 pl-9 pr-3 bg-white dark:bg-gray-800" aria-label="Search plans" aria-expanded={open} aria-haspopup="listbox" autoComplete="off" />
@@ -660,7 +689,7 @@ export default function MeetingsPage() {
                 <div className="relative"><Skeleton className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 rounded" /><Skeleton className="h-9 w-full rounded-md" /></div>
               </div>
             ) : (
-              <><PlanSearchBar plans={clients} value={selectedPlan} onChange={handlePlanChange} disabled={clients.length === 0} />{!selectedPlan && clients.length > 0 && <RecentPlanLabels plans={clients} onSelect={handlePlanChange} />}</>
+              <><PlanSearchBar plans={clients} value={selectedPlan} onChange={handlePlanChange} disabled={clients.length === 0} /></>
             )}
           </CardContent>
         </Card>
