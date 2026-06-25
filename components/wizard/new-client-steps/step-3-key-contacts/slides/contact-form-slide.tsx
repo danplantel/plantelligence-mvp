@@ -349,6 +349,17 @@ export function ContactFormSlide({
     (step3bData as any).benefitsCategoryOther || "",
   );
 
+  // External Admin Logo state — only shown for "Third Party Contact" category
+  const [externalAdminLogo, setExternalAdminLogo] = useState(
+    (step3bData as any).externalAdminLogo || "",
+  );
+  const [externalAdminLogoFileName, setExternalAdminLogoFileName] = useState(
+    (step3bData as any).externalAdminLogoFileName || "",
+  );
+  const [useCustomLogo, setUseCustomLogo] = useState(
+    (step3bData as any).useCustomLogo === true,
+  );
+
   // CTA state
   const [enableCtaButton, setEnableCtaButton] = useState(
     step3bData.enableContactButton ?? false,
@@ -401,6 +412,9 @@ export function ContactFormSlide({
       setHeadshot(sb.headshot || "");
       setHeadshotFileName(sb.headshotFileName || "");
       setCustomBenefits(sb.benefitsCategoryOther || "");
+      setExternalAdminLogo(sb.externalAdminLogo || "");
+      setExternalAdminLogoFileName(sb.externalAdminLogoFileName || "");
+      setUseCustomLogo(sb.useCustomLogo === true);
       setCompanyName(sb.companyName || defaultCompanyName || "");
       setIsPrimary(
         category === "Company / Plan Sponsor"
@@ -455,9 +469,11 @@ export function ContactFormSlide({
       phoneExtension,
       headshot,
       headshotFileName,
-      customBenefits,
       companyName,
       benefitsCategoryOther: customBenefits,
+      externalAdminLogo,
+      externalAdminLogoFileName,
+      useCustomLogo,
       isPrimaryOverall: isPrimary,
       displayEmail,
       displayPhone,
@@ -479,6 +495,9 @@ export function ContactFormSlide({
     headshot,
     headshotFileName,
     customBenefits,
+    externalAdminLogo,
+    externalAdminLogoFileName,
+    useCustomLogo,
     companyName,
     isPrimary,
     displayEmail,
@@ -582,7 +601,10 @@ export function ContactFormSlide({
             category === "Company / Plan Sponsor"
               ? companyName || defaultCompanyName
               : companyName || "",
-          companyLogo: defaultCompanyLogo || undefined,
+          companyLogo:
+            category === "Third Party Contact" && useCustomLogo && externalAdminLogo
+              ? externalAdminLogo
+              : defaultCompanyLogo || undefined,
           name:
             contactType === "individual"
               ? `${firstName} ${lastName}`.trim()
@@ -739,7 +761,10 @@ export function ContactFormSlide({
           category === "Company / Plan Sponsor"
             ? companyName || defaultCompanyName
             : companyName || "",
-        companyLogo: defaultCompanyLogo || undefined,
+        companyLogo:
+          category === "Third Party Contact" && useCustomLogo && externalAdminLogo
+            ? externalAdminLogo
+            : defaultCompanyLogo || undefined,
         name:
           contactType === "individual"
             ? `${firstName} ${lastName}`.trim()
@@ -781,6 +806,9 @@ export function ContactFormSlide({
       phoneExtension,
       headshot,
       headshotFileName,
+      externalAdminLogo,
+      externalAdminLogoFileName,
+      useCustomLogo,
       companyName,
       defaultCompanyName,
       defaultCompanyLogo,
@@ -837,7 +865,7 @@ export function ContactFormSlide({
     }
 
     return errors.length === 0;
-  }, [contactType, firstName, lastName, title, displayName, email, phone]);
+  }, [contactType, firstName, lastName, title, displayName, email, phone, customBenefits, category]);
 
   // Handle Continue
   const handleContinue = useCallback(() => {
@@ -1294,6 +1322,69 @@ export function ContactFormSlide({
               </div>
             )}
 
+            {/* External Admin Logo — only shown for "Third Party Contact" (External HR / Administrator) */}
+            {category === "Third Party Contact" && (
+              <div className="border-t border-gray-100 dark:border-gray-700 pt-3 mt-2 space-y-2.5">
+                <Label className="dark:text-gray-300 text-xs font-medium">
+                  External Admin Logo
+                </Label>
+                <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                  Choose a logo to display on this contact's portal card.
+                </p>
+
+                {/* Logo source toggle */}
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="logo-source"
+                      checked={!useCustomLogo}
+                      onChange={() => setUseCustomLogo(false)}
+                      className="accent-accent-blue"
+                    />
+                    <span className="text-xs font-medium dark:text-gray-300">
+                      Use Company Logo
+                    </span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="logo-source"
+                      checked={useCustomLogo}
+                      onChange={() => setUseCustomLogo(true)}
+                      className="accent-accent-blue"
+                    />
+                    <span className="text-xs font-medium dark:text-gray-300">
+                      Upload External Admin Logo
+                    </span>
+                  </label>
+                </div>
+
+                {/* Upload logo when custom is selected */}
+                {useCustomLogo && (
+                  <div className="pt-1">
+                    <UniversalImageEditorModal
+                      value={externalAdminLogo || ""}
+                      fileName={externalAdminLogoFileName || ""}
+                      onChange={(value, fileName) => {
+                        setExternalAdminLogo(value);
+                        setExternalAdminLogoFileName(fileName || "");
+                      }}
+                      onRemove={() => {
+                        setExternalAdminLogo("");
+                        setExternalAdminLogoFileName("");
+                      }}
+                      placeholder="Upload Logo"
+                      modalTitle="Edit External Admin Logo"
+                      modalDescription="Upload a logo for this External HR / Administrator contact."
+                      saveButtonText="Save Logo"
+                      type="logo"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Company / Organization — shown for non-Plan-Sponsor, unless already shown at top for Someone Else */}
             {category !== "Company / Plan Sponsor" && !isFromSomeoneElse && (
               <div className="space-y-1.5">
@@ -1360,7 +1451,11 @@ export function ContactFormSlide({
             phoneExtension={phoneExtension}
             headshot={headshot}
             companyName={companyName}
-            companyLogoSrc={defaultCompanyLogo}
+            companyLogoSrc={
+              category === "Third Party Contact" && useCustomLogo && externalAdminLogo
+                ? externalAdminLogo
+                : defaultCompanyLogo
+            }
             isPrimary={isPrimary}
             category={category}
             enableCtaButton={enableCtaButton}
