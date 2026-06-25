@@ -344,6 +344,11 @@ export function ContactFormSlide({
     step3bData.displayPhone ?? true,
   );
 
+  // Custom Benefits description — only shown when category is "Other Benefits"
+  const [customBenefits, setCustomBenefits] = useState(
+    (step3bData as any).benefitsCategoryOther || "",
+  );
+
   // CTA state
   const [enableCtaButton, setEnableCtaButton] = useState(
     step3bData.enableContactButton ?? false,
@@ -395,6 +400,7 @@ export function ContactFormSlide({
       setPhoneExtension(sb.phoneExtension || "");
       setHeadshot(sb.headshot || "");
       setHeadshotFileName(sb.headshotFileName || "");
+      setCustomBenefits(sb.benefitsCategoryOther || "");
       setCompanyName(sb.companyName || defaultCompanyName || "");
       setIsPrimary(
         category === "Company / Plan Sponsor"
@@ -449,7 +455,9 @@ export function ContactFormSlide({
       phoneExtension,
       headshot,
       headshotFileName,
+      customBenefits,
       companyName,
+      benefitsCategoryOther: customBenefits,
       isPrimaryOverall: isPrimary,
       displayEmail,
       displayPhone,
@@ -470,6 +478,7 @@ export function ContactFormSlide({
     phoneExtension,
     headshot,
     headshotFileName,
+    customBenefits,
     companyName,
     isPrimary,
     displayEmail,
@@ -590,6 +599,7 @@ export function ContactFormSlide({
             : undefined,
           schedulingUrl: enableCtaButton && ctaType === "schedule" ? schedulingUrl || undefined : undefined,
           websiteUrl: enableCtaButton && ctaType === "contact" ? websiteUrl || undefined : undefined,
+          benefitsCategoryOther: category === "Other Benefits" ? customBenefits || undefined : undefined,
         };
 
         // If this contact is being saved as primary, demote only contacts that
@@ -665,9 +675,10 @@ export function ContactFormSlide({
               : undefined,
             schedulingUrl: enableCtaButton && ctaType === "schedule" ? schedulingUrl || undefined : undefined,
             websiteUrl: enableCtaButton && ctaType === "contact" ? websiteUrl || undefined : undefined,
+            benefitsCategoryOther: customBenefits || undefined,
           };
-
-          // Demote only contacts in the same category to prevent duplicate primaries
+  
+            // Demote only contacts in the same category to prevent duplicate primaries
           const baseContacts = savedContacts.map((c: any) => {
             const contactCats: BenefitsCategory[] =
               c.benefitsCategories ||
@@ -747,6 +758,7 @@ export function ContactFormSlide({
           : undefined,
         schedulingUrl: enableCtaButton && ctaType === "schedule" ? schedulingUrl || undefined : undefined,
         websiteUrl: enableCtaButton && ctaType === "contact" ? websiteUrl || undefined : undefined,
+        benefitsCategoryOther: category === "Other Benefits" ? customBenefits || undefined : undefined,
       };
 
       const updatedContacts = [...demotedContacts, newContact];
@@ -759,6 +771,7 @@ export function ContactFormSlide({
       step3bData,
       contactType,
       category,
+      customBenefits,
       firstName,
       lastName,
       title,
@@ -801,6 +814,11 @@ export function ContactFormSlide({
       }
     }
 
+    // Custom Benefits is required when category is "Other Benefits"
+    if (category === "Other Benefits" && !customBenefits.trim()) {
+      errors.push("customBenefits");
+    }
+
     if (!phone.trim()) errors.push("phone");
 
     setLocalErrors(errors);
@@ -809,7 +827,9 @@ export function ContactFormSlide({
     if (errors.length > 0) {
       // Focus first error field
       const firstError = errors[0];
-      if (firstError === "firstName" && firstNameRef.current) {
+      if (firstError === "customBenefits") {
+        // Focus will be handled by scrolling to the input
+      } else if (firstError === "firstName" && firstNameRef.current) {
         firstNameRef.current.focus();
       } else if (firstError === "lastName" && lastNameRef.current) {
         lastNameRef.current.focus();
@@ -988,6 +1008,27 @@ export function ContactFormSlide({
               </div>
             )}
 
+            {/* Custom Benefits — only shown for "Other Benefits" category */}
+            {category === "Other Benefits" && (
+              <div className="space-y-1.5 pb-2 border-b border-gray-100 dark:border-gray-700 mb-1" data-field="customBenefits">
+                <Label className="dark:text-gray-300 text-xs font-medium">
+                  Custom Benefits <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  value={customBenefits}
+                  onChange={(e) => setCustomBenefits(e.target.value)}
+                  placeholder="e.g. Disability, Dental, Vision, etc."
+                  className={cn("h-8 text-sm", hasError("customBenefits") && "border-red-500")}
+                />
+                {hasError("customBenefits") ? (
+                  <p className="text-[10px] text-red-500">Please describe what "Other Benefits" this contact handles.</p>
+                ) : (
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                    Describe what "Other Benefits" this contact handles.
+                  </p>
+                )}
+              </div>
+            )}
 
             {contactType === "individual" ? (
               <>
