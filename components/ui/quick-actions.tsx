@@ -19,9 +19,9 @@ export function QuickActions({
   title = "Quick Actions",
 }: QuickActionsProps) {
   return (
-    <Card>
+    <Card className="dark:bg-gray-800 dark:border-gray-700">
       <CardHeader>
-        <CardTitle className="text-base">{title}</CardTitle>
+        <CardTitle className="text-base dark:text-gray-100">{title}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="flex gap-2.5">

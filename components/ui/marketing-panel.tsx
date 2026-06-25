@@ -25,9 +25,9 @@ export function MarketingPanel() {
   }, []);
 
   return (
-    <Card>
+    <Card className="dark:bg-gray-800 dark:border-gray-700">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2 dark:text-gray-100">
           <Megaphone className="size-6 text-accent-blue" />
           Marketing
         </CardTitle>
@@ -36,13 +36,13 @@ export function MarketingPanel() {
         {loading ? (
           <div className="w-full space-y-3">
             <div className="animate-pulse">
-              <div className="h-10 bg-gray-200 rounded w-full"></div>
+              <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
             </div>
             <div className="animate-pulse">
-              <div className="h-10 bg-gray-200 rounded w-full"></div>
+              <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
             </div>
             <div className="animate-pulse">
-              <div className="h-10 bg-gray-200 rounded w-full"></div>
+              <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
             </div>
           </div>
         ) : data.length === 0 ? (

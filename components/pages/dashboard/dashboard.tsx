@@ -84,32 +84,33 @@ export function Dashboard() {
   }, [statsData]);
 
   return (
-    <div className="px-10 py-4 space-y-6">
-      <Card className="px-6 py-[30px]">
+    <div className="p-6">
+      <div className="w-full space-y-6 max-w-4xl mx-auto">
+      <Card className="px-6 py-[30px] dark:bg-gray-800 dark:border-gray-700">
         <CardContent className="flex justify-between items-center gap-4 p-0">
           <div className="flex items-center gap-4">
             {isLoadingUserInfo ? (
               <div className="flex items-center gap-4">
                 {/* Logo skeleton */}
                 <div className="animate-pulse">
-                  <div className="w-[120px] h-[80px] bg-gray-200 rounded"></div>
+                  <div className="w-[120px] h-[80px] bg-gray-200 dark:bg-gray-700 rounded"></div>
                 </div>
 
                 {/* Avatar skeleton */}
                 <div className="animate-pulse">
-                  <div className="w-16 h-16 bg-gray-200 rounded-full"></div>
+                  <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
                 </div>
 
                 {/* Text skeleton */}
                 <div className="animate-pulse space-y-2">
-                  <div className="w-48 h-6 bg-gray-200 rounded"></div>
-                  <div className="w-24 h-4 bg-gray-200 rounded"></div>
+                  <div className="w-48 h-6 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                  <div className="w-24 h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
                 </div>
               </div>
             ) : (
               <>
                 {userInfo.logo && (
-                  <div className="w-[120px] h-[80px] flex items-center justify-center overflow-hidden rounded">
+                  <div className="w-[120px] h-[80px] flex items-center justify-center overflow-hidden rounded dark:bg-gray-800/50">
                     <BrandingImage
                       src={userInfo.logo}
                       alt="Logo"
@@ -118,7 +119,7 @@ export function Dashboard() {
                   </div>
                 )}
                 <section className="flex gap-4 items-center">
-                  <div className="size-16 rounded-full overflow-hidden flex-shrink-0 border border-border">
+                  <div className="size-16 rounded-full overflow-hidden flex-shrink-0 border border-border dark:border-gray-600">
                     <Headshot
                       src={userInfo.avatar || undefined}
                       monogramName={userInfo.name}
@@ -126,7 +127,7 @@ export function Dashboard() {
                     />
                   </div>
                   <section>
-                    <h4 className="text-xl font-semibold">
+                    <h4 className="text-xl font-semibold dark:text-gray-100">
                       Welcome back, {userInfo.name}!
                     </h4>
                     <p className="text-sm text-muted-foreground font-regular">
@@ -136,9 +137,6 @@ export function Dashboard() {
                 </section>
               </>
             )}
-            <div className="ml-auto">
-              <ResetOnboardingButton />
-            </div>
           </div>
 
           <div className="flex gap-4">
@@ -147,10 +145,10 @@ export function Dashboard() {
                 {[1, 2, 3, 4].map((i) => (
                   <div key={i} className="animate-pulse">
                     <div className="flex gap-2">
-                      <div className="w-6 h-6 bg-gray-200 rounded"></div>
-                      <div className="w-8 h-6 bg-gray-200 rounded"></div>
+                      <div className="w-6 h-6 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                      <div className="w-8 h-6 bg-gray-200 dark:bg-gray-700 rounded"></div>
                     </div>
-                    <div className="w-20 h-4 bg-gray-200 rounded mt-1"></div>
+                    <div className="w-20 h-4 bg-gray-200 dark:bg-gray-700 rounded mt-1"></div>
                   </div>
                 ))}
               </div>
@@ -175,6 +173,7 @@ export function Dashboard() {
 
       <QuickActions actions={quickActions} />
       <DashboardPanels />
+      </div>
     </div>
   );
 }
