@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -57,7 +57,7 @@ import { formatUsDate } from "@/lib/date";
 
 const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
 
-// ── Sortable table header ──
+// â”€â”€ Sortable table header â”€â”€
 function SortableTh({
   column,
   label,
@@ -91,7 +91,7 @@ function SortableTh({
   );
 }
 
-// ── Plan search bar (replaces StickyPlanCombobox) ──
+// â”€â”€ Plan search bar (replaces StickyPlanCombobox) â”€â”€
 function PlanSearchBar({
   plans,
   value,
@@ -230,7 +230,7 @@ function PlanSearchBar({
                 "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all border",
                 isCurrentPlan(plan.id)
                   ? "bg-[#23919C]/10 text-[#23919C] border-[#23919C]/30"
-                  : "bg-gray-50 text-gray-600 border-gray-200 hover:border-[#23919C]/40 hover:text-[#23919C] dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:border-[#23919C]/50",
+                  : "bg-gray-50 text-gray-600 border-gray-200 hover:border-[#23919C]/40 hover:text-[#23919C] dark:bg-gray-700 text-muted-foreground dark:border-gray-600 dark:hover:border-[#23919C]/50",
               )}
             >
               {plan.companyName}
@@ -244,7 +244,7 @@ function PlanSearchBar({
         <Input
           ref={inputRef}
           type="text"
-          placeholder={selectedPlan ? selectedPlan.companyName : "Search plans…"}
+          placeholder={selectedPlan ? selectedPlan.companyName : "Search plans..."}
           value={query}
           onChange={(e) => {
             if (!open) setOpen(true);
@@ -360,7 +360,7 @@ function PlanSearchBar({
   );
 }
 
-// ── Recent plan labels shown when no plan is selected ──
+// â”€â”€ Recent plan labels shown when no plan is selected â”€â”€
 function RecentPlanLabels({
   plans,
   onSelect,
@@ -898,7 +898,7 @@ export default function DocumentsPage() {
                               return (
                                 <button key={lang} type="button" onClick={() => setPreviewLanguage(lang)}
                                   className={`rounded-full px-4 py-1.5 text-xs font-semibold border transition-colors ${isActive ? "bg-accent-blue text-white border-accent-blue dark:bg-accent-blue dark:border-accent-blue" : "bg-white text-[#002B5B] border-[#D1D5DB] hover:bg-gray-50 dark:bg-gray-800 dark:text-blue-300 dark:border-gray-600 dark:hover:bg-gray-700"}`}>
-                                  {lang === "EN" ? `ENGLISH (${count})` : `ESPAÑOL (${count})`}
+                                  {lang === "EN" ? `ENGLISH (${count})` : `ESPAÃ‘OL (${count})`}
                                 </button>
                               );
                             })}
@@ -975,13 +975,13 @@ export default function DocumentsPage() {
                                         className="text-[10px] h-5 px-1.5 bg-[#002B5B]/10 text-[#002B5B] hover:bg-[#002B5B] hover:text-white dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-800 dark:hover:text-white border-transparent cursor-default transition-colors"
                                         title={docCategory?.includes(",") ? docCategory : undefined}
                                       >
-                                        {docCategory && docCategory.includes(",") ? "Multiple" : docCategory || "—"}
+                                        {docCategory && docCategory.includes(",") ? "Multiple" : docCategory || "â€”"}
                                       </Badge>
                                     </td>
                                     <td className="px-3 py-3">
-                                      <Badge className="text-[10px] h-5 px-1.5 bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 border-transparent">{doc.language}</Badge>
+                                      <Badge className="text-[10px] h-5 px-1.5 bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-100 border-transparent">{doc.language}</Badge>
                                     </td>
-                                    <td className="px-3 py-3 text-xs text-gray-600 dark:!text-gray-200 whitespace-nowrap">{expiration ? formatUsDate(expiration) : "—"}</td>
+                                    <td className="px-3 py-3 text-xs text-gray-600 dark:!text-gray-200 whitespace-nowrap">{expiration ? formatUsDate(expiration) : "â€”"}</td>
                                     <td className="px-3 py-3">
                                       <div className="flex items-center gap-0.5">
                                         <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" title="View" onClick={(e) => { e.stopPropagation(); handlePreviewFromTable(docId, doc.title); }}>
@@ -1007,14 +1007,14 @@ export default function DocumentsPage() {
                       </div>
                     )}
 
-                    {/* Card View — refactored without PDF preview, draggable */}
+                    {/* Card View â€” refactored without PDF preview, draggable */}
                     {filteredDocs.length > 0 && viewMode === "cards" && (
                       <DragDropContext onDragEnd={(result) => {
                         if (!result.destination) return;
                         const items = Array.from(filteredDocs);
                         const [reordered] = items.splice(result.source.index, 1);
                         items.splice(result.destination.index, 0, reordered);
-                        // Reorder is local to the UI — items refilter when data re-fetches
+                        // Reorder is local to the UI â€” items refilter when data re-fetches
                       }}>
                         <div className="space-y-2">
                           <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
@@ -1072,10 +1072,10 @@ export default function DocumentsPage() {
                                               className="text-[10px] h-5 px-1.5 bg-[#002B5B]/10 text-[#002B5B] hover:bg-[#002B5B] hover:text-white dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-800 dark:hover:text-white border-transparent cursor-default transition-colors"
                                               title={docCategory?.includes(",") ? docCategory : undefined}
                                             >
-                                              {docCategory && docCategory.includes(",") ? "Multiple" : docCategory || "—"}
+                                              {docCategory && docCategory.includes(",") ? "Multiple" : docCategory || "â€”"}
                                             </Badge>
                                             {docLanguage && (
-                                              <Badge className="text-[10px] h-5 px-1.5 bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 border-transparent">{docLanguage}</Badge>
+                                              <Badge className="text-[10px] h-5 px-1.5 bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-100 border-transparent">{docLanguage}</Badge>
                                             )}
                                             {expiration ? (
                                               <span className="text-[10px] text-gray-500 dark:text-gray-400 ml-auto flex items-center gap-1">
@@ -1118,13 +1118,13 @@ export default function DocumentsPage() {
               )}
         </Card>
       </div>
-      {/* Portal Preview Dialog — shows document cards in the portal layout */}
+      {/* Portal Preview Dialog â€” shows document cards in the portal layout */}
       <Dialog open={docPortalPreviewOpen} onOpenChange={setDocPortalPreviewOpen}>
         <DialogContent className="max-w-5xl p-0 flex flex-col max-h-[90vh] [&>button.absolute]:hidden">
           {/* Fixed header */}
           <div className="flex items-start justify-between border-b px-6 py-4 shrink-0">
             <div>
-              <DialogTitle>Portal Preview — Documents</DialogTitle>
+              <DialogTitle>Portal Preview â€” Documents</DialogTitle>
               <DialogDescription className="mt-1">
                 See how your documents appear to plan members on the Benefits Hub.
               </DialogDescription>
@@ -1196,7 +1196,7 @@ export default function DocumentsPage() {
                             className="inline-flex items-center gap-2 text-sm font-medium uppercase"
                             style={{ color: "#DAC287" }}
                           >
-                            Descargar en español
+                            Descargar en espaÃ±ol
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                           </a>
                         )}
@@ -1217,3 +1217,5 @@ export default function DocumentsPage() {
     </div>
   );
 }
+
+

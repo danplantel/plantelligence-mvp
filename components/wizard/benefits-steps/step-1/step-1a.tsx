@@ -1295,14 +1295,14 @@ export function BenefitsStep1a() {
           <CardTitle className="text-lg text-gray-900 font-bold dark:text-gray-100">
             Plan & Benefit Selection
           </CardTitle>
-          <CardDescription className="text-sm text-gray-600 dark:text-gray-300">
+          <CardDescription className="text-sm text-gray-600 text-muted-foreground">
             Choose which plan and benefit category you want to configure.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
           {/* Plan Selector */}
           <div className="space-y-2">
-            <Label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+            <Label className="text-sm font-semibold text-gray-700 dark:text-gray-100">
               Select Plan <span className="text-red-500">*</span>
             </Label>
 
@@ -1319,7 +1319,7 @@ export function BenefitsStep1a() {
                       "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all border",
                       rp.isCurrent
                         ? "bg-[#23919C]/10 text-[#23919C] border-[#23919C]/30"
-                        : "bg-gray-50 text-gray-600 border-gray-200 hover:border-[#23919C]/40 hover:text-[#23919C] dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:border-[#23919C]/50",
+                        : "bg-gray-50 text-gray-600 border-gray-200 hover:border-[#23919C]/40 hover:text-[#23919C] dark:bg-gray-700 text-muted-foreground dark:border-gray-600 dark:hover:border-[#23919C]/50",
                     )}
                   >
                     {rp.companyName}
@@ -1462,7 +1462,7 @@ export function BenefitsStep1a() {
           {/* Benefit Category Cards */}
           {resolvedPlanId && (
             <div className="space-y-3 animate-in fade-in duration-300">
-              <Label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+              <Label className="text-sm font-semibold text-gray-700 dark:text-gray-100">
                 Benefit Category <span className="text-red-500">*</span>
               </Label>
 
@@ -1542,13 +1542,13 @@ export function BenefitsStep1a() {
                   <Building2 className="size-3.5" />
                   <span>
                     Configuring{" "}
-                    <span className="font-medium text-gray-700 dark:text-gray-300">
+                    <span className="font-medium text-gray-700 dark:text-gray-100">
                       {currentStepData.benefitCategory === "Custom"
                         ? currentStepData.benefitTitle || "Custom"
                         : currentStepData.benefitCategory}
                     </span>{" "}
                     for{" "}
-                    <span className="font-medium text-gray-700 dark:text-gray-300">
+                    <span className="font-medium text-gray-700 dark:text-gray-100">
                       {plans.find((p) => p.id === resolvedPlanId)?.companyName ||
                         "selected plan"}
                     </span>
@@ -1559,7 +1559,7 @@ export function BenefitsStep1a() {
               {/* Custom Category Title Input */}
               {currentStepData.benefitCategory === "Custom" && (
                 <div className="space-y-2 pt-2 animate-in slide-in-from-top-2 duration-300">
-                  <Label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  <Label className="text-sm font-semibold text-gray-700 dark:text-gray-100">
                     Custom Category Name <span className="text-red-500">*</span>
                   </Label>
                   <Input
@@ -2242,3 +2242,4 @@ export function BenefitsStep1a() {
     </div>
   );
 }
+

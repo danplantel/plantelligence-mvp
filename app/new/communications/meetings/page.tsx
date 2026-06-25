@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { flushSync, createPortal } from "react-dom";
@@ -129,7 +129,7 @@ interface Client {
 
 const benefitsChipStyles = {
   current: "bg-[#23919C]/10 text-[#23919C] border-[#23919C]/30",
-  other: "bg-gray-50 text-gray-600 border-gray-200 hover:border-[#23919C]/40 hover:text-[#23919C] dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:border-[#23919C]/50",
+  other: "bg-gray-50 text-gray-600 border-gray-200 hover:border-[#23919C]/40 hover:text-[#23919C] dark:bg-gray-700 dark:text-muted-foreground dark:border-gray-600 dark:hover:border-[#23919C]/50",
 };
 
 interface MeetingFormData {
@@ -276,7 +276,7 @@ const formatIcons = { Virtual: Video, "In-Person": MapPin };
 
 const statusColors: Record<string, string> = {
   Upcoming: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-700/50",
-  Past: "bg-gray-100 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700/50",
+  Past: "bg-gray-100 dark:bg-gray-800/50 text-gray-700 dark:text-gray-100 border-gray-200 dark:border-gray-700/50",
   Draft: "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-700/50",
 };
 
@@ -332,7 +332,7 @@ function PlanSearchBar({ plans, value, onChange, disabled }: { plans: Client[]; 
                 "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all border",
                 isCurrentPlan(plan.id)
                   ? "bg-[#23919C]/10 text-[#23919C] border-[#23919C]/30"
-                  : "bg-gray-50 text-gray-600 border-gray-200 hover:border-[#23919C]/40 hover:text-[#23919C] dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:border-[#23919C]/50",
+                  : "bg-gray-50 text-gray-600 border-gray-200 hover:border-[#23919C]/40 hover:text-[#23919C] dark:bg-gray-700 text-muted-foreground dark:border-gray-600 dark:hover:border-[#23919C]/50",
               )}
             >
               {plan.companyName}
@@ -726,7 +726,7 @@ export default function MeetingsPage() {
                       <div className="col-span-full flex items-center justify-center py-20">
                         <div className="text-center max-w-sm"><div className="mx-auto w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-5"><CalendarDays className="h-8 w-8 text-muted-foreground/60" /></div><h3 className="text-lg font-semibold text-foreground mb-2">No meetings added yet</h3><p className="text-sm text-muted-foreground mb-6 leading-relaxed">Get started by scheduling your first meeting session for a client.</p><Button onClick={() => setMeetingModalOpen(true)} className="gap-2"><Plus className="h-4 w-4" />Add Meeting</Button></div>
                       </div>
-                    ) : sortedMeetings.map((meeting) => { const FormatIcon = formatIcons[meeting.format as keyof typeof formatIcons]; const meetingDate = formatUsDate(parseLocalDate(meeting.date)); const sc: Record<string, string> = { Upcoming: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200 border-blue-200 dark:border-blue-700/50", Past: "bg-gray-100 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700/50", Draft: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-200 border-amber-200 dark:border-amber-700/50" }; const ds = STATUS_LABEL_MAP[meeting.status] || meeting.status; return (
+                    ) : sortedMeetings.map((meeting) => { const FormatIcon = formatIcons[meeting.format as keyof typeof formatIcons]; const meetingDate = formatUsDate(parseLocalDate(meeting.date)); const sc: Record<string, string> = { Upcoming: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200 border-blue-200 dark:border-blue-700/50", Past: "bg-gray-100 dark:bg-gray-800/50 text-gray-700 dark:text-gray-100 border-gray-200 dark:border-gray-700/50", Draft: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-200 border-amber-200 dark:border-amber-700/50" }; const ds = STATUS_LABEL_MAP[meeting.status] || meeting.status; return (
                       <div key={meeting.id} className={`p-4 dark:bg-gray-800 border border-border/60 rounded-xl bg-card flex flex-col h-full relative ${deletingMeetingId === meeting.id ? "opacity-50 pointer-events-none" : ""}`}>
                         {deletingMeetingId === meeting.id && <div className="absolute inset-0 flex items-center justify-center bg-background/40 rounded-xl z-10"><div className="flex items-center gap-2 px-3 py-2 bg-card border border-border/60 rounded-lg shadow-sm"><RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" /><span className="text-xs text-muted-foreground font-medium">Deleting...</span></div></div>}
                         <div className="flex items-start justify-between mb-3 pl-1">
@@ -1004,7 +1004,7 @@ export default function MeetingsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Post-Save Dialog — ask if user wants to duplicate */}
+      {/* Post-Save Dialog â€” ask if user wants to duplicate */}
       <Dialog open={postSaveDialogOpen} onOpenChange={setPostSaveDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -1034,7 +1034,7 @@ export default function MeetingsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Preview Dialog — shows meetings as they appear in the client portal */}
+      {/* Preview Dialog â€” shows meetings as they appear in the client portal */}
       <Dialog open={previewDialogOpen} onOpenChange={setPreviewDialogOpen}>
         <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -1078,3 +1078,5 @@ export default function MeetingsPage() {
     </div>
   );
 }
+
+

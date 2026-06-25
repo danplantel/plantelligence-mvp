@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
@@ -232,7 +232,7 @@ function PlanSearchBar({
                 "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all border",
                 isCurrentPlan(plan.id)
                   ? "bg-[#23919C]/10 text-[#23919C] border-[#23919C]/30"
-                  : "bg-gray-50 text-gray-600 border-gray-200 hover:border-[#23919C]/40 hover:text-[#23919C] dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:border-[#23919C]/50",
+                  : "bg-gray-50 text-gray-600 border-gray-200 hover:border-[#23919C]/40 hover:text-[#23919C] dark:bg-gray-700 text-muted-foreground dark:border-gray-600 dark:hover:border-[#23919C]/50",
               )}
             >
               {plan.companyName}
@@ -412,7 +412,7 @@ function RecentPlanLabels({
   );
 }
 
-// ── SVG Illustrations ──
+// â”€â”€ SVG Illustrations â”€â”€
 
 const FlyerIllustration = () => (
   <svg viewBox="0 0 48 38" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-full w-full">
@@ -447,7 +447,7 @@ const PortalNoticeIllustration = () => (
     {/* Notice banner bar */}
     <rect x="3" y="9" width="42" height="6" rx="0" fill="var(--accent-blue)" fillOpacity="0.14" />
     <rect x="3" y="9" width="42" height="6" rx="0" stroke="var(--accent-blue)" strokeWidth="0.6" strokeOpacity="0.3" />
-    <text x="24" y="12.5" textAnchor="middle" fill="var(--accent-blue)" fontSize="2.5" fontWeight="600" fontFamily="system-ui">⚡ Open Enrollment Now Open</text>
+    <text x="24" y="12.5" textAnchor="middle" fill="var(--accent-blue)" fontSize="2.5" fontWeight="600" fontFamily="system-ui">âš¡ Open Enrollment Now Open</text>
     {/* Page content */}
     <rect x="7" y="18" width="16" height="2" rx="1" fill="var(--accent-blue)" fillOpacity="0.2" />
     <rect x="7" y="22" width="11" height="1.2" rx="0.6" fill="var(--accent-blue)" fillOpacity="0.1" />
@@ -553,7 +553,7 @@ export default function MarketingPage() {
   const [isDeletingLoading, setIsDeletingLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<MarketingAssetStatus | "All">("All");
 
-  // ── Fetch assets from API ──
+  // â”€â”€ Fetch assets from API â”€â”€
   const { data: assetsData, isLoading: isLoadingAssets, mutate: mutateAssets } = useSWR(
     selectedPlan ? `/api/marketing/assets?clientId=${selectedPlan}` : null,
     jsonFetcher,
@@ -636,7 +636,7 @@ export default function MarketingPage() {
         {selectedPlan && selectedClient && (
         <div className="space-y-4">
           <Accordion type="multiple" defaultValue={["create"]} className="space-y-4">
-            {/* ── Create Marketing Asset Accordion ── */}
+            {/* â”€â”€ Create Marketing Asset Accordion â”€â”€ */}
             <AccordionItem value="create" className="rounded-xl border bg-white dark:bg-gray-900 dark:border-gray-700 shadow-sm">
               <AccordionTrigger className="px-5 py-3 hover:no-underline [&[data-state=open]>svg]:rotate-180">
                 <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
@@ -666,7 +666,7 @@ export default function MarketingPage() {
                     </p>
                   </div>
                 )}
-                {/* Creation cards — 4-column grid */}
+                {/* Creation cards â€” 4-column grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                   {OPTIONS.map((option) => (
                     <button
@@ -702,7 +702,7 @@ export default function MarketingPage() {
               </AccordionContent>
             </AccordionItem>
 
-            {/* ── Edit Marketing Assets Accordion ── */}
+            {/* â”€â”€ Edit Marketing Assets Accordion â”€â”€ */}
             <AccordionItem value="edit" className="rounded-xl border bg-white dark:bg-gray-900 dark:border-gray-700 shadow-sm">
               <AccordionTrigger className="px-5 py-3 hover:no-underline [&[data-state=open]>svg]:rotate-180">
                 <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
@@ -781,12 +781,12 @@ export default function MarketingPage() {
                         filteredAssets.map((asset) => (
                           <div key={asset.id} className="flex items-center gap-3 px-5 py-3">
                             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-blue)]/10 text-sm">
-                              {asset.type === "flyer" ? "📄" : asset.type === "portal-notice" ? "📢" : asset.type === "pop-up" ? "💬" : "📰"}
+                              {asset.type === "flyer" ? "ðŸ“„" : asset.type === "portal-notice" ? "ðŸ“¢" : asset.type === "pop-up" ? "ðŸ’¬" : "ðŸ“°"}
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{asset.headline}</p>
                               <p className="text-xs text-muted-foreground">
-                                {asset.type.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} · {asset.createdAt}
+                                {asset.type.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} Â· {asset.createdAt}
                               </p>
                             </div>
 
@@ -879,7 +879,7 @@ export default function MarketingPage() {
           </div>
         )}
 
-        {/* ── Marketing Asset Creation Modal ── */}
+        {/* â”€â”€ Marketing Asset Creation Modal â”€â”€ */}
         {selectedClient && (
           <MarketingAssetModal
             open={modalOpen}
@@ -896,3 +896,5 @@ export default function MarketingPage() {
     </div>
   );
 }
+
+
