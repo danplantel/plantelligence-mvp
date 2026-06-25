@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   BenefitsStep1Data,
   useBenefitsWizardStore,
@@ -118,6 +119,14 @@ export function BenefitsStep1a() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [activeAccordions, setActiveAccordions] = useState<string[]>([]);
 
+  // Plan search bar state
+  const [planSearchOpen, setPlanSearchOpen] = useState(false);
+  const [planSearchQuery, setPlanSearchQuery] = useState("");
+  const [planSearchHighlight, setPlanSearchHighlight] = useState(0);
+  const planSearchInputRef = useRef<HTMLInputElement>(null);
+  const planSearchContainerRef = useRef<HTMLDivElement>(null);
+  const planSearchDropdownRef = useRef<HTMLDivElement>(null);
+
   // Contact form state
   const [contactForm, setContactForm] = useState({
     firstName: "",
@@ -173,6 +182,91 @@ export function BenefitsStep1a() {
     }
     return result;
   }, [plans, resolvedPlanId]);
+
+  // ── Plan search bar logic ──
+
+  /** All plans sorted: recents first, then alphabetical. */
+  const allPlansSorted = useMemo(() => {
+    const recentIdsFromStorage = getRecentPlanIds();
+    const recentSet = new Set(recentIdsFromStorage);
+    const recents: typeof plans = [];
+    const others: typeof plans = [];
+    for (const p of plans) {
+      if (recentSet.has(p.id)) recents.push(p);
+      else others.push(p);
+    }
+    others.sort((a, b) =>
+      a.companyName.localeCompare(b.companyName, undefined, {
+        sensitivity: "base",
+      }),
+    );
+    return [...recents, ...others];
+  }, [plans]);
+
+  const planSearchDropdownItems = useMemo(() => {
+    if (!planSearchQuery.trim()) return allPlansSorted;
+    const q = planSearchQuery.toLowerCase();
+    return allPlansSorted.filter((p) =>
+      p.companyName.toLowerCase().includes(q),
+    );
+  }, [planSearchQuery, allPlansSorted]);
+
+  const selectedPlanName = useMemo(
+    () => plans.find((p) => p.id === resolvedPlanId)?.companyName ?? "",
+    [plans, resolvedPlanId],
+  );
+
+  const selectPlan = (planId: string) => {
+    handlePlanChange(planId);
+    setPlanSearchOpen(false);
+    setPlanSearchQuery("");
+  };
+
+  const handlePlanSearchKeyDown = (e: React.KeyboardEvent) => {
+    if (!planSearchOpen) return;
+    if (e.key === "Escape") {
+      setPlanSearchOpen(false);
+      setPlanSearchQuery("");
+      return;
+    }
+    if (planSearchDropdownItems.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setPlanSearchHighlight(
+        (h) => (h + 1) % planSearchDropdownItems.length,
+      );
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setPlanSearchHighlight(
+        (h) =>
+          (h - 1 + planSearchDropdownItems.length) %
+          planSearchDropdownItems.length,
+      );
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const item = planSearchDropdownItems[planSearchHighlight];
+      if (item) selectPlan(item.id);
+    }
+  };
+
+  // Close on outside click
+  useEffect(() => {
+    if (!planSearchOpen) return;
+    const handler = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (planSearchContainerRef.current?.contains(t)) return;
+      if (planSearchDropdownRef.current?.contains(t)) return;
+      setPlanSearchOpen(false);
+      setPlanSearchQuery("");
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [planSearchOpen]);
+
+  // Reset highlight when items change
+  useEffect(() => {
+    setPlanSearchHighlight(0);
+  }, [planSearchDropdownItems.length, planSearchOpen]);
 
   // Filter and sort contacts for the dropdown
   const filteredContacts = useMemo(() => {
@@ -1234,47 +1328,135 @@ export function BenefitsStep1a() {
               </div>
             )}
 
-            <Select
-              value={resolvedPlanId}
-              onValueChange={handlePlanChange}
-            >
-              <SelectTrigger className="w-full bg-white border-gray-200 dark:bg-gray-700 dark:border-gray-600 h-10">
-                <SelectValue placeholder="Choose a plan..." />
-              </SelectTrigger>
-              <SelectContent>
-                {plans.map((plan) => {
-                  const allBenefits = (plan.employeePortalPreview?.benefits ||
-                    []) as any[];
-                  const completedCount = allBenefits.filter((b: any) => {
-                    if (!b.category) return false;
-                    const completeness = getBenefitCompleteness(
-                      b.category as BenefitsCategory,
-                      plan,
-                    );
-                    return completeness.isComplete;
-                  }).length;
-
-                  return (
-                    <SelectItem key={plan.id} value={plan.id}>
-                      <div className="flex items-center justify-between w-full gap-2">
-                        <span className="truncate">{plan.companyName}</span>
-                        {completedCount > 0 && (
-                          <Badge variant="outline" className="text-[10px] bg-green-50 text-green-700 border-green-200 shrink-0">
-                            {completedCount}/{allBenefits.length || 4} complete
-                          </Badge>
-                        )}
-                      </div>
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-            {plans.length === 0 ? (
+            {/* Plan search input */}
+            <div ref={planSearchContainerRef} className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              <Input
+                ref={planSearchInputRef}
+                type="text"
+                placeholder={selectedPlanName || "Search plans\u2026"}
+                value={planSearchQuery}
+                onChange={(e) => {
+                  if (!planSearchOpen) setPlanSearchOpen(true);
+                  setPlanSearchQuery(e.target.value);
+                }}
+                onFocus={() => setPlanSearchOpen(true)}
+                onKeyDown={handlePlanSearchKeyDown}
+                className="h-10 pl-9 pr-3 bg-white dark:bg-gray-700 dark:border-gray-600"
+                aria-label="Search plans"
+                aria-expanded={planSearchOpen}
+                aria-haspopup="listbox"
+                autoComplete="off"
+              />
+            </div>
+            {plans.length === 0 && !loading ? (
               <p className="text-sm text-muted-foreground pt-1">
                 No plans found for your account yet. Create a client plan first
                 from the dashboard, then refresh this page.
               </p>
             ) : null}
+
+            {/* Dropdown portal */}
+            {planSearchOpen && plans.length > 0 && typeof document !== "undefined"
+              ? createPortal(
+                  <div
+                    ref={planSearchDropdownRef}
+                    role="listbox"
+                    className="rounded-md border border-input bg-white dark:bg-gray-800 shadow-lg overflow-hidden z-50"
+                    style={{
+                      position: "fixed",
+                      top: (planSearchContainerRef.current?.getBoundingClientRect().bottom ?? 0) + 4,
+                      left: planSearchContainerRef.current?.getBoundingClientRect().left ?? 0,
+                      width: planSearchContainerRef.current?.getBoundingClientRect().width ?? 300,
+                      maxHeight: 288,
+                    }}
+                  >
+                    {planSearchQuery.trim() && (
+                      <div className="px-3 py-1.5 border-b border-border/60">
+                        <p className="text-xs text-muted-foreground">
+                          {planSearchDropdownItems.length} plan{planSearchDropdownItems.length !== 1 ? "s" : ""} found
+                        </p>
+                      </div>
+                    )}
+                    <div className="overflow-y-auto max-h-[256px] py-1">
+                      {planSearchDropdownItems.length > 0 && (
+                        <>
+                          {/* Recent plans section */}
+                          {recentPlans.length > 0 && (
+                            <div className="px-2 pb-1">
+                              <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground px-2 py-1.5">
+                                <Clock className="h-3 w-3" />
+                                Recent
+                              </div>
+                              {planSearchDropdownItems
+                                .filter((p) => recentPlans.some((rp) => rp.id === p.id))
+                                .map((plan, idx) => {
+                                  const isHi = planSearchHighlight === idx;
+                                  return (
+                                    <button
+                                      key={`r-${plan.id}`}
+                                      type="button"
+                                      role="option"
+                                      aria-selected={resolvedPlanId === plan.id}
+                                      className={cn(
+                                        "w-full rounded-sm px-3 py-2 text-left text-sm transition-colors",
+                                        isHi && "bg-accent-blue/10 text-accent-blue font-medium",
+                                        !isHi && "hover:bg-muted",
+                                      )}
+                                      onClick={() => selectPlan(plan.id)}
+                                      onMouseEnter={() => setPlanSearchHighlight(idx)}
+                                    >
+                                      {plan.companyName}
+                                    </button>
+                                  );
+                                })}
+                            </div>
+                          )}
+                          {/* All other plans */}
+                          {planSearchDropdownItems.length > (recentPlans.length > 0 ? recentPlans.length : 0) && (
+                            <div className={cn("px-2", recentPlans.length > 0 && "pt-1 border-t border-border/60")}>
+                              <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground px-2 py-1.5">
+                                {planSearchQuery.trim() ? "Matching plans" : "All plans"}
+                              </div>
+                              {planSearchDropdownItems
+                                .filter((p) => !recentPlans.some((rp) => rp.id === p.id))
+                                .map((plan, idx) => {
+                                  const globalIdx = (planSearchDropdownItems.filter((p) => recentPlans.some((rp) => rp.id === p.id))).length + idx;
+                                  const isHi = planSearchHighlight === globalIdx;
+                                  return (
+                                    <button
+                                      key={plan.id}
+                                      type="button"
+                                      role="option"
+                                      aria-selected={resolvedPlanId === plan.id}
+                                      className={cn(
+                                        "w-full rounded-sm px-3 py-2 text-left text-sm transition-colors",
+                                        isHi && "bg-accent-blue/10 text-accent-blue font-medium",
+                                        !isHi && "hover:bg-muted",
+                                      )}
+                                      onClick={() => selectPlan(plan.id)}
+                                      onMouseEnter={() => setPlanSearchHighlight(globalIdx)}
+                                    >
+                                      {plan.companyName}
+                                    </button>
+                                  );
+                                })}
+                            </div>
+                          )}
+                        </>
+                      )}
+                      {planSearchDropdownItems.length === 0 && (
+                        <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+                          {planSearchQuery.trim()
+                            ? "No plans match your search."
+                            : "No plans available."}
+                        </div>
+                      )}
+                    </div>
+                  </div>,
+                  document.body,
+                )
+              : null}
           </div>
 
           {/* Benefit Category Cards */}
