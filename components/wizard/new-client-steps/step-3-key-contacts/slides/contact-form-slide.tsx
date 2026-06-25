@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
@@ -145,7 +145,7 @@ function ContactCardPreview({
               className="text-xl font-bold font-dm-serif select-none"
               style={{ color: accentColor }}
             >
-              {showAvatar ? getInitials(resolvedName) : "👥"}
+              {showAvatar ? getInitials(resolvedName) : "ðŸ‘¥"}
             </span>
           )}
         </div>
@@ -177,7 +177,7 @@ function ContactCardPreview({
 
         {/* Divider */}
         <div className="w-full border-t border-gray-100 dark:border-gray-700 pt-2 space-y-1.5">
-          {/* Email — controlled by displayEmail toggle */}
+          {/* Email â€” controlled by displayEmail toggle */}
           {displayEmail && (
             email ? (
               <div className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-200">
@@ -192,7 +192,7 @@ function ContactCardPreview({
             )
           )}
 
-          {/* Phone — controlled by displayPhone toggle */}
+          {/* Phone â€” controlled by displayPhone toggle */}
           {displayPhone && (
             phone ? (
               <div className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-200">
@@ -259,7 +259,7 @@ function StickyPreviewContainer({ children }: { children: React.ReactNode }) {
     const el = ref.current;
     if (!el) return;
 
-    const threshold = 130; // px from viewport top — start pinning well before the header
+    const threshold = 130; // px from viewport top â€” start pinning well before the header
 
     const recalc = () => {
       const rect = el.getBoundingClientRect();
@@ -344,12 +344,12 @@ export function ContactFormSlide({
     step3bData.displayPhone ?? true,
   );
 
-  // Custom Benefits description — only shown when category is "Other Benefits"
+  // Custom Benefits description â€” only shown when category is "Other Benefits"
   const [customBenefits, setCustomBenefits] = useState(
     (step3bData as any).benefitsCategoryOther || "",
   );
 
-  // External Admin Logo state — only shown for "Third Party Contact" category
+  // External Admin Logo state â€” only shown for "Third Party Contact" category
   const [externalAdminLogo, setExternalAdminLogo] = useState(
     (step3bData as any).externalAdminLogo || "",
   );
@@ -388,7 +388,7 @@ export function ContactFormSlide({
 
   // When the parent reuses this component instance (same category key) for a
   // different contact, the ref and all form state must be reset to match the
-  // freshly populated step3b data — otherwise the auto-save effect will
+  // freshly populated step3b data â€” otherwise the auto-save effect will
   // overwrite step3b with stale values from the previous editing session.
   useEffect(() => {
     const incomingId = (stepData as any)?.step3b?.editingContactId as
@@ -510,7 +510,7 @@ export function ContactFormSlide({
   ]);
 
   // When the user checks "Mark as primary", immediately demote other primary
-  // contacts that share the same category — before the user even returns to
+  // contacts that share the same category â€” before the user even returns to
   // the CategoryExplorer. This guarantees only one primary per category at
   // all times, without waiting for "Save Contact".
   useEffect(() => {
@@ -890,14 +890,14 @@ export function ContactFormSlide({
 
   // Category emoji matching CategoryExplorer
   const categoryEmoji: Record<string, string> = {
-    Retirement: "🏢",
-    "Group Health": "🛡️",
-    "Group Life": "❤️",
-    "Other Benefits": "🎁",
-    "Company / Plan Sponsor": "👥",
-    "External HR / Administrator": "🤝",
+    Retirement: "ðŸ¢",
+    "Group Health": "ðŸ›¡ï¸",
+    "Group Life": "â¤ï¸",
+    "Other Benefits": "ðŸŽ",
+    "Company / Plan Sponsor": "ðŸ‘¥",
+    "External HR / Administrator": "ðŸ¤",
   };
-  const emoji = categoryEmoji[category] || "🏢";
+  const emoji = categoryEmoji[category] || "ðŸ¢";
 
   return (
     <div className="flex flex-col items-center space-y-4 py-2">
@@ -1003,7 +1003,7 @@ export function ContactFormSlide({
         {/* Left column: Form Fields */}
         <Card className="w-full dark:bg-gray-800 dark:border-gray-700 shadow-sm">
           <CardContent className="pt-3 space-y-2.5">
-            {/* Primary Contact Toggle — hidden for Company / Plan Sponsor and TPA (Someone Else) since they are always primary */}
+            {/* Primary Contact Toggle â€” hidden for Company / Plan Sponsor and TPA (Someone Else) since they are always primary */}
             {category !== "Company / Plan Sponsor" && !isFromSomeoneElse && (
               <div className="pb-2 border-b border-gray-100 dark:border-gray-700 mb-1">
                 <div className="flex items-center space-x-2">
@@ -1022,7 +1022,7 @@ export function ContactFormSlide({
                 </div>
               </div>
             )}
-            {/* Company / Organization — first input for TPA/Someone Else contacts */}
+            {/* Company / Organization â€” first input for TPA/Someone Else contacts */}
             {isFromSomeoneElse && (
               <div className="space-y-1">
                 <Label className="dark:text-gray-300 text-xs font-medium">
@@ -1036,7 +1036,7 @@ export function ContactFormSlide({
               </div>
             )}
 
-            {/* Custom Benefits — only shown for "Other Benefits" category */}
+            {/* Custom Benefits â€” only shown for "Other Benefits" category */}
             {category === "Other Benefits" && (
               <div className="space-y-1.5 pb-2 border-b border-gray-100 dark:border-gray-700 mb-1" data-field="customBenefits">
                 <Label className="dark:text-gray-300 text-xs font-medium">
@@ -1322,7 +1322,7 @@ export function ContactFormSlide({
               </div>
             )}
 
-            {/* External Admin Logo — only shown for "Third Party Contact" (External HR / Administrator) */}
+            {/* External Admin Logo â€” only shown for "Third Party Contact" (External HR / Administrator) */}
             {category === "Third Party Contact" && (
               <div className="border-t border-gray-100 dark:border-gray-700 pt-3 mt-2 space-y-2.5">
                 <Label className="dark:text-gray-300 text-xs font-medium">
@@ -1385,7 +1385,7 @@ export function ContactFormSlide({
               </div>
             )}
 
-            {/* Company / Organization — shown for non-Plan-Sponsor, unless already shown at top for Someone Else */}
+            {/* Company / Organization â€” shown for non-Plan-Sponsor, unless already shown at top for Someone Else */}
             {category !== "Company / Plan Sponsor" && !isFromSomeoneElse && (
               <div className="space-y-1.5">
                 <Label className="dark:text-gray-300">
