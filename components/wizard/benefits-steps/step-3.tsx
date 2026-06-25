@@ -202,15 +202,15 @@ export function BenefitsStep3() {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full mx-auto pb-20">
       {/* FAQ Section */}
       <Card className="border-none shadow-md overflow-hidden bg-card">
-        <CardHeader className="py-2 border-b bg-gray-50/50">
+        <CardHeader className="py-2 border-b bg-gray-50/50 dark:bg-gray-800 dark:border-gray-700">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-2">
               <HelpCircle className="w-5 h-5 text-accent-blue" />
               <div>
-                <CardTitle className="text-lg font-bold text-gray-900">
+                <CardTitle className="text-lg font-bold text-foreground">
                   Popular Questions (FAQ)
                 </CardTitle>
-                <CardDescription className="text-xs text-gray-500">
+                <CardDescription className="text-xs text-muted-foreground">
                   Manage frequently asked questions for this benefit.
                 </CardDescription>
               </div>
@@ -227,9 +227,9 @@ export function BenefitsStep3() {
         </CardHeader>
         <CardContent className="p-3">
           {currentStep3Data.faqs.length === 0 ? (
-            <div className="text-center py-6 bg-gray-50 rounded-lg border border-dashed border-gray-200">
-              <HelpCircle className="w-10 h-10 text-gray-300 mx-auto mb-1" />
-              <p className="text-xs text-gray-400">
+            <div className="text-center py-6 bg-gray-50 rounded-lg border border-dashed border-gray-200 dark:bg-gray-800/50 dark:border-gray-700">
+              <HelpCircle className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-1" />
+              <p className="text-xs text-muted-foreground">
                 No questions added yet.
               </p>
             </div>
@@ -264,22 +264,22 @@ export function BenefitsStep3() {
 
       {/* Support Contacts Section */}
       <Card className="border-none shadow-md overflow-hidden bg-card">
-        <CardHeader className="py-2 border-b bg-gray-50/50">
-          <CardTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
+        <CardHeader className="py-2 border-b bg-gray-50/50 dark:bg-gray-800/50 dark:border-gray-700">
+          <CardTitle className="text-lg font-bold text-foreground flex items-center gap-2">
             <Users className="w-5 h-5 text-accent-blue" />
             Support Contacts
           </CardTitle>
-          <CardDescription className="text-xs text-gray-500">
+          <CardDescription className="text-xs text-muted-foreground">
             Select one or more contacts for users to reach out to.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-3">
           <div className="grid grid-cols-1 gap-2">
             {planContacts.length === 0 ? (
-              <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-200">
-                <Users className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-                <p className="text-sm text-gray-500 font-medium">No support contacts available.</p>
-                <p className="text-xs text-gray-400 mt-1">Please add contacts in Step 1 or check your connection.</p>
+              <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-200 dark:bg-gray-800/50 dark:border-gray-700">
+                <Users className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground font-medium">No support contacts available.</p>
+                <p className="text-xs text-muted-foreground mt-1">Please add contacts in Step 1 or check your connection.</p>
                 <Button
                   variant="outline"
                   size="sm"
@@ -302,46 +302,46 @@ export function BenefitsStep3() {
                   <div
                     className={`flex items-center p-2 rounded-lg border cursor-pointer transition-all ${isSelected
                       ? "border-accent-blue bg-accent-blue/[0.02]"
-                      : "border-gray-100 bg-white hover:border-gray-200"
+                      : "border-gray-100 bg-white hover:border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-gray-600"
                       }`}
                     onClick={() => toggleContact(contact.id)}
                   >
                     <div
                       className={`w-4 h-4 rounded-full border flex items-center justify-center mr-2.5 transition-colors ${isSelected
                         ? "bg-accent-blue border-accent-blue text-white"
-                        : "bg-white border-gray-200"
+                        : "bg-white border-gray-200 dark:bg-gray-700 dark:border-gray-600"
                         }`}
                     >
                       {isSelected && <Check className="w-3.5 h-3.5" />}
                     </div>
                     {contact.headshot && (
-                      <div className="w-8 h-8 rounded-full overflow-hidden mr-2.5 border border-gray-100 shrink-0">
+                      <div className="w-8 h-8 rounded-full overflow-hidden mr-2.5 border border-gray-100 dark:border-gray-700 shrink-0">
                         <Headshot src={contact.headshot} alt={contact.name ?? "Contact"} />
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="text-base font-semibold text-gray-900 leading-tight truncate">
+                      <p className="text-base font-semibold text-foreground leading-tight truncate">
                         {contact.name ||
                           `${contact.firstName} ${contact.lastName}`}
                       </p>
-                      <p className="text-xs text-gray-500 leading-tight mt-0.5 truncate">
+                      <p className="text-xs text-muted-foreground leading-tight mt-0.5 truncate">
                         {contact.title || "No Title"}
                       </p>
                     </div>
                     <div className="text-right flex flex-col items-end gap-1 ml-2">
-                      <p className="text-xs text-gray-400 font-medium leading-none truncate max-w-[150px]">
+                      <p className="text-xs text-muted-foreground font-medium leading-none truncate max-w-[150px]">
                         {contact.email}
                       </p>
-                      <p className="text-xs text-gray-400 leading-none">
+                      <p className="text-xs text-muted-foreground leading-none">
                         {contact.phone}
                       </p>
                     </div>
                   </div>
 
                   {isSelected && supportConfig && (
-                    <div className="ml-7 p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-2.5 animate-in slide-in-from-top-1 duration-200">
+                    <div className="ml-7 p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-2.5 animate-in slide-in-from-top-1 duration-200 dark:bg-gray-800/50 dark:border-gray-700">
                       <div className="space-y-1.5">
-                        <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                           Display Title
                         </Label>
                         <Input
@@ -356,7 +356,7 @@ export function BenefitsStep3() {
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                           Display Description
                         </Label>
                         <Textarea
@@ -421,10 +421,10 @@ function SortableFaqItem({
       style={style}
       className={`${isDragging ? "shadow-2xl ring-2 ring-accent-blue/20" : ""}`}
     >
-      <div className="border rounded-lg bg-white overflow-hidden transition-all duration-200 shadow-sm">
+      <div className="border rounded-lg bg-white overflow-hidden transition-all duration-200 shadow-sm dark:bg-gray-800 dark:border-gray-700">
         <div
-          className={`flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-gray-50/50 transition-colors ${expandedId === faq.id
-            ? "bg-gray-50/50 border-b border-gray-100"
+          className={`flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-gray-50/50 dark:hover:bg-gray-700/40 transition-colors ${expandedId === faq.id
+            ? "bg-gray-50/50 border-b border-gray-100 dark:bg-gray-700/40 dark:border-gray-700"
             : ""
             }`}
           onClick={() => toggleExpand(faq.id)}
@@ -433,7 +433,7 @@ function SortableFaqItem({
             <div
               {...attributes}
               {...listeners}
-              className="p-1 -ml-1 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 transition-colors"
+              className="p-1 -ml-1 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-400 transition-colors"
               onClick={(e) => e.stopPropagation()}
             >
               <GripVertical className="w-4 h-4" />
@@ -444,7 +444,7 @@ function SortableFaqItem({
             <span
               className={`text-sm truncate transition-colors ${expandedId === faq.id
                 ? "text-accent-blue font-semibold"
-                : "text-black"
+                : "text-foreground"
                 }`}
             >
               {faq.question || `Question ${index + 1}`}
@@ -464,13 +464,13 @@ function SortableFaqItem({
             <Button
               variant="ghost"
               size="icon"
-              className="text-gray-400 hover:text-red-500 h-6 w-6"
+              className="text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 h-6 w-6"
               onClick={() => removeFaq(faq.id)}
             >
               <Trash2 className="w-4 h-4" />
             </Button>
             <ChevronDown
-              className={`w-4 h-4 text-neutral-400 transition-transform duration-300 ${expandedId === faq.id ? "rotate-180" : ""
+              className={`w-4 h-4 text-neutral-400 dark:text-neutral-500 transition-transform duration-300 ${expandedId === faq.id ? "rotate-180" : ""
                 }`}
             />
           </div>
@@ -484,9 +484,9 @@ function SortableFaqItem({
               exit={{ height: 0, opacity: 0 }}
               transition={{ duration: 0.25, ease: "easeInOut" }}
             >
-              <div className="px-3 py-4 space-y-4 bg-white">
+              <div className="px-3 py-4 space-y-4 bg-white dark:bg-gray-800">
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                  <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                     Question Text
                   </Label>
                   <Input
@@ -495,11 +495,11 @@ function SortableFaqItem({
                       updateFaq(faq.id, { question: e.target.value })
                     }
                     placeholder="Enter question..."
-                    className="h-8 text-xs font-medium text-gray-900 border-gray-200 focus:border-accent-blue"
+                    className="h-8 text-xs font-medium text-foreground border-gray-200 focus:border-accent-blue dark:border-gray-600"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                  <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                     Answer
                   </Label>
                   <Textarea
@@ -508,12 +508,12 @@ function SortableFaqItem({
                       updateFaq(faq.id, { answer: e.target.value })
                     }
                     placeholder="Enter answer..."
-                    className="min-h-[80px] text-xs leading-relaxed border-gray-200 focus:border-accent-blue"
+                    className="min-h-[80px] text-xs leading-relaxed border-gray-200 focus:border-accent-blue dark:border-gray-600"
                   />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                       Link Label
                     </Label>
                     <Input
@@ -522,11 +522,11 @@ function SortableFaqItem({
                         updateFaq(faq.id, { linkLabel: e.target.value })
                       }
                       placeholder="Learn More"
-                      className="h-8 text-[11px] border-gray-200 focus:border-accent-blue"
+                      className="h-8 text-[11px] border-gray-200 focus:border-accent-blue dark:border-gray-600"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                       Link URL
                     </Label>
                     <Input
@@ -535,7 +535,7 @@ function SortableFaqItem({
                         updateFaq(faq.id, { linkHref: e.target.value })
                       }
                       placeholder="https://..."
-                      className="h-8 text-[11px] border-gray-200 focus:border-accent-blue"
+                      className="h-8 text-[11px] border-gray-200 focus:border-accent-blue dark:border-gray-600"
                     />
                   </div>
                 </div>

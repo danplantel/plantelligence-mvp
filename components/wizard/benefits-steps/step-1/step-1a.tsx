@@ -559,7 +559,7 @@ export function BenefitsStep1a() {
                   fileSize: 0,
                   width: 0,
                   height: 0,
-                  recommendedSize: "1920Ã—1080 px",
+                  recommendedSize: "1920 px—1080 px",
                   status: "ok" as const,
                   warnings: [],
                 }
@@ -638,7 +638,7 @@ export function BenefitsStep1a() {
       fileSize: logoData.fileSize,
       width: logoData.width,
       height: logoData.height,
-      recommendedSize: "900Ã—900 px",
+      recommendedSize: "900 px—900 px",
       status:
         logoData.warnings && logoData.warnings.length > 0 ? "warning" : "ok",
       warnings: logoData.warnings || [],
@@ -654,7 +654,7 @@ export function BenefitsStep1a() {
       fileSize: 0,
       width: 0,
       height: 0,
-      recommendedSize: "900Ã—900 px",
+      recommendedSize: "900 px—900 px",
       status: "ok",
       warnings: [],
     };
@@ -768,7 +768,7 @@ export function BenefitsStep1a() {
             fileSize: 0,
             width: 0,
             height: 0,
-            recommendedSize: "900Ã—900 px",
+            recommendedSize: "900 px—900 px",
             status: "ok" as const,
             warnings: [],
           },
@@ -924,7 +924,7 @@ export function BenefitsStep1a() {
             fileSize: 0,
             width: 0,
             height: 0,
-            recommendedSize: "900Ã—900 px",
+            recommendedSize: "900 px—900 px",
             status: "ok",
             warnings: [],
           },
@@ -982,7 +982,7 @@ export function BenefitsStep1a() {
                 fileSize: 0,
                 width: 0,
                 height: 0,
-                recommendedSize: "1920Ã—1080 px",
+                recommendedSize: "1920 px—1080 px",
                 status: "ok",
                 warnings: [],
               }
@@ -1082,7 +1082,7 @@ export function BenefitsStep1a() {
               fileSize: 0,
               width: 0,
               height: 0,
-              recommendedSize: "1920Ã—1080 px",
+              recommendedSize: "1920 px—1080 px",
               status: "ok" as const,
               warnings: [],
             } as BrandImageData)
@@ -1182,7 +1182,7 @@ export function BenefitsStep1a() {
             fileSize: 0,
             width: 0,
             height: 0,
-            recommendedSize: "900Ã—900 px",
+            recommendedSize: "900 px—900 px",
             status: "ok" as const,
             warnings: [],
           },
@@ -1636,7 +1636,7 @@ export function BenefitsStep1a() {
                 </div>
               </AccordionTrigger>
               <AccordionContent className="p-6 space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="flex flex-col gap-8">
                   <div className="space-y-4">
                     <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
                       Benefit Provider Logo
@@ -1647,7 +1647,7 @@ export function BenefitsStep1a() {
                         title: "Benefit Logo",
                         description:
                           "Upload a logo for this specific benefit provider.",
-                        recommendedSize: "900Ã—900 px",
+                        recommendedSize: "900 px—900 px",
                         accept: ".svg,.png,.jpg,.jpeg",
                         required: true,
                         previewAspectRatio: 1,
@@ -1680,7 +1680,7 @@ export function BenefitsStep1a() {
                         title: "Background Header Image (Hero)",
                         description:
                           "This image displays in the header background of your Employee Benefits Hub. Upload a wide hero image for best results. If not uploading a picture, the Square Thumbnail will be used.",
-                        recommendedSize: "1920Ã—1080 px",
+                        recommendedSize: "1920 px—1080 px",
                         defaultPhoteButton: true,
                         required: true,
                         accept: ".png,.jpg,.jpeg",
@@ -1971,7 +1971,7 @@ export function BenefitsStep1a() {
                         slot={{
                           title: "Contact Photo",
                           description: "Photo for portal display.",
-                          recommendedSize: "900Ã—900 px",
+                          recommendedSize: "900 px—900 px",
                           defaultPhoteButton: true,
                           required: false,
                           accept: ".png,.jpg,.jpeg",
