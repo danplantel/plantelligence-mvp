@@ -114,14 +114,29 @@ const Sidebar = memo(function Sidebar() {
 
       {/* Logo */}
       <div className="flex items-center p-4 flex-shrink-0 overflow-hidden">
-        <Link href={"#"} target="_blank" className="flex w-full">
-          <div className="">
-            {isOpen ? (
-              <img src={srcImage} className="w-[200px]" alt="PlanTelligence" />
-            ) : (
-              <img src={iconImage} className="w-6" alt="PlanTelligence Icon" />
+        <Link href={"#"} target="_blank" className="block w-full h-8 relative">
+          {/* Full logo — fades out as sidebar collapses */}
+          <img
+            src={srcImage}
+            alt="PlanTelligence"
+            className={cn(
+              "absolute left-0 top-0 transition-all duration-200 ease-in-out",
+              isOpen
+                ? "w-[200px] opacity-100"
+                : "w-0 opacity-0 pointer-events-none",
             )}
-          </div>
+          />
+          {/* Icon logo — fades in as sidebar collapses */}
+          <img
+            src={iconImage}
+            alt="PlanTelligence Icon"
+            className={cn(
+              "absolute left-0 top-0 transition-all duration-200 ease-in-out",
+              isOpen
+                ? "w-0 opacity-0 pointer-events-none"
+                : "w-6 opacity-100",
+            )}
+          />
         </Link>
       </div>
 
