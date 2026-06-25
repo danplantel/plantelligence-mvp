@@ -264,7 +264,7 @@ export function BenefitsStep3() {
 
       {/* Support Contacts Section */}
       <Card className="border-none shadow-md overflow-hidden bg-card">
-        <CardHeader className="py-2 border-b bg-gray-50/50 dark:bg-gray-800/50 dark:border-gray-700">
+        <CardHeader className="py-2 border-b bg-gray-50/50 dark:bg-gray-800 dark:border-gray-700">
           <CardTitle className="text-lg font-bold text-foreground flex items-center gap-2">
             <Users className="w-5 h-5 text-accent-blue" />
             Support Contacts
@@ -427,7 +427,8 @@ function SortableFaqItem({
             ? "bg-gray-50/50 border-b border-gray-100 dark:bg-gray-700/40 dark:border-gray-700"
             : ""
             }`}
-          onClick={() => toggleExpand(faq.id)}
+          onPointerDown={(e) => e.stopPropagation()}
+          onPointerUp={() => toggleExpand(faq.id)}
         >
           <div className="flex items-center gap-2.5 flex-1 overflow-hidden">
             <div
