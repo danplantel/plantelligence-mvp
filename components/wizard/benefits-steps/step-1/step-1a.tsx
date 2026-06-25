@@ -1599,36 +1599,36 @@ export function BenefitsStep1a() {
               value="branding"
               className="border-none shadow-md overflow-hidden bg-card rounded-xl"
             >
-              <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-gray-50/50 group border-b bg-gray-50/30">
+              <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-gray-50/50 group border-b bg-gray-50/30 dark:hover:bg-gray-700/40 dark:bg-gray-800 dark:border-gray-700">
                 <div className="flex items-center justify-between w-full pr-4 text-left">
                   <div className="flex items-center gap-3">
                     <div
                       className={cn(
                         "p-2 rounded-lg transition-colors",
                         currentCompleteness?.sections.branding
-                          ? "bg-green-100 text-green-700"
-                          : "bg-teal-50 text-[#23919C]",
+                          ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400"
+                          : "bg-teal-50 text-[#23919C] dark:bg-teal-900/30 dark:text-teal-400",
                       )}
                     >
                       <ImageIcon className="w-5 h-5" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-gray-900 group-hover:text-[#23919C]">
+                      <h3 className="text-lg font-bold text-foreground group-hover:text-[#23919C]">
                         Branding
                       </h3>
-                      <p className="text-xs text-gray-500 font-normal">
+                      <p className="text-xs text-muted-foreground font-normal">
                         Provider logos and portal header assets
                       </p>
                     </div>
                   </div>
                   {currentCompleteness?.sections.branding ? (
-                    <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none px-3 font-bold">
+                    <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none px-3 font-bold dark:bg-green-900/40 dark:text-green-400">
                       COMPLETED
                     </Badge>
                   ) : (
                     <Badge
                       variant="outline"
-                      className="text-amber-600 border-amber-200 bg-amber-50 font-bold"
+                      className="text-amber-600 border-amber-200 bg-amber-50 font-bold dark:text-amber-400 dark:border-amber-700 dark:bg-amber-900/30"
                     >
                       INCOMPLETE
                     </Badge>
@@ -1724,36 +1724,36 @@ export function BenefitsStep1a() {
               value="messaging"
               className="border-none shadow-md overflow-hidden bg-card rounded-xl"
             >
-              <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-gray-50/50 group border-b bg-gray-50/30">
+              <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-gray-50/50 group border-b bg-gray-50/30 dark:hover:bg-gray-700/40 dark:bg-gray-800 dark:border-gray-700">
                 <div className="flex items-center justify-between w-full pr-4 text-left">
                   <div className="flex items-center gap-3">
                     <div
                       className={cn(
                         "p-2 rounded-lg transition-colors",
                         currentCompleteness?.sections.messaging
-                          ? "bg-green-100 text-green-700"
-                          : "bg-teal-50 text-[#23919C]",
+                          ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400"
+                          : "bg-teal-50 text-[#23919C] dark:bg-teal-900/30 dark:text-teal-400",
                       )}
                     >
                       <Layout className="w-5 h-5" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-gray-900 group-hover:text-[#23919C]">
+                      <h3 className="text-lg font-bold text-foreground group-hover:text-[#23919C]">
                         Messaging
                       </h3>
-                      <p className="text-xs text-gray-500 font-normal">
+                      <p className="text-xs text-muted-foreground font-normal">
                         Custom title and benefit description
                       </p>
                     </div>
                   </div>
                   {currentCompleteness?.sections.messaging ? (
-                    <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none px-3 font-bold">
+                    <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none px-3 font-bold dark:bg-green-900/40 dark:text-green-400">
                       COMPLETED
                     </Badge>
                   ) : (
                     <Badge
                       variant="outline"
-                      className="text-amber-600 border-amber-200 bg-amber-50 font-bold"
+                      className="text-amber-600 border-amber-200 bg-amber-50 font-bold dark:text-amber-400 dark:border-amber-700 dark:bg-amber-900/30"
                     >
                       INCOMPLETE
                     </Badge>
@@ -1833,36 +1833,36 @@ export function BenefitsStep1a() {
               value="contacts"
               className="border-none shadow-md overflow-hidden bg-card rounded-xl"
             >
-              <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-gray-50/50 group border-b bg-gray-50/30">
+              <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-gray-50/50 group border-b bg-gray-50/30 dark:hover:bg-gray-700/40 dark:bg-gray-800 dark:border-gray-700">
                 <div className="flex items-center justify-between w-full pr-4 text-left">
                   <div className="flex items-center gap-3">
                     <div
                       className={cn(
                         "p-2 rounded-lg transition-colors",
                         currentCompleteness?.sections.contacts
-                          ? "bg-green-100 text-green-700"
-                          : "bg-teal-50 text-[#23919C]",
+                          ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400"
+                          : "bg-teal-50 text-[#23919C] dark:bg-teal-900/30 dark:text-teal-400",
                       )}
                     >
                       <Mail className="w-5 h-5" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-gray-900 group-hover:text-[#23919C]">
+                      <h3 className="text-lg font-bold text-foreground group-hover:text-[#23919C]">
                         Key Contact
                       </h3>
-                      <p className="text-xs text-gray-500 font-normal">
+                      <p className="text-xs text-muted-foreground font-normal">
                         Assign a primary support contact
                       </p>
                     </div>
                   </div>
                   {currentCompleteness?.sections.contacts ? (
-                    <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none px-3 font-bold">
+                    <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none px-3 font-bold dark:bg-green-900/40 dark:text-green-400">
                       ASSIGNED
                     </Badge>
                   ) : (
                     <Badge
                       variant="outline"
-                      className="text-amber-600 border-amber-200 bg-amber-50 font-bold"
+                      className="text-amber-600 border-amber-200 bg-amber-50 font-bold dark:text-amber-400 dark:border-amber-700 dark:bg-amber-900/30"
                     >
                       UNASSIGNED
                     </Badge>
@@ -2022,38 +2022,38 @@ export function BenefitsStep1a() {
               value="documents"
               className="border-none shadow-md overflow-hidden bg-card rounded-xl"
             >
-              <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-gray-50/50 group border-b bg-gray-50/30">
+              <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-gray-50/50 group border-b bg-gray-50/30 dark:hover:bg-gray-700/40 dark:bg-gray-800 dark:border-gray-700">
                 <div className="flex items-center justify-between w-full pr-4 text-left">
                   <div className="flex items-center gap-3">
                     <div
                       className={cn(
                         "p-2 rounded-lg transition-colors",
                         currentCompleteness?.sections.documents
-                          ? "bg-green-100 text-green-700"
-                          : "bg-teal-50 text-[#23919C]",
+                          ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400"
+                          : "bg-teal-50 text-[#23919C] dark:bg-teal-900/30 dark:text-teal-400",
                       )}
                     >
                       <FileText className="w-5 h-5" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-gray-900 group-hover:text-[#23919C]">
+                      <h3 className="text-lg font-bold text-foreground group-hover:text-[#23919C]">
                         {currentStepData.benefitCategory
                           ? `${currentStepData.benefitCategory} Plan Documents`
                           : "Plan Documents"}
                       </h3>
-                      <p className="text-xs text-gray-500 font-normal">
+                      <p className="text-xs text-muted-foreground font-normal">
                         Essential SPDs, SBCs, and guidebooks
                       </p>
                     </div>
                   </div>
                   {currentCompleteness?.sections.documents ? (
-                    <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none px-3 font-bold">
+                    <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none px-3 font-bold dark:bg-green-900/40 dark:text-green-400">
                       READY
                     </Badge>
                   ) : (
                     <Badge
                       variant="outline"
-                      className="text-amber-600 border-amber-200 bg-amber-50 font-bold"
+                      className="text-amber-600 border-amber-200 bg-amber-50 font-bold dark:text-amber-400 dark:border-amber-700 dark:bg-amber-900/30"
                     >
                       REQUIRED
                     </Badge>
