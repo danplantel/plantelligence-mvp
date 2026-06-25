@@ -1,12 +1,9 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { LoadingButton } from "@/components/ui/loading-button";
-import { toast } from "sonner";
-import { WizardStepper } from "./wizard-stepper";
 
 export interface WizardStep {
     id: number;
@@ -40,9 +37,6 @@ export function BenefitsWizard({
     children,
     isLoading = false,
 }: BenefitsWizardProps) {
-    const currentStepData = steps.find((step) => step.id === currentStep);
-    const currentStepTitle = currentStepData?.title || "";
-
     const [isProcessing, setIsProcessing] = useState(false);
     const [isEditorOpen, setIsEditorOpen] = useState(false);
     const contentRef = useRef<HTMLDivElement>(null);
@@ -118,17 +112,7 @@ export function BenefitsWizard({
 
     return (
         <div className="mx-10 py-4 min-h-screen transition-all duration-300 ease-in-out">
-            <div className="mb-2">
-                <WizardStepper
-                    steps={steps}
-                    currentStep={currentStep}
-                    totalSteps={totalSteps}
-                    currentStepTitle={currentStepTitle}
-                    showEditorButton={currentStep === 1}
-                />
-            </div>
-
-            <div ref={contentRef} className="mb-12">
+            <div ref={contentRef} className="max-w-4xl mx-auto mb-12">
                 {children}
             </div>
 

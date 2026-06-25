@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import {
@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { persistPlanSelection } from "@/lib/plan-selector-storage";
+import { persistPlanSelection, getRecentPlanIds } from "@/lib/plan-selector-storage";
 import {
   Select,
   SelectContent,
@@ -32,6 +32,7 @@ import {
   Building2,
   Image as ImageIcon,
   CheckCircle2,
+  Clock,
   Plus,
   Pencil,
   Search,
@@ -93,7 +94,7 @@ import { persistNewDocumentsToApi } from "@/lib/benefits-document-persist";
 import { fetchPlanDocumentsForClient } from "@/lib/fetch-plan-documents-client";
 import { ComplianceDocumentsUpload } from "@/components/pages/documents/components/compliance-documents-upload";
 
-/** Wizard order — matches accordion below (Branding → Messaging → Contacts → Documents). */
+/** Wizard order â€” matches accordion below (Branding â†’ Messaging â†’ Contacts â†’ Documents). */
 const BENEFIT_SETUP_SECTION_ORDER = [
   { key: "branding" as const, label: "Branding" },
   { key: "messaging" as const, label: "Messaging" },
@@ -143,12 +144,35 @@ export function BenefitsStep1a() {
     },
   };
 
-  /** Only a value that exists in `plans` — Radix Select shows a blank trigger if `value` has no matching item. */
+  /** Only a value that exists in `plans` â€” Radix Select shows a blank trigger if `value` has no matching item. */
   const resolvedPlanId = useMemo(() => {
     const id = (currentStepData.planId || "").trim();
     if (!id || plans.length === 0) return "";
     return plans.some((p) => p.id === id) ? id : "";
   }, [currentStepData.planId, plans]);
+
+  /** Plans recently selected across any module (via plan-selector-storage). */
+  const recentPlans = useMemo(() => {
+    if (plans.length === 0) return [];
+    const recentIds = getRecentPlanIds();
+    if (recentIds.length === 0) return [];
+    const planById = new Map(plans.map((p) => [p.id, p]));
+    const seen = new Set<string>();
+    const result: { id: string; companyName: string; isCurrent: boolean }[] =
+      [];
+    for (const id of recentIds) {
+      const plan = planById.get(id);
+      if (plan && !seen.has(id)) {
+        seen.add(id);
+        result.push({
+          id,
+          companyName: plan.companyName,
+          isCurrent: id === resolvedPlanId,
+        });
+      }
+    }
+    return result;
+  }, [plans, resolvedPlanId]);
 
   // Filter and sort contacts for the dropdown
   const filteredContacts = useMemo(() => {
@@ -321,7 +345,7 @@ export function BenefitsStep1a() {
   useEffect(() => {
     async function fetchPlans() {
       try {
-        // Include Draft — most in-progress setups are not Active yet; Archived stays out of the picker.
+        // Include Draft â€” most in-progress setups are not Active yet; Archived stays out of the picker.
         const response = await fetch(
           "/api/clients?status=all&limit=500&sortColumn=companyName&sortDirection=asc",
           { credentials: "same-origin", cache: "no-store" },
@@ -362,7 +386,7 @@ export function BenefitsStep1a() {
     fetchPlans();
   }, []);
 
-  /** Drop persisted planId that isn’t in the loaded list (archived, other account, stale storage). */
+  /** Drop persisted planId that isnâ€™t in the loaded list (archived, other account, stale storage). */
   useEffect(() => {
     if (loading) return;
     const pid = (currentStepData.planId || "").trim();
@@ -374,7 +398,7 @@ export function BenefitsStep1a() {
 
     toast.message("Pick a plan", {
       description:
-        "Your saved selection isn’t in this list anymore (for example archived).",
+        "Your saved selection isnâ€™t in this list anymore (for example archived).",
     });
 
     saveStepData(1, {
@@ -395,7 +419,7 @@ export function BenefitsStep1a() {
     });
   }, [loading, plans, currentStepData.planId, saveStepData]);
 
-  // Portal deep link sets planId + benefitCategory before `selectedPlan` exists — fetch full client so
+  // Portal deep link sets planId + benefitCategory before `selectedPlan` exists â€” fetch full client so
   // completeness, contacts, and merged preview data work without re-picking the plan in the dropdown.
   useEffect(() => {
     const planId = currentStepData.planId;
@@ -441,7 +465,7 @@ export function BenefitsStep1a() {
                   fileSize: 0,
                   width: 0,
                   height: 0,
-                  recommendedSize: "1920×1080 px",
+                  recommendedSize: "1920Ã—1080 px",
                   status: "ok" as const,
                   warnings: [],
                 }
@@ -520,7 +544,7 @@ export function BenefitsStep1a() {
       fileSize: logoData.fileSize,
       width: logoData.width,
       height: logoData.height,
-      recommendedSize: "900×900 px",
+      recommendedSize: "900Ã—900 px",
       status:
         logoData.warnings && logoData.warnings.length > 0 ? "warning" : "ok",
       warnings: logoData.warnings || [],
@@ -536,7 +560,7 @@ export function BenefitsStep1a() {
       fileSize: 0,
       width: 0,
       height: 0,
-      recommendedSize: "900×900 px",
+      recommendedSize: "900Ã—900 px",
       status: "ok",
       warnings: [],
     };
@@ -650,7 +674,7 @@ export function BenefitsStep1a() {
             fileSize: 0,
             width: 0,
             height: 0,
-            recommendedSize: "900×900 px",
+            recommendedSize: "900Ã—900 px",
             status: "ok" as const,
             warnings: [],
           },
@@ -673,7 +697,7 @@ export function BenefitsStep1a() {
     const mergedBaseData = { ...selectedPlan };
 
     // Use step 4 documents when we have any (user has been to step 4 or plan was just selected).
-    // Do not overwrite with empty array — that would hide plan documents from list/fetch and show "Plan documents missing".
+    // Do not overwrite with empty array â€” that would hide plan documents from list/fetch and show "Plan documents missing".
     if (stepData.step4?.documents?.length) {
       mergedBaseData.documents = stepData.step4.documents;
     }
@@ -806,7 +830,7 @@ export function BenefitsStep1a() {
             fileSize: 0,
             width: 0,
             height: 0,
-            recommendedSize: "900×900 px",
+            recommendedSize: "900Ã—900 px",
             status: "ok",
             warnings: [],
           },
@@ -864,7 +888,7 @@ export function BenefitsStep1a() {
                 fileSize: 0,
                 width: 0,
                 height: 0,
-                recommendedSize: "1920×1080 px",
+                recommendedSize: "1920Ã—1080 px",
                 status: "ok",
                 warnings: [],
               }
@@ -964,7 +988,7 @@ export function BenefitsStep1a() {
               fileSize: 0,
               width: 0,
               height: 0,
-              recommendedSize: "1920×1080 px",
+              recommendedSize: "1920Ã—1080 px",
               status: "ok" as const,
               warnings: [],
             } as BrandImageData)
@@ -1064,7 +1088,7 @@ export function BenefitsStep1a() {
             fileSize: 0,
             width: 0,
             height: 0,
-            recommendedSize: "900×900 px",
+            recommendedSize: "900Ã—900 px",
             status: "ok" as const,
             warnings: [],
           },
@@ -1171,34 +1195,50 @@ export function BenefitsStep1a() {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full mx-auto pb-20">
-      {/* 1. Selection Card */}
-      <Card className="border-none shadow-md overflow-hidden bg-card dark:bg-gray-800">
-        <CardHeader className="pb-4 border-b bg-gray-50/50 dark:bg-gray-700">
-          <CardTitle className="text-xl text-gray-900 font-bold dark:text-gray-100">
-            Step 1: Plan & Benefit Selection
+      {/* 1. Plan & Benefit Selection */}
+      <Card className="border border-gray-200 shadow-sm bg-card dark:bg-gray-800 dark:border-gray-700">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg text-gray-900 font-bold dark:text-gray-100">
+            Plan & Benefit Selection
           </CardTitle>
           <CardDescription className="text-sm text-gray-600 dark:text-gray-300">
-            Select the plan and specific benefit category you want to create.
+            Choose which plan and benefit category you want to configure.
           </CardDescription>
         </CardHeader>
-        <CardContent className="pt-6 space-y-6">
-          <div className="text-center space-y-2 mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-              Choose a Plan & Benefit
-            </h1>
-            <p className="text-gray-600 dark:text-gray-300">
-              Select which benefit you&apos;re configuring and for which plan.
-            </p>
-          </div>
+        <CardContent className="space-y-5">
+          {/* Plan Selector */}
           <div className="space-y-2">
             <Label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
               Select Plan <span className="text-red-500">*</span>
             </Label>
+
+            {/* Recent Plans quick-select chips */}
+            {recentPlans.length > 0 && !loading && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <Clock className="size-3 text-gray-400 shrink-0" />
+                {recentPlans.map((rp) => (
+                  <button
+                    key={rp.id}
+                    type="button"
+                    onClick={() => handlePlanChange(rp.id)}
+                    className={cn(
+                      "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all border",
+                      rp.isCurrent
+                        ? "bg-[#23919C]/10 text-[#23919C] border-[#23919C]/30"
+                        : "bg-gray-50 text-gray-600 border-gray-200 hover:border-[#23919C]/40 hover:text-[#23919C] dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:border-[#23919C]/50",
+                    )}
+                  >
+                    {rp.companyName}
+                  </button>
+                ))}
+              </div>
+            )}
+
             <Select
               value={resolvedPlanId}
               onValueChange={handlePlanChange}
             >
-              <SelectTrigger className="w-full bg-white border-gray-200 dark:bg-gray-700 dark:border-gray-600">
+              <SelectTrigger className="w-full bg-white border-gray-200 dark:bg-gray-700 dark:border-gray-600 h-10">
                 <SelectValue placeholder="Choose a plan..." />
               </SelectTrigger>
               <SelectContent>
@@ -1217,11 +1257,11 @@ export function BenefitsStep1a() {
                   return (
                     <SelectItem key={plan.id} value={plan.id}>
                       <div className="flex items-center justify-between w-full gap-2">
-                        <span>{plan.companyName}</span>
+                        <span className="truncate">{plan.companyName}</span>
                         {completedCount > 0 && (
-                          <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
-                            {completedCount} categories completed
-                          </span>
+                          <Badge variant="outline" className="text-[10px] bg-green-50 text-green-700 border-green-200 shrink-0">
+                            {completedCount}/{allBenefits.length || 4} complete
+                          </Badge>
                         )}
                       </div>
                     </SelectItem>
@@ -1231,45 +1271,26 @@ export function BenefitsStep1a() {
             </Select>
             {plans.length === 0 ? (
               <p className="text-sm text-muted-foreground pt-1">
-                No plans found for your account yet, or loading failed. Create a
-                client plan first from the dashboard, then refresh this page.
+                No plans found for your account yet. Create a client plan first
+                from the dashboard, then refresh this page.
               </p>
             ) : null}
           </div>
 
+          {/* Benefit Category Cards */}
           {resolvedPlanId && (
-            <div className="space-y-4 animate-in fade-in duration-300">
-              <Label className="text-sm font-semibold text-gray-700">
+            <div className="space-y-3 animate-in fade-in duration-300">
+              <Label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                 Benefit Category <span className="text-red-500">*</span>
               </Label>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {(() => {
                   const categoryConfigs = [
-                    {
-                      id: "Retirement",
-                      label: "Retirement",
-                      icon: Coins,
-                      description: "401(k), 403(b), and pension plans",
-                    },
-                    {
-                      id: "Group Health",
-                      label: "Group Health",
-                      icon: Activity,
-                      description: "Medical, dental, and vision coverage",
-                    },
-                    {
-                      id: "Group Life",
-                      label: "Group Life",
-                      icon: ShieldCheck,
-                      description: "Life, AD&D, and disability plans",
-                    },
-                    {
-                      id: "Custom",
-                      label: "Custom Benefit",
-                      icon: Plus,
-                      description: "Other custom benefits category",
-                    },
+                    { id: "Retirement", label: "Retirement", icon: Coins },
+                    { id: "Group Health", label: "Group Health", icon: Activity },
+                    { id: "Group Life", label: "Group Life", icon: ShieldCheck },
+                    { id: "Custom", label: "Custom", icon: Plus },
                   ];
 
                   return categoryConfigs.map((cat) => {
@@ -1278,139 +1299,85 @@ export function BenefitsStep1a() {
                       currentStepData.benefitCategory === cat.id;
 
                     return (
-                      <div
+                      <button
                         key={cat.id}
-                        className={`relative flex flex-col h-full border rounded-xl transition-all duration-200 shadow-sm overflow-hidden ${
+                        onClick={() => handleCategoryChange(cat.id)}
+                        className={cn(
+                          "relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-200 text-left",
                           isSelected
-                            ? "border-[#23919C] ring-1 ring-[#23919C]/20"
-                            : "border-gray-200 bg-white hover:border-gray-300"
-                        }`}
+                            ? "border-[#23919C] bg-[#23919C]/5 shadow-sm"
+                            : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500",
+                        )}
                       >
-                        {/* Header */}
-                        <div
-                          className={`p-4 flex flex-col items-center justify-center border-b ${
-                            isSelected ? "bg-[#23919C]/5" : "bg-gray-50/50"
-                          }`}
-                        >
-                          <div className="size-16 rounded-full bg-accent-blue/10 flex items-center justify-center text-accent-blue mb-4 transition-colors group-hover:bg-accent-blue group-hover:text-white">
-                            <cat.icon className="size-8" />
+                        {/* Checkmark badge when selected */}
+                        {isSelected && (
+                          <div className="absolute top-2 right-2 size-5 bg-[#23919C] rounded-full flex items-center justify-center">
+                            <CheckCircle2 className="size-3.5 text-white" />
                           </div>
-                          <h3 className="font-bold text-gray-900 mb-2 truncate w-full text-center">
-                            {cat.label}
-                          </h3>
-                          <p className="text-xs text-center text-gray-500 line-clamp-2">
-                            {cat.description}
-                          </p>
-                        </div>
+                        )}
 
-                        {/* Status Body */}
-                        <div className="p-4 flex-1 flex flex-col gap-3 min-h-[140px]">
-                          {status?.logo ? (
-                            <div className="flex flex-col items-center justify-center py-2">
-                              <div className="w-16 h-16 rounded-lg border border-gray-100 flex items-center justify-center p-2 bg-white shadow-sm overflow-hidden">
-                                <BrandingImage
-                                  src={status.logo}
-                                  alt="Benefit Logo"
-                                  className="max-w-full max-h-full object-contain"
-                                />
-                              </div>
-                              <span className="text-xs text-gray-400 mt-2 uppercase tracking-wider font-bold">
-                                Benefit Provider
-                              </span>
-                            </div>
-                          ) : (
-                            <p className="text-xs text-gray-500 italic">
-                              {cat.description}
-                            </p>
+                        {/* Icon */}
+                        <div
+                          className={cn(
+                            "size-12 rounded-full flex items-center justify-center transition-colors",
+                            isSelected
+                              ? "bg-[#23919C]/10 text-[#23919C]"
+                              : "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400",
                           )}
-
-                          <div className="mt-auto pt-2 border-t border-gray-50">
-                            {!status?.isComplete ? (
-                              <div className="space-y-2">
-                                <p className="text-xs font-bold text-amber-700 uppercase tracking-tight">
-                                  {status?.missing && status.missing.length > 0
-                                    ? "Missing"
-                                    : "Still needed"}
-                                </p>
-                                {status?.missing && status.missing.length > 0 ? (
-                                  <ul className="space-y-1">
-                                    {status.missing.map((item, idx) => (
-                                      <li
-                                        key={idx}
-                                        className="flex items-start gap-2 text-xs text-gray-600 leading-snug"
-                                      >
-                                        <span className="mt-1.5 inline-block size-1.5 shrink-0 rounded-full bg-amber-400" />
-                                        <span>{item}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                ) : (status?.pendingSectionLabels?.length ??
-                                  0) > 0 ? (
-                                  <ol className="space-y-1 text-xs text-gray-600 leading-snug list-decimal list-inside marker:text-amber-600 marker:font-semibold">
-                                    {(status?.pendingSectionLabels ?? []).map(
-                                      (label) => (
-                                        <li key={label}>{label}</li>
-                                      ),
-                                    )}
-                                  </ol>
-                                ) : status?.sections ? (
-                                  <p className="text-xs text-gray-500 leading-snug">
-                                    Open this benefit below and complete each
-                                    section in order.
-                                  </p>
-                                ) : (
-                                  <p className="text-xs text-gray-500 leading-snug">
-                                    Open this benefit below and complete each
-                                    section in order.
-                                  </p>
-                                )}
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-2 text-sm text-green-600 font-medium">
-                                <CheckCircle2 className="w-4 h-4" />
-                                <span>All details added</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Action Footer */}
-                        <div
-                          className={`p-3 border-t mt-auto ${
-                            isSelected ? "bg-[#23919C]/10" : "bg-gray-50/50"
-                          }`}
                         >
-                          <button
-                            onClick={() => handleCategoryChange(cat.id)}
-                            className={`w-full py-2.5 px-3 rounded-lg text-xs font-black transition-all duration-300 flex items-center justify-center gap-2 shadow-sm tracking-tight ${
-                              isSelected
-                                ? "bg-[#23919C] text-white hover:bg-[#1b727a] scale-[1.02]"
-                                : "bg-white border border-gray-200 text-[#0D315F] hover:border-[#23919C] hover:text-[#23919C] hover:shadow-md"
-                            }`}
-                          >
-                            {status?.exists ? (
-                              <>
-                                <Pencil className="w-4 h-4" />
-                                EDIT BENEFIT DETAILS
-                              </>
-                            ) : (
-                              <>
-                                <Plus className="w-4 h-4" />
-                                ADD BENEFIT DETAILS
-                              </>
-                            )}
-                          </button>
+                          <cat.icon className="size-6" />
                         </div>
-                      </div>
+
+                        {/* Label */}
+                        <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                          {cat.label}
+                        </span>
+
+                        {/* Status badge */}
+                        {status ? (
+                          status.isComplete ? (
+                            <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none text-[10px] font-medium">
+                              Complete
+                            </Badge>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className="text-amber-600 border-amber-200 bg-amber-50 text-[10px] font-medium"
+                            >
+                              {status.missing?.length || 0} missing
+                            </Badge>
+                          )
+                        ) : null}
+                      </button>
                     );
                   });
                 })()}
               </div>
 
+              {/* Selected plan indicator */}
+              {currentStepData.benefitCategory && resolvedPlanId && (
+                <div className="flex items-center gap-2 pt-1 text-sm text-gray-500 dark:text-gray-400">
+                  <Building2 className="size-3.5" />
+                  <span>
+                    Configuring{" "}
+                    <span className="font-medium text-gray-700 dark:text-gray-300">
+                      {currentStepData.benefitCategory === "Custom"
+                        ? currentStepData.benefitTitle || "Custom"
+                        : currentStepData.benefitCategory}
+                    </span>{" "}
+                    for{" "}
+                    <span className="font-medium text-gray-700 dark:text-gray-300">
+                      {plans.find((p) => p.id === resolvedPlanId)?.companyName ||
+                        "selected plan"}
+                    </span>
+                  </span>
+                </div>
+              )}
+
               {/* Custom Category Title Input */}
               {currentStepData.benefitCategory === "Custom" && (
-                <div className="space-y-2 pt-4 animate-in slide-in-from-top-2 duration-300 px-6 pb-6">
-                  <Label className="text-sm font-semibold text-gray-700">
+                <div className="space-y-2 pt-2 animate-in slide-in-from-top-2 duration-300">
+                  <Label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                     Custom Category Name <span className="text-red-500">*</span>
                   </Label>
                   <Input
@@ -1426,19 +1393,14 @@ export function BenefitsStep1a() {
                       })
                     }
                     placeholder="e.g. Disability Insurance, Wellness Program, HSA..."
-                    className="bg-white border-gray-200 focus-visible:ring-[#23919C] h-11"
+                    className="bg-white border-gray-200 focus-visible:ring-[#23919C] h-10 dark:bg-gray-700 dark:border-gray-600"
                   />
-                  <p className="text-xs text-gray-500 italic">
-                    Enter the name for this custom benefit as you want it to
-                    appear on the portal.
-                  </p>
                 </div>
               )}
             </div>
           )}
         </CardContent>
       </Card>
-
       {resolvedPlanId && currentStepData.benefitCategory && (
         <div
           ref={accordionRef}
@@ -1503,7 +1465,7 @@ export function BenefitsStep1a() {
                         title: "Benefit Logo",
                         description:
                           "Upload a logo for this specific benefit provider.",
-                        recommendedSize: "900×900 px",
+                        recommendedSize: "900Ã—900 px",
                         accept: ".svg,.png,.jpg,.jpeg",
                         required: true,
                         previewAspectRatio: 1,
@@ -1536,7 +1498,7 @@ export function BenefitsStep1a() {
                         title: "Background Header Image (Hero)",
                         description:
                           "This image displays in the header background of your Employee Benefits Hub. Upload a wide hero image for best results. If not uploading a picture, the Square Thumbnail will be used.",
-                        recommendedSize: "1920×1080 px",
+                        recommendedSize: "1920Ã—1080 px",
                         defaultPhoteButton: true,
                         required: true,
                         accept: ".png,.jpg,.jpeg",
@@ -1827,7 +1789,7 @@ export function BenefitsStep1a() {
                         slot={{
                           title: "Contact Photo",
                           description: "Photo for portal display.",
-                          recommendedSize: "900×900 px",
+                          recommendedSize: "900Ã—900 px",
                           defaultPhoteButton: true,
                           required: false,
                           accept: ".png,.jpg,.jpeg",
