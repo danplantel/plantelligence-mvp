@@ -1049,10 +1049,10 @@ export function ContactFormSlide({
                   className={cn("h-8 text-sm", hasError("customBenefits") && "border-red-500")}
                 />
                 {hasError("customBenefits") ? (
-                  <p className="text-[10px] text-red-500">Please describe what "Other Benefits" this contact handles.</p>
+                  <p className="text-[10px] text-red-500">Please describe what &ldquo;Other Benefits&rdquo; this contact handles.</p>
                 ) : (
                   <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                    Describe what "Other Benefits" this contact handles.
+                    Describe what &ldquo;Other Benefits&rdquo; this contact handles.
                   </p>
                 )}
               </div>
@@ -1329,7 +1329,7 @@ export function ContactFormSlide({
                   External Admin Logo
                 </Label>
                 <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                  Choose a logo to display on this contact's portal card.
+                  Choose a logo to display on this contact&rsquo;s portal card.
                 </p>
 
                 {/* Logo source toggle */}
