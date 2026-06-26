@@ -324,7 +324,11 @@ export function BenefitsStep4() {
     );
 
     if (!planId) {
-        return <div className="text-center py-10">Please select a plan in Step 1 first.</div>;
+        return (
+          <div className="text-center py-10 text-muted-foreground">
+            Please select a plan in Step 1 first.
+          </div>
+        );
     }
 
     return (
@@ -338,10 +342,10 @@ export function BenefitsStep4() {
 
                 {/* Confirm categories + Next to preview banner - when docs uploaded and on list/upload */}
                 {documents.length > 0 && (activeTab === "list" || activeTab === "upload") && (
-                    <Alert className="mt-6 bg-blue-50 border-blue-200">
-                        <AlertTitle className="text-blue-900 font-semibold">Documents uploaded</AlertTitle>
+                    <Alert className="mt-6 bg-blue-50 border-blue-200 dark:bg-blue-950/60 dark:border-blue-800">
+                        <AlertTitle className="text-blue-900 font-semibold dark:text-blue-100">Documents uploaded</AlertTitle>
                         <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-2">
-                            <p className="text-blue-800">
+                            <p className="text-blue-800 dark:text-blue-200">
                                 Please confirm document categories, then click Next to preview the Document section.
                             </p>
                             <Button
@@ -402,10 +406,11 @@ export function BenefitsStep4() {
                                 <button
                                     key={lang}
                                     onClick={() => setPreviewLanguage(lang)}
-                                    className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${previewLanguage === lang
-                                        ? "bg-primary text-white border-primary"
-                                        : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                                        }`}
+                                    className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                                        previewLanguage === lang
+                                            ? "bg-primary text-white border-primary"
+                                            : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
+                                    }`}
                                     style={previewLanguage === lang ? { backgroundColor: primaryColor, borderColor: primaryColor } : {}}
                                 >
                                     {lang === "EN" ? "English" : "Español"}
@@ -415,8 +420,8 @@ export function BenefitsStep4() {
                     )}
 
                     {previewDocs.length === 0 ? (
-                        <div className="text-center py-12 border-2 border-dashed rounded-xl bg-gray-50">
-                            <p className="text-gray-500">No documents available to preview for this language.</p>
+                        <div className="text-center py-12 border-2 border-dashed rounded-xl bg-gray-50 dark:bg-gray-900/50 dark:border-gray-700">
+                            <p className="text-gray-500 dark:text-gray-400">No documents available to preview for this language.</p>
                         </div>
                     ) : (
                         <DocumentPreviewTab
