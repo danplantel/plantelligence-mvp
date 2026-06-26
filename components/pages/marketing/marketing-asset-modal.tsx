@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { X, Eye, Calendar, Clock, MapPin, QrCode, Loader2 } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 import { formatUsDate } from "@/lib/date";
 
 export type AssetType = "flyer" | "portal-notice" | "pop-up" | "news-post";
@@ -100,6 +101,7 @@ export default function MarketingAssetModal({
   planId,
   onSave,
 }: MarketingAssetModalProps) {
+  const { toast } = useToast();
   const meta = ASSET_META[assetType];
 
   // ── Fetch meetings for flyer creation ──
@@ -141,6 +143,7 @@ export default function MarketingAssetModal({
   const [flyerQrDataUrl, setFlyerQrDataUrl] = useState<string>("");
   const [qrGenerating, setQrGenerating] = useState(false);
   const [qrResult, setQrResult] = useState<QrCodeResult | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const flyerPreviewRef = useRef<HTMLDivElement>(null);
   const [assetStatus, setAssetStatus] = useState<MarketingAssetStatus>("Draft");
@@ -265,6 +268,8 @@ export default function MarketingAssetModal({
   }, [flyerQrUrl]);
 
   const handleSave = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
     console.log(`[MarketingAssetModal] Save ${assetType} for ${planName}`, {
       headline, body, startDate, endDate, bgColor, flyerQrUrl,
     });
@@ -316,14 +321,33 @@ export default function MarketingAssetModal({
       if (!res.ok) {
         const err = await res.json();
         console.error("Failed to save asset:", err);
+        toast({
+          title: "Failed to save asset",
+          description: err.error || `Server returned ${res.status}`,
+          variant: "destructive",
+        });
+        setIsSaving(false);
         return;
       }
 
       onSave?.();
+
+      toast({
+        title: `${meta.label} saved`,
+        description: `"${headline || meta.label}" has been created as ${assetStatus}.`,
+        className: "border-green-500 bg-green-50 text-green-900 dark:bg-green-950 dark:text-green-100 dark:border-green-800",
+      });
     } catch (error) {
       console.error("Failed to save asset:", error);
+
+      toast({
+        title: "Failed to save asset",
+        description: error instanceof Error ? error.message : "An unexpected error occurred.",
+        variant: "destructive",
+      });
     }
 
+    setIsSaving(false);
     onOpenChange(false);
   };
 
@@ -861,8 +885,15 @@ export default function MarketingAssetModal({
               <option value="Hidden">Hidden</option>
               <option value="Archived">Archived</option>
             </select>
-            <Button onClick={handleSave}>
-              Save {meta.label}
+            <Button onClick={handleSave} disabled={isSaving}>
+              {isSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                `Save ${meta.label}`
+              )}
             </Button>
           </div>
         </div>
