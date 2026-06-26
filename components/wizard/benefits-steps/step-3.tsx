@@ -28,6 +28,8 @@ import {
   Check,
   ChevronDown,
   GripVertical,
+  Save,
+  Loader2,
 } from "lucide-react";
 import { KeyContact } from "@/types/new-client-wizard";
 import { v4 as uuidv4 } from "uuid";
@@ -52,6 +54,7 @@ import { CSS } from "@dnd-kit/utilities";
 export function BenefitsStep3() {
   const { stepData, saveStepData } = useBenefitsWizardStore();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [savePending, setSavePending] = useState(false);
   const step1Data = stepData.step1;
   const currentStep3Data = stepData.step3 || {
     faqs: [],
@@ -163,6 +166,71 @@ export function BenefitsStep3() {
     }
   };
 
+  // Save FAQs to the server immediately (draft persist)
+  const handleSaveFaqs = async () => {
+    const planId = step1Data?.planId;
+    const benefitCategory = step1Data?.benefitCategory;
+    if (!planId || !benefitCategory) {
+      toast.error("Missing plan or category data. Please complete Step 1 first.");
+      return;
+    }
+
+    setSavePending(true);
+    try {
+      // Fetch current client data to merge
+      const res = await fetch(`/api/clients/${planId}`);
+      const result = await res.json();
+      if (!result.success) throw new Error(result.error || "Failed to fetch client data");
+
+      const client = result.data;
+      const currentBenefits = client.employeePortalPreview?.benefits ?? client.employeePortalPreview?.previewData?.benefits ?? [];
+
+      // Build updated benefit with current FAQ data
+      const updatedBenefit = {
+        id: benefitCategory.toLowerCase().replace(/\s+/g, "-"),
+        title: step1Data?.benefitTitle || benefitCategory,
+        category: benefitCategory,
+        isEnabled: true,
+        faqs: currentStep3Data.faqs,
+        supportContacts: currentStep3Data.supportContacts,
+      };
+
+      // Merge into the existing benefits array (replace matching category, keep others)
+      const norm = (cat: string) => cat.toLowerCase().trim().replace(/\s+/g, " ");
+      const targetNorm = norm(benefitCategory);
+      const updatedBenefits = currentBenefits.map((b: any) =>
+        norm(String(b?.category ?? "")) === targetNorm ? updatedBenefit : b,
+      );
+      if (!currentBenefits.some((b: any) => norm(String(b?.category ?? "")) === targetNorm)) {
+        updatedBenefits.push(updatedBenefit);
+      }
+
+      // Save via API
+      const updateRes = await fetch(`/api/clients/${planId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeePortalPreview: {
+            ...client.employeePortalPreview,
+            benefits: updatedBenefits,
+          },
+        }),
+      });
+
+      const updateResult = await updateRes.json();
+      if (!updateResult.success) throw new Error(updateResult.error || "Failed to save FAQs");
+
+      toast.success("FAQs saved successfully!");
+    } catch (error: any) {
+      console.error("FAQ save error:", error);
+      toast.error("Failed to save FAQs", {
+        description: error.message,
+      });
+    } finally {
+      setSavePending(false);
+    }
+  };
+
   // Handle Contact changes
   const toggleContact = (contactId: string) => {
     const existing = currentStep3Data.supportContacts.find(
@@ -215,14 +283,30 @@ export function BenefitsStep3() {
                 </CardDescription>
               </div>
             </div>
-            <Button
-              onClick={addFaq}
-              variant="outline"
-              size="sm"
-              className="h-8 gap-1 px-3 text-xs font-semibold"
-            >
-              <Plus className="w-4 h-4" /> Add Question
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={handleSaveFaqs}
+                variant="default"
+                size="sm"
+                className="h-8 gap-1.5 px-3 text-xs font-semibold"
+                disabled={savePending}
+              >
+                {savePending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                {savePending ? "Saving..." : "Save"}
+              </Button>
+              <Button
+                onClick={addFaq}
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1 px-3 text-xs font-semibold"
+              >
+                <Plus className="w-4 h-4" /> Add Question
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="p-3">
