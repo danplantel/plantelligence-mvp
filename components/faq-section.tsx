@@ -17,6 +17,24 @@ interface FAQSectionProps {
   faqs?: DynamicFAQItem[];
 }
 
+/** Ensure the URL has a protocol prefix so browser does not treat it as a relative path. */
+function normalizeHref(href: string): string {
+  const trimmed = href.trim();
+  if (!trimmed) return trimmed;
+  // Already has a protocol — keep as-is
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmed)) return trimmed;
+  // Protocol-relative (starts with //) — keep as-is
+  if (trimmed.startsWith("//")) return trimmed;
+  // Anchor or javascript: — keep as-is
+  if (trimmed.startsWith("#") || trimmed.startsWith("javascript:")) return trimmed;
+  // Mailto: — keep as-is
+  if (trimmed.startsWith("mailto:")) return trimmed;
+  // Tel: — keep as-is
+  if (trimmed.startsWith("tel:")) return trimmed;
+  // Default to https
+  return `https://${trimmed}`;
+}
+
 export function FAQSection({
   brandColor = "#1F3A60",
   secondaryColor = "#6B7280",
@@ -91,11 +109,13 @@ export function FAQSection({
                       </p>
                       {item.linkLabel && item.linkHref && (
                         <a
-                          href={item.linkHref}
+                          href={normalizeHref(item.linkHref)}
+                          target="_blank"
+                          rel="noopener noreferrer"
                           className="inline-block mt-3 text-sm font-semibold transition-colors duration-200 hover:underline"
-                          style={{ color: brandColor }}
+                          style={{ color: secondaryColor }}
                         >
-                          {item.linkLabel} →
+                          {item.linkLabel} ↗
                         </a>
                       )}
                     </div>
