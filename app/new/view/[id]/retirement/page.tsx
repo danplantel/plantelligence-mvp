@@ -87,54 +87,36 @@ export default function RetirementPage() {
     return undefined;
   }, [clientData?.employeePortalPreview]);
 
-  // Resolve support contacts for the FAQ section.
-  // First tries wizard Step 3 supportContacts (cross-referenced with keyContacts),
-  // then falls back to keyContacts filtered by this category.
+  // Resolve support contacts from the benefit's supportContacts (selected in wizard Step 3).
+  // Cross-references contactId with keyContacts for email/phone/headshot.
+  // Returns undefined when no support contacts are selected — hides the card entirely.
   const supportContactsForFAQ = useMemo(() => {
     const rawContacts = Array.isArray(clientData?.keyContacts)
       ? clientData?.keyContacts
       : (clientData?.keyContacts as any)?.contacts || [];
 
-    // Try wizard Step 3 supportContacts first
     const benefits = (clientData as any)?.employeePortalPreview?.benefits ?? [];
     const retirementBenefit = benefits.find(
       (b: any) => b.category === "Retirement",
     );
     const rawSupportContacts = retirementBenefit?.supportContacts;
-    if (Array.isArray(rawSupportContacts)) {
-      const enabled = rawSupportContacts.filter((sc: any) => sc.enabled !== false);
-      if (enabled.length > 0) {
-        return enabled.map((sc: any) => {
-          const matched = rawContacts.find((c: any) => c.id === sc.contactId);
-          return {
-            id: sc.contactId,
-            title: sc.title || matched?.name || `${matched?.firstName ?? ""} ${matched?.lastName ?? ""}`.trim() || "Support Contact",
-            description: sc.description || matched?.customRole || matched?.title || "",
-            email: matched?.email || "",
-            phone: matched?.phone || "",
-            phoneExtension: matched?.phoneExtension,
-            headshot: matched?.headshot || undefined,
-          } as FAQContact;
-        });
-      }
-    }
+    if (!Array.isArray(rawSupportContacts)) return undefined;
 
-    // Fallback: filter keyContacts by this category
-    const relevantContacts = rawContacts.filter((c: any) =>
-      c.benefitsCategory === "Retirement" ||
-      c.benefitsCategories?.includes("Retirement")
-    );
-    if (relevantContacts.length === 0) return undefined;
+    const enabled = rawSupportContacts.filter((sc: any) => sc.enabled !== false);
+    if (enabled.length === 0) return undefined;
 
-    return relevantContacts.map((c: any) => ({
-      id: c.id,
-      title: c.name || `${c.firstName ?? ""} ${c.lastName ?? ""}`.trim() || "Support Contact",
-      description: c.customRole || c.title || "Retirement Plan Representative",
-      email: c.email || "",
-      phone: c.phone || "",
-      phoneExtension: c.phoneExtension,
-      headshot: c.headshot || undefined,
-    })) as FAQContact[];
+    return enabled.map((sc: any) => {
+      const matched = rawContacts.find((c: any) => c.id === sc.contactId);
+      return {
+        id: sc.contactId,
+        title: sc.title || matched?.name || `${matched?.firstName ?? ""} ${matched?.lastName ?? ""}`.trim() || "Support Contact",
+        description: sc.description || matched?.customRole || matched?.title || "",
+        email: matched?.email || "",
+        phone: matched?.phone || "",
+        phoneExtension: matched?.phoneExtension,
+        headshot: matched?.headshot || undefined,
+      } as FAQContact;
+    });
   }, [clientData?.employeePortalPreview, clientData?.keyContacts]);
 
   // Same data as Benefits Step 4: GET /api/documents/client + embedded docs from context (already loaded by ClientPortalProvider — no duplicate GET /api/clients). Deduped fetch shared with CompletenessAutoTrigger.
