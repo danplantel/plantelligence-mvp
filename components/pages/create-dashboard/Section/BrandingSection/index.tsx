@@ -152,7 +152,7 @@ export const BrandingSection = (props: BrandingSectionProps) => {
           {touched.branding.companyLogo && (
             <ErrorMessage error={errors.branding.companyLogo} />
           )}
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             Recommended dimensions: 400x200px. Supported formats: PNG, JPG,
             JPEG, WebP.
           </p>
@@ -322,7 +322,7 @@ export const BrandingSection = (props: BrandingSectionProps) => {
               </div>
             )}
           </div>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             Recommended dimensions: 1920x1080px. Supported formats: PNG, JPG,
             JPEG. WebP is not supported.
           </p>

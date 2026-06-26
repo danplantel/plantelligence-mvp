@@ -309,7 +309,7 @@ export function BrandImageUpload({
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex-1">
-          <h4 className="font-medium text-sm">{slot.title}</h4>
+          <h4 className="font-medium text-sm dark:text-gray-100">{slot.title}</h4>
           {editableDescription ? (
             <div className="mt-1">
               {isEditingDescription ? (
@@ -344,7 +344,7 @@ export function BrandImageUpload({
               ) : (
                 <div className="flex items-start gap-2">
                   {editedDescription && editedDescription.trim() ? (
-                    <p className="text-xs text-gray-600 mt-1 flex-1">
+                    <p className="text-xs text-muted-foreground mt-1 flex-1">
                       {editedDescription}
                     </p>
                   ) : null}
@@ -363,7 +363,7 @@ export function BrandImageUpload({
           ) : (
             slot.description &&
             slot.description.trim() && (
-              <p className="text-xs text-gray-600 mt-1">{slot.description}</p>
+              <p className="text-xs text-muted-foreground mt-1">{slot.description}</p>
             )
           )}
         </div>
@@ -381,123 +381,49 @@ export function BrandImageUpload({
         onDrop={handleDrop}
       >
         {currentImage ? (
-          <div className="w-full space-y-3">
-            <div
-              className="relative grid gap-2 p-2 rounded-xl bg-muted/20 border border-gray-200 md:grid-cols-[60%_40%] md:items-start"
-              style={{
-                minHeight: "230px",
-              }}
-            >
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={handleRemove}
-                className="absolute top-2 right-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 p-1 z-10"
-              >
-                <X className="w-4 h-4" />
-              </Button>
-
-              {/* Sticky Preview Column */}
-              <div className="flex flex-col space-y-1 md:sticky md:top-0 md:self-start">
-                <div className="relative rounded-xl overflow-hidden border border-gray-200 bg-gray-50 inline-block min-h-[180px] min-w-[120px]">
+          <div className="w-full">
+            <div className="relative flex flex-col md:flex-row items-center gap-4 p-4 rounded-xl bg-muted/20 border border-gray-200">
+              {/* Preview Column */}
+              <div className="flex items-center justify-center flex-shrink-0">
+                <div
+                  className={`relative overflow-hidden border border-gray-200 bg-gray-50 ${
+                    universalModalType === "headshot"
+                      ? "h-[140px] w-[140px] rounded-full"
+                      : "flex items-center justify-center w-full max-w-[300px] h-[150px] rounded-xl"
+                  }`}
+                >
                   {previewSrc ? (
                     <img
                       src={previewSrc}
                       alt={currentImage.fileName}
-                      className="h-[180px] w-auto object-contain"
+                      className={`max-h-full max-w-full ${
+                        universalModalType === "headshot"
+                          ? "h-full w-full object-cover rounded-full"
+                          : "object-contain"
+                      }`}
                     />
                   ) : isStoredR2Key ? (
-                    <div
-                      className="h-[180px] w-[200px] animate-pulse bg-muted/50"
-                      aria-hidden
-                    />
+                    <div className="h-full w-full animate-pulse bg-muted/50" aria-hidden />
                   ) : null}
                 </div>
               </div>
 
-              {/* Scrollable Controls Column */}
-              <div className="flex flex-col gap-2 overflow-y-auto max-h-[230px] pr-1">
-                <div className="flex items-start gap-2">
-                  <div className="w-12 h-12 border-2 border-gray-200 rounded-lg overflow-hidden bg-gray-50 flex-shrink-0">
-                    {previewSrc ? (
-                      <img
-                        src={previewSrc}
-                        alt={currentImage.fileName}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : isStoredR2Key ? (
-                      <div
-                        className="h-full w-full animate-pulse bg-muted/50"
-                        aria-hidden
-                      />
-                    ) : null}
-                  </div>
-                  <div className="text-left space-y-0.5 flex-1 min-w-0">
-                    <p className="text-xs font-bold text-foreground break-words truncate">
-                      {currentImage.fileName}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                      <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
-                      <p>{Math.round(currentImage.fileSize / 1024)} KB</p>
-                      <span>•</span>
-                      <p>
-                        {currentImage.width}×{currentImage.height}px
-                      </p>
-                    </div>
-                  </div>
-                </div>
+              {/* Controls Column */}
+              <div className="flex flex-col items-center md:items-start gap-3 flex-1 min-w-0">
+                <p className="text-xs font-bold text-foreground break-words truncate text-center md:text-left w-full">
+                  {currentImage.fileName}
+                </p>
 
-                <div className="flex flex-col gap-1.5">
-                  <Button
+                <div className="flex gap-2">
+                  <button
                     type="button"
-                    variant="outline"
-                    onClick={handleUploadClick}
-                    className="text-accent-blue border-accent-blue hover:bg-accent-blue/10 text-xs px-2 py-0.5 h-7 w-full justify-center"
-                  >
-                    <Upload className="w-3 h-3 mr-1" />
-                    Replace
-                  </Button>
-                  {(onEditClick || useUniversalModal) && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={
-                        useUniversalModal
-                          ? handleEditClickWithModal
-                          : onEditClick
-                      }
-                      className="text-accent-blue border-accent-blue hover:bg-accent-blue/10 text-xs px-2 py-0.5 h-7 w-full justify-center"
-                    >
-                      <Upload className="w-3 h-3 mr-1" />
-                      Edit
-                    </Button>
-                  )}
-                  <Button
-                    type="button"
-                    variant="outline"
                     onClick={handleRemove}
-                    className="text-red-600 border-red-300 hover:bg-red-50 text-xs px-2 py-0.5 h-7 w-full justify-center"
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-full hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
-                    <X className="w-3 h-3 mr-1" />
-                    Remove
-                  </Button>
+                    <X className="w-3.5 h-3.5" />
+                    Delete
+                  </button>
                 </div>
-
-                {currentImage.warnings && currentImage.warnings.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {currentImage.warnings.map((warning, index) => (
-                      <Badge
-                        key={index}
-                        variant="outline"
-                        className="text-amber-600 border-amber-300 text-xs px-1.5 py-0.5"
-                      >
-                        <AlertTriangle className="w-2.5 h-2.5 mr-0.5" />
-                        {warning}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
               </div>
             </div>
           </div>
