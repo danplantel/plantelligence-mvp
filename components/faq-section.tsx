@@ -3,21 +3,30 @@
 import { useState } from "react";
 import {
   ChevronDown,
-  ChevronUp,
   FileText,
   Users,
   Calendar,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
+export interface DynamicFAQItem {
+  id: string;
+  question: string;
+  answer: string;
+  linkLabel?: string;
+  linkHref?: string;
+}
+
 interface FAQSectionProps {
   brandColor?: string;
   secondaryColor?: string;
+  faqs?: DynamicFAQItem[];
 }
 
 export function FAQSection({
   brandColor = "#1F3A60",
   secondaryColor = "#6B7280",
+  faqs,
 }: FAQSectionProps) {
   const [openItems, setOpenItems] = useState<number[]>([]);
 
@@ -37,7 +46,21 @@ export function FAQSection({
     });
   };
 
-  const faqCategories = [
+  // Use dynamic FAQs if provided, otherwise fall back to static defaults
+  const dynamicItems = faqs?.filter(faq => faq.question && faq.answer) ?? [];
+
+  const faqCategories = dynamicItems.length > 0
+    ? [
+        {
+          icon: FileText,
+          title: "Frequently Asked Questions",
+          items: dynamicItems.map(({ question, answer }) => ({
+            question,
+            answer,
+          })),
+        },
+      ]
+    : [
     {
       icon: FileText,
       title: "How to Enroll",
@@ -100,7 +123,7 @@ export function FAQSection({
           </h2>
         </div>
 
-        <div className="space-y-6">
+        <div className={dynamicItems.length > 0 ? "space-y-3" : "space-y-6"}>
           {faqCategories.map((category, categoryIndex) => {
             const Icon = category.icon;
 

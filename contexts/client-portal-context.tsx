@@ -117,18 +117,20 @@ export function ClientPortalProvider({
 
   useEffect(() => {
     if (!clientId) return;
-    const onPlanDocumentsPersisted = (e: Event) => {
+
+    const refetchIfMatch = (e: Event) => {
       const d = (e as CustomEvent<{ clientId?: string }>).detail;
       if (d?.clientId && d.clientId === clientId) {
         void fetchClient(true);
       }
     };
-    window.addEventListener("plan-documents-persisted", onPlanDocumentsPersisted);
+
+    window.addEventListener("plan-documents-persisted", refetchIfMatch);
+    window.addEventListener("benefits-updated", refetchIfMatch);
+
     return () => {
-      window.removeEventListener(
-        "plan-documents-persisted",
-        onPlanDocumentsPersisted,
-      );
+      window.removeEventListener("plan-documents-persisted", refetchIfMatch);
+      window.removeEventListener("benefits-updated", refetchIfMatch);
     };
   }, [clientId, fetchClient]);
 

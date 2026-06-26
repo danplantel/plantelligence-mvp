@@ -161,5 +161,8 @@ export function mergeUserBenefitWithHubDefaults(
     href,
     isEnabled: p.isEnabled !== false,
     contactId: p.contactId,
+    // Preserve wizard step 3 data when present (faqs, supportContacts)
+    ...(p.faqs ? { faqs: p.faqs } : {}),
+    ...(p.supportContacts ? { supportContacts: p.supportContacts } : {}),
   };
 }

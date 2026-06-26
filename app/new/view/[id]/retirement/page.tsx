@@ -5,7 +5,8 @@ import { useClientPortal } from "@/contexts/client-portal-context";
 import { useParams } from "next/navigation";
 import { VideoModal } from "@/components/video-modal";
 import { InteractiveTools } from "@/components/interactive-tools";
-import { FAQSection } from "@/components/faq-section";
+import { FAQSection, DynamicFAQItem } from "@/components/faq-section";
+import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
 import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
 import {
   RetirementJourneySection,
@@ -68,6 +69,28 @@ export default function RetirementPage() {
 
   const clientDataRef = useRef(clientData);
   clientDataRef.current = clientData;
+
+  // Extract FAQs for this category from employeePortalPreview.benefits.
+  // Falls back to Retirement-specific defaults when no custom FAQs are saved yet.
+  const faqsForCategory = useMemo(() => {
+    const benefits = (clientData as any)?.employeePortalPreview?.benefits ?? [];
+    const retirementBenefit = benefits.find(
+      (b: any) => b.category === "Retirement",
+    );
+    const faqs = retirementBenefit?.faqs;
+    if (faqs && Array.isArray(faqs)) {
+      const enabled = faqs.filter(
+        (f: any) => f.enabled !== false,
+      ) as DynamicFAQItem[];
+      if (enabled.length > 0) return enabled;
+    }
+    // Fall back to default Retirement FAQs when no custom ones are saved
+    const defaults = DEFAULT_FAQS["Retirement"];
+    if (defaults && defaults.length > 0) {
+      return defaults as DynamicFAQItem[];
+    }
+    return undefined;
+  }, [clientData?.employeePortalPreview]);
 
   // Filter and map real contacts from database
   const contacts = useMemo(() => {
@@ -302,7 +325,7 @@ export default function RetirementPage() {
           clientId={clientId}
         />
 
-        <FAQSection brandColor={brandColor} secondaryColor={secondaryColor} />
+        <FAQSection brandColor={brandColor} secondaryColor={secondaryColor} faqs={faqsForCategory} />
 
         <PortalMaterialsHero brandColor={brandColor} />
 

@@ -229,6 +229,14 @@ function BenefitsPageInner() {
       ) as any;
       newBenefit.isEnabled = true;
 
+      // Include Step 3 FAQs and support contacts for this benefit category
+      if (step3Data?.faqs) {
+        newBenefit.faqs = step3Data.faqs;
+      }
+      if (step3Data?.supportContacts) {
+        newBenefit.supportContacts = step3Data.supportContacts;
+      }
+
       // 3. Always preserve all 4 categories: merge existing + default placeholders, then set the one we edited
       const currentBenefits = client.employeePortalPreview?.benefits ?? client.employeePortalPreview?.previewData?.benefits ?? [];
       const editingCategory = (step1Data?.benefitCategory || "").trim();
@@ -410,6 +418,13 @@ function BenefitsPageInner() {
 
       const updateResult = await updateResponse.json();
       if (!updateResult.success) throw new Error(updateResult.error || "Failed to update client");
+
+      // Notify any open portal views that benefits have changed (triggers re-fetch in ClientPortalProvider)
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("benefits-updated", { detail: { clientId: planId } }),
+        );
+      }
 
       completeStep(currentStep);
       toast.success("Benefits creation completed!");
