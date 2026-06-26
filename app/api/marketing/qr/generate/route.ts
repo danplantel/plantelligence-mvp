@@ -12,71 +12,90 @@ export const dynamic = "force-dynamic";
  * Uses QR.io (dynamic, trackable) when QR_IO_API_KEY is configured;
  * falls back to local qrcode generation otherwise.
  *
- * Body: { url: string, size?: number }
- * Returns: { success: true, data: { dataUrl, source, qrIoId?, shortUrl? } }
+ * Body: { url: string, name?: string }
+ * Returns: { success: true, data: { dataUrl, source, qrIoId?, name? } }
  */
 export async function POST(request: NextRequest) {
+  console.log("[qr/generate] ═══ INCOMING REQUEST ═══");
+
   try {
     const session = await getServerSession(authOptions);
     const userId = session?.user?.id;
+    console.log("[qr/generate] session:", { hasUserId: !!userId });
+
     if (!userId) {
+      console.log("[qr/generate] ❌ Unauthorized — returning 401");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = (await request.json()) as {
       url?: string;
-      size?: number;
+      name?: string;
     };
 
-    const url = body.url?.trim();
-    if (!url) {
+    const rawUrl = body.url?.trim();
+    console.log("[qr/generate] body:", { url: rawUrl, name: body.name });
+
+    if (!rawUrl) {
+      console.log("[qr/generate] ❌ Missing url — returning 400");
       return NextResponse.json(
         { error: "url is required" },
         { status: 400 },
       );
     }
 
-    // Validate URL format (basic check)
+    // Auto-prepend https:// if no protocol is present
+    let url = rawUrl;
+    if (!/^https?:\/\//i.test(url)) {
+      url = `https://${url}`;
+    }
+
+    // Validate URL format
     try {
       new URL(url);
     } catch {
+      console.log("[qr/generate] ❌ Invalid URL format after prepend — returning 400");
       return NextResponse.json(
         { error: "Invalid URL format" },
         { status: 400 },
       );
     }
 
-    const size = body.size && body.size >= 150 && body.size <= 2000
-      ? Math.round(body.size)
-      : 320;
+    const name = body.name?.trim() || "";
 
-    const apiKey = process.env.QR_IO_API_KEY?.trim();
+    const apiKeyConfigured = !!process.env.QR_IO_API_KEY?.trim();
+    console.log("[qr/generate] QR_IO_API_KEY configured:", apiKeyConfigured);
 
-    if (apiKey) {
+    if (apiKeyConfigured) {
       // Use QR.io for dynamic, trackable QR codes
       try {
-        const result = await generateQrViaQrIo(url, size);
+        console.log("[qr/generate] → Calling generateQrViaQrIo...");
+        const result = await generateQrViaQrIo(url, { name: name || undefined });
+        console.log("[qr/generate] ✅ QR.io success:", { id: result.id, name: result.name, imageUrl: result.imageUrl.slice(0, 60) });
         return NextResponse.json({
           success: true,
           data: {
-            dataUrl: result.imageDataUrl,
+            dataUrl: result.imageUrl,
             source: "qrio" as const,
             qrIoId: result.id,
-            shortUrl: result.shortUrl,
+            name: result.name,
           },
         });
       } catch (err) {
         console.error(
-          "[POST /api/marketing/qr/generate] QR.io failed:",
+          "[qr/generate] ❌ QR.io failed:",
           (err as Error).message,
         );
         // Fall through to local generation
       }
+    } else {
+      console.log("[qr/generate] ⚠️ QR_IO_API_KEY not set — using local fallback");
     }
 
     // Fallback: local qrcode generation
+    console.log("[qr/generate] → Using local qrcode fallback");
     const dataUrl = await renderQrToDataUrl(url, {
-      sizePx: size,
+      sizePx: 320,
       errorCorrectionLevel: "M",
       margin: 2,
     });
@@ -89,7 +108,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (e) {
-    console.error("[POST /api/marketing/qr/generate]", e);
+    console.error("[qr/generate] ❌ Uncaught error:", e);
     return NextResponse.json(
       { error: "Failed to generate QR code" },
       { status: 500 },

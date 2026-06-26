@@ -13,8 +13,10 @@ import {
 } from "@/components/ui/accordion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { Search, Clock, ChevronDown, Loader2 } from "lucide-react";
+import { Search, Clock, ChevronDown, Loader2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "sonner";
 import MarketingAssetModal, {
   type AssetType,
 } from "@/components/pages/marketing/marketing-asset-modal";
@@ -570,6 +572,67 @@ export default function MarketingPage() {
   );
   const hasAssets = savedAssets.length > 0;
 
+  // ── Bulk selection state ──
+  const [selectedAssets, setSelectedAssets] = useState<Set<string>>(new Set());
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
+  // Clear selection when plan or filter changes
+  useEffect(() => {
+    setSelectedAssets(new Set());
+  }, [selectedPlan, statusFilter]);
+
+  // ── Bulk selection helpers ──
+  const toggleSelectAsset = useCallback((assetId: string) => {
+    setSelectedAssets((prev) => {
+      const next = new Set(prev);
+      if (next.has(assetId)) next.delete(assetId);
+      else next.add(assetId);
+      return next;
+    });
+  }, []);
+
+  const toggleSelectAll = useCallback(() => {
+    setSelectedAssets((prev) => {
+      if (prev.size === filteredAssets.length && filteredAssets.length > 0) {
+        return new Set();
+      }
+      return new Set(filteredAssets.map((a) => a.id));
+    });
+  }, [filteredAssets]);
+
+  const clearSelectedAssets = useCallback(() => setSelectedAssets(new Set()), []);
+
+  const handleBulkDelete = useCallback(async () => {
+    if (selectedAssets.size === 0) return;
+    setIsBulkDeleting(true);
+    let deleted = 0;
+    try {
+      for (const assetId of selectedAssets) {
+        const res = await fetch(`/api/marketing/assets/${assetId}`, { method: "DELETE" });
+        if (res.ok) deleted++;
+        else console.error("Failed to delete asset:", assetId, res.status);
+      }
+      if (deleted > 0) {
+        clearSelectedAssets();
+        mutateAssets();
+      }
+    } catch (err) {
+      console.error("Bulk delete error:", err);
+    } finally {
+      setIsBulkDeleting(false);
+      if (deleted > 0) {
+        console.log("[MarketingPage] Showing bulk delete toast — deleted:", deleted);
+        toast.success(`${deleted === 1 ? "1 asset" : `${deleted} assets`} deleted`, {
+          description: "Successfully removed from this plan.",
+        });
+        // Fallback: also log to confirm toast was called
+        console.log("[MarketingPage] Bulk delete toast fired");
+      } else {
+        console.log("[MarketingPage] Bulk delete — no assets were deleted (deleted=0)");
+      }
+    }
+  }, [selectedAssets, clearSelectedAssets, mutateAssets]);
+
   const { data: clientsData, isLoading: isLoadingClients } = useSWR(
     "/api/clients?status=all&limit=500&sortColumn=companyName&sortDirection=asc",
     jsonFetcher,
@@ -741,6 +804,12 @@ export default function MarketingPage() {
                   <>
                     {savedAssets.length > 0 && (
                       <div className="flex items-center gap-1.5 px-5 py-2.5 border-b bg-white dark:bg-gray-900 overflow-x-auto">
+                        <Checkbox
+                          checked={filteredAssets.length > 0 && selectedAssets.size === filteredAssets.length}
+                          onCheckedChange={() => toggleSelectAll()}
+                          className="shrink-0 mr-1"
+                          aria-label="Select all assets"
+                        />
                         {(["All", ...ASSET_STATUSES] as const).map((s) => {
                           const count = s === "All" ? savedAssets.length : savedAssets.filter((a) => a.status === s).length;
                           return (
@@ -761,6 +830,33 @@ export default function MarketingPage() {
                         })}
                       </div>
                     )}
+
+                    {/* Bulk action bar */}
+                    {selectedAssets.size > 0 && !isBulkDeleting && (
+                      <div className="flex items-center justify-between rounded-none border-b border-red-200 bg-red-50 px-5 py-2.5 dark:border-red-800 dark:bg-red-900/20">
+                        <span className="text-sm font-medium text-red-800 dark:text-red-300">
+                          {selectedAssets.size} asset{selectedAssets.size !== 1 ? "s" : ""} selected
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <button type="button" className="text-xs font-medium text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200" onClick={clearSelectedAssets}>Clear</button>
+                          <button type="button" className="inline-flex items-center gap-1 rounded-md bg-red-600 px-3 py-1 text-xs font-semibold text-white hover:bg-red-700 transition-colors" onClick={handleBulkDelete}>
+                            <Trash2 className="h-3 w-3" />
+                            Delete selected
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Bulk deleting loading indicator */}
+                    {isBulkDeleting && (
+                      <div className="flex items-center justify-center border-b bg-accent-blue/5 px-5 py-4 dark:bg-accent-blue/10">
+                        <div className="flex items-center gap-3">
+                          <Loader2 className="h-5 w-5 animate-spin text-accent-blue" />
+                          <span className="text-sm font-medium text-accent-blue">Deleting assets...</span>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="divide-y dark:divide-gray-700">
                       {filteredAssets.length === 0 ? (
                         <div className="flex flex-col items-center justify-center px-5 py-8 text-center">
@@ -784,6 +880,11 @@ export default function MarketingPage() {
                       ) : (
                         filteredAssets.map((asset) => (
                           <div key={asset.id} className="flex items-center gap-3 px-5 py-3">
+                            <Checkbox
+                              checked={selectedAssets.has(asset.id)}
+                              onCheckedChange={() => toggleSelectAsset(asset.id)}
+                              className="shrink-0"
+                            />
                             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-blue)]/10 text-sm">
                               {asset.type === "flyer" ? "ðŸ“„" : asset.type === "portal-notice" ? "ðŸ“¢" : asset.type === "pop-up" ? "ðŸ’¬" : "ðŸ“°"}
                             </div>
@@ -844,7 +945,17 @@ export default function MarketingPage() {
                                 <button type="button" className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:underline shrink-0 disabled:opacity-50" disabled={isDeletingLoading}
                                   onClick={async () => {
                                     setIsDeletingLoading(true);
-                                    try { await fetch(`/api/marketing/assets/${asset.id}`, { method: "DELETE" }); mutateAssets(); } catch (err) { console.error("Failed to delete:", err); }
+                                    try {
+                                      const res = await fetch(`/api/marketing/assets/${asset.id}`, { method: "DELETE" });
+                                      if (res.ok) {
+                                        mutateAssets();
+                                        console.log("[MarketingPage] Showing single delete toast for:", asset.headline);
+                                        toast.success("Asset deleted", {
+                                          description: `"${asset.headline || asset.type}" has been removed.`,
+                                        });
+                                        console.log("[MarketingPage] Single delete toast fired");
+                                      }
+                                    } catch (err) { console.error("Failed to delete:", err); }
                                     setDeletingId(null); setIsDeletingLoading(false);
                                   }}
                                 >

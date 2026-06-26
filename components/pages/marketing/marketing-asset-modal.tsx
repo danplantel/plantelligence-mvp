@@ -31,7 +31,7 @@ export interface QrCodeResult {
   dataUrl: string;
   source: "qrio" | "local";
   qrIoId?: string;
-  shortUrl?: string;
+  name?: string;
 }
 
 export type MarketingAssetStatus =
@@ -248,7 +248,11 @@ export default function MarketingAssetModal({
       const res = await fetch("/api/marketing/qr/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: flyerQrUrl.trim(), size: 320 }),
+        body: JSON.stringify({
+          url: flyerQrUrl.trim(),
+          size: 320,
+          name: headline ? `Flyer: ${headline} - ${planName}` : `Flyer - ${planName}`,
+        }),
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
@@ -274,6 +278,35 @@ export default function MarketingAssetModal({
       headline, body, startDate, endDate, bgColor, flyerQrUrl,
     });
 
+    // ── Auto-generate QR code via QR.io if a URL is set but no QR has been generated yet ──
+    let resolvedQrDataUrl = flyerQrDataUrl;
+    let resolvedQrResult = qrResult;
+    if (assetType === "flyer" && flyerQrUrl.trim() && !flyerQrDataUrl) {
+      try {
+        const res = await fetch("/api/marketing/qr/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url: flyerQrUrl.trim(),
+            size: 320,
+            name: headline ? `Flyer: ${headline} - ${planName}` : `Flyer - ${planName}`,
+          }),
+        });
+        const json = await res.json();
+        if (res.ok && json.success) {
+          const result = json.data as QrCodeResult;
+          resolvedQrDataUrl = result.dataUrl;
+          resolvedQrResult = result;
+          // Update the UI state as well so the preview reflects it
+          setFlyerQrDataUrl(result.dataUrl);
+          setQrResult(result);
+        }
+      } catch (err) {
+        console.warn("Auto QR generation failed at save time:", err);
+        // Non-blocking — fall through with empty dataUrl
+      }
+    }
+
     // Build type-specific data payload
     const data: Record<string, unknown> = {};
     if (assetType === "flyer") {
@@ -282,9 +315,9 @@ export default function MarketingAssetModal({
       data.meetingLocation = meetingLocation;
       data.flyerImage = flyerImage;
       data.flyerQrUrl = flyerQrUrl;
-      data.flyerQrDataUrl = flyerQrDataUrl || null;
-      data.flyerQrSource = qrResult?.source || null;
-      data.flyerQrIoId = qrResult?.qrIoId || null;
+      data.flyerQrDataUrl = resolvedQrDataUrl || null;
+      data.flyerQrSource = resolvedQrResult?.source || null;
+      data.flyerQrIoId = resolvedQrResult?.qrIoId || null;
       data.flyerCategory = flyerCategory || null;
     }
     if (assetType === "portal-notice") {
@@ -703,10 +736,10 @@ export default function MarketingAssetModal({
                 {qrResult && (
                   <p className="text-[11px] text-muted-foreground">
                     QR generated via{" "}
-                    {qrResult.source === "qrio" ? "QR.io" : "local"}{" "}
-                    {qrResult.shortUrl && (
-                      <span className="font-mono text-[10px]">
-                        ({qrResult.shortUrl})
+                    {qrResult.source === "qrio" ? "QR.io" : "local"}
+                    {qrResult.qrIoId && (
+                      <span className="ml-1 font-mono text-[10px] text-green-600">
+                        (ID: {qrResult.qrIoId})
                       </span>
                     )}
                   </p>

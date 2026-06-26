@@ -21,30 +21,40 @@ const DEFAULT_SIZE = 320;
 
 // ── QR.io types ──────────────────────────────────────────────────────────────
 
+/**
+ * Actual response from POST https://api.qr.io/v1/create
+ * Returns downloadable image URLs + qrid.
+ */
 export interface QrIoCreateResponse {
-  id: string;
-  qr_code_url: string;
-  short_url?: string;
-  status?: string;
+  /** QR identifier in the dashboard */
+  qrid?: string;
+  /** Direct URL to PNG image */
+  png?: string;
+  /** Direct URL to SVG image */
+  svg?: string;
+  /** Direct URL to JPG image */
+  jpg?: string;
+  /** Direct URL to PDF */
+  pdf?: string;
+  /** Direct URL to EPS */
+  eps?: string;
+  /** Error message if applicable */
   message?: string;
+  [key: string]: unknown;
 }
 
 export interface QrIoGeneratedResult {
-  /** QR.io resource ID */
+  /** QR.io resource ID (for dashboard) */
   id: string;
-  /** Direct URL to the QR code PNG image */
+  /** Direct URL to the QR PNG image — use as <image href> or fetch for inline */
   imageUrl: string;
-  /** Short URL that the QR code resolves to (for display) */
-  shortUrl: string;
-  /** PNG image buffer fetched from QR.io */
-  imageBuffer: Buffer;
-  /** Base64 data URL of the QR image */
-  imageDataUrl: string;
+  /** Display name in QR.io dashboard */
+  name: string;
 }
 
 // ── QR.io API client ─────────────────────────────────────────────────────────
 
-const QR_IO_BASE = "https://api.qr.io/v1";
+const QR_IO_CREATE_URL = "https://api.qr.io/v1/create";
 
 function getQrIoApiKey(): string | undefined {
   return process.env.QR_IO_API_KEY?.trim() || undefined;
@@ -57,13 +67,19 @@ export function isQrIoConfigured(): boolean {
 /**
  * Create a dynamic QR code via QR.io API.
  *
- * @param targetUrl  – The destination URL the QR code should resolve to.
- * @param sizePx     – Desired image size (QR.io supports 150–2000).
- * @returns Full result including image buffer, data URL, and short URL.
+ * API docs (https://qr.io/api-documentation):
+ *   POST https://api.qr.io/v1/create
+ *   Body (JSON): { apikey, data, title?, ...optional design params }
+ *   Response:    { success, id, svg, ... }
+ *
+ * Dynamic QR codes (default) are stored in the QR.io dashboard automatically.
+ *
+ * @param targetUrl  – The URL to encode in the QR code.
+ * @param options    – title (dashboard name), optional design params.
  */
 export async function generateQrViaQrIo(
   targetUrl: string,
-  sizePx: number = DEFAULT_SIZE,
+  options?: { name?: string },
 ): Promise<QrIoGeneratedResult> {
   const apiKey = getQrIoApiKey();
   if (!apiKey) {
@@ -75,59 +91,65 @@ export async function generateQrViaQrIo(
     throw new Error("QR payload URL is empty");
   }
 
-  // 1. Create the QR code resource
-  const createRes = await fetch(`${QR_IO_BASE}/qr`, {
+  const title = options?.name?.trim() || `Flyer - ${new URL(url).hostname}`;
+
+  // QR.io expects the API key in the JSON body, NOT as a header.
+  // Dynamic QR code (default) — minimal required params per API docs example.
+  const bodyPayload: Record<string, unknown> = {
+    apikey: apiKey,
+    data: url,
+  };
+
+  // Title helps identify the QR in the dashboard
+  if (title) {
+    bodyPayload.title = title;
+  }
+
+  console.log("[qr-service] POST", QR_IO_CREATE_URL, JSON.stringify({ ...bodyPayload, apikey: "***" }));
+
+  const createRes = await fetch(QR_IO_CREATE_URL, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-API-Key": apiKey,
-    },
-    body: JSON.stringify({
-      url,
-      format: "png",
-      size: Math.max(150, Math.min(2000, sizePx)),
-    }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(bodyPayload),
   });
 
+  const responseText = await createRes.text().catch(() => "");
+
   if (!createRes.ok) {
-    const errText = await createRes.text().catch(() => "");
+    console.error("[qr-service] QR.io create failed — HTTP", createRes.status, "body:", responseText.slice(0, 2000));
     throw new Error(
-      `QR.io create failed (HTTP ${createRes.status}): ${errText}`,
+      `QR.io create failed (HTTP ${createRes.status}): ${responseText.slice(0, 500)}`,
     );
   }
 
-  const createData = (await createRes.json()) as QrIoCreateResponse;
+  let createData: QrIoCreateResponse;
+  try {
+    createData = JSON.parse(responseText) as QrIoCreateResponse;
+  } catch {
+    console.error("[qr-service] QR.io non-JSON response:", responseText.slice(0, 2000));
+    throw new Error(`QR.io returned non-JSON response: ${responseText.slice(0, 300)}`);
+  }
+
+  console.log("[qr-service] QR.io create success — qrid:", createData.qrid);
 
   if (createData.message) {
     throw new Error(`QR.io error: ${createData.message}`);
   }
 
-  const imageUrl = createData.qr_code_url;
-  const shortUrl = createData.short_url || url;
-  const qrId = createData.id;
+  // QR.io returns downloadable image URLs (png, svg, jpg, etc.)
+  // Prefer PNG for broad compatibility in SVG <image> tags and PDF generation
+  const imageUrl = createData.png || createData.svg || createData.jpg;
+  const qrId = createData.qrid || "unknown";
 
   if (!imageUrl) {
-    throw new Error("QR.io response missing qr_code_url");
+    console.error("[qr-service] QR.io full response:", JSON.stringify(createData).slice(0, 2000));
+    throw new Error(`QR.io response missing image URL. Keys: ${Object.keys(createData).join(", ")}`);
   }
-
-  // 2. Fetch the QR code PNG image
-  const imageRes = await fetch(imageUrl);
-  if (!imageRes.ok) {
-    throw new Error(
-      `Failed to fetch QR image from QR.io (HTTP ${imageRes.status})`,
-    );
-  }
-
-  const imageBuffer = Buffer.from(await imageRes.arrayBuffer());
-  const b64 = imageBuffer.toString("base64");
-  const imageDataUrl = `data:image/png;base64,${b64}`;
 
   return {
     id: qrId,
     imageUrl,
-    shortUrl,
-    imageBuffer,
-    imageDataUrl,
+    name: title,
   };
 }
 
@@ -136,19 +158,18 @@ export async function generateQrViaQrIo(
  */
 export async function generateQrDataUrl(
   absoluteUrl: string,
-  options?: QrEncodeOptions,
-): Promise<{ dataUrl: string; source: "qrio" | "local"; qrIoId?: string; shortUrl?: string }> {
-  const size = options?.sizePx ?? DEFAULT_SIZE;
+  options?: QrEncodeOptions & { name?: string },
+): Promise<{ dataUrl: string; source: "qrio" | "local"; qrIoId?: string; name?: string }> {
 
   // Try QR.io first
   if (isQrIoConfigured()) {
     try {
-      const result = await generateQrViaQrIo(absoluteUrl, size);
+      const result = await generateQrViaQrIo(absoluteUrl, { name: options?.name });
       return {
-        dataUrl: result.imageDataUrl,
+        dataUrl: result.imageUrl,
         source: "qrio",
         qrIoId: result.id,
-        shortUrl: result.shortUrl,
+        name: result.name,
       };
     } catch (err) {
       console.warn(
