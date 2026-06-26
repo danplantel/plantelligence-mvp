@@ -22,6 +22,8 @@ export interface FlyerPdfData {
   flyerSubtitle?: string;
   flyerImage?: string;
   flyerQrUrl?: string;
+  /** Pre-generated QR code data URL (from QR.io or local) — takes precedence over flyerQrUrl */
+  flyerQrDataUrl?: string;
   meetingTime?: string;
   meetingLocation?: string;
 }
@@ -140,19 +142,25 @@ export function buildFlyerSvgFromData(
   svg.appendChild(txt("50", "724", `Presented by ${data.planName} \u00B7 Benefits Team`, c, "16", "600"));
   svg.appendChild(txt("50", "748", "Questions? Contact your plan administrator", "#999", "14"));
 
-  // QR
+  // QR code — uses pre-generated data URL when available, falls back to api.qrserver.com
   const qrG = document.createElementNS(S, "g");
   qrG.setAttribute("transform", "translate(448, 652)");
   qrG.appendChild(rect({ width: "112", height: "112", rx: "4", fill: "white", stroke: c, "stroke-width": "1", "stroke-opacity": "0.25" }));
 
-  if (data.flyerQrUrl) {
-    const dots: [number, number, number, number, number?][] = [
-      [10, 10, 20, 20, 2], [82, 10, 20, 20, 2], [10, 82, 20, 20, 2], [46, 46, 20, 20, 2],
-      [32, 32, 7, 7, 1], [73, 73, 7, 7, 1], [32, 73, 7, 7, 1], [73, 32, 7, 7, 1],
-    ];
-    dots.forEach(([x, y, w, h, r]) => {
-      qrG.appendChild(rect({ x: String(x), y: String(y), width: String(w), height: String(h), rx: String(r ?? 1), fill: c, opacity: w > 10 ? "0.9" : "0.6" }));
-    });
+  const qrImageUrl = data.flyerQrDataUrl
+    || (data.flyerQrUrl
+      ? `https://api.qrserver.com/v1/create-qr-code/?size=112x112&data=${encodeURIComponent(data.flyerQrUrl)}`
+      : null);
+
+  if (qrImageUrl) {
+    const qrImg = document.createElementNS(S, "image");
+    qrImg.setAttribute("href", qrImageUrl);
+    qrImg.setAttribute("x", "4");
+    qrImg.setAttribute("y", "4");
+    qrImg.setAttribute("width", "104");
+    qrImg.setAttribute("height", "104");
+    qrImg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+    qrG.appendChild(qrImg);
   } else {
     qrG.appendChild(rect({ x: "14", y: "14", width: "84", height: "84", rx: "2", fill: "none", stroke: c, "stroke-width": "0.6", "stroke-dasharray": "4,4", opacity: "0.2" }));
   }

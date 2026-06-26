@@ -87,8 +87,12 @@ interface SavedAsset {
   flyerSubtitle?: string;
   flyerImage?: string;
   flyerQrUrl?: string;
+  /** Pre-generated QR code data URL (from QR.io or local) */
+  flyerQrDataUrl?: string;
   meetingTime?: string;
   meetingLocation?: string;
+  /** Nested JSON blob with type-specific payload (flyer fields live here) */
+  data?: Record<string, unknown>;
 }
 
 const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
@@ -796,9 +800,18 @@ export default function MarketingPage() {
                                 onClick={async () => {
                                   setDownloadingId(asset.id);
                                   try {
+                                    // Flyer-specific fields are in the nested `data` JSON blob
+                                    const d = asset.data ?? {};
+                                    const flyerQrUrl = (d.flyerQrUrl as string) || asset.flyerQrUrl || "";
+                                    const flyerQrDataUrl = (d.flyerQrDataUrl as string) || asset.flyerQrDataUrl || "";
+                                    const flyerSubtitle = (d.flyerSubtitle as string) || asset.flyerSubtitle || "";
+                                    const flyerImage = (d.flyerImage as string) || asset.flyerImage || "";
+                                    const meetingTime = (d.meetingTime as string) || asset.meetingTime || "";
+                                    const meetingLocation = (d.meetingLocation as string) || asset.meetingLocation || "";
+
                                     const logoUrl = asset.planLogo ? getR2ObjectProxyUrl(toR2BrandingKey(asset.planLogo) ?? "") || asset.planLogo : null;
                                     const svgEl = buildFlyerSvgFromData(
-                                      { headline: asset.headline ?? "", body: asset.body ?? "", startDate: asset.startDate ?? "", bgColor: asset.bgColor ?? "#23919c", planName: asset.planName ?? "", planLogo: asset.planLogo, flyerSubtitle: asset.flyerSubtitle, flyerImage: asset.flyerImage, flyerQrUrl: asset.flyerQrUrl, meetingTime: asset.meetingTime, meetingLocation: asset.meetingLocation },
+                                      { headline: asset.headline ?? "", body: asset.body ?? "", startDate: asset.startDate ?? "", bgColor: asset.bgColor ?? "#23919c", planName: asset.planName ?? "", planLogo: asset.planLogo, flyerSubtitle, flyerImage, flyerQrUrl, flyerQrDataUrl, meetingTime, meetingLocation },
                                       logoUrl,
                                     );
                                     const dataUrl = await svgElementToDataUrl(svgEl);

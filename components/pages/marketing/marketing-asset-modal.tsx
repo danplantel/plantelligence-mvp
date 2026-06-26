@@ -21,10 +21,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { X, Eye, Calendar, Clock, MapPin } from "lucide-react";
+import { X, Eye, Calendar, Clock, MapPin, QrCode, Loader2 } from "lucide-react";
 import { formatUsDate } from "@/lib/date";
 
 export type AssetType = "flyer" | "portal-notice" | "pop-up" | "news-post";
+
+export interface QrCodeResult {
+  dataUrl: string;
+  source: "qrio" | "local";
+  qrIoId?: string;
+  shortUrl?: string;
+}
 
 export type MarketingAssetStatus =
   | "Draft"
@@ -131,6 +138,9 @@ export default function MarketingAssetModal({
   const [flyerImage, setFlyerImage] = useState<string>("");
   const [flyerImageLoading, setFlyerImageLoading] = useState(false);
   const [flyerQrUrl, setFlyerQrUrl] = useState("");
+  const [flyerQrDataUrl, setFlyerQrDataUrl] = useState<string>("");
+  const [qrGenerating, setQrGenerating] = useState(false);
+  const [qrResult, setQrResult] = useState<QrCodeResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const flyerPreviewRef = useRef<HTMLDivElement>(null);
   const [assetStatus, setAssetStatus] = useState<MarketingAssetStatus>("Draft");
@@ -178,6 +188,9 @@ export default function MarketingAssetModal({
     setSelectedMeetingId("");
     setFlyerImage("");
     setFlyerQrUrl("");
+    setFlyerQrDataUrl("");
+    setQrGenerating(false);
+    setQrResult(null);
     setFlyerCategory("");
     setShowEveryVisit(false);
     setPopupPages(["all"]);
@@ -224,6 +237,33 @@ export default function MarketingAssetModal({
     await downloadFlyerPdf(svgEl, `${safeName}_flyer.pdf`);
   }, [planName]);
 
+  // ── QR code generation via server API ──
+  const handleGenerateQr = useCallback(async () => {
+    if (!flyerQrUrl.trim()) return;
+    setQrGenerating(true);
+    try {
+      const res = await fetch("/api/marketing/qr/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: flyerQrUrl.trim(), size: 320 }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "QR generation failed");
+      }
+      const result = json.data as QrCodeResult;
+      setFlyerQrDataUrl(result.dataUrl);
+      setQrResult(result);
+    } catch (err) {
+      console.error("Failed to generate QR code:", err);
+      // Fallback: still show the api.qrserver.com version in preview
+      setFlyerQrDataUrl("");
+      setQrResult(null);
+    } finally {
+      setQrGenerating(false);
+    }
+  }, [flyerQrUrl]);
+
   const handleSave = async () => {
     console.log(`[MarketingAssetModal] Save ${assetType} for ${planName}`, {
       headline, body, startDate, endDate, bgColor, flyerQrUrl,
@@ -237,6 +277,9 @@ export default function MarketingAssetModal({
       data.meetingLocation = meetingLocation;
       data.flyerImage = flyerImage;
       data.flyerQrUrl = flyerQrUrl;
+      data.flyerQrDataUrl = flyerQrDataUrl || null;
+      data.flyerQrSource = qrResult?.source || null;
+      data.flyerQrIoId = qrResult?.qrIoId || null;
       data.flyerCategory = flyerCategory || null;
     }
     if (assetType === "portal-notice") {
@@ -596,20 +639,54 @@ export default function MarketingAssetModal({
               </div>
             ))}
 
-            {/* QR code URL (replaces CTA — flyers are print-only, no clickable buttons) */}
+            {/* QR code URL + Generate button */}
             {assetType === "flyer" && (
               <div className="space-y-1.5">
                 <Label htmlFor="flyerQrUrl">
                   QR code link (optional)
                   <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">(scannable link for the flyer)</span>
                 </Label>
-                <Input
-                  id="flyerQrUrl"
-                  placeholder="https://example.com/registration"
-                  value={flyerQrUrl}
-                  onChange={(e) => setFlyerQrUrl(e.target.value)}
-                  disabled={isFlyerLocked}
-                />
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="flyerQrUrl"
+                    placeholder="https://example.com/registration"
+                    value={flyerQrUrl}
+                    onChange={(e) => {
+                      setFlyerQrUrl(e.target.value);
+                      // Clear previously generated QR when URL changes
+                      setFlyerQrDataUrl("");
+                      setQrResult(null);
+                    }}
+                    disabled={isFlyerLocked}
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={isFlyerLocked || !flyerQrUrl.trim() || qrGenerating}
+                    onClick={handleGenerateQr}
+                    className="gap-1.5 shrink-0"
+                  >
+                    {qrGenerating ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <QrCode className="h-3.5 w-3.5" />
+                    )}
+                    {qrGenerating ? "Generating…" : "Generate QR"}
+                  </Button>
+                </div>
+                {qrResult && (
+                  <p className="text-[11px] text-muted-foreground">
+                    QR generated via{" "}
+                    {qrResult.source === "qrio" ? "QR.io" : "local"}{" "}
+                    {qrResult.shortUrl && (
+                      <span className="font-mono text-[10px]">
+                        ({qrResult.shortUrl})
+                      </span>
+                    )}
+                  </p>
+                )}
               </div>
             )}
 
@@ -734,6 +811,7 @@ export default function MarketingAssetModal({
                 planLogo={planLogo}
                 flyerImage={flyerImage}
                 flyerQrUrl={flyerQrUrl}
+                flyerQrDataUrl={flyerQrDataUrl}
                 meetingTime={meetingTime}
                 meetingLocation={meetingLocation}
                 flyerSubtitle={flyerSubtitle}
@@ -807,6 +885,7 @@ function PreviewPane({
   planLogo,
   flyerImage,
   flyerQrUrl,
+  flyerQrDataUrl,
   meetingTime,
   meetingLocation,
   flyerSubtitle,
@@ -826,6 +905,7 @@ function PreviewPane({
   planLogo?: string;
   flyerImage?: string;
   flyerQrUrl?: string;
+  flyerQrDataUrl?: string;
   meetingTime?: string;
   meetingLocation?: string;
   flyerSubtitle?: string;
@@ -835,7 +915,7 @@ function PreviewPane({
 }) {
   switch (assetType) {
     case "flyer":
-      return <FlyerPreview headline={headline} body={body} ctaText={ctaText} bgColor={bgColor} startDate={startDate} planName={planName} planLogo={planLogo} flyerImage={flyerImage} flyerQrUrl={flyerQrUrl} meetingTime={meetingTime} meetingLocation={meetingLocation} flyerSubtitle={flyerSubtitle} />;
+      return <FlyerPreview headline={headline} body={body} ctaText={ctaText} bgColor={bgColor} startDate={startDate} planName={planName} planLogo={planLogo} flyerImage={flyerImage} flyerQrUrl={flyerQrUrl} flyerQrDataUrl={flyerQrDataUrl} meetingTime={meetingTime} meetingLocation={meetingLocation} flyerSubtitle={flyerSubtitle} />;
     case "portal-notice":
       return <NoticePreview headline={headline} body={body} bgColor={bgColor} startDate={startDate} endDate={endDate} planName={planName} noticeType={noticeType} countdownTarget={countdownTarget} ctaText={ctaText} portalCtaUrl={portalCtaUrl} />;
     case "pop-up":
@@ -855,6 +935,7 @@ function FlyerPreview({
   planLogo,
   flyerImage,
   flyerQrUrl,
+  flyerQrDataUrl,
   meetingTime,
   meetingLocation,
   flyerSubtitle,
@@ -868,6 +949,7 @@ function FlyerPreview({
   planLogo?: string;
   flyerImage?: string;
   flyerQrUrl?: string;
+  flyerQrDataUrl?: string;
   meetingTime?: string;
   meetingLocation?: string;
   flyerSubtitle?: string;
@@ -1043,10 +1125,16 @@ function FlyerPreview({
         Questions? Contact your plan administrator
       </text>
 
-      {/* QR code — 112×112 rendered via QR.io API */}
+      {/* QR code — 112×112; uses QR.io data URL when available, falls back to api.qrserver.com */}
       <g transform="translate(448, 652)">
         <rect x="0" y="0" width="112" height="112" rx="4" fill="white" stroke={bgColor} strokeWidth="1" strokeOpacity="0.25" />
-        {flyerQrUrl ? (
+        {flyerQrDataUrl ? (
+          <image
+            href={flyerQrDataUrl}
+            x="4" y="4" width="104" height="104"
+            preserveAspectRatio="xMidYMid meet"
+          />
+        ) : flyerQrUrl ? (
           <image
             href={`https://api.qrserver.com/v1/create-qr-code/?size=112x112&data=${encodeURIComponent(flyerQrUrl)}`}
             x="4" y="4" width="104" height="104"
