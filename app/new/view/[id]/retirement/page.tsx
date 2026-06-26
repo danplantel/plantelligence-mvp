@@ -5,7 +5,7 @@ import { useClientPortal } from "@/contexts/client-portal-context";
 import { useParams } from "next/navigation";
 import { VideoModal } from "@/components/video-modal";
 import { InteractiveTools } from "@/components/interactive-tools";
-import { FAQSection, DynamicFAQItem } from "@/components/faq-section";
+import { FAQSection, DynamicFAQItem, FAQContact } from "@/components/faq-section";
 import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
 import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
 import {
@@ -14,11 +14,6 @@ import {
   FeaturedJourneyVideo,
 } from "@/components/pages/client-portal/sections/retirement-journey-section";
 import { PortalMaterialsHero } from "@/components/pages/client-portal/sections/portal-materials-hero";
-import {
-  HaveQuestionsSection,
-  ContactInfo,
-} from "@/components/pages/client-portal/sections/have-questions-section";
-import { Phone } from "lucide-react";
 import { HowCanWeHelpSection } from "@/components/pages/client-portal/sections/how-can-we-help-section";
 import {
   RetirementDocumentsAccordion,
@@ -92,32 +87,55 @@ export default function RetirementPage() {
     return undefined;
   }, [clientData?.employeePortalPreview]);
 
-  // Filter and map real contacts from database
-  const contacts = useMemo(() => {
+  // Resolve support contacts for the FAQ section.
+  // First tries wizard Step 3 supportContacts (cross-referenced with keyContacts),
+  // then falls back to keyContacts filtered by this category.
+  const supportContactsForFAQ = useMemo(() => {
     const rawContacts = Array.isArray(clientData?.keyContacts)
       ? clientData?.keyContacts
       : (clientData?.keyContacts as any)?.contacts || [];
 
-    // Filter contacts for this category
+    // Try wizard Step 3 supportContacts first
+    const benefits = (clientData as any)?.employeePortalPreview?.benefits ?? [];
+    const retirementBenefit = benefits.find(
+      (b: any) => b.category === "Retirement",
+    );
+    const rawSupportContacts = retirementBenefit?.supportContacts;
+    if (Array.isArray(rawSupportContacts)) {
+      const enabled = rawSupportContacts.filter((sc: any) => sc.enabled !== false);
+      if (enabled.length > 0) {
+        return enabled.map((sc: any) => {
+          const matched = rawContacts.find((c: any) => c.id === sc.contactId);
+          return {
+            id: sc.contactId,
+            title: sc.title || matched?.name || `${matched?.firstName ?? ""} ${matched?.lastName ?? ""}`.trim() || "Support Contact",
+            description: sc.description || matched?.customRole || matched?.title || "",
+            email: matched?.email || "",
+            phone: matched?.phone || "",
+            phoneExtension: matched?.phoneExtension,
+            headshot: matched?.headshot || undefined,
+          } as FAQContact;
+        });
+      }
+    }
+
+    // Fallback: filter keyContacts by this category
     const relevantContacts = rawContacts.filter((c: any) =>
       c.benefitsCategory === "Retirement" ||
       c.benefitsCategories?.includes("Retirement")
     );
-
-    if (relevantContacts.length === 0) return null;
+    if (relevantContacts.length === 0) return undefined;
 
     return relevantContacts.map((c: any) => ({
       id: c.id,
-      title: c.name || `${c.firstName} ${c.lastName}`,
+      title: c.name || `${c.firstName ?? ""} ${c.lastName ?? ""}`.trim() || "Support Contact",
       description: c.customRole || c.title || "Retirement Plan Representative",
-      icon: Phone,
-      email: c.email,
-      phone: c.phone,
-      iconType: c.headshot ? "image" : undefined,
-      iconSrc: c.headshot,
-      iconAlt: c.name
-    })) as ContactInfo[];
-  }, [clientData?.keyContacts]);
+      email: c.email || "",
+      phone: c.phone || "",
+      phoneExtension: c.phoneExtension,
+      headshot: c.headshot || undefined,
+    })) as FAQContact[];
+  }, [clientData?.employeePortalPreview, clientData?.keyContacts]);
 
   // Same data as Benefits Step 4: GET /api/documents/client + embedded docs from context (already loaded by ClientPortalProvider — no duplicate GET /api/clients). Deduped fetch shared with CompletenessAutoTrigger.
   useEffect(() => {
@@ -325,7 +343,7 @@ export default function RetirementPage() {
           clientId={clientId}
         />
 
-        <FAQSection brandColor={brandColor} secondaryColor={secondaryColor} faqs={faqsForCategory} />
+        <FAQSection brandColor={brandColor} secondaryColor={secondaryColor} faqs={faqsForCategory} contacts={supportContactsForFAQ} />
 
         <PortalMaterialsHero brandColor={brandColor} />
 
@@ -337,12 +355,6 @@ export default function RetirementPage() {
           description="Access all your important retirement plan documents, forms, and notices in one convenient location."
         />
 
-        <HaveQuestionsSection
-          brandColor={brandColor}
-          secondaryColor={secondaryColor}
-          contacts={contacts || undefined}
-          cardWidth="390px"
-        />
       </main>
 
       <VideoModal

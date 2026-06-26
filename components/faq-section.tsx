@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Phone, Mail } from "lucide-react";
+import { Headshot } from "@/components/ui/headshot";
 
 export interface DynamicFAQItem {
   id: string;
@@ -11,10 +12,21 @@ export interface DynamicFAQItem {
   linkHref?: string;
 }
 
+export interface FAQContact {
+  id: string;
+  title: string;
+  description: string;
+  email: string;
+  phone: string;
+  phoneExtension?: string;
+  headshot?: string;
+}
+
 interface FAQSectionProps {
   brandColor?: string;
   secondaryColor?: string;
   faqs?: DynamicFAQItem[];
+  contacts?: FAQContact[];
 }
 
 /** Ensure the URL has a protocol prefix so browser does not treat it as a relative path. */
@@ -39,6 +51,7 @@ export function FAQSection({
   brandColor = "#1F3A60",
   secondaryColor = "#6B7280",
   faqs,
+  contacts,
 }: FAQSectionProps) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
@@ -125,6 +138,77 @@ export function FAQSection({
             );
           })}
         </div>
+
+        {contacts && contacts.length > 0 && (
+          <div className="mt-16 text-center">
+            <h2
+              className="font-dm-serif text-[40px] leading-tight mb-2"
+              style={{ color: brandColor }}
+            >
+              Have Questions?
+            </h2>
+            <p className="text-[16px] max-w-[505px] font-red-hat mx-auto mb-10">
+              Our team is here to help you navigate your benefits and answer any questions you may have.
+            </p>
+            <div className="flex flex-wrap gap-8 justify-center">
+              {contacts.map((contact) => (
+                <div
+                  key={contact.id}
+                  className="text-center h-[327px] p-6 border flex flex-col justify-between border-gray-200 rounded-lg hover:shadow-lg transition-shadow"
+                >
+                  <div
+                    className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center overflow-hidden"
+                    style={{ background: brandColor }}
+                  >
+                    {contact.headshot ? (
+                      <Headshot
+                        src={contact.headshot}
+                        alt={contact.title}
+                        className="h-full w-full object-cover opacity-90"
+                        wrapperClassName="w-full h-full rounded-full"
+                      />
+                    ) : (
+                      <Phone className="h-8 w-8 text-white" />
+                    )}
+                  </div>
+                  <h3
+                    className="font-dm-serif text-[20px] font-semibold mb-2"
+                    style={{ color: secondaryColor }}
+                  >
+                    {contact.title}
+                  </h3>
+                  <p className="text-[16px] font-red-hat text-gray-600 mb-4">{contact.description}</p>
+                  <div className="space-y-2">
+                    {contact.email && (
+                      <a
+                        href={`mailto:${contact.email}`}
+                        className="flex items-center justify-center text-[12px] font-red-hat transition-colors"
+                        style={{ color: secondaryColor }}
+                        onMouseEnter={(e) => (e.currentTarget.style.color = brandColor)}
+                        onMouseLeave={(e) => (e.currentTarget.style.color = secondaryColor)}
+                      >
+                        <Mail className="h-4 w-4 mr-2" />
+                        {contact.email}
+                      </a>
+                    )}
+                    {contact.phone && (
+                      <a
+                        href={`tel:${contact.phone.replace(/[^0-9]/g, "")}`}
+                        className="flex items-center justify-center text-[12px] font-red-hat transition-colors"
+                        style={{ color: secondaryColor }}
+                        onMouseEnter={(e) => (e.currentTarget.style.color = brandColor)}
+                        onMouseLeave={(e) => (e.currentTarget.style.color = secondaryColor)}
+                      >
+                        <Phone className="h-4 w-4 mr-2" />
+                        {contact.phone}
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );
