@@ -475,6 +475,8 @@ interface SortableFaqItemProps {
   removeFaq: (id: string) => void;
 }
 
+const MAX_ANSWER_LENGTH = 500;
+
 function SortableFaqItem({
   faq,
   index,
@@ -589,12 +591,32 @@ function SortableFaqItem({
                   </Label>
                   <Textarea
                     value={faq.answer}
-                    onChange={(e) =>
-                      updateFaq(faq.id, { answer: e.target.value })
-                    }
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val.length <= MAX_ANSWER_LENGTH) {
+                        updateFaq(faq.id, { answer: val });
+                      }
+                    }}
                     placeholder="Enter answer..."
+                    maxLength={MAX_ANSWER_LENGTH}
                     className="min-h-[80px] text-xs leading-relaxed border-gray-200 focus:border-accent-blue dark:border-gray-600"
                   />
+                  <div className="flex justify-end">
+                    <span
+                      className={`text-[11px] font-medium tabular-nums transition-colors duration-200 ${
+                        faq.answer.length >= MAX_ANSWER_LENGTH
+                          ? "text-red-500"
+                          : faq.answer.length >= MAX_ANSWER_LENGTH * 0.9
+                            ? "text-amber-500"
+                            : "text-muted-foreground"
+                      }`}
+                    >
+                      {faq.answer.length.toLocaleString()}
+                      <span className="text-muted-foreground/60">
+                        /{MAX_ANSWER_LENGTH.toLocaleString()}
+                      </span>
+                    </span>
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
