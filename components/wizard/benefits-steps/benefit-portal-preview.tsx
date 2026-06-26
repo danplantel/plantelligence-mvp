@@ -1,6 +1,26 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+
+// Preview-specific overrides so child sections expand to fill the wide container
+const previewStyles = `
+  .preview-portal-container {
+    width: 1400px !important;
+    max-width: none !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+  .preview-portal-container section > div:first-child,
+  .preview-portal-container .max-w-4xl,
+  .preview-portal-container .max-w-3xl,
+  .preview-portal-container .max-w-7xl,
+  .preview-portal-container .max-w-5xl,
+  .preview-portal-container .max-w-6xl {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+`;
+
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
 import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
 import {
@@ -9,11 +29,10 @@ import {
     JourneyVideo
 } from "@/components/pages/client-portal/sections/retirement-journey-section";
 import { HowCanWeHelpSection } from "@/components/pages/client-portal/sections/how-can-we-help-section";
-import { BenefitsFAQAccordion } from "@/components/pages/client-portal/sections/benefits-faq-accordion";
 import { PortalMaterialsHero } from "@/components/pages/client-portal/sections/portal-materials-hero";
 import { RetirementDocumentsAccordion } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
-import { HaveQuestionsSection, ContactInfo } from "@/components/pages/client-portal/sections/have-questions-section";
-import { Phone, Pencil } from "lucide-react";
+import { FAQSection, DynamicFAQItem, FAQContact } from "@/components/faq-section";
+import { Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { normalizePortalDocumentLanguage } from "@/lib/portal-document-language";
 import { resolvePersistedDocumentCategory } from "@/lib/document-category";
@@ -27,18 +46,15 @@ export function BenefitPortalPreview() {
     const category = step1Data?.benefitCategory || "Retirement";
     const isRetirement = category === "Retirement";
 
-    // Colors mapping (using defaults or from context if we had it, but store might have it eventually)
-    // For now, use sensible defaults that match the portal's base style
-    const brandColor = "#1F3A60";
-    const secondaryColor = "#C89B5B";
+    // Colors from wizard data or sensible defaults matching the portal
+    const brandColor = step1Data?.selectedPlan?.brandColors?.primary || "#1F3A60";
+    const secondaryColor = step1Data?.selectedPlan?.brandColors?.secondary || "#6B7280";
 
-    // Map contacts from Step 3
-    const contacts = useMemo(() => {
+    // Map contacts from Step 3 into FAQContact format
+    const faqContacts = useMemo(() => {
         const enabledContacts = step3Data?.supportContacts?.filter(sc => sc.enabled) || [];
         if (enabledContacts.length === 0) return undefined;
 
-        // In a real scenario, we'd fetch the full contact object, but for preview 
-        // we can try to find them in the selectedPlan's contacts if available
         const allContacts = step1Data?.selectedPlan?.keyContacts || [];
         const contactsList = Array.isArray(allContacts) ? allContacts : (allContacts.contacts || []);
 
@@ -46,15 +62,12 @@ export function BenefitPortalPreview() {
             const fullContact = contactsList.find((c: any) => c.id === sc.contactId);
             return {
                 id: sc.contactId,
-                title: fullContact?.name || `${fullContact?.firstName} ${fullContact?.lastName}` || sc.title,
+                title: fullContact?.name || `${fullContact?.firstName ?? ""} ${fullContact?.lastName ?? ""}`.trim() || sc.title,
                 description: sc.description || fullContact?.title || "Support Representative",
-                icon: Phone,
-                email: fullContact?.email,
-                phone: fullContact?.phone,
-                iconType: fullContact?.headshot ? "image" : undefined,
-                iconSrc: fullContact?.headshot,
-                iconAlt: fullContact?.name
-            } as ContactInfo;
+                email: fullContact?.email || "",
+                phone: fullContact?.phone || "",
+                headshot: fullContact?.headshot || undefined,
+            } as FAQContact;
         });
     }, [step3Data?.supportContacts, step1Data?.selectedPlan]);
 
@@ -100,7 +113,7 @@ export function BenefitPortalPreview() {
         step1Data?.benefitCategory,
     ]);
 
-    // Map FAQs from Step 3
+    // Map FAQs from Step 3 into DynamicFAQItem format for FAQSection
     const faqs = useMemo(() => {
         return (step3Data?.faqs || [])
             .filter(faq => faq.enabled && faq.question && faq.answer)
@@ -108,9 +121,9 @@ export function BenefitPortalPreview() {
                 id: faq.id,
                 question: faq.question,
                 answer: faq.answer,
-                linkLabel: faq.linkLabel || "Learn More",
-                linkHref: faq.linkHref || "#",
-            }));
+                linkLabel: faq.linkLabel || undefined,
+                linkHref: faq.linkHref && faq.linkHref !== "#" ? faq.linkHref : undefined,
+            })) as DynamicFAQItem[];
     }, [step3Data?.faqs]);
 
     // Mock videos for retirement preview
@@ -145,7 +158,8 @@ export function BenefitPortalPreview() {
     );
 
     return (
-        <div className="min-h-screen bg-black overflow-hidden rounded-xl border border-white/10 shadow-2xl relative">
+        <div className="min-h-screen bg-black overflow-x-auto rounded-xl border border-white/10 shadow-2xl relative w-full preview-portal-container">
+            <style>{previewStyles}</style>
             <main>
                 <div
                     className={cn(
@@ -205,10 +219,11 @@ export function BenefitPortalPreview() {
                         onClick={() => handleEdit("faqs")}
                     >
                         {hoveredSection === "faqs" && <EditPencil />}
-                        <BenefitsFAQAccordion
-                            items={faqs}
+                        <FAQSection
                             brandColor={brandColor}
-                            accentColor={secondaryColor}
+                            secondaryColor={secondaryColor}
+                            faqs={faqs}
+                            contacts={faqContacts}
                         />
                     </div>
                 )}
@@ -223,24 +238,6 @@ export function BenefitPortalPreview() {
                         retirementDocs={documents}
                         title={`${category} Documents & Forms`}
                         description={`Access all your important ${category.toLowerCase()} plan documents and forms.`}
-                    />
-                </div>
-
-                <div
-                    className={cn(
-                        "relative cursor-pointer transition-all duration-200 rounded-lg m-1 mb-8",
-                        hoveredSection === "messaging" ? "ring-4 ring-blue-500/50" : "hover:ring-4 hover:ring-blue-500/50"
-                    )}
-                    onMouseEnter={() => setHoveredSection("messaging")}
-                    onMouseLeave={() => setHoveredSection(null)}
-                    onClick={() => handleEdit("messaging")}
-                >
-                    {hoveredSection === "messaging" && <EditPencil />}
-                    <HaveQuestionsSection
-                        brandColor={brandColor}
-                        secondaryColor={secondaryColor}
-                        contacts={contacts}
-                        cardWidth="390px"
                     />
                 </div>
             </main>

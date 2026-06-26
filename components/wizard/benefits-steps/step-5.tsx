@@ -10,7 +10,7 @@ export function BenefitsStep5() {
 
 
     return (
-        <div className="max-w-[1600px] mx-auto pb-20">
+        <div className="w-screen mx-auto pb-20 overflow-x-auto relative" style={{ marginLeft: 'calc(-50vw + 50%)', width: '100vw' }}>
             <BenefitsEditorPanel
                 isOpen={editorState.isEditorOpen}
                 isAnimating={editorState.isEditorAnimating}
@@ -20,15 +20,14 @@ export function BenefitsStep5() {
                 editorScrollContainerRef={editorScrollContainerRef}
             />
 
-            <div className="mb-6 flex items-center justify-between">
+            <div className="mb-6 text-center">
                 <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Portal Preview</h2>
-                    <p className="text-gray-500">Preview exactly how this benefit will appear to employees on the portal.</p>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Portal Preview</h2>
+                    <p className="text-gray-500 dark:text-gray-200">Preview exactly how this benefit will appear to employees on the portal.</p>
                 </div>
             </div>
 
-            <div className="relative group">
-                <div className="absolute -inset-1 bg-gradient-to-r from-[#23919C] to-[#0D315F] rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
+            <div className="relative">
                 <div className="relative">
                     <BenefitPortalPreview />
                 </div>
