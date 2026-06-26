@@ -1638,9 +1638,6 @@ export function BenefitsStep1a() {
               <AccordionContent className="p-6 space-y-8">
                 <div className="flex flex-col gap-8">
                   <div className="space-y-4">
-                    <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                      Benefit Provider Logo
-                    </Label>
                     <BrandImageUpload
                       slotKey="companyLogo"
                       slot={{
@@ -1671,9 +1668,6 @@ export function BenefitsStep1a() {
                     />
                   </div>
                   <div className="space-y-4">
-                    <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                      Branded Header Image
-                    </Label>
                     <BrandImageUpload
                       slotKey="header"
                       slot={{
@@ -1708,7 +1702,7 @@ export function BenefitsStep1a() {
                   </div>
                 </div>
 
-                <div className="flex justify-end pt-4 border-t border-gray-100">
+                <div className="flex justify-end pt-4 border-t border-gray-100 dark:border-gray-700">
                   <Button
                     onClick={() => handleContinue("messaging")}
                     className="bg-[#23919C] hover:bg-[#1b727a] text-white font-bold h-11 px-8 rounded-xl shadow-lg shadow-[#23919C]/20 transition-all duration-300"
@@ -1763,7 +1757,7 @@ export function BenefitsStep1a() {
               <AccordionContent className="p-6 space-y-6">
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label className="text-sm font-bold text-gray-700">
+                    <Label className="text-sm font-bold text-gray-700 dark:text-gray-100">
                       Custom Display Title
                     </Label>
                     <Input
@@ -1775,7 +1769,7 @@ export function BenefitsStep1a() {
                         })
                       }
                       placeholder={`e.g., 401(k) Retirement Plan`}
-                      className="h-11 border-gray-200"
+                      className="h-11 border-gray-200 dark:border-gray-600"
                     />
                     <p className="text-[10px] text-gray-400 italic">
                       This title will override the default &quot;
@@ -1784,7 +1778,7 @@ export function BenefitsStep1a() {
                     </p>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-sm font-bold text-gray-700">
+                    <Label className="text-sm font-bold text-gray-700 dark:text-gray-100">
                       Benefit Summary / Description
                     </Label>
                     <Textarea
@@ -1796,7 +1790,7 @@ export function BenefitsStep1a() {
                         })
                       }
                       placeholder="Provide a high-level overview of this benefit for employees..."
-                      className="min-h-[120px] border-gray-200 resize-none"
+                      className="min-h-[120px] border-gray-200 dark:border-gray-600 resize-none"
                     />
                     <div className="flex justify-between items-center">
                       <p className="text-[10px] text-gray-400">
@@ -1817,7 +1811,7 @@ export function BenefitsStep1a() {
                   </div>
                 </div>
 
-                <div className="flex justify-end pt-4 border-t border-gray-100">
+                <div className="flex justify-end pt-4 border-t border-gray-100 dark:border-gray-700">
                   <Button
                     onClick={() => handleContinue("contacts")}
                     className="bg-[#23919C] hover:bg-[#1b727a] text-white font-bold h-11 px-8 rounded-xl shadow-lg shadow-[#23919C]/20 transition-all duration-300"
@@ -1872,7 +1866,7 @@ export function BenefitsStep1a() {
               <AccordionContent className="p-6 space-y-6">
                 <div className="space-y-6">
                   <div className="space-y-4">
-                    <Label className="text-sm font-bold text-gray-700">
+                    <Label className="text-sm font-bold text-gray-700 dark:text-gray-100">
                       Primary Contact <span className="text-red-500">*</span>
                     </Label>
                     <Popover open={searchOpen} onOpenChange={setSearchOpen}>
@@ -1881,7 +1875,7 @@ export function BenefitsStep1a() {
                           variant="outline"
                           role="combobox"
                           aria-expanded={searchOpen}
-                          className="w-full justify-between bg-white border-gray-200 h-11 px-3"
+                          className="w-full justify-between bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 h-11 px-3"
                         >
                           <span className="truncate">
                             {activeContact
@@ -1962,7 +1956,7 @@ export function BenefitsStep1a() {
                     </Popover>
                   </div>
                   {currentStepData.contactId && (
-                    <div className="pt-4 border-t border-gray-100 animate-in fade-in duration-300">
+                    <div className="pt-4 border-t border-gray-100 dark:border-gray-700 animate-in fade-in duration-300">
                       <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 block">
                         Contact Photo
                       </Label>
@@ -2006,7 +2000,7 @@ export function BenefitsStep1a() {
                   )}
                 </div>
 
-                <div className="flex justify-end pt-4 border-t border-gray-100">
+                <div className="flex justify-end pt-4 border-t border-gray-100 dark:border-gray-700">
                   <Button
                     onClick={() => handleContinue("documents")}
                     className="bg-[#23919C] hover:bg-[#1b727a] text-white font-bold h-11 px-8 rounded-xl shadow-lg shadow-[#23919C]/20 transition-all duration-300"
@@ -2179,7 +2173,7 @@ export function BenefitsStep1a() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Email</Label>
+                <Label className="dark:text-gray-100">Email</Label>
                 <Input
                   value={contactForm.email}
                   onChange={(e) =>
@@ -2192,7 +2186,7 @@ export function BenefitsStep1a() {
                 />
               </div>
               <div className="space-y-2 col-span-2">
-                <Label>Phone</Label>
+                <Label className="dark:text-gray-100">Phone</Label>
                 <div className="flex gap-4">
                   <div className="flex-grow">
                     <Input
