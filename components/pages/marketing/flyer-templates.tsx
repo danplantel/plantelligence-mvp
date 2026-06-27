@@ -78,6 +78,128 @@ function useFlyerHelpers(startDate: string, meetingTime?: string) {
   };
 }
 
+// ── Body text parsing helpers (bullet-point support) ──────────
+
+export type BodyPart = { kind: "text"; text: string } | { kind: "bullet"; text: string };
+
+/** Check if body text contains explicit bullet markers (`- `, `* `, `• `) */
+export function hasUserBullets(body: string): boolean {
+  if (!body) return false;
+  return body.split("\n").some((line) => /^\s*[-*•]\s/.test(line));
+}
+
+/** Parse body text into segments, preserving bullet-point structure */
+export function parseBodySegments(body: string): BodyPart[] {
+  if (!body) return [];
+  const lines = body.split("\n");
+  const parts: BodyPart[] = [];
+  for (const raw of lines) {
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+    const match = trimmed.match(/^[-*•]\s+(.+)/);
+    if (match) {
+      parts.push({ kind: "bullet", text: match[1] });
+    } else {
+      parts.push({ kind: "text", text: trimmed });
+    }
+  }
+  return parts;
+}
+
+/** Wrap a single line of text to fit within maxChars (reuses wrapText logic) */
+export function wrapSingleLine(text: string, maxChars: number): string[] {
+  const words = text.split(" ");
+  const lines: string[] = [];
+  let current = "";
+  for (const word of words) {
+    if ((current + " " + word).trim().length > maxChars) {
+      lines.push(current.trim());
+      current = word;
+    } else {
+      current += " " + word;
+    }
+  }
+  if (current.trim()) lines.push(current.trim());
+  return lines.length ? lines : [text];
+}
+
+/**
+ * Render parsed body parts as SVG elements.
+ * - `bullet` parts get a filled circle + text
+ * - `text` parts get plain text
+ * Long segments are wrapped across multiple lines.
+ */
+export function renderBodyParts(
+  parts: BodyPart[],
+  opts: {
+    x: number;
+    startY: number;
+    lineHeight: number;
+    maxChars: number;
+    color?: string;
+    fontSize?: number;
+    fontWeight?: number | string;
+    textAnchor?: "start" | "middle" | "end";
+    bulletColor?: string;
+    maxLines?: number;
+  },
+): React.ReactNode[] {
+  const {
+    x, startY, lineHeight, maxChars,
+    color = "#333", fontSize = 14, fontWeight = 400,
+    textAnchor = "start",
+    bulletColor = "#333",
+    maxLines = 20,
+  } = opts;
+
+  const elements: React.ReactNode[] = [];
+  let lineIndex = 0;
+  let partIndex = 0;
+
+  for (const part of parts) {
+    if (lineIndex >= maxLines) break;
+
+    if (part.kind === "bullet") {
+      // Wrap the bullet text
+      const wrapped = wrapSingleLine(part.text, maxChars - 2); // -2 for bullet indent
+      for (let i = 0; i < wrapped.length && lineIndex < maxLines; i++, lineIndex++, partIndex++) {
+        const y = startY + lineIndex * lineHeight;
+        if (i === 0) {
+          // First line: bullet dot + text
+          elements.push(
+            <g key={`p${partIndex}`}>
+              <circle cx={x + 6} cy={y - 5} r="4" fill={bulletColor} />
+              <text x={x + 18} y={y} fill={color} fontSize={fontSize} fontWeight={fontWeight} textAnchor={textAnchor}>
+                {wrapped[i]}
+              </text>
+            </g>,
+          );
+        } else {
+          // Continuation lines: indented text only (no bullet)
+          elements.push(
+            <text key={`p${partIndex}`} x={x + 18} y={y} fill={color} fontSize={fontSize} fontWeight={fontWeight} textAnchor={textAnchor}>
+              {wrapped[i]}
+            </text>,
+          );
+        }
+      }
+    } else {
+      // Plain text — wrap normally
+      const wrapped = wrapSingleLine(part.text, maxChars);
+      for (let i = 0; i < wrapped.length && lineIndex < maxLines; i++, lineIndex++, partIndex++) {
+        const y = startY + lineIndex * lineHeight;
+        elements.push(
+          <text key={`p${partIndex}`} x={x} y={y} fill={color} fontSize={fontSize} fontWeight={fontWeight} textAnchor={textAnchor}>
+            {wrapped[i]}
+          </text>,
+        );
+      }
+    }
+  }
+
+  return elements;
+}
+
 // ── Shared dark footer with yellow text + curved arrow + QR ──
 // Used by all 4 templates. footerY = top of footer rect.
 function DarkFooter({
@@ -310,6 +432,8 @@ function FlyerClassic({
 }: FlyerPreviewProps) {
   const { wrapText } = useFlyerHelpers(startDate, meetingTime);
   const bodyLines = body ? wrapText(body, 72) : [];
+  const parts = body ? parseBodySegments(body) : [];
+  const userBullets = hasUserBullets(body);
   const footerY = 640;
 
   return (
@@ -373,8 +497,14 @@ function FlyerClassic({
         urlLabel={flyerQrUrl ? `or visit: ${truncateText(flyerQrUrl, 45)}` : undefined}
       />
 
-      {/* Body text below image */}
-      {bodyLines.slice(2).length > 0 ? (
+      {/* Body text below image — supports user-typed bullets (-, *, •) */}
+      {userBullets ? (
+        renderBodyParts(parts, {
+          x: 80, startY: 510, lineHeight: 24, maxChars: 68,
+          color: "#333", fontSize: 14, bulletColor: "#cc0000", maxLines: 6,
+          textAnchor: "start",
+        })
+      ) : bodyLines.slice(2).length > 0 ? (
         bodyLines.slice(2, 8).map((line, i) => (
           <text key={i} x="306" y={510 + i * 24} textAnchor="middle" fill="#333" fontSize="14">{line}</text>
         ))
@@ -403,6 +533,8 @@ function FlyerBold({
 }: FlyerPreviewProps) {
   const { wrapText } = useFlyerHelpers(startDate, meetingTime);
   const bodyLines = body ? wrapText(body, 68) : [];
+  const parts = body ? parseBodySegments(body) : [];
+  const userBullets = hasUserBullets(body);
   const footerY = 640;
 
   return (
@@ -438,28 +570,21 @@ function FlyerBold({
         </text>
       )}
 
-      {/* Body as bullet points */}
-      {bodyLines.length > 0 ? (
+      {/* Body — respects user-typed bullet markers (-, *, •) */}
+      {userBullets ? (
+        renderBodyParts(parts, {
+          x: 80, startY: 430, lineHeight: 28, maxChars: 66,
+          color: "#333", fontSize: 14, bulletColor: bgColor, maxLines: 6,
+        })
+      ) : bodyLines.length > 0 ? (
         bodyLines.slice(0, 6).map((line, i) => (
-          <g key={i} transform={`translate(80, ${430 + i * 28})`}>
-            <circle cx="6" cy="6" r="4" fill={bgColor} />
-            <text x="20" y="11" fill="#333" fontSize="14">{line}</text>
-          </g>
+          <text key={i} x="80" y={430 + i * 28 + 11} fill="#333" fontSize="14">{line}</text>
         ))
       ) : (
         <>
-          <g transform="translate(80, 430)">
-            <circle cx="6" cy="6" r="4" fill={bgColor} />
-            <text x="20" y="11" fill="#333" fontSize="14">Add a beneficiary</text>
-          </g>
-          <g transform="translate(80, 458)">
-            <circle cx="6" cy="6" r="4" fill={bgColor} />
-            <text x="20" y="11" fill="#333" fontSize="14">Update an existing one</text>
-          </g>
-          <g transform="translate(80, 486)">
-            <circle cx="6" cy="6" r="4" fill={bgColor} />
-            <text x="20" y="11" fill="#333" fontSize="14">Review after major life events</text>
-          </g>
+          <text x="80" y="430" fill="#555" fontSize="14">Add a beneficiary</text>
+          <text x="80" y="458" fill="#555" fontSize="14">Update an existing one</text>
+          <text x="80" y="486" fill="#555" fontSize="14">Review after major life events</text>
         </>
       )}
 
@@ -493,6 +618,8 @@ function FlyerClean({
 }: FlyerPreviewProps) {
   const { wrapText } = useFlyerHelpers(startDate, meetingTime);
   const bodyLines = body ? wrapText(body, 72) : [];
+  const parts = body ? parseBodySegments(body) : [];
+  const userBullets = hasUserBullets(body);
   const footerY = 630;
 
   return (
@@ -551,8 +678,13 @@ function FlyerClean({
         </text>
       )}
 
-      {/* Body paragraphs */}
-      {bodyLines.length > 0 ? (
+      {/* Body paragraphs — supports user-typed bullets (-, *, •) */}
+      {userBullets ? (
+        renderBodyParts(parts, {
+          x: 48, startY: 400, lineHeight: 22, maxChars: 68,
+          color: "#333", fontSize: 13, bulletColor: bgColor, maxLines: 9,
+        })
+      ) : bodyLines.length > 0 ? (
         bodyLines.slice(0, 9).map((line, i) => (
           <text key={i} x="48" y={400 + i * 22} fill="#333" fontSize="13">{line}</text>
         ))
@@ -594,6 +726,8 @@ function FlyerEvent({
 }: FlyerPreviewProps) {
   const { formattedDate, formattedTime, wrapText } = useFlyerHelpers(startDate, meetingTime);
   const bodyLines = body ? wrapText(body, 68) : [];
+  const parts = body ? parseBodySegments(body) : [];
+  const userBullets = hasUserBullets(body);
   const yellow = "#f5c518";
   const footerY = 640;
 
@@ -674,9 +808,16 @@ function FlyerEvent({
         <text x="50" y="30" fill="#333" fontSize="12">
           {formattedDate ? `${formattedDate}${formattedTime ? ` at ${formattedTime}` : ""}` : "Date & time TBD"}
         </text>
-        {bodyLines.slice(0, 3).map((line, i) => (
-          <text key={i} x="50" y={46 + i * 18} fill="#333" fontSize="12">{line}</text>
-        ))}
+        {userBullets ? (
+          renderBodyParts(parts, {
+            x: 50, startY: 46, lineHeight: 18, maxChars: 66,
+            color: "#333", fontSize: 12, bulletColor: bgColor, maxLines: 3,
+          })
+        ) : (
+          bodyLines.slice(0, 3).map((line, i) => (
+            <text key={i} x="50" y={46 + i * 18} fill="#333" fontSize="12">{line}</text>
+          ))
+        )}
       </g>
 
       {/* Location icon + text */}

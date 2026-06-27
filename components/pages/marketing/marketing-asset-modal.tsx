@@ -662,6 +662,11 @@ export default function MarketingAssetModal({
                   onChange={(e) => setBody(e.target.value)}
                   maxLength={assetType === "flyer" ? 680 : assetType === "pop-up" ? 300 : undefined}
                 />
+                {assetType === "flyer" && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Tip: start a line with <kbd className="rounded border bg-muted px-1 font-mono text-[10px]">-</kbd> or <kbd className="rounded border bg-muted px-1 font-mono text-[10px]">*</kbd> to create a bullet point
+                  </p>
+                )}
               </div>
             ))}
 
