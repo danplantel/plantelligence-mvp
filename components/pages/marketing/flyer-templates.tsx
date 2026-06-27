@@ -650,22 +650,7 @@ function FlyerClean({
         <rect width="612" height="240" fill="url(#c3-overlay)" />
       </g>
 
-      {/* Text overlay on photo — top-right aligned */}
-      <text x="564" y="80" textAnchor="end" fill="white" fontSize="28" fontWeight="800" fontStyle="italic">
-        {truncateText(headline, 22)}
-      </text>
-      {flyerSubtitle && (
-        <>
-          <text x="564" y="116" textAnchor="end" fill="white" fontSize="22" fontWeight="900" fontStyle="italic">
-            {truncateText(flyerSubtitle, 28)}
-          </text>
-          <text x="564" y="148" textAnchor="end" fill="white" fontSize="22" fontWeight="900" fontStyle="italic">
-            {truncateText(flyerSubtitle.slice(28), 28)}
-          </text>
-        </>
-      )}
-
-      {/* Centered plan logo */}
+      {/* Centered plan logo — headline and subtitle appear below the image to avoid overlap/duplication */}
       <CenteredLogo planLogo={planLogo} planName={planName} y={260} />
 
       {/* Centered bold headline */}
@@ -759,31 +744,7 @@ function FlyerEvent({
         <rect width="612" height="260" fill="url(#e4-overlay)" />
       </g>
 
-      {/* White headline on dark header */}
-      <text x="306" y="80" textAnchor="middle" fill="white" fontSize="32" fontWeight="900" letterSpacing="-0.5">
-        {truncateText(headline, 26)}
-      </text>
-      {headline.length > 26 && (
-        <text x="306" y="116" textAnchor="middle" fill="white" fontSize="32" fontWeight="900" letterSpacing="-0.5">
-          {truncateText(headline.slice(26), 26)}
-        </text>
-      )}
-
-      {/* Yellow subtitle on dark header */}
-      {flyerSubtitle && (
-        <>
-          <text x="306" y={headline.length > 26 ? 152 : 120} textAnchor="middle" fill={yellow} fontSize="22" fontWeight="900" fontStyle="italic">
-            {truncateText(flyerSubtitle, 30)}
-          </text>
-          {flyerSubtitle.length > 30 && (
-            <text x="306" y={headline.length > 26 ? 178 : 146} textAnchor="middle" fill={yellow} fontSize="22" fontWeight="900" fontStyle="italic">
-              {truncateText(flyerSubtitle.slice(30), 30)}
-            </text>
-          )}
-        </>
-      )}
-
-      {/* Centered plan logo below header */}
+      {/* Centered plan logo below header — headline and subtitle appear below the image to avoid overlap/duplication */}
       <CenteredLogo planLogo={planLogo} planName={planName} y={276} />
 
       {/* Bold centered subheadline */}
