@@ -700,7 +700,7 @@ export default function MarketingPage() {
           </CardContent>
         </Card>
 
-        {selectedPlan && selectedClient && (
+        {selectedPlan && selectedClient && !isLoadingClients && (
         <div className="space-y-4">
           <Accordion type="multiple" defaultValue={["create"]} className="space-y-4">
             {/* â”€â”€ Create Marketing Asset Accordion â”€â”€ */}

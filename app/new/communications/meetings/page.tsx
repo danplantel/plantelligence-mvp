@@ -711,18 +711,7 @@ export default function MeetingsPage() {
                     <Button onClick={() => setMeetingModalOpen(true)} size="sm" className="gap-1.5 shrink-0"><Plus className="h-4 w-4" />Add Meeting</Button>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {meetingsLoading ? [1, 2, 3].map((i) => (
-                      <div key={i} className="p-4 border rounded-lg bg-card animate-pulse">
-                        <div className="flex items-start justify-between mb-2"><div className="flex-1 min-w-0"><div className="flex items-center space-x-2 mb-2"><div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-40" /><div className="h-5 w-20 bg-gray-200 dark:bg-gray-700 rounded-full" /></div><div className="space-y-1.5"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full" /><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3" /></div></div><div className="h-6 w-6 bg-gray-200 dark:bg-gray-700 rounded ml-2" /></div>
-                        <div className="grid grid-cols-2 gap-3 mb-3 mt-3">
-                          <div className="space-y-1"><div className="flex items-center space-x-1.5"><div className="h-3.5 w-3.5 bg-gray-200 dark:bg-gray-700 rounded" /><div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16" /></div><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24 ml-5" /><div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-20 ml-5" /></div>
-                          <div className="space-y-1"><div className="flex items-center space-x-1.5"><div className="h-3.5 w-3.5 bg-gray-200 dark:bg-gray-700 rounded" /><div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-14" /></div><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16 ml-5" /></div>
-                          <div className="space-y-1"><div className="flex items-center space-x-1.5"><div className="h-3.5 w-3.5 bg-gray-200 dark:bg-gray-700 rounded" /><div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-12" /></div><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20 ml-5" /></div>
-                          <div className="space-y-1"><div className="flex items-center space-x-1.5"><div className="h-3.5 w-3.5 bg-gray-200 dark:bg-gray-700 rounded" /><div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16" /></div><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-28 ml-5" /></div>
-                        </div>
-                        <div className="flex items-center space-x-2 pt-2 border-t"><div className="h-3.5 w-3.5 bg-gray-200 dark:bg-gray-700 rounded" /><div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-10" /><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32" /></div>
-                      </div>
-                    )) : sortedMeetings.length === 0 ? (
+                    {sortedMeetings.length === 0 ? (
                       <div className="col-span-full flex items-center justify-center py-20">
                         <div className="text-center max-w-sm"><div className="mx-auto w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-5"><CalendarDays className="h-8 w-8 text-muted-foreground/60" /></div><h3 className="text-lg font-semibold text-foreground mb-2">No meetings added yet</h3><p className="text-sm text-muted-foreground mb-6 leading-relaxed">Get started by scheduling your first meeting session for a client.</p><Button onClick={() => setMeetingModalOpen(true)} className="gap-2"><Plus className="h-4 w-4" />Add Meeting</Button></div>
                       </div>
