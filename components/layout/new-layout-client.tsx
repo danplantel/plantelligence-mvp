@@ -38,11 +38,15 @@ export function NewLayoutClient({ children }: NewLayoutClientProps) {
   const benefitsSteps = useBenefitsWizardStore((s) => s.steps);
   const benefitsCurrentStep = useBenefitsWizardStore((s) => s.currentStep);
   const benefitsTotalSteps = useBenefitsWizardStore((s) => s.totalSteps);
+  const benefitsCategory = useBenefitsWizardStore((s) => s.stepData.step1?.benefitCategory);
 
   const stepTitle = isNewClientPage
     ? newClientSteps.find((s) => s.id === newClientCurrentStep)?.title ?? ""
     : isBenefitsPage
-      ? benefitsSteps.find((s) => s.id === benefitsCurrentStep)?.title ?? ""
+      ? (() => {
+          const baseTitle = benefitsSteps.find((s) => s.id === benefitsCurrentStep)?.title ?? "";
+          return benefitsCategory ? `${baseTitle} \u2014 ${benefitsCategory}` : baseTitle;
+        })()
       : undefined;
 
   const stepperElement = isNewClientPage ? (

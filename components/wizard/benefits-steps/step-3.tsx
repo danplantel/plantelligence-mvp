@@ -99,20 +99,38 @@ export function BenefitsStep3() {
     // console.log("[Step 3] planContacts:", planContacts, "planId:", step1Data?.planId);
   }
 
-  // Track last benefitCategory so we can detect when the user switches to a new category
+  // Per-category FAQ storage so switching categories preserves manual additions.
+  // Keys are benefitCategory strings (e.g. "Retirement", "Group Health", "Group Life", "Custom").
+  const faqsByCategoryRef = useRef<Record<string, FAQItem[]>>({});
   const prevCategoryRef = useRef<string | undefined>(undefined);
 
-  // Initialize with defaults when entering Step 3 for the current benefit category.
-  // Resets FAQs when the user switches categories so the correct defaults load.
+  // Sync FAQs when the benefit category changes:
+  //   1. Save current FAQs under the OLD category
+  //   2. Load saved FAQs for the NEW category (or defaults if never visited)
   useEffect(() => {
     const currentCat = step1Data?.benefitCategory;
     if (!currentCat) return;
 
     const prevCat = prevCategoryRef.current;
+
+    // 1) Persist current FAQs for the category we're leaving
+    if (prevCat && prevCat !== currentCat && currentStep3Data.faqs.length > 0) {
+      faqsByCategoryRef.current[prevCat] = [...currentStep3Data.faqs];
+    }
+
     prevCategoryRef.current = currentCat;
 
-    // Initialize if empty OR if the category changed (user switched from one benefit to another)
-    if (currentStep3Data.faqs.length === 0 || (prevCat && prevCat !== currentCat)) {
+    // 2) Restore FAQs for the new category (or use defaults)
+    const saved = faqsByCategoryRef.current[currentCat];
+    if (saved && saved.length > 0) {
+      // We have previously saved FAQs for this category — restore them
+      saveStepData(3, {
+        ...currentStep3Data,
+        faqs: saved,
+      });
+      setExpandedId(saved[0].id);
+    } else if (currentStep3Data.faqs.length === 0 || (prevCat && prevCat !== currentCat)) {
+      // First visit — initialise with defaults
       const defaults = DEFAULT_FAQS[currentCat] || [];
       saveStepData(3, {
         ...currentStep3Data,
@@ -121,6 +139,14 @@ export function BenefitsStep3() {
       if (defaults.length > 0) setExpandedId(defaults[0].id);
     }
   }, [step1Data?.benefitCategory]);
+
+  // Keep the ref in sync whenever the user edits FAQs (so saves capture the latest state).
+  useEffect(() => {
+    const cat = step1Data?.benefitCategory;
+    if (cat) {
+      faqsByCategoryRef.current[cat] = [...currentStep3Data.faqs];
+    }
+  }, [currentStep3Data.faqs, step1Data?.benefitCategory]);
 
   // Handle FAQ changes
   const updateFaq = (id: string, updates: Partial<FAQItem>) => {
