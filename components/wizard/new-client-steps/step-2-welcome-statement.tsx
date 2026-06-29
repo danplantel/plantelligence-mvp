@@ -46,6 +46,10 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
   const modalStates = useModalStates();
   const thumbnailImage = useThumbnailImage();
 
+  // State for fixed bar (unconditional position:fixed, Lenis-proof)
+  const barRef = useRef<HTMLDivElement>(null);
+  const [barHeight, setBarHeight] = useState(52);
+
   // Refs
   const previewCardRef = useRef<HTMLDivElement>(null);
   const missionFieldsRef = useRef<HTMLDivElement>(null);
@@ -287,6 +291,18 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
         wizardContent.scrollTo({ top: 0, behavior: "smooth" });
       }
     }, 50);
+  }, []);
+
+  // Measure bar height for the spacer so content doesn't jump
+  useEffect(() => {
+    if (barRef.current) {
+      setBarHeight(barRef.current.offsetHeight);
+      const observer = new ResizeObserver(() => {
+        if (barRef.current) setBarHeight(barRef.current.offsetHeight);
+      });
+      observer.observe(barRef.current);
+      return () => observer.disconnect();
+    }
   }, []);
 
   // Set default text when checkbox is checked on mount
@@ -748,9 +764,22 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
           "margin-left 200ms ease-in-out, padding-left 200ms ease-in-out",
       }}
     >
-      {/* Toggle edit panel button */}
-      <div className="flex items-center gap-3 px-4 py-3 -mx-4 rounded-lg bg-gray-100 dark:bg-gray-800">
-        <button
+      {/* Hidden spacer so content doesn't jump behind the fixed bar */}
+      <div style={{ height: barHeight }} />
+
+      {/* Toggle edit panel button — always fixed directly under the app header */}
+      <div
+        ref={barRef}
+        className="fixed top-0 z-[51]"
+        style={{
+          left: "var(--sidebar-width, 18rem)",
+          width: "calc(100% - var(--sidebar-width, 18rem))",
+        }}
+      >
+        {/* 72px invisible spacer to sit below the fixed header */}
+        <div style={{ height: "72px" }} />
+        <div className="flex items-center gap-3 px-4 py-3 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          <button
           type="button"
           onClick={() => {
             if (editorIsOpen) {
@@ -778,6 +807,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
             </>
           )}
         </button>
+        </div>
       </div>
 
       {/* Banner Preview only (no editing controls) */}

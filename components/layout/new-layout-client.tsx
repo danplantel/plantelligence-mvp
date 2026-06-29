@@ -66,7 +66,7 @@ export function NewLayoutClient({ children }: NewLayoutClientProps) {
       <div className="flex bg-background">
         <Sidebar />
         <main
-          className={`flex-1 ${isWizardPage ? "pt-[72px]" : "pt-16"} overflow-y-auto transition-all duration-200 ease-in-out bg-background`}
+          className={`flex-1 ${isWizardPage ? "pt-[72px]" : "pt-16"} overflow-y-auto duration-200 ease-in-out bg-background`}
           style={{
             marginLeft: "var(--sidebar-width, 16rem)",
           }}

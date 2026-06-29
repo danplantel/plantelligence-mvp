@@ -12,12 +12,13 @@ export function BenefitsStep2() {
     const { editorScrollContainerRef } = useBenefitsLenisScroll(editorState.isEditorOpen);
     const { currentStep } = useBenefitsWizardStore();
     const [editorInitialized, setEditorInitialized] = useState(false);
+    const barRef = useRef<HTMLDivElement>(null);
+    const [barHeight, setBarHeight] = useState(52);
 
     // Initialize editor as open on mount with default section
     useEffect(() => {
         if (!editorInitialized) {
             setEditorInitialized(true);
-            // Auto-open editor after a brief delay for layout
             const timer = setTimeout(() => {
                 editorState.setIsEditorOpen(true);
                 setTimeout(() => editorState.setIsEditorAnimating(true), 10);
@@ -33,16 +34,37 @@ export function BenefitsStep2() {
         }
     }, [currentStep, editorState]);
 
+    // Measure bar height for the spacer
+    useEffect(() => {
+        if (barRef.current) {
+            setBarHeight(barRef.current.offsetHeight);
+            const observer = new ResizeObserver(() => {
+                if (barRef.current) setBarHeight(barRef.current.offsetHeight);
+            });
+            observer.observe(barRef.current);
+            return () => observer.disconnect();
+        }
+    }, []);
+
     const editorIsOpen = editorState.isEditorOpen || editorState.isEditorAnimating;
 
     return (
         <div className="w-full space-y-4 transition-all duration-200">
-            {/* Toggle edit panel button - sticky at top, full-width */}
+            {/* Spacer so content doesn't jump behind the fixed bar */}
+            <div style={{ height: barHeight }} />
+
+            {/* Toggle edit panel button — always fixed directly under the app header */}
             <div
-                className="sticky top-0 z-10 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700"
-                style={{ marginLeft: 'calc(-50vw + 50%)', width: '100vw' }}
+                ref={barRef}
+                className="fixed top-0 z-[45]"
+                style={{
+                    left: "var(--sidebar-width, 18rem)",
+                    width: "calc(100% - var(--sidebar-width, 18rem))",
+                }}
             >
-                <div className="flex items-center gap-3 px-4 py-3">
+                {/* 55px invisible spacer to sit below the fixed header */}
+                <div style={{ height: "55px" }} />
+                <div className="flex items-center gap-3 px-4 py-3 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
                     <button
                         type="button"
                         onClick={() => {

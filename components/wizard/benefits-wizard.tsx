@@ -111,7 +111,7 @@ export function BenefitsWizard({
     };
 
     return (
-        <div className="mx-10 py-4 min-h-screen transition-all duration-300 ease-in-out">
+        <div className="mx-10 py-4 min-h-screen duration-300 ease-in-out">
             <div ref={contentRef} className="max-w-4xl mx-auto mb-12">
                 {children}
             </div>
