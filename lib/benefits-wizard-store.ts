@@ -81,8 +81,8 @@ const benefitsWizardSteps: WizardStep[] = [
     },
     {
         id: 2,
-        title: "Step 2",
-        description: "Description for Step 2",
+        title: "Preview & Edit",
+        description: "Preview the benefit page and edit branding, messaging, FAQs, and contacts",
         completed: false,
     },
     {

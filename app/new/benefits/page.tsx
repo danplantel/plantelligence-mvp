@@ -132,27 +132,23 @@ function BenefitsPageInner() {
   const onNext = async () => {
     if (currentStep === 1) {
       const step1Data = useBenefitsWizardStore.getState().stepData.step1;
-      const subStep = step1Data?.currentSubStep || "a";
 
-      if (subStep === "a") {
-        // Validate 1a - Selection + Branding
-        if (
-          !step1Data?.planId ||
-          !step1Data?.benefitCategory ||
-          !step1Data?.contactId ||
-          !step1Data?.companyLogo
-        ) {
-          toast.error("Please fill in all required fields", {
-            description: "Select a plan, category, contact, and upload a logo.",
-          });
-          return;
-        }
-        // Go to 1b
-        useBenefitsWizardStore
-          .getState()
-          .saveStepData(1, { ...step1Data, currentSubStep: "b" });
+      // Validate 1a - Selection + Branding
+      if (
+        !step1Data?.planId ||
+        !step1Data?.benefitCategory ||
+        !step1Data?.contactId ||
+        !step1Data?.companyLogo
+      ) {
+        toast.error("Please fill in all required fields", {
+          description: "Select a plan, category, contact, and upload a logo.",
+        });
         return;
       }
+      // Validation passed — go directly to Step 2 (Preview & Edit)
+      completeStep(currentStep);
+      nextStep();
+      return;
     }
 
     if (currentStep === 3) {
@@ -178,16 +174,6 @@ function BenefitsPageInner() {
   };
 
   const onPrevious = () => {
-    if (currentStep === 1) {
-      const step1Data = useBenefitsWizardStore.getState().stepData.step1;
-      if (step1Data?.currentSubStep === "b") {
-        useBenefitsWizardStore
-          .getState()
-          .saveStepData(1, { ...step1Data, currentSubStep: "a" });
-        return;
-      }
-    }
-
     previousStep();
   };
 
@@ -446,9 +432,7 @@ function BenefitsPageInner() {
     }
   };
 
-  const step1Data = useBenefitsWizardStore.getState().stepData.step1;
-  const isFirstStep =
-    currentStep === 1 && (step1Data?.currentSubStep || "a") === "a";
+  const isFirstStep = currentStep === 1;
   const isLastStep = currentStep === totalSteps;
 
   const renderStep = () => {
