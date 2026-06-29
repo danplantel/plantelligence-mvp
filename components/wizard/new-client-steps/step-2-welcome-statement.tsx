@@ -770,14 +770,14 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
       {/* Toggle edit panel button — always fixed directly under the app header */}
       <div
         ref={barRef}
-        className="fixed top-0 z-[51]"
+        className="fixed top-0 z-[45]"
         style={{
           left: "var(--sidebar-width, 18rem)",
           width: "calc(100% - var(--sidebar-width, 18rem))",
         }}
       >
-        {/* 72px invisible spacer to sit below the fixed header */}
-        <div style={{ height: "72px" }} />
+        {/* 55px invisible spacer to sit below the fixed header */}
+        <div style={{ height: "55px" }} />
         <div className="flex items-center gap-3 px-4 py-3 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
           <button
           type="button"
