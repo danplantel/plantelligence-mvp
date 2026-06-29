@@ -1017,6 +1017,23 @@ export function BenefitsStep1a() {
 
   const handlePlanChange = async (planId: string) => {
     setPlanLoading(true);
+    // Immediately save the planId so the UI updates (selected plan name, benefit cards) without waiting for the API fetch.
+    persistPlanSelection("benefits", planId);
+    saveStepData(1, {
+      ...currentStepData,
+      planId,
+      selectedPlan: null,
+      benefitCategory: "",
+      contactId: "",
+      benefitTitle: "",
+      companyLogo: null,
+      brandImages: {
+        header: null,
+        thumbnail: null,
+        secondaryBanner: null,
+        favicon: null,
+      },
+    });
     try {
       const response = await fetch(`/api/clients/${planId}`);
       const result = await response.json();
