@@ -138,7 +138,7 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
   const disclosuresText = getDisclosuresText();
 
   return (
-    <div className="min-h-screen bg-white pt-[150px]">
+    <div className="min-h-screen bg-white">
       <div className="fixed top-0 left-0 w-full z-50">
         {previousPage && (
           <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50">
