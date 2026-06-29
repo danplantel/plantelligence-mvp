@@ -147,33 +147,35 @@ function DisclaimerModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full mx-4 max-h-[85vh] overflow-y-auto">
-        <div className="p-6 space-y-5">
-          <div className="flex items-start gap-3">
-            <div className="p-2 rounded-lg bg-[#23919C]/10 text-[#23919C] shrink-0">
-              <FileText className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                {disclaimer ? "Edit Disclaimer" : "Create Disclaimer"}
-              </h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                This disclaimer will appear in the{" "}
-                <strong className="text-gray-700 dark:text-gray-200">
-                  Footer
-                </strong>{" "}
-                of the{" "}
-                <strong className="text-gray-700 dark:text-gray-200">
-                  {CATEGORY_PORTAL_LABELS[benefitCategory] ||
-                    benefitCategory ||
-                    "portal"}{" "}
-                  page
-                </strong>
-                .
-              </p>
-            </div>
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] flex flex-col">
+        {/* ── Fixed header ── */}
+        <div className="flex items-start gap-3 p-6 pb-0 shrink-0">
+          <div className="p-2 rounded-lg bg-[#23919C]/10 text-[#23919C] shrink-0">
+            <FileText className="w-5 h-5" />
           </div>
+          <div>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+              {disclaimer ? "Edit Disclaimer" : "Create Disclaimer"}
+            </h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              This disclaimer will appear in the{" "}
+              <strong className="text-gray-700 dark:text-gray-200">
+                Footer
+              </strong>{" "}
+              of the{" "}
+              <strong className="text-gray-700 dark:text-gray-200">
+                {CATEGORY_PORTAL_LABELS[benefitCategory] ||
+                  benefitCategory ||
+                  "portal"}{" "}
+                page
+              </strong>
+              .
+            </p>
+          </div>
+        </div>
 
+        {/* ── Scrollable content area ── */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4 min-h-0">
           {/* Disclaimer Text */}
           <div className="space-y-2">
             <Label className="text-sm font-semibold">
@@ -182,8 +184,8 @@ function DisclaimerModal({
             <Textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
-              rows={8}
-              className="min-h-[200px] resize-y text-sm"
+              rows={6}
+              className="min-h-[120px] resize-y text-sm"
               placeholder="Enter disclaimer text..."
             />
           </div>
@@ -230,35 +232,24 @@ function DisclaimerModal({
             </div>
             <Switch checked={applyAll} onCheckedChange={setApplyAll} />
           </div>
+        </div>
 
-          {/* Portal footer visual hint */}
-          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 flex items-start gap-2">
-            <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-            <p className="text-xs text-amber-700 dark:text-amber-300">
-              <strong>Where this appears:</strong> This disclaimer renders at the
-              bottom of the employee portal page in the stylized Footer section,
-              beneath all benefit content. If "Apply to all benefit
-              categories" is enabled, it will show on every benefit page.
-            </p>
-          </div>
-
-          {/* Actions */}
-          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <Button variant="outline" onClick={onClose} disabled={saving}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSave}
-              disabled={saving || !text.trim()}
-              className="bg-[#23919C] hover:bg-[#1b727a] text-white"
-            >
-              {saving
-                ? "Saving..."
-                : disclaimer
-                  ? "Save Changes"
-                  : "Create Disclaimer"}
-            </Button>
-          </div>
+        {/* ── Fixed footer with actions ── */}
+        <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 shrink-0 bg-white dark:bg-gray-800 rounded-b-xl">
+          <Button variant="outline" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={saving || !text.trim()}
+            className="bg-[#23919C] hover:bg-[#1b727a] text-white"
+          >
+            {saving
+              ? "Saving..."
+              : disclaimer
+                ? "Save Changes"
+                : "Create Disclaimer"}
+          </Button>
         </div>
       </div>
     </div>
@@ -625,13 +616,6 @@ export function BenefitsStep5() {
                   <h2 className="text-lg font-semibold text-foreground">
                     Disclaimers ({disclaimers.length})
                   </h2>
-                  <p className="text-sm text-muted-foreground">
-                    These disclaimers will appear in the footer of the{" "}
-                    <strong className="text-gray-600 dark:text-gray-300">
-                      {portalCategory}
-                    </strong>{" "}
-                    portal page
-                  </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
