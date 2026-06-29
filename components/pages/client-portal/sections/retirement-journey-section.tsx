@@ -296,7 +296,7 @@ export function RetirementJourneySection({
             </div>
           </div>
         </div>
-
+{/* 
         <div className="mt-12 w-[1280px] space-y-10">
           <AutoCarouselVideoRow
             title={firstCarouselTitle}
@@ -310,7 +310,7 @@ export function RetirementJourneySection({
             onVideoClick={onVideoClick}
             speed={50}
           />
-        </div>
+        </div> */}
       </div>
     </section>
   );
