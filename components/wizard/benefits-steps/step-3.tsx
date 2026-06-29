@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
   useBenefitsWizardStore,
   FAQItem,
@@ -99,30 +99,40 @@ export function BenefitsStep3() {
     // console.log("[Step 3] planContacts:", planContacts, "planId:", step1Data?.planId);
   }
 
-  // Per-category FAQ storage so switching categories preserves manual additions.
-  const faqsByCategoryRef = useRef<Record<string, FAQItem[]>>({});
+  // Helper: get the latest faqsByCategory map directly from the Zustand store.
+  // Reads the authoritative state to avoid stale closure issues.
+  const readFaqsByCategory = (): Record<string, FAQItem[]> => {
+    return useBenefitsWizardStore.getState().stepData.step3?.faqsByCategory ?? {};
+  };
 
-  // Derive the correct FAQ list for the current benefit category.
-  // When the user has previously edited FAQs for this category they're kept in the ref;
-  // otherwise the defaults for the category are used.
-  // This is computed on every render so stale‑store / rehydration issues cannot leak old data.
+  // Derive the correct FAQ list for the current benefit category — computed on every render.
   const resolvedFaqs = ((): FAQItem[] => {
     const cat = step1Data?.benefitCategory;
     if (!cat) return [];
-    const saved = faqsByCategoryRef.current[cat];
+    const saved = readFaqsByCategory()[cat];
     if (saved && saved.length > 0) return saved;
     return DEFAULT_FAQS[cat] ?? [];
   })();
 
-  // Keep the ref in sync on every render so the derived list is always current.
-  faqsByCategoryRef.current[step1Data?.benefitCategory ?? ""] = resolvedFaqs;
+  // Persist a modified FAQ list to both the per-category map and the store.
+  const persistFaqs = (next: FAQItem[]) => {
+    const cat = step1Data?.benefitCategory;
+    if (!cat) return;
+    const latestStep3 = useBenefitsWizardStore.getState().stepData.step3 || { faqs: [], supportContacts: [], currentSubStep: "a" };
+    const latestByCategory = latestStep3.faqsByCategory ?? {};
+    saveStepData(3, {
+      ...latestStep3,
+      faqs: next,
+      faqsByCategory: { ...latestByCategory, [cat]: next },
+    });
+  };
 
-  // Handle FAQ changes — update the derived list and persist to store.
+  // Handle FAQ changes
   const updateFaq = (id: string, updates: Partial<FAQItem>) => {
     const newFaqs = resolvedFaqs.map((faq) =>
       faq.id === id ? { ...faq, ...updates } : faq,
     );
-    saveStepData(3, { ...currentStep3Data, faqs: newFaqs });
+    persistFaqs(newFaqs);
   };
 
   const addFaq = () => {
@@ -135,15 +145,14 @@ export function BenefitsStep3() {
       linkHref: "#",
       enabled: true,
     };
-    // Add to TOP
     const newFaqs = [newFaq, ...resolvedFaqs];
-    saveStepData(3, { ...currentStep3Data, faqs: newFaqs });
+    persistFaqs(newFaqs);
     setExpandedId(id);
   };
 
   const removeFaq = (id: string) => {
     const newFaqs = resolvedFaqs.filter((faq) => faq.id !== id);
-    saveStepData(3, { ...currentStep3Data, faqs: newFaqs });
+    persistFaqs(newFaqs);
   };
 
   const toggleExpand = (id: string) => {
@@ -166,7 +175,7 @@ export function BenefitsStep3() {
       );
       const newIndex = resolvedFaqs.findIndex((f) => f.id === over.id);
       const newFaqs = arrayMove(resolvedFaqs, oldIndex, newIndex);
-      saveStepData(3, { ...currentStep3Data, faqs: newFaqs });
+      persistFaqs(newFaqs);
     }
   };
 

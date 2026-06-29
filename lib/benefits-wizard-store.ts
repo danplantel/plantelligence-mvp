@@ -48,6 +48,9 @@ export interface BenefitsStep3Data {
     faqs: FAQItem[];
     supportContacts: SupportContact[];
     currentSubStep?: "a" | "b";
+    /** Per-category FAQ storage keyed by benefitCategory (e.g. "Retirement", "Group Health", "Group Life", "Custom").
+     *  Persisted across wizard step navigations so manual additions are not lost. */
+    faqsByCategory?: Record<string, FAQItem[]>;
 }
 
 export interface BenefitsStep4Data {
