@@ -4,25 +4,57 @@ export const DEFAULT_FAQS: Record<string, FAQItem[]> = {
     "Retirement": [
         {
             id: "ret-1",
-            question: "When am I eligible to enroll in the 401(k) plan?",
-            answer: "Most employees are eligible to enroll on the first of the month following 30 days of employment. You will receive an enrollment package via email when you are eligible.",
-            linkLabel: "View Enrollment Guide",
+            question: "401(k) Plan Materials",
+            answer: "New employee? Let us help you understand the financial benefits of participation in your employer-sponsored retirement plan.",
+            linkLabel: "Learn More",
             linkHref: "#",
             enabled: true
         },
         {
             id: "ret-2",
-            question: "How does the company match work?",
-            answer: "The company matches 100% of your contributions up to 4% of your eligible compensation. This match is deposited into your account each pay period.",
-            linkLabel: "Matching Details",
+            question: "Understanding Investment Options",
+            answer: "Allow us to help educate you toward an appropriate investment strategy based on your time horizon and risk tolerance.",
+            linkLabel: "Learn More",
             linkHref: "#",
             enabled: true
         },
         {
             id: "ret-3",
-            question: "Can I change my contribution amount mid-year?",
-            answer: "Yes, you can increase or decrease your contribution percentage at any time through the retirement portal. Changes typically take 1-2 pay cycles to reflect.",
-            linkLabel: "Access Portal",
+            question: "What should I do with my previous employer retirement plan(s)?",
+            answer: "Have you left an employer, but your retirement assets remain? We're here to help you understand your options.",
+            linkLabel: "Learn More",
+            linkHref: "#",
+            enabled: true
+        },
+        {
+            id: "ret-4",
+            question: "How much should I be saving towards a successful retirement?",
+            answer: "Understanding the long-term impact of your current deferral rate is the best way to determine what your future retirement might be. Let's review together.",
+            linkLabel: "Learn More",
+            linkHref: "#",
+            enabled: true
+        },
+        {
+            id: "ret-5",
+            question: "Comprehensive Financial Planning",
+            answer: "Are you aware that comprehensive financial planning is included at no additional cost to you as a part of your benefits package? Through financial planning we're here to help you create a personal roadmap towards a confident retirement.",
+            linkLabel: "Learn More",
+            linkHref: "#",
+            enabled: true
+        },
+        {
+            id: "ret-6",
+            question: "Review my other investments outside of the plan",
+            answer: "Do you have an IRA, old 401(k), or other investment accounts? Before making investment changes within the 401(k) plan, it's important to understand how all your investment assets work together.",
+            linkLabel: "Learn More",
+            linkHref: "#",
+            enabled: true
+        },
+        {
+            id: "ret-7",
+            question: "How will I pay for my child's post-secondary education?",
+            answer: "A tax-advantaged 529 college savings plan can be used to pay for college or vocational school. With so many choices available \u2014 It's important to understand what option works best for you.",
+            linkLabel: "Learn More",
             linkHref: "#",
             enabled: true
         }
