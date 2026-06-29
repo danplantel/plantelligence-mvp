@@ -57,6 +57,30 @@ export const DEFAULT_FAQS: Record<string, FAQItem[]> = {
             linkLabel: "Learn More",
             linkHref: "#",
             enabled: true
+        },
+        {
+            id: "ret-8",
+            question: "Can I take a loan from my 401(k)?",
+            answer: "Many retirement plans allow participants to take loans against their vested balance. Loan terms, limits, and repayment schedules vary by plan. Contact us to review your plan's specific loan provisions.",
+            linkLabel: "Learn More",
+            linkHref: "#",
+            enabled: true
+        },
+        {
+            id: "ret-9",
+            question: "What is a hardship withdrawal?",
+            answer: "A hardship withdrawal allows you to access your retirement savings in the event of an immediate and heavy financial need, such as medical expenses or preventing eviction. Withdrawals may be subject to taxes and penalties.",
+            linkLabel: "Learn More",
+            linkHref: "#",
+            enabled: true
+        },
+        {
+            id: "ret-10",
+            question: "How do I change my contribution rate?",
+            answer: "You can typically increase or decrease your contribution percentage at any time through the retirement portal. Changes usually take effect within 1\u20132 pay cycles.",
+            linkLabel: "Learn More",
+            linkHref: "#",
+            enabled: true
         }
     ],
     "Group Health": [
@@ -136,25 +160,49 @@ export const DEFAULT_FAQS: Record<string, FAQItem[]> = {
     "Group Life": [
         {
             id: "life-1",
-            question: "Is basic life insurance provided by the company?",
-            answer: "Yes, the company provides basic life insurance and AD&D coverage at no cost to all full-time employees, typically equal to 1x your annual salary.",
-            linkLabel: "Benefit Details",
+            question: "How much life insurance coverage do I have?",
+            answer: "You can view your current coverage amount in your benefits profile and plan documents.",
+            linkLabel: "View Life Insurance Coverage",
             linkHref: "#",
             enabled: true
         },
         {
             id: "life-2",
-            question: "Can I purchase additional life insurance?",
-            answer: "Yes, you have the option to purchase supplemental life insurance for yourself, your spouse, and your children during open enrollment or within 30 days of a qualifying life event.",
-            linkLabel: "Supplemental Options",
+            question: "Can I purchase additional voluntary life insurance?",
+            answer: "Check voluntary coverage options and costs available to you through your benefits portal.",
+            linkLabel: "Explore Voluntary Life Insurance",
             linkHref: "#",
             enabled: true
         },
         {
             id: "life-3",
-            question: "How do I update my beneficiaries?",
-            answer: "You can update your beneficiary designations at any time through the HR portal. It is recommended to review these annually or after major life events.",
-            linkLabel: "Update Beneficiaries",
+            question: "Do I need Evidence of Insurability (EOI)?",
+            answer: "If your coverage level requires medical review, you can complete the Evidence of Insurability form online through the benefits portal.",
+            linkLabel: "Complete EOI Form",
+            linkHref: "#",
+            enabled: true
+        },
+        {
+            id: "life-4",
+            question: "How do I update my beneficiary?",
+            answer: "You can update your beneficiaries anytime in your benefits portal.",
+            linkLabel: "Update Beneficiary Information",
+            linkHref: "#",
+            enabled: true
+        },
+        {
+            id: "life-5",
+            question: "What does life insurance pay for?",
+            answer: "Learn how your life insurance benefit can support your loved ones and provide financial security.",
+            linkLabel: "Life Insurance Overview",
+            linkHref: "#",
+            enabled: true
+        },
+        {
+            id: "life-6",
+            question: "Can I add coverage for my spouse or dependents?",
+            answer: "Many plans allow voluntary spouse and child coverage. Check available options in your benefits portal.",
+            linkLabel: "View Family Life Insurance Options",
             linkHref: "#",
             enabled: true
         }

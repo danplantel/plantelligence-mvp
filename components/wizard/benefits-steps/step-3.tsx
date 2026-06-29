@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   useBenefitsWizardStore,
   FAQItem,
@@ -99,10 +99,21 @@ export function BenefitsStep3() {
     // console.log("[Step 3] planContacts:", planContacts, "planId:", step1Data?.planId);
   }
 
-  // Initialize with defaults if empty
+  // Track last benefitCategory so we can detect when the user switches to a new category
+  const prevCategoryRef = useRef<string | undefined>(undefined);
+
+  // Initialize with defaults when entering Step 3 for the current benefit category.
+  // Resets FAQs when the user switches categories so the correct defaults load.
   useEffect(() => {
-    if (currentStep3Data.faqs.length === 0 && step1Data?.benefitCategory) {
-      const defaults = DEFAULT_FAQS[step1Data.benefitCategory] || [];
+    const currentCat = step1Data?.benefitCategory;
+    if (!currentCat) return;
+
+    const prevCat = prevCategoryRef.current;
+    prevCategoryRef.current = currentCat;
+
+    // Initialize if empty OR if the category changed (user switched from one benefit to another)
+    if (currentStep3Data.faqs.length === 0 || (prevCat && prevCat !== currentCat)) {
+      const defaults = DEFAULT_FAQS[currentCat] || [];
       saveStepData(3, {
         ...currentStep3Data,
         faqs: defaults,

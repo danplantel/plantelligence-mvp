@@ -4,7 +4,8 @@ import { useState, useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { useClientPortal } from "@/contexts/client-portal-context";
 import { VideoModal } from "@/components/video-modal";
-import { FAQSection } from "@/components/faq-section";
+import { FAQSection, DynamicFAQItem, FAQContact } from "@/components/faq-section";
+import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
 import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
 import { PortalMaterialsHero } from "@/components/pages/client-portal/sections/portal-materials-hero";
 import {
@@ -40,6 +41,58 @@ export default function LifeInsurancePage() {
     () => getCategoryHeroBackgroundUrl(clientData ?? null),
     [clientData],
   );
+
+  // Extract FAQs for this category from employeePortalPreview.benefits.
+  // Falls back to Group Life-specific defaults when no custom FAQs are saved yet.
+  const faqsForCategory = useMemo(() => {
+    const benefits = (clientData as any)?.employeePortalPreview?.benefits ?? [];
+    const lifeBenefit = benefits.find(
+      (b: any) => b.category === "Group Life",
+    );
+    const faqs = lifeBenefit?.faqs;
+    if (faqs && Array.isArray(faqs)) {
+      const enabled = faqs.filter(
+        (f: any) => f.enabled !== false,
+      ) as DynamicFAQItem[];
+      if (enabled.length > 0) return enabled;
+    }
+    // Fall back to default Group Life FAQs when no custom ones are saved
+    const defaults = DEFAULT_FAQS["Group Life"];
+    if (defaults && defaults.length > 0) {
+      return defaults as DynamicFAQItem[];
+    }
+    return undefined;
+  }, [clientData?.employeePortalPreview]);
+
+  // Resolve support contacts from the benefit's supportContacts (selected in wizard Step 3).
+  const supportContactsForFAQ = useMemo(() => {
+    const rawContacts = Array.isArray(clientData?.keyContacts)
+      ? clientData?.keyContacts
+      : (clientData?.keyContacts as any)?.contacts || [];
+
+    const benefits = (clientData as any)?.employeePortalPreview?.benefits ?? [];
+    const lifeBenefit = benefits.find(
+      (b: any) => b.category === "Group Life",
+    );
+    const rawSupportContacts = lifeBenefit?.supportContacts;
+    if (!Array.isArray(rawSupportContacts)) return undefined;
+
+    const enabled = rawSupportContacts.filter((sc: any) => sc.enabled !== false);
+    if (enabled.length === 0) return undefined;
+
+    return enabled.map((sc: any) => {
+      const matched = rawContacts.find((c: any) => c.id === sc.contactId);
+      return {
+        id: sc.contactId,
+        title: sc.title || matched?.name || `${matched?.firstName ?? ""} ${matched?.lastName ?? ""}`.trim() || "Support Contact",
+        description: sc.description || matched?.customRole || matched?.title || "",
+        email: matched?.email || "",
+        phone: matched?.phone || "",
+        phoneExtension: matched?.phoneExtension,
+        headshot: matched?.headshot || undefined,
+      } as FAQContact;
+    });
+  }, [clientData?.employeePortalPreview, clientData?.keyContacts]);
 
   // Filter and map real contacts from database
   const contacts = useMemo(() => {
@@ -222,38 +275,7 @@ export default function LifeInsurancePage() {
           clientId={clientId}
         />
 
-        <BenefitsFAQAccordion
-          title="Frequently Asked Questions"
-          subtitle="Get quick answers to common benefits questions"
-          items={[
-            {
-              id: "life-1",
-              question: "What is life insurance?",
-              answer:
-                "Life insurance is a contract between an insurance company and a policyholder, where the insurer promises to pay a death benefit to named beneficiaries upon the death of the policyholder.",
-              linkLabel: "View Life Insurance Benefits >>",
-              linkHref: "/benefits/life-insurance",
-            },
-            {
-              id: "life-2",
-              question: "What is life insurance?",
-              answer:
-                "Life insurance is a contract between an insurance company and a policyholder, where the insurer promises to pay a death benefit to named beneficiaries upon the death of the policyholder.",
-              linkLabel: "View Life Insurance Benefits >>",
-              linkHref: "/benefits/life-insurance",
-            },
-            {
-              id: "life-3",
-              question: "What is life insurance?",
-              answer:
-                "Life insurance is a contract between an insurance company and a policyholder, where the insurer promises to pay a death benefit to named beneficiaries upon the death of the policyholder.",
-              linkLabel: "View Life Insurance Benefits >>",
-              linkHref: "/benefits/life-insurance",
-            },
-          ]}
-          brandColor={brandColor}
-          accentColor={secondaryColor}
-        />
+        <FAQSection brandColor={brandColor} secondaryColor={secondaryColor} faqs={faqsForCategory} contacts={supportContactsForFAQ} />
 
         <PortalMaterialsHero brandColor={brandColor} />
 
