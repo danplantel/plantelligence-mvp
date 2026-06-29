@@ -17,7 +17,17 @@ import {
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
 import { Disclaimer } from "@/types/new-client-wizard";
 import { DEFAULT_DISCLOSURES_TEXT } from "@/lib/disclaimer-constants";
-import { AlertCircle, FileText, Info, Plus, Trash2, Edit2 } from "lucide-react";
+import { Footer } from "@/components/footer";
+import {
+  AlertCircle,
+  Eye,
+  FileText,
+  Info,
+  Plus,
+  Trash2,
+  Edit2,
+  X,
+} from "lucide-react";
 
 /**
  * Benefits Step 5 – Disclaimer Section
@@ -286,6 +296,7 @@ export function BenefitsStep5() {
   const [disclaimerToDelete, setDisclaimerToDelete] =
     useState<Disclaimer | null>(null);
   const [showInitialPrompt, setShowInitialPrompt] = useState(false);
+  const [previewFooterOpen, setPreviewFooterOpen] = useState(false);
 
   // ── Load disclaimers from the plan record on first mount ──
   useEffect(() => {
@@ -460,6 +471,47 @@ export function BenefitsStep5() {
   const portalCategory =
     CATEGORY_PORTAL_LABELS[benefitCategory] || benefitCategory || "this benefit";
 
+  // ── Build the combined disclosure text (same logic as layout.tsx) ──
+  const buildDisclosureText = useCallback((): string => {
+    const defaultDisclaimer = buildDefaultDisclaimerText(
+      organizationName,
+      companyName,
+    );
+
+    if (disclaimers.length === 0) return defaultDisclaimer;
+
+    // Match the layout's priority: category-specific > all-categories > universal
+    const portalLabel = CATEGORY_PORTAL_LABELS[benefitCategory] || "";
+    const categorySpecific = disclaimers.filter(
+      (d) =>
+        !d.apply_all_benefits_categories &&
+        (d.locations?.includes(portalLabel) ||
+          d.locations?.includes("Global")),
+    );
+
+    const allCategories = disclaimers.filter(
+      (d) => d.apply_all_benefits_categories === true,
+    );
+
+    const texts = [
+      ...categorySpecific.map((d) => d.text),
+      ...allCategories.map((d) => d.text),
+    ];
+
+    if (texts.length === 0) return defaultDisclaimer;
+
+    const unique = Array.from(
+      new Set(texts.map((t) => t?.trim()).filter(Boolean)),
+    );
+    return unique.join("\n\n");
+  }, [disclaimers, benefitCategory, organizationName, companyName]);
+
+  // ── Brand colour from the selected plan ──
+  const brandColor =
+    (selectedPlan as any)?.brandColor ||
+    (selectedPlan as any)?.primaryColor ||
+    "#1F3A60";
+
   // ── Validation: at least one disclaimer is required ──
   const hasDisclaimers = disclaimers.length > 0;
 
@@ -581,14 +633,25 @@ export function BenefitsStep5() {
                     portal page
                   </p>
                 </div>
-                <Button
-                  onClick={openCreateModal}
-                  size="sm"
-                  className="bg-[#23919C] hover:bg-[#1b727a] text-white"
-                >
-                  <Plus className="w-4 h-4 mr-1" />
-                  Add
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={() => setPreviewFooterOpen(true)}
+                    size="sm"
+                    variant="outline"
+                    className="border-gray-300 dark:border-gray-600"
+                  >
+                    <Eye className="w-4 h-4 mr-1" />
+                    Preview Footer
+                  </Button>
+                  <Button
+                    onClick={openCreateModal}
+                    size="sm"
+                    className="bg-[#23919C] hover:bg-[#1b727a] text-white"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add
+                  </Button>
+                </div>
               </div>
 
               {/* Disclaimer cards */}
@@ -707,6 +770,80 @@ export function BenefitsStep5() {
               >
                 Delete
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Footer Preview Modal ── */}
+      {previewFooterOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-5xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-t-xl">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                  Footer Preview
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  How the disclaimer will appear on the{" "}
+                  <strong className="text-gray-600 dark:text-gray-300">
+                    {portalCategory}
+                  </strong>{" "}
+                  page
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewFooterOpen(false)}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Preview content – actual Footer component */}
+            <div className="p-0">
+              {/* Portal page mock chrome */}
+              <div className="bg-black min-h-[200px]">
+                <div className="bg-gray-900 h-16 flex items-center px-6 border-b border-gray-800">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-red-500" />
+                    <div className="w-3 h-3 rounded-full bg-yellow-500" />
+                    <div className="w-3 h-3 rounded-full bg-green-500" />
+                  </div>
+                  <div className="ml-4 text-xs text-gray-400 font-mono">
+                    {portalCategory} — Employee Portal
+                  </div>
+                </div>
+
+                {/* Benefit page content mock */}
+                <div className="px-8 py-12 text-center">
+                  <h2 className="text-2xl font-bold text-white mb-2">
+                    {portalCategory}
+                  </h2>
+                  <p className="text-gray-400 text-sm max-w-xl mx-auto">
+                    This is where the benefit content would appear. Scroll down
+                    to see the Footer with your disclaimer.
+                  </p>
+                </div>
+
+                {/* The actual Footer with disclaimer */}
+                <Footer
+                  brandColor={brandColor}
+                  disclosuresText={buildDisclosureText()}
+                />
+              </div>
+            </div>
+
+            {/* Close button */}
+            <div className="flex justify-center px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+              <Button
+                onClick={() => setPreviewFooterOpen(false)}
+                variant="outline"
+              >
+                Close Preview
+              </Button>
             </div>
           </div>
         </div>
