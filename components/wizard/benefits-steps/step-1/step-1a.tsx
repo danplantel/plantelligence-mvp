@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Loader2,
   Activity,
@@ -108,6 +109,7 @@ export function BenefitsStep1a() {
   const accordionRef = useRef<HTMLDivElement>(null);
   const [plans, setPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [planLoading, setPlanLoading] = useState(false);
   const [selectedPlanContacts, setSelectedPlanContacts] = useState<
     KeyContact[]
   >([]);
@@ -945,7 +947,7 @@ export function BenefitsStep1a() {
   };
 
   const handlePlanChange = async (planId: string) => {
-    setLoading(true);
+    setPlanLoading(true);
     try {
       const response = await fetch(`/api/clients/${planId}`);
       const result = await response.json();
@@ -1040,6 +1042,7 @@ export function BenefitsStep1a() {
     } finally {
       persistPlanSelection("benefits", planId);
       setLoading(false);
+      setPlanLoading(false);
     }
   };
 
@@ -1278,11 +1281,16 @@ export function BenefitsStep1a() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 space-y-4">
-        <Loader2 className="w-8 h-8 animate-spin text-accent-blue" />
-        <p className="text-sm text-muted-foreground font-medium">
-          Loading your plans...
-        </p>
+      <div className="space-y-6 w-full mx-auto pb-20">
+        <div className="border border-gray-200 shadow-sm bg-card dark:bg-gray-800 dark:border-gray-700 rounded-xl p-6">
+          <div className="space-y-3">
+            <Skeleton className="h-4 w-24" />
+            <div className="relative">
+              <Skeleton className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 rounded" />
+              <Skeleton className="h-9 w-full rounded-md" />
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -1466,75 +1474,87 @@ export function BenefitsStep1a() {
                 Benefit Category <span className="text-red-500">*</span>
               </Label>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                {(() => {
-                  const categoryConfigs = [
-                    { id: "Retirement", label: "Retirement", icon: Coins },
-                    { id: "Group Health", label: "Group Health", icon: Activity },
-                    { id: "Group Life", label: "Group Life", icon: ShieldCheck },
-                    { id: "Custom", label: "Custom", icon: Plus },
-                  ];
+              {planLoading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-gray-200 dark:border-gray-600">
+                      <Skeleton className="size-12 rounded-full" />
+                      <Skeleton className="h-4 w-20" />
+                      <Skeleton className="h-4 w-16 rounded-full" />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {(() => {
+                    const categoryConfigs = [
+                      { id: "Retirement", label: "Retirement", icon: Coins },
+                      { id: "Group Health", label: "Group Health", icon: Activity },
+                      { id: "Group Life", label: "Group Life", icon: ShieldCheck },
+                      { id: "Custom", label: "Custom", icon: Plus },
+                    ];
 
-                  return categoryConfigs.map((cat) => {
-                    const status = getCategoryStatus(cat.id);
-                    const isSelected =
-                      currentStepData.benefitCategory === cat.id;
+                    return categoryConfigs.map((cat) => {
+                      const status = getCategoryStatus(cat.id);
+                      const isSelected =
+                        currentStepData.benefitCategory === cat.id;
 
-                    return (
-                      <button
-                        key={cat.id}
-                        onClick={() => handleCategoryChange(cat.id)}
-                        className={cn(
-                          "relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-200 text-left",
-                          isSelected
-                            ? "border-[#23919C] bg-[#23919C]/5 shadow-sm"
-                            : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500",
-                        )}
-                      >
-                        {/* Checkmark badge when selected */}
-                        {isSelected && (
-                          <div className="absolute top-2 right-2 size-5 bg-[#23919C] rounded-full flex items-center justify-center">
-                            <CheckCircle2 className="size-3.5 text-white" />
-                          </div>
-                        )}
-
-                        {/* Icon */}
-                        <div
+                      return (
+                        <button
+                          key={cat.id}
+                          onClick={() => handleCategoryChange(cat.id)}
                           className={cn(
-                            "size-12 rounded-full flex items-center justify-center transition-colors",
+                            "relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-200 text-left",
                             isSelected
-                              ? "bg-[#23919C]/10 text-[#23919C]"
-                              : "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400",
+                              ? "border-[#23919C] bg-[#23919C]/5 shadow-sm"
+                              : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500",
                           )}
                         >
-                          <cat.icon className="size-6" />
-                        </div>
+                          {/* Checkmark badge when selected */}
+                          {isSelected && (
+                            <div className="absolute top-2 right-2 size-5 bg-[#23919C] rounded-full flex items-center justify-center">
+                              <CheckCircle2 className="size-3.5 text-white" />
+                            </div>
+                          )}
 
-                        {/* Label */}
-                        <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                          {cat.label}
-                        </span>
+                          {/* Icon */}
+                          <div
+                            className={cn(
+                              "size-12 rounded-full flex items-center justify-center transition-colors",
+                              isSelected
+                                ? "bg-[#23919C]/10 text-[#23919C]"
+                                : "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400",
+                            )}
+                          >
+                            <cat.icon className="size-6" />
+                          </div>
 
-                        {/* Status badge */}
-                        {status ? (
-                          status.isComplete ? (
-                            <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none text-[10px] font-medium">
-                              Complete
-                            </Badge>
-                          ) : (
-                            <Badge
-                              variant="outline"
-                              className="text-amber-600 border-amber-200 bg-amber-50 text-[10px] font-medium"
-                            >
-                              {status.missing?.length || 0} missing
-                            </Badge>
-                          )
-                        ) : null}
-                      </button>
-                    );
-                  });
-                })()}
-              </div>
+                          {/* Label */}
+                          <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                            {cat.label}
+                          </span>
+
+                          {/* Status badge */}
+                          {status ? (
+                            status.isComplete ? (
+                              <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none text-[10px] font-medium">
+                                Complete
+                              </Badge>
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className="text-amber-600 border-amber-200 bg-amber-50 text-[10px] font-medium"
+                              >
+                                {status.missing?.length || 0} missing
+                              </Badge>
+                            )
+                          ) : null}
+                        </button>
+                      );
+                    });
+                  })()}
+                </div>
+              )}
 
               {/* Selected plan indicator */}
               {currentStepData.benefitCategory && resolvedPlanId && (
