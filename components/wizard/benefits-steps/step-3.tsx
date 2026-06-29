@@ -100,57 +100,26 @@ export function BenefitsStep3() {
   }
 
   // Per-category FAQ storage so switching categories preserves manual additions.
-  // Keys are benefitCategory strings (e.g. "Retirement", "Group Health", "Group Life", "Custom").
   const faqsByCategoryRef = useRef<Record<string, FAQItem[]>>({});
-  const prevCategoryRef = useRef<string | undefined>(undefined);
 
-  // Sync FAQs when the benefit category changes:
-  //   1. Save current FAQs under the OLD category
-  //   2. Load saved FAQs for the NEW category (or defaults if never visited)
-  useEffect(() => {
-    const currentCat = step1Data?.benefitCategory;
-    if (!currentCat) return;
-
-    const prevCat = prevCategoryRef.current;
-
-    // 1) Persist current FAQs for the category we're leaving
-    if (prevCat && prevCat !== currentCat && currentStep3Data.faqs.length > 0) {
-      faqsByCategoryRef.current[prevCat] = [...currentStep3Data.faqs];
-    }
-
-    prevCategoryRef.current = currentCat;
-
-    // 2) Restore FAQs for the new category (or use defaults)
-    const saved = faqsByCategoryRef.current[currentCat];
-    if (saved && saved.length > 0) {
-      // We have previously saved FAQs for this category — restore them
-      saveStepData(3, {
-        ...currentStep3Data,
-        faqs: saved,
-      });
-      setExpandedId(saved[0].id);
-    } else if (currentStep3Data.faqs.length === 0 || (prevCat && prevCat !== currentCat)) {
-      // First visit — initialise with defaults
-      const defaults = DEFAULT_FAQS[currentCat] || [];
-      saveStepData(3, {
-        ...currentStep3Data,
-        faqs: defaults,
-      });
-      if (defaults.length > 0) setExpandedId(defaults[0].id);
-    }
-  }, [step1Data?.benefitCategory]);
-
-  // Keep the ref in sync whenever the user edits FAQs (so saves capture the latest state).
-  useEffect(() => {
+  // Derive the correct FAQ list for the current benefit category.
+  // When the user has previously edited FAQs for this category they're kept in the ref;
+  // otherwise the defaults for the category are used.
+  // This is computed on every render so stale‑store / rehydration issues cannot leak old data.
+  const resolvedFaqs = ((): FAQItem[] => {
     const cat = step1Data?.benefitCategory;
-    if (cat) {
-      faqsByCategoryRef.current[cat] = [...currentStep3Data.faqs];
-    }
-  }, [currentStep3Data.faqs, step1Data?.benefitCategory]);
+    if (!cat) return [];
+    const saved = faqsByCategoryRef.current[cat];
+    if (saved && saved.length > 0) return saved;
+    return DEFAULT_FAQS[cat] ?? [];
+  })();
 
-  // Handle FAQ changes
+  // Keep the ref in sync on every render so the derived list is always current.
+  faqsByCategoryRef.current[step1Data?.benefitCategory ?? ""] = resolvedFaqs;
+
+  // Handle FAQ changes — update the derived list and persist to store.
   const updateFaq = (id: string, updates: Partial<FAQItem>) => {
-    const newFaqs = currentStep3Data.faqs.map((faq) =>
+    const newFaqs = resolvedFaqs.map((faq) =>
       faq.id === id ? { ...faq, ...updates } : faq,
     );
     saveStepData(3, { ...currentStep3Data, faqs: newFaqs });
@@ -167,15 +136,13 @@ export function BenefitsStep3() {
       enabled: true,
     };
     // Add to TOP
-    saveStepData(3, {
-      ...currentStep3Data,
-      faqs: [newFaq, ...currentStep3Data.faqs],
-    });
+    const newFaqs = [newFaq, ...resolvedFaqs];
+    saveStepData(3, { ...currentStep3Data, faqs: newFaqs });
     setExpandedId(id);
   };
 
   const removeFaq = (id: string) => {
-    const newFaqs = currentStep3Data.faqs.filter((faq) => faq.id !== id);
+    const newFaqs = resolvedFaqs.filter((faq) => faq.id !== id);
     saveStepData(3, { ...currentStep3Data, faqs: newFaqs });
   };
 
@@ -194,11 +161,11 @@ export function BenefitsStep3() {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (over && active.id !== over.id) {
-      const oldIndex = currentStep3Data.faqs.findIndex(
+      const oldIndex = resolvedFaqs.findIndex(
         (f) => f.id === active.id,
       );
-      const newIndex = currentStep3Data.faqs.findIndex((f) => f.id === over.id);
-      const newFaqs = arrayMove(currentStep3Data.faqs, oldIndex, newIndex);
+      const newIndex = resolvedFaqs.findIndex((f) => f.id === over.id);
+      const newFaqs = arrayMove(resolvedFaqs, oldIndex, newIndex);
       saveStepData(3, { ...currentStep3Data, faqs: newFaqs });
     }
   };
@@ -228,7 +195,7 @@ export function BenefitsStep3() {
         title: step1Data?.benefitTitle || benefitCategory,
         category: benefitCategory,
         isEnabled: true,
-        faqs: currentStep3Data.faqs,
+        faqs: resolvedFaqs,
         supportContacts: currentStep3Data.supportContacts,
       };
 
@@ -347,7 +314,7 @@ export function BenefitsStep3() {
           </div>
         </CardHeader>
         <CardContent className="p-3">
-          {currentStep3Data.faqs.length === 0 ? (
+          {resolvedFaqs.length === 0 ? (
             <div className="text-center py-6 bg-gray-50 rounded-lg border border-dashed border-gray-200 dark:bg-gray-800/50 dark:border-gray-700">
               <HelpCircle className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-1" />
               <p className="text-xs text-muted-foreground">
@@ -362,10 +329,10 @@ export function BenefitsStep3() {
                 onDragEnd={handleDragEnd}
               >
                 <SortableContext
-                  items={currentStep3Data.faqs.map((f) => f.id)}
+                  items={resolvedFaqs.map((f) => f.id)}
                   strategy={verticalListSortingStrategy}
                 >
-                  {currentStep3Data.faqs.map((faq, index) => (
+                  {resolvedFaqs.map((faq, index) => (
                     <SortableFaqItem
                       key={faq.id}
                       faq={faq}
