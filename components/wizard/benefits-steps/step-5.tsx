@@ -17,24 +17,22 @@ import {
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
 import { Disclaimer } from "@/types/new-client-wizard";
 import { DEFAULT_DISCLOSURES_TEXT } from "@/lib/disclaimer-constants";
+import { AlertCircle, FileText, Info, Plus, Trash2, Edit2 } from "lucide-react";
 
 /**
  * Benefits Step 5 – Disclaimer Section
  *
- * Allows the user to manage disclaimers that will appear in the Footer of the
- * employee portal pages. Disclaimers are stored in the wizard store (step5) and
- * persisted to the plan/client record via the API so that the portal layout at
- * `app/new/view/[id]/layout.tsx` can read, filter by benefit category, and
- * render them inside <Footer disclosuresText={…} />.
+ * REQUIRED step: the user MUST create at least one disclaimer before
+ * proceeding. The disclaimer text appears in the **Footer** of the
+ * benefit-category portal page (e.g. Retirement, Group Health, etc.)
+ * selected in Step 1a.
  *
- * Category filtering is handled automatically by the layout – each disclaimer
- * carries a `locations` array and an `apply_all_benefits_categories` flag that
- * the layout's getDisclosuresText() function respects.
- *
- * Mirrors the pattern of `<NewClientStep5a>` from the Create a Plan wizard.
+ * Persisted to the plan/client record via `PUT /api/clients/[id]` so the
+ * portal layout at `app/new/view/[id]/layout.tsx` can read, filter by
+ * category, and render inside `<Footer disclosuresText={…} />`.
  */
 
-// ── Map benefit-category labels to the category strings used in the portal ──
+// ── Map benefit-category labels to the portal page location strings ──
 const CATEGORY_PORTAL_LABELS: Record<string, string> = {
   Retirement: "Retirement Plan",
   "Group Health": "Group Health / Dental / Vision",
@@ -42,7 +40,7 @@ const CATEGORY_PORTAL_LABELS: Record<string, string> = {
   Custom: "Wellness Programs",
 };
 
-// ── Default disclaimer text with placeholders for organisation / company ──
+// ── Default disclaimer text with placeholders ──
 function buildDefaultDisclaimerText(
   orgName: string,
   compName: string,
@@ -52,19 +50,19 @@ function buildDefaultDisclaimerText(
     .replace("[Company Name]", compName);
 }
 
-// ── Location options for the disclaimer modal ──
+// ── Location options ──
 const LOCATION_OPTIONS = [
-  { value: "Global", label: "Global (all pages)" },
   { value: "Retirement Plan", label: "Retirement Plan page" },
   { value: "Group Health / Dental / Vision", label: "Health Insurance page" },
   { value: "Group Life / Disability", label: "Life Insurance page" },
   { value: "Wellness Programs", label: "Wellness Programs page" },
+  { value: "Global", label: "Global (all pages)" },
   { value: "Benefits Hub / Client Website", label: "Benefits Hub main page" },
   { value: "custom", label: "Custom location..." },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  Inline Disclaimer Modal (store-agnostic, uses passed callbacks)
+//  Disclaimer Modal
 // ═══════════════════════════════════════════════════════════════════════════
 
 interface DisclaimerModalProps {
@@ -72,6 +70,7 @@ interface DisclaimerModalProps {
   disclaimer: Disclaimer | null;
   companyName: string;
   organizationName: string;
+  benefitCategory: string;
   onSave: (data: Omit<Disclaimer, "id">) => Promise<void>;
   onClose: () => void;
 }
@@ -81,15 +80,19 @@ function DisclaimerModal({
   disclaimer,
   companyName,
   organizationName,
+  benefitCategory,
   onSave,
   onClose,
 }: DisclaimerModalProps) {
+  const defaultLocation =
+    CATEGORY_PORTAL_LABELS[benefitCategory] || "Global";
+
   const [text, setText] = useState(
     disclaimer?.text ||
       buildDefaultDisclaimerText(organizationName, companyName),
   );
   const [locations, setLocations] = useState<string[]>(
-    disclaimer?.locations || ["Global"],
+    disclaimer?.locations || [defaultLocation],
   );
   const [customLocation, setCustomLocation] = useState(
     disclaimer?.customLocation || "",
@@ -136,9 +139,30 @@ function DisclaimerModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full mx-4 max-h-[85vh] overflow-y-auto">
         <div className="p-6 space-y-5">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-            {disclaimer ? "Edit Disclaimer" : "Add Disclaimer"}
-          </h3>
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-[#23919C]/10 text-[#23919C] shrink-0">
+              <FileText className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                {disclaimer ? "Edit Disclaimer" : "Create Disclaimer"}
+              </h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                This disclaimer will appear in the{" "}
+                <strong className="text-gray-700 dark:text-gray-200">
+                  Footer
+                </strong>{" "}
+                of the{" "}
+                <strong className="text-gray-700 dark:text-gray-200">
+                  {CATEGORY_PORTAL_LABELS[benefitCategory] ||
+                    benefitCategory ||
+                    "portal"}{" "}
+                  page
+                </strong>
+                .
+              </p>
+            </div>
+          </div>
 
           {/* Disclaimer Text */}
           <div className="space-y-2">
@@ -197,13 +221,14 @@ function DisclaimerModal({
             <Switch checked={applyAll} onCheckedChange={setApplyAll} />
           </div>
 
-          {/* Preview hint */}
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-            <p className="text-xs text-blue-700 dark:text-blue-300">
-              <strong>Note:</strong> Disclaimers with "Apply to all benefit
-              categories" enabled will appear on every portal page.
-              Otherwise, only pages matching the selected location will display
-              this disclaimer.
+          {/* Portal footer visual hint */}
+          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 flex items-start gap-2">
+            <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-700 dark:text-amber-300">
+              <strong>Where this appears:</strong> This disclaimer renders at the
+              bottom of the employee portal page in the stylized Footer section,
+              beneath all benefit content. If "Apply to all benefit
+              categories" is enabled, it will show on every benefit page.
             </p>
           </div>
 
@@ -221,7 +246,7 @@ function DisclaimerModal({
                 ? "Saving..."
                 : disclaimer
                   ? "Save Changes"
-                  : "Add Disclaimer"}
+                  : "Create Disclaimer"}
             </Button>
           </div>
         </div>
@@ -231,7 +256,7 @@ function DisclaimerModal({
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  BenefitsStep5 — Disclaimer Section
+//  BenefitsStep5 — Mandatory Disclaimer Section
 // ═══════════════════════════════════════════════════════════════════════════
 
 export function BenefitsStep5() {
@@ -254,6 +279,13 @@ export function BenefitsStep5() {
   });
 
   const [hasInitialized, setHasInitialized] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingDisclaimer, setEditingDisclaimer] =
+    useState<Disclaimer | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [disclaimerToDelete, setDisclaimerToDelete] =
+    useState<Disclaimer | null>(null);
+  const [showInitialPrompt, setShowInitialPrompt] = useState(false);
 
   // ── Load disclaimers from the plan record on first mount ──
   useEffect(() => {
@@ -277,6 +309,7 @@ export function BenefitsStep5() {
           setDisclaimers(arr);
           saveStepData(5, { disclaimers: arr });
           setHasInitialized(true);
+          setShowInitialPrompt(false);
           return;
         }
       } catch {
@@ -304,6 +337,9 @@ export function BenefitsStep5() {
                 if (arr.length > 0) {
                   setDisclaimers(arr);
                   saveStepData(5, { disclaimers: arr });
+                  setHasInitialized(true);
+                  setShowInitialPrompt(false);
+                  return;
                 }
               } catch {
                 // ignore parse errors
@@ -314,12 +350,27 @@ export function BenefitsStep5() {
           console.error("Failed to load disclaimers from plan:", err);
         } finally {
           setHasInitialized(true);
+          // Show the initial prompt to create a disclaimer
+          setShowInitialPrompt(true);
         }
       })();
     } else {
       setHasInitialized(true);
+      setShowInitialPrompt(true);
     }
   }, [hasInitialized, planId, selectedPlan, stepData.step5, saveStepData]);
+
+  // ── If no disclaimers exist after initialisation, auto-show prompt ──
+  useEffect(() => {
+    if (
+      hasInitialized &&
+      disclaimers.length === 0 &&
+      !isModalOpen &&
+      !showInitialPrompt
+    ) {
+      setShowInitialPrompt(true);
+    }
+  }, [hasInitialized, disclaimers.length, isModalOpen, showInitialPrompt]);
 
   // ── Persist disclaimers to the plan/client record ──
   const persistToPlan = useCallback(
@@ -336,7 +387,6 @@ export function BenefitsStep5() {
           }),
         });
 
-        // Dispatch event so the portal layout can re-fetch if it's open
         if (typeof window !== "undefined") {
           window.dispatchEvent(
             new CustomEvent("benefits-updated", {
@@ -351,17 +401,6 @@ export function BenefitsStep5() {
     [planId],
   );
 
-  // ── Modal / timing state ──
-  const [addTiming, setAddTiming] = useState<"now" | "later" | null>(() =>
-    disclaimers.length > 0 ? "now" : null,
-  );
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingDisclaimer, setEditingDisclaimer] =
-    useState<Disclaimer | null>(null);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [disclaimerToDelete, setDisclaimerToDelete] =
-    useState<Disclaimer | null>(null);
-
   // ── CRUD helpers ──
 
   const syncAndPersist = async (updated: Disclaimer[]) => {
@@ -370,8 +409,9 @@ export function BenefitsStep5() {
     await persistToPlan(updated);
   };
 
-  const openAddModal = () => {
+  const openCreateModal = () => {
     setEditingDisclaimer(null);
+    setShowInitialPrompt(false);
     setIsModalOpen(true);
   };
 
@@ -391,12 +431,16 @@ export function BenefitsStep5() {
     await syncAndPersist(updated);
     setDeleteConfirmOpen(false);
     setDisclaimerToDelete(null);
+
+    // If last disclaimer was deleted, show the initial prompt
+    if (updated.length === 0) {
+      setShowInitialPrompt(true);
+    }
   };
 
   const handleSaveDisclaimer = async (data: Omit<Disclaimer, "id">) => {
     const newDisclaimer: Disclaimer = { ...data, id: Date.now().toString() };
     await syncAndPersist([...disclaimers, newDisclaimer]);
-    if (!addTiming) setAddTiming("now");
     setIsModalOpen(false);
   };
 
@@ -412,214 +456,200 @@ export function BenefitsStep5() {
     setEditingDisclaimer(null);
   };
 
-  const handleAddTimingChange = async (value: string) => {
-    if (value === "now") {
-      setAddTiming("now");
-      openAddModal();
-    } else {
-      setAddTiming("later");
-      // Create a default disclaimer when user chooses "Add Later"
-      if (disclaimers.length === 0) {
-        const defaultText = buildDefaultDisclaimerText(
-          organizationName,
-          companyName,
-        );
-        const defaultDisclaimer: Disclaimer = {
-          id: Date.now().toString(),
-          text: defaultText,
-          locations: ["Global"],
-          customLocation: "",
-        };
-        await syncAndPersist([defaultDisclaimer]);
-      }
-    }
-  };
-
   // ── Derive the current benefit category label for the portal ──
-  const portalCategoryLabel =
-    CATEGORY_PORTAL_LABELS[benefitCategory] || "Benefits Hub / Client Website";
+  const portalCategory =
+    CATEGORY_PORTAL_LABELS[benefitCategory] || benefitCategory || "this benefit";
 
-  const showSummaryView = disclaimers.length > 0;
+  // ── Validation: at least one disclaimer is required ──
+  const hasDisclaimers = disclaimers.length > 0;
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-20">
-      {/* Header */}
-      <div className="text-center space-y-2">
+    <div className="space-y-6 max-w-4xl mx-auto pb-20">
+      {/* ── Header ── */}
+      <div className="text-center space-y-3">
+        <div className="flex justify-center">
+          <div className="p-3 rounded-2xl bg-[#23919C]/10">
+            <FileText className="w-8 h-8 text-[#23919C]" />
+          </div>
+        </div>
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-          Disclaimers
+          Footer Disclaimer
         </h1>
-        <p className="text-muted-foreground">
-          {showSummaryView
-            ? "Review and manage your disclaimers for this plan"
-            : "Add necessary disclaimers that will appear in the footer of your employee portal"}
+        <p className="text-muted-foreground max-w-2xl mx-auto">
+          Create a disclaimer that will appear in the{" "}
+          <strong className="text-gray-700 dark:text-gray-200">Footer</strong>{" "}
+          of the{" "}
+          <strong className="text-gray-700 dark:text-gray-200">
+            {portalCategory}
+          </strong>{" "}
+          employee portal page. This is a <strong>required</strong> step — you
+          must provide at least one disclaimer before proceeding.
         </p>
-        {benefitCategory && (
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Benefit category:{" "}
-            <span className="font-semibold">{benefitCategory}</span>
-            {" — "}
-            Disclaimers with "Apply to all categories" or matching
-            "{portalCategoryLabel}" will appear in the portal footer.
-          </p>
-        )}
       </div>
 
-      <Card>
+      {/* ── Portal Footer Visual Indicator ── */}
+      <Card className="border-2 border-dashed border-gray-300 dark:border-gray-600 bg-gray-50/50 dark:bg-gray-800/30">
+        <CardContent className="p-6">
+          <div className="flex items-start gap-4">
+            <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 shrink-0">
+              <Info className="w-5 h-5" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-sm font-bold text-gray-700 dark:text-gray-200">
+                Where does this appear?
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Your disclaimer text is rendered in the Footer section at the
+                very bottom of the{" "}
+                <strong className="text-gray-600 dark:text-gray-300">
+                  {portalCategory}
+                </strong>{" "}
+                portal page — visible to all employees who access the benefits
+                portal. You can target specific pages or apply it globally.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#23919C]/10 text-[#23919C] text-xs font-medium">
+                  <FileText className="w-3 h-3" />
+                  {portalCategory}
+                </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-medium">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                  Footer Section
+                </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-medium">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+                  </svg>
+                  Employee-facing
+                </span>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Main Disclaimer Editor Card ── */}
+      <Card className="border border-gray-200 dark:border-gray-700">
         <CardContent className="pt-6">
-          {!showSummaryView ? (
-            /* ── Initial landing state ── */
-            <div className="max-w-2xl mx-auto space-y-4">
-              <div className="text-left space-y-1">
-                <h2 className="text-lg font-semibold text-foreground">
-                  Add Disclaimers <span className="text-red-500">*</span>
+          {/* ── Initial prompt (no disclaimers yet) ── */}
+          {!hasDisclaimers && showInitialPrompt && (
+            <div className="max-w-xl mx-auto space-y-6 py-4">
+              <div className="text-center space-y-2">
+                <div className="flex justify-center">
+                  <div className="p-3 rounded-full bg-red-50 dark:bg-red-900/20">
+                    <AlertCircle className="w-6 h-6 text-red-500" />
+                  </div>
+                </div>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                  Disclaimer Required
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  Provide compliance language that will appear in the footer of
-                  your employee portal pages.
-                </p>
-                <p className="text-xs font-medium text-gray-400 dark:text-gray-500">
-                  Note: can be added later or modified in client builds
+                  You must create a disclaimer before proceeding. This legal
+                  notice will appear in the footer of your{" "}
+                  <strong className="text-gray-700 dark:text-gray-200">
+                    {portalCategory}
+                  </strong>{" "}
+                  portal page.
                 </p>
               </div>
 
-              {/* Radio Group – Add Now / Add Later */}
-              <Card className="shadow-none dark:bg-gray-800 dark:border-gray-700">
-                <CardContent className="pt-3 pb-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => handleAddTimingChange("now")}
-                      className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer dark:border-gray-600 text-left"
-                    >
-                      <div className="size-4 rounded-full border-2 border-primary shrink-0 flex items-center justify-center">
-                        {addTiming === "now" && (
-                          <div className="size-2 rounded-full bg-primary" />
-                        )}
-                      </div>
-                      <span className="text-sm font-medium cursor-pointer flex-1 dark:text-gray-300">
-                        Add Now
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleAddTimingChange("later")}
-                      className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer dark:border-gray-600 text-left"
-                    >
-                      <div className="size-4 rounded-full border-2 border-primary shrink-0 flex items-center justify-center">
-                        {addTiming === "later" && (
-                          <div className="size-2 rounded-full bg-primary" />
-                        )}
-                      </div>
-                      <span className="text-sm font-medium cursor-pointer flex-1 dark:text-gray-300">
-                        Add Later
-                      </span>
-                    </button>
-                  </div>
-                </CardContent>
-              </Card>
+              <Button
+                onClick={openCreateModal}
+                className="w-full h-12 text-base font-bold bg-[#23919C] hover:bg-[#1b727a] text-white rounded-xl shadow-lg shadow-[#23919C]/20"
+              >
+                <Plus className="w-5 h-5 mr-2" />
+                Create Disclaimer for {portalCategory}
+              </Button>
             </div>
-          ) : (
-            /* ── Summary view with existing disclaimers ── */
+          )}
+
+          {/* ── Summary view (disclaimers exist) ── */}
+          {hasDisclaimers && (
             <div className="max-w-2xl mx-auto space-y-4">
-              <div className="text-left space-y-1">
-                <h2 className="text-lg font-semibold text-foreground">
-                  Added Disclaimers ({disclaimers.length})
-                </h2>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-foreground">
+                    Disclaimers ({disclaimers.length})
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    These disclaimers will appear in the footer of the{" "}
+                    <strong className="text-gray-600 dark:text-gray-300">
+                      {portalCategory}
+                    </strong>{" "}
+                    portal page
+                  </p>
+                </div>
+                <Button
+                  onClick={openCreateModal}
+                  size="sm"
+                  className="bg-[#23919C] hover:bg-[#1b727a] text-white"
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add
+                </Button>
               </div>
 
               {/* Disclaimer cards */}
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {disclaimers.map((disclaimer) => (
                   <div
                     key={disclaimer.id}
-                    className="border border-gray-200 rounded p-3 bg-card relative dark:bg-gray-800 dark:border-gray-700"
+                    className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-card dark:bg-gray-800/50"
                   >
-                    <div className="flex justify-between items-start mb-2">
+                    <div className="flex justify-between items-start mb-3">
                       <div className="flex-1 pr-2">
-                        <h5 className="text-[13px] font-semibold text-gray-500 dark:text-gray-400">
-                          Disclaimer Types:
-                        </h5>
-                        <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400">
-                          {[
-                            ...disclaimer.locations,
-                            ...(disclaimer.customLocation
-                              ? [disclaimer.customLocation]
-                              : []),
-                          ]
-                            .map((loc) => `[${loc}]`)
-                            .join(" ")}
-                        </span>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Applies to:
+                          </span>
+                          {disclaimer.apply_all_benefits_categories ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] font-semibold">
+                              All Categories
+                            </span>
+                          ) : (
+                            [
+                              ...disclaimer.locations,
+                              ...(disclaimer.customLocation
+                                ? [disclaimer.customLocation]
+                                : []),
+                            ].map((loc) => (
+                              <span
+                                key={loc}
+                                className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#23919C]/10 text-[#23919C] text-[10px] font-semibold"
+                              >
+                                {loc}
+                              </span>
+                            ))
+                          )}
+                        </div>
                       </div>
-                      <div className="flex gap-1 items-center">
+                      <div className="flex gap-1 items-center shrink-0">
                         <button
                           type="button"
                           onClick={() => openEditModal(disclaimer)}
-                          className="inline-flex items-center h-7 px-1.5 text-green-600 hover:text-accent-blue text-[11px] font-medium dark:text-green-700 dark:hover:text-green-500"
+                          className="inline-flex items-center justify-center h-8 w-8 rounded-md text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
+                          title="Edit disclaimer"
                         >
-                          <svg
-                            className="h-3 w-3 mr-0.5"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                            />
-                          </svg>
-                          Edit
+                          <Edit2 className="h-4 w-4" />
                         </button>
                         <button
                           type="button"
                           onClick={() => requestDelete(disclaimer)}
-                          className="inline-flex items-center h-7 px-1.5 text-red-600 hover:text-accent-blue text-[11px] font-medium dark:text-red-700 dark:hover:text-red-500"
+                          className="inline-flex items-center justify-center h-8 w-8 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                          title="Delete disclaimer"
                         >
-                          <svg
-                            className="h-3.5 w-3.5"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                            />
-                          </svg>
+                          <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
                     </div>
-                    <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap break-words">
+                    <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap break-words border-t border-gray-100 dark:border-gray-700 pt-3">
                       {disclaimer.text}
                     </div>
                   </div>
                 ))}
               </div>
-
-              {/* Add Another button */}
-              <button
-                type="button"
-                onClick={openAddModal}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-              >
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-                Add Another Disclaimer
-              </button>
             </div>
           )}
         </CardContent>
@@ -632,6 +662,7 @@ export function BenefitsStep5() {
           disclaimer={editingDisclaimer}
           companyName={companyName}
           organizationName={organizationName}
+          benefitCategory={benefitCategory}
           onSave={async (data: Omit<Disclaimer, "id">) => {
             if (editingDisclaimer) {
               await handleUpdateDisclaimer(editingDisclaimer.id, data);
@@ -642,10 +673,6 @@ export function BenefitsStep5() {
           onClose={() => {
             setIsModalOpen(false);
             setEditingDisclaimer(null);
-            // If user chose "Add Now" but closed without adding, clear selection
-            if (addTiming === "now" && disclaimers.length === 0) {
-              setAddTiming(null);
-            }
           }}
         />
       )}
@@ -659,7 +686,7 @@ export function BenefitsStep5() {
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
               {disclaimerToDelete
-                ? `This will remove the disclaimer for ${disclaimerToDelete.locations.join(", ")}. This action cannot be undone.`
+                ? `This will remove the disclaimer for ${disclaimerToDelete.locations.join(", ")}. A disclaimer is required to proceed — you will need to create a new one.`
                 : ""}
             </p>
             <div className="flex justify-end gap-3">
