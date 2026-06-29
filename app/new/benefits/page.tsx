@@ -213,7 +213,8 @@ function BenefitsPageInner() {
         step1Data?.benefitCategory,
         { saveMode: true },
       ) as any;
-      newBenefit.isEnabled = true;
+      // Use the benefitVisibility toggle from Step 1 (default true = published)
+      newBenefit.isEnabled = (step1Data?.benefitVisibility ?? {})[step1Data?.benefitCategory || ""] ?? true;
 
       // Include Step 3 FAQs and support contacts for this benefit category
       if (step3Data?.faqs) {
@@ -371,12 +372,22 @@ function BenefitsPageInner() {
           };
         });
 
+      // Derive categoryPortalVisibility from benefitVisibility toggles
+      const visibilityForComplete = step1Data?.benefitVisibility ?? {};
+      const categoryPortalVisibilityForComplete: Record<string, boolean> = {
+        Retirement: visibilityForComplete["Retirement"] !== false,
+        "Group Health": visibilityForComplete["Group Health"] !== false,
+        "Group Life": visibilityForComplete["Group Life"] !== false,
+        Other: visibilityForComplete["Custom"] !== false,
+      };
+
       const updatePayload = {
         keyContacts: finalContactsList,
         employeePortalPreview: {
           ...client.employeePortalPreview,
           benefits: updatedBenefits,
         },
+        categoryPortalVisibility: categoryPortalVisibilityForComplete,
         documentsData: {
           retirementPlanDocuments: [...retirementPlanDocuments, ...newDocuments],
           // Preserve other types

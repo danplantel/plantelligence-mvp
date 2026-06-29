@@ -24,6 +24,8 @@ export interface BenefitsStep1Data {
     contactPhoneExtension?: string;
     selectedPlan?: any | null;
     currentSubStep?: "a" | "b";
+    /** Per-category publish/hide toggle state. Default true (published). */
+    benefitVisibility?: Record<string, boolean>;
 }
 
 export interface FAQItem {

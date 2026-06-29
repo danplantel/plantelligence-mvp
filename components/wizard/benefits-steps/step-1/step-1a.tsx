@@ -69,6 +69,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { ContactFormFields } from "@/components/wizard/new-client-steps/step-3-key-contacts/components/contact-form-fields";
 import {
   BenefitsCategory,
@@ -110,6 +111,7 @@ export function BenefitsStep1a() {
   const [plans, setPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [planLoading, setPlanLoading] = useState(false);
+  const [primaryServiceCategories, setPrimaryServiceCategories] = useState<string[]>([]);
   const [selectedPlanContacts, setSelectedPlanContacts] = useState<
     KeyContact[]
   >([]);
@@ -378,6 +380,52 @@ export function BenefitsStep1a() {
       };
     }
 
+    // Apply benefitVisibility to ALL benefits (including defaults) so isEnabled
+    // is persisted to the API via auto-save and the portal picks it up immediately.
+    const visibility = currentStepData.benefitVisibility ?? {};
+    const allBenefits: any[] = merged.employeePortalPreview?.benefits ?? [];
+    if (Object.keys(visibility).length > 0) {
+      // Map from toggle label → benefit category/id for 4 default categories
+      const categoryMap: Record<string, { category: string; id: string }> = {
+        Retirement: { category: "Retirement", id: "retirement" },
+        "Group Health": { category: "Group Health", id: "health" },
+        "Group Life": { category: "Group Life", id: "life" },
+        Custom: { category: "Company / Plan Sponsor", id: "wellness" },
+      };
+
+      if (allBenefits.length > 0) {
+        merged.employeePortalPreview = {
+          ...merged.employeePortalPreview,
+          benefits: allBenefits.map((b: any) => {
+            const bNorm = (b.category || "").toLowerCase().trim().replace(/\s+/g, " ");
+            let matchKey: string | null = null;
+            for (const key of Object.keys(visibility)) {
+              const keyNorm = key.toLowerCase().trim().replace(/\s+/g, " ");
+              if (bNorm === keyNorm) { matchKey = key; break; }
+              if (bNorm === "company / plan sponsor" && keyNorm === "custom") { matchKey = key; break; }
+              if (bNorm === "custom" && keyNorm === "custom") { matchKey = key; break; }
+            }
+            if (matchKey && visibility[matchKey] !== undefined) {
+              return { ...b, isEnabled: visibility[matchKey] };
+            }
+            return b;
+          }),
+        };
+      } else {
+        // No benefits yet — create default placeholders so isEnabled is saved
+        const defaultBenefits = Object.entries(categoryMap).map(([label, { category, id }]) => ({
+          id,
+          category,
+          title: label === "Custom" ? "Wellness Programs" : label,
+          isEnabled: visibility[label] !== false,
+        }));
+        merged.employeePortalPreview = {
+          ...merged.employeePortalPreview,
+          benefits: defaultBenefits,
+        };
+      }
+    }
+
     // Merge Step 4 documents into the client data for completeness checks
     if (stepData.step4?.documents) {
       merged.documents = stepData.step4.documents;
@@ -411,23 +459,32 @@ export function BenefitsStep1a() {
     }
   }, [currentStepData.benefitCategory, currentCompleteness?.isComplete]);
 
-  // Debounced auto-save to database
+  // Debounced auto-save to database (also saves isEnabled from benefitVisibility toggles)
   useEffect(() => {
     if (
       !getMergedClientData ||
-      !currentStepData.planId ||
-      !currentStepData.benefitCategory
+      !currentStepData.planId
     )
       return;
 
     const timer = setTimeout(async () => {
       try {
-        // We only want to save the benefits part of employeePortalPreview
+        // Derive categoryPortalVisibility from benefitVisibility toggles
+        // so the portal header filter (which checks both sources) works correctly.
+        const visibility = currentStepData.benefitVisibility ?? {};
+        const categoryPortalVisibility: Record<string, boolean> = {
+          Retirement: visibility["Retirement"] !== false,
+          "Group Health": visibility["Group Health"] !== false,
+          "Group Life": visibility["Group Life"] !== false,
+          Other: visibility["Custom"] !== false,
+        };
+
         await fetch(`/api/clients/${currentStepData.planId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             employeePortalPreview: getMergedClientData.employeePortalPreview,
+            categoryPortalVisibility,
           }),
         });
       } catch (error) {
@@ -437,6 +494,18 @@ export function BenefitsStep1a() {
 
     return () => clearTimeout(timer);
   }, [getMergedClientData, currentStepData.planId]);
+
+  // Fetch user's primary service categories for initial visibility defaults
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/profile", { credentials: "same-origin" });
+        const data = await res.json();
+        const cats: string[] = (data as any)?.primaryServiceCategories ?? [];
+        if (cats.length > 0) setPrimaryServiceCategories(cats);
+      } catch { /* non-critical */ }
+    })();
+  }, []);
 
   useEffect(() => {
     async function fetchPlans() {
@@ -990,10 +1059,35 @@ export function BenefitsStep1a() {
               }
             : null);
 
+        // Load existing benefit visibility from plan data
+        const existingBenefits = fullPlan.employeePortalPreview?.benefits ?? [];
+        const visibilityFromPlan: Record<string, boolean> = {};
+        // Use primaryServiceCategories as initial defaults (only those categories start Published)
+        // If there are existing benefits, respect their isEnabled values instead
+        const hasExistingBenefits = existingBenefits.length > 0;
+        (["Retirement", "Group Health", "Group Life", "Company / Plan Sponsor"] as const).forEach((cat) => {
+          const found = existingBenefits.find((b: any) => {
+            const bCat = (b.category || "").toLowerCase().trim().replace(/\s+/g, " ");
+            const target = cat.toLowerCase().trim().replace(/\s+/g, " ");
+            return bCat === target;
+          });
+          if (hasExistingBenefits) {
+            // Use existing isEnabled if present
+            visibilityFromPlan[cat] = found ? found.isEnabled !== false : false;
+          } else {
+            // No existing benefits — use primaryServiceCategories as the default
+            const catLabel = cat === "Company / Plan Sponsor" ? "Retirement" : cat;
+            visibilityFromPlan[cat] = primaryServiceCategories.includes(catLabel);
+          }
+        });
+        // Also handle "Custom" key — map from Company / Plan Sponsor
+        visibilityFromPlan["Custom"] = visibilityFromPlan["Company / Plan Sponsor"];
+
         saveStepData(1, {
           ...currentStepData,
           planId,
           selectedPlan: fullPlan,
+          benefitVisibility: visibilityFromPlan,
           contactId: "",
           benefitTitle: "",
           companyLogo: null,
@@ -1599,6 +1693,47 @@ export function BenefitsStep1a() {
                   />
                 </div>
               )}
+
+              {/* Publish/Hide toggle for each benefit category */}
+              <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
+                <Label className="text-sm font-semibold text-gray-700 dark:text-gray-100 mb-3 block">
+                  Portal Visibility
+                </Label>
+                <p className="text-xs text-muted-foreground mb-4">
+                  Published benefits appear on the Benefits Hub. Hidden benefits remain editable as drafts.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {["Retirement", "Group Health", "Group Life", "Custom"].map((cat) => {
+                    const visibility = currentStepData.benefitVisibility ?? {};
+                    const isPublished = visibility[cat] !== false;
+                    return (
+                      <div
+                        key={cat}
+                        className="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800"
+                      >
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-100">{cat}</span>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[11px] font-semibold ${isPublished ? "text-green-600" : "text-gray-400"}`}>
+                            {isPublished ? "Published" : "Hidden"}
+                          </span>
+                          <Switch
+                            checked={isPublished}
+                            onCheckedChange={(checked) => {
+                              saveStepData(1, {
+                                ...currentStepData,
+                                benefitVisibility: {
+                                  ...(currentStepData.benefitVisibility ?? {}),
+                                  [cat]: checked,
+                                },
+                              });
+                            }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           )}
         </CardContent>
