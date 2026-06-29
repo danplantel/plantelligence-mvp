@@ -23,19 +23,15 @@ import {
   Eye,
   FileText,
   Info,
-  Plus,
-  Trash2,
   Edit2,
   X,
 } from "lucide-react";
 
 /**
- * Benefits Step 5 – Disclaimer Section
+ * Benefits Step 5 – Single Disclaimer Section
  *
- * REQUIRED step: the user MUST create at least one disclaimer before
- * proceeding. The disclaimer text appears in the **Footer** of the
- * benefit-category portal page (e.g. Retirement, Group Health, etc.)
- * selected in Step 1a.
+ * The user creates exactly ONE disclaimer that appears in the Footer of the
+ * benefit-category portal page selected in Step 1a. This is a required step.
  *
  * Persisted to the plan/client record via `PUT /api/clients/[id]` so the
  * portal layout at `app/new/view/[id]/layout.tsx` can read, filter by
@@ -72,7 +68,7 @@ const LOCATION_OPTIONS = [
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  Disclaimer Modal
+//  Single Disclaimer Modal
 // ═══════════════════════════════════════════════════════════════════════════
 
 interface DisclaimerModalProps {
@@ -257,7 +253,7 @@ function DisclaimerModal({
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  BenefitsStep5 — Mandatory Disclaimer Section
+//  BenefitsStep5 — Single Mandatory Disclaimer
 // ═══════════════════════════════════════════════════════════════════════════
 
 export function BenefitsStep5() {
@@ -274,30 +270,26 @@ export function BenefitsStep5() {
     "[Organization Name]";
   const companyName = selectedPlan?.companyName || "[Company Name]";
 
-  // Local disclaimer array – initialised from store or plan data
-  const [disclaimers, setDisclaimers] = useState<Disclaimer[]>(() => {
-    return stepData.step5?.disclaimers || [];
+  // ── State: single disclaimer (null = not yet created) ──
+  const [disclaimer, setDisclaimer] = useState<Disclaimer | null>(() => {
+    const arr = stepData.step5?.disclaimers;
+    return Array.isArray(arr) && arr.length > 0 ? arr[0] : null;
   });
 
   const [hasInitialized, setHasInitialized] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingDisclaimer, setEditingDisclaimer] =
-    useState<Disclaimer | null>(null);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [disclaimerToDelete, setDisclaimerToDelete] =
-    useState<Disclaimer | null>(null);
   const [showInitialPrompt, setShowInitialPrompt] = useState(false);
   const [previewFooterOpen, setPreviewFooterOpen] = useState(false);
 
-  // ── Load disclaimers from the plan record on first mount ──
+  // ── Load disclaimer from the plan record on first mount ──
   useEffect(() => {
     if (hasInitialized) return;
-    if (stepData.step5?.disclaimers && stepData.step5.disclaimers.length > 0) {
+    if (disclaimer) {
       setHasInitialized(true);
       return;
     }
 
-    // If we have a selectedPlan with embedded disclaimers, use those
+    // If we have a selectedPlan with embedded disclaimers, use the first one
     const raw = (selectedPlan as any)?.disclaimers;
     if (raw) {
       try {
@@ -308,10 +300,10 @@ export function BenefitsStep5() {
             ? parsed
             : [];
         if (arr.length > 0) {
-          setDisclaimers(arr);
-          saveStepData(5, { disclaimers: arr });
+          const d = arr[0];
+          setDisclaimer(d);
+          saveStepData(5, { disclaimers: [d] });
           setHasInitialized(true);
-          setShowInitialPrompt(false);
           return;
         }
       } catch {
@@ -337,10 +329,10 @@ export function BenefitsStep5() {
                     ? parsed
                     : [];
                 if (arr.length > 0) {
-                  setDisclaimers(arr);
-                  saveStepData(5, { disclaimers: arr });
+                  const d = arr[0];
+                  setDisclaimer(d);
+                  saveStepData(5, { disclaimers: [d] });
                   setHasInitialized(true);
-                  setShowInitialPrompt(false);
                   return;
                 }
               } catch {
@@ -349,10 +341,9 @@ export function BenefitsStep5() {
             }
           }
         } catch (err) {
-          console.error("Failed to load disclaimers from plan:", err);
+          console.error("Failed to load disclaimer from plan:", err);
         } finally {
           setHasInitialized(true);
-          // Show the initial prompt to create a disclaimer
           setShowInitialPrompt(true);
         }
       })();
@@ -360,23 +351,23 @@ export function BenefitsStep5() {
       setHasInitialized(true);
       setShowInitialPrompt(true);
     }
-  }, [hasInitialized, planId, selectedPlan, stepData.step5, saveStepData]);
+  }, [hasInitialized, planId, selectedPlan, disclaimer, saveStepData]);
 
-  // ── If no disclaimers exist after initialisation, auto-show prompt ──
+  // ── If no disclaimer exists after initialisation, auto-show prompt ──
   useEffect(() => {
     if (
       hasInitialized &&
-      disclaimers.length === 0 &&
+      !disclaimer &&
       !isModalOpen &&
       !showInitialPrompt
     ) {
       setShowInitialPrompt(true);
     }
-  }, [hasInitialized, disclaimers.length, isModalOpen, showInitialPrompt]);
+  }, [hasInitialized, disclaimer, isModalOpen, showInitialPrompt]);
 
-  // ── Persist disclaimers to the plan/client record ──
+  // ── Persist single disclaimer to plan/client record ──
   const persistToPlan = useCallback(
-    async (updatedDisclaimers: Disclaimer[]) => {
+    async (d: Disclaimer) => {
       if (!planId) return;
       try {
         await fetch(`/api/clients/${planId}`, {
@@ -384,7 +375,7 @@ export function BenefitsStep5() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             disclaimers: {
-              disclaimers: updatedDisclaimers,
+              disclaimers: [d],
             },
           }),
         });
@@ -397,114 +388,41 @@ export function BenefitsStep5() {
           );
         }
       } catch (err) {
-        console.error("Failed to persist disclaimers to plan:", err);
+        console.error("Failed to persist disclaimer to plan:", err);
       }
     },
     [planId],
   );
 
-  // ── CRUD helpers ──
-
-  const syncAndPersist = async (updated: Disclaimer[]) => {
-    setDisclaimers(updated);
-    saveStepData(5, { disclaimers: updated });
-    await persistToPlan(updated);
-  };
-
-  const openCreateModal = () => {
-    setEditingDisclaimer(null);
-    setShowInitialPrompt(false);
-    setIsModalOpen(true);
-  };
-
-  const openEditModal = (d: Disclaimer) => {
-    setEditingDisclaimer(d);
-    setIsModalOpen(true);
-  };
-
-  const requestDelete = (d: Disclaimer) => {
-    setDisclaimerToDelete(d);
-    setDeleteConfirmOpen(true);
-  };
-
-  const confirmDelete = async () => {
-    if (!disclaimerToDelete) return;
-    const updated = disclaimers.filter((d) => d.id !== disclaimerToDelete.id);
-    await syncAndPersist(updated);
-    setDeleteConfirmOpen(false);
-    setDisclaimerToDelete(null);
-
-    // If last disclaimer was deleted, show the initial prompt
-    if (updated.length === 0) {
-      setShowInitialPrompt(true);
-    }
-  };
-
+  // ── Create / Update handler ──
   const handleSaveDisclaimer = async (data: Omit<Disclaimer, "id">) => {
-    const newDisclaimer: Disclaimer = { ...data, id: Date.now().toString() };
-    await syncAndPersist([...disclaimers, newDisclaimer]);
+    const d: Disclaimer = {
+      ...data,
+      id: disclaimer?.id || Date.now().toString(),
+    };
+    setDisclaimer(d);
+    saveStepData(5, { disclaimers: [d] });
+    await persistToPlan(d);
     setIsModalOpen(false);
   };
 
-  const handleUpdateDisclaimer = async (
-    id: string,
-    data: Omit<Disclaimer, "id">,
-  ) => {
-    const updated = disclaimers.map((d) =>
-      d.id === id ? { ...data, id } : d,
-    );
-    await syncAndPersist(updated);
-    setIsModalOpen(false);
-    setEditingDisclaimer(null);
-  };
-
-  // ── Derive the current benefit category label for the portal ──
+  // ── Derive the current benefit category label ──
   const portalCategory =
     CATEGORY_PORTAL_LABELS[benefitCategory] || benefitCategory || "this benefit";
 
-  // ── Build the combined disclosure text (same logic as layout.tsx) ──
+  // ── Build disclosure text ──
   const buildDisclosureText = useCallback((): string => {
-    const defaultDisclaimer = buildDefaultDisclaimerText(
-      organizationName,
-      companyName,
-    );
-
-    if (disclaimers.length === 0) return defaultDisclaimer;
-
-    // Match the layout's priority: category-specific > all-categories > universal
-    const portalLabel = CATEGORY_PORTAL_LABELS[benefitCategory] || "";
-    const categorySpecific = disclaimers.filter(
-      (d) =>
-        !d.apply_all_benefits_categories &&
-        (d.locations?.includes(portalLabel) ||
-          d.locations?.includes("Global")),
-    );
-
-    const allCategories = disclaimers.filter(
-      (d) => d.apply_all_benefits_categories === true,
-    );
-
-    const texts = [
-      ...categorySpecific.map((d) => d.text),
-      ...allCategories.map((d) => d.text),
-    ];
-
-    if (texts.length === 0) return defaultDisclaimer;
-
-    const unique = Array.from(
-      new Set(texts.map((t) => t?.trim()).filter(Boolean)),
-    );
-    return unique.join("\n\n");
-  }, [disclaimers, benefitCategory, organizationName, companyName]);
+    if (!disclaimer) {
+      return buildDefaultDisclaimerText(organizationName, companyName);
+    }
+    return disclaimer.text;
+  }, [disclaimer, organizationName, companyName]);
 
   // ── Brand colour from the selected plan ──
   const brandColor =
     (selectedPlan as any)?.brandColor ||
     (selectedPlan as any)?.primaryColor ||
     "#1F3A60";
-
-  // ── Validation: at least one disclaimer is required ──
-  const hasDisclaimers = disclaimers.length > 0;
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-20">
@@ -526,7 +444,7 @@ export function BenefitsStep5() {
             {portalCategory}
           </strong>{" "}
           employee portal page. This is a <strong>required</strong> step — you
-          must provide at least one disclaimer before proceeding.
+          must provide a disclaimer before proceeding.
         </p>
       </div>
 
@@ -576,8 +494,8 @@ export function BenefitsStep5() {
       {/* ── Main Disclaimer Editor Card ── */}
       <Card className="border border-gray-200 dark:border-gray-700">
         <CardContent className="pt-6">
-          {/* ── Initial prompt (no disclaimers yet) ── */}
-          {!hasDisclaimers && showInitialPrompt && (
+          {!disclaimer && showInitialPrompt && (
+            /* ── Initial prompt (no disclaimer yet) ── */
             <div className="max-w-xl mx-auto space-y-6 py-4">
               <div className="text-center space-y-2">
                 <div className="flex justify-center">
@@ -599,22 +517,25 @@ export function BenefitsStep5() {
               </div>
 
               <Button
-                onClick={openCreateModal}
+                onClick={() => {
+                  setShowInitialPrompt(false);
+                  setIsModalOpen(true);
+                }}
                 className="w-full h-12 text-base font-bold bg-[#23919C] hover:bg-[#1b727a] text-white rounded-xl shadow-lg shadow-[#23919C]/20"
               >
-                <Plus className="w-5 h-5 mr-2" />
+                <FileText className="w-5 h-5 mr-2" />
                 Create Disclaimer for {portalCategory}
               </Button>
             </div>
           )}
 
-          {/* ── Summary view (disclaimers exist) ── */}
-          {hasDisclaimers && (
+          {disclaimer && (
+            /* ── Single disclaimer summary ── */
             <div className="max-w-2xl mx-auto space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-foreground">
-                    Disclaimers ({disclaimers.length})
+                    Disclaimer
                   </h2>
                 </div>
                 <div className="flex items-center gap-2">
@@ -628,135 +549,64 @@ export function BenefitsStep5() {
                     Preview Footer
                   </Button>
                   <Button
-                    onClick={openCreateModal}
+                    onClick={() => setIsModalOpen(true)}
                     size="sm"
                     className="bg-[#23919C] hover:bg-[#1b727a] text-white"
                   >
-                    <Plus className="w-4 h-4 mr-1" />
-                    Add
+                    <Edit2 className="w-4 h-4 mr-1" />
+                    Edit
                   </Button>
                 </div>
               </div>
 
-              {/* Disclaimer cards */}
-              <div className="space-y-3">
-                {disclaimers.map((disclaimer) => (
-                  <div
-                    key={disclaimer.id}
-                    className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-card dark:bg-gray-800/50"
-                  >
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="flex-1 pr-2">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Applies to:
-                          </span>
-                          {disclaimer.apply_all_benefits_categories ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] font-semibold">
-                              All Categories
-                            </span>
-                          ) : (
-                            [
-                              ...disclaimer.locations,
-                              ...(disclaimer.customLocation
-                                ? [disclaimer.customLocation]
-                                : []),
-                            ].map((loc) => (
-                              <span
-                                key={loc}
-                                className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#23919C]/10 text-[#23919C] text-[10px] font-semibold"
-                              >
-                                {loc}
-                              </span>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex gap-1 items-center shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => openEditModal(disclaimer)}
-                          className="inline-flex items-center justify-center h-8 w-8 rounded-md text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
-                          title="Edit disclaimer"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => requestDelete(disclaimer)}
-                          className="inline-flex items-center justify-center h-8 w-8 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                          title="Delete disclaimer"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap break-words border-t border-gray-100 dark:border-gray-700 pt-3">
-                      {disclaimer.text}
-                    </div>
-                  </div>
-                ))}
+              {/* Single disclaimer card */}
+              <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-card dark:bg-gray-800/50">
+                <div className="flex items-center gap-2 flex-wrap mb-3">
+                  <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Applies to:
+                  </span>
+                  {disclaimer.apply_all_benefits_categories ? (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] font-semibold">
+                      All Categories
+                    </span>
+                  ) : (
+                    [
+                      ...disclaimer.locations,
+                      ...(disclaimer.customLocation
+                        ? [disclaimer.customLocation]
+                        : []),
+                    ].map((loc) => (
+                      <span
+                        key={loc}
+                        className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#23919C]/10 text-[#23919C] text-[10px] font-semibold"
+                      >
+                        {loc}
+                      </span>
+                    ))
+                  )}
+                </div>
+                <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap break-words border-t border-gray-100 dark:border-gray-700 pt-3">
+                  {disclaimer.text}
+                </div>
               </div>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* ── Add / Edit Disclaimer Modal ── */}
+      {/* ── Create / Edit Disclaimer Modal ── */}
       {isModalOpen && (
         <DisclaimerModal
           isOpen={isModalOpen}
-          disclaimer={editingDisclaimer}
+          disclaimer={disclaimer}
           companyName={companyName}
           organizationName={organizationName}
           benefitCategory={benefitCategory}
-          onSave={async (data: Omit<Disclaimer, "id">) => {
-            if (editingDisclaimer) {
-              await handleUpdateDisclaimer(editingDisclaimer.id, data);
-            } else {
-              await handleSaveDisclaimer(data);
-            }
-          }}
+          onSave={handleSaveDisclaimer}
           onClose={() => {
             setIsModalOpen(false);
-            setEditingDisclaimer(null);
           }}
         />
-      )}
-
-      {/* ── Delete Confirmation Dialog ── */}
-      {deleteConfirmOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full mx-4 p-6">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
-              Delete Disclaimer?
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-              {disclaimerToDelete
-                ? `This will remove the disclaimer for ${disclaimerToDelete.locations.join(", ")}. A disclaimer is required to proceed — you will need to create a new one.`
-                : ""}
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setDeleteConfirmOpen(false);
-                  setDisclaimerToDelete(null);
-                }}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={confirmDelete}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* ── Footer Preview Modal ── */}
@@ -788,7 +638,6 @@ export function BenefitsStep5() {
 
             {/* Preview content – actual Footer component */}
             <div className="p-0">
-              {/* Portal page mock chrome */}
               <div className="bg-black min-h-[200px]">
                 <div className="bg-gray-900 h-16 flex items-center px-6 border-b border-gray-800">
                   <div className="flex items-center gap-2">
@@ -835,3 +684,9 @@ export function BenefitsStep5() {
     </div>
   );
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Local helper used within the component above
+// ═══════════════════════════════════════════════════════════════════════════
+
+// (The setEditingDisclaimer helper is inlined in the JSX above)
