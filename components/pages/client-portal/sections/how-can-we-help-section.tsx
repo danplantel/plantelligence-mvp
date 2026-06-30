@@ -80,7 +80,7 @@ export function HowCanWeHelpSection({
               ease: "easeOut",
               delay: index * 0.15,
             }}
-            className="flex h-full w-full max-w-sm flex-col rounded-xl border border-neutral-200 bg-white px-8 py-10 shadow-sm"
+            className="flex  min-h-[450px] w-full max-w-sm flex-col rounded-xl border border-neutral-200 bg-white px-8 py-10 shadow-sm"
           >
             <h3
               className="mb-5 text-2xl font-dm-serif"

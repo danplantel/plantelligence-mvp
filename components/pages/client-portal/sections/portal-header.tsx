@@ -207,21 +207,6 @@ export function PortalHeader({
 
   return (
     <>
-      {/* Top Banner */}
-      {showAlertBanner && showBanner && (
-        <div
-          className="relative px-4 py-3 text-center text-white"
-          style={{ background: brandColor }}
-        >
-          <span className="font-medium">Enrollment has ended</span>
-          <button
-            onClick={() => setShowBanner(false)}
-            className="absolute right-4 top-1/2 -translate-y-1/2 transform rounded-full p-1 transition-colors hover:bg-white/20"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-      )}
 
       {/* Header */}
       <header className="bg-white px-4 py-4 shadow-md transition-all duration-300 sm:px-6 lg:px-20">

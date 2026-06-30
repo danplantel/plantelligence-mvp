@@ -36,6 +36,13 @@ const redHatDisplay = localFont({
 export const metadata: Metadata = {
   title: "PlanTelligence",
   description: "PlanTelligence - Your AI-Powered Financial Planning Assistant",
+  icons: {
+    icon: [
+      { url: "/favicon-32x32.png", type: "image/png", sizes: "32x32" },
+      { url: "/favicon.ico", sizes: "any" },
+    ],
+    apple: [{ url: "/favicon-32x32.png", sizes: "180x180", type: "image/png" }],
+  },
 };
 
 export default async function RootLayout({
