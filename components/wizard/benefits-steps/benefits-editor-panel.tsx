@@ -48,8 +48,6 @@ export function BenefitsEditorPanel({
     const sectionsRef = {
         branding: useRef<HTMLDivElement>(null),
         messaging: useRef<HTMLDivElement>(null),
-        faqs: useRef<HTMLDivElement>(null),
-        contacts: useRef<HTMLDivElement>(null),
     };
 
     const [highlightedSection, setHighlightedSection] = React.useState<string | null>(null);
@@ -294,119 +292,6 @@ export function BenefitsEditorPanel({
                                 className="min-h-[120px] shadow-sm border-muted leading-relaxed"
                             />
                         </div>
-                    </div>
-                </div>
-
-                {/* FAQs Section */}
-                <div
-                    ref={sectionsRef.faqs}
-                    className={cn(
-                        "transition-all duration-500 rounded-xl",
-                        highlightedSection === "faqs" ? "ring-2 ring-blue-500/50 scale-[1.01] shadow-lg p-4 -m-4 bg-white" : ""
-                    )}
-                >
-                    <SectionHeader number={3} title="Frequently Asked Questions" />
-                    <div className="flex justify-between items-center mb-4">
-                        <p className="text-[13px] text-muted-foreground">Manage the questions that appear on this benefit&apos;s page.</p>
-                        <Button onClick={addFaq} variant="outline" size="sm" className="h-8 text-[11px] font-bold border-blue-200 text-blue-600 hover:bg-blue-50">
-                            <Plus className="w-3.5 h-3.5 mr-1" /> ADD FAQ
-                        </Button>
-                    </div>
-                    <div className="space-y-4">
-                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                            <SortableContext items={step3Data.faqs.map((f) => f.id)} strategy={verticalListSortingStrategy}>
-                                {step3Data.faqs.map((faq, index) => (
-                                    <div key={faq.id} className="border border-muted rounded-xl p-4 space-y-4 bg-gray-50/30 shadow-sm relative group/faq">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3 flex-1">
-                                                <div className="cursor-grab active:cursor-grabbing text-muted-foreground">
-                                                    <GripVertical className="w-4 h-4" />
-                                                </div>
-                                                <Input
-                                                    value={faq.question}
-                                                    onChange={(e) => updateFaq(faq.id, { question: e.target.value })}
-                                                    className="h-9 text-sm font-semibold border-transparent bg-transparent p-0 focus-visible:ring-0 shadow-none"
-                                                    placeholder="Enter question"
-                                                />
-                                            </div>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover/faq:opacity-100 transition-opacity" onClick={() => removeFaq(faq.id)}>
-                                                <Trash2 className="w-4 h-4" />
-                                            </Button>
-                                        </div>
-                                        <Textarea
-                                            value={faq.answer}
-                                            onChange={(e) => updateFaq(faq.id, { answer: e.target.value })}
-                                            className="min-h-[80px] text-sm bg-white border-muted shadow-sm"
-                                            placeholder="Enter answer..."
-                                        />
-                                    </div>
-                                ))}
-                            </SortableContext>
-                        </DndContext>
-                    </div>
-                </div>
-
-                {/* Contacts Section */}
-                <div
-                    ref={sectionsRef.contacts}
-                    className={cn(
-                        "transition-all duration-500 rounded-xl mb-12",
-                        highlightedSection === "messaging" ? "ring-2 ring-blue-500/50 scale-[1.01] shadow-lg p-4 -m-4 bg-white" : ""
-                    )}
-                >
-                    <SectionHeader number={4} title="Assigned Support Contacts" />
-                    <p className="text-[13px] text-muted-foreground mb-6">Choose which key contacts will be displayed on this benefit page.</p>
-                    <div className="space-y-3">
-                        {contactsList.map((contact: any) => {
-                            const isSelected = step3Data.supportContacts.some(c => c.contactId === contact.id);
-                            const config = step3Data.supportContacts.find(c => c.contactId === contact.id);
-
-                            return (
-                                <div key={contact.id} className="space-y-3">
-                                    <div
-                                        className={cn(
-                                            "flex items-center p-3 rounded-xl border transition-all cursor-pointer",
-                                            isSelected ? "border-blue-500 bg-blue-50 shadow-sm" : "border-muted bg-white hover:border-muted-foreground/30"
-                                        )}
-                                        onClick={() => toggleContact(contact.id)}
-                                    >
-                                        <div className={cn(
-                                            "w-5 h-5 rounded-full border flex items-center justify-center mr-3 transition-colors",
-                                            isSelected ? "bg-blue-600 border-blue-600 text-white" : "bg-white border-muted-foreground/20"
-                                        )}>
-                                            {isSelected && <CheckCircle2 className="w-3.5 h-3.5" />}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-[14px] font-semibold text-foreground truncate">{contact.name || `${contact.firstName} ${contact.lastName}`}</p>
-                                            <p className="text-[12px] text-muted-foreground truncate">{contact.title}</p>
-                                        </div>
-                                    </div>
-
-                                    {isSelected && config && (
-                                        <div className="ml-8 p-4 bg-white rounded-xl border border-blue-100 space-y-4 animate-in slide-in-from-top-2 duration-200 shadow-inner">
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[10px] font-bold text-muted-foreground uppercase">Display Role</Label>
-                                                <Input
-                                                    value={config.title}
-                                                    onChange={(e) => updateSupportContact(contact.id, { title: e.target.value })}
-                                                    placeholder="e.g. Benefits Specialist"
-                                                    className="h-9 text-xs"
-                                                />
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[10px] font-bold text-muted-foreground uppercase">Direct Message / Description</Label>
-                                                <Textarea
-                                                    value={config.description}
-                                                    onChange={(e) => updateSupportContact(contact.id, { description: e.target.value })}
-                                                    placeholder="Contact for any questions regarding this benefit."
-                                                    className="min-h-[70px] text-xs py-2"
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
                     </div>
                 </div>
             </div>
