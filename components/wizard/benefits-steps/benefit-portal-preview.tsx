@@ -247,6 +247,7 @@ export function BenefitPortalPreview() {
                         brandColor={brandColor}
                         secondaryColor={secondaryColor}
                         clientId={step1Data?.planId}
+                        cards={step1Data?.helpCards}
                     />
                 </div>
 

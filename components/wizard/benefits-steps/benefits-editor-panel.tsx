@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useEffect } from "react";
-import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
+import { useBenefitsWizardStore, HelpCardData } from "@/lib/benefits-wizard-store";
 import { EditorPanelWrapper } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -17,10 +17,39 @@ import { SupportContact, FAQItem, BenefitsStep1Data, BenefitsStep3Data } from "@
 import { KeyContact, BrandImageData, CompanyLogoData } from "@/types/new-client-wizard";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy, arrayMove, useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import { v4 as uuidv4 } from "uuid";
+
+const DEFAULT_HELP_CARDS: HelpCardData[] = [
+    {
+        id: "access-account",
+        title: "Access My Retirement Account",
+        paragraphs: [
+            "View your balances, plan documents, and investment details all in one place.",
+            "Take charge of your retirement plan and stay on top of your progress anytime.",
+        ],
+        cta: "ACCESS ACCOUNT →",
+    },
+    {
+        id: "financial-planning",
+        title: "Financial Planning",
+        paragraphs: [
+            "Exclusive Benefits for [Company Name] Plan Participants",
+            "Elevate your financial journey with personalized planning through [Advisor Name]—a comprehensive service seamlessly integrated with your retirement benefits.",
+        ],
+        cta: "START PLANNING →",
+        href: "/financial-planning",
+    },
+    {
+        id: "rollovers",
+        title: "Rollovers & Distributions",
+        introBold: "Transitioning to a new employer?",
+        paragraphs: [
+            "Understand your options for managing the savings you've built. The decision you make now can have a lasting impact on your retirement lifestyle.",
+        ],
+        cta: "LEARN MORE →",
+        href: "/rollovers-distributions",
+    },
+];
 
 interface BenefitsEditorPanelProps {
     isOpen: boolean;
@@ -48,9 +77,15 @@ export function BenefitsEditorPanel({
     const sectionsRef = {
         branding: useRef<HTMLDivElement>(null),
         messaging: useRef<HTMLDivElement>(null),
+        helpCards: useRef<HTMLDivElement>(null),
     };
 
     const [highlightedSection, setHighlightedSection] = React.useState<string | null>(null);
+
+    // Resolve help cards from store or defaults
+    const helpCards = step1Data.helpCards && step1Data.helpCards.length > 0
+        ? step1Data.helpCards
+        : DEFAULT_HELP_CARDS;
 
     // Scroll to section when activeSection changes
     useEffect(() => {
@@ -60,21 +95,14 @@ export function BenefitsEditorPanel({
             const element = sectionsRef[activeSection as keyof typeof sectionsRef]?.current;
             if (element && editorScrollContainerRef.current) {
                 const container = editorScrollContainerRef.current;
-
-                // Wait for editor to fully open
                 setTimeout(() => {
                     const rect = element.getBoundingClientRect();
                     const containerRect = container.getBoundingClientRect();
                     const targetScroll = rect.top - containerRect.top + container.scrollTop - 20;
-
-                    container.scrollTo({
-                        top: targetScroll,
-                        behavior: "smooth"
-                    });
+                    container.scrollTo({ top: targetScroll, behavior: "smooth" });
                 }, 350);
             }
 
-            // Remove highlight after some time
             const timer = setTimeout(() => setHighlightedSection(null), 2000);
             return () => clearTimeout(timer);
         }
@@ -106,78 +134,36 @@ export function BenefitsEditorPanel({
         });
     };
 
-    // --- Logic from Step 3 ---
-    const updateFaq = (id: string, updates: Partial<FAQItem>) => {
-        const newFaqs = step3Data.faqs.map((faq) =>
-            faq.id === id ? { ...faq, ...updates } : faq,
-        );
-        saveStepData(3, { ...step3Data, faqs: newFaqs });
+    // --- Help Cards Logic ---
+    const updateHelpCard = (id: string, updates: Partial<HelpCardData>) => {
+        const updated = helpCards.map((c) => c.id === id ? { ...c, ...updates } : c);
+        saveStepData(1, { ...step1Data, helpCards: updated });
     };
 
-    const addFaq = () => {
-        const id = uuidv4();
-        const newFaq: FAQItem = {
-            id,
-            question: "New Question?",
-            answer: "Provide an answer here.",
-            linkLabel: "Learn More",
-            linkHref: "#",
-            enabled: true,
-        };
-        saveStepData(3, {
-            ...step3Data,
-            faqs: [newFaq, ...step3Data.faqs],
+    const addParagraph = (cardId: string) => {
+        const updated = helpCards.map((c) =>
+            c.id === cardId ? { ...c, paragraphs: [...c.paragraphs, ""] } : c
+        );
+        saveStepData(1, { ...step1Data, helpCards: updated });
+    };
+
+    const updateParagraph = (cardId: string, idx: number, value: string) => {
+        const updated = helpCards.map((c) => {
+            if (c.id !== cardId) return c;
+            const newParagraphs = [...c.paragraphs];
+            newParagraphs[idx] = value;
+            return { ...c, paragraphs: newParagraphs };
         });
+        saveStepData(1, { ...step1Data, helpCards: updated });
     };
 
-    const removeFaq = (id: string) => {
-        const newFaqs = step3Data.faqs.filter((faq) => faq.id !== id);
-        saveStepData(3, { ...step3Data, faqs: newFaqs });
-    };
-
-    const sensors = useSensors(
-        useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
-    );
-
-    const handleDragEnd = (event: DragEndEvent) => {
-        const { active, over } = event;
-        if (over && active.id !== over.id) {
-            const oldIndex = step3Data.faqs.findIndex((f) => f.id === active.id);
-            const newIndex = step3Data.faqs.findIndex((f) => f.id === over.id);
-            const newFaqs = arrayMove(step3Data.faqs, oldIndex, newIndex);
-            saveStepData(3, { ...step3Data, faqs: newFaqs });
-        }
-    };
-
-    // --- Support Contacts Logic ---
-    const allContacts = (step1Data.selectedPlan?.keyContacts || []) as any[];
-    const contactsList = Array.isArray(allContacts) ? allContacts : (allContacts as any).contacts || [];
-
-    const toggleContact = (contactId: string) => {
-        const existing = step3Data.supportContacts.find((c) => c.contactId === contactId);
-        if (existing) {
-            const newContacts = step3Data.supportContacts.filter((c) => c.contactId !== contactId);
-            saveStepData(3, { ...step3Data, supportContacts: newContacts });
-        } else {
-            const contact = contactsList.find((c: any) => c.id === contactId);
-            const newContact: SupportContact = {
-                contactId,
-                title: contact?.title || "Support Contact",
-                description: "Contact for any questions regarding this benefit.",
-                enabled: true,
-            };
-            saveStepData(3, {
-                ...step3Data,
-                supportContacts: [...step3Data.supportContacts, newContact],
-            });
-        }
-    };
-
-    const updateSupportContact = (contactId: string, updates: Partial<SupportContact>) => {
-        const newContacts = step3Data.supportContacts.map((c) =>
-            c.contactId === contactId ? { ...c, ...updates } : c
-        );
-        saveStepData(3, { ...step3Data, supportContacts: newContacts });
+    const removeParagraph = (cardId: string, idx: number) => {
+        const updated = helpCards.map((c) => {
+            if (c.id !== cardId) return c;
+            const newParagraphs = c.paragraphs.filter((_, i) => i !== idx);
+            return { ...c, paragraphs: newParagraphs };
+        });
+        saveStepData(1, { ...step1Data, helpCards: updated });
     };
 
     const SectionHeader = ({ number, title }: { number: number, title: string }) => (
@@ -293,6 +279,109 @@ export function BenefitsEditorPanel({
                             />
                         </div>
                     </div>
+                </div>
+
+                {/* Help Cards Section */}
+                <div
+                    ref={sectionsRef.helpCards}
+                    className={cn(
+                        "transition-all duration-500 rounded-xl",
+                        highlightedSection === "helpCards" ? "ring-2 ring-blue-500/50 scale-[1.01] shadow-lg p-4 -m-4 bg-white" : ""
+                    )}
+                >
+                    <SectionHeader number={3} title="How Can We Help You Today?" />
+                    <p className="text-[13px] text-muted-foreground mb-6">
+                        Customize the three cards that appear in the "How Can We Help You Today?" section.
+                    </p>
+                    <Accordion type="multiple" className="space-y-3">
+                        {helpCards.map((card) => (
+                            <AccordionItem key={card.id} value={card.id} className="border border-muted rounded-xl px-4 shadow-sm bg-white">
+                                <AccordionTrigger className="text-sm font-semibold py-4 hover:no-underline">
+                                    {card.title || "Untitled Card"}
+                                </AccordionTrigger>
+                                <AccordionContent className="space-y-4 pb-4">
+                                    <div className="space-y-2">
+                                        <Label className="text-[11px] font-bold text-muted-foreground uppercase">
+                                            Card Title
+                                        </Label>
+                                        <Input
+                                            value={card.title}
+                                            onChange={(e) => updateHelpCard(card.id, { title: e.target.value })}
+                                            className="h-9 text-sm"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-[11px] font-bold text-muted-foreground uppercase">
+                                            Intro (optional bold text)
+                                        </Label>
+                                        <Input
+                                            value={card.introBold || ""}
+                                            onChange={(e) => updateHelpCard(card.id, { introBold: e.target.value || undefined })}
+                                            className="h-9 text-sm"
+                                            placeholder="e.g. Transitioning to a new employer?"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <Label className="text-[11px] font-bold text-muted-foreground uppercase">
+                                                Paragraphs
+                                            </Label>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-7 text-[11px] text-blue-600"
+                                                onClick={() => addParagraph(card.id)}
+                                            >
+                                                <Plus className="w-3 h-3 mr-1" /> Add
+                                            </Button>
+                                        </div>
+                                        {card.paragraphs.map((p, idx) => (
+                                            <div key={idx} className="flex gap-2 items-start">
+                                                <Textarea
+                                                    value={p}
+                                                    onChange={(e) => updateParagraph(card.id, idx, e.target.value)}
+                                                    className="min-h-[60px] text-sm flex-1"
+                                                    placeholder={`Paragraph ${idx + 1}`}
+                                                />
+                                                {card.paragraphs.length > 1 && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 flex-shrink-0 text-muted-foreground hover:text-destructive"
+                                                        onClick={() => removeParagraph(card.id, idx)}
+                                                    >
+                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-[11px] font-bold text-muted-foreground uppercase">
+                                            CTA Button Text
+                                        </Label>
+                                        <Input
+                                            value={card.cta}
+                                            onChange={(e) => updateHelpCard(card.id, { cta: e.target.value })}
+                                            className="h-9 text-sm"
+                                            placeholder="e.g. LEARN MORE →"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-[11px] font-bold text-muted-foreground uppercase">
+                                            Link Path (optional)
+                                        </Label>
+                                        <Input
+                                            value={card.href || ""}
+                                            onChange={(e) => updateHelpCard(card.id, { href: e.target.value || undefined })}
+                                            className="h-9 text-sm"
+                                            placeholder="e.g. /financial-planning"
+                                        />
+                                    </div>
+                                </AccordionContent>
+                            </AccordionItem>
+                        ))}
+                    </Accordion>
                 </div>
             </div>
         </EditorPanelWrapper>

@@ -4,7 +4,7 @@ import { motion, useInView } from "framer-motion";
 import { useRef } from "react";
 import Link from "next/link";
 
-interface HelpCard {
+export interface HelpCardData {
   id: string;
   title: string;
   introBold?: string;
@@ -17,9 +17,11 @@ interface HowCanWeHelpSectionProps {
   brandColor?: string;
   secondaryColor?: string;
   clientId?: string;
+  /** Custom cards from the wizard. Falls back to HELP_CARDS defaults when omitted. */
+  cards?: HelpCardData[];
 }
 
-const HELP_CARDS: HelpCard[] = [
+const HELP_CARDS: HelpCardData[] = [
   {
     id: "access-account",
     title: "Access My Retirement Account",
@@ -55,7 +57,9 @@ export function HowCanWeHelpSection({
   brandColor = "#002B5B",
   secondaryColor = "#E6C47A",
   clientId,
+  cards,
 }: HowCanWeHelpSectionProps) {
+  const resolvedCards = cards && cards.length > 0 ? cards : HELP_CARDS;
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: "-100px" });
   const basePath = clientId ? `/new/view/${clientId}` : "";
@@ -70,7 +74,7 @@ export function HowCanWeHelpSection({
       </h2>
 
       <div className="mx-auto flex max-w-7xl flex-wrap justify-center gap-8 px-4">
-        {HELP_CARDS.map((card, index) => (
+        {resolvedCards.map((card, index) => (
           <motion.div
             key={card.id}
             initial={{ opacity: 0, y: 50 }}

@@ -9,6 +9,15 @@ export interface WizardStep {
     completed: boolean;
 }
 
+export interface HelpCardData {
+    id: string;
+    title: string;
+    introBold?: string;
+    paragraphs: string[];
+    cta: string;
+    href?: string;
+}
+
 export interface BenefitsStep1Data {
     planId: string;
     benefitCategory: string;
@@ -26,6 +35,8 @@ export interface BenefitsStep1Data {
     currentSubStep?: "a" | "b";
     /** Per-category publish/hide toggle state. Default true (published). */
     benefitVisibility?: Record<string, boolean>;
+    /** Customizable "How Can We Help You Today?" cards */
+    helpCards?: HelpCardData[];
 }
 
 export interface FAQItem {
