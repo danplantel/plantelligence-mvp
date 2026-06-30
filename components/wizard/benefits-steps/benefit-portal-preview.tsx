@@ -46,9 +46,13 @@ export function BenefitPortalPreview() {
     const category = step1Data?.benefitCategory || "Retirement";
     const isRetirement = category === "Retirement";
 
-    // Colors from wizard data or sensible defaults matching the portal
-    const brandColor = step1Data?.selectedPlan?.brandColors?.primary || "#1F3A60";
-    const secondaryColor = step1Data?.selectedPlan?.brandColors?.secondary || "#6B7280";
+    // Colors from plan data — matches how retirement/page.tsx reads clientData.brandColor / .secondaryColor
+    const brandColor = step1Data?.selectedPlan?.brandColor
+        || step1Data?.selectedPlan?.brandColors?.primary
+        || "#1F3A60";
+    const secondaryColor = step1Data?.selectedPlan?.secondaryColor
+        || step1Data?.selectedPlan?.brandColors?.secondary
+        || "#6B7280";
 
     // Map contacts from Step 3 into FAQContact format
     const faqContacts = useMemo(() => {
