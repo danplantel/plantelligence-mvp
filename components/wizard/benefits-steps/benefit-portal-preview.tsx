@@ -36,6 +36,8 @@ import { Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { normalizePortalDocumentLanguage } from "@/lib/portal-document-language";
 import { resolvePersistedDocumentCategory } from "@/lib/document-category";
+import { getCategoryHeroBackgroundUrl } from "@/lib/portal-category-hero-background";
+import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
 
 export function BenefitPortalPreview() {
     const { stepData } = useBenefitsWizardStore();
@@ -44,7 +46,17 @@ export function BenefitPortalPreview() {
     const step4Data = stepData.step4;
 
     const category = step1Data?.benefitCategory || "Retirement";
-    const isRetirement = category === "Retirement";
+
+    // Build a clientData-like object for resolving background images (matches retirement/page.tsx)
+    const previewClientData = useMemo(() => ({
+        secondaryBannerImg: step1Data?.brandImages?.header?.url,
+        employeePortalPreview: step1Data?.selectedPlan?.employeePortalPreview,
+    }), [step1Data?.brandImages?.header?.url, step1Data?.selectedPlan?.employeePortalPreview]);
+
+    const categoryHeroBg = useMemo(
+        () => getCategoryHeroBackgroundUrl(previewClientData as any),
+        [previewClientData],
+    );
 
     // Colors from plan data — matches how retirement/page.tsx reads clientData.brandColor / .secondaryColor
     const brandColor = step1Data?.selectedPlan?.brandColor
@@ -54,26 +66,63 @@ export function BenefitPortalPreview() {
         || step1Data?.selectedPlan?.brandColors?.secondary
         || "#6B7280";
 
-    // Map contacts from Step 3 into FAQContact format
+    // ── FAQ extraction: matches retirement/page.tsx logic ──
+    // 1. Check employeePortalPreview.benefits[].faqs (persisted from wizard Step 3)
+    // 2. Fall back to step3Data.faqs (wizard-in-progress, not yet persisted)
+    // 3. Fall back to DEFAULT_FAQS[category]
+    const faqsForCategory = useMemo(() => {
+        const benefits = (step1Data?.selectedPlan as any)?.employeePortalPreview?.benefits ?? [];
+        const categoryBenefit = benefits.find((b: any) =>
+            (b.category || "").toLowerCase() === category.toLowerCase(),
+        );
+        const persistedFaqs = categoryBenefit?.faqs;
+        if (persistedFaqs && Array.isArray(persistedFaqs)) {
+            const enabled = persistedFaqs.filter((f: any) => f.enabled !== false) as DynamicFAQItem[];
+            if (enabled.length > 0) return enabled;
+        }
+        // Check wizard-in-progress Step 3 data
+        const wizardFaqs = (step3Data?.faqs || [])
+            .filter(faq => faq.enabled && faq.question && faq.answer)
+            .map(faq => ({
+                id: faq.id,
+                question: faq.question,
+                answer: faq.answer,
+                linkLabel: faq.linkLabel || undefined,
+                linkHref: faq.linkHref && faq.linkHref !== "#" ? faq.linkHref : undefined,
+            })) as DynamicFAQItem[];
+        if (wizardFaqs.length > 0) return wizardFaqs;
+        // Fall back to defaults
+        const defaults = DEFAULT_FAQS[category];
+        if (defaults && defaults.length > 0) return defaults as DynamicFAQItem[];
+        return undefined;
+    }, [step1Data?.selectedPlan, category, step3Data?.faqs]);
+
+    // ── Support contacts extraction: matches retirement/page.tsx logic ──
     const faqContacts = useMemo(() => {
-        const enabledContacts = step3Data?.supportContacts?.filter(sc => sc.enabled) || [];
-        if (enabledContacts.length === 0) return undefined;
-
-        const allContacts = step1Data?.selectedPlan?.keyContacts || [];
-        const contactsList = Array.isArray(allContacts) ? allContacts : (allContacts.contacts || []);
-
-        return enabledContacts.map(sc => {
-            const fullContact = contactsList.find((c: any) => c.id === sc.contactId);
+        const rawContacts = Array.isArray(step1Data?.selectedPlan?.keyContacts)
+            ? step1Data?.selectedPlan?.keyContacts
+            : (step1Data?.selectedPlan as any)?.keyContacts?.contacts || [];
+        const benefits = (step1Data?.selectedPlan as any)?.employeePortalPreview?.benefits ?? [];
+        const categoryBenefit = benefits.find((b: any) =>
+            (b.category || "").toLowerCase() === category.toLowerCase(),
+        );
+        const rawSupportContacts = categoryBenefit?.supportContacts;
+        if (!Array.isArray(rawSupportContacts)) return undefined;
+        const enabled = rawSupportContacts.filter((sc: any) => sc.enabled !== false);
+        if (enabled.length === 0) return undefined;
+        return enabled.map((sc: any) => {
+            const matched = rawContacts.find((c: any) => c.id === sc.contactId);
             return {
                 id: sc.contactId,
-                title: fullContact?.name || `${fullContact?.firstName ?? ""} ${fullContact?.lastName ?? ""}`.trim() || sc.title,
-                description: sc.description || fullContact?.title || "Support Representative",
-                email: fullContact?.email || "",
-                phone: fullContact?.phone || "",
-                headshot: fullContact?.headshot || undefined,
+                title: sc.title || matched?.name || `${matched?.firstName ?? ""} ${matched?.lastName ?? ""}`.trim() || "Support Contact",
+                description: sc.description || matched?.customRole || matched?.title || "",
+                email: matched?.email || "",
+                phone: matched?.phone || "",
+                phoneExtension: matched?.phoneExtension,
+                headshot: matched?.headshot || undefined,
             } as FAQContact;
         });
-    }, [step3Data?.supportContacts, step1Data?.selectedPlan]);
+    }, [step1Data?.selectedPlan, category]);
 
     // Map documents: Step 4 (wizard) or, when empty, `selectedPlan.documents` from the plan API
     const documents = useMemo(() => {
@@ -117,18 +166,6 @@ export function BenefitPortalPreview() {
         step1Data?.benefitCategory,
     ]);
 
-    // Map FAQs from Step 3 into DynamicFAQItem format for FAQSection
-    const faqs = useMemo(() => {
-        return (step3Data?.faqs || [])
-            .filter(faq => faq.enabled && faq.question && faq.answer)
-            .map(faq => ({
-                id: faq.id,
-                question: faq.question,
-                answer: faq.answer,
-                linkLabel: faq.linkLabel || undefined,
-                linkHref: faq.linkHref && faq.linkHref !== "#" ? faq.linkHref : undefined,
-            })) as DynamicFAQItem[];
-    }, [step3Data?.faqs]);
 
     // Mock videos for retirement preview
     const featuredVideo: FeaturedJourneyVideo = {
@@ -193,19 +230,17 @@ export function BenefitPortalPreview() {
                     />
                 </div>
 
-                {isRetirement && (
-                    <div className="relative group">
-                        {/* Retirement journey doesn't have a specific editor yet */}
-                        <RetirementJourneySection
-                            brandColor={brandColor}
-                            featuredVideo={featuredVideo}
-                            retirementVideos={mockVideos}
-                            planningVideos={mockVideos}
-                            onVideoClick={() => { }}
-                            onFeaturedVideoClick={() => { }}
-                        />
-                    </div>
-                )}
+                <div className="relative group">
+                    <RetirementJourneySection
+                        brandColor={brandColor}
+                        featuredVideo={featuredVideo}
+                        retirementVideos={mockVideos}
+                        planningVideos={mockVideos}
+                        onVideoClick={() => { }}
+                        onFeaturedVideoClick={() => { }}
+                        backgroundImage={categoryHeroBg}
+                    />
+                </div>
 
                 <div className="relative group">
                     <HowCanWeHelpSection
@@ -215,25 +250,23 @@ export function BenefitPortalPreview() {
                     />
                 </div>
 
-                {faqs.length > 0 && (
-                    <div
-                        className={cn(
-                            "relative cursor-pointer transition-all duration-200 rounded-lg m-1",
-                            hoveredSection === "faqs" ? "ring-4 ring-blue-500/50" : "hover:ring-4 hover:ring-blue-500/50"
-                        )}
-                        onMouseEnter={() => setHoveredSection("faqs")}
-                        onMouseLeave={() => setHoveredSection(null)}
-                        onClick={() => handleEdit("faqs")}
-                    >
-                        {hoveredSection === "faqs" && <EditPencil />}
-                        <FAQSection
-                            brandColor={brandColor}
-                            secondaryColor={secondaryColor}
-                            faqs={faqs}
-                            contacts={faqContacts}
-                        />
-                    </div>
-                )}
+                <div
+                    className={cn(
+                        "relative cursor-pointer transition-all duration-200 rounded-lg m-1",
+                        hoveredSection === "faqs" ? "ring-4 ring-blue-500/50" : "hover:ring-4 hover:ring-blue-500/50"
+                    )}
+                    onMouseEnter={() => setHoveredSection("faqs")}
+                    onMouseLeave={() => setHoveredSection(null)}
+                    onClick={() => handleEdit("faqs")}
+                >
+                    {hoveredSection === "faqs" && <EditPencil />}
+                    <FAQSection
+                        brandColor={brandColor}
+                        secondaryColor={secondaryColor}
+                        faqs={faqsForCategory}
+                        contacts={faqContacts}
+                    />
+                </div>
 
                 <PortalMaterialsHero brandColor={brandColor} />
 
