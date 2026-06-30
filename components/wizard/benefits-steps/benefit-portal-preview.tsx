@@ -180,7 +180,10 @@ export function BenefitPortalPreview() {
                         customImage={step1Data?.companyLogo?.url}
                         clientData={{
                             companyName: step1Data?.selectedPlan?.companyName || "Your Company",
-                            companyLogo: step1Data?.companyLogo?.url,
+                            // Top-left: use the plan-level Company Logo (not the Step 1 Benefits Logo)
+                            companyLogo: typeof step1Data?.selectedPlan?.companyLogo === 'object'
+                                ? (step1Data?.selectedPlan?.companyLogo as any)?.url
+                                : step1Data?.selectedPlan?.companyLogo,
                             secondaryBannerImg: step1Data?.brandImages?.header?.url,
                         } as any}
                     />

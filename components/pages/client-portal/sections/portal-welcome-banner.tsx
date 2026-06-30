@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { BrandingImage } from "@/components/ui/branding-image";
@@ -17,6 +18,7 @@ interface PortalWelcomeBannerProps {
     companyLogo?: string;
     backgroundImg?: string;
     secondaryBannerImg?: string;
+    employeePortalPreview?: any;
     keyContacts?: {
       fullName?: string;
       name?: string;
@@ -39,7 +41,7 @@ interface PortalWelcomeBannerProps {
   customDescription?: string | string[]; // Can be single string or array of paragraphs
   customClosing?: string;
   customSignature?: string;
-  customImage?: string; // Override contact headshot
+  customImage?: string; // Override right-side Benefits Logo
   customImageAlt?: string;
 }
 
@@ -56,6 +58,17 @@ export function PortalWelcomeBanner({
   customImageAlt,
   category,
 }: PortalWelcomeBannerProps) {
+  // Look up per-category benefit data from employeePortalPreview (saved by Step 1)
+  const categoryBenefit = useMemo(() => {
+    if (!category || !clientData?.employeePortalPreview?.benefits) return null;
+    const benefits = clientData.employeePortalPreview.benefits;
+    const target = category.toLowerCase();
+    return (
+      benefits.find((b: any) => (b.category || "").toLowerCase() === target) ||
+      null
+    );
+  }, [category, clientData?.employeePortalPreview?.benefits]);
+
   let visibleContacts: any[] = [];
 
   if (clientData?.keyContacts) {
@@ -129,18 +142,20 @@ export function PortalWelcomeBanner({
   const signatureCompany =
     primaryContact?.companyName || "Waypoint Financial Advisors";
 
-  const imageUrl =
+  // Right-side Benefits Logo: customImage override → categoryBenefit.partnerLogo (per-category, set in Step 1) → companyLogo (top-level) → null
+  const benefitsLogoUrl =
     customImage ||
-    primaryContact?.headshot ||
-    "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=800&q=80";
+    categoryBenefit?.partnerLogo ||
+    clientData?.companyLogo?.trim() ||
+    null;
 
-  const imageAlt =
+  const benefitsLogoAlt =
     customImageAlt ||
-    primaryContact?.fullName ||
-    primaryContact?.name ||
-    "Advisor";
+    `${clientData?.companyName || "Company"} Benefits Logo`;
 
-  const backgroundRaw = getPortalWelcomeBackgroundUrl(clientData ?? null);
+  // Background image: categoryBenefit.image (Step 1 per-category) → getPortalWelcomeBackgroundUrl chain
+  const categoryBgImage = categoryBenefit?.image || "";
+  const backgroundRaw = categoryBgImage || getPortalWelcomeBackgroundUrl(clientData ?? null);
   const { url: backgroundResolved, loading: backgroundLoading } =
     useBrandingImageUrl(backgroundRaw || null);
   const isR2WelcomeBg = isR2BrandingKey(backgroundRaw);
@@ -159,10 +174,10 @@ export function PortalWelcomeBanner({
     : [description];
 
   if (variant === "health-hub") {
-    // Health Hub variant: dark teal rectangle with embedded photo
+    // Health Hub variant: dark teal rectangle with Benefits Logo on the right
     return (
       <section className="relative mt-10 overflow-hidden">
-        {/* Background: sky and building */}
+        {/* Background image */}
         {isR2WelcomeBg && !background && backgroundLoading ? (
           <div
             className="absolute inset-0 animate-pulse bg-muted/50"
@@ -178,7 +193,7 @@ export function PortalWelcomeBanner({
 
         {/* Content Wrapper */}
         <div className="relative mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
-          {/* Dark teal rectangle overlay */}
+          {/* Dark overlay rectangle */}
           <div className="overflow-hidden border border-white/15 bg-black/40 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, y: 50 }}
@@ -188,7 +203,7 @@ export function PortalWelcomeBanner({
             >
               {/* LEFT: Text content */}
               <div className="px-8 py-10 sm:px-10 lg:px-12 lg:py-12">
-                {/* Logo */}
+                {/* Company Logo (top-left) */}
                 {clientData?.companyLogo ? (
                   <div className="mb-6 inline-flex items-center gap-2 rounded border border-white/30 bg-white/10 px-3 py-2">
                     <BrandingImage
@@ -197,7 +212,7 @@ export function PortalWelcomeBanner({
                       className="h-6 w-auto"
                     />
                     <span className="text-sm font-semibold text-white">
-                      {clientData.companyName || "INTEGRITY"}
+                      {clientData.companyName || "Company"}
                     </span>
                   </div>
                 ) : (
@@ -221,16 +236,23 @@ export function PortalWelcomeBanner({
                 </div>
               </div>
 
-              {/* RIGHT: Embedded photo (contact headshot; may be R2 key) */}
+              {/* RIGHT: Benefits Logo */}
               <div className="relative flex items-center justify-center p-6 lg:p-8">
-                <div className="relative min-h-[280px] w-full overflow-hidden rounded-lg shadow-xl lg:min-h-[320px]">
-                  <BrandingImage
-                    fillContainer
-                    src={imageUrl}
-                    alt={imageAlt}
-                    className="min-h-[280px] w-full lg:min-h-[320px]"
-                  />
-                </div>
+                {benefitsLogoUrl ? (
+                  <div className="relative flex w-full items-center justify-center rounded-lg bg-white/10 p-8 shadow-xl backdrop-blur-sm">
+                    <BrandingImage
+                      src={benefitsLogoUrl}
+                      alt={benefitsLogoAlt}
+                      className="h-auto max-h-40 w-auto max-w-full object-contain"
+                    />
+                  </div>
+                ) : (
+                  <div className="relative flex min-h-[200px] w-full items-center justify-center rounded-lg bg-white/5 shadow-xl">
+                    <span className="text-sm font-semibold tracking-wider text-white/50">
+                      BENEFITS LOGO
+                    </span>
+                  </div>
+                )}
               </div>
             </motion.div>
           </div>
@@ -239,10 +261,10 @@ export function PortalWelcomeBanner({
     );
   }
 
-  // Default variant: current design with glassmorphic card
+  // Default variant: Benefits Logo on the right, background image for the hero
   return (
     <section className="relative overflow-hidden mt-10 text-white">
-      {/* BG */}
+      {/* Background image */}
       {isR2WelcomeBg && !background && backgroundLoading ? (
         <div
           className="absolute inset-0 animate-pulse bg-muted/50"
@@ -269,7 +291,9 @@ export function PortalWelcomeBanner({
           }}
         >
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+            {/* LEFT: Text content */}
             <div className="px-8 py-10 sm:px-12 lg:py-12">
+              {/* Company Logo (top-left) */}
               {clientData?.companyLogo ? (
                 <BrandingImage
                   src={clientData.companyLogo}
@@ -305,15 +329,23 @@ export function PortalWelcomeBanner({
               </div>
             </div>
 
-            <div className="relative flex w-full items-center justify-center">
-              <div className="relative min-h-[280px] w-full max-w-lg overflow-hidden lg:min-h-[320px]">
-                <BrandingImage
-                  fillContainer
-                  src={imageUrl}
-                  alt={imageAlt}
-                  className="min-h-[280px] w-full lg:min-h-[320px]"
-                />
-              </div>
+            {/* RIGHT: Benefits Logo */}
+            <div className="relative flex w-full items-center justify-center p-6 lg:p-8">
+              {benefitsLogoUrl ? (
+                <div className="relative flex w-full items-center justify-center rounded-lg bg-white/10 p-8 shadow-xl backdrop-blur-sm">
+                  <BrandingImage
+                    src={benefitsLogoUrl}
+                    alt={benefitsLogoAlt}
+                    className="h-auto max-h-40 w-auto max-w-full object-contain"
+                  />
+                </div>
+              ) : (
+                <div className="relative flex min-h-[200px] w-full items-center justify-center rounded-lg bg-white/5 shadow-xl">
+                  <span className="text-sm font-semibold tracking-wider text-white/50">
+                    BENEFITS LOGO
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </motion.div>

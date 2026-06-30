@@ -96,7 +96,7 @@ export function BenefitsStep1b() {
                     <PortalWelcomeBanner
                         clientData={clientData as any}
                         customHeadline={step1Data.benefitTitle || step1Data.benefitCategory}
-                        customImage={step1Data.brandImages?.thumbnail?.url || undefined}
+                        customImage={step1Data.companyLogo?.url || undefined}
                     />
                 </div>
             </div>
