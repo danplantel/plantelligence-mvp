@@ -114,9 +114,7 @@ interface RetirementDocumentsAccordionProps {
   brandColor?: string;
   accentColor?: string;
   retirementDocs?: RetirementDocumentItem[];
-  insuranceDocs?: RetirementDocumentItem[];
   mode?: "page" | "embedded" | "editable";
-  showInsuranceSection?: boolean;
   className?: string;
   onEdit?: (doc: RetirementDocumentItem) => void;
   onOrderChange?: (docs: RetirementDocumentItem[]) => void;
@@ -205,44 +203,11 @@ const defaultRetirementDocs: RetirementDocumentItem[] = [
   },
 ];
 
-const defaultInsuranceDocs: RetirementDocumentItem[] = [
-  {
-    id: "life-benefits",
-    title: "Life Insurance Summary",
-    description: "Overview of your life insurance coverage and benefits",
-    href: "#",
-    language: "EN",
-  },
-  {
-    id: "disability-benefits",
-    title: "Disability Benefits Overview",
-    description: "Key features and eligibility for disability coverage",
-    href: "#",
-    language: "EN",
-  },
-  {
-    id: "wellness-program",
-    title: "Wellness Program Guide",
-    description: "Details on wellness resources and incentives",
-    href: "#",
-    language: "EN",
-  },
-  {
-    id: "life-benefits-es",
-    title: "Resumen del Seguro de Vida",
-    description: "Descripción general de la cobertura y beneficios",
-    href: "#",
-    language: "ES",
-  },
-];
-
 export function RetirementDocumentsAccordion({
   brandColor = "#002B5B",
   accentColor = "#E6C47A",
   retirementDocs,
-  insuranceDocs = defaultInsuranceDocs,
   mode = "page",
-  showInsuranceSection = true,
   className = "",
   onEdit,
   onOrderChange,
@@ -280,7 +245,6 @@ export function RetirementDocumentsAccordion({
   };
 
   const [openRetirement, setOpenRetirement] = useState(true);
-  const [openInsurance, setOpenInsurance] = useState(false);
   const [previewDoc, setPreviewDoc] = useState<RetirementDocumentItem | null>(
     null,
   );
@@ -406,11 +370,6 @@ export function RetirementDocumentsAccordion({
   const filteredRetirementDocs = (
     isEditable ? orderedDocs : actualRetirementDocs
   ).filter(
-    (doc) =>
-      normalizePortalDocumentLanguage(doc.language, "EN") === currentLanguage,
-  );
-
-  const filteredInsuranceDocs = insuranceDocs.filter(
     (doc) =>
       normalizePortalDocumentLanguage(doc.language, "EN") === currentLanguage,
   );
@@ -586,71 +545,6 @@ export function RetirementDocumentsAccordion({
                 </div>
               </div>
 
-              {!hideHeader && showInsuranceSection && (
-                <>
-                  <button
-                    type="button"
-                    className="flex w-full items-center justify-between px-6 py-4 border-t dark:bg-gray-800"
-                    onClick={() => setOpenInsurance((prev) => !prev)}
-                    style={{
-                      borderColor: `${accentColor}80`,
-                    }}
-                  >
-                    <span
-                      className="text-[24px] leading-tight font-dm-serif font-semibold"
-                      style={{ color: brandColor }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.color = accentColor;
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.color = brandColor;
-                      }}
-                    >
-                      Insurance Benefit Documents
-                    </span>
-                    {openInsurance ? (
-                      <Minus
-                        className="h-4 w-4"
-                        style={{ color: brandColor }}
-                      />
-                    ) : (
-                      <Plus className="h-4 w-4" style={{ color: brandColor }} />
-                    )}
-                  </button>
-
-                  <div
-                    className={`overflow-hidden transition-all duration-300 ${openInsurance
-                      ? "max-h-[2000px] opacity-100"
-                      : "max-h-0 opacity-0"
-                      }`}
-                  >
-                    <div className="px-6 pb-8 pt-4">
-                      <h3
-                        className="mb-4 text-[20px] leading-tight font-dm-serif font-semibold"
-                        style={{ color: brandColor }}
-                      >
-                        Insurance Benefit Documents
-                      </h3>
-
-                      <DocsGrid
-                        docs={filteredInsuranceDocs}
-                        brandColor={brandColor}
-                        accentColor={accentColor}
-                        onPreview={(doc) => {
-                          setPreviewDoc(doc);
-                          setIsPreviewOpen(true);
-                        }}
-                        onEdit={onEdit}
-                        showMetadata={showMetadata}
-                        editingDocId={editingDocId}
-                        onStartEdit={onStartEdit}
-                        onSaveEdit={onSaveEdit}
-                        onCancelEdit={onCancelEdit}
-                      />
-                    </div>
-                  </div>
-                </>
-              )}
             </div>
           )}
         </div>

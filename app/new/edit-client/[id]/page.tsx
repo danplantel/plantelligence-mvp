@@ -558,9 +558,7 @@ function EditComplianceDocumentsSection({
               <CardContent>
                 <RetirementDocumentsAccordion
                   mode="editable"
-                  showInsuranceSection={false}
                   retirementDocs={documentsPreview}
-                  insuranceDocs={[]}
                   brandColor={primaryColor}
                   accentColor={secondaryColor}
                   language={activeLanguage}

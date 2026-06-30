@@ -633,9 +633,7 @@ export function ComplianceDocumentsSection({
               <CardContent>
                 <RetirementDocumentsAccordion
                   mode="editable"
-                  showInsuranceSection={false}
                   retirementDocs={documentsPreview}
-                  insuranceDocs={[]}
                   brandColor="#002B5B"
                   accentColor="#E6C47A"
                   onEdit={handleEditPreviewDoc}
