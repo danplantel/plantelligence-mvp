@@ -14,14 +14,13 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ChevronRight } from "lucide-react";
-import { DocumentPreviewTab } from "@/components/pages/documents/tabs/document-preview-tab";
 import { DocumentListTab } from "@/components/pages/documents/tabs/document-list-tab";
+import { RetirementDocumentsAccordion, RetirementDocumentItem } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
 import type {
     Document as DocumentsModuleDocument,
     SortColumn,
     SortDirection,
 } from "@/components/pages/documents/types";
-import { RetirementDocumentItem } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
 
 export function BenefitsStep4() {
     const { stepData, saveStepData } = useBenefitsWizardStore();
@@ -39,9 +38,13 @@ export function BenefitsStep4() {
     const [previewLanguage, setPreviewLanguage] = useState<"EN" | "ES">("EN");
     const [selectedLanguage, setSelectedLanguage] = useState<"EN" | "ES">("EN");
 
-    // Colors from step 1
-    const primaryColor = step1Data?.selectedPlan?.brandColors?.primary || "#002B5B";
-    const secondaryColor = step1Data?.selectedPlan?.brandColors?.secondary || "#E6C47A";
+    // Colors from plan — matches portal page pattern (brandColor top-level → brandColors nested)
+    const primaryColor = step1Data?.selectedPlan?.brandColor
+        || step1Data?.selectedPlan?.brandColors?.primary
+        || "#002B5B";
+    const secondaryColor = step1Data?.selectedPlan?.secondaryColor
+        || step1Data?.selectedPlan?.brandColors?.secondary
+        || "#E6C47A";
     const companyName = step1Data?.selectedPlan?.name || "Plan";
 
     const isInitialized = useRef(false);
@@ -340,27 +343,6 @@ export function BenefitsStep4() {
                     <TabsTrigger value="upload">Upload</TabsTrigger>
                 </TabsList>
 
-                {/* Confirm categories + Next to preview banner - when docs uploaded and on list/upload */}
-                {documents.length > 0 && (activeTab === "list" || activeTab === "upload") && (
-                    <Alert className="mt-6 bg-blue-50 border-blue-200 dark:bg-blue-950/60 dark:border-blue-800">
-                        <AlertTitle className="text-blue-900 font-semibold dark:text-blue-100">Documents uploaded</AlertTitle>
-                        <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-2">
-                            <p className="text-blue-800 dark:text-blue-200">
-                                Please confirm document categories, then click Next to preview the Document section.
-                            </p>
-                            <Button
-                                onClick={() => setActiveTab("preview")}
-                                size="sm"
-                                className="shrink-0"
-                                style={{ backgroundColor: primaryColor }}
-                            >
-                                Next
-                                <ChevronRight className="h-4 w-4 ml-1" />
-                            </Button>
-                        </AlertDescription>
-                    </Alert>
-                )}
-
                 <TabsContent value="list" className="mt-6">
                     <DocumentListTab
                         selectedPlan={planId}
@@ -419,26 +401,14 @@ export function BenefitsStep4() {
                         </div>
                     )}
 
-                    {previewDocs.length === 0 ? (
-                        <div className="text-center py-12 border-2 border-dashed rounded-xl bg-gray-50 dark:bg-gray-900/50 dark:border-gray-700">
-                            <p className="text-gray-500 dark:text-gray-400">No documents available to preview for this language.</p>
-                        </div>
-                    ) : (
-                        <DocumentPreviewTab
-                            selectedPlan={planId}
-                            isLoading={false}
-                            documents={previewDocs}
-                            onDelete={handleDelete}
-                            onDownload={(id) => {
-                                const doc = documents.find(d => d.id === id);
-                                if (doc) handleDownload(doc);
-                            }}
-                            onDocumentsChange={() => { }} // Handle via local state
-                            onSaveEdit={handleSaveEdit}
-                            brandColor={primaryColor}
-                            accentColor={secondaryColor}
-                        />
-                    )}
+                    {/* Preview using the same RetirementDocumentsAccordion as the portal pages */}
+                    <RetirementDocumentsAccordion
+                        brandColor={primaryColor}
+                        accentColor={secondaryColor}
+                        retirementDocs={previewDocs}
+                        title={`${benefitCategory || "Plan"} Documents & Forms`}
+                        description={`Access all your important ${(benefitCategory || "plan").toLowerCase()} plan documents, forms, and notices in one convenient location.`}
+                    />
                 </TabsContent>
 
                 <TabsContent value="upload" className="mt-6 space-y-6">

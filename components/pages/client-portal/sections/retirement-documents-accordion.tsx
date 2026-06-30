@@ -1395,7 +1395,7 @@ export function DocsGrid({
               borderWidth: 1,
             }}
           >
-            <CardContent className="flex h-full flex-col items-center px-6 py-8 text-center relative overflow-hidden">
+            <CardContent className="flex min-h-[320px] h-full flex-col items-center px-6 py-8 text-center relative overflow-hidden">
               {/* Delete button - top right corner */}
               {doc.onDelete && (
                 <button
