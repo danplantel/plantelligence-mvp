@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   useBenefitsWizardStore,
   FAQItem,
@@ -93,7 +93,16 @@ export function BenefitsStep3() {
     }
   }, [selectedPlan, step1Data?.planId]);
 
-  const planContacts = localContacts;
+  // Deduplicate contacts by id to prevent duplicate rendering
+  const planContacts = useMemo(() => {
+    const seen = new Set<string>();
+    return localContacts.filter((c: any) => {
+      const id = c.id ?? c.email ?? "";
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+  }, [localContacts]);
 
   if (process.env.NODE_ENV === 'development') {
     // console.log("[Step 3] planContacts:", planContacts, "planId:", step1Data?.planId);
