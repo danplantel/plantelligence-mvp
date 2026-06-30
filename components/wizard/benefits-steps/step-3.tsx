@@ -30,11 +30,20 @@ import {
   GripVertical,
   Save,
   Loader2,
+  Eye,
 } from "lucide-react";
 import { KeyContact } from "@/types/new-client-wizard";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { FAQSection, DynamicFAQItem, FAQContact } from "@/components/faq-section";
 import {
   DndContext,
   closestCenter,
@@ -55,6 +64,7 @@ export function BenefitsStep3() {
   const { stepData, saveStepData } = useBenefitsWizardStore();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [savePending, setSavePending] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const step1Data = stepData.step1;
   const currentStep3Data = stepData.step3 || {
     faqs: [],
@@ -288,203 +298,280 @@ export function BenefitsStep3() {
     saveStepData(3, { ...currentStep3Data, supportContacts: newContacts });
   };
 
-  return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full mx-auto pb-20">
-      {/* FAQ Section */}
-      <Card className="border-none shadow-md overflow-hidden bg-card">
-        <CardHeader className="py-2 border-b bg-gray-50/50 dark:bg-gray-800 dark:border-gray-700">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <HelpCircle className="w-5 h-5 text-accent-blue" />
-              <div>
-                <CardTitle className="text-lg font-bold text-foreground">
-                  Popular Questions (FAQ)
-                </CardTitle>
-                <CardDescription className="text-xs text-muted-foreground">
-                  Manage frequently asked questions for this benefit.
-                </CardDescription>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={handleSaveFaqs}
-                variant="default"
-                size="sm"
-                className="h-8 gap-1.5 px-3 text-xs font-semibold"
-                disabled={savePending}
-              >
-                {savePending ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4" />
-                )}
-                {savePending ? "Saving..." : "Save"}
-              </Button>
-              <Button
-                onClick={addFaq}
-                variant="outline"
-                size="sm"
-                className="h-8 gap-1 px-3 text-xs font-semibold"
-              >
-                <Plus className="w-4 h-4" /> Add Question
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-3">
-          {resolvedFaqs.length === 0 ? (
-            <div className="text-center py-6 bg-gray-50 rounded-lg border border-dashed border-gray-200 dark:bg-gray-800/50 dark:border-gray-700">
-              <HelpCircle className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-1" />
-              <p className="text-xs text-muted-foreground">
-                No questions added yet.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
-              >
-                <SortableContext
-                  items={resolvedFaqs.map((f) => f.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  {resolvedFaqs.map((faq, index) => (
-                    <SortableFaqItem
-                      key={faq.id}
-                      faq={faq}
-                      index={index}
-                      expandedId={expandedId}
-                      toggleExpand={toggleExpand}
-                      updateFaq={updateFaq}
-                      removeFaq={removeFaq}
-                    />
-                  ))}
-                </SortableContext>
-              </DndContext>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+  // Map FAQs and contacts for preview
+  const previewFaqs: DynamicFAQItem[] = useMemo(() =>
+    resolvedFaqs
+      .filter(f => f.enabled && f.question && f.answer)
+      .map(f => ({
+        id: f.id,
+        question: f.question,
+        answer: f.answer,
+        linkLabel: f.linkLabel || undefined,
+        linkHref: f.linkHref && f.linkHref !== "#" ? f.linkHref : undefined,
+      })),
+    [resolvedFaqs],
+  );
 
-      {/* Support Contacts Section */}
-      <Card className="border-none shadow-md overflow-hidden bg-card">
-        <CardHeader className="py-2 border-b bg-gray-50/50 dark:bg-gray-800 dark:border-gray-700">
-          <CardTitle className="text-lg font-bold text-foreground flex items-center gap-2">
-            <Users className="w-5 h-5 text-accent-blue" />
-            Support Contacts
-          </CardTitle>
-          <CardDescription className="text-xs text-muted-foreground">
-            Select one or more contacts for users to reach out to.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-3">
-          <div className="grid grid-cols-1 gap-2">
-            {planContacts.length === 0 ? (
-              <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-200 dark:bg-gray-800/50 dark:border-gray-700">
-                <Users className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground font-medium">No support contacts available.</p>
-                <p className="text-xs text-muted-foreground mt-1">Please add contacts in Step 1 or check your connection.</p>
+  const previewContacts: FAQContact[] | undefined = useMemo(() => {
+    const enabled = currentStep3Data.supportContacts.filter(sc => sc.enabled);
+    if (enabled.length === 0) return undefined;
+    return enabled.map(sc => {
+      const matched = planContacts.find(c => c.id === sc.contactId);
+      return {
+        id: sc.contactId,
+        title: sc.title || matched?.name || `${matched?.firstName ?? ""} ${matched?.lastName ?? ""}`.trim() || "Support Contact",
+        description: sc.description || matched?.customRole || matched?.title || "",
+        email: matched?.email || "",
+        phone: matched?.phone || "",
+        headshot: matched?.headshot || undefined,
+      } as FAQContact;
+    });
+  }, [currentStep3Data.supportContacts, planContacts]);
+
+  const brandColor = step1Data?.selectedPlan?.brandColor
+    || step1Data?.selectedPlan?.brandColors?.primary
+    || "#1F3A60";
+  const secondaryColor = step1Data?.selectedPlan?.secondaryColor
+    || step1Data?.selectedPlan?.brandColors?.secondary
+    || "#6B7280";
+
+  return (
+    <>
+      <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full mx-auto pb-20">
+        {/* FAQ Section */}
+        <Card className="border-none shadow-md overflow-hidden bg-card">
+          <CardHeader className="py-2 border-b bg-gray-50/50 dark:bg-gray-800 dark:border-gray-700">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <HelpCircle className="w-5 h-5 text-accent-blue" />
+                <div>
+                  <CardTitle className="text-lg font-bold text-foreground">
+                    Popular Questions (FAQ)
+                  </CardTitle>
+                  <CardDescription className="text-xs text-muted-foreground">
+                    Manage frequently asked questions for this benefit.
+                  </CardDescription>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
                 <Button
+                  onClick={() => setPreviewOpen(true)}
                   variant="outline"
                   size="sm"
-                  className="mt-4 h-8 text-xs"
-                  onClick={() => useBenefitsWizardStore.getState().goToStep(1)}
+                  className="h-8 gap-1.5 px-3 text-xs font-semibold"
                 >
-                  Go to Step 1 Selection
+                  <Eye className="w-4 h-4" /> Preview
+                </Button>
+                <Button
+                  onClick={handleSaveFaqs}
+                  variant="default"
+                  size="sm"
+                  className="h-8 gap-1.5 px-3 text-xs font-semibold"
+                  disabled={savePending}
+                >
+                  {savePending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  {savePending ? "Saving..." : "Save"}
+                </Button>
+                <Button
+                  onClick={addFaq}
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1 px-3 text-xs font-semibold"
+                >
+                  <Plus className="w-4 h-4" /> Add Question
                 </Button>
               </div>
-            ) : planContacts.map((contact) => {
-              const isSelected = currentStep3Data.supportContacts.some(
-                (sc) => sc.contactId === contact.id,
-              );
-              const supportConfig = currentStep3Data.supportContacts.find(
-                (sc) => sc.contactId === contact.id,
-              );
-
-              return (
-                <div key={contact.id} className="space-y-1.5">
-                  <div
-                    className={`flex items-center p-2 rounded-lg border cursor-pointer transition-all ${isSelected
-                      ? "border-accent-blue bg-accent-blue/[0.02]"
-                      : "border-gray-100 bg-white hover:border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-gray-600"
-                      }`}
-                    onClick={() => toggleContact(contact.id)}
+            </div>
+          </CardHeader>
+          <CardContent className="p-3">
+            {resolvedFaqs.length === 0 ? (
+              <div className="text-center py-6 bg-gray-50 rounded-lg border border-dashed border-gray-200 dark:bg-gray-800/50 dark:border-gray-700">
+                <HelpCircle className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-1" />
+                <p className="text-xs text-muted-foreground">
+                  No questions added yet.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={resolvedFaqs.map((f) => f.id)}
+                    strategy={verticalListSortingStrategy}
                   >
+                    {resolvedFaqs.map((faq, index) => (
+                      <SortableFaqItem
+                        key={faq.id}
+                        faq={faq}
+                        index={index}
+                        expandedId={expandedId}
+                        toggleExpand={toggleExpand}
+                        updateFaq={updateFaq}
+                        removeFaq={removeFaq}
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Support Contacts Section */}
+        <Card className="border-none shadow-md overflow-hidden bg-card">
+          <CardHeader className="py-2 border-b bg-gray-50/50 dark:bg-gray-800 dark:border-gray-700">
+            <CardTitle className="text-lg font-bold text-foreground flex items-center gap-2">
+              <Users className="w-5 h-5 text-accent-blue" />
+              Support Contacts
+            </CardTitle>
+            <CardDescription className="text-xs text-muted-foreground">
+              Select one or more contacts for users to reach out to.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-3">
+            <div className="grid grid-cols-1 gap-2">
+              {planContacts.length === 0 ? (
+                <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-200 dark:bg-gray-800/50 dark:border-gray-700">
+                  <Users className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground font-medium">No support contacts available.</p>
+                  <p className="text-xs text-muted-foreground mt-1">Please add contacts in Step 1 or check your connection.</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-4 h-8 text-xs"
+                    onClick={() => useBenefitsWizardStore.getState().goToStep(1)}
+                  >
+                    Go to Step 1 Selection
+                  </Button>
+                </div>
+              ) : planContacts.map((contact) => {
+                const isSelected = currentStep3Data.supportContacts.some(
+                  (sc) => sc.contactId === contact.id,
+                );
+                const supportConfig = currentStep3Data.supportContacts.find(
+                  (sc) => sc.contactId === contact.id,
+                );
+
+                return (
+                  <div key={contact.id} className="space-y-1.5">
                     <div
-                      className={`w-4 h-4 rounded-full border flex items-center justify-center mr-2.5 transition-colors ${isSelected
-                        ? "bg-accent-blue border-accent-blue text-white"
-                        : "bg-white border-gray-200 dark:bg-gray-700 dark:border-gray-600"
+                      className={`flex items-center p-2 rounded-lg border cursor-pointer transition-all ${isSelected
+                        ? "border-accent-blue bg-accent-blue/[0.02]"
+                        : "border-gray-100 bg-white hover:border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-gray-600"
                         }`}
+                      onClick={() => toggleContact(contact.id)}
                     >
-                      {isSelected && <Check className="w-3.5 h-3.5" />}
+                      <div
+                        className={`w-4 h-4 rounded-full border flex items-center justify-center mr-2.5 transition-colors ${isSelected
+                          ? "bg-accent-blue border-accent-blue text-white"
+                          : "bg-white border-gray-200 dark:bg-gray-700 dark:border-gray-600"
+                          }`}
+                      >
+                        {isSelected && <Check className="w-3.5 h-3.5" />}
+                      </div>
+                      {contact.headshot && (
+                        <div className="w-8 h-8 rounded-full overflow-hidden mr-2.5 border border-gray-100 dark:border-gray-700 shrink-0">
+                          <Headshot src={contact.headshot} alt={contact.name ?? "Contact"} />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-base font-semibold text-foreground leading-tight truncate">
+                          {contact.name ||
+                            `${contact.firstName} ${contact.lastName}`}
+                        </p>
+                        <p className="text-xs text-muted-foreground leading-tight mt-0.5 truncate">
+                          {contact.title || "No Title"}
+                        </p>
+                      </div>
+                      <div className="text-right flex flex-col items-end gap-1 ml-2">
+                        <p className="text-xs text-muted-foreground font-medium leading-none truncate max-w-[150px]">
+                          {contact.email}
+                        </p>
+                        <p className="text-xs text-muted-foreground leading-none">
+                          {contact.phone}
+                        </p>
+                      </div>
                     </div>
-                    {contact.headshot && (
-                      <div className="w-8 h-8 rounded-full overflow-hidden mr-2.5 border border-gray-100 dark:border-gray-700 shrink-0">
-                        <Headshot src={contact.headshot} alt={contact.name ?? "Contact"} />
+
+                    {isSelected && supportConfig && (
+                      <div className="ml-7 p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-2.5 animate-in slide-in-from-top-1 duration-200 dark:bg-gray-800/50 dark:border-gray-700">
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                            Display Title
+                          </Label>
+                          <Input
+                            value={supportConfig.title}
+                            onChange={(e) =>
+                              updateSupportContact(contact.id, {
+                                title: e.target.value,
+                              })
+                            }
+                            placeholder="e.g. Retirement Plan Advisor"
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                            Display Description
+                          </Label>
+                          <Textarea
+                            value={supportConfig.description}
+                            onChange={(e) =>
+                              updateSupportContact(contact.id, {
+                                description: e.target.value,
+                              })
+                            }
+                            placeholder="Short description..."
+                            className="min-h-[50px] text-xs py-1.5"
+                          />
+                        </div>
                       </div>
                     )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-base font-semibold text-foreground leading-tight truncate">
-                        {contact.name ||
-                          `${contact.firstName} ${contact.lastName}`}
-                      </p>
-                      <p className="text-xs text-muted-foreground leading-tight mt-0.5 truncate">
-                        {contact.title || "No Title"}
-                      </p>
-                    </div>
-                    <div className="text-right flex flex-col items-end gap-1 ml-2">
-                      <p className="text-xs text-muted-foreground font-medium leading-none truncate max-w-[150px]">
-                        {contact.email}
-                      </p>
-                      <p className="text-xs text-muted-foreground leading-none">
-                        {contact.phone}
-                      </p>
-                    </div>
                   </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
-                  {isSelected && supportConfig && (
-                    <div className="ml-7 p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-2.5 animate-in slide-in-from-top-1 duration-200 dark:bg-gray-800/50 dark:border-gray-700">
-                      <div className="space-y-1.5">
-                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                          Display Title
-                        </Label>
-                        <Input
-                          value={supportConfig.title}
-                          onChange={(e) =>
-                            updateSupportContact(contact.id, {
-                              title: e.target.value,
-                            })
-                          }
-                          placeholder="e.g. Retirement Plan Advisor"
-                          className="h-8 text-xs"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                          Display Description
-                        </Label>
-                        <Textarea
-                          value={supportConfig.description}
-                          onChange={(e) =>
-                            updateSupportContact(contact.id, {
-                              description: e.target.value,
-                            })
-                          }
-                          placeholder="Short description..."
-                          className="min-h-[50px] text-xs py-1.5"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+      {/* FAQ Preview Modal */}
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>FAQ Preview</DialogTitle>
+            <DialogDescription>
+              This is how the FAQ section will appear on the portal.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto px-1">
+            {previewFaqs.length > 0 ? (
+              <div>
+                <FAQSection
+                  brandColor={brandColor}
+                  secondaryColor={secondaryColor}
+                  faqs={previewFaqs}
+                  contacts={previewContacts}
+                />
+              </div>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                <HelpCircle className="w-10 h-10 mx-auto mb-2 opacity-40" />
+                <p>No enabled FAQs to preview.</p>
+                <p className="text-xs mt-1">Add questions above and ensure they are enabled.</p>
+              </div>
+            )}
           </div>
-        </CardContent>
-      </Card>
-    </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
