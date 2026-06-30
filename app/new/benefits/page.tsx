@@ -423,13 +423,13 @@ function BenefitsPageInner() {
         );
       }
 
+      const categoryName = step1Data?.benefitCategory || "Benefit";
       completeStep(currentStep);
-      toast.success("Benefits creation completed!");
+      toast.success(`${categoryName} benefits created successfully!`);
 
-      // Small delay for the toast to be seen
+      // Small delay for the toast to be seen, then navigate back to Step 1
       setTimeout(() => {
-        resetWizard();
-        window.location.href = `/new/view/${planId}`;
+        useBenefitsWizardStore.getState().goToStep(1);
       }, 1500);
 
     } catch (error: any) {
