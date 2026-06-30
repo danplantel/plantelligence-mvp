@@ -291,7 +291,7 @@ export function BenefitsEditorPanel({
                 >
                     <SectionHeader number={3} title="How Can We Help You Today?" />
                     <p className="text-[13px] text-muted-foreground mb-6">
-                        Customize the three cards that appear in the "How Can We Help You Today?" section.
+                        Customize the three cards that appear in the &ldquo;How Can We Help You Today?&rdquo; section.
                     </p>
                     <Accordion type="multiple" className="space-y-3">
                         {helpCards.map((card) => (
