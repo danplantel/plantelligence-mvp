@@ -31,6 +31,8 @@ import {
 
 export type AssetType = "flyer" | "portal-notice" | "pop-up" | "news-post";
 
+export type PortalNoticeElement = "top-banner" | "pop-up" | "news-post";
+
 export interface QrCodeResult {
   dataUrl: string;
   source: "qrio" | "local";
@@ -160,6 +162,7 @@ export default function MarketingAssetModal({
   const [flyerTemplate, setFlyerTemplate] = useState<FlyerTemplateId>("classic");
 
   // Portal-notice specific
+  const [portalElement, setPortalElement] = useState<PortalNoticeElement | null>(null);
   const [noticeType, setNoticeType] = useState<"text" | "countdown">("text");
   const [countdownTarget, setCountdownTarget] = useState("");
   const [portalCtaUrl, setPortalCtaUrl] = useState("");
@@ -178,7 +181,15 @@ export default function MarketingAssetModal({
   // News post specific
   const [postCategory, setPostCategory] = useState("Announcement");
 
-  const isFlyerLocked = assetType === "flyer" && !selectedMeetingId;
+  /** Resolve the effective asset type — when Portal Notice picks a sub-element,
+   *  "pop-up" and "news-post" map to their own types, while "top-banner" stays as "portal-notice". */
+  const resolvedType: AssetType = useMemo(() => {
+    if (assetType !== "portal-notice" || !portalElement) return assetType;
+    if (portalElement === "top-banner") return "portal-notice";
+    return portalElement; // "pop-up" | "news-post"
+  }, [assetType, portalElement]);
+
+  const isFlyerLocked = resolvedType === "flyer" && !selectedMeetingId;
 
   const selectedMeeting = useMemo(
     () => meetings.find((m) => m.id === selectedMeetingId),
@@ -211,6 +222,7 @@ export default function MarketingAssetModal({
     setPortalCtaUrl("");
     setCtaText("");
     setPostCategory("Announcement");
+    setPortalElement(null);
   }, [open, assetType]);
 
   const handleMeetingSelect = (meetingId: string) => {
@@ -232,11 +244,11 @@ export default function MarketingAssetModal({
   };
 
   const previewHeadline =
-    assetType === "flyer" && !selectedMeeting
+    resolvedType === "flyer" && !selectedMeeting
       ? "Select a meeting below"
       : headline || meta.label;
   const previewBody =
-    assetType === "flyer" && !selectedMeeting
+    resolvedType === "flyer" && !selectedMeeting
       ? "Choose a meeting to populate the flyer content automatically."
       : body || "Your content will appear here…";
 
@@ -280,7 +292,7 @@ export default function MarketingAssetModal({
 
     let resolvedQrDataUrl = flyerQrDataUrl;
     let resolvedQrResult = qrResult;
-    if (assetType === "flyer" && flyerQrUrl.trim() && !flyerQrDataUrl) {
+    if (resolvedType === "flyer" && flyerQrUrl.trim() && !flyerQrDataUrl) {
       try {
         const res = await fetch("/api/marketing/qr/generate", {
           method: "POST",
@@ -305,7 +317,7 @@ export default function MarketingAssetModal({
     }
 
     const data: Record<string, unknown> = {};
-    if (assetType === "flyer") {
+    if (resolvedType === "flyer") {
       data.flyerSubtitle = flyerSubtitle;
       data.meetingTime = meetingTime;
       data.meetingLocation = meetingLocation;
@@ -317,16 +329,16 @@ export default function MarketingAssetModal({
       data.flyerCategory = flyerCategory || null;
       data.flyerTemplate = flyerTemplate;
     }
-    if (assetType === "portal-notice") {
+    if (resolvedType === "portal-notice") {
       data.noticeType = noticeType;
       data.countdownTarget = countdownTarget || null;
       data.portalCtaUrl = portalCtaUrl || null;
     }
-    if (assetType === "pop-up") {
+    if (resolvedType === "pop-up") {
       data.showEveryVisit = showEveryVisit;
       data.popupPages = popupPages;
     }
-    if (assetType === "news-post") {
+    if (resolvedType === "news-post") {
       data.category = postCategory;
     }
 
@@ -336,7 +348,7 @@ export default function MarketingAssetModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           clientId: planId,
-          type: assetType,
+          type: resolvedType,
           status: assetStatus,
           headline: headline || meta.label,
           body,
@@ -355,10 +367,16 @@ export default function MarketingAssetModal({
         return;
       }
 
+      const saveLabel =
+        assetType === "portal-notice" && portalElement
+          ? portalElement === "top-banner"
+            ? ASSET_META["portal-notice"].label
+            : ASSET_META[portalElement as AssetType].label
+          : meta.label;
       onSave?.();
       toast({
-        title: `${meta.label} saved`,
-        description: `"${headline || meta.label}" has been created as ${assetStatus}.`,
+        title: `${saveLabel} saved`,
+        description: `"${headline || saveLabel}" has been created as ${assetStatus}.`,
         className: "border-green-500 bg-green-50 text-green-900 dark:bg-green-950 dark:text-green-100 dark:border-green-800",
       });
     } catch (error) {
@@ -373,6 +391,408 @@ export default function MarketingAssetModal({
     onOpenChange(false);
   };
 
+  // ── Shared form sections used by both the normal view and Portal Notice Slide 2 ──
+  const formSections = (
+    <>
+      {/* Flyer: Design Template selector */}
+      {resolvedType === "flyer" && (
+        <div className="space-y-1.5">
+          <Label htmlFor="flyer-template">Design Template</Label>
+          <Select value={flyerTemplate} onValueChange={(v) => setFlyerTemplate(v as FlyerTemplateId)}>
+            <SelectTrigger id="flyer-template" className="w-full">
+              <SelectValue placeholder="Select a template…" />
+            </SelectTrigger>
+            <SelectContent>
+              {FLYER_TEMPLATES.map((tpl) => (
+                <SelectItem key={tpl.id} value={tpl.id}>
+                  {tpl.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {/* Flyer: Meeting selector */}
+      {resolvedType === "flyer" && (
+        <div className="space-y-1.5">
+          <Label htmlFor="meeting-select">
+            Base meeting <span className="text-red-500">*</span>
+          </Label>
+          <Select value={selectedMeetingId} onValueChange={handleMeetingSelect}>
+            <SelectTrigger id="meeting-select" className="w-full">
+              <SelectValue placeholder="Select a meeting…" />
+            </SelectTrigger>
+            <SelectContent>
+              {meetings.length === 0 && (
+                <div className="px-3 py-4 text-center text-sm text-muted-foreground">
+                  No meetings found for this plan.
+                </div>
+              )}
+              {meetings.map((m) => (
+                <SelectItem key={m.id} value={m.id}>
+                  <span className="flex items-center gap-2">
+                    <span>{m.meeting}</span>
+                    <span className="text-[10px] text-muted-foreground">{formatUsDate(m.date)}</span>
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {selectedMeeting && (
+            <div className="rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground space-y-1 mt-1">
+              <div className="flex items-center gap-1.5">
+                <Calendar className="h-3 w-3" />
+                {formatUsDate(selectedMeeting.date)}
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Clock className="h-3 w-3" />
+                {selectedMeeting.time
+                  ? (() => {
+                      const [h, m] = selectedMeeting.time.split(":").map(Number);
+                      if (!isNaN(h) && !isNaN(m)) {
+                        const ampm = h >= 12 ? "PM" : "AM";
+                        const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+                        return `${h12}:${m.toString().padStart(2, "0")} ${ampm}`;
+                      }
+                      return selectedMeeting.time;
+                    })()
+                  : ""}
+                {selectedMeeting.timezone && ` (${selectedMeeting.timezone})`}
+              </div>
+              {selectedMeeting.format === "In-Person" && selectedMeeting.city && (
+                <div className="flex items-center gap-1.5">
+                  <MapPin className="h-3 w-3" />
+                  {selectedMeeting.city}, {selectedMeeting.state}
+                </div>
+              )}
+              <div className="text-[11px] opacity-70">{selectedMeeting.duration}</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Locked notice */}
+      {resolvedType === "flyer" && isFlyerLocked && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
+          Select a base meeting above to unlock the flyer form fields.
+        </div>
+      )}
+
+      {/* Flyer image upload */}
+      {resolvedType === "flyer" && (
+        <div className="space-y-1.5">
+          <Label htmlFor="flyer-image">
+            Flyer image (optional)
+            <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">(recommended: 1200×630px or similar landscape)</span>
+          </Label>
+          <div className="flex items-center gap-3">
+            <Button type="button" variant="outline" size="sm" disabled={isFlyerLocked} onClick={() => fileInputRef.current?.click()}>
+              {flyerImage ? "Change Image" : "Upload Image"}
+            </Button>
+            {flyerImage && !isFlyerLocked && (
+              <Button type="button" variant="ghost" size="sm" className="text-red-500 hover:text-red-700" onClick={() => setFlyerImage("")}>
+                Remove
+              </Button>
+            )}
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                setFlyerImageLoading(true);
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                  setFlyerImage(ev.target?.result as string);
+                  setFlyerImageLoading(false);
+                };
+                reader.onerror = () => setFlyerImageLoading(false);
+                reader.readAsDataURL(file);
+              }
+            }}
+          />
+          {(flyerImage || flyerImageLoading) && (
+            <div className="mt-1 rounded-lg overflow-hidden border w-32 h-20 relative">
+              {flyerImageLoading ? (
+                <div className="flex items-center justify-center w-full h-full bg-muted">
+                  <svg className="animate-spin h-5 w-5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                </div>
+              ) : (
+                <img src={flyerImage} alt="Flyer preview" className="w-full h-full object-cover" />
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Portal-notice specific */}
+      {resolvedType === "portal-notice" && (
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>Notice type</Label>
+            <div className="flex gap-2">
+              {(["text", "countdown"] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                    noticeType === t
+                      ? "border-gray-900 bg-gray-900 text-white dark:border-gray-100 dark:bg-gray-100 dark:text-gray-900"
+                      : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                  }`}
+                  onClick={() => setNoticeType(t)}
+                >
+                  {t === "text" ? "Text Banner" : "Countdown Banner"}
+                </button>
+              ))}
+            </div>
+          </div>
+          {noticeType === "countdown" && (
+            <div className="space-y-1.5">
+              <Label htmlFor="countdownTarget">Countdown target date/time</Label>
+              <Input id="countdownTarget" type="datetime-local" value={countdownTarget} onChange={(e) => setCountdownTarget(e.target.value)} />
+            </div>
+          )}
+          <div className="space-y-1.5">
+            <Label htmlFor="portalCtaText">Button text (optional)</Label>
+            <Input id="portalCtaText" placeholder="Learn More" value={ctaText} onChange={(e) => setCtaText(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="portalCtaUrl">Button link (optional)</Label>
+            <Input id="portalCtaUrl" placeholder="https://example.com" value={portalCtaUrl} onChange={(e) => setPortalCtaUrl(e.target.value)} />
+          </div>
+        </div>
+      )}
+
+      {/* Pop-up specific */}
+      {resolvedType === "pop-up" && (
+        <div className="space-y-3">
+          <div>
+            <Label className="text-sm font-medium">Show on pages</Label>
+            <p className="text-xs text-muted-foreground mt-0.5">Select which pages this pop-up will appear on.</p>
+          </div>
+          <div className="space-y-2">
+            {POPUP_PAGES.map((page) => (
+              <label key={page.id} className="flex items-center gap-2.5 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={popupPages.includes(page.id)}
+                  onChange={() => {
+                    if (page.id === "all") {
+                      setPopupPages(popupPages.includes("all") ? [] : ["all"]);
+                    } else {
+                      const next = popupPages.filter((p) => p !== "all");
+                      setPopupPages(next.includes(page.id) ? next.filter((p) => p !== page.id) : [...next, page.id]);
+                    }
+                  }}
+                  className="rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                />
+                <span>{page.label}</span>
+              </label>
+            ))}
+          </div>
+          <label className="flex items-center gap-2.5 text-sm cursor-pointer pt-1 border-t border-gray-100 dark:border-gray-800">
+            <input type="checkbox" checked={showEveryVisit} onChange={(e) => setShowEveryVisit(e.target.checked)} className="rounded border-gray-300 text-gray-900 focus:ring-gray-900" />
+            Show on every visit
+          </label>
+        </div>
+      )}
+
+      {/* Headline */}
+      {resolvedType === "flyer" && isFlyerLocked ? (
+        <div className="space-y-1.5 opacity-50 pointer-events-none">
+          <Label htmlFor="headline">Headline</Label>
+          <Input id="headline" placeholder="Select a meeting first…" disabled />
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          <Label htmlFor="headline">Headline</Label>
+          <Input id="headline" placeholder="Enter a headline…" value={headline} onChange={(e) => setHeadline(e.target.value)} />
+        </div>
+      )}
+
+      {/* Flyer subtitle */}
+      {resolvedType === "flyer" && (
+        isFlyerLocked ? (
+          <div className="space-y-1.5 opacity-50 pointer-events-none">
+            <Label htmlFor="subtitle">Subtitle</Label>
+            <Input id="subtitle" placeholder="Select a meeting first…" disabled />
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            <Label htmlFor="subtitle">Subtitle</Label>
+            <Input id="subtitle" placeholder="A short promotional tagline…" value={flyerSubtitle} onChange={(e) => setFlyerSubtitle(e.target.value)} />
+          </div>
+        )
+      )}
+
+      {/* Body */}
+      {resolvedType !== "portal-notice" && (resolvedType === "flyer" && isFlyerLocked ? (
+        <div className="space-y-1.5 opacity-50 pointer-events-none">
+          <Label htmlFor="body">Body text</Label>
+          <Textarea id="body" rows={4} placeholder="Select a meeting first…" disabled />
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="body">Body text</Label>
+            {(resolvedType === "flyer" || resolvedType === "pop-up") && (
+              <span className="text-[11px] text-muted-foreground tabular-nums">
+                {body.length}/{resolvedType === "flyer" ? 680 : 300}
+              </span>
+            )}
+          </div>
+          <Textarea
+            id="body"
+            rows={4}
+            placeholder="Write your message…"
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            maxLength={resolvedType === "flyer" ? 680 : resolvedType === "pop-up" ? 300 : undefined}
+          />
+          {resolvedType === "flyer" && (
+            <p className="text-[11px] text-muted-foreground">
+              Tip: start a line with <kbd className="rounded border bg-muted px-1 font-mono text-[10px]">-</kbd> or <kbd className="rounded border bg-muted px-1 font-mono text-[10px]">*</kbd> to create a bullet point
+            </p>
+          )}
+        </div>
+      ))}
+
+      {/* QR code URL + Generate button */}
+      {resolvedType === "flyer" && (
+        <div className="space-y-1.5">
+          <Label htmlFor="flyerQrUrl">
+            QR code link (optional)
+            <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">(scannable link for the flyer)</span>
+          </Label>
+          <div className="flex items-center gap-2">
+            <Input
+              id="flyerQrUrl"
+              placeholder="https://example.com/registration"
+              value={flyerQrUrl}
+              onChange={(e) => {
+                setFlyerQrUrl(e.target.value);
+                setFlyerQrDataUrl("");
+                setQrResult(null);
+              }}
+              disabled={isFlyerLocked}
+              className="flex-1"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isFlyerLocked || !flyerQrUrl.trim() || qrGenerating}
+              onClick={handleGenerateQr}
+              className="gap-1.5 shrink-0"
+            >
+              {qrGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <QrCode className="h-3.5 w-3.5" />}
+              {qrGenerating ? "Generating…" : "Generate QR"}
+            </Button>
+          </div>
+          {qrResult && (
+            <p className="text-[11px] text-muted-foreground">
+              QR generated via {qrResult.source === "qrio" ? "QR.io" : "local"}
+              {qrResult.qrIoId && (
+                <span className="ml-1 font-mono text-[10px] text-green-600">(ID: {qrResult.qrIoId})</span>
+              )}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Flyer benefit category */}
+      {resolvedType === "flyer" && (
+        <div className="space-y-1.5">
+          <Label htmlFor="flyer-category">Benefit category</Label>
+          <select
+            id="flyer-category"
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            value={flyerCategory}
+            onChange={(e) => setFlyerCategory(e.target.value)}
+            disabled={isFlyerLocked}
+          >
+            <option value="">All Benefits</option>
+            <option value="Retirement">Retirement</option>
+            <option value="Group Health">Group Health</option>
+            <option value="Group Life">Group Life</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+      )}
+
+      {/* Date range — only for non-flyer assets */}
+      {resolvedType !== "flyer" && !(resolvedType === "portal-notice" && noticeType === "countdown") && (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="startDate">Start date</Label>
+            <Input id="startDate" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="endDate">End date</Label>
+            <Input id="endDate" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+          </div>
+        </div>
+      )}
+
+      {/* Accent color */}
+      {resolvedType === "flyer" && isFlyerLocked ? (
+        <div className="space-y-1.5 opacity-50 pointer-events-none">
+          <Label htmlFor="bgColor">Accent color</Label>
+          <div className="flex items-center gap-3">
+            <Input id="bgColor" type="color" className="w-12 h-9 p-1 cursor-pointer" disabled />
+            <span className="text-xs text-muted-foreground font-mono">#23919c</span>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          <Label htmlFor="bgColor">Accent color</Label>
+          <div className="flex items-center gap-3">
+            <Input
+              id="bgColor"
+              type="color"
+              className="w-12 h-9 p-1 cursor-pointer"
+              value={bgColor}
+              onChange={(e) => setBgColor(e.target.value)}
+            />
+            <span className="text-xs text-muted-foreground font-mono">{bgColor}</span>
+          </div>
+        </div>
+      )}
+
+      {/* News post fields */}
+      {resolvedType === "news-post" && (
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="category">Category</Label>
+            <select
+              id="category"
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              value={postCategory}
+              onChange={(e) => setPostCategory(e.target.value)}
+            >
+              <option value="Announcement">Announcement</option>
+              <option value="News">News</option>
+              <option value="Event">Event</option>
+              <option value="Reminder">Reminder</option>
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="ctaText">Button text</Label>
+            <Input id="ctaText" placeholder="Learn More" value={ctaText} onChange={(e) => setCtaText(e.target.value)} />
+          </div>
+        </div>
+      )}
+    </>
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl p-0 flex flex-col max-h-[95vh] [&>button.absolute]:hidden">
@@ -380,8 +800,15 @@ export default function MarketingAssetModal({
         <div className="flex items-center justify-between border-b px-6 py-4 shrink-0">
           <div>
             <DialogTitle className="text-lg font-semibold flex items-center gap-2">
-              <span>{meta.icon}</span>
-              Create {meta.label}
+              {(() => {
+                if (assetType !== "portal-notice" || !portalElement) {
+                  return <><span>{meta.icon}</span>Create {meta.label}</>;
+                }
+                const elMeta = portalElement === "top-banner"
+                  ? ASSET_META["portal-notice"]
+                  : ASSET_META[portalElement as AssetType];
+                return <><span>{elMeta.icon}</span>Create {elMeta.label}</>;
+              })()}
             </DialogTitle>
             <p className="text-sm text-muted-foreground mt-0.5">
               Plan: <span className="font-medium text-foreground">{planName}</span>
@@ -397,402 +824,63 @@ export default function MarketingAssetModal({
         {/* Two-column body */}
         <div className="flex flex-1 overflow-hidden">
           {/* Left Column — Form */}
-          <div className="w-1/2 overflow-y-auto border-r p-6 space-y-5">
-
-            {/* Flyer: Design Template selector */}
-            {assetType === "flyer" && (
-              <div className="space-y-1.5">
-                <Label htmlFor="flyer-template">Design Template</Label>
-                <Select value={flyerTemplate} onValueChange={(v) => setFlyerTemplate(v as FlyerTemplateId)}>
-                  <SelectTrigger id="flyer-template" className="w-full">
-                    <SelectValue placeholder="Select a template…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {FLYER_TEMPLATES.map((tpl) => (
-                      <SelectItem key={tpl.id} value={tpl.id}>
-                        {tpl.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {/* Flyer: Meeting selector */}
-            {assetType === "flyer" && (
-              <div className="space-y-1.5">
-                <Label htmlFor="meeting-select">
-                  Base meeting <span className="text-red-500">*</span>
-                </Label>
-                <Select value={selectedMeetingId} onValueChange={handleMeetingSelect}>
-                  <SelectTrigger id="meeting-select" className="w-full">
-                    <SelectValue placeholder="Select a meeting…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {meetings.length === 0 && (
-                      <div className="px-3 py-4 text-center text-sm text-muted-foreground">
-                        No meetings found for this plan.
-                      </div>
-                    )}
-                    {meetings.map((m) => (
-                      <SelectItem key={m.id} value={m.id}>
-                        <span className="flex items-center gap-2">
-                          <span>{m.meeting}</span>
-                          <span className="text-[10px] text-muted-foreground">{formatUsDate(m.date)}</span>
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {selectedMeeting && (
-                  <div className="rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground space-y-1 mt-1">
-                    <div className="flex items-center gap-1.5">
-                      <Calendar className="h-3 w-3" />
-                      {formatUsDate(selectedMeeting.date)}
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Clock className="h-3 w-3" />
-                      {selectedMeeting.time
-                        ? (() => {
-                            const [h, m] = selectedMeeting.time.split(":").map(Number);
-                            if (!isNaN(h) && !isNaN(m)) {
-                              const ampm = h >= 12 ? "PM" : "AM";
-                              const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-                              return `${h12}:${m.toString().padStart(2, "0")} ${ampm}`;
-                            }
-                            return selectedMeeting.time;
-                          })()
-                        : ""}
-                      {selectedMeeting.timezone && ` (${selectedMeeting.timezone})`}
-                    </div>
-                    {selectedMeeting.format === "In-Person" && selectedMeeting.city && (
-                      <div className="flex items-center gap-1.5">
-                        <MapPin className="h-3 w-3" />
-                        {selectedMeeting.city}, {selectedMeeting.state}
-                      </div>
-                    )}
-                    <div className="text-[11px] opacity-70">{selectedMeeting.duration}</div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Locked notice */}
-            {assetType === "flyer" && isFlyerLocked && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
-                Select a base meeting above to unlock the flyer form fields.
-              </div>
-            )}
-
-            {/* Flyer image upload */}
-            {assetType === "flyer" && (
-              <div className="space-y-1.5">
-                <Label htmlFor="flyer-image">
-                  Flyer image (optional)
-                  <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">(recommended: 1200×630px or similar landscape)</span>
-                </Label>
-                <div className="flex items-center gap-3">
-                  <Button type="button" variant="outline" size="sm" disabled={isFlyerLocked} onClick={() => fileInputRef.current?.click()}>
-                    {flyerImage ? "Change Image" : "Upload Image"}
-                  </Button>
-                  {flyerImage && !isFlyerLocked && (
-                    <Button type="button" variant="ghost" size="sm" className="text-red-500 hover:text-red-700" onClick={() => setFlyerImage("")}>
-                      Remove
-                    </Button>
-                  )}
-                </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      setFlyerImageLoading(true);
-                      const reader = new FileReader();
-                      reader.onload = (ev) => {
-                        setFlyerImage(ev.target?.result as string);
-                        setFlyerImageLoading(false);
-                      };
-                      reader.onerror = () => setFlyerImageLoading(false);
-                      reader.readAsDataURL(file);
-                    }
-                  }}
-                />
-                {(flyerImage || flyerImageLoading) && (
-                  <div className="mt-1 rounded-lg overflow-hidden border w-32 h-20 relative">
-                    {flyerImageLoading ? (
-                      <div className="flex items-center justify-center w-full h-full bg-muted">
-                        <svg className="animate-spin h-5 w-5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                        </svg>
-                      </div>
-                    ) : (
-                      <img src={flyerImage} alt="Flyer preview" className="w-full h-full object-cover" />
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Portal-notice specific */}
-            {assetType === "portal-notice" && (
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label>Notice type</Label>
-                  <div className="flex gap-2">
-                    {(["text", "countdown"] as const).map((t) => (
-                      <button
-                        key={t}
-                        type="button"
-                        className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-                          noticeType === t
-                            ? "border-gray-900 bg-gray-900 text-white dark:border-gray-100 dark:bg-gray-100 dark:text-gray-900"
-                            : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
-                        }`}
-                        onClick={() => setNoticeType(t)}
-                      >
-                        {t === "text" ? "Text Banner" : "Countdown Banner"}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {noticeType === "countdown" && (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="countdownTarget">Countdown target date/time</Label>
-                    <Input id="countdownTarget" type="datetime-local" value={countdownTarget} onChange={(e) => setCountdownTarget(e.target.value)} />
-                  </div>
-                )}
-                <div className="space-y-1.5">
-                  <Label htmlFor="portalCtaText">Button text (optional)</Label>
-                  <Input id="portalCtaText" placeholder="Learn More" value={ctaText} onChange={(e) => setCtaText(e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="portalCtaUrl">Button link (optional)</Label>
-                  <Input id="portalCtaUrl" placeholder="https://example.com" value={portalCtaUrl} onChange={(e) => setPortalCtaUrl(e.target.value)} />
-                </div>
-              </div>
-            )}
-
-            {/* Pop-up specific */}
-            {assetType === "pop-up" && (
-              <div className="space-y-3">
-                <div>
-                  <Label className="text-sm font-medium">Show on pages</Label>
-                  <p className="text-xs text-muted-foreground mt-0.5">Select which pages this pop-up will appear on.</p>
-                </div>
-                <div className="space-y-2">
-                  {POPUP_PAGES.map((page) => (
-                    <label key={page.id} className="flex items-center gap-2.5 text-sm cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={popupPages.includes(page.id)}
-                        onChange={() => {
-                          if (page.id === "all") {
-                            setPopupPages(popupPages.includes("all") ? [] : ["all"]);
-                          } else {
-                            const next = popupPages.filter((p) => p !== "all");
-                            setPopupPages(next.includes(page.id) ? next.filter((p) => p !== page.id) : [...next, page.id]);
-                          }
-                        }}
-                        className="rounded border-gray-300 text-gray-900 focus:ring-gray-900"
-                      />
-                      <span>{page.label}</span>
-                    </label>
-                  ))}
-                </div>
-                <label className="flex items-center gap-2.5 text-sm cursor-pointer pt-1 border-t border-gray-100 dark:border-gray-800">
-                  <input type="checkbox" checked={showEveryVisit} onChange={(e) => setShowEveryVisit(e.target.checked)} className="rounded border-gray-300 text-gray-900 focus:ring-gray-900" />
-                  Show on every visit
-                </label>
-              </div>
-            )}
-
-            {/* Headline */}
-            {assetType === "flyer" && isFlyerLocked ? (
-              <div className="space-y-1.5 opacity-50 pointer-events-none">
-                <Label htmlFor="headline">Headline</Label>
-                <Input id="headline" placeholder="Select a meeting first…" disabled />
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                <Label htmlFor="headline">Headline</Label>
-                <Input id="headline" placeholder="Enter a headline…" value={headline} onChange={(e) => setHeadline(e.target.value)} />
-              </div>
-            )}
-
-            {/* Flyer subtitle */}
-            {assetType === "flyer" && (
-              isFlyerLocked ? (
-                <div className="space-y-1.5 opacity-50 pointer-events-none">
-                  <Label htmlFor="subtitle">Subtitle</Label>
-                  <Input id="subtitle" placeholder="Select a meeting first…" disabled />
-                </div>
-              ) : (
-                <div className="space-y-1.5">
-                  <Label htmlFor="subtitle">Subtitle</Label>
-                  <Input id="subtitle" placeholder="A short promotional tagline…" value={flyerSubtitle} onChange={(e) => setFlyerSubtitle(e.target.value)} />
-                </div>
-              )
-            )}
-
-            {/* Body */}
-            {assetType !== "portal-notice" && (assetType === "flyer" && isFlyerLocked ? (
-              <div className="space-y-1.5 opacity-50 pointer-events-none">
-                <Label htmlFor="body">Body text</Label>
-                <Textarea id="body" rows={4} placeholder="Select a meeting first…" disabled />
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="body">Body text</Label>
-                  {(assetType === "flyer" || assetType === "pop-up") && (
-                    <span className="text-[11px] text-muted-foreground tabular-nums">
-                      {body.length}/{assetType === "flyer" ? 680 : 300}
-                    </span>
-                  )}
-                </div>
-                <Textarea
-                  id="body"
-                  rows={4}
-                  placeholder="Write your message…"
-                  value={body}
-                  onChange={(e) => setBody(e.target.value)}
-                  maxLength={assetType === "flyer" ? 680 : assetType === "pop-up" ? 300 : undefined}
-                />
-                {assetType === "flyer" && (
-                  <p className="text-[11px] text-muted-foreground">
-                    Tip: start a line with <kbd className="rounded border bg-muted px-1 font-mono text-[10px]">-</kbd> or <kbd className="rounded border bg-muted px-1 font-mono text-[10px]">*</kbd> to create a bullet point
-                  </p>
-                )}
-              </div>
-            ))}
-
-            {/* QR code URL + Generate button */}
-            {assetType === "flyer" && (
-              <div className="space-y-1.5">
-                <Label htmlFor="flyerQrUrl">
-                  QR code link (optional)
-                  <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">(scannable link for the flyer)</span>
-                </Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    id="flyerQrUrl"
-                    placeholder="https://example.com/registration"
-                    value={flyerQrUrl}
-                    onChange={(e) => {
-                      setFlyerQrUrl(e.target.value);
-                      setFlyerQrDataUrl("");
-                      setQrResult(null);
-                    }}
-                    disabled={isFlyerLocked}
-                    className="flex-1"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={isFlyerLocked || !flyerQrUrl.trim() || qrGenerating}
-                    onClick={handleGenerateQr}
-                    className="gap-1.5 shrink-0"
-                  >
-                    {qrGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <QrCode className="h-3.5 w-3.5" />}
-                    {qrGenerating ? "Generating…" : "Generate QR"}
-                  </Button>
-                </div>
-                {qrResult && (
-                  <p className="text-[11px] text-muted-foreground">
-                    QR generated via {qrResult.source === "qrio" ? "QR.io" : "local"}
-                    {qrResult.qrIoId && (
-                      <span className="ml-1 font-mono text-[10px] text-green-600">(ID: {qrResult.qrIoId})</span>
-                    )}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Flyer benefit category */}
-            {assetType === "flyer" && (
-              <div className="space-y-1.5">
-                <Label htmlFor="flyer-category">Benefit category</Label>
-                <select
-                  id="flyer-category"
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  value={flyerCategory}
-                  onChange={(e) => setFlyerCategory(e.target.value)}
-                  disabled={isFlyerLocked}
+          <div className="w-1/2 border-r overflow-hidden flex flex-col">
+            {assetType === "portal-notice" ? (
+              <div className="relative flex-1 overflow-hidden">
+                <div
+                  className="flex h-full transition-transform duration-300 ease-in-out"
+                  style={{ transform: portalElement ? "translateX(-100%)" : "translateX(0%)" }}
                 >
-                  <option value="">All Benefits</option>
-                  <option value="Retirement">Retirement</option>
-                  <option value="Group Health">Group Health</option>
-                  <option value="Group Life">Group Life</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-            )}
+                  {/* Slide 1: Sub-element picker */}
+                  <div className="w-full shrink-0 overflow-y-auto p-6 space-y-5">
+                    <div className="space-y-4">
+                      <div>
+                        <Label className="text-sm font-medium">Portal Notice Element</Label>
+                        <p className="text-xs text-muted-foreground mt-0.5">Choose the type of portal notice to create.</p>
+                      </div>
+                      <div className="grid grid-cols-1 gap-3">
+                        {([
+                          { id: "top-banner" as PortalNoticeElement, label: "Top Banner", description: "A short announcement bar on the Benefits Hub.", icon: "📢" },
+                          { id: "pop-up" as PortalNoticeElement, label: "Pop-Up", description: "A message that appears when visiting the Benefits Hub.", icon: "💬" },
+                          { id: "news-post" as PortalNoticeElement, label: "News & Event Post", description: "Publish an update, announcement, or reminder.", icon: "📰" },
+                        ]).map((el) => (
+                          <button
+                            key={el.id}
+                            type="button"
+                            className="flex items-center gap-3 rounded-xl border-2 border-transparent bg-white dark:bg-gray-900 p-4 text-left shadow-sm hover:shadow-md hover:border-[var(--accent-blue)]/40 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--accent-blue)]"
+                            onClick={() => setPortalElement(el.id)}
+                          >
+                            <span className="text-2xl">{el.icon}</span>
+                            <div>
+                              <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{el.label}</h4>
+                              <p className="text-xs text-muted-foreground mt-0.5">{el.description}</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
 
-            {/* Date range — only for non-flyer assets */}
-            {assetType !== "flyer" && !(assetType === "portal-notice" && noticeType === "countdown") && (
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="startDate">Start date</Label>
-                  <Input id="startDate" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="endDate">End date</Label>
-                  <Input id="endDate" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-                </div>
-              </div>
-            )}
-
-            {/* Accent color */}
-            {assetType === "flyer" && isFlyerLocked ? (
-              <div className="space-y-1.5 opacity-50 pointer-events-none">
-                <Label htmlFor="bgColor">Accent color</Label>
-                <div className="flex items-center gap-3">
-                  <Input id="bgColor" type="color" className="w-12 h-9 p-1 cursor-pointer" disabled />
-                  <span className="text-xs text-muted-foreground font-mono">#23919c</span>
+                  {/* Slide 2: Form */}
+                  <div className="w-full shrink-0 overflow-y-auto p-6 space-y-5">
+                    {/* Back button */}
+                    <button
+                      type="button"
+                      onClick={() => setPortalElement(null)}
+                      className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M19 12H5" /><polyline points="12 19 5 12 12 5" />
+                      </svg>
+                      Back
+                    </button>
+                    {formSections}
+                  </div>
                 </div>
               </div>
             ) : (
-              <div className="space-y-1.5">
-                <Label htmlFor="bgColor">Accent color</Label>
-                <div className="flex items-center gap-3">
-                  <Input
-                    id="bgColor"
-                    type="color"
-                    className="w-12 h-9 p-1 cursor-pointer"
-                    value={bgColor}
-                    onChange={(e) => setBgColor(e.target.value)}
-                  />
-                  <span className="text-xs text-muted-foreground font-mono">{bgColor}</span>
-                </div>
-              </div>
-            )}
-
-            {/* News post fields */}
-            {assetType === "news-post" && (
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="category">Category</Label>
-                  <select
-                    id="category"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    value={postCategory}
-                    onChange={(e) => setPostCategory(e.target.value)}
-                  >
-                    <option value="Announcement">Announcement</option>
-                    <option value="News">News</option>
-                    <option value="Event">Event</option>
-                    <option value="Reminder">Reminder</option>
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="ctaText">Button text</Label>
-                  <Input id="ctaText" placeholder="Learn More" value={ctaText} onChange={(e) => setCtaText(e.target.value)} />
-                </div>
+              <div className="overflow-y-auto p-6 space-y-5">
+                {formSections}
               </div>
             )}
           </div>
@@ -808,6 +896,7 @@ export default function MarketingAssetModal({
             <div ref={flyerPreviewRef} className="flex-1 overflow-y-auto p-6 flex items-start justify-center">
               <PreviewPane
                 assetType={assetType}
+                portalElement={portalElement}
                 headline={previewHeadline}
                 body={previewBody}
                 ctaText={ctaText}
@@ -834,7 +923,7 @@ export default function MarketingAssetModal({
         {/* Fixed footer */}
         <div className="flex items-center justify-between gap-3 border-t px-6 py-4 shrink-0">
           <div className="flex items-center gap-3">
-            {assetType === "flyer" && (
+            {resolvedType === "flyer" && (
               <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={isFlyerLocked} className="gap-1.5">
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -864,7 +953,13 @@ export default function MarketingAssetModal({
               {isSaving ? (
                 <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving…</>
               ) : (
-                `Save ${meta.label}`
+                (() => {
+                  if (assetType !== "portal-notice" || !portalElement) return `Save ${meta.label}`;
+                  const btnMeta = portalElement === "top-banner"
+                    ? ASSET_META["portal-notice"]
+                    : ASSET_META[portalElement as AssetType];
+                  return `Save ${btnMeta.label}`;
+                })()
               )}
             </Button>
           </div>
@@ -878,6 +973,7 @@ export default function MarketingAssetModal({
 
 function PreviewPane({
   assetType,
+  portalElement,
   headline,
   body,
   ctaText,
@@ -898,6 +994,7 @@ function PreviewPane({
   portalCtaUrl,
 }: {
   assetType: AssetType;
+  portalElement?: PortalNoticeElement | null;
   headline: string;
   body: string;
   ctaText: string;
@@ -917,7 +1014,14 @@ function PreviewPane({
   countdownTarget?: string;
   portalCtaUrl?: string;
 }) {
-  switch (assetType) {
+  const effectiveType: AssetType =
+    assetType !== "portal-notice" || !portalElement
+      ? assetType
+      : portalElement === "top-banner"
+        ? "portal-notice"
+        : portalElement;
+
+  switch (effectiveType) {
     case "flyer":
       return (
         <FlyerPreview
