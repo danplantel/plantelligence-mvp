@@ -20,6 +20,7 @@ import {
 import { useEffect, useState, useRef } from "react";
 import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
 import { deleteFromR2 } from "@/lib/upload-to-r2";
+import { extractColorsFromImage } from "@/lib/extract-colors-from-image";
 
 const DEFAULT_WELCOME_STATEMENT = `Welcome to <Organization_Name>!
 We consider it a privilege to have been selected by <Client_Name> to represent your 401(k) Savings & Investment Plan. Whether you're just starting your employment journey or are a long-time participant, we share your company's commitment to educating you about the importance of this valuable retirement benefit.
@@ -226,6 +227,17 @@ export function BrandingSetupCard({
               (headshotData as any)?.previewDataUrl;
             const previewSrc = previewDataUrl || (value?.startsWith("data:") ? value : undefined);
             if (previewSrc) {
+              // Extract colors directly from the logo data URL (inline, like
+              // step-1-company-basics.tsx does).  This guarantees colors are
+              // extracted even when the parent does not supply an onLogoPreview
+              // callback (e.g. the Settings page).
+              try {
+                const colors = await extractColorsFromImage(previewSrc);
+                onDataChange("primaryColor", colors.primary);
+                onDataChange("secondaryColor", colors.secondary);
+              } catch {
+                // Non-critical – the user can pick colours manually
+              }
               if (onLogoPreview) {
                 await onLogoPreview(previewSrc);
               }
@@ -244,23 +256,6 @@ export function BrandingSetupCard({
           placeholder="Upload Logo"
           destructive={errorFields.includes("logo")}
         />
-        {data.logoPreviewDataUrl && (
-          <div className="mt-4 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 rounded-lg p-4 flex flex-col items-center justify-center">
-            <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-3">
-              Logo Preview
-            </p>
-            <div className="flex items-center justify-center w-full">
-              <img
-                src={data.logoPreviewDataUrl}
-                alt="Organization Logo"
-                className="max-w-full max-h-40 object-contain"
-                onError={(e) => {
-                  console.error("Failed to load logo image:", e);
-                }}
-              />
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Primary Color */}

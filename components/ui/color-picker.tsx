@@ -45,6 +45,11 @@ function ColorPicker({
 
   const handleColorSelect = (color: string) => {
     setCustomColor(color);
+    // Immediately apply preset color selections so the consumer sees the
+    // change right away.  The old two-step flow (preset → local state only,
+    // then "Select Color" to commit) was confusing — users expected the
+    // color to update the moment they clicked a preset swatch.
+    onChange(color);
   };
 
   const handleCustomColorChange = (color: string) => {
