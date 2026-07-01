@@ -19,6 +19,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import MarketingAssetModal, {
   type AssetType,
+  type PortalNoticeElement,
 } from "@/components/pages/marketing/marketing-asset-modal";
 import {
   buildFlyerSvgFromData,
@@ -486,6 +487,8 @@ export default function MarketingPage() {
   const [selectedPlan, setSelectedPlan] = useState<string>("");
   const [modalOpen, setModalOpen] = useState(false);
   const [activeAssetType, setActiveAssetType] = useState<AssetType>("flyer");
+  const [editingFlyerStep, setEditingFlyerStep] = useState<number | undefined>(undefined);
+  const [editingPortalElement, setEditingPortalElement] = useState<PortalNoticeElement | null | undefined>(undefined);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isDeletingLoading, setIsDeletingLoading] = useState(false);
@@ -877,7 +880,20 @@ export default function MarketingPage() {
                                 Download
                               </button>
                             )}
-                            <button type="button" className="text-xs font-medium text-[var(--accent-blue)] hover:underline shrink-0" onClick={() => { setActiveAssetType(asset.type); setModalOpen(true); }}>Edit</button>
+                            <button type="button" className="text-xs font-medium text-[var(--accent-blue)] hover:underline shrink-0" onClick={() => {
+                              setActiveAssetType(asset.type);
+                              if (asset.type === "flyer") {
+                                setEditingFlyerStep(3);
+                                setEditingPortalElement(undefined);
+                              } else if (asset.type === "portal-notice") {
+                                setEditingPortalElement("top-banner");
+                                setEditingFlyerStep(undefined);
+                              } else {
+                                setEditingFlyerStep(undefined);
+                                setEditingPortalElement(undefined);
+                              }
+                              setModalOpen(true);
+                            }}>Edit</button>
 
                             {deletingId === asset.id ? (
                               <div className="flex items-center gap-1.5">
@@ -947,10 +963,18 @@ export default function MarketingPage() {
         {selectedClient && (
           <MarketingAssetModal
             open={modalOpen}
-            onOpenChange={setModalOpen}
+            onOpenChange={(v) => {
+              setModalOpen(v);
+              if (!v) {
+                setEditingFlyerStep(undefined);
+                setEditingPortalElement(undefined);
+              }
+            }}
             assetType={activeAssetType}
             planName={selectedClient.companyName}
             planId={selectedPlan}
+            initialFlyerStep={editingFlyerStep}
+            initialPortalElement={editingPortalElement}
             onSave={() => {
               mutateAssets();
             }}

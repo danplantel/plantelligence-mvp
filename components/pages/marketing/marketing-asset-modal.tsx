@@ -68,6 +68,10 @@ interface MarketingAssetModalProps {
   planName: string;
   planId: string;
   onSave?: () => void;
+  /** When editing an existing flyer, start at the template/details step */
+  initialFlyerStep?: number;
+  /** When editing an existing portal-notice (top banner), skip the element picker */
+  initialPortalElement?: PortalNoticeElement | null;
 }
 
 interface Meeting {
@@ -121,6 +125,8 @@ export default function MarketingAssetModal({
   planName,
   planId,
   onSave,
+  initialFlyerStep,
+  initialPortalElement,
 }: MarketingAssetModalProps) {
   const { toast } = useToast();
   const meta = ASSET_META[assetType];
@@ -259,6 +265,18 @@ export default function MarketingAssetModal({
     setPortalElement(null);
   }, [open, assetType]);
 
+  // Apply initial values when opening for edit (after reset above)
+  useEffect(() => {
+    if (!open) return;
+    if (initialFlyerStep !== undefined && assetType === "flyer") {
+      setFlyerStep(initialFlyerStep);
+      setFlyerMode("meeting");
+    }
+    if (initialPortalElement !== undefined && assetType === "portal-notice") {
+      setPortalElement(initialPortalElement);
+    }
+  }, [open]); // only when modal opens, not on every re-render
+
   const handleMeetingSelect = (meetingId: string) => {
     setSelectedMeetingId(meetingId);
     const m = meetings.find((x) => x.id === meetingId);
@@ -280,7 +298,7 @@ export default function MarketingAssetModal({
   const previewHeadline =
     resolvedType === "flyer" && flyerMode === "meeting" && !selectedMeeting
       ? "Select a meeting below"
-      : headline || "Flyer Preview";
+      : headline || (resolvedType === "news-post" ? "Post Headline" : "Flyer Preview");
   const previewBody =
     resolvedType === "flyer" && flyerMode === "meeting" && !selectedMeeting
       ? "Choose a meeting to populate the flyer content automatically."
@@ -371,9 +389,11 @@ export default function MarketingAssetModal({
     if (resolvedType === "pop-up") {
       data.showEveryVisit = showEveryVisit;
       data.popupPages = popupPages;
+      data.flyerSubtitle = flyerSubtitle || null;
     }
     if (resolvedType === "news-post") {
       data.category = postCategory;
+      data.flyerSubtitle = flyerSubtitle || null;
     }
 
     try {
@@ -511,7 +531,7 @@ export default function MarketingAssetModal({
                 <p className="text-xs text-muted-foreground mt-1">Choose which category this flyer relates to.</p>
               </div>
               <select
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex h-9 w-full rounded-md border border-input bg-white dark:bg-gray-800 px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 value={flyerCategory}
                 onChange={(e) => setFlyerCategory(e.target.value)}
               >
@@ -618,7 +638,7 @@ export default function MarketingAssetModal({
                 <p className="text-xs text-muted-foreground mt-1">Select the design for your flyer.</p>
               </div>
               <select
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex h-9 w-full rounded-md border border-input bg-white dark:bg-gray-800 px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 value={flyerTemplate}
                 onChange={(e) => setFlyerTemplate(e.target.value)}
               >
@@ -671,6 +691,7 @@ export default function MarketingAssetModal({
             value={body}
             onChange={(e) => setBody(e.target.value)}
             maxLength={680}
+            className="dark:bg-gray-800"
           />
           <p className="text-[11px] text-muted-foreground">
             Tip: start a line with <kbd className="rounded border bg-muted px-1 font-mono text-[10px]">-</kbd> or <kbd className="rounded border bg-muted px-1 font-mono text-[10px]">*</kbd> to create a bullet point
@@ -788,9 +809,13 @@ export default function MarketingAssetModal({
         </div>
       )}
 
-      {/* Portal-notice specific */}
+      {/* Portal-notice specific — Top Banner */}
       {resolvedType === "portal-notice" && (
         <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="pn-headline">Headline</Label>
+            <Input id="pn-headline" placeholder="Enter headline…" value={headline} onChange={(e) => setHeadline(e.target.value)} />
+          </div>
           <div className="space-y-1.5">
             <Label>Notice type</Label>
             <div className="flex gap-2">
@@ -800,7 +825,7 @@ export default function MarketingAssetModal({
                   type="button"
                   className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                     noticeType === t
-                      ? "border-gray-900 bg-gray-900 text-white dark:border-gray-100 dark:bg-gray-100 dark:text-gray-900"
+                      ? "border-gray-900 bg-gray-900 text-white dark:bg-accent-blue dark:text-gray-900"
                       : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
                   }`}
                   onClick={() => setNoticeType(t)}
@@ -830,6 +855,14 @@ export default function MarketingAssetModal({
       {/* Pop-up specific */}
       {resolvedType === "pop-up" && (
         <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="pu-headline">Headline</Label>
+            <Input id="pu-headline" placeholder="Enter headline…" value={headline} onChange={(e) => setHeadline(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="pu-subtitle">Subtitle</Label>
+            <Input id="pu-subtitle" placeholder="A short description…" value={flyerSubtitle} onChange={(e) => setFlyerSubtitle(e.target.value)} />
+          </div>
           <div>
             <Label className="text-sm font-medium">Show on pages</Label>
             <p className="text-xs text-muted-foreground mt-0.5">Select which pages this pop-up will appear on.</p>
@@ -861,25 +894,50 @@ export default function MarketingAssetModal({
         </div>
       )}
 
-      {/* Body — shown for pop-up and news-post only; flyer has its own in the step flow */}
-      {resolvedType !== "portal-notice" && resolvedType !== "flyer" && (
+      {/* Pop-up: Body text */}
+      {resolvedType === "pop-up" && (
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <Label htmlFor="body">Body text</Label>
-            {resolvedType === "pop-up" && (
-              <span className="text-[11px] text-muted-foreground tabular-nums">
-                {body.length}/300
-              </span>
-            )}
+            <span className="text-[11px] text-muted-foreground tabular-nums">{body.length}/300</span>
           </div>
-          <Textarea
-            id="body"
-            rows={4}
-            placeholder="Write your message…"
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            maxLength={resolvedType === "pop-up" ? 300 : undefined}
-          />
+          <Textarea id="body" rows={4} placeholder="Write your message…" value={body} onChange={(e) => setBody(e.target.value)} maxLength={300} className="dark:bg-gray-800" />
+        </div>
+      )}
+
+      {/* News post fields */}
+      {resolvedType === "news-post" && (
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="np-headline">Headline</Label>
+            <Input id="np-headline" placeholder="Enter headline…" value={headline} onChange={(e) => setHeadline(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="np-subtitle">Subtitle</Label>
+            <Input id="np-subtitle" placeholder="A short description…" value={flyerSubtitle} onChange={(e) => setFlyerSubtitle(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="np-body">Body text</Label>
+            <Textarea id="np-body" rows={4} placeholder="Write your message…" value={body} onChange={(e) => setBody(e.target.value)} className="dark:bg-gray-800" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="category">Category</Label>
+            <select
+              id="category"
+              className="flex h-9 w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              value={postCategory}
+              onChange={(e) => setPostCategory(e.target.value)}
+            >
+              <option value="Announcement">Announcement</option>
+              <option value="News">News</option>
+              <option value="Event">Event</option>
+              <option value="Reminder">Reminder</option>
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="ctaText">Button text</Label>
+            <Input id="ctaText" placeholder="Learn More" value={ctaText} onChange={(e) => setCtaText(e.target.value)} />
+          </div>
         </div>
       )}
 
@@ -893,30 +951,6 @@ export default function MarketingAssetModal({
           <div className="space-y-1.5">
             <Label htmlFor="endDate">End date</Label>
             <Input id="endDate" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-          </div>
-        </div>
-      )}
-
-      {/* News post fields */}
-      {resolvedType === "news-post" && (
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="category">Category</Label>
-            <select
-              id="category"
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              value={postCategory}
-              onChange={(e) => setPostCategory(e.target.value)}
-            >
-              <option value="Announcement">Announcement</option>
-              <option value="News">News</option>
-              <option value="Event">Event</option>
-              <option value="Reminder">Reminder</option>
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="ctaText">Button text</Label>
-            <Input id="ctaText" placeholder="Learn More" value={ctaText} onChange={(e) => setCtaText(e.target.value)} />
           </div>
         </div>
       )}
@@ -1071,7 +1105,7 @@ export default function MarketingAssetModal({
             <select
               value={assetStatus}
               onChange={(e) => setAssetStatus(e.target.value as MarketingAssetStatus)}
-              className="h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="h-9 rounded-md border border-input bg-white dark:bg-gray-800 px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               <option value="Draft">Draft</option>
               <option value="Ready for Review">Ready for Review</option>
@@ -1213,9 +1247,9 @@ function PreviewPane({
         />
       );
     case "pop-up":
-      return <PopUpPreview headline={headline} body={body} ctaText={ctaText} bgColor={bgColor} planName={planName} planLogo={planLogo} />;
+      return <PopUpPreview headline={headline} body={body} ctaText={ctaText} bgColor={bgColor} planName={planName} planLogo={planLogo} subtitle={flyerSubtitle} />;
     case "news-post":
-      return <NewsPostPreview headline={headline} body={body} planName={planName} ctaText={ctaText} />;
+      return <NewsPostPreview headline={headline} body={body} planName={planName} ctaText={ctaText} subtitle={flyerSubtitle} />;
   }
 }
 
@@ -1307,11 +1341,6 @@ function NoticePreview({
               {ctaText}
             </span>
           )}
-          {portalCtaUrl && (
-            <span className="text-[11px] text-white/70 underline underline-offset-2 truncate max-w-[100px] hidden sm:inline">
-              {portalCtaUrl}
-            </span>
-          )}
           <button type="button" className="rounded-full p-1 transition-colors hover:bg-white/20">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden="true">
               <path d="M18 6 6 18" /><path d="m6 6 12 12" />
@@ -1332,6 +1361,7 @@ function PopUpPreview({
   bgColor,
   planName,
   planLogo,
+  subtitle,
 }: {
   headline: string;
   body: string;
@@ -1339,6 +1369,7 @@ function PopUpPreview({
   bgColor: string;
   planName?: string;
   planLogo?: string;
+  subtitle?: string;
 }) {
   const { url: resolvedPlanLogo } = useBrandingImageUrl(planLogo);
 
@@ -1363,7 +1394,7 @@ function PopUpPreview({
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
               <h3 className="text-lg font-bold text-gray-900 leading-snug">{headline || "Announcement"}</h3>
-              {planName && <p className="text-xs text-gray-500 mt-0.5">{planName}</p>}
+              {subtitle && <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>}
             </div>
             <div className="h-6 w-6 shrink-0 rounded-full border-2 border-gray-300 flex items-center justify-center text-gray-400 text-xs">✕</div>
           </div>
@@ -1395,11 +1426,13 @@ function NewsPostPreview({
   body,
   planName,
   ctaText,
+  subtitle,
 }: {
   headline: string;
   body: string;
   planName: string;
   ctaText?: string;
+  subtitle?: string;
 }) {
   return (
     <div className="w-full max-w-[520px] group transition-all duration-300 hover:-translate-y-1">
@@ -1407,7 +1440,7 @@ function NewsPostPreview({
         <div className="p-6 space-y-4">
           <div>
             <h3 className="text-lg font-bold text-gray-900 leading-snug">{headline || "Announcement Title"}</h3>
-            {planName && <p className="text-xs text-gray-500 mt-1 font-medium uppercase tracking-wide">{planName}</p>}
+            {subtitle && <p className="text-sm text-gray-600 mt-1">{subtitle}</p>}
           </div>
           {body ? (
             <p className="text-sm text-gray-600 leading-relaxed">{body}</p>
