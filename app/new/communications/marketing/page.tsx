@@ -453,7 +453,7 @@ const PortalNoticeIllustration = () => (
     {/* Notice banner bar */}
     <rect x="3" y="9" width="42" height="6" rx="0" fill="var(--accent-blue)" fillOpacity="0.14" />
     <rect x="3" y="9" width="42" height="6" rx="0" stroke="var(--accent-blue)" strokeWidth="0.6" strokeOpacity="0.3" />
-    <text x="24" y="12.5" textAnchor="middle" fill="var(--accent-blue)" fontSize="2.5" fontWeight="600" fontFamily="system-ui">âš¡ Open Enrollment Now Open</text>
+    <text x="24" y="12.5" textAnchor="middle" fill="var(--accent-blue)" fontSize="2.5" fontWeight="600" fontFamily="system-ui">Open Enrollment Now Open</text>
     {/* Page content */}
     <rect x="7" y="18" width="16" height="2" rx="1" fill="var(--accent-blue)" fillOpacity="0.2" />
     <rect x="7" y="22" width="11" height="1.2" rx="0.6" fill="var(--accent-blue)" fillOpacity="0.1" />
