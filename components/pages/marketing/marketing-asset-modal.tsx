@@ -215,7 +215,7 @@ export default function MarketingAssetModal({
     }
   }, [flyerMode, flyerStep, resolvedType, flyerTemplate]);
 
-  // Apply template defaults whenever user enters step 4 or changes template
+  // Apply template defaults whenever user enters step 3 (template) or changes template
   useEffect(() => {
     if (resolvedType !== "flyer" || flyerStep < 3) return;
     const defaults = flyerMode === "meeting"
@@ -503,8 +503,33 @@ export default function MarketingAssetModal({
             </div>
           )}
 
-          {/* Step 1: Meeting or Topic input */}
-          {flyerStep === 1 && flyerMode === "meeting" && (
+          {/* Step 1: Benefit Category */}
+          {flyerStep === 1 && (
+            <div className="space-y-4">
+              <div>
+                <Label className="text-base font-semibold">Select a benefit category</Label>
+                <p className="text-xs text-muted-foreground mt-1">Choose which category this flyer relates to.</p>
+              </div>
+              <select
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                value={flyerCategory}
+                onChange={(e) => setFlyerCategory(e.target.value)}
+              >
+                <option value="">All Benefits</option>
+                <option value="Retirement">Retirement</option>
+                <option value="Group Health">Group Health</option>
+                <option value="Group Life">Group Life</option>
+                <option value="Other">Other</option>
+              </select>
+              <div className="flex items-center gap-2 pt-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => setFlyerStep(0)}>Back</Button>
+                <Button type="button" size="sm" onClick={() => setFlyerStep(2)}>Next</Button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 2: Meeting or Topic input */}
+          {flyerStep === 2 && flyerMode === "meeting" && (
             <div className="space-y-4">
               <div>
                 <Label className="text-base font-semibold">Select a meeting</Label>
@@ -557,13 +582,13 @@ export default function MarketingAssetModal({
                 </div>
               )}
               <div className="flex items-center gap-2 pt-2">
-                <Button type="button" variant="outline" size="sm" onClick={() => setFlyerStep(0)}>Back</Button>
-                <Button type="button" size="sm" disabled={!selectedMeetingId} onClick={() => setFlyerStep(2)}>Next</Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => setFlyerStep(1)}>Back</Button>
+                <Button type="button" size="sm" disabled={!selectedMeetingId} onClick={() => setFlyerStep(3)}>Next</Button>
               </div>
             </div>
           )}
 
-          {flyerStep === 1 && flyerMode === "topical" && (
+          {flyerStep === 2 && flyerMode === "topical" && (
             <div className="space-y-4">
               <div>
                 <Label className="text-base font-semibold">Enter a topic</Label>
@@ -579,33 +604,8 @@ export default function MarketingAssetModal({
                 }}
               />
               <div className="flex items-center gap-2 pt-2">
-                <Button type="button" variant="outline" size="sm" onClick={() => setFlyerStep(0)}>Back</Button>
-                <Button type="button" size="sm" disabled={!flyerTopic.trim()} onClick={() => setFlyerStep(2)}>Next</Button>
-              </div>
-            </div>
-          )}
-
-          {/* Step 2: Benefit Category */}
-          {flyerStep === 2 && (
-            <div className="space-y-4">
-              <div>
-                <Label className="text-base font-semibold">Select a benefit category</Label>
-                <p className="text-xs text-muted-foreground mt-1">Choose which category this flyer relates to.</p>
-              </div>
-              <select
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                value={flyerCategory}
-                onChange={(e) => setFlyerCategory(e.target.value)}
-              >
-                <option value="">All Benefits</option>
-                <option value="Retirement">Retirement</option>
-                <option value="Group Health">Group Health</option>
-                <option value="Group Life">Group Life</option>
-                <option value="Other">Other</option>
-              </select>
-              <div className="flex items-center gap-2 pt-2">
                 <Button type="button" variant="outline" size="sm" onClick={() => setFlyerStep(1)}>Back</Button>
-                <Button type="button" size="sm" onClick={() => setFlyerStep(3)}>Next</Button>
+                <Button type="button" size="sm" disabled={!flyerTopic.trim()} onClick={() => setFlyerStep(3)}>Next</Button>
               </div>
             </div>
           )}
@@ -1156,7 +1156,7 @@ function PreviewPane({
 
   switch (effectiveType) {
     case "flyer":
-      // Show placeholder flyer during steps 1–3 (before template is finalized)
+      // Show placeholder flyer before template is selected (step 3)
       if (flyerStep !== undefined && flyerStep < 3) {
         return (
           <div className="w-full max-w-[400px] flex flex-col items-center justify-center text-center py-8">
