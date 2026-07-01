@@ -107,6 +107,26 @@ const FLYER_TEMPLATES: { id: FlyerTemplateId; label: string }[] = [
   { id: "event",   label: "Template 4" },
 ];
 
+interface FlyerTemplateDefaults {
+  headline: string;
+  subtitle: string;
+  body: string;
+}
+
+const MEETING_TEMPLATE_DEFAULTS: Record<string, FlyerTemplateDefaults> = {
+  "Template 1": { headline: "MISSING", subtitle: "Your Benefits Overview", body: "Join us to learn more about the benefits available to you." },
+  "Template 2": { headline: "MISSING", subtitle: "Important Update",     body: "We have important information to share about your benefits." },
+  "Template 3": { headline: "MISSING", subtitle: "Benefits Summary",     body: "Here is a summary of the key benefits and what they mean for you." },
+  "Template 4": { headline: "MISSING", subtitle: "Save the Date",        body: "Mark your calendar for this upcoming benefits event." },
+};
+
+const TOPICAL_TEMPLATE_DEFAULTS: Record<string, FlyerTemplateDefaults> = {
+  "Template 1": { headline: "MISSING", subtitle: "Learn more about your topic", body: "Explore this topic to understand how it fits into your overall benefits strategy." },
+  "Template 2": { headline: "MISSING", subtitle: "Topic Spotlight",           body: "We're highlighting this topic because it matters to you and your benefits." },
+  "Template 3": { headline: "MISSING", subtitle: "Topic Overview",            body: "Here's a quick overview of this topic and what you should know." },
+  "Template 4": { headline: "MISSING", subtitle: "Topic Reminder",            body: "Don't forget to review this topic and take action if needed." },
+};
+
 export default function MarketingAssetModal({
   open,
   onOpenChange,
@@ -200,6 +220,20 @@ export default function MarketingAssetModal({
     [meetings, selectedMeetingId],
   );
 
+  // Apply template defaults whenever user enters step 4 or changes template
+  useEffect(() => {
+    if (resolvedType !== "flyer" || flyerStep < 3) return;
+    const templateLabel = FLYER_TEMPLATES.find((t) => t.id === flyerTemplate)?.label;
+    if (!templateLabel) return;
+    const defaults = flyerMode === "meeting"
+      ? MEETING_TEMPLATE_DEFAULTS[templateLabel]
+      : TOPICAL_TEMPLATE_DEFAULTS[templateLabel];
+    if (!defaults) return;
+    setHeadline(defaults.headline);
+    setFlyerSubtitle(defaults.subtitle);
+    setBody(defaults.body);
+  }, [flyerTemplate, flyerStep, flyerMode, resolvedType]);
+
   useEffect(() => {
     setHeadline("");
     setBody("");
@@ -251,11 +285,11 @@ export default function MarketingAssetModal({
   };
 
   const previewHeadline =
-    resolvedType === "flyer" && !selectedMeeting
+    resolvedType === "flyer" && flyerMode === "meeting" && !selectedMeeting
       ? "Select a meeting below"
-      : headline || meta.label;
+      : headline || "Flyer Preview";
   const previewBody =
-    resolvedType === "flyer" && !selectedMeeting
+    resolvedType === "flyer" && flyerMode === "meeting" && !selectedMeeting
       ? "Choose a meeting to populate the flyer content automatically."
       : body || "Your content will appear here…";
 
