@@ -635,8 +635,8 @@ export default function MarketingPage() {
         {selectedPlan && selectedClient && !isLoadingClients && (
         <div className="space-y-4">
           <Accordion type="multiple" defaultValue={["create"]} className="space-y-4">
-            {/* â”€â”€ Create Marketing Asset Accordion â”€â”€ */}
-            <AccordionItem value="create" className="rounded-xl border bg-white dark:bg-gray-900 dark:border-gray-700 shadow-sm">
+            {/* Create Marketing Asset Accordion */}
+            <AccordionItem value="create" className="rounded-xl border bg-white dark:bg-gray-800 dark:border-gray-700 shadow-sm">
               <AccordionTrigger className="px-5 py-3 hover:no-underline [&[data-state=open]>svg]:rotate-180">
                 <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                   <svg className="h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -652,7 +652,7 @@ export default function MarketingPage() {
                     <button
                       key={option.id}
                       type="button"
-                      className="group relative flex flex-col items-center text-center rounded-2xl border-2 border-transparent bg-white dark:bg-gray-900 shadow-sm hover:shadow-xl hover:border-[var(--accent-blue)]/40 transition-all duration-300 ease-out hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--accent-blue)] overflow-hidden"
+                      className="group relative flex flex-col items-center text-center rounded-2xl border-2 border-transparent bg-white dark:bg-gray-800 shadow-sm hover:shadow-xl hover:border-[var(--accent-blue)]/40 transition-all duration-300 ease-out hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--accent-blue)] overflow-hidden"
                       onClick={() => {
                         setActiveAssetType(option.id as AssetType);
                         setModalOpen(true);
@@ -683,7 +683,7 @@ export default function MarketingPage() {
             </AccordionItem>
 
             {/* Edit Marketing Assets Accordion */}
-            <AccordionItem value="edit" className="rounded-xl border bg-white dark:bg-gray-900 dark:border-gray-700 shadow-sm">
+            <AccordionItem value="edit" className="rounded-xl border bg-white dark:bg-gray-800 dark:border-gray-700 shadow-sm">
               <AccordionTrigger className="px-5 py-3 hover:no-underline [&[data-state=open]>svg]:rotate-180">
                 <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                   <svg className="h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -716,7 +716,7 @@ export default function MarketingPage() {
                 ) : hasAssets ? (
                   <>
                     {savedAssets.length > 0 && (
-                      <div className="flex items-center gap-1.5 px-5 py-2.5 border-b bg-white dark:bg-gray-900 overflow-x-auto">
+                      <div className="flex items-center gap-1.5 px-5 py-2.5 border-b bg-white dark:bg-gray-800 overflow-x-auto">
                         <Checkbox
                           checked={filteredAssets.length > 0 && selectedAssets.size === filteredAssets.length}
                           onCheckedChange={() => toggleSelectAll()}
@@ -943,7 +943,7 @@ export default function MarketingPage() {
           </div>
         )}
 
-        {/* â”€â”€ Marketing Asset Creation Modal â”€â”€ */}
+        {/* Marketing Asset Creation Modal */}
         {selectedClient && (
           <MarketingAssetModal
             open={modalOpen}
