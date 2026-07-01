@@ -24,6 +24,7 @@ import {
 import { X, Eye, Calendar, Clock, MapPin, QrCode, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { formatUsDate } from "@/lib/date";
+import { cn } from "@/lib/utils";
 import {
   FlyerPreview,
   type FlyerTemplateId,
@@ -143,6 +144,9 @@ export default function MarketingAssetModal({
   const [ctaText, setCtaText] = useState("");
 
   // Flyer-specific
+  const [flyerStep, setFlyerStep] = useState(0);
+  const [flyerMode, setFlyerMode] = useState<"meeting" | "topical" | null>(null);
+  const [flyerTopic, setFlyerTopic] = useState("");
   const [flyerSubtitle, setFlyerSubtitle] = useState("");
   const [meetingTime, setMeetingTime] = useState("");
   const [meetingPlatform, setMeetingPlatform] = useState("");
@@ -189,7 +193,7 @@ export default function MarketingAssetModal({
     return portalElement; // "pop-up" | "news-post"
   }, [assetType, portalElement]);
 
-  const isFlyerLocked = resolvedType === "flyer" && !selectedMeetingId;
+  const isFlyerLocked = resolvedType === "flyer" && flyerMode === "meeting" && !selectedMeetingId;
 
   const selectedMeeting = useMemo(
     () => meetings.find((m) => m.id === selectedMeetingId),
@@ -202,6 +206,9 @@ export default function MarketingAssetModal({
     setStartDate("");
     setEndDate("");
     setBgColor("#23919c");
+    setFlyerStep(0);
+    setFlyerMode(null);
+    setFlyerTopic("");
     setFlyerSubtitle("");
     setMeetingTime("");
     setMeetingPlatform("");
@@ -394,61 +401,115 @@ export default function MarketingAssetModal({
   // ── Shared form sections used by both the normal view and Portal Notice Slide 2 ──
   const formSections = (
     <>
-      {/* Flyer: Design Template selector */}
+      {/* ── Flyer: Typeform-style step flow ── */}
       {resolvedType === "flyer" && (
-        <div className="space-y-1.5">
-          <Label htmlFor="flyer-template">Design Template</Label>
-          <Select value={flyerTemplate} onValueChange={(v) => setFlyerTemplate(v as FlyerTemplateId)}>
-            <SelectTrigger id="flyer-template" className="w-full">
-              <SelectValue placeholder="Select a template…" />
-            </SelectTrigger>
-            <SelectContent>
-              {FLYER_TEMPLATES.map((tpl) => (
-                <SelectItem key={tpl.id} value={tpl.id}>
-                  {tpl.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-
-      {/* Flyer: Meeting selector */}
-      {resolvedType === "flyer" && (
-        <div className="space-y-1.5">
-          <Label htmlFor="meeting-select">
-            Base meeting <span className="text-red-500">*</span>
-          </Label>
-          <Select value={selectedMeetingId} onValueChange={handleMeetingSelect}>
-            <SelectTrigger id="meeting-select" className="w-full">
-              <SelectValue placeholder="Select a meeting…" />
-            </SelectTrigger>
-            <SelectContent>
-              {meetings.length === 0 && (
-                <div className="px-3 py-4 text-center text-sm text-muted-foreground">
-                  No meetings found for this plan.
+        <div className="space-y-6">
+          {/* Progress indicator */}
+          <div className="flex items-center gap-2">
+            {[0, 1, 2, 3].map((step) => (
+              <div key={step} className="flex items-center gap-2">
+                <div
+                  className={cn(
+                    "flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-colors",
+                    flyerStep === step
+                      ? "bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900"
+                      : flyerStep > step
+                        ? "bg-green-500 text-white"
+                        : "bg-gray-200 text-gray-400 dark:bg-gray-700"
+                  )}
+                >
+                  {flyerStep > step ? "✓" : step + 1}
                 </div>
-              )}
-              {meetings.map((m) => (
-                <SelectItem key={m.id} value={m.id}>
-                  <span className="flex items-center gap-2">
-                    <span>{m.meeting}</span>
-                    <span className="text-[10px] text-muted-foreground">{formatUsDate(m.date)}</span>
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {selectedMeeting && (
-            <div className="rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground space-y-1 mt-1">
-              <div className="flex items-center gap-1.5">
-                <Calendar className="h-3 w-3" />
-                {formatUsDate(selectedMeeting.date)}
+                {step < 3 && (
+                  <div
+                    className={cn(
+                      "h-0.5 w-6 transition-colors",
+                      flyerStep > step ? "bg-green-500" : "bg-gray-200 dark:bg-gray-700"
+                    )}
+                  />
+                )}
               </div>
-              <div className="flex items-center gap-1.5">
-                <Clock className="h-3 w-3" />
-                {selectedMeeting.time
-                  ? (() => {
+            ))}
+          </div>
+
+          {/* Step 0: Meeting Based or Topical */}
+          {flyerStep === 0 && (
+            <div className="space-y-4">
+              <div>
+                <Label className="text-base font-semibold">What kind of flyer?</Label>
+                <p className="text-xs text-muted-foreground mt-1">Choose how you'd like to create your flyer.</p>
+              </div>
+              <div className="grid grid-cols-1 gap-3">
+                <button
+                  type="button"
+                  className={cn(
+                    "flex items-center gap-3 rounded-xl border-2 p-4 text-left transition-all duration-200",
+                    flyerMode === "meeting"
+                      ? "border-[var(--accent-blue)] bg-[var(--accent-blue)]/5"
+                      : "border-transparent bg-white dark:bg-gray-900 shadow-sm hover:shadow-md hover:border-[var(--accent-blue)]/40"
+                  )}
+                  onClick={() => { setFlyerMode("meeting"); setFlyerStep(1); }}
+                >
+                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-lg">📅</span>
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Meeting Based</h4>
+                    <p className="text-xs text-muted-foreground mt-0.5">Auto-populate from an existing meeting.</p>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  className={cn(
+                    "flex items-center gap-3 rounded-xl border-2 p-4 text-left transition-all duration-200",
+                    flyerMode === "topical"
+                      ? "border-[var(--accent-blue)] bg-[var(--accent-blue)]/5"
+                      : "border-transparent bg-white dark:bg-gray-900 shadow-sm hover:shadow-md hover:border-[var(--accent-blue)]/40"
+                  )}
+                  onClick={() => { setFlyerMode("topical"); setFlyerStep(1); }}
+                >
+                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 text-lg">📝</span>
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Topical Flyer</h4>
+                    <p className="text-xs text-muted-foreground mt-0.5">Create a flyer around a specific topic.</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 1: Meeting or Topic input */}
+          {flyerStep === 1 && flyerMode === "meeting" && (
+            <div className="space-y-4">
+              <div>
+                <Label className="text-base font-semibold">Select a meeting</Label>
+                <p className="text-xs text-muted-foreground mt-1">Choose the meeting to base your flyer on.</p>
+              </div>
+              <Select value={selectedMeetingId} onValueChange={(v) => { handleMeetingSelect(v); }}>
+                <SelectTrigger id="meeting-select" className="w-full">
+                  <SelectValue placeholder="Select a meeting…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {meetings.length === 0 && (
+                    <div className="px-3 py-4 text-center text-sm text-muted-foreground">No meetings found for this plan.</div>
+                  )}
+                  {meetings.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      <span className="flex items-center gap-2">
+                        <span>{m.meeting}</span>
+                        <span className="text-[10px] text-muted-foreground">{formatUsDate(m.date)}</span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedMeeting && (
+                <div className="rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="h-3 w-3" />
+                    {formatUsDate(selectedMeeting.date)}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="h-3 w-3" />
+                    {selectedMeeting.time ? (() => {
                       const [h, m] = selectedMeeting.time.split(":").map(Number);
                       if (!isNaN(h) && !isNaN(m)) {
                         const ampm = h >= 12 ? "PM" : "AM";
@@ -456,41 +517,150 @@ export default function MarketingAssetModal({
                         return `${h12}:${m.toString().padStart(2, "0")} ${ampm}`;
                       }
                       return selectedMeeting.time;
-                    })()
-                  : ""}
-                {selectedMeeting.timezone && ` (${selectedMeeting.timezone})`}
-              </div>
-              {selectedMeeting.format === "In-Person" && selectedMeeting.city && (
-                <div className="flex items-center gap-1.5">
-                  <MapPin className="h-3 w-3" />
-                  {selectedMeeting.city}, {selectedMeeting.state}
+                    })() : ""}
+                    {selectedMeeting.timezone && ` (${selectedMeeting.timezone})`}
+                  </div>
+                  {selectedMeeting.format === "In-Person" && selectedMeeting.city && (
+                    <div className="flex items-center gap-1.5">
+                      <MapPin className="h-3 w-3" />
+                      {selectedMeeting.city}, {selectedMeeting.state}
+                    </div>
+                  )}
+                  <div className="text-[11px] opacity-70">{selectedMeeting.duration}</div>
                 </div>
               )}
-              <div className="text-[11px] opacity-70">{selectedMeeting.duration}</div>
+              <div className="flex items-center gap-2 pt-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => setFlyerStep(0)}>Back</Button>
+                <Button type="button" size="sm" disabled={!selectedMeetingId} onClick={() => setFlyerStep(2)}>Next</Button>
+              </div>
+            </div>
+          )}
+
+          {flyerStep === 1 && flyerMode === "topical" && (
+            <div className="space-y-4">
+              <div>
+                <Label className="text-base font-semibold">Enter a topic</Label>
+                <p className="text-xs text-muted-foreground mt-1">What is this flyer about?</p>
+              </div>
+              <Input
+                placeholder="e.g. Open Enrollment, Retirement Planning, Health Benefits…"
+                value={flyerTopic}
+                onChange={(e) => {
+                  setFlyerTopic(e.target.value);
+                  setHeadline(e.target.value);
+                  setFlyerSubtitle(`Learn more about ${e.target.value}`);
+                }}
+              />
+              <div className="flex items-center gap-2 pt-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => setFlyerStep(0)}>Back</Button>
+                <Button type="button" size="sm" disabled={!flyerTopic.trim()} onClick={() => setFlyerStep(2)}>Next</Button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 2: Benefit Category */}
+          {flyerStep === 2 && (
+            <div className="space-y-4">
+              <div>
+                <Label className="text-base font-semibold">Select a benefit category</Label>
+                <p className="text-xs text-muted-foreground mt-1">Choose which category this flyer relates to.</p>
+              </div>
+              <select
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                value={flyerCategory}
+                onChange={(e) => setFlyerCategory(e.target.value)}
+              >
+                <option value="">All Benefits</option>
+                <option value="Retirement">Retirement</option>
+                <option value="Group Health">Group Health</option>
+                <option value="Group Life">Group Life</option>
+                <option value="Other">Other</option>
+              </select>
+              <div className="flex items-center gap-2 pt-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => setFlyerStep(1)}>Back</Button>
+                <Button type="button" size="sm" onClick={() => setFlyerStep(3)}>Next</Button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Template */}
+          {flyerStep === 3 && (
+            <div className="space-y-4">
+              <div>
+                <Label className="text-base font-semibold">Choose a template</Label>
+                <p className="text-xs text-muted-foreground mt-1">Select the design for your flyer.</p>
+              </div>
+              <Select value={flyerTemplate} onValueChange={(v) => setFlyerTemplate(v as FlyerTemplateId)}>
+                <SelectTrigger id="flyer-template" className="w-full">
+                  <SelectValue placeholder="Select a template…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {FLYER_TEMPLATES.map((tpl) => (
+                    <SelectItem key={tpl.id} value={tpl.id}>
+                      {tpl.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="flex items-center gap-2 pt-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => setFlyerStep(2)}>Back</Button>
+              </div>
             </div>
           )}
         </div>
       )}
 
-      {/* Locked notice */}
-      {resolvedType === "flyer" && isFlyerLocked && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
-          Select a base meeting above to unlock the flyer form fields.
+      {/* Flyer: Headline (auto-populated from meeting/topic) */}
+      {resolvedType === "flyer" && (
+        flyerStep < 3 ? null : (
+          <div className="space-y-1.5">
+            <Label htmlFor="headline">Headline</Label>
+            <Input id="headline" placeholder="Enter a headline…" value={headline} onChange={(e) => setHeadline(e.target.value)} />
+          </div>
+        )
+      )}
+
+      {/* Flyer subtitle */}
+      {resolvedType === "flyer" && flyerStep >= 3 && (
+        <div className="space-y-1.5">
+          <Label htmlFor="subtitle">Subtitle</Label>
+          <Input id="subtitle" placeholder="A short promotional tagline…" value={flyerSubtitle} onChange={(e) => setFlyerSubtitle(e.target.value)} />
+        </div>
+      )}
+
+      {/* Flyer body */}
+      {resolvedType === "flyer" && flyerStep >= 3 && (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="body">Body text</Label>
+            <span className="text-[11px] text-muted-foreground tabular-nums">{body.length}/680</span>
+          </div>
+          <Textarea
+            id="body"
+            rows={4}
+            placeholder="Write your message…"
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            maxLength={680}
+          />
+          <p className="text-[11px] text-muted-foreground">
+            Tip: start a line with <kbd className="rounded border bg-muted px-1 font-mono text-[10px]">-</kbd> or <kbd className="rounded border bg-muted px-1 font-mono text-[10px]">*</kbd> to create a bullet point
+          </p>
         </div>
       )}
 
       {/* Flyer image upload */}
-      {resolvedType === "flyer" && (
+      {resolvedType === "flyer" && flyerStep >= 3 && (
         <div className="space-y-1.5">
           <Label htmlFor="flyer-image">
             Flyer image (optional)
             <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">(recommended: 1200×630px or similar landscape)</span>
           </Label>
           <div className="flex items-center gap-3">
-            <Button type="button" variant="outline" size="sm" disabled={isFlyerLocked} onClick={() => fileInputRef.current?.click()}>
+            <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
               {flyerImage ? "Change Image" : "Upload Image"}
             </Button>
-            {flyerImage && !isFlyerLocked && (
+            {flyerImage && (
               <Button type="button" variant="ghost" size="sm" className="text-red-500 hover:text-red-700" onClick={() => setFlyerImage("")}>
                 Remove
               </Button>
@@ -529,6 +699,63 @@ export default function MarketingAssetModal({
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Flyer: QR code */}
+      {resolvedType === "flyer" && flyerStep >= 3 && (
+        <div className="space-y-1.5">
+          <Label htmlFor="flyerQrUrl">
+            QR code link (optional)
+            <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">(scannable link for the flyer)</span>
+          </Label>
+          <div className="flex items-center gap-2">
+            <Input
+              id="flyerQrUrl"
+              placeholder="https://example.com/registration"
+              value={flyerQrUrl}
+              onChange={(e) => {
+                setFlyerQrUrl(e.target.value);
+                setFlyerQrDataUrl("");
+                setQrResult(null);
+              }}
+              className="flex-1"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!flyerQrUrl.trim() || qrGenerating}
+              onClick={handleGenerateQr}
+              className="gap-1.5 shrink-0"
+            >
+              {qrGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <QrCode className="h-3.5 w-3.5" />}
+              {qrGenerating ? "Generating…" : "Generate QR"}
+            </Button>
+          </div>
+          {qrResult && (
+            <p className="text-[11px] text-muted-foreground">
+              QR generated via {qrResult.source === "qrio" ? "QR.io" : "local"}
+              {qrResult.qrIoId && <span className="ml-1 font-mono text-[10px] text-green-600">(ID: {qrResult.qrIoId})</span>}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Flyer: Accent color */}
+      {resolvedType === "flyer" && flyerStep >= 3 && (
+        <div className="space-y-1.5">
+          <Label htmlFor="bgColor">Accent color</Label>
+          <div className="flex items-center gap-3">
+            <Input
+              id="bgColor"
+              type="color"
+              className="w-12 h-9 p-1 cursor-pointer"
+              value={bgColor}
+              onChange={(e) => setBgColor(e.target.value)}
+            />
+            <span className="text-xs text-muted-foreground font-mono">{bgColor}</span>
+          </div>
         </div>
       )}
 
@@ -605,47 +832,14 @@ export default function MarketingAssetModal({
         </div>
       )}
 
-      {/* Headline */}
-      {resolvedType === "flyer" && isFlyerLocked ? (
-        <div className="space-y-1.5 opacity-50 pointer-events-none">
-          <Label htmlFor="headline">Headline</Label>
-          <Input id="headline" placeholder="Select a meeting first…" disabled />
-        </div>
-      ) : (
-        <div className="space-y-1.5">
-          <Label htmlFor="headline">Headline</Label>
-          <Input id="headline" placeholder="Enter a headline…" value={headline} onChange={(e) => setHeadline(e.target.value)} />
-        </div>
-      )}
-
-      {/* Flyer subtitle */}
-      {resolvedType === "flyer" && (
-        isFlyerLocked ? (
-          <div className="space-y-1.5 opacity-50 pointer-events-none">
-            <Label htmlFor="subtitle">Subtitle</Label>
-            <Input id="subtitle" placeholder="Select a meeting first…" disabled />
-          </div>
-        ) : (
-          <div className="space-y-1.5">
-            <Label htmlFor="subtitle">Subtitle</Label>
-            <Input id="subtitle" placeholder="A short promotional tagline…" value={flyerSubtitle} onChange={(e) => setFlyerSubtitle(e.target.value)} />
-          </div>
-        )
-      )}
-
-      {/* Body */}
-      {resolvedType !== "portal-notice" && (resolvedType === "flyer" && isFlyerLocked ? (
-        <div className="space-y-1.5 opacity-50 pointer-events-none">
-          <Label htmlFor="body">Body text</Label>
-          <Textarea id="body" rows={4} placeholder="Select a meeting first…" disabled />
-        </div>
-      ) : (
+      {/* Body — shown for pop-up and news-post only; flyer has its own in the step flow */}
+      {resolvedType !== "portal-notice" && resolvedType !== "flyer" && (
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <Label htmlFor="body">Body text</Label>
-            {(resolvedType === "flyer" || resolvedType === "pop-up") && (
+            {resolvedType === "pop-up" && (
               <span className="text-[11px] text-muted-foreground tabular-nums">
-                {body.length}/{resolvedType === "flyer" ? 680 : 300}
+                {body.length}/300
               </span>
             )}
           </div>
@@ -655,76 +849,8 @@ export default function MarketingAssetModal({
             placeholder="Write your message…"
             value={body}
             onChange={(e) => setBody(e.target.value)}
-            maxLength={resolvedType === "flyer" ? 680 : resolvedType === "pop-up" ? 300 : undefined}
+            maxLength={resolvedType === "pop-up" ? 300 : undefined}
           />
-          {resolvedType === "flyer" && (
-            <p className="text-[11px] text-muted-foreground">
-              Tip: start a line with <kbd className="rounded border bg-muted px-1 font-mono text-[10px]">-</kbd> or <kbd className="rounded border bg-muted px-1 font-mono text-[10px]">*</kbd> to create a bullet point
-            </p>
-          )}
-        </div>
-      ))}
-
-      {/* QR code URL + Generate button */}
-      {resolvedType === "flyer" && (
-        <div className="space-y-1.5">
-          <Label htmlFor="flyerQrUrl">
-            QR code link (optional)
-            <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">(scannable link for the flyer)</span>
-          </Label>
-          <div className="flex items-center gap-2">
-            <Input
-              id="flyerQrUrl"
-              placeholder="https://example.com/registration"
-              value={flyerQrUrl}
-              onChange={(e) => {
-                setFlyerQrUrl(e.target.value);
-                setFlyerQrDataUrl("");
-                setQrResult(null);
-              }}
-              disabled={isFlyerLocked}
-              className="flex-1"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={isFlyerLocked || !flyerQrUrl.trim() || qrGenerating}
-              onClick={handleGenerateQr}
-              className="gap-1.5 shrink-0"
-            >
-              {qrGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <QrCode className="h-3.5 w-3.5" />}
-              {qrGenerating ? "Generating…" : "Generate QR"}
-            </Button>
-          </div>
-          {qrResult && (
-            <p className="text-[11px] text-muted-foreground">
-              QR generated via {qrResult.source === "qrio" ? "QR.io" : "local"}
-              {qrResult.qrIoId && (
-                <span className="ml-1 font-mono text-[10px] text-green-600">(ID: {qrResult.qrIoId})</span>
-              )}
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* Flyer benefit category */}
-      {resolvedType === "flyer" && (
-        <div className="space-y-1.5">
-          <Label htmlFor="flyer-category">Benefit category</Label>
-          <select
-            id="flyer-category"
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            value={flyerCategory}
-            onChange={(e) => setFlyerCategory(e.target.value)}
-            disabled={isFlyerLocked}
-          >
-            <option value="">All Benefits</option>
-            <option value="Retirement">Retirement</option>
-            <option value="Group Health">Group Health</option>
-            <option value="Group Life">Group Life</option>
-            <option value="Other">Other</option>
-          </select>
         </div>
       )}
 
@@ -738,31 +864,6 @@ export default function MarketingAssetModal({
           <div className="space-y-1.5">
             <Label htmlFor="endDate">End date</Label>
             <Input id="endDate" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-          </div>
-        </div>
-      )}
-
-      {/* Accent color */}
-      {resolvedType === "flyer" && isFlyerLocked ? (
-        <div className="space-y-1.5 opacity-50 pointer-events-none">
-          <Label htmlFor="bgColor">Accent color</Label>
-          <div className="flex items-center gap-3">
-            <Input id="bgColor" type="color" className="w-12 h-9 p-1 cursor-pointer" disabled />
-            <span className="text-xs text-muted-foreground font-mono">#23919c</span>
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-1.5">
-          <Label htmlFor="bgColor">Accent color</Label>
-          <div className="flex items-center gap-3">
-            <Input
-              id="bgColor"
-              type="color"
-              className="w-12 h-9 p-1 cursor-pointer"
-              value={bgColor}
-              onChange={(e) => setBgColor(e.target.value)}
-            />
-            <span className="text-xs text-muted-foreground font-mono">{bgColor}</span>
           </div>
         </div>
       )}
