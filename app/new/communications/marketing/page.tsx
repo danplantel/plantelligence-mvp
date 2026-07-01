@@ -798,13 +798,40 @@ export default function MarketingPage() {
                               onCheckedChange={() => toggleSelectAsset(asset.id)}
                               className="shrink-0"
                             />
-                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-blue)]/10 text-sm">
-                              {asset.type === "flyer" ? "ðŸ“„" : asset.type === "portal-notice" ? "ðŸ“¢" : asset.type === "pop-up" ? "ðŸ’¬" : "ðŸ“°"}
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold uppercase tracking-wide"
+                              style={{
+                                background:
+                                  asset.type === "flyer" ? "#e0f2fe" :
+                                  asset.type === "portal-notice" ? "#fef3c7" :
+                                  asset.type === "pop-up" ? "#ede9fe" :
+                                  "#dbeafe",
+                                color:
+                                  asset.type === "flyer" ? "#0284c7" :
+                                  asset.type === "portal-notice" ? "#d97706" :
+                                  asset.type === "pop-up" ? "#7c3aed" :
+                                  "#2563eb",
+                              }}
+                            >
+                              {asset.type === "flyer" ? "F" :
+                               asset.type === "portal-notice" ? "TB" :
+                               asset.type === "pop-up" ? "PU" :
+                               "NE"}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{asset.headline}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {asset.type.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} Â· {asset.createdAt}
+                              <p className="text-sm text-gray-900 dark:text-gray-100 truncate">
+                                <span className="font-semibold">
+                                  {asset.type === "portal-notice"
+                                    ? "Top Banner"
+                                    : asset.type.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+                                  }
+                                </span>
+                                <span className="text-muted-foreground ml-1">
+                                  · {new Date(asset.createdAt).toLocaleDateString("en-US", {
+                                      year: "numeric",
+                                      month: "short",
+                                      day: "numeric",
+                                    })}
+                                </span>
                               </p>
                             </div>
 
