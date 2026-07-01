@@ -25,10 +25,7 @@ import { X, Eye, Calendar, Clock, MapPin, QrCode, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { formatUsDate } from "@/lib/date";
 import { cn } from "@/lib/utils";
-import {
-  FlyerPreview,
-  type FlyerTemplateId,
-} from "./flyer-templates";
+import { FlyerPreview, type FlyerTemplateId } from "./flyer-templates";
 
 export type AssetType = "flyer" | "portal-notice" | "pop-up" | "news-post";
 
@@ -100,13 +97,6 @@ const ASSET_META: Record<AssetType, { label: string; icon: string }> = {
   "news-post": { label: "News & Events Post", icon: "📰" },
 };
 
-const FLYER_TEMPLATES: { id: FlyerTemplateId; label: string }[] = [
-  { id: "classic", label: "Template 1" },
-  { id: "bold",    label: "Template 2" },
-  { id: "clean",   label: "Template 3" },
-  { id: "event",   label: "Template 4" },
-];
-
 interface FlyerTemplateDefaults {
   headline: string;
   subtitle: string;
@@ -114,17 +104,14 @@ interface FlyerTemplateDefaults {
 }
 
 const MEETING_TEMPLATE_DEFAULTS: Record<string, FlyerTemplateDefaults> = {
-  "Template 1": { headline: "MISSING", subtitle: "Your Benefits Overview", body: "Join us to learn more about the benefits available to you." },
-  "Template 2": { headline: "MISSING", subtitle: "Important Update",     body: "We have important information to share about your benefits." },
-  "Template 3": { headline: "MISSING", subtitle: "Benefits Summary",     body: "Here is a summary of the key benefits and what they mean for you." },
-  "Template 4": { headline: "MISSING", subtitle: "Save the Date",        body: "Mark your calendar for this upcoming benefits event." },
+  "MeetingTemplate1": { headline: "MISSING", subtitle: "Your Benefits Overview", body: "Join us to learn more about the benefits available to you." },
+  "MeetingTemplate2": { headline: "MISSING", subtitle: "Important Update",     body: "We have important information to share about your benefits." },
+  "MeetingTemplate3": { headline: "MISSING", subtitle: "Benefits Summary",     body: "Here is a summary of the key benefits and what they mean for you." },
+  "MeetingTemplate4": { headline: "MISSING", subtitle: "Save the Date",        body: "Mark your calendar for this upcoming benefits event." },
 };
 
 const TOPICAL_TEMPLATE_DEFAULTS: Record<string, FlyerTemplateDefaults> = {
-  "Template 1": { headline: "MISSING", subtitle: "Learn more about your topic", body: "Explore this topic to understand how it fits into your overall benefits strategy." },
-  "Template 2": { headline: "MISSING", subtitle: "Topic Spotlight",           body: "We're highlighting this topic because it matters to you and your benefits." },
-  "Template 3": { headline: "MISSING", subtitle: "Topic Overview",            body: "Here's a quick overview of this topic and what you should know." },
-  "Template 4": { headline: "MISSING", subtitle: "Topic Reminder",            body: "Don't forget to review this topic and take action if needed." },
+  "TopicalTemplate1": { headline: "MISSING", subtitle: "Learn more about this topic", body: "Explore this topic to understand how it fits into your overall benefits strategy." },
 };
 
 export default function MarketingAssetModal({
@@ -183,7 +170,7 @@ export default function MarketingAssetModal({
   const flyerPreviewRef = useRef<HTMLDivElement>(null);
   const [assetStatus, setAssetStatus] = useState<MarketingAssetStatus>("Draft");
   const [flyerCategory, setFlyerCategory] = useState("");
-  const [flyerTemplate, setFlyerTemplate] = useState<FlyerTemplateId>("classic");
+  const [flyerTemplate, setFlyerTemplate] = useState<string>("MeetingTemplate1");
 
   // Portal-notice specific
   const [portalElement, setPortalElement] = useState<PortalNoticeElement | null>(null);
@@ -220,14 +207,20 @@ export default function MarketingAssetModal({
     [meetings, selectedMeetingId],
   );
 
+  // When in topical mode, force template to TopicalTemplate1
+  useEffect(() => {
+    if (resolvedType !== "flyer" || flyerStep < 3) return;
+    if (flyerMode === "topical" && flyerTemplate !== "TopicalTemplate1") {
+      setFlyerTemplate("TopicalTemplate1");
+    }
+  }, [flyerMode, flyerStep, resolvedType, flyerTemplate]);
+
   // Apply template defaults whenever user enters step 4 or changes template
   useEffect(() => {
     if (resolvedType !== "flyer" || flyerStep < 3) return;
-    const templateLabel = FLYER_TEMPLATES.find((t) => t.id === flyerTemplate)?.label;
-    if (!templateLabel) return;
     const defaults = flyerMode === "meeting"
-      ? MEETING_TEMPLATE_DEFAULTS[templateLabel]
-      : TOPICAL_TEMPLATE_DEFAULTS[templateLabel];
+      ? MEETING_TEMPLATE_DEFAULTS[flyerTemplate]
+      : TOPICAL_TEMPLATE_DEFAULTS[flyerTemplate];
     if (!defaults) return;
     setHeadline(defaults.headline);
     setFlyerSubtitle(defaults.subtitle);
@@ -254,7 +247,7 @@ export default function MarketingAssetModal({
     setQrGenerating(false);
     setQrResult(null);
     setFlyerCategory("");
-    setFlyerTemplate("classic");
+    setFlyerTemplate("MeetingTemplate1");
     setShowEveryVisit(false);
     setPopupPages(["all"]);
     setAssetStatus("Draft");
@@ -624,18 +617,20 @@ export default function MarketingAssetModal({
                 <Label className="text-base font-semibold">Choose a template</Label>
                 <p className="text-xs text-muted-foreground mt-1">Select the design for your flyer.</p>
               </div>
-              <Select value={flyerTemplate} onValueChange={(v) => setFlyerTemplate(v as FlyerTemplateId)}>
-                <SelectTrigger id="flyer-template" className="w-full">
-                  <SelectValue placeholder="Select a template…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {FLYER_TEMPLATES.map((tpl) => (
-                    <SelectItem key={tpl.id} value={tpl.id}>
-                      {tpl.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <select
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                value={flyerTemplate}
+                onChange={(e) => setFlyerTemplate(e.target.value)}
+              >
+                {(flyerMode === "meeting"
+                  ? Object.keys(MEETING_TEMPLATE_DEFAULTS)
+                  : Object.keys(TOPICAL_TEMPLATE_DEFAULTS)
+                ).map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
               <div className="flex items-center gap-2 pt-2">
                 <Button type="button" variant="outline" size="sm" onClick={() => setFlyerStep(2)}>Back</Button>
               </div>
@@ -1059,7 +1054,7 @@ export default function MarketingAssetModal({
         {/* Fixed footer */}
         <div className="flex items-center justify-between gap-3 border-t px-6 py-4 shrink-0">
           <div className="flex items-center gap-3">
-            {resolvedType === "flyer" && flyerStep >= 3 && (
+            {resolvedType === "flyer" && (
               <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={isFlyerLocked} className="gap-1.5">
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -1147,7 +1142,7 @@ function PreviewPane({
   meetingTime?: string;
   meetingLocation?: string;
   flyerSubtitle?: string;
-  flyerTemplate?: FlyerTemplateId;
+  flyerTemplate?: string;
   noticeType?: "text" | "countdown";
   countdownTarget?: string;
   portalCtaUrl?: string;
@@ -1199,7 +1194,7 @@ function PreviewPane({
           meetingTime={meetingTime}
           meetingLocation={meetingLocation}
           flyerSubtitle={flyerSubtitle}
-          flyerTemplate={flyerTemplate ?? "classic"}
+          flyerTemplate={flyerTemplate as FlyerTemplateId}
         />
       );
     case "portal-notice":

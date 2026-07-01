@@ -2,7 +2,7 @@
 
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 
-export type FlyerTemplateId = "classic" | "bold" | "clean" | "event";
+export type FlyerTemplateId = "MeetingTemplate1" | "MeetingTemplate2" | "MeetingTemplate3" | "MeetingTemplate4" | "TopicalTemplate1";
 
 export interface FlyerPreviewProps {
   headline: string;
@@ -302,104 +302,79 @@ export function TemplateThumbnail({ id, bgColor }: { id: string; bgColor: string
   const c = bgColor || "#23919c";
   const yellow = "#f5c518";
   switch (id) {
-    case "classic":
+    case "MeetingTemplate1":
+    case "TopicalTemplate1":
       return (
         <svg viewBox="0 0 60 80" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
           <rect width="60" height="80" fill="white" />
-          {/* Big headline */}
           <rect x="5" y="6" width="50" height="7" rx="1" fill="#e00" opacity="0.85" />
           <rect x="8" y="16" width="44" height="4" rx="1" fill="#111" opacity="0.7" />
           <rect x="12" y="22" width="36" height="3" rx="1" fill="#111" opacity="0.5" />
-          {/* Center image placeholder */}
           <rect x="10" y="28" width="40" height="22" rx="2" fill="#eee" />
           <circle cx="30" cy="39" r="8" fill="#ddd" />
-          {/* Logo area */}
           <rect x="5" y="53" width="20" height="6" rx="1" fill="#ccc" />
-          {/* Body text */}
           <rect x="5" y="62" width="50" height="2" rx="1" fill="#ddd" />
           <rect x="5" y="66" width="42" height="2" rx="1" fill="#ddd" />
-          {/* Dark footer */}
           <rect y="72" width="60" height="8" fill="#111" />
           <rect x="40" y="73" width="8" height="6" rx="1" fill="white" opacity="0.3" />
           <rect x="5" y="75" width="20" height="2" rx="1" fill={yellow} opacity="0.8" />
         </svg>
       );
-    case "bold":
+    case "MeetingTemplate2":
       return (
         <svg viewBox="0 0 60 80" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
           <rect width="60" height="80" fill="white" />
-          {/* Large photo top half */}
           <rect width="60" height="38" fill="#bbb" />
           <circle cx="30" cy="19" r="10" fill="#999" />
-          {/* White bottom */}
           <rect y="38" width="60" height="42" fill="white" />
-          {/* Bold headline */}
           <rect x="5" y="41" width="50" height="5" rx="1" fill="#111" opacity="0.8" />
           <rect x="8" y="48" width="44" height="3" rx="1" fill="#111" opacity="0.5" />
-          {/* Bullet points */}
           <circle cx="8" cy="56" r="1.5" fill="#555" />
           <rect x="12" y="54.5" width="30" height="2" rx="1" fill="#ccc" />
           <circle cx="8" cy="61" r="1.5" fill="#555" />
           <rect x="12" y="59.5" width="26" height="2" rx="1" fill="#ccc" />
-          {/* Two logos */}
           <rect x="5" y="65" width="20" height="5" rx="1" fill="#ddd" />
           <rect x="35" y="65" width="20" height="5" rx="1" fill="#ddd" />
-          {/* Dark footer */}
           <rect y="73" width="60" height="7" fill="#111" />
           <rect x="40" y="74" width="6" height="5" rx="1" fill="white" opacity="0.3" />
           <rect x="5" y="76" width="18" height="1.5" rx="0.75" fill={yellow} opacity="0.8" />
         </svg>
       );
-    case "clean":
+    case "MeetingTemplate3":
       return (
         <svg viewBox="0 0 60 80" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
           <rect width="60" height="80" fill="white" />
-          {/* Full-width photo header */}
           <rect width="60" height="24" fill="#bbb" />
-          {/* Text overlay on photo */}
           <rect x="5" y="6" width="50" height="4" rx="1" fill="white" opacity="0.9" />
           <rect x="10" y="12" width="40" height="3" rx="1" fill="white" opacity="0.7" />
-          {/* Centered logo */}
           <rect x="18" y="27" width="24" height="8" rx="2" fill="#ddd" />
-          {/* Centered headline */}
           <rect x="5" y="38" width="50" height="4" rx="1" fill="#111" opacity="0.7" />
           <rect x="10" y="44" width="40" height="3" rx="1" fill="#555" opacity="0.5" />
-          {/* Body paragraphs */}
           <rect x="5" y="50" width="50" height="2" rx="1" fill="#ccc" />
           <rect x="5" y="54" width="44" height="2" rx="1" fill="#ccc" />
           <rect x="5" y="58" width="48" height="2" rx="1" fill="#ccc" />
-          {/* Divider */}
           <rect x="5" y="63" width="50" height="0.5" fill="#eee" />
-          {/* Footer logo + QR */}
           <rect x="5" y="66" width="20" height="6" rx="1" fill="#ddd" />
           <rect x="44" y="65" width="10" height="8" rx="1" fill="#ddd" />
-          {/* Dark footer */}
           <rect y="75" width="60" height="5" fill="#111" />
         </svg>
       );
-    case "event":
+    case "MeetingTemplate4":
       return (
         <svg viewBox="0 0 60 80" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
           <rect width="60" height="80" fill="white" />
-          {/* Dark photo header */}
           <rect width="60" height="28" fill="#222" />
-          {/* White headline on dark */}
           <rect x="5" y="6" width="50" height="5" rx="1" fill="white" opacity="0.9" />
           <rect x="8" y="13" width="44" height="4" rx="1" fill={yellow} opacity="0.85" />
           <rect x="12" y="19" width="36" height="3" rx="1" fill="white" opacity="0.6" />
-          {/* Centered logo */}
           <rect x="18" y="31" width="24" height="8" rx="2" fill="#ddd" />
-          {/* Bold subheadline */}
           <rect x="8" y="42" width="44" height="3" rx="1" fill="#111" opacity="0.7" />
           <rect x="12" y="47" width="36" height="2.5" rx="1" fill="#111" opacity="0.5" />
-          {/* Calendar icon + text */}
           <rect x="5" y="53" width="6" height="6" rx="1" fill={c} opacity="0.3" />
           <rect x="13" y="54" width="30" height="2" rx="1" fill="#ccc" />
           <rect x="13" y="58" width="24" height="2" rx="1" fill="#ccc" />
-          {/* Location */}
           <circle cx="8" cy="65" r="2.5" fill={c} opacity="0.3" />
           <rect x="13" y="63.5" width="22" height="2" rx="1" fill="#ccc" />
-          {/* Dark footer */}
           <rect y="72" width="60" height="8" fill="#111" />
           <rect x="40" y="73" width="6" height="5" rx="1" fill="white" opacity="0.3" />
           <rect x="5" y="75" width="18" height="1.5" rx="0.75" fill={yellow} opacity="0.8" />
@@ -414,19 +389,16 @@ export function TemplateThumbnail({ id, bgColor }: { id: string; bgColor: string
 
 export function FlyerPreview(props: FlyerPreviewProps) {
   switch (props.flyerTemplate) {
-    case "bold":  return <FlyerBold  {...props} />;
-    case "clean": return <FlyerClean {...props} />;
-    case "event": return <FlyerEvent {...props} />;
-    default:      return <FlyerClassic {...props} />;
+    case "MeetingTemplate2": return <MeetingTemplate2  {...props} />;
+    case "MeetingTemplate3": return <MeetingTemplate3 {...props} />;
+    case "MeetingTemplate4": return <MeetingTemplate4 {...props} />;
+    case "TopicalTemplate1": return <TopicalTemplate1 {...props} />;
+    default:                 return <MeetingTemplate1 {...props} />;
   }
 }
 
-// ══════════════════════════════════════════════════════════════
-// TEMPLATE 1 — Classic  (matches Image 1: "MISSING" style)
-// White bg · large bold headline top · center image · body text
-// logo bottom-left · dark footer + yellow QR text + arrow + QR
-// ══════════════════════════════════════════════════════════════
-function FlyerClassic({
+// ── Meeting Template 1 ─────────────────────────────────────────
+function MeetingTemplate1({
   headline, body, bgColor, startDate, planName, planLogo,
   flyerImage, flyerQrUrl, flyerQrDataUrl, meetingTime, meetingLocation,
 }: FlyerPreviewProps) {
@@ -522,12 +494,7 @@ function FlyerClassic({
   );
 }
 
-// ══════════════════════════════════════════════════════════════
-// TEMPLATE 2 — Bold  (matches Image 2: "Don't Leave This Unfinished")
-// Large photo top half · white bottom · bold headline · bullets
-// Two logos side by side · dark footer + yellow text + QR + arrow
-// ══════════════════════════════════════════════════════════════
-function FlyerBold({
+function MeetingTemplate2({
   headline, body, bgColor, startDate, planName, planLogo,
   flyerImage, flyerQrUrl, flyerQrDataUrl, meetingTime, flyerSubtitle,
 }: FlyerPreviewProps) {
@@ -606,13 +573,7 @@ function FlyerBold({
   );
 }
 
-// ══════════════════════════════════════════════════════════════
-// TEMPLATE 3 — Clean  (matches Image 3: "Invest in Yourself")
-// Full-width photo header with text overlay · centered logo
-// Centered bold headline · body paragraphs · divider
-// Footer: logo left + centered QR text + QR right + arrow
-// ══════════════════════════════════════════════════════════════
-function FlyerClean({
+function MeetingTemplate3({
   headline, body, bgColor, startDate, planName, planLogo,
   flyerImage, flyerQrUrl, flyerQrDataUrl, meetingTime, flyerSubtitle,
 }: FlyerPreviewProps) {
@@ -699,13 +660,7 @@ function FlyerClean({
   );
 }
 
-// ══════════════════════════════════════════════════════════════
-// TEMPLATE 4 — Event  (matches Image 4: "Transform Your Tomorrow")
-// Dark photo header · white headline + yellow subtitle overlay
-// Centered logo · bold centered subheadline · calendar icon + dates
-// Location icon · centered logo again · dark footer + yellow + QR
-// ══════════════════════════════════════════════════════════════
-function FlyerEvent({
+function MeetingTemplate4({
   headline, body, bgColor, startDate, planName, planLogo,
   flyerImage, flyerQrUrl, flyerQrDataUrl, meetingTime, meetingLocation, flyerSubtitle,
 }: FlyerPreviewProps) {
@@ -802,6 +757,68 @@ function FlyerEvent({
         bgColor={bgColor}
         scanLabel="Scan QR to reserve your spot &amp; learn more!"
         urlLabel={flyerQrUrl ? `or visit: ${truncateText(flyerQrUrl, 44)}` : undefined}
+      />
+    </svg>
+  );
+}
+
+// ── Topical Template 1 ─────────────────────────────────────────
+
+function TopicalTemplate1({
+  headline, body, bgColor, planName, planLogo,
+  flyerImage, flyerQrUrl, flyerQrDataUrl, flyerSubtitle,
+}: FlyerPreviewProps) {
+  const parts = body ? parseBodySegments(body) : [];
+  const userBullets = hasUserBullets(body);
+  const footerY = 640;
+
+  return (
+    <svg
+      viewBox="0 0 612 792"
+      xmlns="http://www.w3.org/2000/svg"
+      className="w-full h-auto max-w-[420px] rounded-xl shadow-sm border"
+      style={{ fontFamily: "system-ui, -apple-system, sans-serif" }}
+    >
+      <rect width="612" height="792" fill="white" rx="8" />
+      <rect x="0" y="0" width="612" height="160" fill={bgColor} opacity="0.1" rx="8" />
+      <text x="306" y="70" textAnchor="middle" fill={bgColor} fontSize="36" fontWeight="900" letterSpacing="-1">
+        {truncateText(headline, 20)}
+      </text>
+      {flyerSubtitle && (
+        <text x="306" y="110" textAnchor="middle" fill="#444" fontSize="18" fontWeight="600">
+          {truncateText(flyerSubtitle, 48)}
+        </text>
+      )}
+      {flyerImage ? (
+        <>
+          <defs><clipPath id="tt1-img"><rect x="60" y="180" width="492" height="240" rx="4" /></clipPath></defs>
+          <g clipPath="url(#tt1-img)">
+            <image href={flyerImage} x="60" y="180" width="492" height="240" preserveAspectRatio="xMidYMid slice" />
+          </g>
+        </>
+      ) : (
+        <rect x="60" y="180" width="492" height="240" rx="4" fill="#f4f4f4" />
+      )}
+      {userBullets ? (
+        renderBodyParts(parts, {
+          x: 60, startY: 450, lineHeight: 24, maxChars: 70,
+          color: "#333", fontSize: 14, bulletColor: bgColor, maxLines: 6,
+        })
+      ) : (
+        <text x="306" y="450" textAnchor="middle" fill="#555" fontSize="15">
+          {body ? truncateText(body, 100) : "Learn more about this topic."}
+        </text>
+      )}
+      <DarkFooter
+        footerY={footerY}
+        totalHeight={792}
+        planLogo={planLogo}
+        planName={planName}
+        flyerQrUrl={flyerQrUrl}
+        flyerQrDataUrl={flyerQrDataUrl}
+        bgColor={bgColor}
+        scanLabel="Scan QR to learn more"
+        urlLabel={flyerQrUrl ? `or visit: ${truncateText(flyerQrUrl, 45)}` : undefined}
       />
     </svg>
   );
