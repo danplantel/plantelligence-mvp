@@ -464,60 +464,6 @@ const PortalNoticeIllustration = () => (
   </svg>
 );
 
-const PopUpMessageIllustration = () => (
-  <svg viewBox="0 0 48 38" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-full w-full">
-    {/* Page background */}
-    <rect x="3" y="2" width="42" height="34" rx="2.5" fill="var(--accent-blue-light)" fillOpacity="0.2" />
-    <rect x="3" y="2" width="42" height="34" rx="2.5" stroke="var(--accent-blue)" strokeWidth="0.5" strokeOpacity="0.1" />
-    <rect x="7" y="6" width="8" height="1.5" rx="0.75" fill="var(--accent-blue)" fillOpacity="0.1" />
-    <rect x="7" y="10" width="14" height="8" rx="1.5" fill="var(--accent-blue)" fillOpacity="0.04" />
-    <rect x="7" y="10" width="14" height="8" rx="1.5" stroke="var(--accent-blue)" strokeWidth="0.4" strokeOpacity="0.08" />
-    {/* Modal overlay */}
-    <rect x="5" y="4" width="38" height="30" rx="3" fill="var(--accent-blue)" fillOpacity="0.06" />
-    {/* Modal dialog box */}
-    <rect x="9" y="9" width="30" height="20" rx="3" fill="white" stroke="var(--accent-blue)" strokeWidth="0.6" strokeOpacity="0.3" />
-    {/* Modal header */}
-    <rect x="9" y="9" width="30" height="5" rx="3" fill="var(--accent-blue)" fillOpacity="0.1" />
-    <circle cx="35" cy="11.5" r="1" fill="var(--accent-blue)" fillOpacity="0.15" />
-    <path d="M34.5 11l1 1M35.5 11l-1 1" stroke="var(--accent-blue)" strokeWidth="0.5" strokeOpacity="0.3" />
-    {/* Modal content */}
-    <rect x="13" y="17" width="22" height="2" rx="1" fill="var(--accent-blue)" fillOpacity="0.3" />
-    <rect x="13" y="21" width="16" height="1.2" rx="0.6" fill="var(--accent-blue)" fillOpacity="0.12" />
-    {/* Modal CTA */}
-    <rect x="13" y="25" width="9" height="2.5" rx="1.25" fill="var(--accent-blue)" fillOpacity="0.18" />
-    <text x="17.5" y="26.8" textAnchor="middle" fill="var(--accent-blue)" fontSize="1.6" fontWeight="600" fontFamily="system-ui" fillOpacity="0.7">OK</text>
-  </svg>
-);
-
-const NewsPostIllustration = () => (
-  <svg viewBox="0 0 48 38" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-full w-full">
-    <rect x="3" y="2" width="42" height="34" rx="2.5" fill="var(--accent-blue-light)" fillOpacity="0.3" />
-    <rect x="3" y="2" width="42" height="34" rx="2.5" stroke="var(--accent-blue)" strokeWidth="0.6" strokeOpacity="0.15" />
-    {/* Feed list */}
-    {/* Post 1 */}
-    <rect x="5" y="4" width="38" height="9" rx="1.5" fill="var(--accent-blue)" fillOpacity="0.04" />
-    <rect x="5" y="4" width="38" height="9" rx="1.5" stroke="var(--accent-blue)" strokeWidth="0.4" strokeOpacity="0.08" />
-    <circle cx="9.5" cy="8.5" r="2" fill="var(--accent-blue-light)" fillOpacity="0.6" stroke="var(--accent-blue)" strokeWidth="0.4" strokeOpacity="0.2" />
-    <rect x="13" y="6.5" width="12" height="1.5" rx="0.75" fill="var(--accent-blue)" fillOpacity="0.3" />
-    <rect x="13" y="9.5" width="8" height="1" rx="0.5" fill="var(--accent-blue)" fillOpacity="0.12" />
-    <rect x="34" y="6.5" width="7" height="1.5" rx="0.75" fill="var(--accent-blue)" fillOpacity="0.08" />
-    {/* Post 2 */}
-    <rect x="5" y="14.5" width="38" height="9" rx="1.5" fill="var(--accent-blue)" fillOpacity="0.06" />
-    <rect x="5" y="14.5" width="38" height="9" rx="1.5" stroke="var(--accent-blue)" strokeWidth="0.4" strokeOpacity="0.1" />
-    <circle cx="9.5" cy="19" r="2" fill="var(--accent-blue-light)" fillOpacity="0.6" stroke="var(--accent-blue)" strokeWidth="0.4" strokeOpacity="0.2" />
-    <rect x="13" y="17" width="18" height="1.5" rx="0.75" fill="var(--accent-blue)" fillOpacity="0.35" />
-    <rect x="13" y="20" width="10" height="1" rx="0.5" fill="var(--accent-blue)" fillOpacity="0.12" />
-    <rect x="34" y="17" width="7" height="1.5" rx="0.75" fill="var(--accent-blue)" fillOpacity="0.08" />
-    {/* Post 3 */}
-    <rect x="5" y="25" width="38" height="9" rx="1.5" fill="var(--accent-blue)" fillOpacity="0.04" />
-    <rect x="5" y="25" width="38" height="9" rx="1.5" stroke="var(--accent-blue)" strokeWidth="0.4" strokeOpacity="0.08" />
-    <circle cx="9.5" cy="29.5" r="2" fill="var(--accent-blue-light)" fillOpacity="0.6" stroke="var(--accent-blue)" strokeWidth="0.4" strokeOpacity="0.2" />
-    <rect x="13" y="27.5" width="15" height="1.5" rx="0.75" fill="var(--accent-blue)" fillOpacity="0.25" />
-    <rect x="13" y="30.5" width="7" height="1" rx="0.5" fill="var(--accent-blue)" fillOpacity="0.1" />
-    <rect x="34" y="27.5" width="7" height="1.5" rx="0.75" fill="var(--accent-blue)" fillOpacity="0.08" />
-  </svg>
-);
-
 const OPTIONS: MarketingOption[] = [
   {
     id: "flyer",
@@ -529,23 +475,9 @@ const OPTIONS: MarketingOption[] = [
   {
     id: "portal-notice",
     label: "Portal Notice",
-    description: "Add a short announcement bar to the Benefits Hub.",
+    description: "Add a Top Banner, Pop-Up, or News Update to Benefits Hub.",
     cta: "Create Notice",
     illustration: <PortalNoticeIllustration />,
-  },
-  {
-    id: "pop-up",
-    label: "Pop-Up Message",
-    description: "Show a message when participants visit the Benefits Hub.",
-    cta: "Create Pop-Up",
-    illustration: <PopUpMessageIllustration />,
-  },
-  {
-    id: "news-post",
-    label: "News & Events Post",
-    description: "Publish an update, announcement, recap, or reminder.",
-    cta: "Create Post",
-    illustration: <NewsPostIllustration />,
   },
 ];
 
@@ -714,27 +646,8 @@ export default function MarketingPage() {
                 </div>
               </AccordionTrigger>
               <AccordionContent className="px-5 pb-5">
-                {/* Empty state when no assets */}
-                {savedAssets.length === 0 && (
-                  <div className="flex flex-col items-center justify-center pb-4 pt-2 px-4 text-center">
-                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[var(--accent-blue-light)]/40 dark:bg-[var(--accent-blue-light)]/20">
-                      <svg className="h-6 w-6 text-[var(--accent-blue)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-                        <polyline points="14 2 14 8 20 8" />
-                        <line x1="12" y1="12" x2="12" y2="18" />
-                        <line x1="9" y1="15" x2="15" y2="15" />
-                      </svg>
-                    </div>
-                    <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mt-3">
-                      No Communications Added Yet
-                    </h3>
-                    <p className="mt-1 text-sm text-muted-foreground max-w-sm">
-                      Create your first flyer, notice, pop-up, or news update for this Benefits Hub.
-                    </p>
-                  </div>
-                )}
-                {/* Creation cards â€” 4-column grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                {/* Creation cards 2-column grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-5">
                   {OPTIONS.map((option) => (
                     <button
                       key={option.id}
@@ -759,7 +672,7 @@ export default function MarketingPage() {
                             {option.description}
                           </p>
                         </div>
-                        <span className="mt-auto inline-flex items-center rounded-lg bg-[var(--accent-blue)]/10 px-3 py-1.5 text-xs font-semibold text-[var(--accent-blue)] group-hover:bg-[var(--accent-blue)] group-hover:text-white transition-colors duration-200">
+                        <span className="mt-4 inline-flex items-center rounded-lg bg-[var(--accent-blue)]/10 px-3 py-1.5 text-xs font-semibold text-[var(--accent-blue)] group-hover:bg-[var(--accent-blue)] group-hover:text-white transition-colors duration-200">
                           {option.cta}
                         </span>
                       </div>
@@ -769,7 +682,7 @@ export default function MarketingPage() {
               </AccordionContent>
             </AccordionItem>
 
-            {/* â”€â”€ Edit Marketing Assets Accordion â”€â”€ */}
+            {/* Edit Marketing Assets Accordion */}
             <AccordionItem value="edit" className="rounded-xl border bg-white dark:bg-gray-900 dark:border-gray-700 shadow-sm">
               <AccordionTrigger className="px-5 py-3 hover:no-underline [&[data-state=open]>svg]:rotate-180">
                 <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
