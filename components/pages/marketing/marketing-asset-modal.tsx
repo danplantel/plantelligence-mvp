@@ -1059,7 +1059,7 @@ export default function MarketingAssetModal({
         {/* Fixed footer */}
         <div className="flex items-center justify-between gap-3 border-t px-6 py-4 shrink-0">
           <div className="flex items-center gap-3">
-            {resolvedType === "flyer" && (
+            {resolvedType === "flyer" && flyerStep >= 3 && (
               <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={isFlyerLocked} className="gap-1.5">
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
