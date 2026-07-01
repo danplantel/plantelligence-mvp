@@ -998,6 +998,7 @@ export default function MarketingAssetModal({
               <PreviewPane
                 assetType={assetType}
                 portalElement={portalElement}
+                flyerStep={flyerStep}
                 headline={previewHeadline}
                 body={previewBody}
                 ctaText={ctaText}
@@ -1075,6 +1076,7 @@ export default function MarketingAssetModal({
 function PreviewPane({
   assetType,
   portalElement,
+  flyerStep,
   headline,
   body,
   ctaText,
@@ -1096,6 +1098,7 @@ function PreviewPane({
 }: {
   assetType: AssetType;
   portalElement?: PortalNoticeElement | null;
+  flyerStep?: number;
   headline: string;
   body: string;
   ctaText: string;
@@ -1124,6 +1127,29 @@ function PreviewPane({
 
   switch (effectiveType) {
     case "flyer":
+      // Show placeholder flyer during steps 1–3 (before template is finalized)
+      if (flyerStep !== undefined && flyerStep < 3) {
+        return (
+          <div className="w-full max-w-[400px] flex flex-col items-center justify-center text-center py-8">
+            <div className="w-full rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 p-8 space-y-4">
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[var(--accent-blue)]/10">
+                <svg className="h-10 w-10 text-[var(--accent-blue)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="12" y1="12" x2="12" y2="18" />
+                  <line x1="9" y1="15" x2="15" y2="15" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300">
+                Flyer Preview
+              </h3>
+              <p className="text-sm text-muted-foreground max-w-[240px] mx-auto">
+                Complete the steps on the left to see your flyer preview here.
+              </p>
+            </div>
+          </div>
+        );
+      }
       return (
         <FlyerPreview
           headline={headline}
