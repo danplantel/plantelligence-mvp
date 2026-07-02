@@ -208,38 +208,38 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
         {/* Published Top Banner — rendered above the header */}
         {showBanner && (
           <div
-            className="relative w-full flex items-center justify-center px-4 py-2.5 text-white shadow-sm"
+            className="relative w-full flex items-center justify-between gap-2 px-3 py-1.5 text-white shadow-sm sm:px-4 sm:py-2.5 sm:justify-center"
             style={{ background: banner.bgColor || "#23919c" }}
           >
             {/* Centered group: headline + countdown */}
-            <div className="flex items-center justify-center gap-4 text-center flex-1">
+            <div className="flex items-center gap-1.5 min-w-0 flex-1 sm:gap-4 sm:justify-center sm:text-center sm:flex-1">
               {noticeType === "countdown" && countdownTarget ? (
                 <>
-                  <span className="text-sm font-medium whitespace-nowrap">{banner.headline || "Countdown"}</span>
+                  <span className="text-[10px] font-medium whitespace-nowrap sm:text-sm">{banner.headline || "Countdown"}</span>
                   {countdown.expired ? (
-                    <span className="text-base font-bold whitespace-nowrap">Expired</span>
+                    <span className="text-[10px] font-bold whitespace-nowrap sm:text-base">Expired</span>
                   ) : (
-                    <div className="flex items-center gap-2 text-base font-bold tabular-nums tracking-wider whitespace-nowrap">
+                    <div className="flex items-center gap-0.5 text-[10px] font-bold tabular-nums tracking-wider whitespace-nowrap sm:gap-2 sm:text-base">
                       {countdown.d > 0 && (
-                        <span className="inline-flex items-center gap-1 rounded-md bg-black/25 px-2 py-1">
+                        <span className="inline-flex items-center gap-0.5 rounded-md bg-black/25 px-0.5 py-0.5 sm:gap-1 sm:px-2 sm:py-1">
                           <span>{countdown.d}</span>
-                          <span className="text-sm opacity-80">d</span>
+                          <span className="text-[8px] opacity-80 sm:text-sm">d</span>
                         </span>
                       )}
-                      <span className="inline-flex items-center rounded-md bg-black/25 px-2 py-1">{pad(countdown.h)}</span>
-                      <span className="text-lg opacity-50 -mx-0.5">:</span>
-                      <span className="inline-flex items-center rounded-md bg-black/25 px-2 py-1">{pad(countdown.m)}</span>
-                      <span className="text-lg opacity-50 -mx-0.5">:</span>
-                      <span className="inline-flex items-center rounded-md bg-black/25 px-2 py-1">{pad(countdown.s)}</span>
+                      <span className="inline-flex items-center rounded-md bg-black/25 px-0.5 py-0.5 sm:px-2 sm:py-1">{pad(countdown.h)}</span>
+                      <span className="text-xs opacity-50 sm:text-lg sm:-mx-0.5">:</span>
+                      <span className="inline-flex items-center rounded-md bg-black/25 px-0.5 py-0.5 sm:px-2 sm:py-1">{pad(countdown.m)}</span>
+                      <span className="text-xs opacity-50 sm:text-lg sm:-mx-0.5">:</span>
+                      <span className="inline-flex items-center rounded-md bg-black/25 px-0.5 py-0.5 sm:px-2 sm:py-1">{pad(countdown.s)}</span>
                     </div>
                   )}
                 </>
               ) : (
-                <span className="text-sm font-medium truncate">{banner.headline || "Announcement"}</span>
+                <span className="text-[10px] font-medium truncate sm:text-sm sm:font-medium">{banner.headline || "Announcement"}</span>
               )}
             </div>
-            {/* Right side: CTA + dismiss, absolutely positioned */}
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+            {/* Right side: CTA + dismiss */}
+            <div className="flex items-center gap-1 shrink-0 sm:absolute sm:right-4 sm:top-1/2 sm:-translate-y-1/2 sm:gap-2">
               {ctaText && (
                 <>
                   {portalCtaUrl ? (
@@ -247,14 +247,14 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
                       href={portalCtaUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center rounded-lg px-4 py-1.5 text-xs font-semibold text-white shadow-sm hover:opacity-90 transition-opacity"
+                      className="inline-flex items-center rounded-lg px-1.5 py-0.5 text-[9px] font-semibold text-white shadow-sm hover:opacity-90 transition-opacity sm:px-4 sm:py-1.5 sm:text-xs"
                       style={{ background: `rgba(0,0,0,0.25)` }}
                     >
                       {ctaText}
                     </a>
                   ) : (
                     <span
-                      className="inline-flex items-center rounded-lg px-4 py-1.5 text-xs font-semibold text-white shadow-sm"
+                      className="inline-flex items-center rounded-lg px-1.5 py-0.5 text-[9px] font-semibold text-white shadow-sm sm:px-4 sm:py-1.5 sm:text-xs"
                       style={{ background: `rgba(0,0,0,0.25)` }}
                     >
                       {ctaText}
@@ -265,10 +265,10 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
               <button
                 type="button"
                 onClick={dismissBanner}
-                className="rounded-full p-1 transition-colors hover:bg-white/20"
+                className="rounded-full p-0.5 transition-colors hover:bg-white/20 sm:p-1"
                 aria-label="Dismiss banner"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden="true">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3 sm:h-5 sm:w-5" aria-hidden="true">
                   <path d="M18 6 6 18" /><path d="m6 6 12 12" />
                 </svg>
               </button>

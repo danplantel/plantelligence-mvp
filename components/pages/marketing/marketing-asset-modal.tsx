@@ -199,6 +199,9 @@ export default function MarketingAssetModal({
   ] as const;
   const [popupPages, setPopupPages] = useState<string[]>(["all"]);
 
+  // Preview mode toggle
+  const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop");
+
   // News post specific
   const [postCategory, setPostCategory] = useState("Announcement");
 
@@ -1130,31 +1133,105 @@ export default function MarketingAssetModal({
                 <Eye className="h-4 w-4" />
                 Preview
               </div>
+              {resolvedType !== "flyer" && (
+                <div className="flex items-center gap-1 rounded-lg border bg-white dark:bg-gray-800 p-0.5 shadow-sm">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewMode("desktop")}
+                    className={cn(
+                      "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                      previewMode === "desktop"
+                        ? "bg-gray-900 text-white dark:bg-accent-blue dark:text-white"
+                        : "text-gray-500 hover:text-gray-700 dark:text-gray-400"
+                    )}
+                  >
+                    <svg className="h-3.5 w-3.5 inline-block mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="2" y="3" width="20" height="14" rx="2" ry="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" />
+                    </svg>
+                    Desktop
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewMode("mobile")}
+                    className={cn(
+                      "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                      previewMode === "mobile"
+                        ? "bg-gray-900 text-white dark:bg-accent-blue dark:text-white"
+                        : "text-gray-500 hover:text-gray-700 dark:text-gray-400"
+                    )}
+                  >
+                    <svg className="h-3.5 w-3.5 inline-block mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="5" y="2" width="14" height="20" rx="2" ry="2" /><line x1="12" y1="18" x2="12.01" y2="18" />
+                    </svg>
+                    Mobile
+                  </button>
+                </div>
+              )}
             </div>
-            <div ref={flyerPreviewRef} className="flex-1 overflow-y-auto p-6 flex items-start justify-center">
-              <PreviewPane
-                assetType={assetType}
-                portalElement={portalElement}
-                flyerStep={flyerStep}
-                headline={previewHeadline}
-                body={previewBody}
-                ctaText={ctaText}
-                bgColor={bgColor}
-                startDate={startDate}
-                endDate={endDate}
-                planName={planName}
-                planLogo={planLogo}
-                flyerImage={flyerImage}
-                flyerQrUrl={flyerQrUrl}
-                flyerQrDataUrl={flyerQrDataUrl}
-                meetingTime={meetingTime}
-                meetingLocation={meetingLocation}
-                flyerSubtitle={flyerSubtitle}
-                flyerTemplate={flyerTemplate}
-                noticeType={noticeType}
-                countdownTarget={countdownTarget}
-                portalCtaUrl={portalCtaUrl}
-              />
+            <div ref={flyerPreviewRef} className={cn("flex-1 overflow-y-auto p-6 flex items-start justify-center", previewMode === "mobile" && "bg-gray-100")}>
+              {previewMode === "mobile" && resolvedType !== "flyer" ? (
+                <div className="w-[375px] shrink-0 rounded-[2.5rem] border-4 border-gray-800 bg-white dark:bg-gray-900 shadow-xl overflow-hidden">
+                  {/* Mobile notch */}
+                  <div className="flex items-center justify-center pt-2 pb-1">
+                    <div className="h-1.5 w-16 rounded-full bg-gray-800" />
+                  </div>
+                  <div className="px-2 pb-2">
+                    <PreviewPane
+                      assetType={assetType}
+                      portalElement={portalElement}
+                      flyerStep={flyerStep}
+                      headline={previewHeadline}
+                      body={previewBody}
+                      ctaText={ctaText}
+                      bgColor={bgColor}
+                      startDate={startDate}
+                      endDate={endDate}
+                      planName={planName}
+                      planLogo={planLogo}
+                      flyerImage={flyerImage}
+                      flyerQrUrl={flyerQrUrl}
+                      flyerQrDataUrl={flyerQrDataUrl}
+                      meetingTime={meetingTime}
+                      meetingLocation={meetingLocation}
+                      flyerSubtitle={flyerSubtitle}
+                      flyerTemplate={flyerTemplate}
+                      noticeType={noticeType}
+                      countdownTarget={countdownTarget}
+                      portalCtaUrl={portalCtaUrl}
+                      previewMode="mobile"
+                    />
+                  </div>
+                  {/* Mobile home indicator */}
+                  <div className="flex items-center justify-center pb-2 pt-1">
+                    <div className="h-1 w-24 rounded-full bg-gray-300" />
+                  </div>
+                </div>
+              ) : (
+                <PreviewPane
+                  assetType={assetType}
+                  portalElement={portalElement}
+                  flyerStep={flyerStep}
+                  headline={previewHeadline}
+                  body={previewBody}
+                  ctaText={ctaText}
+                  bgColor={bgColor}
+                  startDate={startDate}
+                  endDate={endDate}
+                  planName={planName}
+                  planLogo={planLogo}
+                  flyerImage={flyerImage}
+                  flyerQrUrl={flyerQrUrl}
+                  flyerQrDataUrl={flyerQrDataUrl}
+                  meetingTime={meetingTime}
+                  meetingLocation={meetingLocation}
+                  flyerSubtitle={flyerSubtitle}
+                  flyerTemplate={flyerTemplate}
+                  noticeType={noticeType}
+                  countdownTarget={countdownTarget}
+                  portalCtaUrl={portalCtaUrl}
+                  previewMode={previewMode}
+                />
+              )}
             </div>
           </div>
         </div>
@@ -1233,6 +1310,7 @@ function PreviewPane({
   noticeType,
   countdownTarget,
   portalCtaUrl,
+  previewMode,
 }: {
   assetType: AssetType;
   portalElement?: PortalNoticeElement | null;
@@ -1255,7 +1333,9 @@ function PreviewPane({
   noticeType?: "text" | "countdown";
   countdownTarget?: string;
   portalCtaUrl?: string;
+  previewMode?: "desktop" | "mobile";
 }) {
+  const isMobile = previewMode === "mobile";
   const effectiveType: AssetType =
     assetType !== "portal-notice" || !portalElement
       ? assetType
@@ -1319,12 +1399,13 @@ function PreviewPane({
           countdownTarget={countdownTarget}
           ctaText={ctaText}
           portalCtaUrl={portalCtaUrl}
+          isMobile={isMobile}
         />
       );
     case "pop-up":
       return <PopUpPreview headline={headline} body={body} ctaText={ctaText} bgColor={bgColor} planName={planName} planLogo={planLogo} subtitle={flyerSubtitle} />;
     case "news-post":
-      return <NewsPostPreview headline={headline} body={body} planName={planName} ctaText={ctaText} subtitle={flyerSubtitle} />;
+      return <NewsPostPreview headline={headline} body={body} planName={planName} ctaText={ctaText} subtitle={flyerSubtitle} isMobile={isMobile} />;
   }
 }
 
@@ -1347,6 +1428,7 @@ function NoticePreview({
   countdownTarget,
   ctaText,
   portalCtaUrl,
+  isMobile,
 }: {
   headline: string;
   body?: string;
@@ -1358,6 +1440,7 @@ function NoticePreview({
   countdownTarget?: string;
   ctaText?: string;
   portalCtaUrl?: string;
+  isMobile?: boolean;
 }) {
   const [countdown, setCountdown] = useState({ d: 0, h: 0, m: 0, s: 0, expired: false });
   useEffect(() => {
@@ -1382,6 +1465,56 @@ function NoticePreview({
   }, [noticeType, countdownTarget]);
 
   const pad = (n: number) => n.toString().padStart(2, "0");
+
+  if (isMobile) {
+    return (
+      <div className="w-full overflow-hidden" style={{ background: bgColor }}>
+        <div className="flex items-center justify-between px-2 py-1.5 text-white">
+          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+            {noticeType === "countdown" && countdownTarget ? (
+              <>
+                <span className="text-[10px] font-medium whitespace-nowrap">{headline || "Countdown"}</span>
+                {countdown.expired ? (
+                  <span className="text-[10px] font-bold whitespace-nowrap">Expired</span>
+                ) : (
+                  <div className="flex items-center gap-0.5 text-[10px] font-bold tabular-nums tracking-wider whitespace-nowrap">
+                    {countdown.d > 0 && (
+                      <span className="inline-flex items-center gap-0.5 rounded-md bg-black/25 px-0.5 py-0.5">
+                        <span>{countdown.d}</span>
+                        <span className="text-[8px] opacity-80">d</span>
+                      </span>
+                    )}
+                    <span className="inline-flex items-center rounded-md bg-black/25 px-0.5 py-0.5">{pad(countdown.h)}</span>
+                    <span className="text-xs opacity-50">:</span>
+                    <span className="inline-flex items-center rounded-md bg-black/25 px-0.5 py-0.5">{pad(countdown.m)}</span>
+                    <span className="text-xs opacity-50">:</span>
+                    <span className="inline-flex items-center rounded-md bg-black/25 px-0.5 py-0.5">{pad(countdown.s)}</span>
+                  </div>
+                )}
+              </>
+            ) : (
+              <span className="text-[10px] font-medium truncate">{headline || "Portal Notice"}</span>
+            )}
+          </div>
+          <div className="flex items-center gap-1 shrink-0 ml-1.5">
+            {ctaText && (
+              <span
+                className="inline-flex items-center rounded-lg px-1.5 py-0.5 text-[9px] font-semibold text-white shadow-sm"
+                style={{ background: adjustColor(bgColor, -30) }}
+              >
+                {ctaText}
+              </span>
+            )}
+            <button type="button" className="rounded-full p-0.5 transition-colors hover:bg-white/20">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3" aria-hidden="true">
+                <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative w-full max-w-[520px] overflow-hidden rounded-lg shadow-sm" style={{ background: bgColor }}>
@@ -1509,33 +1642,64 @@ function NewsPostPreview({
   planName,
   ctaText,
   subtitle,
+  isMobile,
 }: {
   headline: string;
   body: string;
   planName: string;
   ctaText?: string;
   subtitle?: string;
+  isMobile?: boolean;
 }) {
+  if (isMobile) {
+    return (
+      <div className="w-full">
+        <div className="rounded-lg border bg-white dark:bg-gray-800 dark:border-gray-700 shadow-sm overflow-hidden">
+          <div className="p-4 space-y-3">
+            <div>
+              <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 leading-snug">{headline || "Announcement Title"}</h3>
+              {subtitle && <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{subtitle}</p>}
+            </div>
+            {body ? (
+              <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed line-clamp-3">{body}</p>
+            ) : (
+              <div className="space-y-1.5">
+                <div className="h-2 w-full rounded bg-gray-100 dark:bg-gray-700" />
+                <div className="h-2 w-5/6 rounded bg-gray-100 dark:bg-gray-700" />
+                <div className="h-2 w-4/6 rounded bg-gray-100 dark:bg-gray-700" />
+              </div>
+            )}
+            <div className="pt-0.5">
+              <span className="inline-flex items-center rounded-lg bg-gray-900 dark:bg-gray-700 px-3.5 py-1.5 text-[11px] font-semibold text-white shadow-sm cursor-default">
+                {ctaText || "Learn more"}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full max-w-[520px] group transition-all duration-300 hover:-translate-y-1">
-      <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
+      <div className="rounded-xl border bg-white dark:bg-gray-800 dark:border-gray-700 shadow-sm overflow-hidden">
         <div className="p-6 space-y-4">
           <div>
-            <h3 className="text-lg font-bold text-gray-900 leading-snug">{headline || "Announcement Title"}</h3>
-            {subtitle && <p className="text-sm text-gray-600 mt-1">{subtitle}</p>}
+            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 leading-snug">{headline || "Announcement Title"}</h3>
+            {subtitle && <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{subtitle}</p>}
           </div>
           {body ? (
-            <p className="text-sm text-gray-600 leading-relaxed">{body}</p>
+            <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{body}</p>
           ) : (
             <div className="space-y-2">
-              <div className="h-3 w-full rounded bg-gray-100" />
-              <div className="h-3 w-5/6 rounded bg-gray-100" />
-              <div className="h-3 w-4/6 rounded bg-gray-100" />
-              <div className="h-3 w-3/4 rounded bg-gray-100" />
+              <div className="h-3 w-full rounded bg-gray-100 dark:bg-gray-700" />
+              <div className="h-3 w-5/6 rounded bg-gray-100 dark:bg-gray-700" />
+              <div className="h-3 w-4/6 rounded bg-gray-100 dark:bg-gray-700" />
+              <div className="h-3 w-3/4 rounded bg-gray-100 dark:bg-gray-700" />
             </div>
           )}
           <div className="pt-1">
-            <span className="inline-flex items-center rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm cursor-default">
+            <span className="inline-flex items-center rounded-lg bg-gray-900 dark:bg-gray-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm cursor-default">
               {ctaText || "Learn more"}
             </span>
           </div>
