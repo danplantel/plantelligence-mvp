@@ -559,7 +559,7 @@ export default function MarketingAssetModal({
             <div className="space-y-4">
               <div>
                 <Label className="text-base font-semibold">What kind of flyer?</Label>
-                <p className="text-xs text-muted-foreground mt-1">Choose how you'd like to create your flyer.</p>
+                <p className="text-xs text-muted-foreground mt-1">Choose how you&rsquo;d like to create your flyer.</p>
               </div>
               <div className="grid grid-cols-1 gap-3">
                 <button
