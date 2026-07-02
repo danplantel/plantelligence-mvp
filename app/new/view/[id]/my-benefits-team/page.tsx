@@ -147,11 +147,11 @@ export default function MyBenefitsTeamPage() {
 
   return (
     <div className="min-h-screen bg-white pb-24">
-      <div className="mx-auto w-full max-w-none px-4 sm:px-6 lg:px-10 pt-24">
+      <div className="mx-auto w-full max-w-5xl px-4 sm:px-6 lg:px-8 pt-24">
         {/* TITLE */}
         <div className="text-center">
           <h1
-            className="text-4xl font-semibold"
+            className="text-4xl font-semibold mt-10"
             style={{
               fontFamily: '"DM Serif Display", serif',
               color: brandColor,
@@ -454,7 +454,7 @@ function DefaultLayout({
       {/* ---------- SECONDARY CONTACT CARDS ---------- */}
       {restVisible.length > 0 && (
         <div className="mt-3 w-full min-w-0">
-          <div className="grid w-full min-w-0 grid-cols-4 gap-1">
+          <div className="grid w-full min-w-0 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-1">
             {restVisible.map((contact, index) => (
               <SmallVerticalCard
                 key={contact.id || index}

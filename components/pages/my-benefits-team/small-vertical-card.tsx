@@ -209,7 +209,7 @@ export function SmallVerticalCard({
     const gapName = compact ? "mb-1" : "mb-2";
     const gapTitle = compact ? "mb-1" : "mb-2";
     const gapCompany = compact ? "mb-2" : "mb-4";
-    const contactInfoGap = compact ? "space-y-1.5" : "space-y-3";
+    const contactInfoGap = compact ? "space-y-1" : "space-y-1.5";
     const buttonGap = compact ? "space-y-1" : "space-y-2";
     const iconSize = compact ? 14 : 18;
     const buttonSize = compact ? "py-2" : "py-3";
@@ -218,7 +218,7 @@ export function SmallVerticalCard({
 
     return (
       <div
-        className={`${cardWidth} h-full ${minH} flex flex-col items-center justify-between rounded-xl border border-[#E5E5E5] ${cardPadding} shadow-sm transition-all duration-200 hover:shadow-md hover:border-gray-300 cursor-pointer`}
+        className={`${cardWidth} h-full ${minH} flex flex-col items-center rounded-xl border border-[#E5E5E5] ${cardPadding} shadow-sm transition-all duration-200 hover:shadow-md hover:border-gray-300 cursor-pointer`}
         style={{ backgroundColor }}
       >
         <div className="flex flex-col items-center flex-shrink-0">
@@ -268,9 +268,9 @@ export function SmallVerticalCard({
             {contact.companyName}
           </p>
         </div>
-        {/* CONTACT INFO - FLEXIBLE SPACE */}
+        {/* CONTACT INFO */}
         <div
-          className={`${contactInfoGap} ${subtitleSize} w-full font-red-hat flex-1 flex flex-col`}
+          className={`${contactInfoGap} ${subtitleSize} w-full font-red-hat`}
           style={{ color: textColor || "#374151" }}
         >
           {/* Display contact info in the specified order */}
@@ -373,8 +373,8 @@ export function SmallVerticalCard({
             </p>
           )}
 
-          {/* ACTION BUTTONS - pushed to bottom with mt-auto */}
-          <div className={`w-full ${buttonGap} flex-shrink-0 mt-auto`}>
+          {/* ACTION BUTTONS */}
+          <div className={`w-full ${buttonGap} flex-shrink-0 pt-2`}>
             {hasAnyButton && buttons.map((button, idx) => {
               const isPrimaryButton = idx === primaryIndex;
               const buttonBg = isPrimaryButton
@@ -430,30 +430,30 @@ export function SmallVerticalCard({
         delay: index * 0.1,
         ease: "easeOut",
       }}
-      className={`${cardWidth} h-auto min-h-[580px] flex flex-col items-center justify-between rounded-xl border border-[#E5E5E5] px-4 py-6 sm:px-8 sm:py-10 shadow-sm transition-all duration-200 hover:shadow-md hover:border-gray-300 cursor-pointer`}
+      className={`${cardWidth} h-auto min-h-0 sm:min-h-[580px] flex flex-col items-center rounded-xl border border-[#E5E5E5] px-4 py-6 sm:px-8 sm:py-10 shadow-sm transition-all duration-200 hover:shadow-md hover:border-gray-300 cursor-pointer`}
       style={{ backgroundColor }}
     >
       <div className="flex flex-col items-center flex-shrink-0">
         {/* LOGO AND COMPANY NAME */}
-        <div className="flex flex-col items-center gap-2 mb-6 flex-shrink-0">
+        <div className="flex flex-col items-center gap-2 mb-3 sm:mb-6 flex-shrink-0">
           {(contact.companyLogo || contact.logo) && (
             <BrandingImage
               src={contact.companyLogo || contact.logo || ""}
               alt="Logo"
-              className="h-[60px] w-auto object-contain transition-transform duration-200"
+              className="h-[40px] sm:h-[60px] w-auto object-contain transition-transform duration-200"
               style={{ transform: `scale(${contact.logoScale || baselineLogoScale || 1})` }}
             />
           )}
         </div>
 
         {/* PROFILE PICTURE */}
-        <div className="relative h-[90px] w-[90px] overflow-hidden rounded-full mb-6 flex-shrink-0">
+        <div className="relative h-[60px] w-[60px] sm:h-[90px] sm:w-[90px] overflow-hidden rounded-full mb-3 sm:mb-6 flex-shrink-0">
           <ContactAvatar contact={contact} />
         </div>
 
         {/* NAME */}
         <h3
-          className="text-2xl font-semibold mb-2 text-center flex-shrink-0 font-dm-serif"
+          className="text-lg sm:text-2xl font-semibold mb-1 sm:mb-2 text-center flex-shrink-0 font-dm-serif"
           style={{ color: textColor || effectiveBrandColor }}
         >
           {contact.contactType === "team_support"
@@ -464,7 +464,7 @@ export function SmallVerticalCard({
 
         {/* TITLE / DEPARTMENT LABEL */}
         <p
-          className="text-sm font-medium mb-2 text-center font-red-hat flex-shrink-0"
+          className="text-xs sm:text-sm font-medium mb-1 sm:mb-2 text-center font-red-hat flex-shrink-0"
           style={{ color: textColor || "#374151" }}
         >
           {contact.contactType === "team_support"
@@ -474,15 +474,15 @@ export function SmallVerticalCard({
 
         {/* COMPANY NAME */}
         <p
-          className="text-sm font-semibold mb-4 font-red-hat text-center flex-shrink-0"
+          className="text-xs sm:text-sm font-semibold mb-2 sm:mb-4 font-red-hat text-center flex-shrink-0"
           style={{ color: textColor || effectiveBrandColor }}
         >
           {contact.companyName}
         </p>
       </div>
-      {/* CONTACT INFO - FLEXIBLE SPACE */}
+      {/* CONTACT INFO */}
       <div
-        className="space-y-3 text-sm w-full font-red-hat flex-1 flex flex-col justify-end"
+        className="space-y-1 sm:space-y-1.5 text-xs sm:text-sm w-full font-red-hat"
         style={{ color: textColor || "#374151" }}
       >
         {/* Display contact info in the specified order */}
@@ -494,9 +494,8 @@ export function SmallVerticalCard({
                 className="flex items-center justify-center gap-2 group"
               >
                 <Mail
-                  size={18}
                   strokeWidth={1.5}
-                  className="transition-colors duration-200"
+                  className="w-[14px] h-[14px] sm:w-[18px] sm:h-[18px] transition-colors duration-200"
                   style={{ color: textColor || effectiveSecondaryColor }}
                 />
                 <a
@@ -531,9 +530,8 @@ export function SmallVerticalCard({
                 className="flex items-center justify-center gap-2 group"
               >
                 <Phone
-                  size={18}
                   strokeWidth={1.5}
-                  className="transition-colors duration-200"
+                  className="w-[14px] h-[14px] sm:w-[18px] sm:h-[18px] transition-colors duration-200"
                   style={{ color: textColor || effectiveSecondaryColor }}
                 />
                 <a
@@ -565,12 +563,12 @@ export function SmallVerticalCard({
         })}
         {contact.contactType === "team_support" && contact.supportHours && (
           <p
-            className="text-sm text-center flex items-center justify-center gap-2"
+            className="text-xs sm:text-sm text-center flex items-center justify-center gap-2"
             style={{ color: textColor || "#6B7280" }}
           >
             <Clock
-              size={16}
               strokeWidth={1.5}
+              className="w-[13px] h-[13px] sm:w-4 sm:h-4"
               style={{ color: textColor || effectiveSecondaryColor }}
             />
             <span>{contact.supportHours}</span>
@@ -579,7 +577,7 @@ export function SmallVerticalCard({
 
         {/* ACTION BUTTONS - ALWAYS AT BOTTOM */}
         {hasAnyButton && (
-          <div className="w-full space-y-2 flex-shrink-0">
+          <div className="w-full space-y-1 sm:space-y-2 flex-shrink-0">
             {buttons.map((button, idx) => {
               const isPrimaryButton = idx === primaryIndex;
               const buttonBg = isPrimaryButton
@@ -593,8 +591,8 @@ export function SmallVerticalCard({
                 <Button
                   key={idx}
                   className={cn(
-                    "w-full rounded-lg px-6 text-sm font-semibold uppercase tracking-wide hover:opacity-90 font-red-hat",
-                    isPrimaryButton ? "py-3" : "py-2",
+                    "w-full rounded-lg px-6 text-xs sm:text-sm font-semibold uppercase tracking-wide hover:opacity-90 font-red-hat",
+                    isPrimaryButton ? "py-2 sm:py-3" : "py-1.5 sm:py-2",
                   )}
                   style={{
                     backgroundColor: buttonBg,

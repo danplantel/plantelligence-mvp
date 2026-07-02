@@ -195,277 +195,135 @@ export function PrimaryContactCard({
         duration: 0.6,
         ease: "easeOut",
       }}
-      className="mt-10 w-full rounded-xl p-4 sm:p-8 lg:p-12 shadow-lg relative overflow-hidden"
+      className="mt-10 w-full rounded-xl p-6 sm:p-10 shadow-lg relative overflow-hidden"
       style={{ backgroundColor: backgroundColor }}
     >
-      <div className={`grid ${gridGap} grid-cols-1 lg:grid-cols-2 relative z-10`}>
+      <div className="grid gap-8 sm:gap-10 lg:gap-14 grid-cols-1 lg:grid-cols-2 relative z-10">
         {/* LEFT: HEADSHOT */}
         <div className="flex items-center justify-center">
-          <div className="relative h-[200px] w-[200px] sm:h-[300px] sm:w-[300px] lg:h-[400px] lg:w-[400px] overflow-hidden rounded-full">
+          <div className="relative h-[220px] w-[220px] sm:h-[300px] sm:w-[300px] lg:h-[360px] lg:w-[360px] overflow-hidden rounded-full shadow-md">
             <PrimaryVisual contact={contact} />
           </div>
         </div>
 
         {/* RIGHT: CONTENT */}
-        {compact ? (
-          <div className="flex flex-col justify-center items-center font-red-hat" style={{ color: textColor }}>
-            {/* LOGO - horizontally centered */}
-            <div className="flex m-0 flex-col gap-2 mb-2 items-center" style={{ height: `${80 * (contact.logoScale || 1)}px` }}>
-              {(contact.companyLogo || contact.logo) && (
-                <BrandingImage
-                  src={contact.companyLogo || contact.logo || ""}
-                  alt="Logo"
-                  className="object-contain w-auto transition-all duration-200 max-h-full"
-                  style={{ height: "100%", maxHeight: "100%" }}
-                />
-              )}
+        <div className="flex flex-col justify-center font-red-hat gap-2" style={{ color: textColor }}>
+          {/* COMPANY LOGO */}
+          {(contact.companyLogo || contact.logo) && (
+            <div className="mb-1">
+              <BrandingImage
+                src={contact.companyLogo || contact.logo || ""}
+                alt="Company Logo"
+                className="object-contain w-auto"
+                style={{ height: `${48 * (contact.logoScale || 1)}px`, maxHeight: "60px" }}
+              />
             </div>
+          )}
 
-            {/* Fixed-width text/info block — text left-aligned, CTA button full-width */}
-            <div className="w-80 max-w-full flex flex-col items-start">
-              {/* NAME */}
-              <h2
-                className={`${headingSize} font-semibold font-dm-serif text-left w-full`}
-                style={{ color: effectiveBrandColor }}
-              >
-                {contact.contactType === "team_support"
-                  ? contact.displayName || contact.name
-                  : contact.name}
-              </h2>
-
-              {/* TITLE / DEPARTMENT LABEL */}
-              <p
-                className="text-sm font-medium m-0 font-red-hat text-left w-full"
-                style={{ color: textColor }}
-              >
-                {contact.contactType === "team_support"
-                  ? contact.departmentLabel || contact.customRole
-                  : contact.title || contact.customRole}
-              </p>
-
-              {/* CONTACT INFO */}
-              <div
-                className={`${contactInfoSpacing} text-base font-red-hat text-left w-full`}
-                style={{ color: textColor }}
-              >
-                {contactInfoOrder.map((infoType: ContactInfoType) => {
-                  if (
-                    infoType === "email" &&
-                    contact.email &&
-                    contact.displayEmail !== false
-                  ) {
-                    return (
-                      <p
-                        key="email"
-                        className="flex items-center justify-start gap-2 font-red-hat"
-                      >
-                        <Mail size={18} strokeWidth={1.5} color={textColor} />
-                        <a
-                          href={`mailto:${contact.email}`}
-                          className="underline hover:opacity-80 font-red-hat"
-                          style={{ color: textColor }}
-                        >
-                          {contact.email}
-                        </a>
-                      </p>
-                    );
-                  }
-                  if (
-                    infoType === "phone" &&
-                    contact.phone &&
-                    contact.displayPhone !== false
-                  ) {
-                    return (
-                      <p
-                        key="phone"
-                        className="flex items-center justify-start gap-2 font-red-hat"
-                      >
-                        <Phone size={18} strokeWidth={1.5} color={textColor} />
-                        <span className="font-red-hat">
-                          {formatPhone(contact.phone)}
-                        </span>
-                      </p>
-                    );
-                  }
-                  return null;
-                })}
-                {contact.contactType === "team_support" && contact.supportHours && (
-                  <p className="flex items-center justify-start gap-2 font-red-hat text-sm">
-                    <span>Support Hours: {contact.supportHours}</span>
-                  </p>
-                )}
-              </div>
-
-              {/* ACTION BUTTONS - full width matching the text block */}
-              {hasAnyButton && (
-                <div className="w-full pt-1 mt-2">
-                  {buttons.map((button, idx) => {
-                    const isPrimaryButton = idx === primaryIndex;
-                    const buttonBg = isPrimaryButton
-                      ? effectiveSecondaryColor
-                      : "#F3F4F6";
-                    const buttonColor = isPrimaryButton ? "#ffffff" : readableColor(buttonBg);
-
-                    return (
-                      <Button
-                        key={idx}
-                        className="w-full rounded-lg px-4 py-2 sm:px-6 sm:py-3 text-xs sm:text-sm font-semibold uppercase tracking-wide hover:opacity-90 font-red-hat"
-                        style={{
-                          backgroundColor: buttonBg,
-                          color: buttonColor,
-                          border: isPrimaryButton
-                            ? "none"
-                            : "1px solid #E5E7EB",
-                        }}
-                        onClick={() => {
-                          if (
-                            button.type === "schedule" ||
-                            button.type === "website" ||
-                            button.type === "call" ||
-                            button.type === "email"
-                          ) {
-                            window.open(button.url, "_blank");
-                          }
-                        }}
-                      >
-                        {button.label}
-                      </Button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div
-            className={contentLayout}
-            style={{ color: textColor }}
+          {/* NAME */}
+          <h2
+            className="text-2xl sm:text-3xl lg:text-4xl font-semibold font-dm-serif leading-tight"
+            style={{ color: effectiveBrandColor }}
           >
-            {/* LOGO AND COMPANY NAME */}
-            <div className={`flex m-0 flex-col gap-2 ${logoMargin} items-start`} style={{ height: `${80 * (contact.logoScale || 1)}px` }}>
-              {(contact.companyLogo || contact.logo) && (
-                <BrandingImage
-                  src={contact.companyLogo || contact.logo || ""}
-                  alt="Logo"
-                  className="object-contain w-auto transition-all duration-200 max-h-full"
-                  style={{ height: "100%", maxHeight: "100%" }}
-                />
-              )}
-            </div>
+            {contact.contactType === "team_support"
+              ? contact.displayName || contact.name
+              : contact.name}
+          </h2>
 
-            {/* NAME */}
-            <h2
-              className={`${headingSize} font-semibold font-dm-serif`}
-              style={{ color: effectiveBrandColor }}
-            >
-              {contact.contactType === "team_support"
-                ? contact.displayName || contact.name
-                : contact.name}
-            </h2>
+          {/* TITLE */}
+          <p className="text-base sm:text-lg font-medium font-red-hat" style={{ color: textColor }}>
+            {contact.contactType === "team_support"
+              ? contact.departmentLabel || contact.customRole
+              : contact.title || contact.customRole}
+          </p>
 
-            {/* TITLE / DEPARTMENT LABEL */}
-            <p
-              className="text-sm font-medium m-0 font-red-hat"
-              style={{ color: textColor }}
-            >
-              {contact.contactType === "team_support"
-                ? contact.departmentLabel || contact.customRole
-                : contact.title || contact.customRole}
+          {/* COMPANY NAME */}
+          {(contact.companyName || companyName) && (
+            <p className="text-sm sm:text-base font-red-hat opacity-80 mb-1" style={{ color: textColor }}>
+              {contact.companyName || companyName}
             </p>
+          )}
 
-            {/* CONTACT INFO */}
-            <div
-              className={`${contactInfoSpacing} text-base font-red-hat`}
+          {/* EMAIL (clickable) */}
+          {contact.email && contact.displayEmail !== false && (
+            <a
+              href={`mailto:${contact.email}`}
+              className="flex items-center gap-2.5 text-sm sm:text-base font-red-hat hover:opacity-80 transition-opacity group"
               style={{ color: textColor }}
             >
-              {contactInfoOrder.map((infoType: ContactInfoType) => {
-                if (
-                  infoType === "email" &&
-                  contact.email &&
-                  contact.displayEmail !== false
-                ) {
-                  return (
-                    <p
-                      key="email"
-                      className="flex items-center gap-2 font-red-hat"
-                    >
-                      <Mail size={18} strokeWidth={1.5} color={textColor} />
-                      <a
-                        href={`mailto:${contact.email}`}
-                        className="underline hover:opacity-80 font-red-hat"
-                        style={{ color: textColor }}
-                      >
-                        {contact.email}
-                      </a>
-                    </p>
-                  );
-                }
-                if (
-                  infoType === "phone" &&
-                  contact.phone &&
-                  contact.displayPhone !== false
-                ) {
-                  return (
-                    <p
-                      key="phone"
-                      className="flex items-center gap-2 font-red-hat"
-                    >
-                      <Phone size={18} strokeWidth={1.5} color={textColor} />
-                      <span className="font-red-hat">
-                        {formatPhone(contact.phone)}
-                      </span>
-                    </p>
-                  );
-                }
-                return null;
-              })}
-              {contact.contactType === "team_support" && contact.supportHours && (
-                <p className="flex items-center gap-2 font-red-hat text-sm">
-                  <span>Support Hours: {contact.supportHours}</span>
-                </p>
-              )}
-            </div>
+              <span className="flex items-center justify-center w-8 h-8 rounded-full bg-black/5 dark:bg-white/10 shrink-0 group-hover:scale-110 transition-transform">
+                <Mail size={16} strokeWidth={1.5} />
+              </span>
+              {contact.email}
+            </a>
+          )}
 
-            {/* ACTION BUTTONS */}
-            {hasAnyButton && (
-              <div className="flex flex-wrap gap-2 justify-center lg:justify-start">
-                {buttons.map((button, idx) => {
-                  const isPrimaryButton = idx === primaryIndex;
-                  const buttonBg = isPrimaryButton
-                    ? effectiveSecondaryColor
-                    : "#F3F4F6";
-                  const buttonColor = isPrimaryButton ? "#ffffff" : readableColor(buttonBg);
+          {/* PHONE (clickable) */}
+          {contact.phone && contact.displayPhone !== false && (
+            <a
+              href={`tel:${getBasePhoneForDialing(contact.phone)}`}
+              className="flex items-center gap-2.5 text-sm sm:text-base font-red-hat hover:opacity-80 transition-opacity group"
+              style={{ color: textColor }}
+            >
+              <span className="flex items-center justify-center w-8 h-8 rounded-full bg-black/5 dark:bg-white/10 shrink-0 group-hover:scale-110 transition-transform">
+                <Phone size={16} strokeWidth={1.5} />
+              </span>
+              {formatPhone(contact.phone)}
+            </a>
+          )}
 
-                  return (
-                    <Button
-                      key={idx}
-                      className="rounded-lg px-4 py-2 sm:px-6 sm:py-3 text-xs sm:text-sm font-semibold uppercase tracking-wide hover:opacity-90 font-red-hat"
-                      style={{
-                        backgroundColor: buttonBg,
-                        color: buttonColor,
-                        border: isPrimaryButton
-                          ? "none"
-                          : "1px solid #E5E7EB",
-                      }}
-                      onClick={() => {
-                        if (
-                          button.type === "schedule" ||
-                          button.type === "website" ||
-                          button.type === "call" ||
-                          button.type === "email"
-                        ) {
-                          window.open(button.url, "_blank");
-                        }
-                      }}
-                    >
-                      {button.label}
-                    </Button>
-                  );
-                })}
-              </div>
+          {/* SUPPORT HOURS */}
+          {contact.contactType === "team_support" && contact.supportHours && (
+            <p className="text-sm font-red-hat mt-1" style={{ color: textColor }}>
+              Support Hours: {contact.supportHours}
+            </p>
+          )}
+
+          {/* SCHEDULE APPOINTMENT BUTTON */}
+          <div className="mt-4 w-full">
+            {buttons.length > 0 ? (
+              buttons.map((button, idx) => {
+                const isPrimaryButton = idx === primaryIndex;
+                const buttonBg = isPrimaryButton
+                  ? effectiveSecondaryColor
+                  : "#F3F4F6";
+                const buttonColor = isPrimaryButton ? "#ffffff" : readableColor(buttonBg);
+
+                return (
+                  <Button
+                    key={idx}
+                    className="w-full rounded-lg px-5 py-3 text-sm font-semibold uppercase tracking-wide hover:opacity-90 font-red-hat transition-all duration-200 hover:scale-105"
+                    style={{
+                      backgroundColor: buttonBg,
+                      color: buttonColor,
+                      border: isPrimaryButton ? "none" : "1px solid #E5E7EB",
+                    }}
+                    onClick={() => {
+                      if (
+                        button.type === "schedule" ||
+                        button.type === "website" ||
+                        button.type === "call" ||
+                        button.type === "email"
+                      ) {
+                        window.open(button.url, "_blank");
+                      }
+                    }}
+                  >
+                    {button.label}
+                  </Button>
+                );
+              })
+            ) : (
+              <Button
+                className="w-full rounded-lg px-5 py-3 text-sm font-semibold uppercase tracking-wide text-white hover:opacity-90 font-red-hat transition-all duration-200 hover:scale-105"
+                style={{ backgroundColor: effectiveSecondaryColor }}
+                onClick={() => window.open(appointmentLink, "_blank")}
+              >
+                Schedule Appointment
+              </Button>
             )}
           </div>
-        )}
+        </div>
       </div>
     </motion.section>
   );
