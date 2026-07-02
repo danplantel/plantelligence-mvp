@@ -1067,8 +1067,11 @@ export default function MarketingAssetModal({
             <Input id="np-subtitle" placeholder="A short description…" value={flyerSubtitle} onChange={(e) => setFlyerSubtitle(e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="np-body">Body text</Label>
-            <Textarea id="np-body" rows={4} placeholder="Write your message…" value={body} onChange={(e) => setBody(e.target.value)} className="dark:bg-gray-800" />
+            <div className="flex items-center justify-between">
+              <Label htmlFor="np-body">Body text</Label>
+              <span className="text-[11px] text-muted-foreground tabular-nums">{body.length}/300</span>
+            </div>
+            <Textarea id="np-body" rows={4} placeholder="Write your message…" value={body} onChange={(e) => setBody(e.target.value)} maxLength={300} className="dark:bg-gray-800" />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="category">Category</Label>
@@ -2030,7 +2033,7 @@ function NewsPostPreview({
             <img src={bgSrc} alt="" className="absolute inset-0 w-full h-full object-cover" />
           )}
           {/* Dark overlay — left-to-right gradient: dark on left for text, transparent on right for image */}
-          <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/60 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/60 to-transparent" />
           {cardContent}
         </div>
       </div>
@@ -2047,7 +2050,7 @@ function NewsPostPreview({
           <img src={bgSrc} alt="" className="absolute inset-0 w-full h-full object-cover" />
         )}
         {/* Dark overlay — left-to-right gradient: dark on left for text, transparent on right for image */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/60 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/60 to-transparent" />
         {cardContent}
       </div>
     </div>

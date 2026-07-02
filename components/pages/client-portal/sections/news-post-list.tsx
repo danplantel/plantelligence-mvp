@@ -131,7 +131,7 @@ export function NewsPostList({
                   )}
 
                   {/* Dark overlay — left-to-right gradient: dark on left for text, transparent on right for image */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/60 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/60 to-transparent" />
 
                   {/* Content — constrained to the dark left portion */}
                   <div className="relative z-10 flex flex-col h-full p-6 sm:p-8 max-w-[60%] sm:max-w-[55%]">
