@@ -276,10 +276,12 @@ export function PortalBenefits({
   return (
     <section className="bg-white py-8 sm:py-10 lg:py-12 box-border flex flex-col items-center justify-center">
       <div className="text-center mb-8 sm:mb-12 lg:mb-16 px-4">
-        <h2 className="text-3xl sm:text-4xl lg:text-[48px] font-dm-serif text-[#0D315F] mb-4 sm:mb-6">
+        <h2 className="text-2xl sm:text-4xl lg:text-[48px] font-dm-serif mb-4 sm:mb-6"
+          style={{ color: brandColor }}
+        >
           Your Benefits at a Glance
         </h2>
-        <p className="text-sm sm:text-base font-red-hat text-[#6B6B6B] max-w-3xl mx-auto px-4">
+        <p className="text-sm sm:text-base font-red-hat text-[#6B6B6B] max-w-3xl mx-auto px-4 leading-relaxed">
           Explore your comprehensive benefits package designed to support your
           financial security and well-being.
         </p>
@@ -314,7 +316,7 @@ export function PortalBenefits({
                 className="w-full h-full flex justify-center"
               >
                 <Card
-                  className={`text-center w-full max-w-[303px] h-full rounded-xl border border-[#E5E7EB] shadow-sm bg-white overflow-hidden flex flex-col transition-all duration-300 ease-in-out relative group ${
+                  className={`text-center w-full max-w-full sm:max-w-[303px] h-full rounded-xl border border-[#E5E7EB] shadow-sm bg-white overflow-hidden flex flex-col transition-all duration-300 ease-in-out relative group ${
                     onEdit || (hasClientId && !completeness.isComplete)
                       ? "cursor-pointer hover:-translate-y-2 hover:shadow-lg"
                       : "hover:-translate-y-2 hover:shadow-lg"

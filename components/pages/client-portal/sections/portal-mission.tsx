@@ -47,11 +47,11 @@ export function PortalMission({
     <section
       id="portal-mission"
       ref={sectionRef}
-      className="px-4 sm:px-6 lg:px-8 flex items-center min-h-[590px] bg-[#FEFCF7] relative py-8 sm:py-12"
+      className="px-4 sm:px-6 lg:px-8 flex items-center min-h-0 sm:min-h-[590px] bg-[#FEFCF7] relative py-8 sm:py-12"
     >
-      <div className="max-w-[1400px] mx-auto w-full flex gap-4 sm:gap-6 lg:gap-8 items-center overflow-x-auto">
-        <div className="relative flex-shrink-0">
-          <div className="flex justify-center w-[280px] sm:w-[350px] lg:w-[420px] h-[280px] sm:h-[350px] lg:h-[470px] items-center aspect-square overflow-hidden">
+      <div className="max-w-[1400px] mx-auto w-full flex flex-col lg:flex-row gap-6 sm:gap-6 lg:gap-8 items-center">
+        <div className="relative flex-shrink-0 w-full lg:w-auto">
+          <div className="flex justify-center w-full sm:w-[280px] lg:w-[420px] h-[220px] sm:h-[280px] lg:h-[470px] items-center overflow-hidden mx-auto">
             {company?.thumbnailImg ? (
               <BrandingImage
                 src={company.thumbnailImg}
@@ -76,10 +76,12 @@ export function PortalMission({
           whileInView="visible"
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.3, ease: "easeOut" }}
-          className="flex-shrink-0"
+          className="flex-shrink-0 w-full lg:w-auto"
         >
-          <div className="w-[280px] sm:w-[500px] md:w-[650px] lg:w-[800px] flex flex-col justify-around min-h-[280px] sm:min-h-[350px] lg:min-h-[470px] p-4 sm:p-8 lg:p-14 box-border">
-            <h2 className="mb-4 sm:mb-6 font-dm-serif text-[#002B5B] text-xl sm:text-2xl md:text-3xl lg:text-[40px] leading-tight">
+          <div className="w-full sm:w-[500px] md:w-[650px] lg:w-[800px] flex flex-col justify-around min-h-0 sm:min-h-[350px] lg:min-h-[470px] p-4 sm:p-8 lg:p-14 box-border">
+            <h2 className="mb-4 sm:mb-6 font-dm-serif text-xl sm:text-2xl md:text-3xl lg:text-[40px] leading-tight"
+              style={{ color: brandColor }}
+            >
               {company?.missionHeadline ||
                 "We care about people. We value teamwork. We deliver results."}
             </h2>
@@ -89,7 +91,7 @@ export function PortalMission({
             </p>
             <button
               onClick={handleScrollDown}
-              className="w-full sm:w-auto max-w-[250px] px-4 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm md:text-base text-white uppercase font-semibold rounded-md transition-colors duration-200 hover:opacity-90"
+              className="w-full sm:w-auto px-4 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm md:text-base text-white uppercase font-semibold rounded-md transition-colors duration-200 hover:opacity-90"
               style={{
                 background: secondaryColor || brandColor || "#D4A574",
               }}

@@ -171,7 +171,7 @@ export function PortalHero({
   return (
     <section
       ref={sectionRef}
-      className={`px-4 sm:px-6 lg:px-20 min-h-[565px] relative isolate overflow-hidden flex justify-center items-center ${hasBackgroundImage ? "bg-[#FEFCF7]" : "bg-white"
+      className={`px-4 sm:px-6 lg:px-20 min-h-[400px] sm:min-h-[565px] relative isolate overflow-hidden flex justify-center items-center ${hasBackgroundImage ? "bg-[#FEFCF7]" : "bg-white"
         }`}
     >
       <div className="absolute inset-0">
@@ -243,10 +243,10 @@ export function PortalHero({
         )}
       </div>
 
-      <div className="z-10 relative flex justify-center items-center px-4 sm:px-6 box-border h-full">
+      <div className="z-10 relative flex justify-center items-center px-4 sm:px-6 lg:px-8 box-border h-full w-full">
         <div
           data-container="true"
-          className={`text-container flex items-center justify-center px-6 sm:px-10 box-border min-h-[320px] w-full max-w-[900px] mx-auto transition-all relative ${isEditable && onContainerClick
+          className={`text-container flex items-center justify-center px-4 sm:px-6 lg:px-10 box-border min-h-[200px] sm:min-h-[320px] w-full max-w-[900px] mx-auto transition-all relative ${isEditable && onContainerClick
             ? "[&:hover:not(:has(.text-content:hover))]:ring-2 [&:hover:not(:has(.text-content:hover))]:ring-blue-500/50 [&:hover:not(:has(.text-content:hover))]:rounded-md cursor-pointer"
             : isEditable
               ? "[&:hover:not(:has(.text-content:hover))]:ring-2 [&:hover:not(:has(.text-content:hover))]:ring-blue-500/50 [&:hover:not(:has(.text-content:hover))]:rounded-md"
@@ -307,7 +307,7 @@ export function PortalHero({
           >
             {heroTitleSlot || (
               <h1
-                className={`text-content mb-6 font-dm-serif text-[48px] w-4/5 relative z-10 ${onHeroTitleClick
+                className={`text-content mb-4 sm:mb-6 font-dm-serif text-3xl sm:text-4xl md:text-5xl lg:text-[48px] w-full sm:w-4/5 relative z-10 ${onHeroTitleClick
                   ? `cursor-pointer transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${hoveredElement === "title"
                     ? "opacity-90 ring-2 ring-blue-500/50 rounded-md px-2 -mx-2"
                     : "hover:opacity-90"
@@ -430,7 +430,7 @@ export function PortalHero({
                   </div>
                 ) : (
                   <p
-                    className={`text-content font-red-hat text-base leading-relaxed transition-all duration-600 ease-out opacity-100 translate-y-0 w-4/5 relative z-10 ${onHeroDescriptionClick
+                    className={`text-content font-red-hat text-sm sm:text-base leading-relaxed transition-all duration-600 ease-out opacity-100 translate-y-0 w-full sm:w-4/5 relative z-10 ${onHeroDescriptionClick
                       ? `cursor-pointer transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 ${hoveredElement === "description"
                         ? "opacity-90 ring-2 ring-blue-500/50 rounded-lg px-2 -mx-2"
                         : "hover:opacity-90"
@@ -480,7 +480,7 @@ export function PortalHero({
         aria-label="Scroll to mission section"
       >
         <ChevronDown
-          className="w-24 h-16 text-white animate-bounce-slow transition-transform group-hover:scale-110"
+          className="w-16 h-10 sm:w-24 sm:h-16 text-white animate-bounce-slow transition-transform group-hover:scale-110"
           strokeWidth={1}
         />
       </button>
