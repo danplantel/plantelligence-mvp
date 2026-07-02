@@ -72,6 +72,9 @@ interface MarketingAssetModalProps {
   initialFlyerStep?: number;
   /** When editing an existing portal-notice (top banner), skip the element picker */
   initialPortalElement?: PortalNoticeElement | null;
+  /** When editing an existing asset, pass its full data to pre-populate the form */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  editingAsset?: any;
 }
 
 interface Meeting {
@@ -127,6 +130,7 @@ export default function MarketingAssetModal({
   onSave,
   initialFlyerStep,
   initialPortalElement,
+  editingAsset,
 }: MarketingAssetModalProps) {
   const { toast } = useToast();
   const meta = ASSET_META[assetType];
@@ -234,36 +238,85 @@ export default function MarketingAssetModal({
   }, [flyerTemplate, flyerStep, flyerMode, resolvedType]);
 
   useEffect(() => {
-    setHeadline("");
-    setBody("");
-    setStartDate("");
-    setEndDate("");
-    setBgColor("#23919c");
-    setFlyerStep(0);
-    setFlyerMode(null);
-    setFlyerTopic("");
-    setFlyerSubtitle("");
-    setMeetingTime("");
-    setMeetingPlatform("");
-    setMeetingLocation("");
-    setSelectedMeetingId("");
-    setFlyerImage("");
-    setFlyerQrUrl("");
-    setFlyerQrDataUrl("");
-    setQrGenerating(false);
-    setQrResult(null);
-    setFlyerCategory("");
-    setFlyerTemplate("MeetingTemplate1");
-    setShowEveryVisit(false);
-    setPopupPages(["all"]);
-    setAssetStatus("Draft");
-    setNoticeType("text");
-    setCountdownTarget("");
-    setPortalCtaUrl("");
-    setCtaText("");
-    setPostCategory("Announcement");
-    setPortalElement(null);
-  }, [open, assetType]);
+    if (editingAsset) {
+      // ── Editing mode: populate from existing asset ──
+      const d = (editingAsset.data as Record<string, unknown>) ?? {};
+      setHeadline((editingAsset.headline as string) || "");
+      setBody((editingAsset.body as string) || "");
+      setStartDate((editingAsset.startDate as string) || "");
+      setEndDate((editingAsset.endDate as string) || "");
+      setBgColor((editingAsset.bgColor as string) || "#23919c");
+      setCtaText((editingAsset.ctaText as string) || (d.ctaText as string) || "");
+      setAssetStatus((editingAsset.status as MarketingAssetStatus) || "Draft");
+
+      // Portal-notice specific
+      if (assetType === "portal-notice") {
+        setNoticeType((d.noticeType as "text" | "countdown") || "text");
+        setCountdownTarget((d.countdownTarget as string) || "");
+        setPortalCtaUrl((d.portalCtaUrl as string) || "");
+        setPortalElement((editingAsset.portalElement as PortalNoticeElement) || "top-banner");
+      }
+
+      // Pop-up specific
+      if (assetType === "pop-up" || editingAsset.type === "pop-up") {
+        setShowEveryVisit(!!d.showEveryVisit);
+        setPopupPages((d.popupPages as string[]) || ["all"]);
+        setFlyerSubtitle((editingAsset.flyerSubtitle as string) || (d.flyerSubtitle as string) || "");
+      }
+
+      // News post specific
+      if (assetType === "news-post" || editingAsset.type === "news-post") {
+        setFlyerSubtitle((editingAsset.flyerSubtitle as string) || (d.flyerSubtitle as string) || "");
+        setPostCategory((d.category as string) || "Announcement");
+        setCtaText((editingAsset.ctaText as string) || (d.ctaText as string) || "");
+      }
+
+      // Flyer specific
+      if (assetType === "flyer" || editingAsset.type === "flyer") {
+        setFlyerStep(3);
+        setFlyerMode("meeting");
+        setFlyerSubtitle((editingAsset.flyerSubtitle as string) || (d.flyerSubtitle as string) || "");
+        setFlyerTemplate((d.flyerTemplate as string) || "MeetingTemplate1");
+        setFlyerCategory((d.flyerCategory as string) || "");
+        setMeetingTime((d.meetingTime as string) || "");
+        setMeetingLocation((d.meetingLocation as string) || "");
+        setFlyerImage((editingAsset.flyerImage as string) || (d.flyerImage as string) || "");
+        setFlyerQrUrl((d.flyerQrUrl as string) || "");
+        setFlyerQrDataUrl((d.flyerQrDataUrl as string) || "");
+      }
+    } else {
+      // ── Create mode: reset all fields ──
+      setHeadline("");
+      setBody("");
+      setStartDate("");
+      setEndDate("");
+      setBgColor("#23919c");
+      setFlyerStep(0);
+      setFlyerMode(null);
+      setFlyerTopic("");
+      setFlyerSubtitle("");
+      setMeetingTime("");
+      setMeetingPlatform("");
+      setMeetingLocation("");
+      setSelectedMeetingId("");
+      setFlyerImage("");
+      setFlyerQrUrl("");
+      setFlyerQrDataUrl("");
+      setQrGenerating(false);
+      setQrResult(null);
+      setFlyerCategory("");
+      setFlyerTemplate("MeetingTemplate1");
+      setShowEveryVisit(false);
+      setPopupPages(["all"]);
+      setAssetStatus("Draft");
+      setNoticeType("text");
+      setCountdownTarget("");
+      setPortalCtaUrl("");
+      setCtaText("");
+      setPostCategory("Announcement");
+      setPortalElement(null);
+    }
+  }, [open, assetType, editingAsset]);
 
   // Apply initial values when opening for edit (after reset above)
   useEffect(() => {
@@ -396,22 +449,41 @@ export default function MarketingAssetModal({
       data.flyerSubtitle = flyerSubtitle || null;
     }
 
+    const isEditing = !!editingAsset;
+    const url = isEditing
+      ? `/api/marketing/assets/${editingAsset.id}`
+      : "/api/marketing/assets";
+    const method = isEditing ? "PATCH" : "POST";
+
     try {
-      const res = await fetch("/api/marketing/assets", {
-        method: "POST",
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clientId: planId,
-          type: resolvedType,
-          status: assetStatus,
-          headline: headline || meta.label,
-          body,
-          ctaText: ctaText || "",
-          startDate: startDate || null,
-          endDate: endDate || null,
-          bgColor,
-          data,
-        }),
+        body: JSON.stringify(
+          isEditing
+            ? {
+                status: assetStatus,
+                headline: headline || meta.label,
+                body,
+                ctaText: ctaText || "",
+                startDate: startDate || null,
+                endDate: endDate || null,
+                bgColor,
+                data,
+              }
+            : {
+                clientId: planId,
+                type: resolvedType,
+                status: assetStatus,
+                headline: headline || meta.label,
+                body,
+                ctaText: ctaText || "",
+                startDate: startDate || null,
+                endDate: endDate || null,
+                bgColor,
+                data,
+              }
+        ),
       });
 
       if (!res.ok) {
@@ -429,8 +501,8 @@ export default function MarketingAssetModal({
           : meta.label;
       onSave?.();
       toast({
-        title: `${saveLabel} saved`,
-        description: `"${headline || saveLabel}" has been created as ${assetStatus}.`,
+        title: `${saveLabel} ${isEditing ? "updated" : "saved"}`,
+        description: `"${headline || saveLabel}" has been ${isEditing ? "updated" : "created"} as ${assetStatus}.`,
         className: "border-green-500 bg-green-50 text-green-900 dark:bg-green-950 dark:text-green-100 dark:border-green-800",
       });
     } catch (error) {
@@ -966,13 +1038,14 @@ export default function MarketingAssetModal({
           <div>
             <DialogTitle className="text-lg font-semibold flex items-center gap-2">
               {(() => {
+                const action = editingAsset ? "Edit" : "Create";
                 if (assetType !== "portal-notice" || !portalElement) {
-                  return <><span>{meta.icon}</span>Create {meta.label}</>;
+                  return <><span>{meta.icon}</span>{action} {meta.label}</>;
                 }
                 const elMeta = portalElement === "top-banner"
                   ? ASSET_META["portal-notice"]
                   : ASSET_META[portalElement as AssetType];
-                return <><span>{elMeta.icon}</span>Create {elMeta.label}</>;
+                return <><span>{elMeta.icon}</span>{action} {elMeta.label}</>;
               })()}
             </DialogTitle>
             <p className="text-sm text-muted-foreground mt-0.5">
@@ -1117,14 +1190,15 @@ export default function MarketingAssetModal({
             </select>
             <Button onClick={handleSave} disabled={isSaving}>
               {isSaving ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving…</>
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{editingAsset ? "Updating…" : "Saving…"}</>
               ) : (
                 (() => {
-                  if (assetType !== "portal-notice" || !portalElement) return `Save ${meta.label}`;
+                  const action = editingAsset ? "Update" : "Save";
+                  if (assetType !== "portal-notice" || !portalElement) return `${action} ${meta.label}`;
                   const btnMeta = portalElement === "top-banner"
                     ? ASSET_META["portal-notice"]
                     : ASSET_META[portalElement as AssetType];
-                  return `Save ${btnMeta.label}`;
+                  return `${action} ${btnMeta.label}`;
                 })()
               )}
             </Button>
@@ -1310,47 +1384,47 @@ function NoticePreview({
   const pad = (n: number) => n.toString().padStart(2, "0");
 
   return (
-    <div className="relative w-full max-w-[600px] overflow-hidden rounded-lg shadow-sm" style={{ background: bgColor }}>
-      <div className="relative flex items-center justify-center px-4 py-3 text-white">
+    <div className="relative w-full max-w-[520px] overflow-hidden rounded-lg shadow-sm" style={{ background: bgColor }}>
+      <div className="relative flex items-center justify-center px-2.5 py-1.5 text-white">
         {/* Centered group: headline + countdown */}
-        <div className="flex items-center justify-center gap-4 text-center flex-1">
+        <div className="flex items-center justify-center gap-2 text-center flex-1 min-w-0">
           {noticeType === "countdown" && countdownTarget ? (
             <>
-              <span className="text-sm font-medium whitespace-nowrap">{headline || "Countdown"}</span>
+              <span className="text-[11px] font-medium whitespace-nowrap">{headline || "Countdown"}</span>
               {countdown.expired ? (
-                <span className="text-base font-bold whitespace-nowrap">Expired</span>
+                <span className="text-xs font-bold whitespace-nowrap">Expired</span>
               ) : (
-                <div className="flex items-center gap-2 text-base font-bold tabular-nums tracking-wider whitespace-nowrap">
+                <div className="flex items-center gap-1 text-xs font-bold tabular-nums tracking-wider whitespace-nowrap">
                   {countdown.d > 0 && (
-                    <span className="inline-flex items-center gap-1 rounded-md bg-black/25 px-2 py-1">
+                    <span className="inline-flex items-center gap-0.5 rounded-md bg-black/25 px-1 py-0.5">
                       <span>{countdown.d}</span>
-                      <span className="text-sm opacity-80">d</span>
+                      <span className="text-[9px] opacity-80">d</span>
                     </span>
                   )}
-                  <span className="inline-flex items-center rounded-md bg-black/25 px-2 py-1">{pad(countdown.h)}</span>
-                  <span className="text-lg opacity-50 -mx-0.5">:</span>
-                  <span className="inline-flex items-center rounded-md bg-black/25 px-2 py-1">{pad(countdown.m)}</span>
-                  <span className="text-lg opacity-50 -mx-0.5">:</span>
-                  <span className="inline-flex items-center rounded-md bg-black/25 px-2 py-1">{pad(countdown.s)}</span>
+                  <span className="inline-flex items-center rounded-md bg-black/25 px-1 py-0.5">{pad(countdown.h)}</span>
+                  <span className="text-sm opacity-50 -mx-0.5">:</span>
+                  <span className="inline-flex items-center rounded-md bg-black/25 px-1 py-0.5">{pad(countdown.m)}</span>
+                  <span className="text-sm opacity-50 -mx-0.5">:</span>
+                  <span className="inline-flex items-center rounded-md bg-black/25 px-1 py-0.5">{pad(countdown.s)}</span>
                 </div>
               )}
             </>
           ) : (
-            <span className="text-sm font-medium truncate">{headline || "Portal Notice"}</span>
+            <span className="text-[11px] font-medium truncate">{headline || "Portal Notice"}</span>
           )}
         </div>
         {/* Right side: CTA + dismiss, absolutely positioned */}
-        <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+        <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
           {ctaText && (
             <span
-              className="inline-flex items-center rounded-lg px-4 py-1.5 text-xs font-semibold text-white shadow-sm"
+              className="inline-flex items-center rounded-lg px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm"
               style={{ background: adjustColor(bgColor, -30) }}
             >
               {ctaText}
             </span>
           )}
-          <button type="button" className="rounded-full p-1 transition-colors hover:bg-white/20">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden="true">
+          <button type="button" className="rounded-full p-0.5 transition-colors hover:bg-white/20">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5" aria-hidden="true">
               <path d="M18 6 6 18" /><path d="m6 6 12 12" />
             </svg>
           </button>

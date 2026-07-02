@@ -489,6 +489,7 @@ export default function MarketingPage() {
   const [activeAssetType, setActiveAssetType] = useState<AssetType>("flyer");
   const [editingFlyerStep, setEditingFlyerStep] = useState<number | undefined>(undefined);
   const [editingPortalElement, setEditingPortalElement] = useState<PortalNoticeElement | null | undefined>(undefined);
+  const [editingAsset, setEditingAsset] = useState<SavedAsset | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isDeletingLoading, setIsDeletingLoading] = useState(false);
@@ -882,6 +883,7 @@ export default function MarketingPage() {
                             )}
                             <button type="button" className="text-xs font-medium text-[var(--accent-blue)] hover:underline shrink-0" onClick={() => {
                               setActiveAssetType(asset.type);
+                              setEditingAsset(asset);
                               if (asset.type === "flyer") {
                                 setEditingFlyerStep(3);
                                 setEditingPortalElement(undefined);
@@ -968,6 +970,7 @@ export default function MarketingPage() {
               if (!v) {
                 setEditingFlyerStep(undefined);
                 setEditingPortalElement(undefined);
+                setEditingAsset(null);
               }
             }}
             assetType={activeAssetType}
@@ -975,6 +978,7 @@ export default function MarketingPage() {
             planId={selectedPlan}
             initialFlyerStep={editingFlyerStep}
             initialPortalElement={editingPortalElement}
+            editingAsset={editingAsset}
             onSave={() => {
               mutateAssets();
             }}
