@@ -225,10 +225,13 @@ export default function MarketingAssetModal({
   const [selectedBgImage, setSelectedBgImage] = useState<string>("");
   const [existingNewsPosts, setExistingNewsPosts] = useState<any[]>([]);
   const [newsPostLimitReached, setNewsPostLimitReached] = useState(false);
+  const [newsPostCtaUrl, setNewsPostCtaUrl] = useState("");
 
   // Fetch existing news-post assets to enforce max 4 and unique images per client
   useEffect(() => {
     if (!planId) return;
+    // Only fetch when the news-post form is visible (either direct or via portal-notice sub-element)
+    if (assetType !== "news-post" && !(assetType === "portal-notice" && portalElement === "news-post")) return;
     fetch(`/api/marketing/assets/public?clientId=${planId}&type=news-post`)
       .then((r) => r.json())
       .then((res) => {
@@ -241,7 +244,7 @@ export default function MarketingAssetModal({
         }
       })
       .catch(() => {});
-  }, [planId, editingAsset]);
+  }, [planId, editingAsset, assetType, portalElement]);
 
   /** IDs of background images already used by other news posts for this client */
   const usedBgImageIds: string[] = useMemo(() => {
@@ -322,6 +325,7 @@ export default function MarketingAssetModal({
         setPostCategory((d.category as string) || "Announcement");
         setCtaText((editingAsset.ctaText as string) || (d.ctaText as string) || "");
         setSelectedBgImage((d.bgImage as string) || "");
+        setNewsPostCtaUrl((d.ctaUrl as string) || "");
       }
 
       // Flyer specific
@@ -368,6 +372,7 @@ export default function MarketingAssetModal({
       setCtaText("");
       setPostCategory("Announcement");
       setSelectedBgImage("");
+      setNewsPostCtaUrl("");
       setNewsPostLimitReached(false);
       setExistingNewsPosts([]);
       setPortalElement(null);
@@ -504,6 +509,7 @@ export default function MarketingAssetModal({
       data.category = postCategory;
       data.flyerSubtitle = flyerSubtitle || null;
       data.bgImage = selectedBgImage || null;
+      data.ctaUrl = newsPostCtaUrl || null;
     }
 
     const isEditing = !!editingAsset;
@@ -1136,6 +1142,10 @@ export default function MarketingAssetModal({
           <div className="space-y-1.5">
             <Label htmlFor="ctaText">Button text</Label>
             <Input id="ctaText" placeholder="Learn More" value={ctaText} onChange={(e) => setCtaText(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="np-cta-url">Button link (optional)</Label>
+            <Input id="np-cta-url" placeholder="https://example.com" value={newsPostCtaUrl} onChange={(e) => setNewsPostCtaUrl(e.target.value)} />
           </div>
           {/* Accent color */}
           <div className="space-y-1.5">

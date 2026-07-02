@@ -83,6 +83,12 @@ export function NewsPostList({
             const bgImageId = (data.bgImage as string) || "";
             const bgSrc = bgImageId ? BG_IMAGE_MAP[bgImageId] || "" : "";
             const hasBg = !!bgSrc;
+            const rawCtaUrl = (data.ctaUrl as string) || "";
+            // Normalize URL: if no protocol is present, prepend https://
+            const ctaUrl = rawCtaUrl && !/^https?:\/\//i.test(rawCtaUrl)
+              ? `https://${rawCtaUrl}`
+              : rawCtaUrl;
+            const hasCtaUrl = !!ctaUrl;
 
             const formatDate = (d: string | null | undefined) =>
               d
@@ -182,10 +188,22 @@ export function NewsPostList({
                     {/* CTA */}
                     {post.ctaText && (
                       <div className="mt-auto pt-4">
-                        <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/20 backdrop-blur-sm px-4 py-2 text-xs font-semibold text-white shadow-sm border border-white/30 transition-all duration-200 group-hover:bg-white/30">
-                          {post.ctaText}
-                          <ArrowRight className="h-3.5 w-3.5" />
-                        </span>
+                        {hasCtaUrl ? (
+                          <a
+                            href={ctaUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-white/20 backdrop-blur-sm px-4 py-2 text-xs font-semibold text-white shadow-sm border border-white/30 transition-all duration-200 hover:bg-white/30"
+                          >
+                            {post.ctaText}
+                            <ArrowRight className="h-3.5 w-3.5" />
+                          </a>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/20 backdrop-blur-sm px-4 py-2 text-xs font-semibold text-white shadow-sm border border-white/30">
+                            {post.ctaText}
+                            <ArrowRight className="h-3.5 w-3.5" />
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>
