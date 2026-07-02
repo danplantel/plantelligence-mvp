@@ -1,9 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Play, Star, Clock } from "lucide-react";
 import Image from "next/image";
 import { toNextImageSrc } from "@/lib/branding-image-url";
 
@@ -97,7 +94,7 @@ function AutoCarouselVideoRow({
         {title}
       </h3>
 
-      <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/30 px-10 py-4">
+      <div className="relative overflow-hidden rounded-2xl bg-black/30 px-10 py-4">
         <button
           type="button"
           onClick={() => handleManualScroll("left")}
@@ -228,89 +225,32 @@ export function RetirementJourneySection({
         />
       </div>
 
-      <div className="relative z-10 mx-auto flex flex-col items-center pt-20 justify-center">
-        <div className="grid w-[1280px] items-center gap-10 pb-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
+      <div className="relative z-10 mx-auto flex flex-col items-center justify-center px-4 pt-16 sm:px-6 sm:pt-20 lg:px-8">
+        <div className="grid w-full max-w-[1280px] items-center gap-6 pb-2 md:gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
           <div className="max-w-3xl">
-            <h1 className="mb-4 font-unna font-dm-serif text-3xl font-normal leading-tight sm:text-4xl lg:text-[64px]">
+            <h1 className="mb-4 font-unna font-dm-serif text-[28px] font-normal leading-tight sm:text-3xl md:text-4xl lg:text-[64px]">
               {mainTitle}
             </h1>
-            <h2 className="mb-5 text-xl font-medium font-dm-serif text-[#26A69A] sm:text-2xl lg:text-[24px]">
+            <h2 className="mb-5 text-lg font-medium font-dm-serif text-[#26A69A] sm:text-xl md:text-2xl lg:text-[24px]">
               {subtitle}
             </h2>
-            <div className="mb-6 flex flex-wrap items-center gap-3 text-white/80">
-              <div className="flex items-center gap-1">
-                <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                <span className="text-xs font-manrope sm:text-sm">
-                  {featuredVideo.rating}
-                </span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Clock className="h-4 w-4" />
-                <span className="text-xs font-manrope sm:text-sm">
-                  {featuredVideo.duration}
-                </span>
-              </div>
-              <Badge
-                variant="outline"
-                className="border-white/30 px-2 py-0.5 text-xs text-white"
-              >
-                HD
-              </Badge>
-              <Badge
-                className="px-2 py-0.5 text-xs font-manrope text-white"
-                style={{ background: brandColor }}
-              >
-                {featuredVideo.category}
-              </Badge>
-            </div>
-            <p className="mb-6 text-[19px] font-red-hat leading-relaxed text-white/90">
+            <p className="mb-6 text-base leading-relaxed text-white/90 sm:text-[19px] font-red-hat">
               {featuredVideo.description}
             </p>
           </div>
 
           <div className="relative w-full">
-            <div className="aspect-video overflow-hidden rounded-2xl border border-white/15 bg-black/80 shadow-2xl">
-              {featuredVideo.embedUrl ? (
-                <iframe
-                  src={featuredVideo.embedUrl}
-                  title={featuredVideo.title}
-                  className="h-full w-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  referrerPolicy="strict-origin-when-cross-origin"
-                />
-              ) : (
-                <button
-                  type="button"
-                  onClick={onFeaturedVideoClick}
-                  className="flex h-full w-full flex-col items-center justify-center gap-3 text-white/80"
-                >
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/40 bg-white/10">
-                    <Play className="h-6 w-6 fill-current" />
-                  </div>
-                  <span className="font-manrope text-sm sm:text-base">
-                    Choose your video
-                  </span>
-                </button>
-              )}
+            <div className="aspect-video overflow-hidden rounded-xl border border-white/15 bg-black/80 shadow-2xl sm:rounded-2xl">
+              <Image
+                src={featuredVideo.thumbnail || "/placeholder.svg"}
+                alt={featuredVideo.title}
+                fill
+                className="object-cover"
+                sizes="(max-width: 1024px) 100vw, 50vw"
+              />
             </div>
           </div>
         </div>
-{/* 
-        <div className="mt-12 w-[1280px] space-y-10">
-          <AutoCarouselVideoRow
-            title={firstCarouselTitle}
-            videos={retirementVideos}
-            onVideoClick={onVideoClick}
-            speed={40}
-          />
-          <AutoCarouselVideoRow
-            title={secondCarouselTitle}
-            videos={planningVideos}
-            onVideoClick={onVideoClick}
-            speed={50}
-          />
-        </div> */}
       </div>
     </section>
   );
