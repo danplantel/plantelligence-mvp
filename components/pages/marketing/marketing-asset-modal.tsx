@@ -814,7 +814,8 @@ export default function MarketingAssetModal({
         <div className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="pn-headline">Headline</Label>
-            <Input id="pn-headline" placeholder="Enter headline…" value={headline} onChange={(e) => setHeadline(e.target.value)} />
+            <Input id="pn-headline" placeholder="Enter headline…" value={headline} onChange={(e) => setHeadline(e.target.value)} maxLength={80} />
+            <p className="text-[11px] text-muted-foreground text-right tabular-nums">{headline.length}/80</p>
           </div>
           <div className="space-y-1.5">
             <Label>Notice type</Label>
@@ -1310,21 +1311,27 @@ function NoticePreview({
 
   return (
     <div className="relative w-full max-w-[600px] overflow-hidden rounded-lg shadow-sm" style={{ background: bgColor }}>
-      <div className="relative flex items-center justify-between gap-3 px-4 py-3 text-white">
-        <div className="flex items-center gap-3 min-w-0 flex-1">
+      <div className="relative flex items-center justify-center px-4 py-3 text-white">
+        {/* Centered group: headline + countdown */}
+        <div className="flex items-center justify-center gap-4 text-center flex-1">
           {noticeType === "countdown" && countdownTarget ? (
             <>
               <span className="text-sm font-medium whitespace-nowrap">{headline || "Countdown"}</span>
               {countdown.expired ? (
                 <span className="text-base font-bold whitespace-nowrap">Expired</span>
               ) : (
-                <div className="flex items-center gap-1.5 text-base font-bold tabular-nums tracking-wider whitespace-nowrap">
-                  {countdown.d > 0 && <><span>{countdown.d}</span><span className="text-sm opacity-70">d</span></>}
-                  <span>{pad(countdown.h)}</span>
-                  <span className="opacity-60">:</span>
-                  <span>{pad(countdown.m)}</span>
-                  <span className="opacity-60">:</span>
-                  <span>{pad(countdown.s)}</span>
+                <div className="flex items-center gap-2 text-base font-bold tabular-nums tracking-wider whitespace-nowrap">
+                  {countdown.d > 0 && (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-black/25 px-2 py-1">
+                      <span>{countdown.d}</span>
+                      <span className="text-sm opacity-80">d</span>
+                    </span>
+                  )}
+                  <span className="inline-flex items-center rounded-md bg-black/25 px-2 py-1">{pad(countdown.h)}</span>
+                  <span className="text-lg opacity-50 -mx-0.5">:</span>
+                  <span className="inline-flex items-center rounded-md bg-black/25 px-2 py-1">{pad(countdown.m)}</span>
+                  <span className="text-lg opacity-50 -mx-0.5">:</span>
+                  <span className="inline-flex items-center rounded-md bg-black/25 px-2 py-1">{pad(countdown.s)}</span>
                 </div>
               )}
             </>
@@ -1332,7 +1339,8 @@ function NoticePreview({
             <span className="text-sm font-medium truncate">{headline || "Portal Notice"}</span>
           )}
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        {/* Right side: CTA + dismiss, absolutely positioned */}
+        <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
           {ctaText && (
             <span
               className="inline-flex items-center rounded-lg px-4 py-1.5 text-xs font-semibold text-white shadow-sm"

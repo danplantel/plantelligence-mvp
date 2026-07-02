@@ -7,11 +7,21 @@ import {
   ClientPortalProvider,
   useClientPortal,
 } from "@/contexts/client-portal-context";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { PortalPlanHeader } from "@/components/pages/client-portal/sections/portal-plan-header";
 import { AnimatePresence, motion } from "framer-motion";
 import { DEFAULT_DISCLOSURES_TEXT } from "@/lib/disclaimer-constants";
+
+interface BannerAsset {
+  id: string;
+  headline: string;
+  body?: string;
+  ctaText?: string;
+  bgColor: string;
+  data?: Record<string, unknown>;
+  createdAt: string;
+}
 
 function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
   const { clientData } = useClientPortal();
@@ -19,6 +29,25 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
   const clientId = params.id as string;
   const pathname = usePathname();
   const [previousPage, setPreviousPage] = useState(true);
+  const [banner, setBanner] = useState<BannerAsset | null>(null);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+
+  // Fetch published top banners
+  useEffect(() => {
+    if (!clientId) return;
+    fetch(`/api/marketing/assets/public?clientId=${clientId}`)
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+          setBanner(res.data[0]);
+        }
+      })
+      .catch(() => {});
+  }, [clientId]);
+
+  const dismissBanner = useCallback(() => {
+    setBannerDismissed(true);
+  }, []);
   const brandColor = clientData?.brandColor || "#1F3A60";
   const secondaryColor = clientData?.secondaryColor || "#6B7280";
   const basePath = clientId ? `/new/view/${clientId}` : "";
@@ -135,11 +164,114 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
     return universalText;
   };
 
+  // ── Countdown logic for countdown-type banners ──
+  const bannerData = banner?.data ?? {};
+  const noticeType = bannerData.noticeType as string | undefined;
+  const countdownTarget = bannerData.countdownTarget as string | undefined;
+  const ctaText = banner?.ctaText || (bannerData.ctaText as string | undefined);
+  const portalCtaUrl = bannerData.portalCtaUrl as string | undefined;
+
+  const [countdown, setCountdown] = useState({ d: 0, h: 0, m: 0, s: 0, expired: false });
+  useEffect(() => {
+    if (noticeType !== "countdown" || !countdownTarget) return;
+    const target = new Date(countdownTarget).getTime();
+    if (isNaN(target)) return;
+    const tick = () => {
+      const diff = target - Date.now();
+      if (diff <= 0) { setCountdown({ d: 0, h: 0, m: 0, s: 0, expired: true }); return; }
+      const totalSec = Math.floor(diff / 1000);
+      setCountdown({
+        d: Math.floor(totalSec / 86400),
+        h: Math.floor((totalSec % 86400) / 3600),
+        m: Math.floor((totalSec % 3600) / 60),
+        s: totalSec % 60,
+        expired: false,
+      });
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [noticeType, countdownTarget]);
+
+  const pad = (n: number) => n.toString().padStart(2, "0");
+
+  const showBanner = banner && !bannerDismissed;
+
   const disclosuresText = getDisclosuresText();
 
   return (
     <div className="min-h-screen bg-white">
       <div className="fixed top-0 left-0 w-full z-50">
+        {/* Published Top Banner — rendered above the header */}
+        {showBanner && (
+          <div
+            className="relative w-full flex items-center justify-center px-4 py-2.5 text-white shadow-sm"
+            style={{ background: banner.bgColor || "#23919c" }}
+          >
+            {/* Centered group: headline + countdown */}
+            <div className="flex items-center justify-center gap-4 text-center flex-1">
+              {noticeType === "countdown" && countdownTarget ? (
+                <>
+                  <span className="text-sm font-medium whitespace-nowrap">{banner.headline || "Countdown"}</span>
+                  {countdown.expired ? (
+                    <span className="text-base font-bold whitespace-nowrap">Expired</span>
+                  ) : (
+                    <div className="flex items-center gap-2 text-base font-bold tabular-nums tracking-wider whitespace-nowrap">
+                      {countdown.d > 0 && (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-black/25 px-2 py-1">
+                          <span>{countdown.d}</span>
+                          <span className="text-sm opacity-80">d</span>
+                        </span>
+                      )}
+                      <span className="inline-flex items-center rounded-md bg-black/25 px-2 py-1">{pad(countdown.h)}</span>
+                      <span className="text-lg opacity-50 -mx-0.5">:</span>
+                      <span className="inline-flex items-center rounded-md bg-black/25 px-2 py-1">{pad(countdown.m)}</span>
+                      <span className="text-lg opacity-50 -mx-0.5">:</span>
+                      <span className="inline-flex items-center rounded-md bg-black/25 px-2 py-1">{pad(countdown.s)}</span>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <span className="text-sm font-medium truncate">{banner.headline || "Announcement"}</span>
+              )}
+            </div>
+            {/* Right side: CTA + dismiss, absolutely positioned */}
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+              {ctaText && (
+                <>
+                  {portalCtaUrl ? (
+                    <a
+                      href={portalCtaUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center rounded-lg px-4 py-1.5 text-xs font-semibold text-white shadow-sm hover:opacity-90 transition-opacity"
+                      style={{ background: `rgba(0,0,0,0.25)` }}
+                    >
+                      {ctaText}
+                    </a>
+                  ) : (
+                    <span
+                      className="inline-flex items-center rounded-lg px-4 py-1.5 text-xs font-semibold text-white shadow-sm"
+                      style={{ background: `rgba(0,0,0,0.25)` }}
+                    >
+                      {ctaText}
+                    </span>
+                  )}
+                </>
+              )}
+              <button
+                type="button"
+                onClick={dismissBanner}
+                className="rounded-full p-1 transition-colors hover:bg-white/20"
+                aria-label="Dismiss banner"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden="true">
+                  <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
         {previousPage && (
           <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50">
             <Button
@@ -180,6 +312,7 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
           />
         )}
       </div>
+
       <div
         style={
           {
