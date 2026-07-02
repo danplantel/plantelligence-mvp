@@ -169,7 +169,10 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
   const noticeType = bannerData.noticeType as string | undefined;
   const countdownTarget = bannerData.countdownTarget as string | undefined;
   const ctaText = banner?.ctaText || (bannerData.ctaText as string | undefined);
-  const portalCtaUrl = bannerData.portalCtaUrl as string | undefined;
+  const rawPortalCtaUrl = bannerData.portalCtaUrl as string | undefined;
+  const portalCtaUrl = rawPortalCtaUrl && !rawPortalCtaUrl.startsWith("http://") && !rawPortalCtaUrl.startsWith("https://")
+    ? `https://${rawPortalCtaUrl}`
+    : rawPortalCtaUrl;
 
   const [countdown, setCountdown] = useState({ d: 0, h: 0, m: 0, s: 0, expired: false });
   useEffect(() => {
