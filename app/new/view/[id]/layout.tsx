@@ -10,6 +10,7 @@ import {
 import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { PortalPlanHeader } from "@/components/pages/client-portal/sections/portal-plan-header";
+import { PortalPopUpOverlay } from "@/components/pages/client-portal/sections/portal-popup-overlay";
 import { AnimatePresence, motion } from "framer-motion";
 import { DEFAULT_DISCLOSURES_TEXT } from "@/lib/disclaimer-constants";
 
@@ -32,10 +33,10 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
   const [banner, setBanner] = useState<BannerAsset | null>(null);
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
-  // Fetch published top banners
+  // Fetch published top banners (portal-notice type only)
   useEffect(() => {
     if (!clientId) return;
-    fetch(`/api/marketing/assets/public?clientId=${clientId}`)
+    fetch(`/api/marketing/assets/public?clientId=${clientId}&type=portal-notice`)
       .then((r) => r.json())
       .then((res) => {
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {
@@ -326,6 +327,14 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
       >
         <AnimatePresence mode="wait">{children}</AnimatePresence>
       </div>
+
+      {/* Pop-Up Overlay — displays published pop-up marketing assets across all portal pages */}
+      <PortalPopUpOverlay
+        clientId={clientId}
+        companyName={clientData?.companyName}
+        companyLogo={clientData?.companyLogo}
+      />
+
       <Footer brandColor={brandColor} disclosuresText={disclosuresText} />
     </div>
   );

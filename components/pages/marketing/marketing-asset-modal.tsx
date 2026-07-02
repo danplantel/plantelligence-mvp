@@ -945,7 +945,7 @@ export default function MarketingAssetModal({
           </div>
         </div>
       )}
-
+      
       {/* Pop-up specific */}
       {resolvedType === "pop-up" && (
         <div className="space-y-3">
@@ -956,6 +956,13 @@ export default function MarketingAssetModal({
           <div className="space-y-1.5">
             <Label htmlFor="pu-subtitle">Subtitle</Label>
             <Input id="pu-subtitle" placeholder="A short description…" value={flyerSubtitle} onChange={(e) => setFlyerSubtitle(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="body">Body text</Label>
+              <span className="text-[11px] text-muted-foreground tabular-nums">{body.length}/300</span>
+            </div>
+            <Textarea id="body" rows={4} placeholder="Write your message…" value={body} onChange={(e) => setBody(e.target.value)} maxLength={300} className="dark:bg-gray-800" />
           </div>
           <div>
             <Label className="text-sm font-medium">Show on pages</Label>
@@ -996,16 +1003,6 @@ export default function MarketingAssetModal({
         </div>
       )}
 
-      {/* Pop-up: Body text */}
-      {resolvedType === "pop-up" && (
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="body">Body text</Label>
-            <span className="text-[11px] text-muted-foreground tabular-nums">{body.length}/300</span>
-          </div>
-          <Textarea id="body" rows={4} placeholder="Write your message…" value={body} onChange={(e) => setBody(e.target.value)} maxLength={300} className="dark:bg-gray-800" />
-        </div>
-      )}
 
       {/* News post fields */}
       {resolvedType === "news-post" && (
@@ -1850,3 +1847,4 @@ function NewsPostPreview({
     </div>
   );
 }
+

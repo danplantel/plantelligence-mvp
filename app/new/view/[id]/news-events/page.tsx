@@ -3,8 +3,8 @@
 import { useClientPortal } from "@/contexts/client-portal-context";
 import { WebinarsDashboard } from "@/components/pages/client-portal/sections/webinars-dashboard";
 import { NewsEventsHeader } from "@/components/pages/client-portal/sections/news-events-header";
-import { NewsEventsAnnouncements } from "@/components/pages/client-portal/sections/news-events-announcements";
 import { NewsEventsResources } from "@/components/pages/client-portal/sections/news-events-resources";
+import { NewsPostList } from "@/components/pages/client-portal/sections/news-post-list";
 
 export default function NewsEventsPage() {
   const { clientData } = useClientPortal();
@@ -17,10 +17,12 @@ export default function NewsEventsPage() {
       <main>
         <NewsEventsHeader />
 
-        {/* <NewsEventsAnnouncements
+        {/* Published news posts from Marketing */}
+        <NewsPostList
+          clientId={clientId}
           brandColor={brandColor}
           secondaryColor={secondaryColor}
-        /> */}
+        />
 
         <WebinarsDashboard
           brandColor={brandColor}
