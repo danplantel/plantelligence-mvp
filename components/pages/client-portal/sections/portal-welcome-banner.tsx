@@ -202,10 +202,10 @@ export function PortalWelcomeBanner({
               className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]"
             >
               {/* LEFT: Text content */}
-              <div className="px-8 py-10 sm:px-10 lg:px-12 lg:py-12">
-                {/* Company Logo (top-left) */}
+              <div className="order-2 lg:order-1 px-8 py-10 sm:px-10 lg:px-12 lg:py-12">
+                {/* Company Logo (top-left) — hidden on mobile to avoid duplicate logo */}
                 {clientData?.companyLogo ? (
-                  <div className="mb-6 inline-flex items-center gap-2 rounded border border-white/30 bg-white/10 px-3 py-2">
+                  <div className="hidden lg:flex mb-6 inline-flex items-center gap-2 rounded border border-white/30 bg-white/10 px-3 py-2">
                     <BrandingImage
                       src={clientData.companyLogo}
                       alt={`${clientData.companyName || "Company"} logo`}
@@ -216,7 +216,7 @@ export function PortalWelcomeBanner({
                     </span>
                   </div>
                 ) : (
-                  <div className="mb-6 inline-flex items-center gap-2 rounded border border-white/30 bg-white/10 px-3 py-2">
+                  <div className="hidden lg:flex mb-6 inline-flex items-center gap-2 rounded border border-white/30 bg-white/10 px-3 py-2">
                     <span className="text-sm font-semibold text-white">
                       LOGO HERE
                     </span>
@@ -237,9 +237,9 @@ export function PortalWelcomeBanner({
               </div>
 
               {/* RIGHT: Benefits Logo */}
-              <div className="relative flex items-center justify-center p-6 lg:p-8">
+              <div className="order-1 lg:order-2 relative flex items-center justify-center p-6 lg:p-8">
                 {benefitsLogoUrl ? (
-                  <div className="relative flex w-full items-center justify-center rounded-lg bg-white/10 p-8 shadow-xl backdrop-blur-sm">
+                  <div className="relative flex w-full items-center justify-center rounded-lg bg-white p-8 shadow-xl backdrop-blur-sm">
                     <BrandingImage
                       src={benefitsLogoUrl}
                       alt={benefitsLogoAlt}
@@ -280,7 +280,7 @@ export function PortalWelcomeBanner({
       <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/60 to-black/20" />
 
       {/* CONTENT WRAPPER */}
-      <div className="relative mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8">
+      <div className="relative mx-auto mt-8 max-w-6xl px-4 py-16 sm:px-6 lg:px-8">
         <motion.div
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
@@ -292,16 +292,16 @@ export function PortalWelcomeBanner({
         >
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
             {/* LEFT: Text content */}
-            <div className="px-8 py-10 sm:px-12 lg:py-12">
-              {/* Company Logo (top-left) */}
+            <div className="order-2 lg:order-1 px-8 py-10 sm:px-12 lg:py-12">
+              {/* Company Logo (top-left) — hidden on mobile to avoid duplicate logo */}
               {clientData?.companyLogo ? (
                 <BrandingImage
                   src={clientData.companyLogo}
                   alt={`${clientData.companyName || "Company"} logo`}
-                  className="mb-6 h-10 w-auto"
+                  className="mb-6 h-10 w-auto hidden lg:block"
                 />
               ) : (
-                <p className="mb-6 text-xs font-semibold tracking-[0.4em] text-white/70">
+                <p className="mb-6 text-xs font-semibold tracking-[0.4em] text-white/70 hidden lg:block">
                   LOGO HERE
                 </p>
               )}
@@ -330,9 +330,9 @@ export function PortalWelcomeBanner({
             </div>
 
             {/* RIGHT: Benefits Logo */}
-            <div className="relative flex w-full items-center justify-center p-6 lg:p-8">
+            <div className="order-1 lg:order-2 relative flex w-full items-center justify-center p-6 lg:p-8">
               {benefitsLogoUrl ? (
-                <div className="relative flex w-full items-center justify-center rounded-lg bg-white/10 p-8 shadow-xl backdrop-blur-sm">
+                <div className="relative flex w-full items-center justify-center rounded-lg bg-white p-8 shadow-xl backdrop-blur-sm">
                   <BrandingImage
                     src={benefitsLogoUrl}
                     alt={benefitsLogoAlt}
