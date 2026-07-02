@@ -124,7 +124,7 @@ export function NewsPostList({
                 }}
               >
                 <div
-                  className="group relative h-full min-h-[360px] rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
+                  className="group relative h-full min-h-[380px] sm:min-h-[360px] rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
                   style={!hasBg ? { background: `linear-gradient(135deg, ${brandColor} 0%, #2c4b80 100%)` } : undefined}
                 >
                   {/* Background image */}
@@ -136,21 +136,21 @@ export function NewsPostList({
                     />
                   )}
 
-                  {/* Dark overlay — left-to-right gradient: dark on left for text, transparent on right for image */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-black/100 via-black/90 to-transparent" />
+                  {/* Dark overlay — left-to-right gradient: darker on left for text readability, transparent on right for image visibility */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-black/95 from-60% via-black/50 via-85% to-transparent sm:from-black/95 sm:via-black/60 sm:to-transparent" />
 
-                  {/* Content — constrained to the dark left portion */}
-                  <div className="relative z-10 flex flex-col h-full p-6 sm:p-8 max-w-[60%] sm:max-w-[55%]">
+                  {/* Content — wider on mobile for better readability, constrained on desktop */}
+                  <div className="relative z-10 flex flex-col h-full p-5 sm:p-8 max-w-[80%] sm:max-w-[55%]">
                     {/* Category badge + date */}
-                    <div className="flex items-center gap-3 mb-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 mb-2 sm:mb-3">
                       <span
-                        className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${getBadgeClass(category)}`}
+                        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] sm:text-[11px] font-semibold self-start ${getBadgeClass(category)}`}
                       >
                         {category}
                       </span>
                       {post.createdAt && (
-                        <span className="text-xs text-white/70 flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
+                        <span className="text-[10px] sm:text-xs text-white/60 sm:text-white/70 flex items-center gap-1">
+                          <Calendar className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                           {new Date(post.createdAt).toLocaleDateString("en-US", {
                             year: "numeric",
                             month: "short",
@@ -161,47 +161,47 @@ export function NewsPostList({
                     </div>
 
                     {/* Headline */}
-                    <h3 className="font-dm-serif text-xl font-bold leading-tight text-white sm:text-2xl">
+                    <h3 className="font-dm-serif text-lg sm:text-xl lg:text-2xl font-bold leading-snug sm:leading-tight text-white">
                       {post.headline || "Announcement"}
                     </h3>
 
                     {/* Subtitle */}
                     {subtitle && (
-                      <p className="text-sm text-white/80 mt-1.5">{subtitle}</p>
+                      <p className="text-xs sm:text-sm text-white/80 mt-1 sm:mt-1.5 line-clamp-2 sm:line-clamp-none">{subtitle}</p>
                     )}
 
                     {/* Date range */}
                     {dateStr && (
-                      <p className="text-xs text-white/60 mt-2 flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
+                      <p className="text-[10px] sm:text-xs text-white/50 sm:text-white/60 mt-1.5 sm:mt-2 flex items-center gap-1">
+                        <Calendar className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                         {dateStr}
                       </p>
                     )}
 
                     {/* Body */}
                     {post.body && (
-                      <p className="text-sm text-gray-200 leading-relaxed line-clamp-3 mt-3 flex-1">
+                      <p className="text-xs sm:text-sm text-gray-300 sm:text-gray-200 leading-relaxed line-clamp-2 sm:line-clamp-3 mt-2 sm:mt-3 flex-1">
                         {post.body}
                       </p>
                     )}
 
                     {/* CTA */}
                     {post.ctaText && (
-                      <div className="mt-auto pt-4">
+                      <div className="mt-auto pt-3 sm:pt-4">
                         {hasCtaUrl ? (
                           <a
                             href={ctaUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-white/20 backdrop-blur-sm px-4 py-2 text-xs font-semibold text-white shadow-sm border border-white/30 transition-all duration-200 hover:bg-white/30"
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-white/20 backdrop-blur-sm px-3 py-1.5 sm:px-4 sm:py-2 text-[11px] sm:text-xs font-semibold text-white shadow-sm border border-white/30 transition-all duration-200 hover:bg-white/30"
                           >
                             {post.ctaText}
-                            <ArrowRight className="h-3.5 w-3.5" />
+                            <ArrowRight className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                           </a>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/20 backdrop-blur-sm px-4 py-2 text-xs font-semibold text-white shadow-sm border border-white/30">
+                          <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/20 backdrop-blur-sm px-3 py-1.5 sm:px-4 sm:py-2 text-[11px] sm:text-xs font-semibold text-white shadow-sm border border-white/30">
                             {post.ctaText}
-                            <ArrowRight className="h-3.5 w-3.5" />
+                            <ArrowRight className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                           </span>
                         )}
                       </div>
