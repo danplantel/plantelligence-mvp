@@ -737,8 +737,8 @@ export default function MarketingPage() {
                               className={cn(
                                 "whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors",
                                 statusFilter === s
-                                  ? "bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900"
-                                  : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700",
+                                  ? "bg-gray-900 text-white dark:bg-accent-blue dark:text-white"
+                                  : "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700",
                               )}
                             >
                               {s === "All" ? "All" : s} <span className="opacity-60">({count})</span>
