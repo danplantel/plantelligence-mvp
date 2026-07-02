@@ -122,6 +122,7 @@ export function BenefitsStep1a() {
   const [searchTerm, setSearchTerm] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [activeAccordions, setActiveAccordions] = useState<string[]>([]);
+  const [togglingCategories, setTogglingCategories] = useState<Record<string, boolean>>({});
 
   // Plan search bar state
   const [planSearchOpen, setPlanSearchOpen] = useState(false);
@@ -1739,6 +1740,7 @@ export function BenefitsStep1a() {
                     {["Retirement", "Group Health", "Group Life", "Custom"].map((cat) => {
                       const visibility = currentStepData.benefitVisibility ?? {};
                       const isPublished = visibility[cat] !== false;
+                      const isToggling = togglingCategories[cat] === true;
                       return (
                         <div
                           key={cat}
@@ -1746,12 +1748,19 @@ export function BenefitsStep1a() {
                         >
                           <span className="text-xs font-medium text-gray-700 dark:text-gray-100 shrink-0 whitespace-nowrap">{cat}</span>
                           <div className="flex items-center gap-2 shrink-0">
-                            <span className={`text-[11px] font-semibold ${isPublished ? "text-green-600" : "text-gray-400"}`}>
-                              {isPublished ? "Published" : "Hidden"}
-                            </span>
+                            {isToggling ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                            ) : (
+                              <span className={`text-[11px] font-semibold ${isPublished ? "text-green-600" : "text-gray-400"}`}>
+                                {isPublished ? "Published" : "Hidden"}
+                              </span>
+                            )}
                             <Switch
                               checked={isPublished}
-                              onCheckedChange={(checked) => {
+                              disabled={isToggling}
+                              onCheckedChange={async (checked) => {
+                                // Optimistic local update
+                                setTogglingCategories((prev) => ({ ...prev, [cat]: true }));
                                 saveStepData(1, {
                                   ...currentStepData,
                                   benefitVisibility: {
@@ -1759,6 +1768,46 @@ export function BenefitsStep1a() {
                                     [cat]: checked,
                                   },
                                 });
+
+                                try {
+                                  // Persist to backend immediately
+                                  const newVisibility = {
+                                    ...(currentStepData.benefitVisibility ?? {}),
+                                    [cat]: checked,
+                                  };
+                                  const categoryPortalVisibility: Record<string, boolean> = {
+                                    Retirement: newVisibility["Retirement"] !== false,
+                                    "Group Health": newVisibility["Group Health"] !== false,
+                                    "Group Life": newVisibility["Group Life"] !== false,
+                                    Other: newVisibility["Custom"] !== false,
+                                  };
+
+                                  const response = await fetch(`/api/clients/${currentStepData.planId}`, {
+                                    method: "PUT",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ categoryPortalVisibility }),
+                                  });
+
+                                  if (!response.ok) throw new Error("Failed to save");
+
+                                  const label = cat === "Custom" ? "Custom benefit" : `${cat} benefit`;
+                                  if (checked) {
+                                    toast.success(`${label} published`, {
+                                      description: `The ${label} is now visible on the Benefits Hub.`,
+                                    });
+                                  } else {
+                                    toast.success(`${label} hidden`, {
+                                      description: `The ${label} is now hidden on the Benefits Hub.`,
+                                    });
+                                  }
+                                } catch (error) {
+                                  console.error("Error saving visibility:", error);
+                                  toast.error("Failed to save visibility", {
+                                    description: "Please try again.",
+                                  });
+                                } finally {
+                                  setTogglingCategories((prev) => ({ ...prev, [cat]: false }));
+                                }
                               }}
                             />
                           </div>
