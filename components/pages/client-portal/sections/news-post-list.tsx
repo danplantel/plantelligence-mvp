@@ -75,7 +75,7 @@ export function NewsPostList({
           Announcements
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6">
           {publishedPosts.map((post, index) => {
             const data = (post.data as Record<string, unknown> | null) ?? {};
             const subtitle = (data.flyerSubtitle as string) || "";
@@ -118,7 +118,7 @@ export function NewsPostList({
                 }}
               >
                 <div
-                  className="group relative h-full min-h-[320px] rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
+                  className="group relative h-full min-h-[360px] rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
                   style={!hasBg ? { background: `linear-gradient(135deg, ${brandColor} 0%, #2c4b80 100%)` } : undefined}
                 >
                   {/* Background image */}

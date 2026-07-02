@@ -877,7 +877,22 @@ export function WebinarsSection({
             </p>
           )}
           {!isLoading && pastMeetings.length === 0 && clientId && (
-            <div className="flex items-center gap-4 rounded-xl border border-dashed border-gray-200 bg-white/70 p-4 text-gray-600 max-w-3xl mx-auto">
+            <div className="flex items-center gap-4 rounded-xl border border-dashed border-gray-200 bg-white/70 p-4 text-gray-600">
+              <svg
+                width="48"
+                height="48"
+                viewBox="0 0 48 48"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="text-gray-400 shrink-0"
+              >
+                <rect x="6" y="10" width="36" height="32" rx="4" stroke="currentColor" strokeWidth="2" />
+                <line x1="6" y1="18" x2="42" y2="18" stroke="currentColor" strokeWidth="2" />
+                <path d="M16 6V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                <path d="M32 6V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                <circle cx="24" cy="30" r="6" stroke="currentColor" strokeWidth="2" />
+                <path d="M24 27V30L26 32" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
               <div>
                 <p className="font-semibold text-gray-800">No past meetings</p>
                 <p className="text-sm">
