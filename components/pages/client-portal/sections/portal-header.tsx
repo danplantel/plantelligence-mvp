@@ -211,7 +211,7 @@ export function PortalHeader({
     <>
 
       {/* Header */}
-      <header className="bg-white px-4 py-4 shadow-md transition-all duration-300 sm:px-6 lg:px-20">
+      <header className="bg-white px-4 py-2 sm:py-4 shadow-md transition-all duration-300 sm:px-6 lg:px-20">
         <div className="flex h-full items-center justify-between">
           {/* Logo */}
           {enableNavigation ? (
@@ -224,7 +224,7 @@ export function PortalHeader({
                   src={companyData.companyLogo}
                   alt="Company Logo"
                   className="object-contain"
-                  style={{ maxHeight: `${headerHeight}px` }}
+                  style={{ maxHeight: `min(${headerHeight}px, 48px)` }}
                 />
               )}
             </Link>
@@ -245,7 +245,7 @@ export function PortalHeader({
                     className={`object-contain transition-all ${
                       isLogoHovered ? "ring-2 border-1 border-blue-500/50" : ""
                     }`}
-                    style={{ maxHeight: `${headerHeight}px` }}
+                    style={{ maxHeight: `min(${headerHeight}px, 48px)` }}
                   />
                   {enableLogoHover && isLogoHovered && (
                     <div className="absolute top-[-6px] left-[-6px] z-20 bg-blue-500 rounded-full p-1.5 shadow-lg">
@@ -469,11 +469,11 @@ export function PortalHeader({
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
               className="absolute right-0 top-0 h-full w-[280px] bg-white shadow-2xl flex flex-col"
             >
-            {/* Drawer header with logo */}
-            <div className="flex items-center justify-between px-5 border-b">
-              <div className="flex items-center gap-3 min-w-0 flex-1">
+            {/* Drawer header with logo — compact on mobile */}
+            <div className="flex items-center justify-between px-4 py-2 border-b min-h-0">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
                 {companyData?.companyLogo && (
-                  <div className="h-24 w-24 shrink-0 rounded overflow-hidden">
+                  <div className="h-12 w-12 shrink-0 rounded overflow-hidden">
                     <BrandingImage
                       src={companyData.companyLogo}
                       alt="Company logo"
@@ -485,20 +485,20 @@ export function PortalHeader({
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(false)}
-                className="rounded-lg p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors shrink-0"
+                className="rounded-lg p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors shrink-0"
                 aria-label="Close menu"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4" />
               </button>
             </div>
 
-            {/* Drawer navigation links */}
-            <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+            {/* Drawer navigation links — tighter spacing */}
+            <nav className="flex-1 overflow-y-auto py-2 px-3 space-y-0.5">
               {/* Home */}
               <Link
                 href={baseUrl}
                 onClick={() => setMobileMenuOpen(false)}
-                className={`flex items-center rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
+                className={`flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                   pathname === baseUrl || (pathname && !isActive("/retirement") && !isActive("/health-insurance") && !isActive("/life-insurance") && !isActive("/wellness-programs") && !isActive("/news-events") && !isActive("/my-benefits-team"))
                     ? "text-white"
                     : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
@@ -519,7 +519,7 @@ export function PortalHeader({
               {/* Your Benefits sub-links */}
               {benefitsNavItems.length > 0 && (
                 <div className="space-y-0.5">
-                  <div className="flex items-center rounded-lg px-4 py-3 text-sm font-medium text-gray-600">
+                  <div className="flex items-center rounded-lg px-3 py-2 text-sm font-medium text-gray-600">
                     <svg className="mr-3 h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
                     </svg>
@@ -531,7 +531,7 @@ export function PortalHeader({
                         key={item.path}
                         href={`${baseUrl}${item.path}`}
                         onClick={() => setMobileMenuOpen(false)}
-                        className={`flex items-center rounded-lg px-4 py-2.5 text-sm transition-colors ${
+                        className={`flex items-center rounded-lg px-3 py-2 text-sm transition-colors ${
                           isActive(item.path)
                             ? "text-white font-medium"
                             : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
@@ -553,7 +553,7 @@ export function PortalHeader({
               <Link
                 href={`${baseUrl}/news-events`}
                 onClick={() => setMobileMenuOpen(false)}
-                className={`flex items-center rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
+                className={`flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                   isActive("/news-events")
                     ? "text-white"
                     : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
@@ -574,7 +574,7 @@ export function PortalHeader({
               <Link
                 href={`${baseUrl}/my-benefits-team`}
                 onClick={() => setMobileMenuOpen(false)}
-                className={`flex items-center rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
+                className={`flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                   isActive("/my-benefits-team")
                     ? "text-white"
                     : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
@@ -592,12 +592,12 @@ export function PortalHeader({
               </Link>
             </nav>
 
-            {/* Drawer footer close button */}
-            <div className="px-5 py-4">
+            {/* Drawer footer close button — compact */}
+            <div className="px-4 py-2.5 border-t border-gray-100">
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(false)}
-                className="w-full rounded-lg py-3 text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                className="w-full rounded-lg py-2.5 text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50 hover:text-gray-900 transition-colors"
               >
                 Close
               </button>

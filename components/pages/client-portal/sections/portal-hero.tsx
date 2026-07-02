@@ -171,7 +171,7 @@ export function PortalHero({
   return (
     <section
       ref={sectionRef}
-      className={`px-4 sm:px-6 lg:px-20 min-h-[400px] sm:min-h-[565px] relative isolate overflow-hidden flex justify-center items-center ${hasBackgroundImage ? "bg-[#FEFCF7]" : "bg-white"
+      className={`px-4 sm:px-6 lg:px-20 min-h-[540px] sm:min-h-[700px] relative isolate overflow-hidden flex justify-center items-center ${hasBackgroundImage ? "bg-[#FEFCF7]" : "bg-white"
         }`}
     >
       <div className="absolute inset-0">
@@ -246,7 +246,7 @@ export function PortalHero({
       <div className="z-10 relative flex justify-center items-center px-4 sm:px-6 lg:px-8 box-border h-full w-full">
         <div
           data-container="true"
-          className={`text-container flex items-center justify-center px-4 sm:px-6 lg:px-10 box-border min-h-[200px] sm:min-h-[320px] w-full max-w-[900px] mx-auto transition-all relative ${isEditable && onContainerClick
+          className={`text-container flex items-center justify-center px-4 sm:px-6 lg:px-10 box-border min-h-[280px] sm:min-h-[320px] w-full max-w-[900px] mx-auto transition-all relative ${isEditable && onContainerClick
             ? "[&:hover:not(:has(.text-content:hover))]:ring-2 [&:hover:not(:has(.text-content:hover))]:ring-blue-500/50 [&:hover:not(:has(.text-content:hover))]:rounded-md cursor-pointer"
             : isEditable
               ? "[&:hover:not(:has(.text-content:hover))]:ring-2 [&:hover:not(:has(.text-content:hover))]:ring-blue-500/50 [&:hover:not(:has(.text-content:hover))]:rounded-md"
@@ -476,11 +476,11 @@ export function PortalHero({
       {/* Scroll Arrow */}
       <button
         onClick={handleScrollDown}
-        className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-20 cursor-pointer group"
+        className="absolute bottom-4 sm:bottom-8 left-1/2 transform -translate-x-1/2 z-20 cursor-pointer group"
         aria-label="Scroll to mission section"
       >
         <ChevronDown
-          className="w-16 h-10 sm:w-24 sm:h-16 text-white animate-bounce-slow transition-transform group-hover:scale-110"
+          className="w-12 h-8 sm:w-24 sm:h-16 text-white animate-bounce-slow transition-transform group-hover:scale-110"
           strokeWidth={1}
         />
       </button>
