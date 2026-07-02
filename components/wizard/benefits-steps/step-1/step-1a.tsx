@@ -1719,37 +1719,54 @@ export function BenefitsStep1a() {
                 <p className="text-xs text-muted-foreground mb-4">
                   Published benefits appear on the Benefits Hub. Hidden benefits remain editable as drafts.
                 </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {["Retirement", "Group Health", "Group Life", "Custom"].map((cat) => {
-                    const visibility = currentStepData.benefitVisibility ?? {};
-                    const isPublished = visibility[cat] !== false;
-                    return (
+
+                {planLoading ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    {["Retirement", "Group Health", "Group Life", "Custom"].map((cat) => (
                       <div
                         key={cat}
                         className="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800"
                       >
-                        <span className="text-xs font-medium text-gray-700 dark:text-gray-100 shrink-0 whitespace-nowrap">{cat}</span>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className={`text-[11px] font-semibold ${isPublished ? "text-green-600" : "text-gray-400"}`}>
-                            {isPublished ? "Published" : "Hidden"}
-                          </span>
-                          <Switch
-                            checked={isPublished}
-                            onCheckedChange={(checked) => {
-                              saveStepData(1, {
-                                ...currentStepData,
-                                benefitVisibility: {
-                                  ...(currentStepData.benefitVisibility ?? {}),
-                                  [cat]: checked,
-                                },
-                              });
-                            }}
-                          />
+                        <Skeleton className="h-4 w-24" />
+                        <div className="flex items-center gap-2">
+                          <Skeleton className="h-5 w-9 rounded-full" />
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    {["Retirement", "Group Health", "Group Life", "Custom"].map((cat) => {
+                      const visibility = currentStepData.benefitVisibility ?? {};
+                      const isPublished = visibility[cat] !== false;
+                      return (
+                        <div
+                          key={cat}
+                          className="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800"
+                        >
+                          <span className="text-xs font-medium text-gray-700 dark:text-gray-100 shrink-0 whitespace-nowrap">{cat}</span>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className={`text-[11px] font-semibold ${isPublished ? "text-green-600" : "text-gray-400"}`}>
+                              {isPublished ? "Published" : "Hidden"}
+                            </span>
+                            <Switch
+                              checked={isPublished}
+                              onCheckedChange={(checked) => {
+                                saveStepData(1, {
+                                  ...currentStepData,
+                                  benefitVisibility: {
+                                    ...(currentStepData.benefitVisibility ?? {}),
+                                    [cat]: checked,
+                                  },
+                                });
+                              }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           )}
