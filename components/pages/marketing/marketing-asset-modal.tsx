@@ -151,6 +151,10 @@ export default function MarketingAssetModal({
     () => (planData?.data as { companyLogo?: string })?.companyLogo,
     [planData],
   );
+  const planBrandColor: string | undefined = useMemo(
+    () => (planData?.data as { brandColor?: string })?.brandColor,
+    [planData],
+  );
 
   // Shared fields
   const [headline, setHeadline] = useState("");
@@ -293,7 +297,7 @@ export default function MarketingAssetModal({
       setBody("");
       setStartDate("");
       setEndDate("");
-      setBgColor("#23919c");
+      setBgColor(planBrandColor || "#23919c");
       setFlyerStep(0);
       setFlyerMode(null);
       setFlyerTopic("");
@@ -925,6 +929,14 @@ export default function MarketingAssetModal({
             <Label htmlFor="portalCtaUrl">Button link (optional)</Label>
             <Input id="portalCtaUrl" placeholder="https://example.com" value={portalCtaUrl} onChange={(e) => setPortalCtaUrl(e.target.value)} />
           </div>
+          {/* Accent color */}
+          <div className="space-y-1.5">
+            <Label htmlFor="pn-bgColor">Accent color</Label>
+            <div className="flex items-center gap-3">
+              <Input id="pn-bgColor" type="color" className="w-12 h-9 p-1 cursor-pointer" value={bgColor} onChange={(e) => setBgColor(e.target.value)} />
+              <span className="text-xs text-muted-foreground font-mono">{bgColor}</span>
+            </div>
+          </div>
         </div>
       )}
 
@@ -967,6 +979,14 @@ export default function MarketingAssetModal({
             <input type="checkbox" checked={showEveryVisit} onChange={(e) => setShowEveryVisit(e.target.checked)} className="rounded border-gray-300 text-gray-900 focus:ring-gray-900" />
             Show on every visit
           </label>
+          {/* Accent color */}
+          <div className="space-y-1.5">
+            <Label htmlFor="pu-bgColor">Accent color</Label>
+            <div className="flex items-center gap-3">
+              <Input id="pu-bgColor" type="color" className="w-12 h-9 p-1 cursor-pointer" value={bgColor} onChange={(e) => setBgColor(e.target.value)} />
+              <span className="text-xs text-muted-foreground font-mono">{bgColor}</span>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1013,6 +1033,14 @@ export default function MarketingAssetModal({
           <div className="space-y-1.5">
             <Label htmlFor="ctaText">Button text</Label>
             <Input id="ctaText" placeholder="Learn More" value={ctaText} onChange={(e) => setCtaText(e.target.value)} />
+          </div>
+          {/* Accent color */}
+          <div className="space-y-1.5">
+            <Label htmlFor="np-bgColor">Accent color</Label>
+            <div className="flex items-center gap-3">
+              <Input id="np-bgColor" type="color" className="w-12 h-9 p-1 cursor-pointer" value={bgColor} onChange={(e) => setBgColor(e.target.value)} />
+              <span className="text-xs text-muted-foreground font-mono">{bgColor}</span>
+            </div>
           </div>
         </div>
       )}
@@ -1168,42 +1196,64 @@ export default function MarketingAssetModal({
                 </div>
               )}
             </div>
-            <div ref={flyerPreviewRef} className={cn("flex-1 overflow-y-auto p-6 flex items-start justify-center", previewMode === "mobile" && "bg-gray-100")}>
+            <div ref={flyerPreviewRef} className={cn("flex-1 overflow-y-auto p-6 flex items-start justify-center", previewMode === "mobile" && "bg-gray-100 dark:bg-gray-900")}>
               {previewMode === "mobile" && resolvedType !== "flyer" ? (
-                <div className="w-[375px] shrink-0 rounded-[2.5rem] border-4 border-gray-800 bg-white dark:bg-gray-900 shadow-xl overflow-hidden">
-                  {/* Mobile notch */}
-                  <div className="flex items-center justify-center pt-2 pb-1">
-                    <div className="h-1.5 w-16 rounded-full bg-gray-800" />
-                  </div>
-                  <div className="px-2 pb-2">
-                    <PreviewPane
-                      assetType={assetType}
-                      portalElement={portalElement}
-                      flyerStep={flyerStep}
-                      headline={previewHeadline}
-                      body={previewBody}
-                      ctaText={ctaText}
-                      bgColor={bgColor}
-                      startDate={startDate}
-                      endDate={endDate}
-                      planName={planName}
-                      planLogo={planLogo}
-                      flyerImage={flyerImage}
-                      flyerQrUrl={flyerQrUrl}
-                      flyerQrDataUrl={flyerQrDataUrl}
-                      meetingTime={meetingTime}
-                      meetingLocation={meetingLocation}
-                      flyerSubtitle={flyerSubtitle}
-                      flyerTemplate={flyerTemplate}
-                      noticeType={noticeType}
-                      countdownTarget={countdownTarget}
-                      portalCtaUrl={portalCtaUrl}
-                      previewMode="mobile"
-                    />
-                  </div>
-                  {/* Mobile home indicator */}
-                  <div className="flex items-center justify-center pb-2 pt-1">
-                    <div className="h-1 w-24 rounded-full bg-gray-300" />
+                <div className="relative shrink-0 transform scale-[0.65] origin-top">
+                  {/* Phone body */}
+                  <div className="w-[375px] h-[720px] rounded-[3rem] border-[3px] border-gray-800 dark:border-gray-600 bg-white dark:bg-gray-900 shadow-2xl overflow-hidden relative flex flex-col">
+                    {/* Left side buttons */}
+                    <div className="absolute left-[-4px] top-24 w-[3px] h-8 rounded-r bg-gray-700 dark:bg-gray-500" />
+                    <div className="absolute left-[-4px] top-[136px] w-[3px] h-12 rounded-r bg-gray-700 dark:bg-gray-500" />
+                    <div className="absolute left-[-4px] top-[192px] w-[3px] h-8 rounded-r bg-gray-700 dark:bg-gray-500" />
+                    {/* Right side button */}
+                    <div className="absolute right-[-4px] top-32 w-[3px] h-10 rounded-l bg-gray-700 dark:bg-gray-500" />
+                    {/* Top notch area */}
+                    <div className="relative flex items-center justify-center pt-3 pb-1">
+                      {/* Status bar */}
+                      <div className="flex items-center justify-between w-full px-6 absolute top-1">
+                        <span className="text-[9px] font-semibold text-gray-800 dark:text-gray-200">9:41</span>
+                        <div className="flex items-center gap-0.5">
+                          <div className="h-1.5 w-2.5 rounded-sm bg-gray-800 dark:bg-gray-200" />
+                          <div className="h-1.5 w-2 rounded-sm bg-gray-800 dark:bg-gray-200" />
+                          <div className="h-1.5 w-1.5 rounded-sm bg-gray-800 dark:bg-gray-200" />
+                        </div>
+                      </div>
+                      {/* Notch */}
+                      <div className="h-5 w-28 rounded-[18px] bg-gray-800 dark:bg-gray-600 flex items-center justify-center">
+                        <div className="h-1.5 w-8 rounded-full bg-gray-700 dark:bg-gray-500" />
+                      </div>
+                    </div>
+                    {/* Screen content — flex-1 fills remaining phone height */}
+                    <div className="flex-1 flex flex-col min-h-0">
+                      <PreviewPane
+                        assetType={assetType}
+                        portalElement={portalElement}
+                        flyerStep={flyerStep}
+                        headline={previewHeadline}
+                        body={previewBody}
+                        ctaText={ctaText}
+                        bgColor={bgColor}
+                        startDate={startDate}
+                        endDate={endDate}
+                        planName={planName}
+                        planLogo={planLogo}
+                        flyerImage={flyerImage}
+                        flyerQrUrl={flyerQrUrl}
+                        flyerQrDataUrl={flyerQrDataUrl}
+                        meetingTime={meetingTime}
+                        meetingLocation={meetingLocation}
+                        flyerSubtitle={flyerSubtitle}
+                        flyerTemplate={flyerTemplate}
+                        noticeType={noticeType}
+                        countdownTarget={countdownTarget}
+                        portalCtaUrl={portalCtaUrl}
+                        previewMode="mobile"
+                      />
+                    </div>
+                    {/* Home indicator */}
+                    <div className="flex items-center justify-center pb-3 pt-1.5">
+                      <div className="h-1 w-28 rounded-full bg-gray-300 dark:bg-gray-600" />
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -1403,7 +1453,7 @@ function PreviewPane({
         />
       );
     case "pop-up":
-      return <PopUpPreview headline={headline} body={body} ctaText={ctaText} bgColor={bgColor} planName={planName} planLogo={planLogo} subtitle={flyerSubtitle} />;
+      return <PopUpPreview headline={headline} body={body} ctaText={ctaText} bgColor={bgColor} planName={planName} planLogo={planLogo} subtitle={flyerSubtitle} isMobile={isMobile} />;
     case "news-post":
       return <NewsPostPreview headline={headline} body={body} planName={planName} ctaText={ctaText} subtitle={flyerSubtitle} isMobile={isMobile} />;
   }
@@ -1577,6 +1627,7 @@ function PopUpPreview({
   planName,
   planLogo,
   subtitle,
+  isMobile,
 }: {
   headline: string;
   body: string;
@@ -1585,12 +1636,13 @@ function PopUpPreview({
   planName?: string;
   planLogo?: string;
   subtitle?: string;
+  isMobile?: boolean;
 }) {
   const { url: resolvedPlanLogo } = useBrandingImageUrl(planLogo);
 
   return (
-    <div className="w-full max-w-[420px] relative">
-      <div className="rounded-xl border bg-gray-100 p-5 space-y-3 opacity-30">
+    <div className={cn("w-full max-w-[420px] relative", isMobile && "h-full")}>
+      <div className={cn("rounded-xl border bg-gray-100 p-5 space-y-3 opacity-30", isMobile && "h-full")}>
         <div className="flex items-center gap-3 pb-2 border-b border-gray-200">
           {resolvedPlanLogo ? (
             <img src={resolvedPlanLogo} alt="" className="h-8 w-8 object-contain rounded" />
@@ -1654,7 +1706,7 @@ function NewsPostPreview({
   if (isMobile) {
     return (
       <div className="w-full">
-        <div className="rounded-lg border bg-white dark:bg-gray-800 dark:border-gray-700 shadow-sm overflow-hidden">
+        <div className="rounded-lg bg-white dark:bg-gray-800 shadow-sm overflow-hidden">
           <div className="p-4 space-y-3">
             <div>
               <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 leading-snug">{headline || "Announcement Title"}</h3>
