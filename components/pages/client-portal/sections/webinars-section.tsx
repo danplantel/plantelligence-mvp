@@ -50,6 +50,7 @@ interface RecentMessage {
 }
 
 interface WebinarsSectionProps {
+  brandColor?: string;
   secondaryColor?: string;
   clientId?: string;
   onLoadComplete?: () => void;
@@ -600,43 +601,8 @@ function WebinarReplayCard({
   );
 }
 
-function RecentMessageCard({
-  message,
-  secondaryColor = "#FBBF24",
-}: {
-  message: RecentMessage;
-  secondaryColor?: string;
-}) {
-  return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-4">
-      <div className="flex items-start gap-4">
-        <div className="bg-gray-200 rounded-full w-12 h-12 flex items-center justify-center text-gray-600 font-semibold flex-shrink-0">
-          {message.avatar}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-baseline gap-2 mb-2">
-            <h3 className="font-semibold" style={{ color: secondaryColor }}>
-              {message.sender}
-            </h3>
-            <span className="text-sm text-gray-500">{message.time}</span>
-          </div>
-          <p className="text-gray-700 text-sm leading-relaxed">
-            {message.message}
-          </p>
-        </div>
-      </div>
-      <button
-        className="flex items-center gap-2 font-medium transition-colors"
-        style={{ color: secondaryColor }}
-      >
-        <MessageCircle className="w-4 h-4" />
-        Reply
-      </button>
-    </div>
-  );
-}
-
 export function WebinarsSection({
+  brandColor = "#002B5B",
   secondaryColor,
   clientId,
   onLoadComplete,
@@ -761,36 +727,21 @@ export function WebinarsSection({
     }
   }, [isLoading, isLoadingReplays]);
 
-  const recentMessages: RecentMessage[] = [
-    {
-      id: 1,
-      sender: "Sarah Johnson",
-      time: "2 hours ago",
-      message: "Don't forget...",
-      avatar: "SJ",
-    },
-    {
-      id: 2,
-      sender: "Lisa Rodriguez",
-      time: "1 day ago",
-      message: "New wellness...",
-      avatar: "LR",
-    },
-  ];
-
   return (
-    <div className="bg-white py-16 px-4 sm:px-6 lg:px-8">
+    <div className="bg-white pt-16 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto space-y-16">
+
         {/* Upcoming Meetings & Webinars Section */}
         <div className="space-y-8">
-          <h2 className="font-dm-serif text-center text-[40px] font-normal leading-tight text-[#002B5B]">
+          <h2 className="font-dm-serif text-center text-2xl sm:text-[40px] font-normal leading-tight"
+              style={{ color: brandColor }}>
             Upcoming Meetings & Webinars
           </h2>
           {isLoading && (
             <p className="text-sm text-gray-500">Loading upcoming sessions…</p>
           )}
           {!isLoading && upcomingWebinars.length === 0 && (
-            <div className="flex items-center gap-4 rounded-xl border border-dashed border-gray-200 bg-white/70 p-4 text-gray-600">
+            <div className="flex items-center gap-4 rounded-xl border border-dashed border-gray-200 bg-white/70 p-4 text-gray-600 max-w-3xl mx-auto">
               <svg
                 width="48"
                 height="48"
@@ -868,7 +819,8 @@ export function WebinarsSection({
 
         {/* Past plan meetings */}
         <div className="space-y-8">
-          <h2 className="font-dm-serif text-center text-[40px] font-normal leading-tight text-[#002B5B]">
+          <h2 className="font-dm-serif text-center text-2xl sm:text-[40px] font-normal leading-tight"
+              style={{ color: brandColor }}>
             Past Meetings
           </h2>
           {isLoading && (
@@ -877,7 +829,7 @@ export function WebinarsSection({
             </p>
           )}
           {!isLoading && pastMeetings.length === 0 && clientId && (
-            <div className="flex items-center gap-4 rounded-xl border border-dashed border-gray-200 bg-white/70 p-4 text-gray-600">
+            <div className="flex items-center gap-4 rounded-xl border border-dashed border-gray-200 bg-white/70 p-4 text-gray-600 max-w-3xl mx-auto">
               <svg
                 width="48"
                 height="48"
@@ -916,7 +868,8 @@ export function WebinarsSection({
 
         {/* Webinar Replays Section */}
         <div className="space-y-8">
-          <h2 className="font-dm-serif text-center text-[40px] font-normal leading-tight text-[#002B5B]">
+          <h2 className="font-dm-serif text-center text-2xl sm:text-[40px] font-normal leading-tight"
+              style={{ color: brandColor }}>
             Webinar Replays
           </h2>
 
@@ -924,7 +877,7 @@ export function WebinarsSection({
             <p className="text-sm text-gray-500">Loading replays…</p>
           )}
           {!isLoadingReplays && webinarReplays.length === 0 && (
-            <div className="flex items-center gap-4 rounded-xl border border-dashed border-gray-200 bg-white/70 p-4 text-gray-600">
+            <div className="flex items-center gap-4 rounded-xl border border-dashed border-gray-200 bg-white/70 p-4 text-gray-600 max-w-3xl mx-auto">
               <svg
                 width="48"
                 height="48"

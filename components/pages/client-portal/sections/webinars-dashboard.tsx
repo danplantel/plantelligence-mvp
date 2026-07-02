@@ -19,7 +19,7 @@ export function WebinarsDashboard({
 }: WebinarsDashboardProps) {
   return (
     <>
-      <WebinarsSection secondaryColor={secondaryColor} clientId={clientId} />
+      <WebinarsSection brandColor={brandColor} secondaryColor={secondaryColor} clientId={clientId} />
     </>
   );
 }

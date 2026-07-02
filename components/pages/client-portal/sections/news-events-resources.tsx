@@ -21,7 +21,7 @@ const defaultResources: Resource[] = [
 ];
 
 export function NewsEventsResources({
-  brandColor = "#1F3A60",
+  brandColor = "#002B5B",
   secondaryColor = "#6B7280",
   resources = defaultResources,
 }: NewsEventsResourcesProps) {
@@ -29,7 +29,7 @@ export function NewsEventsResources({
     <section className="px-4 py-16 sm:px-6 lg:px-8 bg-white">
       <div className="mx-auto max-w-7xl">
         <h2
-          className="mb-12 text-center font-dm-serif text-[48px] font-normal leading-tight"
+          className="mb-12 text-center font-dm-serif text-2xl sm:text-[40px] font-normal leading-tight"
           style={{ color: brandColor }}
         >
           Resources & Downloads
