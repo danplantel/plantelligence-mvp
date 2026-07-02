@@ -208,6 +208,7 @@ export default function MarketingAssetModal({
 
   // Pop-up specific
   const [showEveryVisit, setShowEveryVisit] = useState(false);
+  const [popupCtaUrl, setPopupCtaUrl] = useState("");
   const POPUP_PAGES = [
     { id: "all", label: "All Pages" },
     { id: "home", label: "Home Page" },
@@ -317,6 +318,7 @@ export default function MarketingAssetModal({
         setShowEveryVisit(!!d.showEveryVisit);
         setPopupPages((d.popupPages as string[]) || ["all"]);
         setFlyerSubtitle((editingAsset.flyerSubtitle as string) || (d.flyerSubtitle as string) || "");
+        setPopupCtaUrl((d.ctaUrl as string) || "");
       }
 
       // News post specific
@@ -365,6 +367,7 @@ export default function MarketingAssetModal({
       setFlyerTemplate("MeetingTemplate1");
       setShowEveryVisit(false);
       setPopupPages(["all"]);
+      setPopupCtaUrl("");
       setAssetStatus("Draft");
       setNoticeType("text");
       setCountdownTarget("");
@@ -504,6 +507,7 @@ export default function MarketingAssetModal({
       data.showEveryVisit = showEveryVisit;
       data.popupPages = popupPages;
       data.flyerSubtitle = flyerSubtitle || null;
+      data.ctaUrl = popupCtaUrl || null;
     }
     if (resolvedType === "news-post") {
       data.category = postCategory;
@@ -1013,6 +1017,14 @@ export default function MarketingAssetModal({
               <span className="text-[11px] text-muted-foreground tabular-nums">{body.length}/300</span>
             </div>
             <Textarea id="body" rows={4} placeholder="Write your message…" value={body} onChange={(e) => setBody(e.target.value)} maxLength={300} className="dark:bg-gray-800" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="pu-cta-text">Button text</Label>
+            <Input id="pu-cta-text" placeholder="Learn More" value={ctaText} onChange={(e) => setCtaText(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="pu-cta-url">Button link (optional)</Label>
+            <Input id="pu-cta-url" placeholder="https://example.com" value={popupCtaUrl} onChange={(e) => setPopupCtaUrl(e.target.value)} />
           </div>
           <div>
             <Label className="text-sm font-medium">Show on pages</Label>
@@ -2043,7 +2055,7 @@ function NewsPostPreview({
             <img src={bgSrc} alt="" className="absolute inset-0 w-full h-full object-cover" />
           )}
           {/* Dark overlay — left-to-right gradient: dark on left for text, transparent on right for image */}
-          <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/60 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/100 via-black/90 to-transparent" />
           {cardContent}
         </div>
       </div>
@@ -2060,7 +2072,7 @@ function NewsPostPreview({
           <img src={bgSrc} alt="" className="absolute inset-0 w-full h-full object-cover" />
         )}
         {/* Dark overlay — left-to-right gradient: dark on left for text, transparent on right for image */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/60 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/100 via-black/90 to-transparent" />
         {cardContent}
       </div>
     </div>

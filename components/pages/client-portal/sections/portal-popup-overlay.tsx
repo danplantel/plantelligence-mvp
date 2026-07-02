@@ -151,6 +151,11 @@ export function PortalPopUpOverlay({
   const showEveryVisit = !!(data.showEveryVisit as boolean);
   const brandColor = popUp.bgColor || "#23919c";
   const ctaLabel = popUp.ctaText || "Learn More";
+  const rawCtaUrl = (data.ctaUrl as string) || "";
+  const ctaUrl = rawCtaUrl && !/^https?:\/\//i.test(rawCtaUrl)
+    ? `https://${rawCtaUrl}`
+    : rawCtaUrl;
+  const hasCtaUrl = !!ctaUrl;
 
   return (
     <div
@@ -218,12 +223,24 @@ export function PortalPopUpOverlay({
             >
               Dismiss
             </button>
-            <span
-              className="inline-flex items-center rounded-lg px-5 py-2.5 text-sm font-semibold text-white shadow-sm"
-              style={{ background: brandColor }}
-            >
-              {ctaLabel}
-            </span>
+            {hasCtaUrl ? (
+              <a
+                href={ctaUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center rounded-lg px-5 py-2.5 text-sm font-semibold text-white shadow-sm"
+                style={{ background: brandColor }}
+              >
+                {ctaLabel}
+              </a>
+            ) : (
+              <span
+                className="inline-flex items-center rounded-lg px-5 py-2.5 text-sm font-semibold text-white shadow-sm"
+                style={{ background: brandColor }}
+              >
+                {ctaLabel}
+              </span>
+            )}
           </div>
         </div>
       </div>
