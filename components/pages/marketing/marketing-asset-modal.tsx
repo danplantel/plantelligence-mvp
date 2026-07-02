@@ -75,6 +75,10 @@ interface MarketingAssetModalProps {
   /** When editing an existing asset, pass its full data to pre-populate the form */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   editingAsset?: any;
+  /** When true, shows only the preview pane — hides the form and save controls */
+  previewOnly?: boolean;
+  /** Called when the Edit button is clicked in preview-only mode */
+  onEditFromPreview?: () => void;
 }
 
 interface Meeting {
@@ -131,6 +135,8 @@ export default function MarketingAssetModal({
   initialFlyerStep,
   initialPortalElement,
   editingAsset,
+  previewOnly,
+  onEditFromPreview,
 }: MarketingAssetModalProps) {
   const { toast } = useToast();
   const meta = ASSET_META[assetType];
@@ -1063,13 +1069,13 @@ export default function MarketingAssetModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl p-0 flex flex-col max-h-[95vh] [&>button.absolute]:hidden">
+      <DialogContent className={cn("max-w-6xl p-0 flex flex-col max-h-[95vh] [&>button.absolute]:hidden", previewOnly && "max-w-3xl")}>
         {/* Fixed header */}
         <div className="flex items-center justify-between border-b px-6 py-4 shrink-0">
           <div>
             <DialogTitle className="text-lg font-semibold flex items-center gap-2">
               {(() => {
-                const action = editingAsset ? "Edit" : "Create";
+                const action = previewOnly ? "Preview" : editingAsset ? "Edit" : "Create";
                 if (assetType !== "portal-notice" || !portalElement) {
                   return <><span>{meta.icon}</span>{action} {meta.label}</>;
                 }
@@ -1090,72 +1096,142 @@ export default function MarketingAssetModal({
           </DialogClose>
         </div>
 
+        {/* Metadata card — shown only in preview mode */}
+        {previewOnly && editingAsset && (
+          <div className="border-b bg-muted/20 px-6 py-3">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm">
+              <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold" style={{
+                background: editingAsset.status === "Published" ? "#dcfce7" :
+                            editingAsset.status === "Draft" ? "#f3f4f6" :
+                            editingAsset.status === "Ready for Review" ? "#fef3c7" :
+                            editingAsset.status === "Scheduled" ? "#dbeafe" :
+                            editingAsset.status === "Archived" ? "#fce4ec" :
+                            editingAsset.status === "Hidden" ? "#fef9c3" : "#f3f4f6",
+                color: editingAsset.status === "Published" ? "#166534" :
+                        editingAsset.status === "Draft" ? "#374151" :
+                        editingAsset.status === "Ready for Review" ? "#92400e" :
+                        editingAsset.status === "Scheduled" ? "#1e40af" :
+                        editingAsset.status === "Archived" ? "#9b1c1c" :
+                        editingAsset.status === "Hidden" ? "#854d0e" : "#374151",
+                borderColor: editingAsset.status === "Published" ? "#86efac" :
+                            editingAsset.status === "Draft" ? "#d1d5db" :
+                            editingAsset.status === "Ready for Review" ? "#fcd34d" :
+                            editingAsset.status === "Scheduled" ? "#93c5fd" :
+                            editingAsset.status === "Archived" ? "#fecaca" :
+                            editingAsset.status === "Hidden" ? "#fde68a" : "#d1d5db",
+              }}>
+                {editingAsset.status}
+              </span>
+              <span className="text-muted-foreground text-xs">
+                Created {new Date(editingAsset.createdAt).toLocaleDateString("en-US", {
+                  year: "numeric", month: "short", day: "numeric",
+                })}
+              </span>
+              <span className="text-muted-foreground text-xs">
+                Headline: <span className="font-medium text-foreground">{headline || editingAsset.headline}</span>
+              </span>
+              {startDate && (
+                <span className="text-muted-foreground text-xs">
+                  Start: <span className="font-medium text-foreground">{new Date(startDate).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}</span>
+                </span>
+              )}
+              {endDate && (
+                <span className="text-muted-foreground text-xs">
+                  End: <span className="font-medium text-foreground">{new Date(endDate).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}</span>
+                </span>
+              )}
+              {(resolvedType === "pop-up" || resolvedType === "news-post") && flyerSubtitle && (
+                <span className="text-muted-foreground text-xs">
+                  Subtitle: <span className="font-medium text-foreground">{flyerSubtitle}</span>
+                </span>
+              )}
+              {resolvedType === "portal-notice" && noticeType && (
+                <span className="text-muted-foreground text-xs">
+                  Type: <span className="font-medium text-foreground">{noticeType === "countdown" ? "Countdown Banner" : "Text Banner"}</span>
+                </span>
+              )}
+              {resolvedType === "news-post" && postCategory && (
+                <span className="text-muted-foreground text-xs">
+                  Category: <span className="font-medium text-foreground">{postCategory}</span>
+                </span>
+              )}
+              {resolvedType === "portal-notice" && ctaText && (
+                <span className="text-muted-foreground text-xs">
+                  CTA: <span className="font-medium text-foreground">{ctaText}</span>
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Two-column body */}
         <div className="flex flex-1 overflow-hidden">
-          {/* Left Column — Form */}
-          <div className="w-1/2 border-r overflow-hidden flex flex-col">
-            {assetType === "portal-notice" ? (
-              <div className="relative flex-1 overflow-hidden">
-                <div
-                  className="flex h-full transition-transform duration-300 ease-in-out"
-                  style={{ transform: portalElement ? "translateX(-100%)" : "translateX(0%)" }}
-                >
-                  {/* Slide 1: Sub-element picker */}
-                  <div className="w-full shrink-0 overflow-y-auto p-6 space-y-5">
-                    <div className="space-y-4">
-                      <div>
-                        <Label className="text-sm font-medium">Portal Notice Element</Label>
-                        <p className="text-xs text-muted-foreground mt-0.5">Choose the type of portal notice to create.</p>
-                      </div>
-                      <div className="grid grid-cols-1 gap-3">
-                        {([
-                          { id: "top-banner" as PortalNoticeElement, label: "Top Banner", description: "A short announcement bar on the Benefits Hub.", icon: "📢" },
-                          { id: "pop-up" as PortalNoticeElement, label: "Pop-Up", description: "A message that appears when visiting the Benefits Hub.", icon: "💬" },
-                          { id: "news-post" as PortalNoticeElement, label: "News & Event Post", description: "Publish an update, announcement, or reminder.", icon: "📰" },
-                        ]).map((el) => (
-                          <button
-                            key={el.id}
-                            type="button"
-                            className="flex items-center gap-3 rounded-xl border-2 border-transparent bg-white dark:bg-gray-900 p-4 text-left shadow-sm hover:shadow-md hover:border-[var(--accent-blue)]/40 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--accent-blue)]"
-                            onClick={() => setPortalElement(el.id)}
-                          >
-                            <span className="text-2xl">{el.icon}</span>
-                            <div>
-                              <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{el.label}</h4>
-                              <p className="text-xs text-muted-foreground mt-0.5">{el.description}</p>
-                            </div>
-                          </button>
-                        ))}
+          {/* Left Column — Form (hidden in preview-only mode) */}
+          {!previewOnly && (
+            <div className="w-1/2 border-r overflow-hidden flex flex-col">
+              {assetType === "portal-notice" ? (
+                <div className="relative flex-1 overflow-hidden">
+                  <div
+                    className="flex h-full transition-transform duration-300 ease-in-out"
+                    style={{ transform: portalElement ? "translateX(-100%)" : "translateX(0%)" }}
+                  >
+                    {/* Slide 1: Sub-element picker */}
+                    <div className="w-full shrink-0 overflow-y-auto p-6 space-y-5">
+                      <div className="space-y-4">
+                        <div>
+                          <Label className="text-sm font-medium">Portal Notice Element</Label>
+                          <p className="text-xs text-muted-foreground mt-0.5">Choose the type of portal notice to create.</p>
+                        </div>
+                        <div className="grid grid-cols-1 gap-3">
+                          {([
+                            { id: "top-banner" as PortalNoticeElement, label: "Top Banner", description: "A short announcement bar on the Benefits Hub.", icon: "📢" },
+                            { id: "pop-up" as PortalNoticeElement, label: "Pop-Up", description: "A message that appears when visiting the Benefits Hub.", icon: "💬" },
+                            { id: "news-post" as PortalNoticeElement, label: "News & Event Post", description: "Publish an update, announcement, or reminder.", icon: "📰" },
+                          ]).map((el) => (
+                            <button
+                              key={el.id}
+                              type="button"
+                              className="flex items-center gap-3 rounded-xl border-2 border-transparent bg-white dark:bg-gray-900 p-4 text-left shadow-sm hover:shadow-md hover:border-[var(--accent-blue)]/40 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--accent-blue)]"
+                              onClick={() => setPortalElement(el.id)}
+                            >
+                              <span className="text-2xl">{el.icon}</span>
+                              <div>
+                                <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{el.label}</h4>
+                                <p className="text-xs text-muted-foreground mt-0.5">{el.description}</p>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Slide 2: Form */}
-                  <div className="w-full shrink-0 overflow-y-auto p-6 space-y-5">
-                    {/* Back button */}
-                    <button
-                      type="button"
-                      onClick={() => setPortalElement(null)}
-                      className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M19 12H5" /><polyline points="12 19 5 12 12 5" />
-                      </svg>
-                      Back
-                    </button>
-                    {formSections}
+                    {/* Slide 2: Form */}
+                    <div className="w-full shrink-0 overflow-y-auto p-6 space-y-5">
+                      {/* Back button */}
+                      <button
+                        type="button"
+                        onClick={() => setPortalElement(null)}
+                        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M19 12H5" /><polyline points="12 19 5 12 12 5" />
+                        </svg>
+                        Back
+                      </button>
+                      {formSections}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ) : (
-              <div className="overflow-y-auto p-6 space-y-5">
-                {formSections}
-              </div>
-            )}
-          </div>
+              ) : (
+                <div className="overflow-y-auto p-6 space-y-5">
+                  {formSections}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Right Column — Live Preview */}
-          <div className="w-1/2 flex flex-col bg-muted/30">
+          <div className={cn("flex flex-col bg-muted/30", previewOnly ? "w-full" : "w-1/2")}>
             <div className="flex items-center justify-between px-6 py-3 border-b bg-background">
               <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                 <Eye className="h-4 w-4" />
@@ -1289,7 +1365,7 @@ export default function MarketingAssetModal({
         {/* Fixed footer */}
         <div className="flex items-center justify-between gap-3 border-t px-6 py-4 shrink-0">
           <div className="flex items-center gap-3">
-            {resolvedType === "flyer" && (
+            {resolvedType === "flyer" && !previewOnly && (
               <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={isFlyerLocked} className="gap-1.5">
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -1301,34 +1377,48 @@ export default function MarketingAssetModal({
             )}
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <div className="h-9 w-px bg-border" />
-            <select
-              value={assetStatus}
-              onChange={(e) => setAssetStatus(e.target.value as MarketingAssetStatus)}
-              className="h-9 rounded-md border border-input bg-white dark:bg-gray-800 px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            >
-              <option value="Draft">Draft</option>
-              <option value="Ready for Review">Ready for Review</option>
-              <option value="Published">Published</option>
-              <option value="Scheduled">Scheduled</option>
-              <option value="Hidden">Hidden</option>
-              <option value="Archived">Archived</option>
-            </select>
-            <Button onClick={handleSave} disabled={isSaving}>
-              {isSaving ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{editingAsset ? "Updating…" : "Saving…"}</>
-              ) : (
-                (() => {
-                  const action = editingAsset ? "Update" : "Save";
-                  if (assetType !== "portal-notice" || !portalElement) return `${action} ${meta.label}`;
-                  const btnMeta = portalElement === "top-banner"
-                    ? ASSET_META["portal-notice"]
-                    : ASSET_META[portalElement as AssetType];
-                  return `${action} ${btnMeta.label}`;
-                })()
-              )}
-            </Button>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>{previewOnly ? "Close" : "Cancel"}</Button>
+            {previewOnly ? (
+              <Button onClick={() => onEditFromPreview?.()} className="gap-1.5">
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                </svg>
+                Edit
+              </Button>
+            ) : (
+              <>
+                <div className="h-9 w-px bg-border" />
+                <select
+                  value={assetStatus}
+                  onChange={(e) => setAssetStatus(e.target.value as MarketingAssetStatus)}
+                  className="h-9 rounded-md border border-input bg-white dark:bg-gray-800 px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  <option value="Draft">Draft</option>
+                  <option value="Ready for Review">Ready for Review</option>
+                  <option value="Published">Published</option>
+                  <option value="Scheduled">Scheduled</option>
+                  <option value="Hidden">Hidden</option>
+                  <option value="Archived">Archived</option>
+                </select>
+                <Button onClick={handleSave} disabled={isSaving}>
+                  {isSaving ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{editingAsset ? "Updating…" : "Saving…"}</>
+                  ) : (
+                    (() => {
+                      const action = editingAsset ? "Update" : "Save";
+                      if (assetType !== "portal-notice" || !portalElement) return `${action} ${meta.label}`;
+                      const btnMeta = portalElement === "top-banner"
+                        ? ASSET_META["portal-notice"]
+                        : ASSET_META[portalElement as AssetType];
+                      return `${action} ${btnMeta.label}`;
+                    })()
+                  )}
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </DialogContent>

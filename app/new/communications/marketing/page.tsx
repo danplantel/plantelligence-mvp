@@ -6,6 +6,12 @@ import useSWR from "swr";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogClose,
+} from "@/components/ui/dialog";
+import {
   Accordion,
   AccordionItem,
   AccordionTrigger,
@@ -13,7 +19,7 @@ import {
 } from "@/components/ui/accordion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { Search, Clock, ChevronDown, Loader2, Trash2 } from "lucide-react";
+import { Search, Clock, ChevronDown, Loader2, Trash2, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
@@ -490,6 +496,7 @@ export default function MarketingPage() {
   const [editingFlyerStep, setEditingFlyerStep] = useState<number | undefined>(undefined);
   const [editingPortalElement, setEditingPortalElement] = useState<PortalNoticeElement | null | undefined>(undefined);
   const [editingAsset, setEditingAsset] = useState<SavedAsset | null>(null);
+  const [previewAsset, setPreviewAsset] = useState<SavedAsset | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isDeletingLoading, setIsDeletingLoading] = useState(false);
@@ -821,9 +828,13 @@ export default function MarketingPage() {
                                asset.type === "pop-up" ? "PU" :
                                "NE"}
                             </div>
-                            <div className="flex-1 min-w-0">
+                            <div className="flex-1 min-w-0 cursor-pointer" onClick={() => {
+                              setActiveAssetType(asset.type);
+                              setPreviewAsset(asset);
+                              setModalOpen(true);
+                            }}>
                               <p className="text-sm text-gray-900 dark:text-gray-100 truncate">
-                                <span className="font-semibold">
+                                <span className="font-semibold hover:text-[var(--accent-blue)] transition-colors">
                                   {asset.type === "portal-notice"
                                     ? "Top Banner"
                                     : asset.type.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
@@ -971,6 +982,7 @@ export default function MarketingPage() {
                 setEditingFlyerStep(undefined);
                 setEditingPortalElement(undefined);
                 setEditingAsset(null);
+                setPreviewAsset(null);
               }
             }}
             assetType={activeAssetType}
@@ -978,7 +990,12 @@ export default function MarketingPage() {
             planId={selectedPlan}
             initialFlyerStep={editingFlyerStep}
             initialPortalElement={editingPortalElement}
-            editingAsset={editingAsset}
+            editingAsset={editingAsset || previewAsset}
+            previewOnly={!!previewAsset}
+            onEditFromPreview={() => {
+              setEditingAsset(previewAsset);
+              setPreviewAsset(null);
+            }}
             onSave={() => {
               mutateAssets();
             }}
