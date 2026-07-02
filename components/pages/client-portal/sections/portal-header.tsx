@@ -469,19 +469,8 @@ export function PortalHeader({
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
               className="absolute right-0 top-0 h-full w-[280px] bg-white shadow-2xl flex flex-col"
             >
-            {/* Drawer header with logo — compact on mobile */}
-            <div className="flex items-center justify-between px-4 py-2 border-b min-h-0">
-              <div className="flex items-center gap-2 min-w-0 flex-1">
-                {companyData?.companyLogo && (
-                  <div className="h-12 w-12 shrink-0 rounded overflow-hidden">
-                    <BrandingImage
-                      src={companyData.companyLogo}
-                      alt="Company logo"
-                      className="h-full w-full object-contain"
-                    />
-                  </div>
-                )}
-              </div>
+            {/* Drawer header — logo removed, compact */}
+            <div className="flex items-center justify-end px-4 py-1.5 border-b min-h-0">
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(false)}
