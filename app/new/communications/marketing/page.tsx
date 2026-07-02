@@ -501,6 +501,7 @@ export default function MarketingPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isDeletingLoading, setIsDeletingLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<MarketingAssetStatus | "All">("All");
+  const [typeFilter, setTypeFilter] = useState<AssetType | "All">("All");
 
   // â”€â”€ Fetch assets from API â”€â”€
   const { data: assetsData, isLoading: isLoadingAssets, mutate: mutateAssets } = useSWR(
@@ -510,8 +511,11 @@ export default function MarketingPage() {
   );
   const savedAssets: SavedAsset[] = useMemo(() => assetsData?.data ?? [], [assetsData]);
   const filteredAssets = useMemo(
-    () => savedAssets.filter((a) => statusFilter === "All" || a.status === statusFilter),
-    [savedAssets, statusFilter],
+    () => savedAssets.filter(
+      (a) => (statusFilter === "All" || a.status === statusFilter) &&
+             (typeFilter === "All" || a.type === typeFilter)
+    ),
+    [savedAssets, statusFilter, typeFilter],
   );
   const hasAssets = savedAssets.length > 0;
 
@@ -727,31 +731,50 @@ export default function MarketingPage() {
                 ) : hasAssets ? (
                   <>
                     {savedAssets.length > 0 && (
-                      <div className="flex items-center gap-1.5 px-5 py-2.5 border-b bg-white dark:bg-gray-800 overflow-x-auto">
-                        <Checkbox
-                          checked={filteredAssets.length > 0 && selectedAssets.size === filteredAssets.length}
-                          onCheckedChange={() => toggleSelectAll()}
-                          className="shrink-0 mr-1"
-                          aria-label="Select all assets"
-                        />
-                        {(["All", ...ASSET_STATUSES] as const).map((s) => {
-                          const count = s === "All" ? savedAssets.length : savedAssets.filter((a) => a.status === s).length;
-                          return (
-                            <button
-                              key={s}
-                              type="button"
-                              onClick={() => setStatusFilter(s)}
-                              className={cn(
-                                "whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                                statusFilter === s
-                                  ? "bg-gray-900 text-white dark:bg-accent-blue dark:text-white"
-                                  : "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700",
-                              )}
-                            >
-                              {s === "All" ? "All" : s} <span className="opacity-60">({count})</span>
-                            </button>
-                          );
-                        })}
+                      <div className="flex items-center justify-between gap-3 px-5 py-2.5 border-b bg-white dark:bg-gray-800">
+                        <div className="flex items-center gap-1.5 overflow-x-auto min-w-0">
+                          <Checkbox
+                            checked={filteredAssets.length > 0 && selectedAssets.size === filteredAssets.length}
+                            onCheckedChange={() => toggleSelectAll()}
+                            className="shrink-0 mr-1"
+                            aria-label="Select all assets"
+                          />
+                          {(["All", ...ASSET_STATUSES] as const).map((s) => {
+                            const count = s === "All" ? savedAssets.length : savedAssets.filter((a) => a.status === s).length;
+                            return (
+                              <button
+                                key={s}
+                                type="button"
+                                onClick={() => setStatusFilter(s)}
+                                className={cn(
+                                  "whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                                  statusFilter === s
+                                    ? "bg-gray-900 text-white dark:bg-accent-blue dark:text-white"
+                                    : "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700",
+                                )}
+                              >
+                                {s === "All" ? "All" : s} <span className="opacity-60">({count})</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {/* Type filter dropdown */}
+                        <div className="relative shrink-0">
+                          <select
+                            value={typeFilter}
+                            onChange={(e) => setTypeFilter(e.target.value as AssetType | "All")}
+                            className="appearance-none rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 pr-8 text-xs font-medium text-gray-700 dark:text-gray-200 shadow-sm cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                          >
+                            <option value="All">All Types</option>
+                            <option value="flyer">Flyer</option>
+                            <option value="portal-notice">Top Banner</option>
+                            <option value="pop-up">Pop-Up</option>
+                            <option value="news-post">News Post</option>
+                          </select>
+                          <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="6 9 12 15 18 9" />
+                          </svg>
+                        </div>
                       </div>
                     )}
 
