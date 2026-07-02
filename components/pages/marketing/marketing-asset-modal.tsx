@@ -31,6 +31,14 @@ export type AssetType = "flyer" | "portal-notice" | "pop-up" | "news-post";
 
 export type PortalNoticeElement = "top-banner" | "pop-up" | "news-post";
 
+/** Four available background images for News Post assets — each can only be used once per client. */
+export const NEWS_POST_BG_IMAGES = [
+  { id: "bg_01", src: "/news-post-bg-images/news_post_bg_image_01.webp", alt: "Background 1" },
+  { id: "bg_02", src: "/news-post-bg-images/news_post_bg_image_02.webp", alt: "Background 2" },
+  { id: "bg_03", src: "/news-post-bg-images/news_post_bg_image_03.webp", alt: "Background 3" },
+  { id: "bg_04", src: "/news-post-bg-images/news_post_bg_image_04.webp", alt: "Background 4" },
+] as const;
+
 export interface QrCodeResult {
   dataUrl: string;
   source: "qrio" | "local";
@@ -214,6 +222,37 @@ export default function MarketingAssetModal({
 
   // News post specific
   const [postCategory, setPostCategory] = useState("Announcement");
+  const [selectedBgImage, setSelectedBgImage] = useState<string>("");
+  const [existingNewsPosts, setExistingNewsPosts] = useState<any[]>([]);
+  const [newsPostLimitReached, setNewsPostLimitReached] = useState(false);
+
+  // Fetch existing news-post assets to enforce max 4 and unique images per client
+  useEffect(() => {
+    if (!planId) return;
+    fetch(`/api/marketing/assets/public?clientId=${planId}&type=news-post`)
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.success && Array.isArray(res.data)) {
+          setExistingNewsPosts(res.data);
+          // If creating (not editing) and already have 4, block creation
+          if (!editingAsset && res.data.length >= 4) {
+            setNewsPostLimitReached(true);
+          }
+        }
+      })
+      .catch(() => {});
+  }, [planId, editingAsset]);
+
+  /** IDs of background images already used by other news posts for this client */
+  const usedBgImageIds: string[] = useMemo(() => {
+    return existingNewsPosts
+      .filter((p: any) => p.id !== editingAsset?.id) // exclude current asset when editing
+      .map((p: any) => {
+        const d = (p.data as Record<string, unknown>) ?? {};
+        return d.bgImage as string;
+      })
+      .filter(Boolean);
+  }, [existingNewsPosts, editingAsset]);
 
   /** Resolve the effective asset type — when Portal Notice picks a sub-element,
    *  "pop-up" and "news-post" map to their own types, while "top-banner" stays as "portal-notice". */
@@ -282,6 +321,7 @@ export default function MarketingAssetModal({
         setFlyerSubtitle((editingAsset.flyerSubtitle as string) || (d.flyerSubtitle as string) || "");
         setPostCategory((d.category as string) || "Announcement");
         setCtaText((editingAsset.ctaText as string) || (d.ctaText as string) || "");
+        setSelectedBgImage((d.bgImage as string) || "");
       }
 
       // Flyer specific
@@ -327,6 +367,9 @@ export default function MarketingAssetModal({
       setPortalCtaUrl("");
       setCtaText("");
       setPostCategory("Announcement");
+      setSelectedBgImage("");
+      setNewsPostLimitReached(false);
+      setExistingNewsPosts([]);
       setPortalElement(null);
     }
   }, [open, assetType, editingAsset]);
@@ -460,6 +503,7 @@ export default function MarketingAssetModal({
     if (resolvedType === "news-post") {
       data.category = postCategory;
       data.flyerSubtitle = flyerSubtitle || null;
+      data.bgImage = selectedBgImage || null;
     }
 
     const isEditing = !!editingAsset;
@@ -1007,6 +1051,13 @@ export default function MarketingAssetModal({
       {/* News post fields */}
       {resolvedType === "news-post" && (
         <div className="space-y-4">
+          {/* Max limit warning */}
+          {!editingAsset && newsPostLimitReached && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <strong>Limit reached.</strong> You can create a maximum of 4 News Posts per plan. Archive or delete an existing post to create a new one.
+            </div>
+          )}
+
           <div className="space-y-1.5">
             <Label htmlFor="np-headline">Headline</Label>
             <Input id="np-headline" placeholder="Enter headline…" value={headline} onChange={(e) => setHeadline(e.target.value)} />
@@ -1033,6 +1084,52 @@ export default function MarketingAssetModal({
               <option value="Reminder">Reminder</option>
             </select>
           </div>
+
+          {/* Background Image Selector */}
+          <div className="space-y-2">
+            <Label>Background image</Label>
+            <p className="text-xs text-muted-foreground">Select a background photo for this post. Each image can only be used once per plan.</p>
+            <div className="grid grid-cols-2 gap-2">
+              {NEWS_POST_BG_IMAGES.map((img) => {
+                const isUsed = usedBgImageIds.includes(img.id);
+                const isSelected = selectedBgImage === img.id;
+                return (
+                  <button
+                    key={img.id}
+                    type="button"
+                    disabled={isUsed && !isSelected}
+                    onClick={() => setSelectedBgImage(img.id)}
+                    className={cn(
+                      "relative aspect-[16/9] rounded-lg overflow-hidden border-2 transition-all duration-200",
+                      isSelected
+                        ? "border-[var(--accent-blue)] ring-2 ring-[var(--accent-blue)]/30"
+                        : "border-gray-200 hover:border-gray-400",
+                      isUsed && !isSelected && "opacity-40 cursor-not-allowed grayscale",
+                    )}
+                  >
+                    <img
+                      src={img.src}
+                      alt={img.alt}
+                      className="w-full h-full object-cover"
+                    />
+                    {isSelected && (
+                      <div className="absolute top-1.5 right-1.5 h-5 w-5 rounded-full bg-[var(--accent-blue)] flex items-center justify-center">
+                        <svg className="h-3 w-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      </div>
+                    )}
+                    {isUsed && !isSelected && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="rounded bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-white">Used</span>
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="space-y-1.5">
             <Label htmlFor="ctaText">Button text</Label>
             <Input id="ctaText" placeholder="Learn More" value={ctaText} onChange={(e) => setCtaText(e.target.value)} />
@@ -1320,6 +1417,7 @@ export default function MarketingAssetModal({
                         noticeType={noticeType}
                         countdownTarget={countdownTarget}
                         portalCtaUrl={portalCtaUrl}
+                        bgImage={resolvedType === "news-post" ? selectedBgImage : undefined}
                         previewMode="mobile"
                       />
                     </div>
@@ -1352,6 +1450,7 @@ export default function MarketingAssetModal({
                   noticeType={noticeType}
                   countdownTarget={countdownTarget}
                   portalCtaUrl={portalCtaUrl}
+                  bgImage={resolvedType === "news-post" ? selectedBgImage : undefined}
                   previewMode={previewMode}
                 />
               )}
@@ -1447,6 +1546,7 @@ function PreviewPane({
   noticeType,
   countdownTarget,
   portalCtaUrl,
+  bgImage,
   previewMode,
 }: {
   assetType: AssetType;
@@ -1470,6 +1570,7 @@ function PreviewPane({
   noticeType?: "text" | "countdown";
   countdownTarget?: string;
   portalCtaUrl?: string;
+  bgImage?: string;
   previewMode?: "desktop" | "mobile";
 }) {
   const isMobile = previewMode === "mobile";
@@ -1542,7 +1643,7 @@ function PreviewPane({
     case "pop-up":
       return <PopUpPreview headline={headline} body={body} ctaText={ctaText} bgColor={bgColor} planName={planName} planLogo={planLogo} subtitle={flyerSubtitle} isMobile={isMobile} />;
     case "news-post":
-      return <NewsPostPreview headline={headline} body={body} planName={planName} ctaText={ctaText} subtitle={flyerSubtitle} isMobile={isMobile} />;
+      return <NewsPostPreview headline={headline} body={body} planName={planName} ctaText={ctaText} subtitle={flyerSubtitle} bgImage={bgImage} isMobile={isMobile} />;
   }
 }
 
@@ -1854,6 +1955,13 @@ function PopUpPreview({
   );
 }
 
+// ── Helper: resolve bg image src by id ────────────────────────
+
+function getBgImageSrc(bgImageId: string): string {
+  const found = NEWS_POST_BG_IMAGES.find((img) => img.id === bgImageId);
+  return found?.src ?? "";
+}
+
 // ── News Post Preview ─────────────────────────────────────────
 
 function NewsPostPreview({
@@ -1862,6 +1970,7 @@ function NewsPostPreview({
   planName,
   ctaText,
   subtitle,
+  bgImage,
   isMobile,
 }: {
   headline: string;
@@ -1869,32 +1978,60 @@ function NewsPostPreview({
   planName: string;
   ctaText?: string;
   subtitle?: string;
+  bgImage?: string;
   isMobile?: boolean;
 }) {
+  const bgSrc = bgImage ? getBgImageSrc(bgImage) : "";
+  const hasBg = !!bgSrc;
+
+  const cardContent = (
+    <>
+      <div className="relative z-10 flex flex-col h-full p-6 sm:p-8 lg:p-10 max-w-[60%] sm:max-w-[55%]">
+        {/* Headline */}
+        <h3 className="font-dm-serif text-xl font-bold leading-tight text-white sm:text-2xl lg:text-[28px]">
+          {headline || "Announcement Title"}
+        </h3>
+        {subtitle && (
+          <p className="text-sm text-white/80 mt-1.5 font-red-hat">{subtitle}</p>
+        )}
+        {/* Body */}
+        {body ? (
+          <p className="text-sm text-gray-200 leading-relaxed mt-3 flex-1 line-clamp-3 font-red-hat">
+            {body}
+          </p>
+        ) : (
+          <div className="space-y-2 mt-3 flex-1">
+            <div className="h-2 w-full rounded bg-white/20" />
+            <div className="h-2 w-5/6 rounded bg-white/20" />
+            <div className="h-2 w-4/6 rounded bg-white/20" />
+          </div>
+        )}
+        {/* CTA */}
+        <div className="mt-auto pt-4">
+          <span className="inline-flex items-center rounded-lg bg-white/20 backdrop-blur-sm px-5 py-2.5 text-sm font-semibold text-white shadow-sm border border-white/30 hover:bg-white/30 transition-all duration-200 cursor-default">
+            {ctaText || "Learn more"}
+            <svg className="ml-2 h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 12h14" /><polyline points="12 5 19 12 12 19" />
+            </svg>
+          </span>
+        </div>
+      </div>
+    </>
+  );
+
   if (isMobile) {
     return (
-      <div className="w-full">
-        <div className="rounded-lg bg-white dark:bg-gray-800 shadow-sm overflow-hidden">
-          <div className="p-4 space-y-3">
-            <div>
-              <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 leading-snug">{headline || "Announcement Title"}</h3>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{subtitle || "A short description of the announcement..."}</p>
-            </div>
-            {body ? (
-              <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed line-clamp-3">{body}</p>
-            ) : (
-              <div className="space-y-1.5">
-                <div className="h-2 w-full rounded bg-gray-100 dark:bg-gray-700" />
-                <div className="h-2 w-5/6 rounded bg-gray-100 dark:bg-gray-700" />
-                <div className="h-2 w-4/6 rounded bg-gray-100 dark:bg-gray-700" />
-              </div>
-            )}
-            <div className="pt-0.5">
-              <span className="inline-flex items-center rounded-lg bg-gray-900 dark:bg-gray-700 px-3.5 py-1.5 text-[11px] font-semibold text-white shadow-sm cursor-default">
-                {ctaText || "Learn more"}
-              </span>
-            </div>
-          </div>
+      <div className="w-full h-full">
+        <div
+          className="relative h-full rounded-lg overflow-hidden shadow-sm"
+          style={hasBg ? {} : { background: "linear-gradient(135deg, #1F3A60 0%, #2c4b80 100%)" }}
+        >
+          {hasBg && (
+            <img src={bgSrc} alt="" className="absolute inset-0 w-full h-full object-cover" />
+          )}
+          {/* Dark overlay — left-to-right gradient: dark on left for text, transparent on right for image */}
+          <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/60 to-transparent" />
+          {cardContent}
         </div>
       </div>
     );
@@ -1902,28 +2039,16 @@ function NewsPostPreview({
 
   return (
     <div className="w-full max-w-[520px] group transition-all duration-300 hover:-translate-y-1">
-      <div className="rounded-xl border bg-white dark:bg-gray-800 dark:border-gray-700 shadow-sm overflow-hidden">
-        <div className="p-6 space-y-4">
-          <div>
-            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 leading-snug">{headline || "Announcement Title"}</h3>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{subtitle || "A short description of the announcement..."}</p>
-          </div>
-          {body ? (
-            <p className="text-sm text-gray-400 dark:text-gray-500 leading-relaxed">{body}</p>
-          ) : (
-            <div className="space-y-2">
-              <div className="h-3 w-full rounded bg-gray-100 dark:bg-gray-700" />
-              <div className="h-3 w-5/6 rounded bg-gray-100 dark:bg-gray-700" />
-              <div className="h-3 w-4/6 rounded bg-gray-100 dark:bg-gray-700" />
-              <div className="h-3 w-3/4 rounded bg-gray-100 dark:bg-gray-700" />
-            </div>
-          )}
-          <div className="pt-1">
-            <span className="inline-flex items-center rounded-lg bg-gray-900 dark:bg-gray-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm cursor-default">
-              {ctaText || "Learn more"}
-            </span>
-          </div>
-        </div>
+      <div
+        className="relative rounded-xl overflow-hidden shadow-sm min-h-[300px]"
+        style={hasBg ? {} : { background: "linear-gradient(135deg, #1F3A60 0%, #2c4b80 100%)" }}
+      >
+        {hasBg && (
+          <img src={bgSrc} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        )}
+        {/* Dark overlay — left-to-right gradient: dark on left for text, transparent on right for image */}
+        <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/60 to-transparent" />
+        {cardContent}
       </div>
     </div>
   );
