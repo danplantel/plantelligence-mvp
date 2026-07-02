@@ -67,7 +67,7 @@ export function HowCanWeHelpSection({
   return (
     <section ref={ref} className="bg-white py-16 lg:py-20">
       <h2
-        className="mb-14 text-center text-3xl font-dm-serif sm:text-4xl lg:text-5xl"
+        className="mb-14 text-center text-2xl font-dm-serif sm:text-2xl lg:text-5xl"
         style={{ color: brandColor }}
       >
         How Can We Help You Today?

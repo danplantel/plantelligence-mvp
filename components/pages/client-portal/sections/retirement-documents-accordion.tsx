@@ -405,17 +405,17 @@ export function RetirementDocumentsAccordion({
   };
 
   const outerClasses =
-    mode === "page" ? `py-16 bg-white ${className}` : className;
+    mode === "page" ? `py-8 sm:py-16 bg-white ${className}` : className;
   const containerClasses =
     mode === "page" ? "mx-auto max-w-6xl px-4 sm:px-6 lg:px-8" : "space-y-6";
 
   return (
     <>
       {title && (
-        <div className="text-center bg-white pt-12 dark:bg-gray-800">
+        <div className="text-center bg-white pt-12 dark:bg-gray-800 border-b-0">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <h2
-              className="font-dm-serif text-[40px] leading-tight mb-4"
+              className="font-dm-serif text-3xl leading-tight mb-4 sm:text-4xl lg:text-[40px]"
               style={{ color: brandColor }}
             >
               {title}
@@ -452,14 +452,11 @@ export function RetirementDocumentsAccordion({
           ) : (
             <div
               className="overflow-hidden rounded-md border bg-white shadow-sm dark:bg-gray-800 dark:border-gray-700"
-              style={{
-                borderColor: `${accentColor}66`,
-              }}
             >
               {/* RETIREMENT SECTION HEADER */}
               <button
                 type="button"
-                className="flex w-full items-center justify-between px-6 py-4 text-left transition-colors duration-200 border-b dark:bg-gray-800"
+                className="flex w-full items-center justify-between px-6 py-4 text-left transition-colors duration-200 dark:bg-gray-800"
                 onClick={() => setOpenRetirement((prev) => !prev)}
                 style={{
                   borderColor: `${brandColor}80`,
@@ -467,7 +464,7 @@ export function RetirementDocumentsAccordion({
                 }}
               >
                 <span
-                  className="text-[24px] leading-tight font-dm-serif font-semibold transition-colors duration-200"
+                  className="text-xl leading-tight font-dm-serif font-semibold transition-colors duration-200 sm:text-[24px]"
                   style={{ color: brandColor }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.color = accentColor;
@@ -517,7 +514,7 @@ export function RetirementDocumentsAccordion({
                   )}
 
                   <h3
-                    className="mb-4 text-[20px] leading-tight font-dm-serif"
+                    className="mb-4 text-lg leading-tight font-dm-serif sm:text-[20px]"
                     style={{
                       color: brandColor,
                     }}

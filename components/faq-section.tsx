@@ -67,7 +67,7 @@ export function FAQSection({
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-12">
           <h2
-            className="text-[40px] font-dm-serif mb-4"
+            className="text-3xl font-dm-serif mb-4 sm:text-4xl lg:text-[40px]"
             style={{ color: brandColor }}
           >
             Frequently Asked Questions (FAQs)
@@ -142,7 +142,7 @@ export function FAQSection({
         {contacts && contacts.length > 0 && (
           <div className="mt-16 text-center">
             <h2
-              className="font-dm-serif text-[40px] leading-tight mb-2"
+              className="font-dm-serif text-3xl leading-tight mb-2 sm:text-4xl lg:text-[40px]"
               style={{ color: brandColor }}
             >
               Have Questions?

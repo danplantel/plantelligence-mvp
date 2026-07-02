@@ -231,10 +231,10 @@ export function RetirementJourneySection({
       <div className="relative z-10 mx-auto flex flex-col items-center pt-20 justify-center">
         <div className="grid w-[1280px] items-center gap-10 pb-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
           <div className="max-w-3xl">
-            <h1 className="mb-4 font-unna font-dm-serif text-[64px] font-normal leading-tight">
+            <h1 className="mb-4 font-unna font-dm-serif text-3xl font-normal leading-tight sm:text-4xl lg:text-[64px]">
               {mainTitle}
             </h1>
-            <h2 className="mb-5 text-[24px] font-medium font-dm-serif text-[#26A69A]">
+            <h2 className="mb-5 text-xl font-medium font-dm-serif text-[#26A69A] sm:text-2xl lg:text-[24px]">
               {subtitle}
             </h2>
             <div className="mb-6 flex flex-wrap items-center gap-3 text-white/80">

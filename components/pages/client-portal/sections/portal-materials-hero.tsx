@@ -46,7 +46,7 @@ export function PortalMaterialsHero({
       <div className="relative z-10 flex h-[750px] flex-col items-center justify-center">
         <div className="mx-auto w-full max-w-8xl">
           <div className="mb-8 text-center text-white">
-            <h1 className="font-dm-serif text-[64px] leading-tight">
+            <h1 className="font-dm-serif text-3xl leading-tight sm:text-4xl lg:text-[64px]">
               {heading}
             </h1>
           </div>
