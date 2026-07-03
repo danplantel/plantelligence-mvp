@@ -7,69 +7,7 @@ export function useBenefitsLenisScroll(isEditorOpen: boolean) {
     const lenisEditorRef = useRef<Lenis | null>(null);
     const lenisEditorRafIdRef = useRef<number | null>(null);
     const editorScrollContainerRef = useRef<HTMLDivElement>(null);
-    const editorManualScrollAtRef = useRef(0);
     const mainScrollPercentRef = useRef(0);
-    const scrollSyncSourceRef = useRef<"main" | "editor" | null>(null);
-    const lastSyncAtRef = useRef(0);
-
-    const syncEditorScrollToPercent = useCallback((percent: number) => {
-        const el = editorScrollContainerRef.current;
-        if (!el) return;
-
-        const clamped = Math.max(0, Math.min(100, percent));
-        const scrollable = el.scrollHeight - el.clientHeight;
-        if (scrollable <= 0) return;
-
-        const target = (clamped / 100) * scrollable;
-
-        if (lenisEditorRef.current) {
-            lenisEditorRef.current.scrollTo(target, { immediate: true });
-        } else {
-            el.scrollTop = target;
-        }
-    }, []);
-
-    const syncMainScrollToPercent = useCallback((percent: number) => {
-        if (!lenisRef.current) return;
-
-        const clamped = Math.max(0, Math.min(100, percent));
-        const scrollable =
-            document.documentElement.scrollHeight - window.innerHeight;
-
-        if (scrollable <= 0) return;
-
-        const target = (clamped / 100) * scrollable;
-        lenisRef.current.scrollTo(target, { immediate: true });
-    }, []);
-
-    const syncScroll = useCallback(
-        (source: "main" | "editor", percent: number) => {
-            const now = performance.now();
-
-            if (
-                scrollSyncSourceRef.current &&
-                scrollSyncSourceRef.current !== source
-            ) {
-                return;
-            }
-
-            if (now - lastSyncAtRef.current < 16) return;
-
-            scrollSyncSourceRef.current = source;
-            lastSyncAtRef.current = now;
-
-            if (source === "main") {
-                syncEditorScrollToPercent(percent);
-            } else {
-                syncMainScrollToPercent(percent);
-            }
-
-            requestAnimationFrame(() => {
-                scrollSyncSourceRef.current = null;
-            });
-        },
-        [syncEditorScrollToPercent, syncMainScrollToPercent],
-    );
 
     // Enable Lenis smooth scroll for main page
     useEffect(() => {
@@ -90,15 +28,6 @@ export function useBenefitsLenisScroll(isEditorOpen: boolean) {
         }) => {
             const percent = limit > 0 ? (scroll / limit) * 100 : 0;
             mainScrollPercentRef.current = percent;
-
-            if (!isEditorOpen) return;
-
-            const now = performance.now();
-            if (now - editorManualScrollAtRef.current < 300) {
-                return;
-            }
-
-            syncScroll("main", percent);
         };
 
         lenis.on("scroll", handleLenisScroll);
@@ -119,9 +48,9 @@ export function useBenefitsLenisScroll(isEditorOpen: boolean) {
             lenis.destroy();
             lenisRef.current = null;
         };
-    }, [syncScroll, isEditorOpen]);
+    }, []);
 
-    // Lenis instance for the side editor panel
+    // Lenis instance for the side editor panel — fully independent from main scroll
     useEffect(() => {
         if (!isEditorOpen) return;
 
@@ -141,29 +70,6 @@ export function useBenefitsLenisScroll(isEditorOpen: boolean) {
 
         lenisEditorRef.current = lenis;
 
-        // Initial sync from main to editor to prevent jump-to-top
-        const mainScrollPercent = mainScrollPercentRef.current;
-        if (mainScrollPercent > 0) {
-            const scrollable = wrapper.scrollHeight - wrapper.clientHeight;
-            if (scrollable > 0) {
-                const target = (mainScrollPercent / 100) * scrollable;
-                lenis.scrollTo(target, { immediate: true });
-            }
-        }
-
-        const handleEditorScroll = ({
-            scroll,
-            limit,
-        }: {
-            scroll: number;
-            limit: number;
-        }) => {
-            const percent = limit > 0 ? (scroll / limit) * 100 : 0;
-            syncScroll("editor", percent);
-        };
-
-        lenis.on("scroll", handleEditorScroll);
-
         const raf = (time: number) => {
             lenis.raf(time);
             lenisEditorRafIdRef.current = requestAnimationFrame(raf);
@@ -171,7 +77,6 @@ export function useBenefitsLenisScroll(isEditorOpen: boolean) {
         lenisEditorRafIdRef.current = requestAnimationFrame(raf);
 
         return () => {
-            lenis.off("scroll", handleEditorScroll);
             if (lenisEditorRafIdRef.current !== null) {
                 cancelAnimationFrame(lenisEditorRafIdRef.current);
                 lenisEditorRafIdRef.current = null;
@@ -179,28 +84,9 @@ export function useBenefitsLenisScroll(isEditorOpen: boolean) {
             lenis.destroy();
             lenisEditorRef.current = null;
         };
-    }, [isEditorOpen, syncScroll]);
-
-    // Track manual scrolls inside the editor
-    useEffect(() => {
-        const wrapper = editorScrollContainerRef.current;
-        if (!wrapper) return;
-
-        const markManual = () => {
-            editorManualScrollAtRef.current = performance.now();
-        };
-
-        wrapper.addEventListener("wheel", markManual, { passive: true });
-        wrapper.addEventListener("touchmove", markManual, { passive: true });
-
-        return () => {
-            wrapper.removeEventListener("wheel", markManual);
-            wrapper.removeEventListener("touchmove", markManual);
-        };
-    }, []);
+    }, [isEditorOpen]);
 
     return {
         editorScrollContainerRef,
-        scrollSyncSourceRef,
     };
 }
