@@ -96,7 +96,12 @@ import { resolvePersistedDocumentCategory } from "@/lib/document-category";
 import { persistNewDocumentsToApi } from "@/lib/benefits-document-persist";
 import { fetchPlanDocumentsForClient } from "@/lib/fetch-plan-documents-client";
 import { ComplianceDocumentsUpload } from "@/components/pages/documents/components/compliance-documents-upload";
-
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { DocumentListTab } from "@/components/pages/documents/tabs/document-list-tab";
+import { RetirementDocumentsAccordion, RetirementDocumentItem } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
+import { detectDocumentType } from "@/lib/compliance-document-utils";
+import { normalizePortalDocumentLanguage } from "@/lib/portal-document-language";
+import type { Document as DocModuleDocument, SortColumn, SortDirection } from "@/components/pages/documents/types";
 /** Wizard order â€” matches accordion below (Branding â†’ Messaging â†’ Contacts â†’ Documents). */
 const BENEFIT_SETUP_SECTION_ORDER = [
   { key: "branding" as const, label: "Branding" },
@@ -123,6 +128,10 @@ export function BenefitsStep1a() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [activeAccordions, setActiveAccordions] = useState<string[]>([]);
   const [togglingCategories, setTogglingCategories] = useState<Record<string, boolean>>({});
+  const [activeDocTab, setActiveDocTab] = useState("list");
+  const [docSortColumn, setDocSortColumn] = useState<SortColumn>("uploadedAt");
+  const [docSortDirection, setDocSortDirection] = useState<SortDirection>("desc");
+  const [docPreviewLang, setDocPreviewLang] = useState<"EN" | "ES">("EN");
 
   // Plan search bar state
   const [planSearchOpen, setPlanSearchOpen] = useState(false);
@@ -2293,68 +2302,219 @@ export function BenefitsStep1a() {
                 </div>
               </AccordionTrigger>
               <AccordionContent className="p-6">
-                <ComplianceDocumentsUpload
-                  clientId={resolvedPlanId}
-                  initialDocuments={stepData.step4?.documents || []}
-                  onDocumentsChange={(docs) => {
-                    saveStepData(4, { documents: docs });
-                    if (!resolvedPlanId) return;
-                    void (async () => {
-                      const id = resolvedPlanId;
-                      const merged = await persistNewDocumentsToApi(id, docs);
-                      const next = merged !== docs ? merged : docs;
-                      saveStepData(4, { documents: next });
-                      try {
-                        const rows = await fetchPlanDocumentsForClient(id);
-                        if (rows.length > 0) {
-                          const converted = await Promise.all(
-                            (rows as any[]).map((doc: any, index: number) =>
-                              convertToDocumentFormat(
-                                {
-                                  ...doc,
-                                  name: doc.title,
-                                  fileUrl: doc.fileUrl,
-                                  storageKey: doc.storageKey,
-                                },
-                                index,
-                              ),
-                            ),
-                          );
-                          saveStepData(4, { documents: converted });
+                <Tabs value={activeDocTab} onValueChange={setActiveDocTab}>
+                  <TabsList className="grid w-full grid-cols-3 mb-6">
+                    <TabsTrigger value="list">List</TabsTrigger>
+                    <TabsTrigger value="preview">Preview</TabsTrigger>
+                    <TabsTrigger value="upload">Upload</TabsTrigger>
+                  </TabsList>
+
+                  {/* ── List Tab ── */}
+                  <TabsContent value="list">
+                    {(() => {
+                      const category = currentStepData.benefitCategory;
+                      const planDocs = (stepData.step4?.documents || []) as any[];
+                      const filteredDocs = category
+                        ? planDocs.filter((doc) =>
+                            resolvePersistedDocumentCategory(
+                              "Document",
+                              doc.category,
+                              (doc as { storageKey?: string }).storageKey,
+                            ) === resolvePersistedDocumentCategory("Document", category)
+                          )
+                        : planDocs;
+
+                      const listFormatted: DocModuleDocument[] = filteredDocs.map((doc) => ({
+                        id: doc.id,
+                        title: doc.name,
+                        fileName: doc.originalFileName || doc.name,
+                        type: "Document" as const,
+                        uploadedAt: new Date().toISOString(),
+                        client: {
+                          id: resolvedPlanId || "current",
+                          companyName: selectedPlanName || "Plan",
+                        },
+                        category: doc.category,
+                        categorySuggested: doc.categorySuggested,
+                        categoryConfidence: doc.categoryConfidence,
+                        expirationDate: doc.expirationDate,
+                      }));
+
+                      const sorted = [...listFormatted].sort((a, b) => {
+                        const col = docSortColumn;
+                        let aVal: any = col === "uploadedAt" ? new Date(a[col]).getTime() : String(a[col]).toLowerCase();
+                        let bVal: any = col === "uploadedAt" ? new Date(b[col]).getTime() : String(b[col]).toLowerCase();
+                        return docSortDirection === "asc"
+                          ? aVal > bVal ? 1 : -1
+                          : aVal < bVal ? 1 : -1;
+                      });
+
+                      const handleSort = (col: SortColumn) => {
+                        if (docSortColumn === col) {
+                          setDocSortDirection((prev) => prev === "asc" ? "desc" : "asc");
+                        } else {
+                          setDocSortColumn(col);
+                          setDocSortDirection("asc");
                         }
-                      } catch (e) {
-                        console.error(
-                          "Refetch plan documents after upload failed",
-                          e,
+                      };
+
+                      return (
+                        <DocumentListTab
+                          selectedPlan={resolvedPlanId || ""}
+                          isLoading={false}
+                          documents={sorted}
+                          sortColumn={docSortColumn}
+                          sortDirection={docSortDirection}
+                          onSort={handleSort}
+                          onPreview={() => setActiveDocTab("preview")}
+                          getDocumentType={(doc) => detectDocumentType(doc.fileName)}
+                          onDelete={(id, name) => {
+                            const docs = (stepData.step4?.documents || []).filter((d: any) => d.id !== id);
+                            saveStepData(4, { documents: docs });
+                          }}
+                          onDownload={(id) => {
+                            const doc = filteredDocs.find((d: any) => d.id === id);
+                            if (doc?.file) {
+                              const link = document.createElement("a");
+                              link.href = doc.file;
+                              link.download = doc.originalFileName || doc.name;
+                              document.body.appendChild(link);
+                              link.click();
+                              document.body.removeChild(link);
+                            }
+                          }}
+                          onEdit={(id, title, updates) => {
+                            if (updates?.category) {
+                              const docs = (stepData.step4?.documents || []).map((d: any) =>
+                                d.id === id ? { ...d, category: updates.category } : d
+                              );
+                              saveStepData(4, { documents: docs });
+                              toast.success("Category updated");
+                            }
+                          }}
+                          availableCategories={["Retirement", "Group Health", "Group Life", "Other Benefits"]}
+                          onGoToUpload={() => setActiveDocTab("upload")}
+                        />
+                      );
+                    })()}
+                  </TabsContent>
+
+                  {/* ── Preview Tab ── */}
+                  <TabsContent value="preview">
+                    {(() => {
+                      const docs4 = (stepData.step4?.documents || []) as any[];
+                      const category = currentStepData.benefitCategory;
+                      const filtered = category
+                        ? docs4.filter((doc) =>
+                            resolvePersistedDocumentCategory(
+                              "Document",
+                              doc.category,
+                              (doc as { storageKey?: string }).storageKey,
+                            ) === resolvePersistedDocumentCategory("Document", category)
+                          )
+                        : docs4;
+
+                      const previewItems: RetirementDocumentItem[] = filtered
+                        .filter((doc) =>
+                          normalizePortalDocumentLanguage(doc.language, "EN") === docPreviewLang
+                        )
+                        .map((doc) => ({
+                          id: doc.id,
+                          title: doc.name,
+                          description: doc.shortDescription || doc.name,
+                          href: doc.file,
+                          language: normalizePortalDocumentLanguage(doc.language, "EN"),
+                        }));
+
+                      const langs = Array.from(
+                        new Set<string>(
+                          docs4.map((d: any) => normalizePortalDocumentLanguage(d.language, "EN")),
+                        ),
+                      ).sort() as ("EN" | "ES")[];
+
+                      return (
+                        <div className="space-y-4">
+                          {langs.length > 1 && (
+                            <div className="flex gap-2">
+                              {langs.map((lang) => (
+                                <button
+                                  key={lang}
+                                  onClick={() => setDocPreviewLang(lang)}
+                                  className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                                    docPreviewLang === lang
+                                      ? "bg-primary text-white border-primary"
+                                      : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                                  }`}
+                                >
+                                  {lang === "EN" ? "English" : "Español"}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          <RetirementDocumentsAccordion
+                            brandColor={currentStepData.selectedPlan?.brandColor || "#002B5B"}
+                            accentColor={currentStepData.selectedPlan?.secondaryColor || "#E6C47A"}
+                            retirementDocs={previewItems}
+                            title={`${category || "Plan"} Documents & Forms`}
+                            description={`Access all your important ${(category || "plan").toLowerCase()} plan documents and forms.`}
+                          />
+                        </div>
+                      );
+                    })()}
+                  </TabsContent>
+
+                  {/* ── Upload Tab ── */}
+                  <TabsContent value="upload">
+                    <ComplianceDocumentsUpload
+                      clientId={resolvedPlanId}
+                      initialDocuments={stepData.step4?.documents || []}
+                      onDocumentsChange={(docs) => {
+                        saveStepData(4, { documents: docs });
+                        if (!resolvedPlanId) return;
+                        void (async () => {
+                          const id = resolvedPlanId;
+                          const merged = await persistNewDocumentsToApi(id, docs);
+                          const next = merged !== docs ? merged : docs;
+                          saveStepData(4, { documents: next });
+                          try {
+                            const rows = await fetchPlanDocumentsForClient(id);
+                            if (rows.length > 0) {
+                              const converted = await Promise.all(
+                                (rows as any[]).map((doc: any, index: number) =>
+                                  convertToDocumentFormat(
+                                    { ...doc, name: doc.title, fileUrl: doc.fileUrl, storageKey: doc.storageKey },
+                                    index,
+                                  ),
+                                ),
+                              );
+                              saveStepData(4, { documents: converted });
+                            }
+                          } catch (e) {
+                            console.error("Refetch plan documents after upload failed", e);
+                          }
+                          if (typeof window !== "undefined") {
+                            window.dispatchEvent(
+                              new CustomEvent("plan-documents-persisted", {
+                                detail: { clientId: id },
+                              }),
+                            );
+                          }
+                        })();
+                      }}
+                      fixedCategory={currentStepData.benefitCategory as BenefitsCategory}
+                      filterDocuments={(doc) => {
+                        const b = currentStepData.benefitCategory;
+                        if (!b) return true;
+                        return (
+                          resolvePersistedDocumentCategory("Document", doc.category, (doc as { storageKey?: string }).storageKey) ===
+                          resolvePersistedDocumentCategory("Document", b)
                         );
-                      }
-                      if (typeof window !== "undefined") {
-                        window.dispatchEvent(
-                          new CustomEvent("plan-documents-persisted", {
-                            detail: { clientId: id },
-                          }),
-                        );
-                      }
-                    })();
-                  }}
-                  fixedCategory={
-                    currentStepData.benefitCategory as BenefitsCategory
-                  }
-                  filterDocuments={(doc) => {
-                    const b = currentStepData.benefitCategory;
-                    if (!b) return true;
-                    return (
-                      resolvePersistedDocumentCategory(
-                        "Document",
-                        doc.category,
-                        (doc as { storageKey?: string }).storageKey,
-                      ) ===
-                      resolvePersistedDocumentCategory("Document", b)
-                    );
-                  }}
-                  showInfoCard={false}
-                  showPreview={true}
-                />
+                      }}
+                      showInfoCard={false}
+                      showPreview={false}
+                    />
+                  </TabsContent>
+                </Tabs>
               </AccordionContent>
             </AccordionItem>
           </Accordion>
