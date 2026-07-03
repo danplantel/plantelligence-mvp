@@ -1069,7 +1069,11 @@ export function BenefitsStep1a() {
           );
         }
         // Always update step 4 to ensure we clear documents if the new plan has none
-        saveStepData(4, { documents: convertedDocs });
+        // Deduplicate by ID to prevent duplicates from race conditions
+        const dedupedDocs = convertedDocs.filter((doc: any, i: number, arr: any[]) =>
+          arr.findIndex((d: any) => (d.id || d.name) === (doc.id || doc.name)) === i
+        );
+        saveStepData(4, { documents: dedupedDocs });
 
         const planBackground =
           fullPlan.brandImages?.secondaryBanner ||
@@ -1092,23 +1096,39 @@ export function BenefitsStep1a() {
         // Use primaryServiceCategories as initial defaults (only those categories start Published)
         // If there are existing benefits, respect their isEnabled values instead
         const hasExistingBenefits = existingBenefits.length > 0;
-        (["Retirement", "Group Health", "Group Life", "Company / Plan Sponsor"] as const).forEach((cat) => {
+
+        // Helper: find benefit by category label, returns isEnabled or undefined
+        const findVisibility = (label: string): boolean | undefined => {
+          const target = label.toLowerCase().trim().replace(/\s+/g, " ");
           const found = existingBenefits.find((b: any) => {
             const bCat = (b.category || "").toLowerCase().trim().replace(/\s+/g, " ");
-            const target = cat.toLowerCase().trim().replace(/\s+/g, " ");
             return bCat === target;
           });
-          if (hasExistingBenefits) {
-            // Use existing isEnabled if present
-            visibilityFromPlan[cat] = found ? found.isEnabled !== false : false;
+          return found !== undefined ? found.isEnabled !== false : undefined;
+        };
+
+        (["Retirement", "Group Health", "Group Life", "Company / Plan Sponsor"] as const).forEach((cat) => {
+          const foundVal = findVisibility(cat);
+          if (foundVal !== undefined) {
+            visibilityFromPlan[cat] = foundVal;
+          } else if (hasExistingBenefits) {
+            // Existing benefits exist but this category not in them — mark as hidden
+            visibilityFromPlan[cat] = false;
           } else {
             // No existing benefits — use primaryServiceCategories as the default
             const catLabel = cat === "Company / Plan Sponsor" ? "Retirement" : cat;
             visibilityFromPlan[cat] = primaryServiceCategories.includes(catLabel);
           }
         });
-        // Also handle "Custom" key — map from Company / Plan Sponsor
-        visibilityFromPlan["Custom"] = visibilityFromPlan["Company / Plan Sponsor"];
+
+        // Also handle "Custom" key — check for a benefit with category "Custom" first,
+        // then fall back to "Company / Plan Sponsor" mapping
+        const customFound = findVisibility("Custom");
+        if (customFound !== undefined) {
+          visibilityFromPlan["Custom"] = customFound;
+        } else {
+          visibilityFromPlan["Custom"] = visibilityFromPlan["Company / Plan Sponsor"] ?? false;
+        }
 
         saveStepData(1, {
           ...currentStepData,
@@ -2469,12 +2489,20 @@ export function BenefitsStep1a() {
                       clientId={resolvedPlanId}
                       initialDocuments={stepData.step4?.documents || []}
                       onDocumentsChange={(docs) => {
-                        saveStepData(4, { documents: docs });
+                        // Deduplicate by ID before saving to prevent duplicates
+                        const seen = new Set<string>();
+                        const deduped = docs.filter((d: any) => {
+                          const key = d.id || d.name || d.file;
+                          if (seen.has(key)) return false;
+                          seen.add(key);
+                          return true;
+                        });
+                        saveStepData(4, { documents: deduped });
                         if (!resolvedPlanId) return;
                         void (async () => {
                           const id = resolvedPlanId;
-                          const merged = await persistNewDocumentsToApi(id, docs);
-                          const next = merged !== docs ? merged : docs;
+                          const merged = await persistNewDocumentsToApi(id, deduped);
+                          const next = merged !== deduped ? merged : deduped;
                           saveStepData(4, { documents: next });
                           try {
                             const rows = await fetchPlanDocumentsForClient(id);
@@ -2487,7 +2515,15 @@ export function BenefitsStep1a() {
                                   ),
                                 ),
                               );
-                              saveStepData(4, { documents: converted });
+                              // Deduplicate refetched docs too
+                              const seenRefetch = new Set<string>();
+                              const dedupedConverted = converted.filter((d: any) => {
+                                const key = d.id || d.name || d.file;
+                                if (seenRefetch.has(key)) return false;
+                                seenRefetch.add(key);
+                                return true;
+                              });
+                              saveStepData(4, { documents: dedupedConverted });
                             }
                           } catch (e) {
                             console.error("Refetch plan documents after upload failed", e);

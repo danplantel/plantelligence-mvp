@@ -108,8 +108,18 @@ export function BenefitsStep4() {
 
         // Simple equality check to avoid infinite loops
         const currentStoreDocs = stepData.step4?.documents || [];
-        if (JSON.stringify(currentStoreDocs) !== JSON.stringify(documents)) {
-            saveStepData(4, { documents });
+        const serializedCurrent = JSON.stringify(currentStoreDocs);
+        const serializedNext = JSON.stringify(documents);
+        if (serializedCurrent !== serializedNext) {
+            // Deduplicate by ID before saving
+            const seen = new Set<string>();
+            const deduped = documents.filter((d) => {
+                const key = d.id || d.name || d.file || "";
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+            saveStepData(4, { documents: deduped });
         }
     }, [documents, saveStepData, stepData.step4?.documents]);
 
