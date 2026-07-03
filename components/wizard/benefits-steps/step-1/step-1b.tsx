@@ -114,7 +114,7 @@ export function BenefitsStep1b() {
                         </div>
                         <h3 className="text-lg font-bold text-gray-900 mb-2">Editor Panel Ready</h3>
                         <p className="text-sm text-gray-500">
-                            This panel is now controlled by the global "Open Editor" button in the wizard header.
+                            This panel is now controlled by the global &ldquo;Open Editor&rdquo; button in the wizard header.
                         </p>
                     </div>
                 </div>
@@ -122,3 +122,4 @@ export function BenefitsStep1b() {
         </div>
     );
 }
+

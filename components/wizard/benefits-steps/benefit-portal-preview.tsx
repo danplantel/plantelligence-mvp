@@ -269,7 +269,13 @@ export function BenefitPortalPreview() {
                     />
                 </div>
 
-                <PortalMaterialsHero brandColor={brandColor} />
+                <PortalMaterialsHero
+                    brandColor={brandColor}
+                    backgroundImage={step1Data?.insuranceBackgroundImage || undefined}
+                    planIdLabel={step1Data?.insurancePlanId ? `PLAN ID: ${step1Data.insurancePlanId}` : undefined}
+                    buttonLabel="REGISTER OR LOGIN HERE"
+                    onButtonClick={step1Data?.insuranceLoginUrl ? () => window.open(step1Data.insuranceLoginUrl, "_blank", "noopener,noreferrer") : undefined}
+                />
 
                 <div className="relative group">
                     {/* Documents section */}

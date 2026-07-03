@@ -78,6 +78,7 @@ export function BenefitsEditorPanel({
         branding: useRef<HTMLDivElement>(null),
         messaging: useRef<HTMLDivElement>(null),
         helpCards: useRef<HTMLDivElement>(null),
+        insurance: useRef<HTMLDivElement>(null),
     };
 
     const [highlightedSection, setHighlightedSection] = React.useState<string | null>(null);
@@ -382,6 +383,76 @@ export function BenefitsEditorPanel({
                             </AccordionItem>
                         ))}
                     </Accordion>
+                </div>
+                {/* Insurance Benefits Access & Materials Section */}
+                <div
+                    ref={sectionsRef.insurance}
+                    className={cn(
+                        "transition-all duration-500 rounded-xl",
+                        highlightedSection === "insurance" ? "ring-2 ring-blue-500/50 scale-[1.01] shadow-lg p-4 -m-4 bg-white" : ""
+                    )}
+                >
+                    <SectionHeader number={4} title="Insurance Benefits Access & Materials" />
+                    <p className="text-[13px] text-muted-foreground mb-6">
+                        Configure the plan ID and login button shown in the Insurance Benefits Access & Materials section.
+                    </p>
+                    <div className="space-y-6">
+                        <div className="space-y-4">
+                            <Label className="text-xs font-bold text-foreground">Background Image</Label>
+                            <BrandImageUpload
+                                slotKey="insuranceBg"
+                                slot={{
+                                    title: "",
+                                    description: "This image displays behind the Insurance Benefits Access & Materials section heading.",
+                                    recommendedSize: "1920×1080 px",
+                                    accept: ".png,.jpg,.jpeg",
+                                    required: false,
+                                    previewAspectRatio: 2.75,
+                                    previewLabel: "Insurance Background Preview",
+                                }}
+                                currentImage={step1Data.insuranceBackgroundImage ? {
+                                    url: step1Data.insuranceBackgroundImage,
+                                    fileName: "insurance-bg.png",
+                                    fileSize: 0,
+                                    width: 0,
+                                    height: 0,
+                                    recommendedSize: "1920×1080",
+                                    status: "ok",
+                                    warnings: [],
+                                } as BrandImageData : undefined}
+                                onImageChange={(imageData) => saveStepData(1, { ...step1Data, insuranceBackgroundImage: imageData.url })}
+                                onImageRemove={() => saveStepData(1, { ...step1Data, insuranceBackgroundImage: undefined })}
+                                hideButtons={true}
+                                useUniversalModal={true}
+                                universalModalType="normalizer"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-xs font-bold text-foreground">Plan ID #</Label>
+                            <Input
+                                value={step1Data.insurancePlanId || ""}
+                                onChange={(e) => saveStepData(1, { ...step1Data, insurancePlanId: e.target.value })}
+                                placeholder="e.g. AYR-401K-2024"
+                                className="h-11 shadow-sm border-muted"
+                            />
+                            <p className="text-[11px] text-muted-foreground">
+                                This appears as &ldquo;PLAN ID: [value]&rdquo; on the Insurance Benefits card.
+                            </p>
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-xs font-bold text-foreground">Register or Login Here Button URL</Label>
+                            <Input
+                                value={step1Data.insuranceLoginUrl || ""}
+                                onChange={(e) => saveStepData(1, { ...step1Data, insuranceLoginUrl: e.target.value })}
+                                placeholder="e.g. https://portal.empower.com/auth/login"
+                                className="h-11 shadow-sm border-muted"
+                                type="url"
+                            />
+                            <p className="text-[11px] text-muted-foreground">
+                                Full URL for the &ldquo;REGISTER OR LOGIN HERE&rdquo; button.
+                            </p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </EditorPanelWrapper>

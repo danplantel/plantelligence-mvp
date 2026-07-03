@@ -386,6 +386,10 @@ function BenefitsPageInner() {
         employeePortalPreview: {
           ...client.employeePortalPreview,
           benefits: updatedBenefits,
+          // Persist insurance section fields inside employeePortalPreview (JSON field)
+          insurancePlanId: step1Data?.insurancePlanId || "",
+          insuranceLoginUrl: step1Data?.insuranceLoginUrl || "",
+          insuranceBackgroundImage: step1Data?.insuranceBackgroundImage || "",
         },
         categoryPortalVisibility: categoryPortalVisibilityForComplete,
         documentsData: {

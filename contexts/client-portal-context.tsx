@@ -12,6 +12,9 @@ interface ClientData {
   logoFileName?: string;
   brandColor: string;
   secondaryColor: string;
+  insurancePlanId?: string;
+  insuranceLoginUrl?: string;
+  insuranceBackgroundImage?: string;
   missionHeadline?: string;
   missionBody?: string;
   appointmentLink?: string;

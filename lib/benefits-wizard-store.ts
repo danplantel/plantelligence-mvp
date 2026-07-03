@@ -37,6 +37,12 @@ export interface BenefitsStep1Data {
     benefitVisibility?: Record<string, boolean>;
     /** Customizable "How Can We Help You Today?" cards */
     helpCards?: HelpCardData[];
+    /** Plan ID displayed in the Insurance Benefits Access & Materials section */
+    insurancePlanId?: string;
+    /** URL for the Register or Login Here button in the Insurance Benefits section */
+    insuranceLoginUrl?: string;
+    /** Background image URL for the Insurance Benefits Access & Materials section */
+    insuranceBackgroundImage?: string;
 }
 
 export interface FAQItem {

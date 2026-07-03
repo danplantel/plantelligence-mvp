@@ -3,6 +3,9 @@
 import { Button } from "@/components/ui/button";
 import { ExternalLink } from "lucide-react";
 import Image from "next/image";
+import { useClientPortal } from "@/contexts/client-portal-context";
+import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
+import { isR2BrandingKey } from "@/lib/branding-image-url";
 
 interface PortalMaterialsHeroProps {
   brandColor?: string;
@@ -17,10 +20,10 @@ interface PortalMaterialsHeroProps {
 
 export function PortalMaterialsHero({
   brandColor = "#1F3A60",
-  backgroundImage = "https://images.unsplash.com/photo-1521791136064-7986c2920216?w=1600&q=80",
+  backgroundImage: backgroundImageProp,
   heading = "Insurance Benefits Access & Materials",
   cardHeading = "Group Health Insurance Account Access",
-  planIdLabel = "PLAN ID: AYR-401K-2024",
+  planIdLabel: planIdLabelProp,
   buttonLabel = "REGISTER OR LOGIN HERE",
   featureBullets = [
     "See coverage",
@@ -28,13 +31,30 @@ export function PortalMaterialsHero({
     "Make changes",
     "Update dependents",
   ],
-  onButtonClick,
+  onButtonClick: onButtonClickProp,
 }: PortalMaterialsHeroProps) {
+  // Resolve insurance fields from client portal context (persisted inside employeePortalPreview)
+  const { clientData } = useClientPortal();
+  const epp = clientData?.employeePortalPreview as Record<string, unknown> | undefined;
+
+  // Plan ID label: prop override → context → default
+  const resolvedPlanIdLabel = planIdLabelProp ?? (epp?.insurancePlanId ? `PLAN ID: ${epp.insurancePlanId}` : undefined);
+
+  // Login URL: prop override → context → no button
+  const insuranceLoginUrl = epp?.insuranceLoginUrl as string | undefined;
+  const resolvedOnButtonClick = onButtonClickProp ?? (insuranceLoginUrl ? () => window.open(insuranceLoginUrl, "_blank", "noopener,noreferrer") : undefined);
+
+  // Background image: prop override → context → default
+  const contextBg = (epp?.insuranceBackgroundImage as string) || "";
+  const rawBg = backgroundImageProp || contextBg;
+  const isR2 = isR2BrandingKey(rawBg);
+  const { url: resolvedR2Bg } = useBrandingImageUrl(isR2 ? rawBg : null);
+  const resolvedBackgroundImage = isR2 ? (resolvedR2Bg || rawBg) : (rawBg || undefined);
   return (
     <section className="relative h-[750px] overflow-hidden">
       <div className="absolute inset-0 h-[750px]">
         <Image
-          src="/Hiking-Couple-Looking.webp"
+          src={resolvedBackgroundImage}
           alt="Professional team in office environment"
           width={1000}
           height={1000}
@@ -62,13 +82,13 @@ export function PortalMaterialsHero({
                   className="font-red-hat text-[16px] leading-tight font-semibold"
                   style={{ color: brandColor }}
                 >
-                  {planIdLabel}
+                  {resolvedPlanIdLabel}
                 </span>
               </div>
 
               <Button
                 size="lg"
-                onClick={onButtonClick}
+                onClick={resolvedOnButtonClick}
                 className="mb-6 flex h-auto w-full items-center justify-center gap-2 px-6 py-3 text-[16px] leading-tight font-red-hat text-white hover:opacity-90"
                 style={{ background: brandColor }}
               >
