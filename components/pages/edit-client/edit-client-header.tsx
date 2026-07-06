@@ -43,6 +43,16 @@ export function EditClientHeader({
 
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-3">
+          {clientStatus === "Active" && !isFormValid && (
+            <div className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">
+              Form incomplete
+            </div>
+          )}
+          {clientStatus !== "Active" && isFormValid && (
+            <div className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded border border-green-200">
+              Ready to activate
+            </div>
+          )}
           <Label
             htmlFor="status-select"
             className="text-sm font-semibold text-gray-700"
@@ -59,16 +69,6 @@ export function EditClientHeader({
               <SelectItem value="Archived">Archived</SelectItem>
             </SelectContent>
           </Select>
-          {clientStatus === "Active" && !isFormValid && (
-            <div className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">
-              Form incomplete
-            </div>
-          )}
-          {clientStatus === "Active" && isFormValid && (
-            <div className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded border border-green-200">
-              Ready to activate
-            </div>
-          )}
         </div>
 
         <Button
