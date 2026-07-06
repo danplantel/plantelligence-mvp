@@ -10,7 +10,6 @@ import {
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectTrigger,
@@ -32,8 +31,9 @@ import {
   AlertCircle,
   Building2,
   Loader2,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
-import { PortalTeam } from "@/components/pages/client-portal/sections/portal-team";
 import { KeyContact } from "@/types/new-client-wizard";
 import { KeyContactsModal } from "@/components/ui/keyContactsModal";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -252,6 +252,36 @@ const CompanyAutocompleteInput: React.FC<CompanyAutocompleteInputProps> = ({
   );
 };
 
+function getInitials(contact: KeyContact): string {
+  if (contact.contactType === "individual") {
+    const first = contact.firstName?.charAt(0).toUpperCase() || "";
+    const last = contact.lastName?.charAt(0).toUpperCase() || "";
+    return first + last || "?";
+  }
+  return contact.displayName?.slice(0, 2).toUpperCase() || "?";
+}
+
+function getDisplayName(contact: KeyContact): string {
+  if (contact.contactType === "individual") {
+    return `${contact.firstName || ""} ${contact.lastName || ""}`.trim() || "New Contact";
+  }
+  return contact.displayName || "New Contact";
+}
+
+const INITIAL_COLORS = [
+  "bg-accent-blue",
+  "bg-green-500",
+  "bg-purple-500",
+  "bg-pink-500",
+  "bg-indigo-500",
+  "bg-yellow-500",
+];
+
+function getAvatarColor(name: string): string {
+  const index = (name.charCodeAt(0) + (name.charCodeAt(1) || 0)) % INITIAL_COLORS.length;
+  return INITIAL_COLORS[index];
+}
+
 export const KeyContactsSection: React.FC<KeyContactsSectionProps> = ({
   contacts,
   organizationName,
@@ -261,8 +291,7 @@ export const KeyContactsSection: React.FC<KeyContactsSectionProps> = ({
   title,
   description,
 }) => {
-  const [collapsedContactIds, setCollapsedContactIds] = useState<string[]>([]);
-  const [previewContactId, setPreviewContactId] = useState<string | null>(null);
+  const [expandedContactIds, setExpandedContactIds] = useState<string[]>([]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [modalOpen, setModalOpen] = useState<boolean>(false);
 
@@ -297,7 +326,7 @@ export const KeyContactsSection: React.FC<KeyContactsSectionProps> = ({
   const removeContact = (contactId: string) => {
     const updated = contacts.filter((c) => c.id !== contactId);
     onContactsChange(updated);
-    setCollapsedContactIds((prev) => prev.filter((id) => id !== contactId));
+    setExpandedContactIds((prev) => prev.filter((id) => id !== contactId));
   };
 
   const handleSetPrimary = (contactId: string) => {
@@ -308,11 +337,11 @@ export const KeyContactsSection: React.FC<KeyContactsSectionProps> = ({
     }));
     updated.sort((a, b) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0));
     onContactsChange(updated);
-    setCollapsedContactIds([]);
+    setExpandedContactIds([]);
   };
 
-  const toggleCollapse = (contactId: string) => {
-    setCollapsedContactIds((prev) =>
+  const toggleAccordion = (contactId: string) => {
+    setExpandedContactIds((prev) =>
       prev.includes(contactId)
         ? prev.filter((id) => id !== contactId)
         : [...prev, contactId],
@@ -436,7 +465,7 @@ export const KeyContactsSection: React.FC<KeyContactsSectionProps> = ({
                     key={contact.id}
                     draggableId={contact.id}
                     index={index}
-                    isDragDisabled={!collapsedContactIds.includes(contact.id)}
+                    isDragDisabled={!expandedContactIds.includes(contact.id)}
                   >
                     {(provided) => (
                       <div
@@ -445,591 +474,101 @@ export const KeyContactsSection: React.FC<KeyContactsSectionProps> = ({
                         {...provided.dragHandleProps}
                       >
                         <Card>
-                          <CardHeader>
-                            <div className="flex items-center justify-between">
-                              <CardTitle className="flex items-center gap-2">
-                                <User className="w-5 h-5 text-teal-600" />
-                                Contact {index + 1}
-                                {contact.isPrimary && (
-                                  <Badge variant="default">Primary</Badge>
-                                )}
-                              </CardTitle>
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => toggleCollapse(contact.id)}
-                                >
-                                  {collapsedContactIds.includes(contact.id)
-                                    ? "Expand"
-                                    : "Collapse"}
-                                </Button>
-                                {!contact.isPrimary && (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleSetPrimary(contact.id)}
+                          {/* Accordion Header - clickable, shows headshot */}
+                          <CardHeader
+                            className="cursor-pointer py-3 px-4 hover:bg-gray-50/80 dark:hover:bg-gray-800/80 transition-colors"
+                            onClick={() => toggleAccordion(contact.id)}
+                          >
+                            <div className="flex items-center gap-3">
+                              {/* Headshot / Avatar in header */}
+                              <div className="flex-shrink-0">
+                                  {contact.headshot ? (
+                                    <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-gray-200 dark:border-gray-600">
+                                      <Headshot
+                                        src={contact.headshot}
+                                        alt={getDisplayName(contact)}
+                                      />
+                                    </div>
+                                  ) : (
+                                  <div
+                                    className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-semibold ${getAvatarColor(getDisplayName(contact))}`}
                                   >
-                                    Set as Primary
-                                  </Button>
-                                )}
-                                {contacts.length > 1 && (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => removeContact(contact.id)}
-                                    className="text-red-600 hover:text-red-700"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
+                                    {getInitials(contact)}
+                                  </div>
                                 )}
                               </div>
-                            </div>
-                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                              <span className="flex items-center gap-1">
-                                <Mail className="w-4 h-4" />
-                                {contact.email || "No email"}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Phone className="w-4 h-4" />
-                                {contact.phone ? formatPhoneNumber(contact.phone) : "No phone"}
-                                {contact.phoneExtension && ` ext. ${contact.phoneExtension}`}
-                              </span>
-                              {contact.benefitsCategory && (
-                                <span className="flex items-center gap-1">
-                                  <Badge variant="outline">
-                                    {contact.benefitsCategory}
-                                  </Badge>
-                                </span>
-                              )}
+
+                              {/* Contact summary */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-semibold text-sm truncate text-gray-900 dark:text-gray-100">
+                                    {getDisplayName(contact)}
+                                  </span>
+                                  {contact.isPrimary && (
+                                    <Badge className="bg-accent-blue/10 text-accent-blue border-accent-blue/20 text-[10px] px-1.5 py-0">
+                                      Primary
+                                    </Badge>
+                                  )}
+                                  {contact.benefitsCategory && (
+                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                      {contact.benefitsCategory === "Other Benefits" && contact.benefitsCategoryOther
+                                        ? contact.benefitsCategoryOther
+                                        : contact.benefitsCategory}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
+                                  {contact.email && (
+                                    <span className="flex items-center gap-1 truncate max-w-[180px]">
+                                      <Mail className="w-3 h-3 flex-shrink-0" />
+                                      {contact.email}
+                                    </span>
+                                  )}
+                                  {contact.phone && (
+                                    <span className="flex items-center gap-1">
+                                      <Phone className="w-3 h-3 flex-shrink-0" />
+                                      {formatPhoneNumber(contact.phone)}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Accordion chevron */}
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                {contacts.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      removeContact(contact.id);
+                                    }}
+                                    className="p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-600 dark:text-gray-500 dark:hover:text-red-400 transition-colors"
+                                    title="Remove contact"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                )}
+                                {expandedContactIds.includes(contact.id)
+                                  ? <ChevronUp className="h-5 w-5 text-gray-400" />
+                                  : <ChevronDown className="h-5 w-5 text-gray-400" />}
+                              </div>
                             </div>
                           </CardHeader>
 
                           <CardContent
-                            className={`space-y-4 ${collapsedContactIds.includes(contact.id)
+                            className={`space-y-5 ${!expandedContactIds.includes(contact.id)
                               ? "hidden"
                               : ""
                               }`}
                           >
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              {/* A. Benefits Category */}
-                              <div className="space-y-2">
-                                <Label
-                                  htmlFor={`benefitsCategory-${contact.id}`}
-                                >
-                                  Benefits Category{" "}
-                                  <span className="text-red-500">*</span>
-                                </Label>
-                                <Select
-                                  value={
-                                    contact.benefitsCategory || "Retirement"
-                                  }
-                                  onValueChange={(value) => {
-                                    updateContact(contact.id, {
-                                      benefitsCategory: value as
-                                        | "Retirement"
-                                        | "Group Health"
-                                        | "Group Life"
-                                        | "Company / Plan Sponsor"
-                                        | "Other Benefits",
-                                      benefitsCategoryOther:
-                                        value !== "Other Benefits"
-                                          ? undefined
-                                          : "",
-                                    });
-                                  }}
-                                >
-                                  <SelectTrigger
-                                    className={
-                                      hasError(
-                                        `contact_${contact.id}_benefitsCategory`,
-                                        index,
-                                      )
-                                        ? "border-red-500"
-                                        : ""
-                                    }
-                                  >
-                                    <SelectValue placeholder="Select benefits category" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="Retirement">
-                                      Retirement
-                                    </SelectItem>
-                                    <SelectItem value="Group Health">
-                                      Group Health
-                                    </SelectItem>
-                                    <SelectItem value="Group Life">
-                                      Group Life
-                                    </SelectItem>
-                                    <SelectItem value="Company / Plan Sponsor">
-                                      Company / Plan Sponsor
-                                    </SelectItem>
-                                    <SelectItem value="Other Benefits">
-                                      Other Benefits
-                                    </SelectItem>
-                                  </SelectContent>
-                                </Select>
-                                {contact.benefitsCategory ===
-                                  "Other Benefits" && (
-                                    <Input
-                                      id={`benefitsCategoryOther-${contact.id}`}
-                                      value={contact.benefitsCategoryOther || ""}
-                                      onChange={(e) =>
-                                        updateContact(contact.id, {
-                                          benefitsCategoryOther:
-                                            e.target.value.slice(0, 32),
-                                        })
-                                      }
-                                      placeholder="Enter custom category (max 32 chars)"
-                                      maxLength={32}
-                                      className="mt-2"
-                                    />
-                                  )}
-                                {hasError(
-                                  `contact_${contact.id}_benefitsCategory`,
-                                  index,
-                                ) && (
-                                    <p className="text-xs text-red-500 flex items-center gap-1">
-                                      <AlertCircle className="w-3 h-3" />
-                                      Benefits Category is required
-                                    </p>
-                                  )}
-                              </div>
-
-                              {/* B. Role */}
-                              <div className="space-y-2">
-                                <Label htmlFor={`role-${contact.id}`}>
-                                  Role <span className="text-red-500">*</span>
-                                </Label>
-                                <Select
-                                  value={contact.role || "Advisor / Specialist"}
-                                  onValueChange={(value) => {
-                                    updateContact(contact.id, {
-                                      role: value as
-                                        | "Advisor / Specialist"
-                                        | "HR Generalist"
-                                        | "Vendor / Provider"
-                                        | "Support Team"
-                                        | "Other",
-                                      roleOther:
-                                        value !== "Other" ? undefined : "",
-                                    });
-                                  }}
-                                >
-                                  <SelectTrigger
-                                    className={
-                                      hasError(
-                                        `contact_${contact.id}_role`,
-                                        index,
-                                      )
-                                        ? "border-red-500"
-                                        : ""
-                                    }
-                                  >
-                                    <SelectValue placeholder="Select role" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="Advisor / Specialist">
-                                      Advisor / Specialist
-                                    </SelectItem>
-                                    <SelectItem value="HR Generalist">
-                                      HR Generalist
-                                    </SelectItem>
-                                    <SelectItem value="Vendor / Provider">
-                                      Vendor / Provider
-                                    </SelectItem>
-                                    <SelectItem value="Support Team">
-                                      Support Team
-                                    </SelectItem>
-                                    <SelectItem value="Other">Other</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                                {contact.role === "Other" && (
-                                  <Input
-                                    id={`roleOther-${contact.id}`}
-                                    value={contact.roleOther || ""}
-                                    onChange={(e) =>
-                                      updateContact(contact.id, {
-                                        roleOther: e.target.value.slice(0, 32),
-                                      })
-                                    }
-                                    placeholder="Enter custom role (max 32 chars)"
-                                    maxLength={32}
-                                    className="mt-2"
-                                  />
-                                )}
-                                {hasError(
-                                  `contact_${contact.id}_role`,
-                                  index,
-                                ) && (
-                                    <p className="text-xs text-red-500 flex items-center gap-1">
-                                      <AlertCircle className="w-3 h-3" />
-                                      Role is required
-                                    </p>
-                                  )}
-                              </div>
-
-                              {/* C. Is Primary For Category */}
-                              <div className="space-y-2">
-                                <Label
-                                  htmlFor={`isPrimaryForCategory-${contact.id}`}
-                                >
-                                  Is this the primary contact for this category?
-                                  <span className="text-red-500">*</span>
-                                </Label>
-                                <div className="flex items-center gap-2">
-                                  <Switch
-                                    id={`isPrimaryForCategory-${contact.id}`}
-                                    checked={
-                                      contact.isPrimaryForCategory || false
-                                    }
-                                    onCheckedChange={(checked) => {
-                                      updateContact(contact.id, {
-                                        isPrimaryForCategory: checked,
-                                      });
-                                      if (checked) {
-                                        handleSetPrimary(contact.id);
-                                      }
-                                    }}
-                                  />
-                                  <Label
-                                    htmlFor={`isPrimaryForCategory-${contact.id}`}
-                                    className="text-sm font-normal cursor-pointer"
-                                  >
-                                    {contact.isPrimaryForCategory
-                                      ? "Yes"
-                                      : "No"}
-                                  </Label>
-                                </div>
-                              </div>
-
-                              {/* D. Company Name */}
-                              <div className="space-y-2">
-                                <Label htmlFor={`companyName-${contact.id}`}>
-                                  Company Name{" "}
-                                  <span className="text-red-500">*</span>
-                                </Label>
-                                <div className="flex items-center gap-2">
-                                  <div className="flex-1">
-                                    <CompanyAutocompleteInput
-                                      value={contact.companyName || ""}
-                                      placeholder="Search existing companies"
-                                      hasError={hasError(
-                                        `contact_${contact.id}_companyName`,
-                                        index,
-                                      )}
-                                      onManualChange={(value) => {
-                                        updateContact(contact.id, {
-                                          companyName: value,
-                                          companyLogo:
-                                            value !== contact.companyName
-                                              ? undefined
-                                              : contact.companyLogo,
-                                        });
-                                      }}
-                                      onSuggestionSelect={(suggestion) => {
-                                        const updates: Partial<KeyContact> = {
-                                          companyName: suggestion.name,
-                                        };
-                                        if (suggestion.logo) {
-                                          updates.companyLogo = suggestion.logo;
-                                        }
-                                        updateContact(contact.id, updates);
-                                      }}
-                                    />
-                                  </div>
-                                  {contact.companyLogo && (
-                                    <div className="relative w-10 h-10 border rounded overflow-hidden flex items-center justify-center bg-background">
-                                      <BrandingImage
-                                        src={contact.companyLogo}
-                                        alt="Company logo"
-                                        className="max-h-10 max-w-10 object-contain"
-                                      />
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="absolute -top-2 -right-2 h-4 w-4 p-0"
-                                        onClick={() =>
-                                          updateContact(contact.id, {
-                                            companyLogo: undefined,
-                                          })
-                                        }
-                                      >
-                                        ×
-                                      </Button>
-                                    </div>
-                                  )}
-                                  {!contact.companyLogo && (
-                                    <UniversalImageEditorModal
-                                      type="logo"
-                                      icon={<UserCircle className="w-4 h-4" />}
-                                      value=""
-                                      fileName=""
-                                      onChange={(value) =>
-                                        updateContact(contact.id, {
-                                          companyLogo: value,
-                                        })
-                                      }
-                                      onRemove={() => { }}
-                                      placeholder="Upload Logo"
-                                    />
-                                  )}
-                                </div>
-                                {hasError(
-                                  `contact_${contact.id}_companyName`,
-                                  index,
-                                ) && (
-                                    <p className="text-xs text-red-500 flex items-center gap-1">
-                                      <AlertCircle className="w-3 h-3" />
-                                      Company Name is required
-                                    </p>
-                                  )}
-                              </div>
-
-                              {/* E. First Name */}
-                              <div className="space-y-2">
-                                <Label htmlFor={`firstName-${contact.id}`}>
-                                  First Name{" "}
-                                  <span className="text-red-500">*</span>
-                                </Label>
-                                <Input
-                                  icon={<User className="h-4 w-4" />}
-                                  id={`firstName-${contact.id}`}
-                                  value={contact.firstName || ""}
-                                  onChange={(e) => {
-                                    const firstName = e.target.value;
-                                    updateContact(contact.id, {
-                                      firstName,
-                                      name: `${firstName} ${contact.lastName || ""
-                                        }`.trim(),
-                                    });
-                                  }}
-                                  placeholder="First name"
-                                  required
-                                  className={
-                                    hasError(
-                                      `contact_${contact.id}_firstName`,
-                                      index,
-                                    )
-                                      ? "border-red-500"
-                                      : ""
-                                  }
-                                />
-                                {hasError(
-                                  `contact_${contact.id}_firstName`,
-                                  index,
-                                ) && (
-                                    <p className="text-xs text-red-500 flex items-center gap-1">
-                                      <AlertCircle className="w-3 h-3" />
-                                      First Name is required
-                                    </p>
-                                  )}
-                              </div>
-
-                              {/* F. Last Name */}
-                              <div className="space-y-2">
-                                <Label htmlFor={`lastName-${contact.id}`}>
-                                  Last Name{" "}
-                                  <span className="text-red-500">*</span>
-                                </Label>
-                                <Input
-                                  icon={<User className="h-4 w-4" />}
-                                  id={`lastName-${contact.id}`}
-                                  value={contact.lastName || ""}
-                                  onChange={(e) => {
-                                    const lastName = e.target.value;
-                                    updateContact(contact.id, {
-                                      lastName,
-                                      name: `${contact.firstName || ""
-                                        } ${lastName}`.trim(),
-                                    });
-                                  }}
-                                  placeholder="Last name"
-                                  required
-                                  className={
-                                    hasError(
-                                      `contact_${contact.id}_lastName`,
-                                      index,
-                                    )
-                                      ? "border-red-500"
-                                      : ""
-                                  }
-                                />
-                                {hasError(
-                                  `contact_${contact.id}_lastName`,
-                                  index,
-                                ) && (
-                                    <p className="text-xs text-red-500 flex items-center gap-1">
-                                      <AlertCircle className="w-3 h-3" />
-                                      Last Name is required
-                                    </p>
-                                  )}
-                              </div>
-
-                              {/* G. Title */}
-                              <div className="space-y-2">
-                                <Label htmlFor={`title-${contact.id}`}>
-                                  Title <span className="text-red-500">*</span>
-                                </Label>
-                                <Input
-                                  id={`title-${contact.id}`}
-                                  value={contact.title || ""}
-                                  onChange={(e) =>
-                                    updateContact(contact.id, {
-                                      title: e.target.value,
-                                    })
-                                  }
-                                  placeholder="Enter job title"
-                                  required
-                                  className={
-                                    hasError(
-                                      `contact_${contact.id}_title`,
-                                      index,
-                                    )
-                                      ? "border-red-500"
-                                      : ""
-                                  }
-                                />
-                                {hasError(
-                                  `contact_${contact.id}_title`,
-                                  index,
-                                ) && (
-                                    <p className="text-xs text-red-500 flex items-center gap-1">
-                                      <AlertCircle className="w-3 h-3" />
-                                      Title is required
-                                    </p>
-                                  )}
-                              </div>
-
-                              {/* H. Email */}
-                              <div className="space-y-2">
-                                <Label htmlFor={`email-${contact.id}`}>
-                                  Email <span className="text-red-500">*</span>
-                                </Label>
-                                <Input
-                                  icon={<Mail className="h-4 w-4" />}
-                                  id={`email-${contact.id}`}
-                                  type="email"
-                                  value={contact.email || ""}
-                                  onChange={(e) =>
-                                    updateContact(contact.id, {
-                                      email: e.target.value,
-                                    })
-                                  }
-                                  placeholder="email@example.com"
-                                  required
-                                  className={
-                                    hasError(
-                                      `contact_${contact.id}_email`,
-                                      index,
-                                    )
-                                      ? "border-red-500"
-                                      : ""
-                                  }
-                                />
-                                {hasError(
-                                  `contact_${contact.id}_email`,
-                                  index,
-                                ) && (
-                                    <p className="text-xs text-red-500 flex items-center gap-1">
-                                      <AlertCircle className="w-3 h-3" />
-                                      {contact.email &&
-                                        contact.email.trim() !== ""
-                                        ? "Please enter a valid email address"
-                                        : "Email is required"}
-                                    </p>
-                                  )}
-                              </div>
-
-                              {/* I. Phone (+ext) */}
-                              <div className="space-y-2">
-                                <Label htmlFor={`phone-${contact.id}`}>
-                                  Phone (+ext){" "}
-                                  <span className="text-red-500">*</span>
-                                  <span className="text-red-500">*</span>
-                                </Label>
-                                <div className="flex gap-2">
-                                  <Input
-                                    icon={<Phone className="h-4 w-4" />}
-                                    id={`phone-${contact.id}`}
-                                    type="tel"
-                                    value={
-                                      contact.phone
-                                        ? formatPhoneNumber(contact.phone)
-                                        : ""
-                                    }
-                                    onChange={(e) => {
-                                      const normalized = normalizePhoneNumber(
-                                        e.target.value,
-                                      );
-                                      if (normalized.length > 11) return;
-                                      updateContact(contact.id, {
-                                        phone: normalized,
-                                      });
-                                    }}
-                                    placeholder="(555) 123-4567"
-                                    required
-                                    className={
-                                      hasError(
-                                        `contact_${contact.id}_phone`,
-                                        index,
-                                      )
-                                        ? "border-red-500"
-                                        : ""
-                                    }
-                                  />
-                                  <Input
-                                    id={`phoneExtension-${contact.id}`}
-                                    value={contact.phoneExtension || ""}
-                                    onChange={(e) => {
-                                      const normalized = normalizeExtension(
-                                        e.target.value,
-                                      );
-                                      updateContact(contact.id, {
-                                        phoneExtension: normalized,
-                                      });
-                                    }}
-                                    placeholder="Ext."
-                                    className="w-24"
-                                  />
-                                </div>
-                                {hasError(
-                                  `contact_${contact.id}_phone`,
-                                  index,
-                                ) && (
-                                    <p className="text-xs text-red-500 flex items-center gap-1">
-                                      <AlertCircle className="w-3 h-3" />
-                                      Phone is required
-                                    </p>
-                                  )}
-                              </div>
-
-                              {/* J. Website (optional) */}
-                              <div className="space-y-2">
-                                <Label htmlFor={`website-${contact.id}`}>
-                                  Website (optional)
-                                </Label>
-                                <Input
-                                  id={`website-${contact.id}`}
-                                  type="url"
-                                  value={contact.website || ""}
-                                  onChange={(e) =>
-                                    updateContact(contact.id, {
-                                      website: e.target.value,
-                                    })
-                                  }
-                                  placeholder="https://example.com"
-                                />
-                              </div>
-                            </div>
-
-                            {/* K. Headshot (optional) */}
-                            <div className="space-y-2">
-                              <Label>Headshot (optional)</Label>
-                              <div className="flex items-center gap-4">
+                            {/* SECTION: Identity - Headshot + Name */}
+                            <div className="flex items-start gap-5 pb-4 border-b border-gray-100 dark:border-gray-700">
+                              {/* Headshot (moved to top) */}
+                              <div className="flex-shrink-0">
+                                <Label className="text-xs text-muted-foreground mb-1.5 block">Headshot</Label>
                                 <UniversalImageEditorModal
                                   type="headshot"
-                                  icon={<UserCircle className="w-4 h-4" />}
+                                  icon={<UserCircle className="w-8 h-8 text-muted-foreground" />}
                                   value={contact.headshot || ""}
                                   fileName=""
                                   onChange={(value) =>
@@ -1042,48 +581,403 @@ export const KeyContactsSection: React.FC<KeyContactsSectionProps> = ({
                                   }
                                   placeholder="Upload Headshot"
                                 />
-                                {contact.headshot && (
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-12 h-12 rounded-full border overflow-hidden">
-                                      <Headshot
-                                        src={contact.headshot}
-                                        alt={`${contact.firstName} ${contact.lastName} headshot`}
-                                      />
-                                    </div>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() =>
-                                        updateContact(contact.id, {
-                                          headshot: "",
-                                        })
-                                      }
-                                    >
-                                      Remove
-                                    </Button>
-                                  </div>
-                                )}
+                              </div>
+                              {/* Name + Title column */}
+                              <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="space-y-2">
+                                  <Label htmlFor={`firstName-${contact.id}`}>
+                                    First Name <span className="text-red-500">*</span>
+                                  </Label>
+                                  <Input
+                                    icon={<User className="h-4 w-4" />}
+                                    id={`firstName-${contact.id}`}
+                                    value={contact.firstName || ""}
+                                    onChange={(e) => {
+                                      const firstName = e.target.value;
+                                      updateContact(contact.id, {
+                                        firstName,
+                                        name: `${firstName} ${contact.lastName || ""}`.trim(),
+                                      });
+                                    }}
+                                    placeholder="First name"
+                                    required
+                                    className={
+                                      hasError(`contact_${contact.id}_firstName`, index)
+                                        ? "border-red-500"
+                                        : ""
+                                    }
+                                  />
+                                  {hasError(`contact_${contact.id}_firstName`, index) && (
+                                    <p className="text-xs text-red-500 flex items-center gap-1">
+                                      <AlertCircle className="w-3 h-3" />
+                                      First Name is required
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor={`lastName-${contact.id}`}>
+                                    Last Name <span className="text-red-500">*</span>
+                                  </Label>
+                                  <Input
+                                    icon={<User className="h-4 w-4" />}
+                                    id={`lastName-${contact.id}`}
+                                    value={contact.lastName || ""}
+                                    onChange={(e) => {
+                                      const lastName = e.target.value;
+                                      updateContact(contact.id, {
+                                        lastName,
+                                        name: `${contact.firstName || ""} ${lastName}`.trim(),
+                                      });
+                                    }}
+                                    placeholder="Last name"
+                                    required
+                                    className={
+                                      hasError(`contact_${contact.id}_lastName`, index)
+                                        ? "border-red-500"
+                                        : ""
+                                    }
+                                  />
+                                  {hasError(`contact_${contact.id}_lastName`, index) && (
+                                    <p className="text-xs text-red-500 flex items-center gap-1">
+                                      <AlertCircle className="w-3 h-3" />
+                                      Last Name is required
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="space-y-2 sm:col-span-2">
+                                  <Label htmlFor={`title-${contact.id}`}>
+                                    Title <span className="text-red-500">*</span>
+                                  </Label>
+                                  <Input
+                                    id={`title-${contact.id}`}
+                                    value={contact.title || ""}
+                                    onChange={(e) =>
+                                      updateContact(contact.id, {
+                                        title: e.target.value,
+                                      })
+                                    }
+                                    placeholder="Enter job title"
+                                    required
+                                    className={
+                                      hasError(`contact_${contact.id}_title`, index)
+                                        ? "border-red-500"
+                                        : ""
+                                    }
+                                  />
+                                  {hasError(`contact_${contact.id}_title`, index) && (
+                                    <p className="text-xs text-red-500 flex items-center gap-1">
+                                      <AlertCircle className="w-3 h-3" />
+                                      Title is required
+                                    </p>
+                                  )}
+                                </div>
                               </div>
                             </div>
 
-                            <div className="w-full flex justify-end">
-                              <Button
-                                size="sm"
-                                onClick={() =>
-                                  setPreviewContactId((prev) =>
-                                    prev === contact.id ? null : contact.id,
-                                  )
-                                }
-                              >
-                                {previewContactId === contact.id
-                                  ? "Preview On"
-                                  : "Preview Off"}
-                              </Button>
+                            {/* SECTION: Contact Details */}
+                            <div>
+                              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Contact Details</h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* Email */}
+                                <div className="space-y-2">
+                                  <Label htmlFor={`email-${contact.id}`}>
+                                    Email <span className="text-red-500">*</span>
+                                  </Label>
+                                  <Input
+                                    icon={<Mail className="h-4 w-4" />}
+                                    id={`email-${contact.id}`}
+                                    type="email"
+                                    value={contact.email || ""}
+                                    onChange={(e) =>
+                                      updateContact(contact.id, {
+                                        email: e.target.value,
+                                      })
+                                    }
+                                    placeholder="email@example.com"
+                                    required
+                                    className={
+                                      hasError(`contact_${contact.id}_email`, index)
+                                        ? "border-red-500"
+                                        : ""
+                                    }
+                                  />
+                                  {hasError(`contact_${contact.id}_email`, index) && (
+                                    <p className="text-xs text-red-500 flex items-center gap-1">
+                                      <AlertCircle className="w-3 h-3" />
+                                      {contact.email && contact.email.trim() !== ""
+                                        ? "Please enter a valid email address"
+                                        : "Email is required"}
+                                    </p>
+                                  )}
+                                </div>
+
+                                {/* Phone (+ext) */}
+                                <div className="space-y-2">
+                                  <Label htmlFor={`phone-${contact.id}`}>
+                                    Phone <span className="text-red-500">*</span>
+                                  </Label>
+                                  <div className="flex gap-2">
+                                    <Input
+                                      icon={<Phone className="h-4 w-4" />}
+                                      id={`phone-${contact.id}`}
+                                      type="tel"
+                                      value={contact.phone ? formatPhoneNumber(contact.phone) : ""}
+                                      onChange={(e) => {
+                                        const normalized = normalizePhoneNumber(e.target.value);
+                                        if (normalized.length > 11) return;
+                                        updateContact(contact.id, { phone: normalized });
+                                      }}
+                                      placeholder="(555) 123-4567"
+                                      required
+                                      className={`flex-1 ${hasError(`contact_${contact.id}_phone`, index) ? "border-red-500" : ""}`}
+                                    />
+                                    <Input
+                                      id={`phoneExtension-${contact.id}`}
+                                      value={contact.phoneExtension || ""}
+                                      onChange={(e) => {
+                                        const normalized = normalizeExtension(e.target.value);
+                                        updateContact(contact.id, { phoneExtension: normalized });
+                                      }}
+                                      placeholder="Ext."
+                                      className="w-20"
+                                    />
+                                  </div>
+                                  {hasError(`contact_${contact.id}_phone`, index) && (
+                                    <p className="text-xs text-red-500 flex items-center gap-1">
+                                      <AlertCircle className="w-3 h-3" />
+                                      Phone is required
+                                    </p>
+                                  )}
+                                </div>
+
+                                {/* Website (optional) */}
+                                <div className="space-y-2">
+                                  <Label htmlFor={`website-${contact.id}`}>
+                                    Website (optional)
+                                  </Label>
+                                  <Input
+                                    id={`website-${contact.id}`}
+                                    type="url"
+                                    value={contact.website || ""}
+                                    onChange={(e) =>
+                                      updateContact(contact.id, { website: e.target.value })
+                                    }
+                                    placeholder="https://example.com"
+                                  />
+                                </div>
+                              </div>
                             </div>
 
-                            {previewContactId === contact.id && (
-                              <PortalTeam keyContacts={[contact]} />
-                            )}
+                            {/* SECTION: Assignment */}
+                            <div>
+                              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Role & Assignment</h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* Benefits Category */}
+                                <div className="space-y-2">
+                                  <Label htmlFor={`benefitsCategory-${contact.id}`}>
+                                    Benefits Category <span className="text-red-500">*</span>
+                                  </Label>
+                                  <Select
+                                    value={contact.benefitsCategory || "Retirement"}
+                                    onValueChange={(value) => {
+                                      updateContact(contact.id, {
+                                        benefitsCategory: value as
+                                          | "Retirement"
+                                          | "Group Health"
+                                          | "Group Life"
+                                          | "Company / Plan Sponsor"
+                                          | "Other Benefits",
+                                        benefitsCategoryOther: value !== "Other Benefits" ? undefined : "",
+                                      });
+                                    }}
+                                  >
+                                    <SelectTrigger
+                                      className={
+                                        hasError(`contact_${contact.id}_benefitsCategory`, index)
+                                          ? "border-red-500"
+                                          : ""
+                                      }
+                                    >
+                                      <SelectValue placeholder="Select benefits category" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="Retirement">Retirement</SelectItem>
+                                      <SelectItem value="Group Health">Group Health</SelectItem>
+                                      <SelectItem value="Group Life">Group Life</SelectItem>
+                                      <SelectItem value="Company / Plan Sponsor">Company / Plan Sponsor</SelectItem>
+                                      <SelectItem value="Other Benefits">Other Benefits</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  {contact.benefitsCategory === "Other Benefits" && (
+                                    <Input
+                                      id={`benefitsCategoryOther-${contact.id}`}
+                                      value={contact.benefitsCategoryOther || ""}
+                                      onChange={(e) =>
+                                        updateContact(contact.id, {
+                                          benefitsCategoryOther: e.target.value.slice(0, 32),
+                                        })
+                                      }
+                                      placeholder="Enter custom category (max 32 chars)"
+                                      maxLength={32}
+                                      className="mt-2"
+                                    />
+                                  )}
+                                  {hasError(`contact_${contact.id}_benefitsCategory`, index) && (
+                                    <p className="text-xs text-red-500 flex items-center gap-1">
+                                      <AlertCircle className="w-3 h-3" />
+                                      Benefits Category is required
+                                    </p>
+                                  )}
+                                </div>
+
+                                {/* Role */}
+                                <div className="space-y-2">
+                                  <Label htmlFor={`role-${contact.id}`}>
+                                    Role <span className="text-red-500">*</span>
+                                  </Label>
+                                  <Select
+                                    value={contact.role || "Advisor / Specialist"}
+                                    onValueChange={(value) => {
+                                      updateContact(contact.id, {
+                                        role: value as
+                                          | "Advisor / Specialist"
+                                          | "HR Generalist"
+                                          | "Vendor / Provider"
+                                          | "Support Team"
+                                          | "Other",
+                                        roleOther: value !== "Other" ? undefined : "",
+                                      });
+                                    }}
+                                  >
+                                    <SelectTrigger
+                                      className={
+                                        hasError(`contact_${contact.id}_role`, index)
+                                          ? "border-red-500"
+                                          : ""
+                                      }
+                                    >
+                                      <SelectValue placeholder="Select role" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="Advisor / Specialist">Advisor / Specialist</SelectItem>
+                                      <SelectItem value="HR Generalist">HR Generalist</SelectItem>
+                                      <SelectItem value="Vendor / Provider">Vendor / Provider</SelectItem>
+                                      <SelectItem value="Support Team">Support Team</SelectItem>
+                                      <SelectItem value="Other">Other</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  {contact.role === "Other" && (
+                                    <Input
+                                      id={`roleOther-${contact.id}`}
+                                      value={contact.roleOther || ""}
+                                      onChange={(e) =>
+                                        updateContact(contact.id, {
+                                          roleOther: e.target.value.slice(0, 32),
+                                        })
+                                      }
+                                      placeholder="Enter custom role (max 32 chars)"
+                                      maxLength={32}
+                                      className="mt-2"
+                                    />
+                                  )}
+                                  {hasError(`contact_${contact.id}_role`, index) && (
+                                    <p className="text-xs text-red-500 flex items-center gap-1">
+                                      <AlertCircle className="w-3 h-3" />
+                                      Role is required
+                                    </p>
+                                  )}
+                                </div>
+
+                                {/* Company Name */}
+                                <div className="space-y-2">
+                                  <Label htmlFor={`companyName-${contact.id}`}>
+                                    Company Name <span className="text-red-500">*</span>
+                                  </Label>
+                                  <div className="flex items-center gap-3">
+                                    <div className="flex-1">
+                                      <CompanyAutocompleteInput
+                                        value={contact.companyName || ""}
+                                        placeholder="Search existing companies"
+                                        hasError={hasError(`contact_${contact.id}_companyName`, index)}
+                                        onManualChange={(value) => {
+                                          updateContact(contact.id, {
+                                            companyName: value,
+                                            companyLogo: value !== contact.companyName ? undefined : contact.companyLogo,
+                                          });
+                                        }}
+                                        onSuggestionSelect={(suggestion) => {
+                                          const updates: Partial<KeyContact> = { companyName: suggestion.name };
+                                          if (suggestion.logo) updates.companyLogo = suggestion.logo;
+                                          updateContact(contact.id, updates);
+                                        }}
+                                      />
+                                    </div>
+                                    {/* Company Logo upload / display */}
+                                    <div className="flex-shrink-0">
+                                      {contact.companyLogo ? (
+                                        <div className="flex items-center gap-2">
+                                          <div className="w-14 h-14 rounded-xl border-2 border-gray-200 dark:border-gray-600 overflow-hidden flex items-center justify-center bg-gray-50 dark:bg-gray-800 shadow-sm hover:shadow-md transition-shadow">
+                                            <BrandingImage
+                                              src={contact.companyLogo}
+                                              alt="Company logo"
+                                              className="max-h-12 max-w-12 object-contain"
+                                            />
+                                          </div>
+                                          <button
+                                            type="button"
+                                            onClick={() => updateContact(contact.id, { companyLogo: undefined })}
+                                            className="p-1.5 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-600 transition-colors"
+                                            title="Remove logo"
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <UniversalImageEditorModal
+                                          type="logo"
+                                          icon={<Building2 className="w-5 h-5 text-muted-foreground" />}
+                                          value=""
+                                          fileName=""
+                                          onChange={(value) => updateContact(contact.id, { companyLogo: value })}
+                                          onRemove={() => {}}
+                                          placeholder="Logo"
+                                        />
+                                      )}
+                                    </div>
+                                  </div>
+                                  {hasError(`contact_${contact.id}_companyName`, index) && (
+                                    <p className="text-xs text-red-500 flex items-center gap-1">
+                                      <AlertCircle className="w-3 h-3" />
+                                      Company Name is required
+                                    </p>
+                                  )}
+                                </div>
+
+                                {/* Is Primary For Category */}
+                                <div className="space-y-2">
+                                  <Label htmlFor={`isPrimaryForCategory-${contact.id}`}>
+                                    Primary contact for this category?
+                                  </Label>
+                                  <div className="flex items-center gap-2 h-10">
+                                    <Switch
+                                      id={`isPrimaryForCategory-${contact.id}`}
+                                      checked={contact.isPrimaryForCategory || false}
+                                      onCheckedChange={(checked) => {
+                                        updateContact(contact.id, { isPrimaryForCategory: checked });
+                                        if (checked) handleSetPrimary(contact.id);
+                                      }}
+                                    />
+                                    <Label
+                                      htmlFor={`isPrimaryForCategory-${contact.id}`}
+                                      className="text-sm font-normal cursor-pointer"
+                                    >
+                                      {contact.isPrimaryForCategory ? "Yes" : "No"}
+                                    </Label>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
                           </CardContent>
                         </Card>
                       </div>
