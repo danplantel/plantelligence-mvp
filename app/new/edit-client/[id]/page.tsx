@@ -473,6 +473,7 @@ function EditComplianceDocumentsSection({
         description: doc.shortDescription || "",
         href: doc.file,
         language: language,
+        showQrCode: false,
         meta: {
           id: doc.id,
           fileName: doc.originalFileName || doc.name,
@@ -555,7 +556,33 @@ function EditComplianceDocumentsSection({
                   Plan Documents Preview
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
+                {/* Language Switcher */}
+                {documentsPreview.filter((doc) => doc.language === "EN").length > 0 &&
+                  documentsPreview.filter((doc) => doc.language === "ES").length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {(["EN", "ES"] as const).map((lang) => {
+                        const hasDocs = documentsPreview.some((doc) => doc.language === lang);
+                        if (!hasDocs) return null;
+                        const isActive = activeLanguage === lang;
+                        return (
+                          <button
+                            key={lang}
+                            type="button"
+                            onClick={() => setActiveLanguage(lang)}
+                            className={`rounded-full px-5 py-2 text-[16px] leading-tight font-red-hat font-semibold border transition-colors ${
+                              isActive
+                                ? "bg-[#002B5B] text-white border-[#002B5B]"
+                                : "bg-white text-[#002B5B] border-[#D1D5DB] hover:bg-gray-50 dark:bg-gray-700 dark:text-accent-blue-light dark:border-gray-600 dark:hover:bg-gray-600"
+                            }`}
+                          >
+                            {lang === "EN" ? "ENGLISH" : "ESPAÑOL"}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
                 <RetirementDocumentsAccordion
                   mode="editable"
                   retirementDocs={documentsPreview}
@@ -564,6 +591,8 @@ function EditComplianceDocumentsSection({
                   language={activeLanguage}
                   onLanguageChange={setActiveLanguage}
                   onEdit={handleEditPreviewDoc}
+                  hideHeader
+                  showMetadata
                   onOrderChange={(reorderedDocs) => {
                     const orderMap = new Map<string, number>();
                     reorderedDocs.forEach((doc, index) => {
