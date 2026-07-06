@@ -1185,7 +1185,22 @@ export default function EditClientPage() {
                     </Label>
                     <Textarea
                       id="disclaimers-text"
-                      value={disclaimers}
+                      value={(() => {
+                        // Extract text from disclaimer data in various shapes:
+                        // - "plain string", [{ text: "..." }], { text: "..." }, { disclaimers: [...] }
+                        const raw = (client as any)?.disclaimers ?? disclaimers;
+                        if (typeof raw === "string") return raw;
+                        // Array of disclaimer objects
+                        if (Array.isArray(raw))
+                          return raw.map((item: any) => item?.text || item || "").filter(Boolean).join("\n\n");
+                        // Object like { disclaimers: [...], text: "..." }
+                        if (raw && typeof raw === "object") {
+                          if (Array.isArray((raw as any).disclaimers))
+                            return (raw as any).disclaimers.map((d: any) => d?.text || "").filter(Boolean).join("\n\n");
+                          if (raw.text) return raw.text;
+                        }
+                        return "";
+                      })()}
                       onChange={(e) => setDisclaimers(e.target.value)}
                       placeholder="Enter legal disclaimers to display in the portal footer..."
                       rows={8}
