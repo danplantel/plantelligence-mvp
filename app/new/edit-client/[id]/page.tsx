@@ -6,13 +6,8 @@ import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import {
-  ChevronDown,
-  ChevronUp,
-  MessageSquare,
   LayoutGrid,
   Sparkles,
 } from "lucide-react";
@@ -26,7 +21,6 @@ import {
 import { SaveButton } from "@/components/pages/edit-client/save-button";
 import { useEditClient } from "@/hooks/useEditClient";
 // Import components from new-client-steps
-import { WelcomeMissionSection } from "@/components/wizard/new-client-steps/sections/welcome-mission-section";
 import { CompanyLogoSection } from "@/components/wizard/new-client-steps/sections/company-logo-section";
 import { BrandImagesSection } from "@/components/wizard/new-client-steps/sections/brand-images-section";
 import { KeyContactsSection } from "@/components/wizard/new-client-steps/sections/key-contacts-section";
@@ -38,6 +32,7 @@ import {
 import { PlanMeetingsSection } from "@/components/pages/edit-client/plan-meetings-section";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { Building2, Palette, Globe, FileText, Plus } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
@@ -48,12 +43,11 @@ import {
   MISSION_STATEMENT_PRESETS,
 } from "@/components/wizard/new-client-steps/constants/welcome-statements";
 import { BrandingPreview } from "@/components/wizard/steps/sections/branding-preview/branding-preview";
-import { PortalHero } from "@/components/pages/client-portal/sections/portal-hero";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import type {
   CompanyBasicsData,
   CompanyLogoData,
   BrandImagesData,
-  WelcomeStatementData,
   KeyContact,
   ComplianceDocumentsData,
 } from "@/types/new-client-wizard";
@@ -64,193 +58,11 @@ import { uploadBrandingToR2 } from "@/lib/branding-r2";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { toR2BrandingKey } from "@/lib/branding-image-url";
 
-// Edit Welcome Mission Section wrapper
-function EditWelcomeMissionSection({
-  welcomeData,
-  companyData,
-  onWelcomeChange,
-  onCompanyNameChange,
-  isOpen,
-  onToggle,
-  validationErrors = {},
-}: {
-  welcomeData: { headline: string; bodyText: string; isAIGenerated: boolean };
-  companyData: CompanyBasicsData;
-  onWelcomeChange: (
-    field: "headline" | "bodyText" | "isAIGenerated",
-    value: any,
-  ) => void;
-  onCompanyNameChange?: (value: string) => void;
-  isOpen: boolean;
-  onToggle: () => void;
-  validationErrors?: Record<string, string[]>;
-}) {
-  const defaultWelcomeBody = WELCOME_BODY_PRESETS[0]?.bodyText || "";
-  const [useDefaultBody, setUseDefaultBody] = useState(
-    !welcomeData.bodyText || welcomeData.bodyText === defaultWelcomeBody,
-  );
+// ============================================================================
+// Helper Components
+// ============================================================================
 
-  // Initialize default body text if empty
-  useEffect(() => {
-    if (!welcomeData.bodyText && defaultWelcomeBody) {
-      onWelcomeChange("bodyText", defaultWelcomeBody);
-      setUseDefaultBody(true);
-    }
-  }, []);
-
-  // Sync bodyText with defaultWelcomeBody when useDefaultBody is true
-  useEffect(() => {
-    if (
-      useDefaultBody &&
-      defaultWelcomeBody &&
-      welcomeData.bodyText !== defaultWelcomeBody
-    ) {
-      onWelcomeChange("bodyText", defaultWelcomeBody);
-    }
-  }, [useDefaultBody, defaultWelcomeBody]);
-
-  const headlineCharCount = welcomeData.headline?.length || 0;
-  const bodyCharCount = welcomeData.bodyText?.length || 0;
-  const isHeadlineValid = headlineCharCount <= 60;
-  const isBodyValid = bodyCharCount >= 250 && bodyCharCount <= 500;
-
-  const handleWelcomeDescriptionChange = (value: string) => {
-    if (useDefaultBody) {
-      setUseDefaultBody(false);
-    }
-    onWelcomeChange("bodyText", value);
-  };
-
-  const handleMissionFieldChange = (
-    field: "missionHeadline" | "missionBody",
-    value: string,
-  ) => {
-    if (field === "missionHeadline") {
-      onWelcomeChange("headline", value);
-    } else {
-      onWelcomeChange("bodyText", value);
-    }
-  };
-
-  const handleUseDefaultBody = (checked: boolean) => {
-    setUseDefaultBody(checked);
-    if (checked) {
-      onWelcomeChange("bodyText", defaultWelcomeBody);
-      onWelcomeChange("isAIGenerated", false);
-    }
-  };
-
-  const handleGenerateNewStatement = () => {
-    const availableIndexes = WELCOME_BODY_PRESETS.map((_, i) => i);
-    const randomIndex = Math.floor(Math.random() * availableIndexes.length);
-    const statement = WELCOME_BODY_PRESETS[randomIndex];
-    if (statement) {
-      onWelcomeChange("bodyText", statement.bodyText);
-      onWelcomeChange("isAIGenerated", true);
-      setUseDefaultBody(false);
-    }
-  };
-
-  const getAutoWelcomeHeadline = () => {
-    if (companyData.companyName.trim().length > 0) {
-      return `Welcome to the ${companyData.companyName} Benefits Hub!`;
-    }
-    return "Welcome to the <Company Name> Benefits Hub!";
-  };
-
-  // Auto-update headline based on company name
-  useEffect(() => {
-    const autoHeadline = getAutoWelcomeHeadline();
-    // Only update if headline is empty or matches the auto-generated pattern
-    if (
-      !welcomeData.headline ||
-      welcomeData.headline.includes("<Company Name>")
-    ) {
-      onWelcomeChange("headline", autoHeadline);
-    }
-  }, [companyData.companyName]);
-
-  const handleGenerateMissionHeadline = () => {
-    const availableIndexes = MISSION_STATEMENT_PRESETS.map((_, i) => i);
-    const randomIndex = Math.floor(Math.random() * availableIndexes.length);
-    const preset = MISSION_STATEMENT_PRESETS[randomIndex];
-    if (preset) {
-      onWelcomeChange("headline", preset.headline);
-    }
-  };
-
-  const handleGenerateMissionBody = () => {
-    const availableIndexes = MISSION_STATEMENT_PRESETS.map((_, i) => i);
-    const randomIndex = Math.floor(Math.random() * availableIndexes.length);
-    const preset = MISSION_STATEMENT_PRESETS[randomIndex];
-    if (preset) {
-      onWelcomeChange("bodyText", preset.bodyText);
-    }
-  };
-
-  const missionData = useMemo(
-    () => ({
-      missionHeadline: welcomeData.headline || "",
-      missionBody: welcomeData.bodyText || "",
-    }),
-    [welcomeData.headline, welcomeData.bodyText],
-  );
-
-  const errorFields = useMemo(() => {
-    const fields: string[] = [];
-    if (validationErrors.headline) fields.push("headline");
-    if (validationErrors.bodyText) fields.push("bodyText");
-    if (validationErrors.missionHeadline) fields.push("missionHeadline");
-    if (validationErrors.missionBody) fields.push("missionBody");
-    return fields;
-  }, [validationErrors]);
-
-  return (
-    <Card className="shadow-none">
-      <CardHeader className="cursor-pointer" onClick={onToggle}>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-xl">Step 2</CardTitle>
-          {isOpen ? (
-            <ChevronUp className="h-5 w-5 text-gray-500" />
-          ) : (
-            <ChevronDown className="h-5 w-5 text-gray-500" />
-          )}
-        </div>
-      </CardHeader>
-      {isOpen && (
-        <CardContent>
-          <WelcomeMissionSection
-            welcomeData={{
-              headline: welcomeData.headline,
-              bodyText: welcomeData.bodyText,
-              isAIGenerated: welcomeData.isAIGenerated || false,
-              advisorName: "",
-              advisorAvatar: null,
-            }}
-            companyData={missionData}
-            companyName={companyData.companyName}
-            onCompanyNameChange={onCompanyNameChange}
-            onWelcomeDescriptionChange={handleWelcomeDescriptionChange}
-            onMissionFieldChange={handleMissionFieldChange}
-            onGenerateStatement={handleGenerateNewStatement}
-            useDefaultBody={useDefaultBody}
-            onToggleDefaultBody={handleUseDefaultBody}
-            defaultBodyText={defaultWelcomeBody}
-            headlineCharCount={headlineCharCount}
-            bodyCharCount={bodyCharCount}
-            isHeadlineValid={isHeadlineValid}
-            isBodyValid={isBodyValid}
-            onGenerateMissionHeadline={handleGenerateMissionHeadline}
-            onGenerateMissionBody={handleGenerateMissionBody}
-            errorFields={errorFields}
-          />
-        </CardContent>
-      )}
-    </Card>
-  );
-}
-
-// Edit Key Contacts Section wrapper
+// Edit Key Contacts Section (no accordion wrapper - controlled by parent tab)
 function EditKeyContactsSection({
   contacts,
   companyData,
@@ -258,8 +70,6 @@ function EditKeyContactsSection({
   onContactsChange,
   onHeadshotUpload,
   onHeadshotRemove,
-  isOpen,
-  onToggle,
   validationErrors = {},
   setIsNewModalOpen,
 }: {
@@ -269,8 +79,6 @@ function EditKeyContactsSection({
   onContactsChange: (contacts: KeyContact[]) => void;
   onHeadshotUpload?: (index: number, file: File) => void;
   onHeadshotRemove?: (index: number) => void;
-  isOpen: boolean;
-  onToggle: () => void;
   validationErrors?: Record<string, string[]>;
   setIsNewModalOpen?: (isOpen: boolean) => void;
 }) {
@@ -335,79 +143,57 @@ function EditKeyContactsSection({
   };
 
   return (
-    <Card className="shadow-none">
-      <CardHeader className="cursor-pointer" onClick={onToggle}>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-xl">Key Contacts</CardTitle>
-          <div className="flex items-center gap-2">
-            {setIsNewModalOpen && (
-              <div className="flex gap-2 mr-5">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setIsNewModalOpen(true);
-                  }}
-                  className="flex items-center gap-2 border-2 hover:border-blue-500 hover:bg-blue-50 transition-colors"
-                >
-                  <LayoutGrid className="w-4 h-4" />
-                  <span className="font-medium">Select Display Style</span>
-                  <Sparkles className="w-4 h-4 text-blue-500" />
-                </Button>
-              </div>
-            )}
-
-            {isOpen ? (
-              <ChevronUp className="h-5 w-5 text-gray-500" />
-            ) : (
-              <ChevronDown className="h-5 w-5 text-gray-500" />
-            )}
-          </div>
-        </div>
-      </CardHeader>
-      {isOpen && (
-        <CardContent className="space-y-4">
-          <KeyContactsSection
-            contacts={contacts}
-            onContactsChange={onContactsChange}
-            onHeadshotUpload={onHeadshotUpload}
-            onHeadshotRemove={onHeadshotRemove}
-            organizationName={companyData.companyName}
-            companyLogo={companyData.companyLogo?.url}
-            recordkeeperFromStep4={documentsData.recordkeeper}
-            errorFields={validationErrors.keyContacts || []}
-          />
-          <Button onClick={addContact} variant="outline" className="w-full">
-            <Plus className="w-4 h-4 mr-2" />
-            Add Contact ({contacts.length})
+    <div className="space-y-4">
+      {/* Display style selector */}
+      {setIsNewModalOpen && (
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setIsNewModalOpen(true)}
+            className="flex items-center gap-2 border-2 hover:border-blue-500 hover:bg-blue-50 transition-colors"
+          >
+            <LayoutGrid className="w-4 h-4" />
+            <span className="font-medium">Select Display Style</span>
+            <Sparkles className="w-4 h-4 text-blue-500" />
           </Button>
-        </CardContent>
+        </div>
       )}
-    </Card>
+
+      <KeyContactsSection
+        contacts={contacts}
+        onContactsChange={onContactsChange}
+        onHeadshotUpload={onHeadshotUpload}
+        onHeadshotRemove={onHeadshotRemove}
+        organizationName={companyData.companyName}
+        companyLogo={companyData.companyLogo?.url}
+        recordkeeperFromStep4={documentsData.recordkeeper}
+        errorFields={validationErrors.keyContacts || []}
+      />
+      <Button onClick={addContact} variant="outline" className="w-full">
+        <Plus className="w-4 h-4 mr-2" />
+        Add Contact ({contacts.length})
+      </Button>
+    </div>
   );
 }
 
-// Edit Compliance Documents Section wrapper
+// Edit Compliance Documents Section (no accordion wrapper - controlled by parent tab)
 function EditComplianceDocumentsSection({
   documentsData,
   companyData,
   onDocumentsChange,
-  isOpen,
-  onToggle,
   validationErrors = {},
   clientId,
 }: {
   documentsData: ComplianceDocumentsData;
   companyData: CompanyBasicsData;
   onDocumentsChange: (field: keyof ComplianceDocumentsData, value: any) => void;
-  isOpen: boolean;
-  onToggle: () => void;
   validationErrors?: Record<string, string[]>;
   clientId?: string;
 }) {
   const [editingDocument, setEditingDocument] = useState<any>(null);
   const editSectionRef = useState<HTMLDivElement | null>(null)[0];
-  // Store active language tab separately to preserve it during reorder
   const [activeLanguage, setActiveLanguage] = useState<"EN" | "ES">("EN");
 
   const retirementPlanDocuments = documentsData.retirementPlanDocuments || [];
@@ -435,7 +221,6 @@ function EditComplianceDocumentsSection({
     setEditingDocument(null);
   };
 
-  // Helper function to guess language from document (same as view page)
   const guessLanguageFromDocument = (doc: any): "EN" | "ES" => {
     const source = `${doc.name || doc.title || doc.fileName || ""} ${doc.shortDescription || doc.description || ""
       }`.toLowerCase();
@@ -450,22 +235,14 @@ function EditComplianceDocumentsSection({
     return "EN";
   };
 
-  // Convert documents to preview format
-  // Use language from doc if available, otherwise detect it (same logic as view page)
-  // IMPORTANT: Always recalculate language here because buildDocumentFromApi may use async guessLanguageFromDocument
   const documentsPreview = useMemo(() => {
     const preview = retirementPlanDocuments.map((doc) => {
-      // Get original language from doc
       const originalLanguage = (doc as any).language;
-
-      // Only use originalLanguage if it's a valid string "ES" or "EN"
-      // Ignore if it's undefined, null, Promise, or any other value
       const language =
         typeof originalLanguage === "string" &&
           (originalLanguage === "ES" || originalLanguage === "EN")
           ? (originalLanguage as "EN" | "ES")
           : guessLanguageFromDocument(doc);
-
 
       return {
         id: doc.id,
@@ -482,12 +259,6 @@ function EditComplianceDocumentsSection({
       };
     });
 
-    // Debug: Log all languages
-    if (process.env.NODE_ENV === "development") {
-      const languages = preview.map((d) => d.language);
-      const uniqueLanguages = Array.from(new Set(languages));
-    }
-
     return preview;
   }, [retirementPlanDocuments]);
 
@@ -502,123 +273,120 @@ function EditComplianceDocumentsSection({
     }
   }, [documentsPreview, activeLanguage]);
 
-  // Debug: Log documents and active language
-
-
   return (
-    <Card className="shadow-none">
-      <CardHeader className="cursor-pointer" onClick={onToggle}>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-xl">Compliance Documents</CardTitle>
-          {isOpen ? (
-            <ChevronUp className="h-5 w-5 text-gray-500" />
-          ) : (
-            <ChevronDown className="h-5 w-5 text-gray-500" />
-          )}
+    <div className="space-y-4">
+      {editingDocument && (
+        <div ref={editSectionRef as any}>
+          <DocumentsUploadSection
+            documents={retirementPlanDocuments}
+            onDocumentsChange={(docs) =>
+              onDocumentsChange("retirementPlanDocuments", docs)
+            }
+            title="Edit Plan Document"
+            description="Update the document name, description, or replace the file"
+            editingDocument={editingDocument}
+            onSaveEdit={handleSaveEditedDocument}
+            onCancelEdit={handleCancelEdit}
+            clientId={clientId}
+          />
         </div>
-      </CardHeader>
-      {isOpen && (
-        <CardContent className="space-y-4">
-          {editingDocument && (
-            <div ref={editSectionRef as any}>
-              <DocumentsUploadSection
-                documents={retirementPlanDocuments}
-                onDocumentsChange={(docs) =>
-                  onDocumentsChange("retirementPlanDocuments", docs)
-                }
-                title="Edit Plan Document"
-                description="Update the document name, description, or replace the file"
-                editingDocument={editingDocument}
-                onSaveEdit={handleSaveEditedDocument}
-                onCancelEdit={handleCancelEdit}
-                clientId={clientId}
-              />
-            </div>
-          )}
-
-          {!editingDocument && (
-            <DocumentsUploadSection
-              documents={retirementPlanDocuments}
-              onDocumentsChange={(docs) =>
-                onDocumentsChange("retirementPlanDocuments", docs)
-              }
-              title="Upload Plan Documents"
-              description="Add as many plan documents or forms as you like. Employees will see them in the Benefits Hub."
-              clientId={clientId}
-            />
-          )}
-
-          {retirementPlanDocuments.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-accent-blue" />
-                  Plan Documents Preview
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Language Switcher */}
-                {documentsPreview.filter((doc) => doc.language === "EN").length > 0 &&
-                  documentsPreview.filter((doc) => doc.language === "ES").length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {(["EN", "ES"] as const).map((lang) => {
-                        const hasDocs = documentsPreview.some((doc) => doc.language === lang);
-                        if (!hasDocs) return null;
-                        const isActive = activeLanguage === lang;
-                        return (
-                          <button
-                            key={lang}
-                            type="button"
-                            onClick={() => setActiveLanguage(lang)}
-                            className={`rounded-full px-5 py-2 text-[16px] leading-tight font-red-hat font-semibold border transition-colors ${
-                              isActive
-                                ? "bg-[#002B5B] text-white border-[#002B5B]"
-                                : "bg-white text-[#002B5B] border-[#D1D5DB] hover:bg-gray-50 dark:bg-gray-700 dark:text-accent-blue-light dark:border-gray-600 dark:hover:bg-gray-600"
-                            }`}
-                          >
-                            {lang === "EN" ? "ENGLISH" : "ESPAÑOL"}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                <RetirementDocumentsAccordion
-                  mode="editable"
-                  retirementDocs={documentsPreview}
-                  brandColor={primaryColor}
-                  accentColor={secondaryColor}
-                  language={activeLanguage}
-                  onLanguageChange={setActiveLanguage}
-                  onEdit={handleEditPreviewDoc}
-                  hideHeader
-                  showMetadata
-                  onOrderChange={(reorderedDocs) => {
-                    const orderMap = new Map<string, number>();
-                    reorderedDocs.forEach((doc, index) => {
-                      const docId = doc.meta?.id || doc.id;
-                      orderMap.set(docId, index);
-                    });
-
-                    const sortedDocs = [...retirementPlanDocuments].sort(
-                      (a, b) => {
-                        const orderA = orderMap.get(a.id) ?? Infinity;
-                        const orderB = orderMap.get(b.id) ?? Infinity;
-                        return orderA - orderB;
-                      },
-                    );
-
-                    onDocumentsChange("retirementPlanDocuments", sortedDocs);
-                  }}
-                />
-              </CardContent>
-            </Card>
-          )}
-        </CardContent>
       )}
-    </Card>
+
+      {!editingDocument && (
+        <DocumentsUploadSection
+          documents={retirementPlanDocuments}
+          onDocumentsChange={(docs) =>
+            onDocumentsChange("retirementPlanDocuments", docs)
+          }
+          title="Upload Plan Documents"
+          description="Add as many plan documents or forms as you like. Employees will see them in the Benefits Hub."
+          clientId={clientId}
+        />
+      )}
+
+      {retirementPlanDocuments.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5 text-accent-blue" />
+              Plan Documents Preview
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Language Switcher */}
+            {documentsPreview.filter((doc) => doc.language === "EN").length > 0 &&
+              documentsPreview.filter((doc) => doc.language === "ES").length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {(["EN", "ES"] as const).map((lang) => {
+                    const hasDocs = documentsPreview.some((doc) => doc.language === lang);
+                    if (!hasDocs) return null;
+                    const isActive = activeLanguage === lang;
+                    return (
+                      <button
+                        key={lang}
+                        type="button"
+                        onClick={() => setActiveLanguage(lang)}
+                        className={`rounded-full px-5 py-2 text-[16px] leading-tight font-red-hat font-semibold border transition-colors ${
+                          isActive
+                            ? "bg-[#002B5B] text-white border-[#002B5B]"
+                            : "bg-white text-[#002B5B] border-[#D1D5DB] hover:bg-gray-50 dark:bg-gray-700 dark:text-accent-blue-light dark:border-gray-600 dark:hover:bg-gray-600"
+                        }`}
+                      >
+                        {lang === "EN" ? "ENGLISH" : "ESPAÑOL"}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+            <RetirementDocumentsAccordion
+              mode="editable"
+              retirementDocs={documentsPreview}
+              brandColor={primaryColor}
+              accentColor={secondaryColor}
+              language={activeLanguage}
+              onLanguageChange={setActiveLanguage}
+              onEdit={handleEditPreviewDoc}
+              hideHeader
+              showMetadata
+              onOrderChange={(reorderedDocs) => {
+                const orderMap = new Map<string, number>();
+                reorderedDocs.forEach((doc, index) => {
+                  const docId = doc.meta?.id || doc.id;
+                  orderMap.set(docId, index);
+                });
+
+                const sortedDocs = [...retirementPlanDocuments].sort(
+                  (a, b) => {
+                    const orderA = orderMap.get(a.id) ?? Infinity;
+                    const orderB = orderMap.get(b.id) ?? Infinity;
+                    return orderA - orderB;
+                  },
+                );
+
+                onDocumentsChange("retirementPlanDocuments", sortedDocs);
+              }}
+            />
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 }
+
+// ============================================================================
+// Main Page Component
+// ============================================================================
+
+const EDIT_TABS = [
+  { id: "company", label: "Company Basics & Branding" },
+  { id: "preview", label: "Preview" },
+  { id: "contacts", label: "Key Contacts" },
+  { id: "documents", label: "Documents" },
+  { id: "disclaimers", label: "Disclaimers" },
+] as const;
+
+type EditTabId = (typeof EDIT_TABS)[number]["id"];
 
 export default function EditClientPage() {
   const router = useRouter();
@@ -633,15 +401,16 @@ export default function EditClientPage() {
     showPreview,
     companyData,
     clientStatus,
-    openSections,
     keyContacts,
     keyContactsDisplayStyle,
     welcomeData,
     documentsData,
+    disclaimers,
     setShowPreview,
     setClientStatus,
     setKeyContacts,
     setKeyContactsDisplayStyle,
+    setDisclaimers,
     handleInputChange,
     handleWelcomeChange,
     handleDocumentsChange,
@@ -649,7 +418,6 @@ export default function EditClientPage() {
     handleHeadshotRemove,
     handleFileUpload,
     handleFileRemove,
-    toggleSection,
     handleSave,
     isFormValid,
     getValidationErrors,
@@ -657,6 +425,7 @@ export default function EditClientPage() {
     setCategoryPortalVisibility,
   } = useEditClient();
 
+  const [activeTab, setActiveTab] = useState<EditTabId>("company");
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [hasAttemptedSave, setHasAttemptedSave] = useState(false);
 
@@ -670,11 +439,10 @@ export default function EditClientPage() {
   const { url: resolvedPreviewHeader } = useBrandingImageUrl(headerUrlRaw);
   const { url: resolvedPreviewThumbnail } = useBrandingImageUrl(thumbnailUrlRaw);
 
-  // Mission Statement fields (separate from Banner/Welcome Message)
+  // Mission Statement fields
   const missionHeadline = (companyData as any).missionHeadline || "";
   const missionBody = (companyData as any).missionBody || "";
 
-  // Banner (Hero) defaults (editable)
   const defaultWelcomeMessage =
     WELCOME_BODY_PRESETS[0]?.bodyText ||
     "This website was created as your central source for exploring and taking advantage of your company benefits. Our goal is to make it easy for you to stay informed, engaged, and confident in the resources available to you.\n\nWhether you're just getting started or continuing your journey, this site is here to help you make the most of everything our company has to offer.";
@@ -684,7 +452,6 @@ export default function EditClientPage() {
     (companyData as any).heroDescription === defaultWelcomeMessage,
   );
 
-  // Local state for welcome mission form
   const defaultHeadline = "Together, We Build a Stronger Future.";
   const defaultBodyText =
     WELCOME_BODY_PRESETS[0]?.bodyText ||
@@ -697,7 +464,6 @@ export default function EditClientPage() {
     !missionBody || missionBody === defaultBodyText,
   );
   const [userAvatar, setUserAvatar] = useState<string | null>(null);
-  const [showMissionPreview, setShowMissionPreview] = useState(false);
 
   const previewLogoProp =
     toR2BrandingKey(logoRaw) != null
@@ -753,7 +519,6 @@ export default function EditClientPage() {
   };
 
   const handleHeadshotChange = (newHeadshot: string) => {
-    // Handle headshot change if needed
     setUserAvatar(newHeadshot);
   };
 
@@ -781,7 +546,6 @@ export default function EditClientPage() {
       handleInputChange("companyLogo", null);
       return;
     }
-    // CompanyLogoSection with clientId uploads to R2 before calling onLogoChange, so url is already key or data URL
     handleInputChange("companyLogo", logoData);
   };
 
@@ -822,7 +586,6 @@ export default function EditClientPage() {
     });
   };
 
-  // Initialize hero defaults when missing (but keep editable)
   useEffect(() => {
     const currentHeroTitle = ((companyData as any).heroTitle || "") as string;
     const expectedHeroTitle =
@@ -845,7 +608,6 @@ export default function EditClientPage() {
 
   const handleHeadlineChange = (value: string) => {
     handleInputChange("missionHeadline", value);
-    // If user starts typing, uncheck "use default"
     if (useDefaultHeadline && value !== defaultHeadline) {
       setUseDefaultHeadline(false);
     }
@@ -853,7 +615,6 @@ export default function EditClientPage() {
 
   const handleBodyChange = (value: string) => {
     handleInputChange("missionBody", value);
-    // If user starts typing, uncheck "use default"
     if (useDefaultBody && value !== defaultBodyText) {
       setUseDefaultBody(false);
     }
@@ -888,9 +649,9 @@ export default function EditClientPage() {
     setTitle("Edit Plan");
   }, [setTitle]);
 
-  // Auto-expand/scroll to sections with validation errors ONLY after user tries to save
+  // Navigate to tab with validation errors after save attempt
   useEffect(() => {
-    if (clientStatus !== "Active") return; // Only for Active status
+    if (clientStatus !== "Active") return;
     if (!hasAttemptedSave) return;
 
     const errors = getValidationErrors();
@@ -902,26 +663,14 @@ export default function EditClientPage() {
       errors.missionHeadline?.length > 0 || errors.missionBody?.length > 0;
     const hasContactErrors = errors.keyContacts?.length > 0;
 
-    // Only auto-expand if there are errors and section is closed
-    if (hasCompanyErrors && !openSections.companyInfo) {
-      toggleSection("companyInfo");
+    if (hasCompanyErrors) {
+      setActiveTab("company");
+    } else if (hasBannerErrors || hasMissionErrors) {
+      setActiveTab("preview");
+    } else if (hasContactErrors) {
+      setActiveTab("contacts");
     }
-    if (hasContactErrors && !openSections.contacts) {
-      toggleSection("contacts");
-    }
-
-    // Scroll to banner section if it has errors
-    if (hasBannerErrors || hasMissionErrors) {
-      setTimeout(() => {
-        const bannerSection = document.querySelector(
-          '[data-section="bannerPreview"]',
-        );
-        if (bannerSection) {
-          bannerSection.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
-      }, 100);
-    }
-  }, [getValidationErrors, clientStatus, hasAttemptedSave, openSections]);
+  }, [getValidationErrors, clientStatus, hasAttemptedSave]);
 
   const handleSaveClick = () => {
     setHasAttemptedSave(true);
@@ -969,436 +718,469 @@ export default function EditClientPage() {
           isFormValid={isFormValid()}
         />
 
-        <div className="mx-auto max-w-5xl space-y-8 px-4">
-          {/* Company Basics Section */}
-          <Card className="shadow-none">
-            <CardHeader
-              className="cursor-pointer"
-              onClick={() => toggleSection("companyInfo")}
-            >
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-xl">
-                  Company Basics & Branding
-                </CardTitle>
-                {openSections.companyInfo ? (
-                  <ChevronUp className="h-5 w-5 text-gray-500" />
-                ) : (
-                  <ChevronDown className="h-5 w-5 text-gray-500" />
-                )}
-              </div>
-            </CardHeader>
-            {openSections.companyInfo && (
-              <CardContent className="space-y-6">
-                {/* Plan Type */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Building2 className="w-5 h-5 text-accent-blue" />
-                      Plan Type
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <RadioGroup
-                      value={companyData.planType || "client"}
-                      onValueChange={(value) =>
-                        handleInputChange("planType", value)
-                      }
-                      className="grid gap-3"
-                    >
-                      <div
-                        className={`p-3 border rounded-lg cursor-pointer transition-colors ${companyData.planType === "client" ||
-                          !companyData.planType
-                          ? "border-primary bg-[#23919C]/10"
-                          : "hover:bg-muted/50"
-                          }`}
-                        onClick={() => handleInputChange("planType", "client")}
-                      >
-                        <div className="flex items-center space-x-3">
-                          <RadioGroupItem value="client" id="plan-client" />
-                          <div>
-                            <Label
-                              htmlFor="plan-client"
-                              className="cursor-pointer font-medium"
-                            >
-                              <p className="text-sm font-medium">Client</p>
-                            </Label>
-                            <div className="text-xs text-muted-foreground">
-                              Active plan for real clients
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div
-                        className={`p-3 border rounded-lg cursor-pointer transition-colors ${companyData.planType === "prospect"
-                          ? "border-primary bg-[#23919C]/10"
-                          : "hover:bg-muted/50"
-                          }`}
-                        onClick={() =>
-                          handleInputChange("planType", "prospect")
-                        }
-                      >
-                        <div className="flex items-center space-x-3">
-                          <RadioGroupItem value="prospect" id="plan-prospect" />
-                          <div>
-                            <Label
-                              htmlFor="plan-prospect"
-                              className="cursor-pointer font-medium"
-                            >
-                              <p className="text-sm font-medium">Prospect</p>
-                            </Label>
-                            <div className="text-xs text-muted-foreground">
-                              Draft plan for demos & presentations
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </RadioGroup>
-                  </CardContent>
-                </Card>
+        <div className="mx-auto max-w-5xl px-4">
+          <Tabs
+            value={activeTab}
+            onValueChange={(val) => setActiveTab(val as EditTabId)}
+          >
+            <TabsList className="w-full justify-start gap-1 bg-transparent p-0 border-b rounded-none mb-8 flex-wrap h-auto min-h-fit">
+              {EDIT_TABS.map((tab) => (
+                <TabsTrigger
+                  key={tab.id}
+                  value={tab.id}
+                  className="data-[state=active]:border-b-2 data-[state=active]:border-accent-blue data-[state=active]:text-accent-blue rounded-none px-4 py-3 text-sm font-medium whitespace-nowrap"
+                >
+                  {tab.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
 
-                {/* Company Information */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Building2 className="w-5 h-5 text-accent-blue" />
-                      Company Information
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="companyName">
-                          Company Name <span className="text-red-500">*</span>
-                        </Label>
-                        <Input
-                          icon={<Building2 className="h-4 w-4" />}
-                          id="companyName"
-                          value={companyData.companyName}
-                          onChange={(e) => {
-                            const value = e.target.value.slice(0, 65);
-                            handleInputChange("companyName", value);
-                          }}
-                          placeholder="Enter company name"
-                          maxLength={65}
-                          required
-                          destructive={
-                            getValidationErrors().companyName?.length > 0
-                          }
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="companyWebsite">Company Website</Label>
-                        <Input
-                          icon={<Globe className="h-4 w-4" />}
-                          id="companyWebsite"
-                          value={companyData.companyWebsite || ""}
-                          onChange={(e) =>
-                            handleInputChange("companyWebsite", e.target.value)
-                          }
-                          placeholder="example.com"
-                          type="url"
-                          destructive={
-                            getValidationErrors().companyWebsite?.length > 0
-                          }
-                        />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Company Logo */}
-                <CompanyLogoSection
-                  logoData={companyData.companyLogo}
-                  onLogoChange={handleLogoChange}
-                  errorFields={getValidationErrors().companyLogo || []}
-                  clientId={clientId}
-                />
-
-                {/* Brand Colors */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Palette className="w-5 h-5 text-accent-blue" />
-                      Brand Colors
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-3 relative">
-                        <Label>Primary Color</Label>
-                        <div className="flex items-center gap-3">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                              handleInputChange(
-                                "isPrimaryColorPickerOpen",
-                                !companyData.isPrimaryColorPickerOpen,
-                              )
-                            }
-                            className="h-10 px-3"
-                          >
-                            <div
-                              className="w-6 h-6 rounded border"
-                              style={{
-                                backgroundColor: companyData.primaryColor,
-                              }}
-                            />
-                          </Button>
-                          <span className="text-sm text-muted-foreground">
-                            {companyData.primaryColor}
-                          </span>
-                        </div>
-                        <ColorPicker
-                          value={companyData.primaryColor}
-                          onChange={(color) =>
-                            handleInputChange("primaryColor", color)
-                          }
-                          isOpen={companyData.isPrimaryColorPickerOpen || false}
-                          onOpenChange={(open) =>
-                            handleInputChange(
-                              "isPrimaryColorPickerOpen",
-                              open || false,
-                            )
-                          }
-                        />
-                      </div>
-                      <div className="space-y-3 relative">
-                        <Label>Secondary Color</Label>
-                        <div className="flex items-center gap-3">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                              handleInputChange(
-                                "isSecondaryColorPickerOpen",
-                                !companyData.isSecondaryColorPickerOpen,
-                              )
-                            }
-                            className="h-10 px-3"
-                          >
-                            <div
-                              className="w-6 h-6 rounded border"
-                              style={{ background: companyData.secondaryColor }}
-                            />
-                          </Button>
-                          <span className="text-sm text-muted-foreground">
-                            {companyData.secondaryColor}
-                          </span>
-                        </div>
-                        <ColorPicker
-                          value={companyData.secondaryColor}
-                          onChange={(color) =>
-                            handleInputChange("secondaryColor", color)
-                          }
-                          isOpen={
-                            companyData.isSecondaryColorPickerOpen || false
-                          }
-                          onOpenChange={(open) =>
-                            handleInputChange(
-                              "isSecondaryColorPickerOpen",
-                              open || false,
-                            )
-                          }
-                        />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Brand Images */}
-                <BrandImagesSection
-                  brandImages={companyData.brandImages}
-                  onBrandImagesChange={handleBrandImagesChange}
-                  errorFields={[]}
-                />
-              </CardContent>
-            )}
-          </Card>
-
-          {/* Banner Preview Section */}
-          <div data-section="bannerPreview">
-            <BannerPreviewSection
-              companyData={companyData}
-              onCompanyDataChange={handleInputChange}
-              onHeadshotChange={handleHeadshotChange}
-              onBackgroundChange={handleBackgroundChange}
-              validationErrors={getValidationErrors()}
-              useDefaultBody={useDefaultWelcomeMessage}
-              onToggleDefaultBody={(checked) => {
-                setUseDefaultWelcomeMessage(checked);
-                if (checked) {
-                  handleInputChange("heroDescription", defaultWelcomeMessage);
-                }
-              }}
-              defaultBodyText={defaultWelcomeMessage}
-              wrapInCard
-            />
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Company Mission Statement</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <MissionStatementFields
-                  missionHeadline={missionHeadline}
-                  missionBody={missionBody}
-                  defaultHeadline={defaultHeadline}
-                  defaultBodyText={defaultBodyText}
-                  useDefaultHeadline={useDefaultHeadline}
-                  useDefaultBody={useDefaultBody}
-                  headlineCharCount={headlineCharCount}
-                  bodyCharCount={bodyCharCount}
-                  isHeadlineValid={isHeadlineValid}
-                  isBodyValid={isBodyValid}
-                  errorFields={errorFields}
-                  headlineRef={headlineRef}
-                  bodyTextRef={bodyTextRef}
-                  onHeadlineChange={handleHeadlineChange}
-                  onBodyChange={handleBodyChange}
-                  onUseDefaultHeadlineChange={handleUseDefaultHeadline}
-                  onUseDefaultBodyChange={handleUseDefaultBody}
-                  onGenerateMissionHeadline={handleGenerateMissionHeadline}
-                  onGenerateMissionBody={handleGenerateMissionBody}
-                  showUseDefault={false}
-                />
-
-                {/* Preview Section */}
-                <div ref={previewRef} data-preview="welcome">
-                  <BrandingPreview
-                    logo={previewLogoProp}
-                    backgroundImage={previewBackgroundProp}
-                    brandColor={companyData.primaryColor || "#1F3A60"}
-                    aiAvatar={previewThumbProp}
-                    missionStatement={`${missionHeadline || "Company Welcome Statement"
-                      }\n\n${missionBody || "Your welcome message will appear here..."
-                      }`}
-                    headshot={previewThumbProp}
-                    headshotData={null}
-                    username={companyData.companyName || "Company Name"}
-                    title="Advisor"
-                    orgName={companyData.companyName || "Company Name"}
-                    onWelcomeMessageChange={(newText) => {
-                      const lines = newText.split("\n\n");
-                      const headline = lines[0] || "";
-                      const bodyText = lines.slice(1).join("\n") || "";
-                      handleInputChange("missionHeadline", headline);
-                      handleInputChange("missionBody", bodyText);
-                    }}
-                    onHeadshotChange={handleHeadshotChange}
-                    onEditHeadshot={() => {
-                      toggleSection("companyInfo");
-                      setTimeout(() => {
-                        const brandImagesSection = document.querySelector(
-                          '[data-section="brandImages"]',
-                        );
-                        if (brandImagesSection) {
-                          brandImagesSection.scrollIntoView({
-                            behavior: "smooth",
-                          });
-                        }
-                      }, 100);
-                    }}
-                    onEditBackground={() => {
-                      toggleSection("companyInfo");
-                      setTimeout(() => {
-                        const brandImagesSection = document.querySelector(
-                          '[data-section="brandImages"]',
-                        );
-                        if (brandImagesSection) {
-                          brandImagesSection.scrollIntoView({
-                            behavior: "smooth",
-                          });
-                        }
-                      }, 100);
-                    }}
-                    onBackgroundChange={handleBackgroundChange}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-          {/* Key Contacts Section */}
-          <EditKeyContactsSection
-            contacts={keyContacts}
-            companyData={companyData}
-            documentsData={documentsData}
-            onContactsChange={setKeyContacts}
-            onHeadshotUpload={handleHeadshotUpload}
-            onHeadshotRemove={handleHeadshotRemove}
-            isOpen={openSections.contacts}
-            onToggle={() => toggleSection("contacts")}
-            validationErrors={getValidationErrors()}
-            setIsNewModalOpen={setIsNewModalOpen}
-          />
-
-          {/* Compliance Documents Section */}
-          <EditComplianceDocumentsSection
-            documentsData={documentsData}
-            companyData={companyData}
-            onDocumentsChange={handleDocumentsChange}
-            isOpen={openSections.documents}
-            onToggle={() => toggleSection("documents")}
-            validationErrors={getValidationErrors()}
-            clientId={clientId}
-          />
-
-          <PlanMeetingsSection
-            clientId={clientId}
-            companyName={companyData.companyName || ""}
-            isOpen={openSections.meetings}
-            onToggle={() => toggleSection("meetings")}
-          />
-
-          {/* Category Display (Portal Visibility) */}
-          <Card className="shadow-none">
-            <CardHeader
-              className="cursor-pointer"
-              onClick={() => toggleSection("categoryDisplay")}
-            >
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-xl">
-                  Category Display (Portal Visibility)
-                </CardTitle>
-                {openSections.categoryDisplay ? (
-                  <ChevronUp className="h-5 w-5 text-gray-500" />
-                ) : (
-                  <ChevronDown className="h-5 w-5 text-gray-500" />
-                )}
-              </div>
-              <p className="text-sm text-muted-foreground font-normal mt-1">
-                Show or hide each category in the client portal (Navigation, Tiles, My Benefits Team, Documents). Admin data is unchanged.
-              </p>
-            </CardHeader>
-            {openSections.categoryDisplay && (
-              <CardContent className="space-y-4">
-                {PRIMARY_SERVICE_CATEGORY_OPTIONS.map((category) => (
-                  <div
-                    key={category}
-                    className="flex items-center justify-between rounded-lg border p-4"
+            {/* ── Tab 1: Company Basics & Branding ── */}
+            <TabsContent value="company" className="space-y-6 mt-0">
+              {/* Plan Type */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Building2 className="w-5 h-5 text-accent-blue" />
+                    Plan Type
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <RadioGroup
+                    value={companyData.planType || "client"}
+                    onValueChange={(value) =>
+                      handleInputChange("planType", value)
+                    }
+                    className="grid gap-3"
                   >
-                    <span className="font-medium">{category}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground">
-                        {categoryPortalVisibility[category] !== false ? "Show" : "Hide"}
-                      </span>
-                      <Switch
-                        checked={categoryPortalVisibility[category] !== false}
-                        onCheckedChange={(checked) => {
-                          setCategoryPortalVisibility((prev) => ({
-                            ...prev,
-                            [category]: checked,
-                          }));
+                    <div
+                      className={`p-3 border rounded-lg cursor-pointer transition-colors ${companyData.planType === "client" ||
+                        !companyData.planType
+                        ? "border-primary bg-[#23919C]/10"
+                        : "hover:bg-muted/50"
+                        }`}
+                      onClick={() => handleInputChange("planType", "client")}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <RadioGroupItem value="client" id="plan-client" />
+                        <div>
+                          <Label
+                            htmlFor="plan-client"
+                            className="cursor-pointer font-medium"
+                          >
+                            <p className="text-sm font-medium">Client</p>
+                          </Label>
+                          <div className="text-xs text-muted-foreground">
+                            Active plan for real clients
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div
+                      className={`p-3 border rounded-lg cursor-pointer transition-colors ${companyData.planType === "prospect"
+                        ? "border-primary bg-[#23919C]/10"
+                        : "hover:bg-muted/50"
+                        }`}
+                      onClick={() =>
+                        handleInputChange("planType", "prospect")
+                      }
+                    >
+                      <div className="flex items-center space-x-3">
+                        <RadioGroupItem value="prospect" id="plan-prospect" />
+                        <div>
+                          <Label
+                            htmlFor="plan-prospect"
+                            className="cursor-pointer font-medium"
+                          >
+                            <p className="text-sm font-medium">Prospect</p>
+                          </Label>
+                          <div className="text-xs text-muted-foreground">
+                            Draft plan for demos & presentations
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </RadioGroup>
+                </CardContent>
+              </Card>
+
+              {/* Company Information */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Building2 className="w-5 h-5 text-accent-blue" />
+                    Company Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="companyName">
+                        Company Name <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        icon={<Building2 className="h-4 w-4" />}
+                        id="companyName"
+                        value={companyData.companyName}
+                        onChange={(e) => {
+                          const value = e.target.value.slice(0, 65);
+                          handleInputChange("companyName", value);
                         }}
+                        placeholder="Enter company name"
+                        maxLength={65}
+                        required
+                        destructive={
+                          getValidationErrors().companyName?.length > 0
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="companyWebsite">Company Website</Label>
+                      <Input
+                        icon={<Globe className="h-4 w-4" />}
+                        id="companyWebsite"
+                        value={companyData.companyWebsite || ""}
+                        onChange={(e) =>
+                          handleInputChange("companyWebsite", e.target.value)
+                        }
+                        placeholder="example.com"
+                        type="url"
+                        destructive={
+                          getValidationErrors().companyWebsite?.length > 0
+                        }
                       />
                     </div>
                   </div>
-                ))}
-              </CardContent>
-            )}
-          </Card>
+                </CardContent>
+              </Card>
+
+              {/* Company Logo */}
+              <CompanyLogoSection
+                logoData={companyData.companyLogo}
+                onLogoChange={handleLogoChange}
+                errorFields={getValidationErrors().companyLogo || []}
+                clientId={clientId}
+              />
+
+              {/* Brand Colors */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Palette className="w-5 h-5 text-accent-blue" />
+                    Brand Colors
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-3 relative">
+                      <Label>Primary Color</Label>
+                      <div className="flex items-center gap-3">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            handleInputChange(
+                              "isPrimaryColorPickerOpen",
+                              !companyData.isPrimaryColorPickerOpen,
+                            )
+                          }
+                          className="h-10 px-3"
+                        >
+                          <div
+                            className="w-6 h-6 rounded border"
+                            style={{
+                              backgroundColor: companyData.primaryColor,
+                            }}
+                          />
+                        </Button>
+                        <span className="text-sm text-muted-foreground">
+                          {companyData.primaryColor}
+                        </span>
+                      </div>
+                      <ColorPicker
+                        value={companyData.primaryColor}
+                        onChange={(color) =>
+                          handleInputChange("primaryColor", color)
+                        }
+                        isOpen={companyData.isPrimaryColorPickerOpen || false}
+                        onOpenChange={(open) =>
+                          handleInputChange(
+                            "isPrimaryColorPickerOpen",
+                            open || false,
+                          )
+                        }
+                      />
+                    </div>
+                    <div className="space-y-3 relative">
+                      <Label>Secondary Color</Label>
+                      <div className="flex items-center gap-3">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            handleInputChange(
+                              "isSecondaryColorPickerOpen",
+                              !companyData.isSecondaryColorPickerOpen,
+                            )
+                          }
+                          className="h-10 px-3"
+                        >
+                          <div
+                            className="w-6 h-6 rounded border"
+                            style={{ background: companyData.secondaryColor }}
+                          />
+                        </Button>
+                        <span className="text-sm text-muted-foreground">
+                          {companyData.secondaryColor}
+                        </span>
+                      </div>
+                      <ColorPicker
+                        value={companyData.secondaryColor}
+                        onChange={(color) =>
+                          handleInputChange("secondaryColor", color)
+                        }
+                        isOpen={
+                          companyData.isSecondaryColorPickerOpen || false
+                        }
+                        onOpenChange={(open) =>
+                          handleInputChange(
+                            "isSecondaryColorPickerOpen",
+                            open || false,
+                          )
+                        }
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Brand Images */}
+              <BrandImagesSection
+                brandImages={companyData.brandImages}
+                onBrandImagesChange={handleBrandImagesChange}
+                errorFields={[]}
+              />
+            </TabsContent>
+
+            {/* ── Tab 2: Preview ── */}
+            <TabsContent value="preview" className="space-y-6 mt-0">
+              <div data-section="bannerPreview">
+                <BannerPreviewSection
+                  companyData={companyData}
+                  onCompanyDataChange={handleInputChange}
+                  onHeadshotChange={handleHeadshotChange}
+                  onBackgroundChange={handleBackgroundChange}
+                  validationErrors={getValidationErrors()}
+                  useDefaultBody={useDefaultWelcomeMessage}
+                  onToggleDefaultBody={(checked) => {
+                    setUseDefaultWelcomeMessage(checked);
+                    if (checked) {
+                      handleInputChange("heroDescription", defaultWelcomeMessage);
+                    }
+                  }}
+                  defaultBodyText={defaultWelcomeMessage}
+                  wrapInCard
+                />
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Company Mission Statement</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <MissionStatementFields
+                      missionHeadline={missionHeadline}
+                      missionBody={missionBody}
+                      defaultHeadline={defaultHeadline}
+                      defaultBodyText={defaultBodyText}
+                      useDefaultHeadline={useDefaultHeadline}
+                      useDefaultBody={useDefaultBody}
+                      headlineCharCount={headlineCharCount}
+                      bodyCharCount={bodyCharCount}
+                      isHeadlineValid={isHeadlineValid}
+                      isBodyValid={isBodyValid}
+                      errorFields={errorFields}
+                      headlineRef={headlineRef}
+                      bodyTextRef={bodyTextRef}
+                      onHeadlineChange={handleHeadlineChange}
+                      onBodyChange={handleBodyChange}
+                      onUseDefaultHeadlineChange={handleUseDefaultHeadline}
+                      onUseDefaultBodyChange={handleUseDefaultBody}
+                      onGenerateMissionHeadline={handleGenerateMissionHeadline}
+                      onGenerateMissionBody={handleGenerateMissionBody}
+                      showUseDefault={false}
+                    />
+
+                    {/* Preview Section */}
+                    <div ref={previewRef} data-preview="welcome">
+                      <BrandingPreview
+                        logo={previewLogoProp}
+                        backgroundImage={previewBackgroundProp}
+                        brandColor={companyData.primaryColor || "#1F3A60"}
+                        aiAvatar={previewThumbProp}
+                        missionStatement={`${missionHeadline || "Company Welcome Statement"
+                          }\n\n${missionBody || "Your welcome message will appear here..."
+                          }`}
+                        headshot={previewThumbProp}
+                        headshotData={null}
+                        username={companyData.companyName || "Company Name"}
+                        title="Advisor"
+                        orgName={companyData.companyName || "Company Name"}
+                        onWelcomeMessageChange={(newText) => {
+                          const lines = newText.split("\n\n");
+                          const headline = lines[0] || "";
+                          const bodyText = lines.slice(1).join("\n") || "";
+                          handleInputChange("missionHeadline", headline);
+                          handleInputChange("missionBody", bodyText);
+                        }}
+                        onHeadshotChange={handleHeadshotChange}
+                        onEditHeadshot={() => {
+                          setActiveTab("company");
+                          setTimeout(() => {
+                            const brandImagesSection = document.querySelector(
+                              '[data-section="brandImages"]',
+                            );
+                            if (brandImagesSection) {
+                              brandImagesSection.scrollIntoView({
+                                behavior: "smooth",
+                              });
+                            }
+                          }, 100);
+                        }}
+                        onEditBackground={() => {
+                          setActiveTab("company");
+                          setTimeout(() => {
+                            const brandImagesSection = document.querySelector(
+                              '[data-section="brandImages"]',
+                            );
+                            if (brandImagesSection) {
+                              brandImagesSection.scrollIntoView({
+                                behavior: "smooth",
+                              });
+                            }
+                          }, 100);
+                        }}
+                        onBackgroundChange={handleBackgroundChange}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            {/* ── Tab 3: Key Contacts ── */}
+            <TabsContent value="contacts" className="mt-0">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-xl">Key Contacts</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <EditKeyContactsSection
+                    contacts={keyContacts}
+                    companyData={companyData}
+                    documentsData={documentsData}
+                    onContactsChange={setKeyContacts}
+                    onHeadshotUpload={handleHeadshotUpload}
+                    onHeadshotRemove={handleHeadshotRemove}
+                    validationErrors={getValidationErrors()}
+                    setIsNewModalOpen={setIsNewModalOpen}
+                  />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* ── Tab 4: Documents ── */}
+            <TabsContent value="documents" className="space-y-6 mt-0">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-xl">Compliance Documents</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <EditComplianceDocumentsSection
+                    documentsData={documentsData}
+                    companyData={companyData}
+                    onDocumentsChange={handleDocumentsChange}
+                    validationErrors={getValidationErrors()}
+                    clientId={clientId}
+                  />
+                </CardContent>
+              </Card>
+
+              <PlanMeetingsSection
+                clientId={clientId}
+                companyName={companyData.companyName || ""}
+                isOpen={true}
+                onToggle={() => {}}
+              />
+
+              {/* Category Display (Portal Visibility) */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-xl">
+                    Category Display (Portal Visibility)
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground font-normal mt-1">
+                    Show or hide each category in the client portal (Navigation, Tiles, My Benefits Team, Documents). Admin data is unchanged.
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {PRIMARY_SERVICE_CATEGORY_OPTIONS.map((category) => (
+                    <div
+                      key={category}
+                      className="flex items-center justify-between rounded-lg border p-4"
+                    >
+                      <span className="font-medium">{category}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">
+                          {categoryPortalVisibility[category] !== false ? "Show" : "Hide"}
+                        </span>
+                        <Switch
+                          checked={categoryPortalVisibility[category] !== false}
+                          onCheckedChange={(checked) => {
+                            setCategoryPortalVisibility((prev) => ({
+                              ...prev,
+                              [category]: checked,
+                            }));
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* ── Tab 5: Disclaimers ── */}
+            <TabsContent value="disclaimers" className="mt-0">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-xl">Disclaimers</CardTitle>
+                  <p className="text-sm text-muted-foreground font-normal mt-1">
+                    Manage disclaimer text displayed in the employee portal footer.
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="disclaimers-text">
+                      Disclaimer Text
+                    </Label>
+                    <Textarea
+                      id="disclaimers-text"
+                      value={disclaimers}
+                      onChange={(e) => setDisclaimers(e.target.value)}
+                      placeholder="Enter legal disclaimers to display in the portal footer..."
+                      rows={8}
+                      className="min-h-[200px]"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      This text will appear in the footer of the employee benefits portal.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
 
         {/* Card Selection Modal */}
