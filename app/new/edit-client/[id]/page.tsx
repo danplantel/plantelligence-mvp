@@ -8,8 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  LayoutGrid,
-  Sparkles,
+  Plus,
 } from "lucide-react";
 import {
   ActionsSection,
@@ -25,6 +24,8 @@ import { CompanyLogoSection } from "@/components/wizard/new-client-steps/section
 import { BrandImagesSection } from "@/components/wizard/new-client-steps/sections/brand-images-section";
 import { KeyContactsSection } from "@/components/wizard/new-client-steps/sections/key-contacts-section";
 import { DocumentsUploadSection } from "@/components/wizard/new-client-steps/sections/documents-upload-section";
+import { AddMoreContactsModal } from "@/components/wizard/new-client-steps/step-3-key-contacts/components/add-more-contacts-modal";
+import { CategoryGrid } from "@/components/wizard/new-client-steps/step-3-key-contacts/components/category-grid";
 import {
   RetirementDocumentsAccordion,
   type RetirementDocumentItem,
@@ -34,7 +35,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ColorPicker } from "@/components/ui/color-picker";
-import { Building2, Palette, Globe, FileText, Plus } from "lucide-react";
+import { Building2, Palette, Globe, FileText } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { PRIMARY_SERVICE_CATEGORY_OPTIONS } from "@/lib/service-categories";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -50,6 +51,7 @@ import type {
   BrandImagesData,
   KeyContact,
   ComplianceDocumentsData,
+  BenefitsCategory,
 } from "@/types/new-client-wizard";
 import { BannerPreviewSection } from "@/components/wizard/new-client-steps/sections/banner-preview-section";
 import { MissionStatementFields } from "@/components/wizard/new-client-steps/sections/mission-statement-fields";
@@ -71,7 +73,6 @@ function EditKeyContactsSection({
   onHeadshotUpload,
   onHeadshotRemove,
   validationErrors = {},
-  setIsNewModalOpen,
 }: {
   contacts: KeyContact[];
   companyData: CompanyBasicsData;
@@ -80,30 +81,16 @@ function EditKeyContactsSection({
   onHeadshotUpload?: (index: number, file: File) => void;
   onHeadshotRemove?: (index: number) => void;
   validationErrors?: Record<string, string[]>;
-  setIsNewModalOpen?: (isOpen: boolean) => void;
 }) {
-  const getDefaultDescription = (contact: {
-    orgType?: string;
-    recordkeeper?: string;
-    organization?: string;
-  }): string => {
-    switch (contact.orgType) {
-      case "Advisor Firm":
-        return `Your dedicated financial professional for retirement plan education, enrollment assistance, and investment guidance.`;
-      case "Client":
-        return "Your primary contact for enrollment questions, plan changes, and general benefits support.";
-      case "Recordkeeper":
-        return `For account access, contributions, or transaction assistance, please contact ${contact.recordkeeper || "[Recordkeeper Name]"
-          } directly.`;
-      case "Partner/Custom":
-        return `For questions about additional benefits such as insurance, wellness, or supplemental programs, please contact ${contact.organization || "[Company Name]"
-          }.`;
-      default:
-        return `Your dedicated financial professional for retirement plan education, enrollment assistance, and investment guidance.`;
-    }
-  };
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
-  const addContact = () => {
+  // Count contacts per benefit category (for the grid summary)
+  const companyContactCount = contacts.filter((c) =>
+    c.benefitsCategories?.includes("Company / Plan Sponsor") ||
+    c.benefitsCategory === "Company / Plan Sponsor"
+  ).length;
+
+  const handleAddContactForCategory = (category: BenefitsCategory) => {
     const planOrganizationType =
       (companyData.organizationType as
         | "Advisor Firm"
@@ -111,11 +98,26 @@ function EditKeyContactsSection({
         | "Recordkeeper"
         | "Partner/Custom") || "Advisor Firm";
 
+    const getDefaultDescription = (orgType?: string): string => {
+      switch (orgType) {
+        case "Advisor Firm":
+          return `Your dedicated financial professional for retirement plan education, enrollment assistance, and investment guidance.`;
+        case "Client":
+          return "Your primary contact for enrollment questions, plan changes, and general benefits support.";
+        case "Recordkeeper":
+          return `For account access, contributions, or transaction assistance, please contact ${documentsData.recordkeeper || "[Recordkeeper Name]"} directly.`;
+        case "Partner/Custom":
+          return `For questions about additional benefits such as insurance, wellness, or supplemental programs, please contact ${companyData.companyName || "[Company Name]"}.`;
+        default:
+          return `Your dedicated financial professional for retirement plan education, enrollment assistance, and investment guidance.`;
+      }
+    };
+
     const newContact: KeyContact = {
       id: `contact-${Date.now()}`,
       contactType: "individual",
-      benefitsCategories: ["Retirement"],
-      benefitsCategory: "Retirement",
+      benefitsCategories: [category],
+      benefitsCategory: category,
       role: "Advisor / Specialist",
       isPrimaryForCategory: false,
       companyName: companyData.companyName || "",
@@ -133,33 +135,35 @@ function EditKeyContactsSection({
       name: "",
       orgType: planOrganizationType,
       organization: companyData.companyName || "",
-      description: getDefaultDescription({
-        orgType: planOrganizationType,
-        organization: companyData.companyName,
-        recordkeeper: documentsData.recordkeeper,
-      }),
+      description: getDefaultDescription(planOrganizationType),
     };
     onContactsChange([...contacts, newContact]);
   };
 
-  return (
-    <div className="space-y-4">
-      {/* Display style selector */}
-      {setIsNewModalOpen && (
-        <div className="flex justify-end">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setIsNewModalOpen(true)}
-            className="flex items-center gap-2 border-2 hover:border-blue-500 hover:bg-blue-50 transition-colors"
-          >
-            <LayoutGrid className="w-4 h-4" />
-            <span className="font-medium">Select Display Style</span>
-            <Sparkles className="w-4 h-4 text-blue-500" />
-          </Button>
-        </div>
-      )}
+  const benefitCategories: BenefitsCategory[] = [
+    "Retirement",
+    "Group Health",
+    "Group Life",
+    "Other Benefits",
+  ];
 
+  return (
+    <div className="space-y-6">
+      {/* Category grid showing contact counts per benefit category */}
+      <CategoryGrid
+        categories={benefitCategories}
+        selectedCategory={null}
+        onCategorySelect={() => {}}
+        contacts={contacts}
+        companyContactCount={companyContactCount}
+        lockCategoriesUntilSponsor={false}
+        showPlanSponsorCard={true}
+        planSponsorCompanyLogo={companyData.companyLogo?.url}
+        showContactCounts={true}
+        fromStep3b={false}
+      />
+
+      {/* Full contact editor */}
       <KeyContactsSection
         contacts={contacts}
         onContactsChange={onContactsChange}
@@ -170,10 +174,25 @@ function EditKeyContactsSection({
         recordkeeperFromStep4={documentsData.recordkeeper}
         errorFields={validationErrors.keyContacts || []}
       />
-      <Button onClick={addContact} variant="outline" className="w-full">
+
+      {/* Add Contact button */}
+      <Button
+        onClick={() => setIsAddModalOpen(true)}
+        variant="outline"
+        className="w-full"
+      >
         <Plus className="w-4 h-4 mr-2" />
         Add Contact ({contacts.length})
       </Button>
+
+      {/* Category-driven Add Contact Modal */}
+      <AddMoreContactsModal
+        open={isAddModalOpen}
+        onOpenChange={setIsAddModalOpen}
+        onSkip={() => setIsAddModalOpen(false)}
+        onAddContactForCategory={handleAddContactForCategory}
+        contacts={contacts}
+      />
     </div>
   );
 }
@@ -1084,7 +1103,6 @@ export default function EditClientPage() {
                     onHeadshotUpload={handleHeadshotUpload}
                     onHeadshotRemove={handleHeadshotRemove}
                     validationErrors={getValidationErrors()}
-                    setIsNewModalOpen={setIsNewModalOpen}
                   />
                 </CardContent>
               </Card>
