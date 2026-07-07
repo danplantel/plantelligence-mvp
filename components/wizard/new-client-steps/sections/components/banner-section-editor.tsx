@@ -3,9 +3,11 @@
 import { BannerPreviewSection } from "../banner-preview-section";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ImageIcon } from "lucide-react";
+import { ImageIcon, Settings } from "lucide-react";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import { deleteFromR2 } from "@/lib/upload-to-r2";
+import { BannerOverlaySettingsCard } from "./banner-overlay-settings-card";
+import { useHeroOverlaySettings } from "../hooks/use-hero-overlay-settings";
 import type {
   BrandImageData,
   CompanyLogoData,
@@ -90,6 +92,26 @@ export function BannerSectionEditor({
   onLogoModalRemove,
   onLogoModalClose,
 }: BannerSectionEditorProps) {
+  // Overlay settings hook for Hero section
+  const storeCompanyBasics = useNewClientWizardStore((state) => state.stepData.companyBasics);
+  const saveStepDataLocally = useNewClientWizardStore((state) => state.saveStepDataLocally);
+  
+  const {
+    heroOverlayOpacity,
+    heroBackgroundOpacity,
+    heroContainerBackgroundOpacity,
+    heroContainerBlockOpacity,
+    heroContainerInverted,
+    heroBackgroundInverted,
+    heroUseGradient,
+    handleSettingsChange,
+  } = useHeroOverlaySettings(
+    undefined,
+    onCompanyDataChange,
+    saveStepDataLocally,
+    storeCompanyBasics,
+  );
+
   return (
     <div data-section-id="banner" className="space-y-4">
       {/* Company Logo Editor at the very top — self-contained
@@ -150,6 +172,28 @@ export function BannerSectionEditor({
               });
             }}
             placeholder="Upload Logo"
+          />
+        </CardContent>
+      </Card>
+
+      {/* Hero Overlay Settings */}
+      <Card className="dark:bg-gray-800">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 dark:text-gray-100">
+            <Settings className="w-5 h-5 text-accent-blue" />
+            Hero Overlay Settings
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <BannerOverlaySettingsCard
+            ref={overlaySettingsCardRef}
+            backgroundOpacity={heroBackgroundOpacity}
+            containerBlockOpacity={heroContainerBlockOpacity}
+            containerInverted={heroContainerInverted}
+            backgroundInverted={heroBackgroundInverted}
+            useGradient={heroUseGradient}
+            onSettingsChange={handleSettingsChange}
+            isHighlighted={isOverlaySettingsHighlighted}
           />
         </CardContent>
       </Card>
