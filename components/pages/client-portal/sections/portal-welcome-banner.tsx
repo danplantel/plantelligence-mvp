@@ -247,18 +247,16 @@ export function PortalWelcomeBanner({
                 </div>
               </div>
 
-              {/* RIGHT: Benefits Logo */}
-              <div className="order-1 lg:order-2 relative flex items-center justify-center p-6 lg:p-8">
+              {/* RIGHT: Benefits Logo — no border/background/padding */}
+              <div className="order-1 lg:order-2 relative flex items-center justify-center">
                 {benefitsLogoUrl ? (
-                  <div className="relative flex w-full items-center justify-center rounded-lg bg-white p-8 shadow-xl backdrop-blur-sm">
-                    <BrandingImage
-                      src={benefitsLogoUrl}
-                      alt={benefitsLogoAlt}
-                      className="h-auto max-h-40 w-auto max-w-full object-contain"
-                    />
-                  </div>
+                  <BrandingImage
+                    src={benefitsLogoUrl}
+                    alt={benefitsLogoAlt}
+                    className="h-auto max-h-40 w-auto max-w-full object-contain border-0 outline-0"
+                  />
                 ) : (
-                  <div className="relative flex min-h-[200px] w-full items-center justify-center rounded-lg bg-white/5 shadow-xl">
+                  <div className="relative flex min-h-[200px] w-full items-center justify-center">
                     <span className="text-sm font-semibold tracking-wider text-white/50">
                       BENEFITS LOGO
                     </span>
@@ -354,18 +352,16 @@ export function PortalWelcomeBanner({
               </div>
             </div>
 
-            {/* RIGHT: Benefits Logo */}
-            <div className="order-1 lg:order-2 relative flex w-full items-center justify-center p-6 lg:p-8">
+            {/* RIGHT: Benefits Logo — no border/background/padding */}
+            <div className="order-1 lg:order-2 relative flex w-full items-center justify-center">
               {benefitsLogoUrl ? (
-                <div className="relative flex w-full items-center justify-center rounded-lg bg-white p-8 shadow-xl backdrop-blur-sm">
-                  <BrandingImage
-                    src={benefitsLogoUrl}
-                    alt={benefitsLogoAlt}
-                    className="h-auto max-h-40 w-auto max-w-full object-contain"
-                  />
-                </div>
+                <BrandingImage
+                  src={benefitsLogoUrl}
+                  alt={benefitsLogoAlt}
+                  className="h-auto max-h-40 w-auto max-w-full object-contain border-0 outline-0"
+                />
               ) : (
-                <div className="relative flex min-h-[200px] w-full items-center justify-center rounded-lg bg-white/5 shadow-xl">
+                <div className="relative flex min-h-[200px] w-full items-center justify-center">
                   <span className="text-sm font-semibold tracking-wider text-white/50">
                     BENEFITS LOGO
                   </span>
