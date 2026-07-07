@@ -125,7 +125,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
   const brandColor = stepData.companyBasics?.primaryColor || "#1F3A60";
   const secondaryColor = stepData.companyBasics?.secondaryColor || "#6B7280";
 
-  // ── Build ClientPortal data from wizard store (used in mobile preview) ──
+  // ── Build ClientPortal data from wizard store (used in mobile & desktop preview) ──
   const portalData = useMemo(() => {
     const cb = stepData.companyBasics;
     return {
@@ -880,18 +880,6 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
           className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-300 dark:bg-gray-950 flex flex-col items-center"
         >
           {previewMode === "mobile" ? (
-            /* ── Mobile: rendered in an iframe so viewport-based
-             *    media queries (Tailwind sm:, md:, lg:) evaluate
-             *    against the iframe's actual MOBILE_WIDTH.
-             *    Uses the full ClientPortal component to exactly
-             *    mimic the benefits hub landing page
-             *    (app/new/view/[id]/page.tsx) including PortalHero,
-             *    PortalMission, PortalBenefits, and PortalDisclaimers.
-             *    PortalHeader is wrapped in a fixed container
-             *    matching app/new/view/[id]/layout.tsx structure.
-             *    The iframe uses 9:21 aspect ratio with max-height
-             *    capped to available space so it doesn't overflow
-             *    the bottom nav or toolbar. ── */
             <MobilePreviewFrame width={MOBILE_WIDTH}>
               <div className="fixed top-0 left-0 w-full z-50">
                 <PortalHeader
@@ -913,7 +901,8 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
               </div>
             </MobilePreviewFrame>
           ) : (
-            /* ── Desktop: scaled preview ── */
+            /* ── Desktop: scaled preview using ClientPortal to
+             *    match the benefits hub landing page UI. ── */
             <div style={{ height: scaledHeight != null ? `${scaledHeight}px` : "100%" }}>
               <div
                 ref={previewContentRef}
@@ -924,7 +913,12 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
                   overflowX: "hidden",
                 }}
               >
-                {previewContent}
+                <ClientPortal
+                  data={portalData}
+                  hideHeader={true}
+                  hideFooter={false}
+                  clientId={draftClientId}
+                />
               </div>
             </div>
           )}
