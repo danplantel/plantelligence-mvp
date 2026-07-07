@@ -846,10 +846,10 @@ export default function EditClientPage() {
         <EditClientHeader
           clientStatus={clientStatus}
           onStatusChange={setClientStatus}
-          onPreviewClick={() => setShowPreview(true)}
           onBackClick={() => router.push("/new/clients")}
           hasClient={!!client}
           isFormValid={isFormValid()}
+          clientId={clientId}
         />
 
         <div className="mx-auto max-w-5xl px-4">

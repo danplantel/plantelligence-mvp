@@ -9,25 +9,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Eye } from "lucide-react";
+import { ArrowLeft, ExternalLink } from "lucide-react";
 
 interface EditClientHeaderProps {
   clientStatus: string;
   onStatusChange: (status: string) => void;
-  onPreviewClick: () => void;
   onBackClick: () => void;
   hasClient: boolean;
   isFormValid: boolean;
+  clientId?: string;
 }
 
 export function EditClientHeader({
   clientStatus,
   onStatusChange,
-  onPreviewClick,
   onBackClick,
   hasClient,
   isFormValid,
+  clientId,
 }: EditClientHeaderProps) {
+  const handleOpenPortal = () => {
+    if (clientId) {
+      window.open(`/new/view/${clientId}`, "_blank", "noopener,noreferrer");
+    }
+  };
+
   return (
     <div className="flex items-center justify-between mx-auto max-w-5xl ">
       <div className="flex items-center gap-4">
@@ -73,12 +79,12 @@ export function EditClientHeader({
 
         <Button
           variant="default"
-          onClick={onPreviewClick}
-          disabled={!hasClient}
+          onClick={handleOpenPortal}
+          disabled={!hasClient || !clientId}
           className="font-medium px-6"
         >
-          <Eye className="mr-2 h-4 w-4" />
-          Preview Portal
+          <ExternalLink className="mr-2 h-4 w-4" />
+          Open Portal
         </Button>
       </div>
     </div>
