@@ -259,7 +259,7 @@ function EditKeyContactsSection({
             <CardContent className="p-4">
               {categoryContacts.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-4">
-                  No contacts assigned to {section.label}. Click "Add" to create one.
+                  No contacts assigned to {section.label}. Click &ldquo;Add&rdquo; to create one.
                 </p>
               ) : (
                 <KeyContactsSection
