@@ -334,17 +334,20 @@ export function BenefitsStep2() {
                     height: `calc(100vh - ${totalFixedHeight}px)`,
                 }}
             >
-                {/* Portal header — sticky at top of the scroll container */}
-                <div className="sticky top-0 z-10 shadow-md">
-                    <PortalHeader
-                        companyData={{ companyLogo: planCompanyLogo }}
-                        brandColor={brandColor}
-                        secondaryColor={secondaryColor}
-                        clientId={step1Data?.planId}
-                        categoryPortalVisibility={step1Data?.benefitVisibility ?? null}
-                        benefits={(step1Data?.selectedPlan as any)?.employeePortalPreview?.benefits ?? null}
-                    />
-                </div>
+                {/* Portal header — sticky at top of the scroll container.
+                    Hidden in mobile mode where it's rendered inside the iframe. */}
+                {previewMode !== "mobile" && (
+                    <div className="sticky top-0 z-10 shadow-md">
+                        <PortalHeader
+                            companyData={{ companyLogo: planCompanyLogo }}
+                            brandColor={brandColor}
+                            secondaryColor={secondaryColor}
+                            clientId={step1Data?.planId}
+                            categoryPortalVisibility={step1Data?.benefitVisibility ?? null}
+                            benefits={(step1Data?.selectedPlan as any)?.employeePortalPreview?.benefits ?? null}
+                        />
+                    </div>
+                )}
 
                 {/* Scrollable content — items-center keeps the preview centered */}
                 <div
@@ -354,9 +357,23 @@ export function BenefitsStep2() {
                     {previewMode === "mobile" ? (
                         /* ── Mobile: rendered in an iframe so viewport-based
                          *    media queries (Tailwind sm:, md:, lg:) evaluate
-                         *    against the iframe's actual 390px width. ── */
+                         *    against the iframe's actual 390px width.
+                         *    PortalHeader is wrapped in a fixed container
+                         *    matching app/new/view/[id]/layout.tsx structure. ── */
                         <MobilePreviewFrame width={390}>
-                            <BenefitPortalPreview mobile />
+                            <div className="fixed top-0 left-0 w-full z-50">
+                                <PortalHeader
+                                    companyData={{ companyLogo: planCompanyLogo }}
+                                    brandColor={brandColor}
+                                    secondaryColor={secondaryColor}
+                                    clientId={step1Data?.planId}
+                                    categoryPortalVisibility={step1Data?.benefitVisibility ?? null}
+                                    benefits={(step1Data?.selectedPlan as any)?.employeePortalPreview?.benefits ?? null}
+                                />
+                            </div>
+                            <div className="pt-20">
+                                <BenefitPortalPreview mobile />
+                            </div>
                         </MobilePreviewFrame>
                     ) : (
                         /* ── Desktop: scaled preview ── */
