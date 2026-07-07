@@ -16,7 +16,10 @@ const BOTTOM_NAV_HEIGHT = 72;
 
 export function BenefitsStep2() {
     const editorState = useBenefitsEditorState();
-    const { editorScrollContainerRef } = useBenefitsLenisScroll(editorState.isEditorOpen);
+    // Disable main Lenis smooth scroll — the preview uses native scrolling,
+    // and the page scroll is locked. Lenis would intercept wheel events and
+    // prevent them from reaching the preview container.
+    const { editorScrollContainerRef } = useBenefitsLenisScroll(editorState.isEditorOpen, true);
     const { currentStep } = useBenefitsWizardStore();
     const [editorInitialized, setEditorInitialized] = useState(false);
     const barRef = useRef<HTMLDivElement>(null);
@@ -57,6 +60,20 @@ export function BenefitsStep2() {
             observer.observe(barRef.current);
             return () => observer.disconnect();
         }
+    }, []);
+
+    // ── Lock body scroll while on Step 2 ──
+    // The preview has its own scrollable container; the page scrollbar
+    // is unnecessary and creates a double-scrollbar appearance.
+    useEffect(() => {
+        const originalBodyOverflow = document.body.style.overflow;
+        const originalHtmlOverflow = document.documentElement.style.overflow;
+        document.body.style.overflow = "hidden";
+        document.documentElement.style.overflow = "hidden";
+        return () => {
+            document.body.style.overflow = originalBodyOverflow;
+            document.documentElement.style.overflow = originalHtmlOverflow;
+        };
     }, []);
 
     // ── Scale calculation ──
@@ -169,7 +186,7 @@ export function BenefitsStep2() {
                 ════════════════════════════════════════════════════════════════ */}
             <div
                 ref={previewContainerRef}
-                className="fixed z-40 overflow-auto bg-gray-300 dark:bg-gray-950"
+                className="fixed z-40 overflow-y-auto overflow-x-hidden bg-gray-300 dark:bg-gray-950"
                 style={{
                     top: `${HEADER_HEIGHT + barHeight}px`,
                     left: "var(--sidebar-width, 18rem)",
@@ -189,6 +206,8 @@ export function BenefitsStep2() {
                     {/*
                      * Inner wrapper: rendered at native desktop width (1400px)
                      * then scaled via CSS transform to fit the preview pane.
+                     * overflow-x-hidden prevents the preview component's own
+                     * overflow-x-auto from creating an extra scrollbar.
                      */}
                     <div
                         ref={previewContentRef}
@@ -196,6 +215,7 @@ export function BenefitsStep2() {
                             transform: `scale(${scale})`,
                             transformOrigin: "top left",
                             width: `${NATIVE_PREVIEW_WIDTH}px`,
+                            overflowX: "hidden",
                         }}
                     >
                         <BenefitPortalPreview />
