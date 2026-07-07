@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import Lenis from "@studio-freight/lenis";
 
-export function useLenisScroll(isEditorOpen: boolean) {
+export function useLenisScroll(isEditorOpen: boolean, disableMain?: boolean) {
   const lenisRef = useRef<Lenis | null>(null);
   const lenisRafIdRef = useRef<number | null>(null);
   const lenisEditorRef = useRef<Lenis | null>(null);
@@ -72,8 +72,10 @@ export function useLenisScroll(isEditorOpen: boolean) {
   );
 
   // Enable Lenis smooth scroll for main page
+  // Skipped when disableMain is true (e.g. Step 2 where the preview uses native scroll)
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (disableMain) return;
 
     const lenis = new Lenis({
       duration: 0.8,
@@ -119,7 +121,7 @@ export function useLenisScroll(isEditorOpen: boolean) {
       lenis.destroy();
       lenisRef.current = null;
     };
-  }, [syncScroll, isEditorOpen]);
+  }, [disableMain, syncScroll, isEditorOpen]);
 
   // Lenis instance for the side editor panel
   useEffect(() => {

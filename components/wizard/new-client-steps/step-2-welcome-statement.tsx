@@ -157,9 +157,9 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
   const [scale, setScale] = useState(1);
   const [scaledHeight, setScaledHeight] = useState<number | undefined>(undefined);
 
-  // Lenis scroll setup
+  // Lenis scroll setup — disable main Lenis so wheel events reach the preview
   const { editorScrollContainerRef, scrollSyncSourceRef } = useLenisScroll(
-    editorState.isEditorOpen,
+    editorState.isEditorOpen, true,
   );
 
   // Field focus
