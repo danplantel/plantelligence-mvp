@@ -44,7 +44,7 @@ import { resolvePersistedDocumentCategory } from "@/lib/document-category";
 import { getCategoryHeroBackgroundUrl } from "@/lib/portal-category-hero-background";
 import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
 
-export function BenefitPortalPreview() {
+export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
     const { stepData } = useBenefitsWizardStore();
     const step1Data = stepData.step1;
     const step3Data = stepData.step3;
@@ -204,8 +204,19 @@ export function BenefitPortalPreview() {
     );
 
     return (
-        <div className="min-h-screen bg-black overflow-x-auto relative w-full preview-portal-container">
-            <style>{previewStyles}</style>
+        <div className={mobile ? "min-h-screen bg-black overflow-x-hidden relative w-full" : "min-h-screen bg-black overflow-x-auto relative w-full preview-portal-container"}>
+            {/* In mobile mode, skip previewStyles so the content uses natural responsive widths */}
+            {!mobile && <style>{previewStyles}</style>}
+            {/* Mobile mode: force framer-motion animated elements visible
+                (useInView / IntersectionObserver may not fire inside the iframe) */}
+            {mobile && (
+                <style>{`
+                    .force-visible [style*="opacity: 0"] {
+                        opacity: 1 !important;
+                        transform: translateY(0) !important;
+                    }
+                `}</style>
+            )}
             <main>
                 <div
                     className="relative cursor-pointer"
@@ -246,7 +257,7 @@ export function BenefitPortalPreview() {
                     />
                 </div>
 
-                <div className="relative group">
+                <div className={mobile ? "force-visible relative" : "relative group"}>
                     <HowCanWeHelpSection
                         brandColor={brandColor}
                         secondaryColor={secondaryColor}

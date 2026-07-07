@@ -35,31 +35,32 @@ function MobilePreviewFrame({ children, width }: { children: React.ReactNode; wi
         const doc = iframe.contentDocument;
         if (!doc) return;
 
-        // Reset the iframe document
+        // Reset the iframe document with viewport meta so media queries
+        // evaluate against the iframe's actual width (390px), not a default.
         doc.open();
-        doc.write("<!DOCTYPE html><html><head></head><body></body></html>");
+        doc.write(
+            '<!DOCTYPE html><html><head>' +
+            '<meta name="viewport" content="width=' + width + ', initial-scale=1">' +
+            '</head><body></body></html>',
+        );
         doc.close();
 
-        // Copy stylesheets from parent to iframe
+        // Copy stylesheets from parent to iframe so Tailwind etc. apply.
         const parentStyles = Array.from(
             document.querySelectorAll("style, link[rel=stylesheet]"),
         ) as (HTMLStyleElement | HTMLLinkElement)[];
 
         parentStyles.forEach((el) => {
             const clone = el.cloneNode(true) as HTMLElement;
-            // Fix relative URLs in link hrefs
-            if (clone instanceof HTMLLinkElement && clone.href) {
-                clone.href = clone.href; // browser resolves relative URLs
-            }
             doc.head.appendChild(clone);
         });
 
-        // Copy body classes (for dark mode, theme, etc.)
+        // Copy body classes (dark mode, theme, etc.)
         document.body.classList.forEach((cls) => {
             doc.body.classList.add(cls);
         });
 
-        // Copy CSS custom properties from :root
+        // Copy CSS custom properties from parent :root
         const rootStyles = getComputedStyle(document.documentElement);
         const vars = Array.from(document.documentElement.style).filter((k) =>
             k.startsWith("--"),
@@ -73,7 +74,7 @@ function MobilePreviewFrame({ children, width }: { children: React.ReactNode; wi
         return () => {
             setMountNode(null);
         };
-    }, []);
+    }, [width]);
 
     return (
         <iframe
@@ -355,7 +356,7 @@ export function BenefitsStep2() {
                          *    media queries (Tailwind sm:, md:, lg:) evaluate
                          *    against the iframe's actual 390px width. ── */
                         <MobilePreviewFrame width={390}>
-                            <BenefitPortalPreview />
+                            <BenefitPortalPreview mobile />
                         </MobilePreviewFrame>
                     ) : (
                         /* ── Desktop: scaled preview ── */
