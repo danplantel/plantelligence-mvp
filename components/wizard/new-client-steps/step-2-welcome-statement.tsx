@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import { BannerPreviewSection } from "./sections/banner-preview-section";
@@ -28,6 +28,7 @@ import { autoCropThumbnailImage } from "./sections/utils/thumbnail-utils";
 import { deleteFromR2 } from "@/lib/upload-to-r2";
 import { Smartphone, Monitor } from "lucide-react";
 import { PortalHeader } from "@/components/pages/client-portal/sections/portal-header";
+import { ClientPortal } from "@/components/pages/client-portal/client-portal";
 
 const defaultHeadline = "Here to Support You - Today and Every Day.";
 const defaultWelcomeBodyText =
@@ -123,6 +124,42 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
   const planCompanyLogo = stepData.companyBasics?.companyLogo?.url ?? undefined;
   const brandColor = stepData.companyBasics?.primaryColor || "#1F3A60";
   const secondaryColor = stepData.companyBasics?.secondaryColor || "#6B7280";
+
+  // ── Build ClientPortal data from wizard store (used in mobile preview) ──
+  const portalData = useMemo(() => {
+    const cb = stepData.companyBasics;
+    return {
+      companyData: {
+        companyName: cb?.companyName || "",
+        companyWebsite: cb?.companyWebsite || "",
+        companyLogo: cb?.companyLogo?.url || "",
+        logoFileName: cb?.companyLogo?.fileName || "",
+        brandColor: cb?.primaryColor,
+        secondaryColor: cb?.secondaryColor,
+        missionHeadline: cb?.missionHeadline || "",
+        missionBody: cb?.missionBody || "",
+        appointmentLink: cb?.appointmentLink || "",
+        backgroundImg: cb?.brandImages?.header?.url || "",
+        backgroundImgName: cb?.brandImages?.header?.fileName || "",
+        thumbnailImg: cb?.brandImages?.thumbnail?.url || "",
+        thumbnailImgName: cb?.brandImages?.thumbnail?.fileName || "",
+        disclaimers: "",
+        heroTitle: cb?.heroTitle,
+        heroDescription: cb?.heroDescription,
+        heroContainerOpacity: cb?.heroContainerOpacity,
+        heroContainerBackgroundOpacity: cb?.heroContainerBackgroundOpacity,
+        heroContainerBlockOpacity: cb?.heroContainerBlockOpacity,
+        heroCompanyNameColor: cb?.heroCompanyNameColor,
+        heroContainerInverted: cb?.heroContainerInverted,
+        heroBackgroundInverted: cb?.heroBackgroundInverted,
+        brandImages: cb?.brandImages,
+      },
+      keyContacts: [],
+      documents: [],
+      employeePortalPreview: stepData.employeePortalPreview,
+      categoryPortalVisibility: null,
+    };
+  }, [stepData.companyBasics, stepData.employeePortalPreview]);
 
   // Hooks
   const editorState = useEditorState({ autoOpen: true });
@@ -846,6 +883,10 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
             /* ── Mobile: rendered in an iframe so viewport-based
              *    media queries (Tailwind sm:, md:, lg:) evaluate
              *    against the iframe's actual MOBILE_WIDTH.
+             *    Uses the full ClientPortal component to exactly
+             *    mimic the benefits hub landing page
+             *    (app/new/view/[id]/page.tsx) including PortalHero,
+             *    PortalMission, PortalBenefits, and PortalDisclaimers.
              *    PortalHeader is wrapped in a fixed container
              *    matching app/new/view/[id]/layout.tsx structure.
              *    The iframe uses 9:21 aspect ratio with max-height
@@ -863,7 +904,12 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
                 />
               </div>
               <div className="pt-20">
-                {previewContent}
+                <ClientPortal
+                  data={portalData}
+                  hideHeader={true}
+                  hideFooter={false}
+                  clientId={draftClientId}
+                />
               </div>
             </MobilePreviewFrame>
           ) : (
