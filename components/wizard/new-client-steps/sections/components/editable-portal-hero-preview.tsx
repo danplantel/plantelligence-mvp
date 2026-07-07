@@ -81,18 +81,7 @@ export function EditablePortalHeroPreview({
 
   return (
     <div className="relative overflow-hidden rounded-t-xl h-full flex-1 bg-white m-auto dark:bg-gray-900">
-      <PortalHeader
-        companyData={{
-          companyLogo: companyLogo || "",
-        }}
-        brandColor={brandColor}
-        secondaryColor={secondaryColor}
-        clientId="asdas"
-        enableNavigation={false}
-        showAlertBanner={false}
-        enableLogoHover={true}
-        onLogoClick={onLogoClick}
-      />
+
 
       <PortalHero
         companyData={
