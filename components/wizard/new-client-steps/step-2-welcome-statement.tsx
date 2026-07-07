@@ -856,6 +856,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
           onHeadlineChange={missionData.handleHeadlineChange} onBodyChange={missionData.handleBodyChange}
           onUseDefaultHeadlineChange={missionData.handleUseDefaultHeadline} onUseDefaultBodyChange={missionData.handleUseDefaultBody}
           onGenerateMissionHeadline={missionData.handleGenerateMissionHeadline} onGenerateMissionBody={missionData.handleGenerateMissionBody}
+          thumbnailImgUrl={stepData.companyBasics?.brandImages?.thumbnail?.url}
         />
         <div data-section-id="thumbnail" ref={missionFieldsRef} style={{ minHeight: "1px", height: "60px" }} />
       </EditorPanelWrapper>
