@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useRef } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -9,6 +9,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Plus,
+  Users,
+  Shield,
+  Heart,
+  Gift,
 } from "lucide-react";
 import {
   ActionsSection,
@@ -140,18 +144,52 @@ function EditKeyContactsSection({
     onContactsChange([...contacts, newContact]);
   };
 
-  const benefitCategories: BenefitsCategory[] = [
-    "Retirement",
-    "Group Health",
-    "Group Life",
-    "Other Benefits",
+  // All categories including Company/Plan Sponsor + External HR
+  interface CategorySection {
+    id: string;
+    label: string;
+    icon: React.ReactNode;
+    isExternal?: boolean;
+  }
+
+  const categorySections: CategorySection[] = [
+    { id: "Company / Plan Sponsor", label: "Company / Plan Sponsor", icon: <Users className="w-5 h-5 text-accent-blue" /> },
+    { id: "Retirement", label: "Retirement", icon: <Building2 className="w-5 h-5 text-accent-blue" /> },
+    { id: "Group Health", label: "Group Health", icon: <Shield className="w-5 h-5 text-accent-blue" /> },
+    { id: "Group Life", label: "Group Life", icon: <Heart className="w-5 h-5 text-accent-blue" /> },
+    { id: "Other Benefits", label: "Other Benefits", icon: <Gift className="w-5 h-5 text-accent-blue" /> },
+    { id: "__external__", label: "External HR / Administrator", icon: <Users className="w-5 h-5 text-amber-500" />, isExternal: true },
   ];
+
+  const allCategoryIds = categorySections.map((s) => s.id);
+
+  // Group contacts by their benefit category
+  const contactsByCategory = useMemo(() => {
+    const grouped: Record<string, KeyContact[]> = {};
+    for (const section of categorySections) {
+      if (section.isExternal) {
+        // External: contacts with role "External HR / Administrator" or contactType "team_support"
+        // External: contacts with "External HR / Administrator" role or team_support contactType
+        grouped[section.id] = contacts.filter((c) =>
+          c.contactType === "team_support" ||
+          (c.role === "Other" && c.roleOther === "External HR / Administrator") ||
+          (c.role as string) === "External HR / Administrator"
+        );
+      } else {
+        grouped[section.id] = contacts.filter((c) =>
+          c.benefitsCategories?.includes(section.id as BenefitsCategory) ||
+          c.benefitsCategory === section.id
+        );
+      }
+    }
+    return grouped;
+  }, [contacts]);
 
   return (
     <div className="space-y-6">
       {/* Category grid showing contact counts per benefit category */}
       <CategoryGrid
-        categories={benefitCategories}
+        categories={["Retirement", "Group Health", "Group Life", "Other Benefits"]}
         selectedCategory={null}
         onCategorySelect={() => {}}
         contacts={contacts}
@@ -163,17 +201,94 @@ function EditKeyContactsSection({
         fromStep3b={false}
       />
 
-      {/* Full contact editor */}
-      <KeyContactsSection
-        contacts={contacts}
-        onContactsChange={onContactsChange}
-        onHeadshotUpload={onHeadshotUpload}
-        onHeadshotRemove={onHeadshotRemove}
-        organizationName={companyData.companyName}
-        companyLogo={companyData.companyLogo?.url}
-        recordkeeperFromStep4={documentsData.recordkeeper}
-        errorFields={validationErrors.keyContacts || []}
-      />
+      {/* Category-grouped contact sections */}
+      {categorySections.map((section) => {
+        const categoryContacts = contactsByCategory[section.id] || [];
+        const matchField = section.isExternal ? "role" : "benefitsCategory";
+        return (
+          <Card key={section.id} className="overflow-hidden border-gray-200 dark:border-gray-700">
+            <CardHeader className="bg-gray-50/80 dark:bg-gray-800/80 py-3 px-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {section.icon}
+                  <CardTitle className="text-base font-semibold">{section.label}</CardTitle>
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-1">
+                    {categoryContacts.length}
+                  </Badge>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    if (section.isExternal) {
+                      const newContact: KeyContact = {
+                        id: `contact-${Date.now()}`,
+                        contactType: "team_support",
+                        benefitsCategories: [],
+                        benefitsCategory: undefined,
+                        role: "Other",
+                        roleOther: "External HR / Administrator",
+                        isPrimaryForCategory: false,
+                        companyName: "",
+                        companyLogo: undefined,
+                        firstName: "",
+                        lastName: "",
+                        title: "",
+                        email: "",
+                        phone: "",
+                        website: "",
+                        showOnPortal: true,
+                        enableContactButton: true,
+                        isPrimary: false,
+                        displayScope: "thisPortal",
+                        name: "",
+                        orgType: "Advisor Firm",
+                        description: "External HR or administrator contact for benefits support.",
+                      };
+                      onContactsChange([...contacts, newContact]);
+                    } else {
+                      handleAddContactForCategory(section.id as BenefitsCategory);
+                    }
+                  }}
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" />
+                  Add
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4">
+              {categoryContacts.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-4">
+                  No contacts assigned to {section.label}. Click "Add" to create one.
+                </p>
+              ) : (
+                <KeyContactsSection
+                  contacts={categoryContacts}
+                  onContactsChange={(updatedContacts) => {
+                    const otherContacts = contacts.filter((c) => {
+                      if (section.isExternal) {
+                        const isExternal = c.contactType === "team_support" ||
+                          (c.role === "Other" && c.roleOther === "External HR / Administrator") ||
+                          (c.role as string) === "External HR / Administrator";
+                        return !isExternal;
+                      }
+                      return !(c.benefitsCategories?.includes(section.id as BenefitsCategory) ||
+                        c.benefitsCategory === section.id);
+                    });
+                    onContactsChange([...otherContacts, ...updatedContacts]);
+                  }}
+                  onHeadshotUpload={onHeadshotUpload}
+                  onHeadshotRemove={onHeadshotRemove}
+                  organizationName={companyData.companyName}
+                  companyLogo={companyData.companyLogo?.url}
+                  recordkeeperFromStep4={documentsData.recordkeeper}
+                  errorFields={validationErrors.keyContacts || []}
+                />
+              )}
+            </CardContent>
+          </Card>
+        );
+      })}
 
       {/* Add Contact button */}
       <Button
