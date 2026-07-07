@@ -137,7 +137,7 @@ export function NewsPostList({
                   )}
 
                   {/* Dark overlay — left-to-right gradient: darker on left for text readability, transparent on right for image visibility */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-black/95 from-60% via-black/50 via-85% to-transparent sm:from-black/95 sm:via-black/60 sm:to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-black/100 from-30% via-black/30 via-55% to-transparent sm:from-black/95 sm:via-black/50 sm:to-transparent" />
 
                   {/* Content — wider on mobile for better readability, constrained on desktop */}
                   <div className="relative z-10 flex flex-col h-full p-5 sm:p-8 max-w-[80%] sm:max-w-[55%]">
@@ -180,7 +180,7 @@ export function NewsPostList({
 
                     {/* Body */}
                     {post.body && (
-                      <p className="text-xs sm:text-sm text-gray-300 sm:text-gray-200 leading-relaxed line-clamp-2 sm:line-clamp-3 mt-2 sm:mt-3 flex-1">
+                      <p className="text-lg sm:text-sm text-gray-300 sm:text-gray-200 leading-relaxed line-clamp-2 sm:line-clamp-3 mt-2 sm:mt-3 flex-1">
                         {post.body}
                       </p>
                     )}

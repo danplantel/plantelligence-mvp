@@ -2082,7 +2082,7 @@ function NewsPostPreview({
             <img src={bgSrc} alt="" className="absolute inset-0 w-full h-full object-cover" />
           )}
           {/* Dark overlay — left-to-right gradient: dark on left for text, transparent on right for image */}
-          <div className="absolute inset-0 bg-gradient-to-r from-black/100 via-black/90 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/100 via-black/50 to-transparent" />
           {cardContent}
         </div>
       </div>
@@ -2099,7 +2099,7 @@ function NewsPostPreview({
           <img src={bgSrc} alt="" className="absolute inset-0 w-full h-full object-cover" />
         )}
         {/* Dark overlay — left-to-right gradient: dark on left for text, transparent on right for image */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/100 via-black/90 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/100 via-black/50 to-transparent" />
         {cardContent}
       </div>
     </div>
