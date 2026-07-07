@@ -179,7 +179,7 @@ function EditKeyContactsSection({
       <Button
         onClick={() => setIsAddModalOpen(true)}
         variant="outline"
-        className="w-full bg-accent-blue text-white"
+        className="w-full lg:w-[320px] lg:flex lg:items-center lg:justify-center lg:mx-auto bg-accent-blue text-white"
       >
         <Plus className="w-4 h-4 mr-2" />
         Add Contact ({contacts.length})
