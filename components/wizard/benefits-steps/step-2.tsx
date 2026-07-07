@@ -1,11 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { BenefitPortalPreview } from "./benefit-portal-preview";
 import { BenefitsEditorPanel } from "./benefits-editor-panel";
 import { useBenefitsEditorState } from "./hooks/use-benefits-editor-state";
 import { useBenefitsLenisScroll } from "./hooks/use-benefits-lenis-scroll";
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
+
+/** The native (unscaled) desktop width of the preview in px */
+const NATIVE_PREVIEW_WIDTH = 1400;
+/** Width of the editor panel when open */
+const EDITOR_PANEL_WIDTH = 420;
 
 export function BenefitsStep2() {
     const editorState = useBenefitsEditorState();
@@ -14,6 +19,12 @@ export function BenefitsStep2() {
     const [editorInitialized, setEditorInitialized] = useState(false);
     const barRef = useRef<HTMLDivElement>(null);
     const [barHeight, setBarHeight] = useState(52);
+
+    // ── Preview scaling state ──
+    const previewContainerRef = useRef<HTMLDivElement>(null);
+    const previewContentRef = useRef<HTMLDivElement>(null);
+    const [scale, setScale] = useState(1);
+    const [scaledHeight, setScaledHeight] = useState<number | undefined>(undefined);
 
     // Initialize editor as open on mount with default section
     useEffect(() => {
@@ -46,10 +57,54 @@ export function BenefitsStep2() {
         }
     }, []);
 
+    // ── Scale calculation: fit the 1400px desktop preview into the available pane ──
+    const updateScale = useCallback(() => {
+        const container = previewContainerRef.current;
+        const content = previewContentRef.current;
+        if (!container || !content) return;
+
+        const availableWidth = container.clientWidth;
+        const newScale = Math.min(availableWidth / NATIVE_PREVIEW_WIDTH, 1);
+        setScale(newScale);
+
+        // The scaled wrapper needs an explicit height because CSS transform
+        // does not affect layout – the element still occupies its original size.
+        // We set the wrapper height to contentHeight × scale so the scrollable
+        // area matches the visual size.
+        const contentHeight = content.scrollHeight;
+        setScaledHeight(contentHeight * newScale);
+    }, []);
+
+    useEffect(() => {
+        // Initial measurement after layout
+        const raf = requestAnimationFrame(() => updateScale());
+        return () => cancelAnimationFrame(raf);
+    }, [updateScale, editorState.isEditorOpen]);
+
+    useEffect(() => {
+        const container = previewContainerRef.current;
+        if (!container) return;
+
+        const observer = new ResizeObserver(() => {
+            updateScale();
+        });
+        observer.observe(container);
+        return () => observer.disconnect();
+    }, [updateScale]);
+
+    // Also recalculate when editor open/close transition completes
+    useEffect(() => {
+        if (!editorState.isEditorOpen) {
+            // Editor just closed – preview container width changed, recalc after paint
+            const timer = setTimeout(() => updateScale(), 350);
+            return () => clearTimeout(timer);
+        }
+    }, [editorState.isEditorOpen, updateScale]);
+
     const editorIsOpen = editorState.isEditorOpen || editorState.isEditorAnimating;
 
     return (
-        <div className="w-full space-y-4 transition-all duration-200">
+        <div className="w-full transition-all duration-200">
             {/* Spacer so content doesn't jump behind the fixed bar */}
             <div style={{ height: barHeight }} />
 
@@ -96,25 +151,65 @@ export function BenefitsStep2() {
                 </div>
             </div>
 
-            {/* Editor Panel */}
-            <BenefitsEditorPanel
-                isOpen={editorState.isEditorOpen}
-                isAnimating={editorState.isEditorAnimating}
-                onClose={editorState.handleCloseEditor}
-                activeSection={editorState.activeSection}
-                highlightedField={editorState.highlightedField}
-                editorScrollContainerRef={editorScrollContainerRef}
-            />
+            {/* ════════════════════════════════════════════════════════════════
+                Elementor-style flex layout: Edit Panel | Preview
+                ════════════════════════════════════════════════════════════════ */}
+            <div
+                className="flex"
+                style={{
+                    height: `calc(100vh - 55px - ${barHeight}px)`,
+                }}
+            >
+                {/* ── Editor Panel (inline, not fixed) ── */}
+                {editorIsOpen && (
+                    <div
+                        className="flex-shrink-0 h-full overflow-hidden border-r border-gray-200 dark:border-gray-700 transition-all duration-300"
+                        style={{ width: `${EDITOR_PANEL_WIDTH}px` }}
+                    >
+                        <BenefitsEditorPanel
+                            isOpen={editorState.isEditorOpen}
+                            isAnimating={editorState.isEditorAnimating}
+                            onClose={editorState.handleCloseEditor}
+                            activeSection={editorState.activeSection}
+                            highlightedField={editorState.highlightedField}
+                            editorScrollContainerRef={editorScrollContainerRef}
+                            variant="inline"
+                        />
+                    </div>
+                )}
 
-            {/* Preview */}
-            <div className="mb-6 text-center">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Portal Preview</h2>
-                <p className="text-gray-500 dark:text-gray-200">Preview exactly how this benefit will appear to employees on the portal.</p>
-            </div>
-
-            <div className="relative w-screen overflow-x-auto" style={{ marginLeft: 'calc(-50vw + 50%)', width: '100vw' }}>
-                <div className="relative">
-                    <BenefitPortalPreview />
+                {/* ── Preview pane — fills remaining space ── */}
+                <div
+                    ref={previewContainerRef}
+                    className="flex-1 h-full overflow-auto bg-gray-300 dark:bg-gray-950"
+                >
+                    {/*
+                     * Outer wrapper: explicit height = contentHeight × scale
+                     * so the scrollable area matches the visual size of the
+                     * scaled content beneath.
+                     */}
+                    <div
+                        style={{
+                            height: scaledHeight != null ? `${scaledHeight}px` : "100%",
+                        }}
+                    >
+                        {/*
+                         * Inner wrapper: rendered at native desktop width (1400px)
+                         * then scaled down via CSS transform to fit the preview pane.
+                         * transform-origin: top left ensures it aligns to the top-left
+                         * of the container.
+                         */}
+                        <div
+                            ref={previewContentRef}
+                            style={{
+                                transform: `scale(${scale})`,
+                                transformOrigin: "top left",
+                                width: `${NATIVE_PREVIEW_WIDTH}px`,
+                            }}
+                        >
+                            <BenefitPortalPreview />
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

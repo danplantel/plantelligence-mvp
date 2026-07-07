@@ -13,6 +13,12 @@ interface EditorPanelWrapperProps {
   children: React.ReactNode;
   /** Optional footer (e.g. Save button) — fixed at bottom of panel, always visible */
   footer?: React.ReactNode;
+  /**
+   * Layout variant:
+   * - 'fixed' (default): slides in from the left as a fixed overlay panel
+   * - 'inline': renders as a full-height inline panel for side-by-side Elementor-style layouts
+   */
+  variant?: 'fixed' | 'inline';
 }
 
 export function EditorPanelWrapper({
@@ -22,18 +28,27 @@ export function EditorPanelWrapper({
   onClose,
   children,
   footer,
+  variant = 'fixed',
 }: EditorPanelWrapperProps) {
   if (!isOpen && !isAnimating) return null;
 
+  const isInline = variant === 'inline';
+
   return (
     <div
-      className={`fixed left-0 top-0 bottom-4 w-full max-w-xl bg-white dark:bg-gray-900 z-[51] flex flex-col rounded-lg overflow-hidden transition-transform ${
-        isAnimating
-          ? "translate-x-0 duration-300"
-          : "-translate-x-full duration-200"
-      }`}
+      className={
+        isInline
+          ? `w-full h-full bg-white dark:bg-gray-900 flex flex-col overflow-hidden transition-opacity duration-300 ${
+              isAnimating ? "opacity-100" : "opacity-0"
+            }`
+          : `fixed left-0 top-0 bottom-4 w-full max-w-xl bg-white dark:bg-gray-900 z-[51] flex flex-col rounded-lg overflow-hidden transition-transform ${
+              isAnimating
+                ? "translate-x-0 duration-300"
+                : "-translate-x-full duration-200"
+            }`
+      }
       style={{
-        marginTop: "0",
+        marginTop: isInline ? undefined : "0",
       }}
     >
       <CardHeader className="flex flex-row items-center justify-between px-4 py-4 border-b shadow-md dark:border-gray-700">

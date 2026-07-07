@@ -58,6 +58,8 @@ interface BenefitsEditorPanelProps {
     onClose: () => void;
     activeSection?: string | null;
     editorScrollContainerRef?: React.RefObject<HTMLDivElement>;
+    /** Layout variant passed through to EditorPanelWrapper */
+    variant?: 'fixed' | 'inline';
 }
 
 export function BenefitsEditorPanel({
@@ -67,6 +69,7 @@ export function BenefitsEditorPanel({
     activeSection,
     highlightedField,
     editorScrollContainerRef: externalScrollRef,
+    variant,
 }: BenefitsEditorPanelProps & { highlightedField?: string | null }) {
     const { stepData, saveStepData } = useBenefitsWizardStore();
     const step1Data = (stepData.step1 || {}) as BenefitsStep1Data;
@@ -210,6 +213,7 @@ export function BenefitsEditorPanel({
             isAnimating={isAnimating}
             onClose={onClose}
             editorScrollContainerRef={editorScrollContainerRef}
+            variant={variant}
         >
             <div className="flex flex-col gap-12 p-6 pb-20">
                 {/* Branding Section */}
