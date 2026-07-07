@@ -204,19 +204,13 @@ export function BenefitPortalPreview() {
     );
 
     return (
-        <div className="min-h-screen bg-black overflow-x-auto rounded-xl border border-white/10 shadow-2xl relative w-full preview-portal-container">
+        <div className="min-h-screen bg-black overflow-x-auto relative w-full preview-portal-container">
             <style>{previewStyles}</style>
             <main>
                 <div
-                    className={cn(
-                        "relative cursor-pointer transition-all duration-200 rounded-lg m-1",
-                        hoveredSection === "branding" ? "ring-4 ring-blue-500/50" : "hover:ring-4 hover:ring-blue-500/50"
-                    )}
-                    onMouseEnter={() => setHoveredSection("branding")}
-                    onMouseLeave={() => setHoveredSection(null)}
+                    className="relative cursor-pointer"
                     onClick={() => handleEdit("branding")}
                 >
-                    {hoveredSection === "branding" && <EditPencil />}
                     <PortalWelcomeBanner
                         brandColor={brandColor}
                         secondaryColor={secondaryColor}
@@ -262,15 +256,9 @@ export function BenefitPortalPreview() {
                 </div>
 
                 <div
-                    className={cn(
-                        "relative cursor-pointer transition-all duration-200 rounded-lg m-1",
-                        hoveredSection === "faqs" ? "ring-4 ring-blue-500/50" : "hover:ring-4 hover:ring-blue-500/50"
-                    )}
-                    onMouseEnter={() => setHoveredSection("faqs")}
-                    onMouseLeave={() => setHoveredSection(null)}
+                    className="relative cursor-pointer"
                     onClick={() => handleEdit("faqs")}
                 >
-                    {hoveredSection === "faqs" && <EditPencil />}
                     <FAQSection
                         brandColor={brandColor}
                         secondaryColor={secondaryColor}

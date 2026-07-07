@@ -208,10 +208,10 @@ export function BenefitsStep2() {
                     />
                 </div>
 
-                {/* Scrollable scaled content */}
+                {/* Scrollable scaled content — items-center keeps the preview centered */}
                 <div
                     ref={scrollableRef}
-                    className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-300 dark:bg-gray-950"
+                    className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-300 dark:bg-gray-950 flex flex-col items-center"
                 >
                     <div
                         style={{
@@ -222,7 +222,9 @@ export function BenefitsStep2() {
                             ref={previewContentRef}
                             style={{
                                 transform: `scale(${scale})`,
-                                transformOrigin: "top left",
+                                // Center horizontally so the preview stays centered
+                                // when the editor is closed (wider available space)
+                                transformOrigin: "center top",
                                 width: `${NATIVE_PREVIEW_WIDTH}px`,
                                 overflowX: "hidden",
                             }}
