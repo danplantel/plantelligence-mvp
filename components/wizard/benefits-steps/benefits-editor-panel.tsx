@@ -10,7 +10,7 @@ import { BrandImageUpload } from "@/components/ui/brand-image-upload";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { ImageIcon, Layout, Mail, HelpCircle, CheckCircle2, Circle, Pencil, Plus, Search, ChevronsUpDown, Trash2, GripVertical } from "lucide-react";
+import { ImageIcon, Layout, Mail, HelpCircle, CheckCircle2, Circle, Pencil, Plus, Search, ChevronsUpDown, Trash2, GripVertical, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { SupportContact, FAQItem, BenefitsStep1Data, BenefitsStep3Data } from "@/lib/benefits-wizard-store";
@@ -18,6 +18,7 @@ import { KeyContact, BrandImageData, CompanyLogoData } from "@/types/new-client-
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { v4 as uuidv4 } from "uuid";
+import { BannerOverlaySettingsCard } from "@/components/wizard/new-client-steps/sections/components/banner-overlay-settings-card";
 
 const DEFAULT_HELP_CARDS: HelpCardData[] = [
     {
@@ -135,6 +136,33 @@ export function BenefitsEditorPanel({
         });
     };
 
+    // Hero overlay settings handler
+    const handleOverlaySettingsChange = (settings: {
+        backgroundOpacity?: number;
+        containerBlockOpacity?: number;
+        containerInverted?: boolean;
+        backgroundInverted?: boolean;
+        useGradient?: boolean;
+    }) => {
+        const updated: any = { ...step1Data };
+        if (settings.backgroundOpacity !== undefined) {
+            updated.heroBackgroundOpacity = settings.backgroundOpacity;
+        }
+        if (settings.containerBlockOpacity !== undefined) {
+            updated.heroContainerBlockOpacity = settings.containerBlockOpacity;
+        }
+        if (settings.containerInverted !== undefined) {
+            updated.heroContainerInverted = settings.containerInverted;
+        }
+        if (settings.backgroundInverted !== undefined) {
+            updated.heroBackgroundInverted = settings.backgroundInverted;
+        }
+        if (settings.useGradient !== undefined) {
+            updated.heroUseGradient = settings.useGradient;
+        }
+        saveStepData(1, updated);
+    };
+
     // --- Help Cards Logic ---
     const updateHelpCard = (id: string, updates: Partial<HelpCardData>) => {
         const updated = helpCards.map((c) => c.id === id ? { ...c, ...updates } : c);
@@ -246,6 +274,19 @@ export function BenefitsEditorPanel({
                                 hideButtons={true}
                                 useUniversalModal={true}
                                 universalModalType="normalizer"
+                            />
+                        </div>
+
+                        {/* Hero Overlay Settings */}
+                        <div className="space-y-4">
+                            <Label className="text-xs font-bold text-foreground">Hero Overlay Settings</Label>
+                            <BannerOverlaySettingsCard
+                                backgroundOpacity={step1Data.heroBackgroundOpacity ?? 1.0}
+                                containerBlockOpacity={step1Data.heroContainerBlockOpacity ?? 0.67}
+                                containerInverted={step1Data.heroContainerInverted ?? false}
+                                backgroundInverted={step1Data.heroBackgroundInverted ?? false}
+                                useGradient={step1Data.heroUseGradient ?? false}
+                                onSettingsChange={handleOverlaySettingsChange}
                             />
                         </div>
                     </div>

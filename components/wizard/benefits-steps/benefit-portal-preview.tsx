@@ -219,6 +219,11 @@ export function BenefitPortalPreview() {
                         customHeadline={step1Data?.benefitTitle || `Welcome to your ${category} benefits!`}
                         customDescription={step1Data?.shortDescription || "Explore your comprehensive benefits package."}
                         customImage={step1Data?.companyLogo?.url}
+                        backgroundOpacity={step1Data?.heroBackgroundOpacity ?? 1.0}
+                        containerBlockOpacity={step1Data?.heroContainerBlockOpacity ?? 0.67}
+                        containerInverted={step1Data?.heroContainerInverted ?? false}
+                        backgroundInverted={step1Data?.heroBackgroundInverted ?? false}
+                        useGradient={step1Data?.heroUseGradient ?? false}
                         clientData={{
                             companyName: step1Data?.selectedPlan?.companyName || "Your Company",
                             // Top-left: use the plan-level Company Logo (not the Step 1 Benefits Logo)

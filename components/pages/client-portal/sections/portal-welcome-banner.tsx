@@ -43,6 +43,12 @@ interface PortalWelcomeBannerProps {
   customSignature?: string;
   customImage?: string; // Override right-side Benefits Logo
   customImageAlt?: string;
+  // Hero overlay settings
+  backgroundOpacity?: number;
+  containerBlockOpacity?: number;
+  containerInverted?: boolean;
+  backgroundInverted?: boolean;
+  useGradient?: boolean;
 }
 
 export function PortalWelcomeBanner({
@@ -57,6 +63,11 @@ export function PortalWelcomeBanner({
   customImage,
   customImageAlt,
   category,
+  backgroundOpacity = 1.0,
+  containerBlockOpacity = 0.67,
+  containerInverted = false,
+  backgroundInverted = false,
+  useGradient = false,
 }: PortalWelcomeBannerProps) {
   // Look up per-category benefit data from employeePortalPreview (saved by Step 1)
   const categoryBenefit = useMemo(() => {
@@ -262,6 +273,19 @@ export function PortalWelcomeBanner({
   }
 
   // Default variant: Benefits Logo on the right, background image for the hero
+  // Compute dynamic overlay styles
+  const backgroundOverlayStyle = backgroundInverted
+    ? { backgroundColor: `rgba(255, 255, 255, ${1 - backgroundOpacity})` }
+    : { backgroundColor: `rgba(0, 0, 0, ${1 - backgroundOpacity})` };
+
+  const containerGradientStyle = useGradient
+    ? `linear-gradient(to bottom, rgba(0, 0, 0, ${containerBlockOpacity}), rgba(0, 0, 0, ${containerBlockOpacity * 0.3}))`
+    : `linear-gradient(to bottom, rgba(0, 0, 0, ${containerBlockOpacity}), rgba(0, 0, 0, ${containerBlockOpacity}))`;
+
+  const inlineBlockStyle = containerInverted
+    ? `linear-gradient(to bottom, rgba(255, 255, 255, ${containerBlockOpacity}), rgba(255, 255, 255, ${containerBlockOpacity * 0.3}))`
+    : containerGradientStyle;
+
   return (
     <section className="relative overflow-hidden mt-10 text-white">
       {/* Background image */}
@@ -275,9 +299,10 @@ export function PortalWelcomeBanner({
           src={welcomeBannerImgSrc}
           alt="Background"
           className="absolute inset-0 h-full w-full object-cover"
+          style={{ opacity: backgroundOpacity }}
         />
       )}
-      <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/60 to-black/20" />
+      <div className="absolute inset-0" style={backgroundOverlayStyle} />
 
       {/* CONTENT WRAPPER */}
       <div className="relative mx-auto mt-8 max-w-6xl px-4 py-16 sm:px-6 lg:px-8">
@@ -287,7 +312,7 @@ export function PortalWelcomeBanner({
           transition={{ duration: 0.6, ease: "easeOut" }}
           className="overflow-hidden"
           style={{
-            background: `linear-gradient(to bottom, rgba(0, 0, 0, 1), rgba(0, 0, 0, 0.3))`,
+            background: inlineBlockStyle,
           }}
         >
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">

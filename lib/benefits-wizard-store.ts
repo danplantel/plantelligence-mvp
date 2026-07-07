@@ -43,6 +43,18 @@ export interface BenefitsStep1Data {
     insuranceLoginUrl?: string;
     /** Background image URL for the Insurance Benefits Access & Materials section */
     insuranceBackgroundImage?: string;
+    /** Hero overlay opacity for the background image */
+    heroOverlayOpacity?: number;
+    /** Hero background image opacity */
+    heroBackgroundOpacity?: number;
+    /** Hero container block opacity */
+    heroContainerBlockOpacity?: number;
+    /** Invert hero container colors */
+    heroContainerInverted?: boolean;
+    /** Invert hero background colors */
+    heroBackgroundInverted?: boolean;
+    /** Use gradient on hero overlay */
+    heroUseGradient?: boolean;
 }
 
 export interface FAQItem {
