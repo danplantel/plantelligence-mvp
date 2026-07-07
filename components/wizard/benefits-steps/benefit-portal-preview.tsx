@@ -27,7 +27,6 @@ const previewStyles = `
 `;
 
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
-import { PortalHeader } from "@/components/pages/client-portal/sections/portal-header";
 import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
 import {
     RetirementJourneySection,
@@ -207,25 +206,7 @@ export function BenefitPortalPreview() {
     return (
         <div className="min-h-screen bg-black overflow-x-auto rounded-xl border border-white/10 shadow-2xl relative w-full preview-portal-container">
             <style>{previewStyles}</style>
-            {/* Fixed portal header — matches app/new/view/[id]/layout.tsx structure */}
-            <div className="fixed top-0 left-0 w-full z-[60]">
-                <PortalHeader
-                    companyData={{
-                        companyLogo: typeof step1Data?.selectedPlan?.companyLogo === 'object'
-                            ? (step1Data?.selectedPlan?.companyLogo as any)?.url
-                            : step1Data?.selectedPlan?.companyLogo,
-                    }}
-                    brandColor={brandColor}
-                    secondaryColor={secondaryColor}
-                    clientId={step1Data?.planId}
-                    categoryPortalVisibility={step1Data?.benefitVisibility ?? null}
-                    benefits={(step1Data?.selectedPlan as any)?.employeePortalPreview?.benefits ?? null}
-                />
-            </div>
             <main>
-                {/* Spacer to clear the fixed portal header */}
-                <div className="h-20" />
-
                 <div
                     className={cn(
                         "relative cursor-pointer transition-all duration-200 rounded-lg m-1",

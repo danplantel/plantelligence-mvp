@@ -6,6 +6,7 @@ import { BenefitsEditorPanel } from "./benefits-editor-panel";
 import { useBenefitsEditorState } from "./hooks/use-benefits-editor-state";
 import { useBenefitsLenisScroll } from "./hooks/use-benefits-lenis-scroll";
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
+import { PortalHeader } from "@/components/pages/client-portal/sections/portal-header";
 
 /** The native (unscaled) desktop width of the preview in px */
 const NATIVE_PREVIEW_WIDTH = 1400;
@@ -20,16 +21,19 @@ export function BenefitsStep2() {
     // and the page scroll is locked. Lenis would intercept wheel events and
     // prevent them from reaching the preview container.
     const { editorScrollContainerRef } = useBenefitsLenisScroll(editorState.isEditorOpen, true);
-    const { currentStep } = useBenefitsWizardStore();
+    const { currentStep, stepData } = useBenefitsWizardStore();
+    const step1Data = stepData.step1;
     const [editorInitialized, setEditorInitialized] = useState(false);
     const barRef = useRef<HTMLDivElement>(null);
     const [barHeight, setBarHeight] = useState(52);
 
     // ── Preview scaling state ──
-    const previewContainerRef = useRef<HTMLDivElement>(null);
     const previewContentRef = useRef<HTMLDivElement>(null);
     const [scale, setScale] = useState(1);
     const [scaledHeight, setScaledHeight] = useState<number | undefined>(undefined);
+
+    // Refs for the scrollable preview area and its container
+    const scrollableRef = useRef<HTMLDivElement>(null);
 
     // Initialize editor as open on mount with default section
     useEffect(() => {
@@ -78,11 +82,11 @@ export function BenefitsStep2() {
 
     // ── Scale calculation ──
     const updateScale = useCallback(() => {
-        const container = previewContainerRef.current;
         const content = previewContentRef.current;
-        if (!container || !content) return;
+        const scrollable = scrollableRef.current;
+        if (!content || !scrollable) return;
 
-        const availableWidth = container.clientWidth;
+        const availableWidth = scrollable.clientWidth;
         const newScale = Math.min(availableWidth / NATIVE_PREVIEW_WIDTH, 1);
         setScale(newScale);
 
@@ -96,28 +100,25 @@ export function BenefitsStep2() {
     }, [updateScale, editorState.isEditorOpen]);
 
     useEffect(() => {
-        const container = previewContainerRef.current;
-        if (!container) return;
+        const scrollable = scrollableRef.current;
+        if (!scrollable) return;
 
         const observer = new ResizeObserver(() => {
             updateScale();
         });
-        observer.observe(container);
+        observer.observe(scrollable);
         return () => observer.disconnect();
     }, [updateScale]);
-
-    // Recalculate when editor closes (sidebar shrinks → preview container widens)
-    useEffect(() => {
-        if (!editorState.isEditorOpen) {
-            const timer = setTimeout(() => updateScale(), 350);
-            return () => clearTimeout(timer);
-        }
-    }, [editorState.isEditorOpen, updateScale]);
 
     const editorIsOpen = editorState.isEditorOpen || editorState.isEditorAnimating;
 
     // Total fixed vertical space: header + toggle button bar + bottom nav
     const totalFixedHeight = HEADER_HEIGHT + barHeight + BOTTOM_NAV_HEIGHT;
+
+    // Resolve plan-level company logo for the portal header
+    const planCompanyLogo = typeof step1Data?.selectedPlan?.companyLogo === 'object'
+        ? (step1Data?.selectedPlan?.companyLogo as any)?.url
+        : step1Data?.selectedPlan?.companyLogo;
 
     return (
         <div className="w-full transition-all duration-200">
@@ -180,13 +181,10 @@ export function BenefitsStep2() {
             />
 
             {/* ════════════════════════════════════════════════════════════════
-                Scalable preview — fixed-positioned to fill the viewport minus
-                header, toggle bar, and bottom nav. Width is driven by
-                --sidebar-width (18rem when closed, 36rem when editor is open).
+                Scalable preview — flex column: portal header (sticky) + scrollable scaled content
                 ════════════════════════════════════════════════════════════════ */}
             <div
-                ref={previewContainerRef}
-                className="fixed z-40 overflow-y-auto overflow-x-hidden bg-gray-300 dark:bg-gray-950"
+                className="fixed z-40 flex flex-col"
                 style={{
                     top: `${HEADER_HEIGHT + barHeight}px`,
                     left: "var(--sidebar-width, 18rem)",
@@ -194,31 +192,43 @@ export function BenefitsStep2() {
                     height: `calc(100vh - ${totalFixedHeight}px)`,
                 }}
             >
-                {/*
-                 * Outer wrapper: explicit height = contentHeight × scale
-                 * so the scrollable area matches the visual size.
-                 */}
+                {/* Portal header — sticky at top of the scroll container */}
+                <div className="sticky top-0 z-10 shadow-md">
+                    <PortalHeader
+                        companyData={{ companyLogo: planCompanyLogo }}
+                        brandColor={step1Data?.selectedPlan?.brandColor
+                            || step1Data?.selectedPlan?.brandColors?.primary
+                            || "#1F3A60"}
+                        secondaryColor={step1Data?.selectedPlan?.secondaryColor
+                            || step1Data?.selectedPlan?.brandColors?.secondary
+                            || "#6B7280"}
+                        clientId={step1Data?.planId}
+                        categoryPortalVisibility={step1Data?.benefitVisibility ?? null}
+                        benefits={(step1Data?.selectedPlan as any)?.employeePortalPreview?.benefits ?? null}
+                    />
+                </div>
+
+                {/* Scrollable scaled content */}
                 <div
-                    style={{
-                        height: scaledHeight != null ? `${scaledHeight}px` : "100%",
-                    }}
+                    ref={scrollableRef}
+                    className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-300 dark:bg-gray-950"
                 >
-                    {/*
-                     * Inner wrapper: rendered at native desktop width (1400px)
-                     * then scaled via CSS transform to fit the preview pane.
-                     * overflow-x-hidden prevents the preview component's own
-                     * overflow-x-auto from creating an extra scrollbar.
-                     */}
                     <div
-                        ref={previewContentRef}
                         style={{
-                            transform: `scale(${scale})`,
-                            transformOrigin: "top left",
-                            width: `${NATIVE_PREVIEW_WIDTH}px`,
-                            overflowX: "hidden",
+                            height: scaledHeight != null ? `${scaledHeight}px` : "100%",
                         }}
                     >
-                        <BenefitPortalPreview />
+                        <div
+                            ref={previewContentRef}
+                            style={{
+                                transform: `scale(${scale})`,
+                                transformOrigin: "top left",
+                                width: `${NATIVE_PREVIEW_WIDTH}px`,
+                                overflowX: "hidden",
+                            }}
+                        >
+                            <BenefitPortalPreview />
+                        </div>
                     </div>
                 </div>
             </div>
