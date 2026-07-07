@@ -222,7 +222,7 @@ export default function MarketingAssetModal({
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop");
 
   // News post specific
-  const [postCategory, setPostCategory] = useState("Announcement");
+  const [postCategory, setPostCategory] = useState("Retirement");
   const [selectedBgImage, setSelectedBgImage] = useState<string>("");
   const [existingNewsPosts, setExistingNewsPosts] = useState<any[]>([]);
   const [newsPostLimitReached, setNewsPostLimitReached] = useState(false);
@@ -324,7 +324,7 @@ export default function MarketingAssetModal({
       // News post specific
       if (assetType === "news-post" || editingAsset.type === "news-post") {
         setFlyerSubtitle((editingAsset.flyerSubtitle as string) || (d.flyerSubtitle as string) || "");
-        setPostCategory((d.category as string) || "Announcement");
+        setPostCategory((d.category as string) || "Retirement");
         setCtaText((editingAsset.ctaText as string) || (d.ctaText as string) || "");
         setSelectedBgImage((d.bgImage as string) || "");
         setNewsPostCtaUrl((d.ctaUrl as string) || "");
@@ -373,7 +373,7 @@ export default function MarketingAssetModal({
       setCountdownTarget("");
       setPortalCtaUrl("");
       setCtaText("");
-      setPostCategory("Announcement");
+      setPostCategory("Retirement");
       setSelectedBgImage("");
       setNewsPostCtaUrl("");
       setNewsPostLimitReached(false);
@@ -1099,10 +1099,11 @@ export default function MarketingAssetModal({
               value={postCategory}
               onChange={(e) => setPostCategory(e.target.value)}
             >
-              <option value="Announcement">Announcement</option>
-              <option value="News">News</option>
-              <option value="Event">Event</option>
-              <option value="Reminder">Reminder</option>
+              <option value="Retirement">Retirement</option>
+              <option value="Group Health">Group Health</option>
+              <option value="Group Life">Group Life</option>
+              <option value="Other Benefits">Other Benefits</option>
+              <option value="Other">Other</option>
             </select>
           </div>
 
@@ -1443,6 +1444,7 @@ export default function MarketingAssetModal({
                         countdownTarget={countdownTarget}
                         portalCtaUrl={portalCtaUrl}
                         bgImage={resolvedType === "news-post" ? selectedBgImage : undefined}
+                        postCategory={postCategory}
                         previewMode="mobile"
                       />
                     </div>
@@ -1476,6 +1478,7 @@ export default function MarketingAssetModal({
                   countdownTarget={countdownTarget}
                   portalCtaUrl={portalCtaUrl}
                   bgImage={resolvedType === "news-post" ? selectedBgImage : undefined}
+                  postCategory={postCategory}
                   previewMode={previewMode}
                 />
               )}
@@ -1572,6 +1575,7 @@ function PreviewPane({
   countdownTarget,
   portalCtaUrl,
   bgImage,
+  postCategory,
   previewMode,
 }: {
   assetType: AssetType;
@@ -1596,6 +1600,7 @@ function PreviewPane({
   countdownTarget?: string;
   portalCtaUrl?: string;
   bgImage?: string;
+  postCategory?: string;
   previewMode?: "desktop" | "mobile";
 }) {
   const isMobile = previewMode === "mobile";
@@ -1668,7 +1673,7 @@ function PreviewPane({
     case "pop-up":
       return <PopUpPreview headline={headline} body={body} ctaText={ctaText} bgColor={bgColor} planName={planName} planLogo={planLogo} subtitle={flyerSubtitle} isMobile={isMobile} />;
     case "news-post":
-      return <NewsPostPreview headline={headline} body={body} planName={planName} ctaText={ctaText} subtitle={flyerSubtitle} bgImage={bgImage} isMobile={isMobile} />;
+      return <NewsPostPreview headline={headline} body={body} planName={planName} ctaText={ctaText} subtitle={flyerSubtitle} bgImage={bgImage} postCategory={postCategory} startDate={startDate} isMobile={isMobile} />;
   }
 }
 
@@ -1996,6 +2001,8 @@ function NewsPostPreview({
   ctaText,
   subtitle,
   bgImage,
+  postCategory,
+  startDate,
   isMobile,
 }: {
   headline: string;
@@ -2004,17 +2011,37 @@ function NewsPostPreview({
   ctaText?: string;
   subtitle?: string;
   bgImage?: string;
+  postCategory?: string;
+  startDate?: string;
   isMobile?: boolean;
 }) {
   const bgSrc = bgImage ? getBgImageSrc(bgImage) : "";
   const hasBg = !!bgSrc;
 
+  /** Display date: prefer startDate, fall back to today so the date UI is always visible in preview */
+  const displayDate = startDate || new Date().toISOString().split("T")[0];
+
   const cardContent = (
     <>
       <div className="relative z-10 flex flex-col h-full p-6 sm:p-8 lg:p-10 max-w-[60%] sm:max-w-[55%]">
+        {/* Category badge + Date */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 mb-2 sm:mb-3">
+          <span className="inline-flex items-center rounded-full border border-white/30 bg-white/20 backdrop-blur-sm px-2 py-0.5 text-[10px] sm:text-[11px] font-semibold text-white self-start">
+            {postCategory || "Retirement"}
+          </span>
+          <span className="text-[10px] sm:text-xs text-white/60 sm:text-white/70 flex items-center gap-1">
+            <Calendar className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+            {new Date(displayDate).toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+            })}
+          </span>
+        </div>
+
         {/* Headline */}
         <h3 className="font-dm-serif text-xl font-bold leading-tight text-white sm:text-2xl lg:text-[28px]">
-          {headline || "Announcement Title"}
+          {headline || "News Post Title"}
         </h3>
         {subtitle && (
           <p className="text-sm text-white/80 mt-1.5 font-red-hat">{subtitle}</p>
