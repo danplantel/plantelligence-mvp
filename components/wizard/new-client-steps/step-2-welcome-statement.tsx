@@ -275,9 +275,11 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
     }
   }, [editorState.isEditorOpen]);
 
-  // Sidebar widening NOT needed — the fixed-overlay editor panel slides in
-  // from left:0 (max-w-xl) and naturally overlaps the content area. Widening
-  // --sidebar-width would push the header and preview right, creating a gap.
+  // Sidebar widening NOT needed — the editor panel sits inline in the
+  // flex container and naturally takes up 420px. The preview shrinks by
+  // 420px, triggering ResizeObserver → scale recalculation.
+  // Widening --sidebar-width would push the header and toolbar right,
+  // creating a visible gap between the sidebar and the content.
 
   // Scroll to top when component mounts
   useEffect(() => {
