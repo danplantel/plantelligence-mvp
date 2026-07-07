@@ -16,6 +16,10 @@ const DESKTOP_WIDTH = 1400;
 const HEADER_HEIGHT = 72;
 /** Estimated height of the fixed bottom navigation bar from BenefitsWizard */
 const BOTTOM_NAV_HEIGHT = 72;
+/** Mobile preview aspect ratio (9:21 = width:height) */
+const MOBILE_ASPECT_RATIO = 21 / 9;
+/** Mobile preview width in px */
+const MOBILE_WIDTH = 390;
 
 type PreviewMode = "desktop" | "mobile";
 
@@ -77,16 +81,19 @@ function MobilePreviewFrame({ children, width }: { children: React.ReactNode; wi
         };
     }, [width]);
 
+    const height = Math.round(width * MOBILE_ASPECT_RATIO);
+
     return (
         <iframe
             ref={iframeRef}
             title="Mobile Preview"
             style={{
                 width: `${width}px`,
-                height: "812px", // iPhone X height — modern phone aspect ratio
+                height: `${height}px`,
                 border: "none",
                 background: "white",
                 flexShrink: 0,
+                maxHeight: "100%",
             }}
         >
             {mountNode &&
@@ -96,6 +103,7 @@ function MobilePreviewFrame({ children, width }: { children: React.ReactNode; wi
                             width: `${width}px`,
                             minHeight: "100%",
                             overflowX: "hidden",
+                            overflowY: "auto",
                         }}
                     >
                         {children}
@@ -284,7 +292,7 @@ export function BenefitsStep2() {
                                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                 </svg>
-                                Edit Branding & Content
+                                Open Edit Panel
                             </>
                         )}
                     </button>
@@ -356,10 +364,13 @@ export function BenefitsStep2() {
                     {previewMode === "mobile" ? (
                         /* ── Mobile: rendered in an iframe so viewport-based
                          *    media queries (Tailwind sm:, md:, lg:) evaluate
-                         *    against the iframe's actual 390px width.
+                         *    against the iframe's actual MOBILE_WIDTH.
                          *    PortalHeader is wrapped in a fixed container
-                         *    matching app/new/view/[id]/layout.tsx structure. ── */
-                        <MobilePreviewFrame width={390}>
+                         *    matching app/new/view/[id]/layout.tsx structure.
+                         *    The iframe uses 9:21 aspect ratio with max-height
+                         *    capped to available space so it doesn't overflow
+                         *    the bottom nav or toolbar. ── */
+                        <MobilePreviewFrame width={MOBILE_WIDTH}>
                             <div className="fixed top-0 left-0 w-full z-50">
                                 <PortalHeader
                                     companyData={{ companyLogo: planCompanyLogo }}
