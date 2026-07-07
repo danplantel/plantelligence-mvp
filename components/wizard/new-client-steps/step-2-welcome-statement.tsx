@@ -27,6 +27,7 @@ import { useFieldFocus } from "./sections/hooks/use-field-focus";
 import { autoCropThumbnailImage } from "./sections/utils/thumbnail-utils";
 import { deleteFromR2 } from "@/lib/upload-to-r2";
 import { Smartphone, Monitor } from "lucide-react";
+import { PortalHeader } from "@/components/pages/client-portal/sections/portal-header";
 
 const defaultHeadline = "Here to Support You - Today and Every Day.";
 const defaultWelcomeBodyText =
@@ -108,8 +109,13 @@ interface NewClientStep2Props {
 }
 
 export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
-  const { stepData, saveStepDataLocally, goToStep, currentStep } =
+  const { stepData, saveStepDataLocally, goToStep, currentStep, draftClientId } =
     useNewClientWizardStore();
+
+  // Resolve company-level branding for the PortalHeader
+  const planCompanyLogo = stepData.companyBasics?.companyLogo?.url ?? undefined;
+  const brandColor = stepData.companyBasics?.primaryColor || "#1F3A60";
+  const secondaryColor = stepData.companyBasics?.secondaryColor || "#6B7280";
 
   // Hooks
   const editorState = useEditorState({ autoOpen: true });
@@ -733,7 +739,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
           <button
             type="button"
             onClick={togglePreviewMode}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+            className="inline-flex items-center gap-2 border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
             title={previewMode === "mobile" ? "Switch to Desktop preview" : "Switch to Mobile preview"}
           >
             {previewMode === "mobile" ? (
@@ -810,15 +816,48 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
           height: `calc(100vh - ${totalFixedHeight}px)`,
         }}
       >
+        {/* Portal header — sticky at top of the scroll container.
+            Hidden in mobile mode where it's rendered inside the iframe. */}
+        {previewMode !== "mobile" && (
+          <div className="sticky top-0 z-10 shadow-md">
+            <PortalHeader
+              companyData={{ companyLogo: planCompanyLogo }}
+              brandColor={brandColor}
+              secondaryColor={secondaryColor}
+              clientId={draftClientId}
+              categoryPortalVisibility={null}
+              benefits={null}
+            />
+          </div>
+        )}
+
         <div
           ref={scrollableRef}
           className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-300 dark:bg-gray-950 flex flex-col items-center"
         >
           {previewMode === "mobile" ? (
+            /* ── Mobile: rendered in an iframe so viewport-based
+             *    media queries (Tailwind sm:, md:, lg:) evaluate
+             *    against the iframe's actual 390px width.
+             *    PortalHeader is wrapped in a fixed container
+             *    matching app/new/view/[id]/layout.tsx structure. ── */
             <MobilePreviewFrame width={390}>
-              {previewContent}
+              <div className="fixed top-0 left-0 w-full z-50">
+                <PortalHeader
+                  companyData={{ companyLogo: planCompanyLogo }}
+                  brandColor={brandColor}
+                  secondaryColor={secondaryColor}
+                  clientId={draftClientId}
+                  categoryPortalVisibility={null}
+                  benefits={null}
+                />
+              </div>
+              <div className="pt-20">
+                {previewContent}
+              </div>
             </MobilePreviewFrame>
           ) : (
+            /* ── Desktop: scaled preview ── */
             <div style={{ height: scaledHeight != null ? `${scaledHeight}px` : "100%" }}>
               <div
                 ref={previewContentRef}
