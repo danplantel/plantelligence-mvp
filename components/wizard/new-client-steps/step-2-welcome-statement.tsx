@@ -275,11 +275,28 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
     }
   }, [editorState.isEditorOpen]);
 
-  // Sidebar widening NOT needed — the editor panel sits inline in the
-  // flex container and naturally takes up 420px. The preview shrinks by
-  // 420px, triggering ResizeObserver → scale recalculation.
-  // Widening --sidebar-width would push the header and toolbar right,
-  // creating a visible gap between the sidebar and the content.
+  // Sidebar widening — matches benefits/step-2 behavior.
+  // When the editor opens, widen --sidebar-width to 36rem so the header
+  // and toolbar shift right, creating space for the fixed overlay editor.
+  useEffect(() => {
+    const sidebarWidth = "36rem";
+    const shouldShift = editorState.isEditorOpen || editorState.isEditorAnimating;
+    if (shouldShift) {
+      if (originalSidebarWidthRef.current === null) {
+        originalSidebarWidthRef.current = document.documentElement.style.getPropertyValue("--sidebar-width");
+      }
+      document.documentElement.style.setProperty("--sidebar-width", sidebarWidth);
+    } else {
+      if (originalSidebarWidthRef.current !== null) {
+        if (originalSidebarWidthRef.current) {
+          document.documentElement.style.setProperty("--sidebar-width", originalSidebarWidthRef.current);
+        } else {
+          document.documentElement.style.removeProperty("--sidebar-width");
+        }
+        originalSidebarWidthRef.current = null;
+      }
+    }
+  }, [editorState.isEditorOpen, editorState.isEditorAnimating]);
 
   // Scroll to top when component mounts
   useEffect(() => {
@@ -729,11 +746,63 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
       </div>
 
 
+      {/* ── Fixed-overlay editor panel (slides in from the left) ── */}
+      <EditorPanelWrapper
+        isOpen={editorState.isEditorOpen}
+        isAnimating={editorState.isEditorAnimating}
+        editorScrollContainerRef={editorScrollContainerRef}
+        onClose={editorState.handleCloseEditor}
+      >
+        <BannerSectionEditor
+          onCompanyDataChange={handleCompanyDataChange}
+          onWelcomeDataChange={(field, value) => {
+            if (field === "headline") updateField("headline", value);
+            if (field === "bodyText") updateField("bodyText", value);
+            if (field === "isAIGenerated") updateField("isAIGenerated", value);
+            const store = useNewClientWizardStore.getState();
+            const currentWelcome = store.stepData.welcomeStatement || { headline: "", bodyText: "", isAIGenerated: false };
+            store.saveStepDataLocally("welcomeStatement", { ...currentWelcome, [field]: value });
+          }}
+          onModalStateChange={modalStates.handleHeroModalStateChange}
+          onLogoModalStateChange={modalStates.handleLogoModalStateChange}
+          onOpenHeroTextEditor={handleOpenHeroTextEditor}
+          logoCardRef={logoCardRef} isLogoCardHighlighted={isLogoCardHighlighted} onLogoCardHighlightChange={setIsLogoCardHighlighted}
+          overlaySettingsCardRef={overlaySettingsCardRef} isOverlaySettingsHighlighted={isOverlaySettingsHighlighted} onOverlaySettingsHighlightChange={setIsOverlaySettingsHighlighted}
+          bannerTitleCardRef={bannerTitleCardRef} isBannerTitleHighlighted={isBannerTitleHighlighted} onBannerTitleHighlightChange={setIsBannerTitleHighlighted}
+          useDefaultBody={useDefaultWelcomeMessage}
+          onToggleDefaultBody={(checked) => {
+            setUseDefaultWelcomeMessage(checked);
+            if (checked) { handleCompanyDataChange("heroDescription", defaultWelcomeBodyText); updateField("bodyText", defaultWelcomeBodyText); }
+            else { handleCompanyDataChange("heroDescription", ""); updateField("bodyText", ""); }
+          }}
+          defaultBodyText={defaultWelcomeBodyText} errorFields={errorFields}
+        />
+        <ThumbnailSectionEditor
+          currentImage={stepData.companyBasics?.brandImages?.thumbnail || undefined}
+          isHighlighted={thumbnailImage.isThumbnailHighlighted}
+          onImageChange={thumbnailImage.handleThumbnailImageChange} onImageRemove={thumbnailImage.handleThumbnailImageRemove}
+          onDefaultPhotoClick={() => thumbnailImage.setGalleryOpen(true)}
+          onEditClick={thumbnailImage.handleThumbnailEditClick} onFileSelect={thumbnailImage.handleThumbnailFileSelect}
+        />
+        <MissionSectionEditor
+          missionHeadline={missionData.missionHeadline} missionBody={missionData.missionBody}
+          defaultHeadline={defaultHeadline} defaultBodyText={defaultWelcomeBodyText}
+          useDefaultHeadline={missionData.useDefaultHeadline} useDefaultBody={missionData.useDefaultBody}
+          headlineCharCount={missionData.headlineCharCount} bodyCharCount={missionData.bodyCharCount}
+          isHeadlineValid={missionData.isHeadlineValid} isBodyValid={missionData.isBodyValid}
+          errorFields={errorFields} headlineRef={headlineRef} bodyTextRef={bodyTextRef}
+          onHeadlineChange={missionData.handleHeadlineChange} onBodyChange={missionData.handleBodyChange}
+          onUseDefaultHeadlineChange={missionData.handleUseDefaultHeadline} onUseDefaultBodyChange={missionData.handleUseDefaultBody}
+          onGenerateMissionHeadline={missionData.handleGenerateMissionHeadline} onGenerateMissionBody={missionData.handleGenerateMissionBody}
+        />
+        <div data-section-id="thumbnail" ref={missionFieldsRef} style={{ minHeight: "1px", height: "60px" }} />
+      </EditorPanelWrapper>
+
       {/* ════════════════════════════════════════════════
-          Elementor-style flex layout: Edit Panel | Preview
+          Scalable preview — flex column
           ════════════════════════════════════════════════ */}
       <div
-        className="fixed z-40 flex"
+        className="fixed z-40 flex flex-col"
         style={{
           top: `${HEADER_HEIGHT + barHeight}px`,
           left: "var(--sidebar-width, 18rem)",
@@ -741,93 +810,9 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
           height: `calc(100vh - ${totalFixedHeight}px)`,
         }}
       >
-        {/* ── Editor Panel (inline, not fixed) ── */}
-        {editorIsOpen && (
-          <div
-            className="flex-shrink-0 h-full overflow-hidden border-r border-gray-200 dark:border-gray-700 transition-all duration-300"
-            style={{ width: "420px" }}
-          >
-            <EditorPanelWrapper
-              isOpen={editorState.isEditorOpen}
-              isAnimating={editorState.isEditorAnimating}
-              editorScrollContainerRef={editorScrollContainerRef}
-              onClose={editorState.handleCloseEditor}
-              variant="inline"
-            >
-              <BannerSectionEditor
-                onCompanyDataChange={handleCompanyDataChange}
-                onWelcomeDataChange={(field, value) => {
-                  if (field === "headline") updateField("headline", value);
-                  if (field === "bodyText") updateField("bodyText", value);
-                  if (field === "isAIGenerated") updateField("isAIGenerated", value);
-                  const store = useNewClientWizardStore.getState();
-                  const currentWelcome = store.stepData.welcomeStatement || { headline: "", bodyText: "", isAIGenerated: false };
-                  store.saveStepDataLocally("welcomeStatement", { ...currentWelcome, [field]: value });
-                }}
-                onModalStateChange={modalStates.handleHeroModalStateChange}
-                onLogoModalStateChange={modalStates.handleLogoModalStateChange}
-                onOpenHeroTextEditor={handleOpenHeroTextEditor}
-                logoCardRef={logoCardRef}
-                isLogoCardHighlighted={isLogoCardHighlighted}
-                onLogoCardHighlightChange={setIsLogoCardHighlighted}
-                overlaySettingsCardRef={overlaySettingsCardRef}
-                isOverlaySettingsHighlighted={isOverlaySettingsHighlighted}
-                onOverlaySettingsHighlightChange={setIsOverlaySettingsHighlighted}
-                bannerTitleCardRef={bannerTitleCardRef}
-                isBannerTitleHighlighted={isBannerTitleHighlighted}
-                onBannerTitleHighlightChange={setIsBannerTitleHighlighted}
-                useDefaultBody={useDefaultWelcomeMessage}
-                onToggleDefaultBody={(checked) => {
-                  setUseDefaultWelcomeMessage(checked);
-                  if (checked) {
-                    handleCompanyDataChange("heroDescription", defaultWelcomeBodyText);
-                    updateField("bodyText", defaultWelcomeBodyText);
-                  } else {
-                    handleCompanyDataChange("heroDescription", "");
-                    updateField("bodyText", "");
-                  }
-                }}
-                defaultBodyText={defaultWelcomeBodyText}
-                errorFields={errorFields}
-              />
-              <ThumbnailSectionEditor
-                currentImage={stepData.companyBasics?.brandImages?.thumbnail || undefined}
-                isHighlighted={thumbnailImage.isThumbnailHighlighted}
-                onImageChange={thumbnailImage.handleThumbnailImageChange}
-                onImageRemove={thumbnailImage.handleThumbnailImageRemove}
-                onDefaultPhotoClick={() => thumbnailImage.setGalleryOpen(true)}
-                onEditClick={thumbnailImage.handleThumbnailEditClick}
-                onFileSelect={thumbnailImage.handleThumbnailFileSelect}
-              />
-              <MissionSectionEditor
-                missionHeadline={missionData.missionHeadline}
-                missionBody={missionData.missionBody}
-                defaultHeadline={defaultHeadline}
-                defaultBodyText={defaultWelcomeBodyText}
-                useDefaultHeadline={missionData.useDefaultHeadline}
-                useDefaultBody={missionData.useDefaultBody}
-                headlineCharCount={missionData.headlineCharCount}
-                bodyCharCount={missionData.bodyCharCount}
-                isHeadlineValid={missionData.isHeadlineValid}
-                isBodyValid={missionData.isBodyValid}
-                errorFields={errorFields}
-                headlineRef={headlineRef}
-                bodyTextRef={bodyTextRef}
-                onHeadlineChange={missionData.handleHeadlineChange}
-                onBodyChange={missionData.handleBodyChange}
-                onUseDefaultHeadlineChange={missionData.handleUseDefaultHeadline}
-                onUseDefaultBodyChange={missionData.handleUseDefaultBody}
-                onGenerateMissionHeadline={missionData.handleGenerateMissionHeadline}
-                onGenerateMissionBody={missionData.handleGenerateMissionBody}
-              />
-              <div data-section-id="thumbnail" ref={missionFieldsRef} style={{ minHeight: "1px", height: "60px" }} />
-            </EditorPanelWrapper>
-          </div>
-        )}
-        {/* ── Preview pane — fills remaining space ── */}
         <div
           ref={scrollableRef}
-          className="flex-1 h-full overflow-y-auto overflow-x-hidden bg-gray-300 dark:bg-gray-950 flex flex-col items-center"
+          className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-300 dark:bg-gray-950 flex flex-col items-center"
         >
           {previewMode === "mobile" ? (
             <MobilePreviewFrame width={390}>
