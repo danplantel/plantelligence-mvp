@@ -526,7 +526,10 @@ export default function DocumentsPage() {
       setIsLoading(false);
     },
   });
-  const documents: Document[] = docsData?.data ?? [];
+  const documents: Document[] = useMemo(() => {
+    const raw: Document[] = docsData?.data ?? [];
+    return raw.filter((doc, idx, arr) => arr.findIndex((d) => d.id === doc.id) === idx);
+  }, [docsData]);
 
   const fetchDocuments = useCallback(() => {
     refreshDocsSWR();

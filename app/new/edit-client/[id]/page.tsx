@@ -1124,49 +1124,6 @@ export default function EditClientPage() {
                   />
                 </CardContent>
               </Card>
-
-              <PlanMeetingsSection
-                clientId={clientId}
-                companyName={companyData.companyName || ""}
-                isOpen={true}
-                onToggle={() => {}}
-              />
-
-              {/* Category Display (Portal Visibility) */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-xl">
-                    Category Display (Portal Visibility)
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground font-normal mt-1">
-                    Show or hide each category in the client portal (Navigation, Tiles, My Benefits Team, Documents). Admin data is unchanged.
-                  </p>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {PRIMARY_SERVICE_CATEGORY_OPTIONS.map((category) => (
-                    <div
-                      key={category}
-                      className="flex items-center justify-between rounded-lg border p-4"
-                    >
-                      <span className="font-medium">{category}</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">
-                          {categoryPortalVisibility[category] !== false ? "Show" : "Hide"}
-                        </span>
-                        <Switch
-                          checked={categoryPortalVisibility[category] !== false}
-                          onCheckedChange={(checked) => {
-                            setCategoryPortalVisibility((prev) => ({
-                              ...prev,
-                              [category]: checked,
-                            }));
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
             </TabsContent>
 
             {/* ── Tab 5: Disclaimers ── */}

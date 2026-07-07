@@ -375,7 +375,10 @@ export function useEditClient() {
 
                 const retirementDocs = docs
                   .filter((doc: any) => doc.id !== spdDoc?.id)
-                  .map((doc: any) => buildDocumentFromApi(doc, "other"));
+                  .map((doc: any) => buildDocumentFromApi(doc, "other"))
+                  .filter((doc: any, idx: number, arr: any[]) =>
+                    arr.findIndex((d: any) => d.id === doc.id) === idx,
+                  );
 
                 setDocumentsData({
                   spdFile: spdDoc ? buildDocumentFromApi(spdDoc, "spd") : null,
