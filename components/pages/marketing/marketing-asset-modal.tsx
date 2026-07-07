@@ -2025,7 +2025,7 @@ function NewsPostPreview({
     <>
       <div className="relative z-10 flex flex-col h-full p-6 sm:p-8 lg:p-10 max-w-[60%] sm:max-w-[55%]">
         {/* Category badge + Date */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 mb-2 sm:mb-3">
+        <div className="flex flex-row flex-wrap items-center gap-1.5 mb-2 sm:mb-3">
           <span className="inline-flex items-center rounded-full border border-white/30 bg-white/20 backdrop-blur-sm px-2 py-0.5 text-[10px] sm:text-[11px] font-semibold text-white self-start">
             {postCategory || "Retirement"}
           </span>
