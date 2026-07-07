@@ -598,9 +598,9 @@ export default function MarketingAssetModal({
                   className={cn(
                     "flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-colors",
                     flyerStep === step
-                      ? "bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900"
+                      ? "bg-accent-blue text-white"
                       : flyerStep > step
-                        ? "bg-green-500 text-white"
+                        ? "bg-accent-blue text-white"
                         : "bg-gray-200 text-gray-400 dark:bg-gray-700"
                   )}
                 >
@@ -610,7 +610,7 @@ export default function MarketingAssetModal({
                   <div
                     className={cn(
                       "h-0.5 w-6 transition-colors",
-                      flyerStep > step ? "bg-green-500" : "bg-gray-200 dark:bg-gray-700"
+                      flyerStep > step ? "bg-accent-blue" : "bg-gray-200 dark:bg-gray-700"
                     )}
                   />
                 )}
