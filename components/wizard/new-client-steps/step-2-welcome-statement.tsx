@@ -416,6 +416,18 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
     return () => cancelAnimationFrame(raf);
   }, [updateScale, editorState.isEditorOpen, previewMode]);
 
+  // Observe the scaled content div for size changes (e.g. images loading)
+  // so scaledHeight stays in sync with actual content height.
+  useEffect(() => {
+    const content = previewContentRef.current;
+    if (!content || previewMode === "mobile") return;
+    const observer = new ResizeObserver(() => {
+      updateScale();
+    });
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [updateScale, previewMode]);
+
   useEffect(() => {
     const scrollable = scrollableRef.current;
     if (!scrollable) return;

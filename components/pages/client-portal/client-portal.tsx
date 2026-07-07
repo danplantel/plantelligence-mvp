@@ -107,7 +107,7 @@ export function ClientPortal({
 
   const portalContent = (
     <div
-      className={`relative bg-white min-h-screen overflow-x-hidden ${className}`}
+      className={`relative bg-white min-h-screen overflow-hidden ${className}`}
       style={{ zIndex: 1 }}
     >
       {!hideHeader && (
