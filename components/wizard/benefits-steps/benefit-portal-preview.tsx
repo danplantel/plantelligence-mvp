@@ -2,7 +2,8 @@
 
 import React, { useMemo, useState } from "react";
 
-// Preview-specific overrides so child sections expand to fill the wide container
+// Preview-specific overrides so child sections expand to fill the wide container.
+// Preserve max-w-3xl for the FAQ section so it matches the benefits hub layout width.
 const previewStyles = `
   .preview-portal-container {
     width: 1400px !important;
@@ -12,11 +13,15 @@ const previewStyles = `
   }
   .preview-portal-container section > div:first-child,
   .preview-portal-container .max-w-4xl,
-  .preview-portal-container .max-w-3xl,
   .preview-portal-container .max-w-7xl,
   .preview-portal-container .max-w-5xl,
   .preview-portal-container .max-w-6xl {
     max-width: 100% !important;
+    width: 100% !important;
+  }
+  /* FAQ section — restore benefits hub width (max-w-3xl = 48rem) */
+  .preview-portal-container section.py-20.bg-white > .max-w-3xl {
+    max-width: 48rem !important;
     width: 100% !important;
   }
 `;
