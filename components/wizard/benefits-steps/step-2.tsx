@@ -37,11 +37,12 @@ function MobilePreviewFrame({ children, width }: { children: React.ReactNode; wi
 
         // Reset the iframe document with viewport meta so media queries
         // evaluate against the iframe's actual width (390px), not a default.
+        // Body overflow-x: hidden prevents any horizontal scroll within the iframe.
         doc.open();
         doc.write(
-            '<!DOCTYPE html><html><head>' +
+            '<!DOCTYPE html><html style="overflow-x:hidden"><head>' +
             '<meta name="viewport" content="width=' + width + ', initial-scale=1">' +
-            '</head><body></body></html>',
+            '</head><body style="overflow-x:hidden; width:100%; margin:0"></body></html>',
         );
         doc.close();
 
@@ -82,20 +83,18 @@ function MobilePreviewFrame({ children, width }: { children: React.ReactNode; wi
             title="Mobile Preview"
             style={{
                 width: `${width}px`,
+                height: "812px", // iPhone X height — modern phone aspect ratio
                 border: "none",
                 background: "white",
                 flexShrink: 0,
             }}
-            // Height auto-expands to content; we set a large min-height
-            // and let the iframe's scroll handle overflow
-            className="min-h-[800px] h-auto"
         >
             {mountNode &&
                 createPortal(
                     <div
                         style={{
                             width: `${width}px`,
-                            minHeight: "100vh",
+                            minHeight: "100%",
                             overflowX: "hidden",
                         }}
                     >
