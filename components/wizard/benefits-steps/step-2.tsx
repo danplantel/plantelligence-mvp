@@ -1,19 +1,110 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { BenefitPortalPreview } from "./benefit-portal-preview";
 import { BenefitsEditorPanel } from "./benefits-editor-panel";
 import { useBenefitsEditorState } from "./hooks/use-benefits-editor-state";
 import { useBenefitsLenisScroll } from "./hooks/use-benefits-lenis-scroll";
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
 import { PortalHeader } from "@/components/pages/client-portal/sections/portal-header";
+import { Smartphone, Monitor } from "lucide-react";
 
-/** The native (unscaled) desktop width of the preview in px */
-const NATIVE_PREVIEW_WIDTH = 1400;
+/** Native preview widths for each mode */
+const DESKTOP_WIDTH = 1400;
 /** Height of the fixed app header on wizard pages (h-[72px] with stepper) */
 const HEADER_HEIGHT = 72;
 /** Estimated height of the fixed bottom navigation bar from BenefitsWizard */
 const BOTTOM_NAV_HEIGHT = 72;
+
+type PreviewMode = "desktop" | "mobile";
+
+/**
+ * Renders children into an iframe so that CSS viewport-based media queries
+ * (Tailwind sm:, md:, lg:, etc.) evaluate against the iframe's actual width
+ * rather than the parent browser window.
+ */
+function MobilePreviewFrame({ children, width }: { children: React.ReactNode; width: number }) {
+    const iframeRef = useRef<HTMLIFrameElement>(null);
+    const [mountNode, setMountNode] = useState<HTMLElement | null>(null);
+
+    useEffect(() => {
+        const iframe = iframeRef.current;
+        if (!iframe) return;
+
+        const doc = iframe.contentDocument;
+        if (!doc) return;
+
+        // Reset the iframe document
+        doc.open();
+        doc.write("<!DOCTYPE html><html><head></head><body></body></html>");
+        doc.close();
+
+        // Copy stylesheets from parent to iframe
+        const parentStyles = Array.from(
+            document.querySelectorAll("style, link[rel=stylesheet]"),
+        ) as (HTMLStyleElement | HTMLLinkElement)[];
+
+        parentStyles.forEach((el) => {
+            const clone = el.cloneNode(true) as HTMLElement;
+            // Fix relative URLs in link hrefs
+            if (clone instanceof HTMLLinkElement && clone.href) {
+                clone.href = clone.href; // browser resolves relative URLs
+            }
+            doc.head.appendChild(clone);
+        });
+
+        // Copy body classes (for dark mode, theme, etc.)
+        document.body.classList.forEach((cls) => {
+            doc.body.classList.add(cls);
+        });
+
+        // Copy CSS custom properties from :root
+        const rootStyles = getComputedStyle(document.documentElement);
+        const vars = Array.from(document.documentElement.style).filter((k) =>
+            k.startsWith("--"),
+        );
+        vars.forEach((k) => {
+            doc.documentElement.style.setProperty(k, rootStyles.getPropertyValue(k));
+        });
+
+        setMountNode(doc.body);
+
+        return () => {
+            setMountNode(null);
+        };
+    }, []);
+
+    return (
+        <iframe
+            ref={iframeRef}
+            title="Mobile Preview"
+            style={{
+                width: `${width}px`,
+                border: "none",
+                background: "white",
+                flexShrink: 0,
+            }}
+            // Height auto-expands to content; we set a large min-height
+            // and let the iframe's scroll handle overflow
+            className="min-h-[800px] h-auto"
+        >
+            {mountNode &&
+                createPortal(
+                    <div
+                        style={{
+                            width: `${width}px`,
+                            minHeight: "100vh",
+                            overflowX: "hidden",
+                        }}
+                    >
+                        {children}
+                    </div>,
+                    mountNode,
+                )}
+        </iframe>
+    );
+}
 
 export function BenefitsStep2() {
     const editorState = useBenefitsEditorState();
@@ -27,7 +118,9 @@ export function BenefitsStep2() {
     const barRef = useRef<HTMLDivElement>(null);
     const [barHeight, setBarHeight] = useState(52);
 
-    // ── Preview scaling state ──
+    // ── Preview mode & scaling state ──
+    const [previewMode, setPreviewMode] = useState<PreviewMode>("desktop");
+
     const previewContentRef = useRef<HTMLDivElement>(null);
     const [scale, setScale] = useState(1);
     const [scaledHeight, setScaledHeight] = useState<number | undefined>(undefined);
@@ -67,8 +160,6 @@ export function BenefitsStep2() {
     }, []);
 
     // ── Lock body scroll while on Step 2 ──
-    // The preview has its own scrollable container; the page scrollbar
-    // is unnecessary and creates a double-scrollbar appearance.
     useEffect(() => {
         const originalBodyOverflow = document.body.style.overflow;
         const originalHtmlOverflow = document.documentElement.style.overflow;
@@ -80,35 +171,53 @@ export function BenefitsStep2() {
         };
     }, []);
 
-    // ── Scale calculation ──
+    // ── Scale calculation (desktop only — mobile uses iframe, no scaling) ──
     const updateScale = useCallback(() => {
+        if (previewMode === "mobile") return;
         const content = previewContentRef.current;
         const scrollable = scrollableRef.current;
         if (!content || !scrollable) return;
 
         const availableWidth = scrollable.clientWidth;
-        const newScale = Math.min(availableWidth / NATIVE_PREVIEW_WIDTH, 1);
+        const newScale = Math.min(availableWidth / DESKTOP_WIDTH, 1);
         setScale(newScale);
 
         const contentHeight = content.scrollHeight;
         setScaledHeight(contentHeight * newScale);
-    }, []);
+    }, [previewMode]);
 
     useEffect(() => {
+        if (previewMode === "mobile") return;
         const raf = requestAnimationFrame(() => updateScale());
         return () => cancelAnimationFrame(raf);
-    }, [updateScale, editorState.isEditorOpen]);
+    }, [updateScale, editorState.isEditorOpen, previewMode]);
 
     useEffect(() => {
         const scrollable = scrollableRef.current;
         if (!scrollable) return;
 
         const observer = new ResizeObserver(() => {
-            updateScale();
+            if (previewMode !== "mobile") updateScale();
         });
         observer.observe(scrollable);
         return () => observer.disconnect();
-    }, [updateScale]);
+    }, [updateScale, previewMode]);
+
+    // Recalculate when preview mode changes (desktop only)
+    useEffect(() => {
+        if (previewMode !== "mobile") {
+            const timer = setTimeout(() => updateScale(), 100);
+            return () => clearTimeout(timer);
+        }
+    }, [previewMode, updateScale]);
+
+    // When mobile mode activates, reset scaling states
+    useEffect(() => {
+        if (previewMode === "mobile") {
+            setScale(1);
+            setScaledHeight(undefined);
+        }
+    }, [previewMode]);
 
     const editorIsOpen = editorState.isEditorOpen || editorState.isEditorAnimating;
 
@@ -120,12 +229,23 @@ export function BenefitsStep2() {
         ? (step1Data?.selectedPlan?.companyLogo as any)?.url
         : step1Data?.selectedPlan?.companyLogo;
 
+    const togglePreviewMode = () => {
+        setPreviewMode((prev) => (prev === "desktop" ? "mobile" : "desktop"));
+    };
+
+    const brandColor = step1Data?.selectedPlan?.brandColor
+        || step1Data?.selectedPlan?.brandColors?.primary
+        || "#1F3A60";
+    const secondaryColor = step1Data?.selectedPlan?.secondaryColor
+        || step1Data?.selectedPlan?.brandColors?.secondary
+        || "#6B7280";
+
     return (
         <div className="w-full transition-all duration-200">
             {/* Spacer so content doesn't jump behind the fixed bar */}
             <div style={{ height: HEADER_HEIGHT + barHeight }} />
 
-            {/* Toggle edit panel button — fixed directly under the app header */}
+            {/* Toggle edit panel button + Mobile Preview toggle — fixed directly under the app header */}
             <div
                 className="fixed top-0 z-[45]"
                 style={{
@@ -137,8 +257,9 @@ export function BenefitsStep2() {
                 <div style={{ height: `${HEADER_HEIGHT}px` }} />
                 <div
                     ref={barRef}
-                    className="flex items-center gap-3 px-4 py-3 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700"
+                    className="flex items-center justify-between px-4 py-3 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700"
                 >
+                    {/* Left: Edit Panel toggle */}
                     <button
                         type="button"
                         onClick={() => {
@@ -167,6 +288,26 @@ export function BenefitsStep2() {
                             </>
                         )}
                     </button>
+
+                    {/* Right: Mobile/Desktop preview toggle */}
+                    <button
+                        type="button"
+                        onClick={togglePreviewMode}
+                        className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                        title={previewMode === "mobile" ? "Switch to Desktop preview" : "Switch to Mobile preview"}
+                    >
+                        {previewMode === "mobile" ? (
+                            <>
+                                <Monitor className="w-4 h-4" />
+                                Desktop Preview
+                            </>
+                        ) : (
+                            <>
+                                <Smartphone className="w-4 h-4" />
+                                Mobile Preview
+                            </>
+                        )}
+                    </button>
                 </div>
             </div>
 
@@ -181,7 +322,7 @@ export function BenefitsStep2() {
             />
 
             {/* ════════════════════════════════════════════════════════════════
-                Scalable preview — flex column: portal header (sticky) + scrollable scaled content
+                Scalable preview — flex column: portal header (sticky) + scrollable content
                 ════════════════════════════════════════════════════════════════ */}
             <div
                 className="fixed z-40 flex flex-col"
@@ -196,42 +337,46 @@ export function BenefitsStep2() {
                 <div className="sticky top-0 z-10 shadow-md">
                     <PortalHeader
                         companyData={{ companyLogo: planCompanyLogo }}
-                        brandColor={step1Data?.selectedPlan?.brandColor
-                            || step1Data?.selectedPlan?.brandColors?.primary
-                            || "#1F3A60"}
-                        secondaryColor={step1Data?.selectedPlan?.secondaryColor
-                            || step1Data?.selectedPlan?.brandColors?.secondary
-                            || "#6B7280"}
+                        brandColor={brandColor}
+                        secondaryColor={secondaryColor}
                         clientId={step1Data?.planId}
                         categoryPortalVisibility={step1Data?.benefitVisibility ?? null}
                         benefits={(step1Data?.selectedPlan as any)?.employeePortalPreview?.benefits ?? null}
                     />
                 </div>
 
-                {/* Scrollable scaled content — items-center keeps the preview centered */}
+                {/* Scrollable content — items-center keeps the preview centered */}
                 <div
                     ref={scrollableRef}
                     className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-300 dark:bg-gray-950 flex flex-col items-center"
                 >
-                    <div
-                        style={{
-                            height: scaledHeight != null ? `${scaledHeight}px` : "100%",
-                        }}
-                    >
+                    {previewMode === "mobile" ? (
+                        /* ── Mobile: rendered in an iframe so viewport-based
+                         *    media queries (Tailwind sm:, md:, lg:) evaluate
+                         *    against the iframe's actual 390px width. ── */
+                        <MobilePreviewFrame width={390}>
+                            <BenefitPortalPreview />
+                        </MobilePreviewFrame>
+                    ) : (
+                        /* ── Desktop: scaled preview ── */
                         <div
-                            ref={previewContentRef}
                             style={{
-                                transform: `scale(${scale})`,
-                                // Center horizontally so the preview stays centered
-                                // when the editor is closed (wider available space)
-                                transformOrigin: "center top",
-                                width: `${NATIVE_PREVIEW_WIDTH}px`,
-                                overflowX: "hidden",
+                                height: scaledHeight != null ? `${scaledHeight}px` : "100%",
                             }}
                         >
-                            <BenefitPortalPreview />
+                            <div
+                                ref={previewContentRef}
+                                style={{
+                                    transform: `scale(${scale})`,
+                                    transformOrigin: "center top",
+                                    width: `${DESKTOP_WIDTH}px`,
+                                    overflowX: "hidden",
+                                }}
+                            >
+                                <BenefitPortalPreview />
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             </div>
         </div>
