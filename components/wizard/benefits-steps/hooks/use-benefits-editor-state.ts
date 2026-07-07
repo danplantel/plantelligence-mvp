@@ -33,10 +33,13 @@ export function useBenefitsEditorState() {
         };
     }, []);
 
-    // Broadcast editor state changes for the wizard sidebar logic
+    // Broadcast editor state changes for the wizard sidebar logic.
+    // Uses a benefits-specific event name so the new-client wizard's
+    // sidebar-widening logic (which listens for "step5EditorStateChange")
+    // does not interfere with the benefits Elementor layout.
     useEffect(() => {
         window.dispatchEvent(
-            new CustomEvent("step5EditorStateChange", {
+            new CustomEvent("benefitsEditorStateChange", {
                 detail: { isOpen: isEditorOpen },
             }),
         );
