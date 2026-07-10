@@ -82,7 +82,7 @@ export function PortalMaterialsHero({
               </h3>
 
               <div className="my-6 text-center">
-                <span className="font-red-hat text-[16px] leading-tight font-semibold text-[#b78e42]">
+                <span className="inline-block rounded-lg bg-black/60 px-4 py-2 font-red-hat text-[16px] leading-tight font-semibold text-[#b78e42] backdrop-blur-sm">
                   {resolvedPlanIdLabel}
                 </span>
               </div>
