@@ -22,7 +22,6 @@ import {
   AlertCircle,
   Eye,
   FileText,
-  Info,
   Edit2,
   X,
 } from "lucide-react";
@@ -425,71 +424,38 @@ export function BenefitsStep5() {
     "#1F3A60";
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-20">
-      {/* ── Header ── */}
-      <div className="text-center space-y-3">
-        <div className="flex justify-center">
-          <div className="p-3 rounded-2xl bg-[#23919C]/10">
-            <FileText className="w-8 h-8 text-[#23919C]" />
+  <div className="space-y-6 max-w-4xl mx-auto pb-20">
+    {/* ── Combined Header + Location Info ── */}
+    <Card className="border-2 border-dashed border-gray-300 dark:border-gray-600 bg-gray-50/50 dark:bg-gray-800/30">
+      <CardContent className="p-6">
+        <div className="flex items-start gap-4">
+          <div className="p-2.5 rounded-xl bg-[#23919C]/10 shrink-0">
+            <FileText className="w-6 h-6 text-[#23919C]" />
+          </div>
+          <div className="space-y-2 flex-1 min-w-0">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+                Footer Disclaimer
+              </h2>
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-[#23919C]/10 text-[#23919C] text-xs font-medium">
+                <FileText className="w-3 h-3" />
+                {portalCategory}
+              </span>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Create a disclaimer that will appear in the{" "}
+              <strong className="text-gray-700 dark:text-gray-200">Footer</strong>{" "}
+              of the{" "}
+              <strong className="text-gray-700 dark:text-gray-200">
+                {portalCategory}
+              </strong>{" "}
+              employee portal page — visible to all employees who access the
+              portal. This is a <strong>required</strong> step.
+            </p>
           </div>
         </div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-          Footer Disclaimer
-        </h1>
-        <p className="text-muted-foreground max-w-2xl mx-auto">
-          Create a disclaimer that will appear in the{" "}
-          <strong className="text-gray-700 dark:text-gray-200">Footer</strong>{" "}
-          of the{" "}
-          <strong className="text-gray-700 dark:text-gray-200">
-            {portalCategory}
-          </strong>{" "}
-          employee portal page. This is a <strong>required</strong> step — you
-          must provide a disclaimer before proceeding.
-        </p>
-      </div>
-
-      {/* ── Portal Footer Visual Indicator ── */}
-      <Card className="border-2 border-dashed border-gray-300 dark:border-gray-600 bg-gray-50/50 dark:bg-gray-800/30">
-        <CardContent className="p-6">
-          <div className="flex items-start gap-4">
-            <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 shrink-0">
-              <Info className="w-5 h-5" />
-            </div>
-            <div className="space-y-1">
-              <h3 className="text-sm font-bold text-gray-700 dark:text-gray-200">
-                Where does this appear?
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                Your disclaimer text is rendered in the Footer section at the
-                very bottom of the{" "}
-                <strong className="text-gray-600 dark:text-gray-300">
-                  {portalCategory}
-                </strong>{" "}
-                portal page — visible to all employees who access the benefits
-                portal. You can target specific pages or apply it globally.
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#23919C]/10 text-[#23919C] text-xs font-medium">
-                  <FileText className="w-3 h-3" />
-                  {portalCategory}
-                </span>
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-medium">
-                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                  </svg>
-                  Footer Section
-                </span>
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-medium">
-                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
-                  </svg>
-                  Employee-facing
-                </span>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      </CardContent>
+    </Card>
 
       {/* ── Main Disclaimer Editor Card ── */}
       <Card className="border border-gray-200 dark:border-gray-700">
