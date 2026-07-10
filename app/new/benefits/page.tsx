@@ -109,7 +109,6 @@ function BenefitsPageInner() {
         planId: planIdParam,
         benefitCategory: categoryParam as BenefitsCategory,
         benefitTitle: categoryParam === "Custom" ? "" : categoryParam,
-        currentSubStep: "a",
       });
     };
 
@@ -182,6 +181,7 @@ function BenefitsPageInner() {
     const step1Data = store.stepData.step1;
     const step3Data = store.stepData.step3;
     const step4Data = store.stepData.step4;
+    const step5Data = store.stepData.step5;
     const planId = step1Data?.planId;
 
     if (!planId) {
@@ -381,6 +381,12 @@ function BenefitsPageInner() {
         Other: visibilityForComplete["Custom"] !== false,
       };
 
+      // Include Step 5 disclaimers in the payload
+      const step5Disclaimers =
+        Array.isArray(step5Data?.disclaimers) && step5Data.disclaimers.length > 0
+          ? step5Data.disclaimers
+          : undefined;
+
       const updatePayload = {
         keyContacts: finalContactsList,
         employeePortalPreview: {
@@ -391,8 +397,16 @@ function BenefitsPageInner() {
           insuranceLoginUrl: step1Data?.insuranceLoginUrl || "",
           insuranceBackgroundImage: step1Data?.insuranceBackgroundImage || "",
           insuranceContainerBlockOpacity: step1Data?.insuranceContainerBlockOpacity ?? 0.8,
+          // Explicitly persist help cards and hero overlay settings
+          helpCards: step1Data?.helpCards,
+          heroBackgroundOpacity: step1Data?.heroBackgroundOpacity ?? 1.0,
+          heroContainerBlockOpacity: step1Data?.heroContainerBlockOpacity ?? 0.67,
+          heroContainerInverted: step1Data?.heroContainerInverted ?? false,
+          heroBackgroundInverted: step1Data?.heroBackgroundInverted ?? false,
+          heroUseGradient: step1Data?.heroUseGradient ?? false,
         },
         categoryPortalVisibility: categoryPortalVisibilityForComplete,
+        ...(step5Disclaimers ? { disclaimers: { disclaimers: step5Disclaimers } } : {}),
         documentsData: {
           retirementPlanDocuments: [...retirementPlanDocuments, ...newDocuments],
           // Preserve other types
