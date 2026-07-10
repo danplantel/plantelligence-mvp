@@ -42,6 +42,8 @@ export interface BenefitsStep1Data {
     insuranceLoginUrl?: string;
     /** Background image URL for the Insurance Benefits Access & Materials section */
     insuranceBackgroundImage?: string;
+    /** Insurance section overlay darkness (0-1, higher = darker) */
+    insuranceContainerBlockOpacity?: number;
     /** Hero overlay opacity for the background image */
     heroOverlayOpacity?: number;
     /** Hero background image opacity */

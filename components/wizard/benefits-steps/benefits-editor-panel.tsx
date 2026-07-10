@@ -6,6 +6,7 @@ import { EditorPanelWrapper } from "@/components/wizard/new-client-steps/section
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Slider } from "@/components/ui/slider";
 import { BrandImageUpload } from "@/components/ui/brand-image-upload";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -472,6 +473,30 @@ export function BenefitsEditorPanel({
                                 universalModalType="normalizer"
                             />
                         </div>
+
+                        {/* Insurance Overlay Settings — only Container Opacity */}
+                        <div className="space-y-4">
+                            <Label className="text-xs font-bold text-foreground">Overlay Darkness</Label>
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs text-muted-foreground">
+                                        {Math.round((step1Data.insuranceContainerBlockOpacity ?? 0.8) * 100)}% opacity
+                                    </span>
+                                </div>
+                                <Slider
+                                    value={[step1Data.insuranceContainerBlockOpacity ?? 0.8]}
+                                    onValueChange={([value]) => saveStepData(1, { ...step1Data, insuranceContainerBlockOpacity: value })}
+                                    min={0}
+                                    max={1}
+                                    step={0.01}
+                                    className="w-full"
+                                />
+                            </div>
+                            <p className="text-[11px] text-muted-foreground">
+                                Controls how dark the overlay is over the background image. Higher values = darker overlay.
+                            </p>
+                        </div>
+
                         <div className="space-y-2">
                             <Label className="text-xs font-bold text-foreground">Plan ID #</Label>
                             <Input

@@ -390,6 +390,7 @@ function BenefitsPageInner() {
           insurancePlanId: step1Data?.insurancePlanId || "",
           insuranceLoginUrl: step1Data?.insuranceLoginUrl || "",
           insuranceBackgroundImage: step1Data?.insuranceBackgroundImage || "",
+          insuranceContainerBlockOpacity: step1Data?.insuranceContainerBlockOpacity ?? 0.8,
         },
         categoryPortalVisibility: categoryPortalVisibilityForComplete,
         documentsData: {

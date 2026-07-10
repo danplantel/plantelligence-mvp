@@ -281,6 +281,7 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
                 <PortalMaterialsHero
                     brandColor={brandColor}
                     backgroundImage={step1Data?.insuranceBackgroundImage || undefined}
+                    containerBlockOpacity={step1Data?.insuranceContainerBlockOpacity ?? 0.8}
                     planIdLabel={step1Data?.insurancePlanId ? `PLAN ID: ${step1Data.insurancePlanId}` : undefined}
                     buttonLabel="REGISTER OR LOGIN HERE"
                     onButtonClick={step1Data?.insuranceLoginUrl ? () => window.open(step1Data.insuranceLoginUrl, "_blank", "noopener,noreferrer") : undefined}

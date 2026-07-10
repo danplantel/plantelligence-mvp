@@ -10,6 +10,8 @@ import { isR2BrandingKey } from "@/lib/branding-image-url";
 interface PortalMaterialsHeroProps {
   brandColor?: string;
   backgroundImage?: string;
+  /** Overlay darkness (0-1, higher = darker overlay) */
+  containerBlockOpacity?: number;
   heading?: string;
   cardHeading?: string;
   planIdLabel?: string;
@@ -21,6 +23,7 @@ interface PortalMaterialsHeroProps {
 export function PortalMaterialsHero({
   brandColor = "#1F3A60",
   backgroundImage: backgroundImageProp,
+  containerBlockOpacity = 0.8,
   heading = "Insurance Benefits Access & Materials",
   cardHeading = "Group Health Insurance Account Access",
   planIdLabel: planIdLabelProp,
@@ -50,6 +53,7 @@ export function PortalMaterialsHero({
   const isR2 = isR2BrandingKey(rawBg);
   const { url: resolvedR2Bg } = useBrandingImageUrl(isR2 ? rawBg : null);
   const resolvedBackgroundImage = isR2 ? (resolvedR2Bg || rawBg) : (rawBg || undefined);
+
   return (
     <section className="relative h-[750px] overflow-hidden">
       <div className="absolute inset-0 h-[750px]">
@@ -60,7 +64,7 @@ export function PortalMaterialsHero({
           height={1000}
           className="h-full w-full object-cover"
         />
-        <div className="absolute inset-0 bg-black/80" />
+        <div className="absolute inset-0" style={{ backgroundColor: `rgba(0, 0, 0, ${containerBlockOpacity})` }} />
       </div>
 
       <div className="relative z-10 flex h-[750px] flex-col items-center justify-center">

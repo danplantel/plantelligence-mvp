@@ -495,6 +495,7 @@ export function BenefitsStep1() {
           insurancePlanId: currentStepData.insurancePlanId || "",
           insuranceLoginUrl: currentStepData.insuranceLoginUrl || "",
           insuranceBackgroundImage: currentStepData.insuranceBackgroundImage || "",
+          insuranceContainerBlockOpacity: currentStepData.insuranceContainerBlockOpacity ?? 0.8,
         };
 
         await fetch(`/api/clients/${currentStepData.planId}`, {
@@ -672,6 +673,10 @@ export function BenefitsStep1() {
               fullPlanEpp.insuranceLoginUrl ||
               latest.insuranceLoginUrl ||
               "",
+            insuranceContainerBlockOpacity:
+              fullPlanEpp.insuranceContainerBlockOpacity ??
+              latest.insuranceContainerBlockOpacity ??
+              0.8,
             brandImages: {
               ...(latest.brandImages || {
                 header: null,
@@ -1168,6 +1173,9 @@ export function BenefitsStep1() {
           currentStepData.insuranceLoginUrl ||
           "";
 
+        // Sync insurance overlay settings from persisted plan data
+        const fullPlanEpp = fullPlan.employeePortalPreview || {};
+
         saveStepData(1, {
           ...currentStepData,
           planId,
@@ -1179,6 +1187,10 @@ export function BenefitsStep1() {
           insuranceBackgroundImage: syncedInsuranceBg,
           insurancePlanId: syncedInsurancePlanId,
           insuranceLoginUrl: syncedInsuranceLoginUrl,
+          insuranceContainerBlockOpacity:
+            fullPlanEpp.insuranceContainerBlockOpacity ??
+            currentStepData.insuranceContainerBlockOpacity ??
+            0.8,
           brandImages: {
             ...currentStepData.brandImages,
             header: planBackground,
