@@ -148,12 +148,23 @@ export function BenefitsStep2() {
         }
     }, [editorInitialized, editorState]);
 
-    // Close editor when leaving Step 2
+    // Close editor immediately (no animation) when leaving Step 2
+    const prevStepRef = useRef(currentStep);
     useEffect(() => {
-        if (currentStep !== 2 && editorState.isEditorOpen) {
-            editorState.handleCloseEditor();
+        if (currentStep !== 2 && prevStepRef.current === 2) {
+            // Immediately close editor — skip 200ms animation delay to prevent layout gap
+            editorState.setIsEditorAnimating(false);
+            editorState.setIsEditorOpen(false);
+
+            // Dispatch event so BenefitsWizard knows to restore --sidebar-width
+            window.dispatchEvent(
+                new CustomEvent("step5EditorStateChange", {
+                    detail: { isOpen: false },
+                }),
+            );
         }
-    }, [currentStep, editorState]);
+        prevStepRef.current = currentStep;
+    }, [currentStep, editorState.setIsEditorAnimating, editorState.setIsEditorOpen]);
 
     // Measure bar height (button bar only, excludes the header spacer)
     useEffect(() => {
@@ -173,9 +184,18 @@ export function BenefitsStep2() {
         const originalHtmlOverflow = document.documentElement.style.overflow;
         document.body.style.overflow = "hidden";
         document.documentElement.style.overflow = "hidden";
+
         return () => {
             document.body.style.overflow = originalBodyOverflow;
             document.documentElement.style.overflow = originalHtmlOverflow;
+
+            // Dispatch events so BenefitsWizard knows to restore --sidebar-width
+            window.dispatchEvent(
+                new CustomEvent("step5EditorStateChange", {
+                    detail: { isOpen: false },
+                }),
+            );
+            window.dispatchEvent(new CustomEvent("closeBenefitsEditor"));
         };
     }, []);
 

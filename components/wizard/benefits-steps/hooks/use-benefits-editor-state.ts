@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 export function useBenefitsEditorState() {
     const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -42,14 +42,26 @@ export function useBenefitsEditorState() {
         );
     }, [isEditorOpen]);
 
+    const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
     const handleCloseEditor = () => {
         setIsEditorAnimating(false);
         setActiveSection(null);
         setHighlightedField(null);
-        setTimeout(() => {
+        closeTimerRef.current = setTimeout(() => {
             setIsEditorOpen(false);
+            closeTimerRef.current = null;
         }, 200);
     };
+
+    // Clear any pending close timer on unmount to prevent stale state updates
+    useEffect(() => {
+        return () => {
+            if (closeTimerRef.current) {
+                clearTimeout(closeTimerRef.current);
+            }
+        };
+    }, []);
 
     return {
         isEditorOpen,
