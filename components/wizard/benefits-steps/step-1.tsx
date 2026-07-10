@@ -489,11 +489,19 @@ export function BenefitsStep1() {
           Other: visibility["Custom"] !== false,
         };
 
+        // Merge insurance fields into employeePortalPreview for persistence
+        const employeePortalPreviewWithInsurance = {
+          ...getMergedClientData.employeePortalPreview,
+          insurancePlanId: currentStepData.insurancePlanId || "",
+          insuranceLoginUrl: currentStepData.insuranceLoginUrl || "",
+          insuranceBackgroundImage: currentStepData.insuranceBackgroundImage || "",
+        };
+
         await fetch(`/api/clients/${currentStepData.planId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            employeePortalPreview: getMergedClientData.employeePortalPreview,
+            employeePortalPreview: employeePortalPreviewWithInsurance,
             categoryPortalVisibility,
           }),
         });
@@ -646,10 +654,24 @@ export function BenefitsStep1() {
                 }
               : null);
 
+          // Sync insurance fields from persisted plan data into step1Data
+          const fullPlanEpp = fullPlan.employeePortalPreview || {};
           saveStepData(1, {
             ...latest,
             planId,
             selectedPlan: fullPlan,
+            insuranceBackgroundImage:
+              fullPlanEpp.insuranceBackgroundImage ||
+              latest.insuranceBackgroundImage ||
+              "",
+            insurancePlanId:
+              fullPlanEpp.insurancePlanId ||
+              latest.insurancePlanId ||
+              "",
+            insuranceLoginUrl:
+              fullPlanEpp.insuranceLoginUrl ||
+              latest.insuranceLoginUrl ||
+              "",
             brandImages: {
               ...(latest.brandImages || {
                 header: null,
@@ -1130,6 +1152,22 @@ export function BenefitsStep1() {
           visibilityFromPlan["Custom"] = visibilityFromPlan["Company / Plan Sponsor"] ?? false;
         }
 
+        // Sync insurance fields from the persisted plan data into step1Data
+        // so that previously saved insuranceBackgroundImage, insurancePlanId,
+        // and insuranceLoginUrl are available in the wizard store.
+        const syncedInsuranceBg =
+          fullPlan.employeePortalPreview?.insuranceBackgroundImage ||
+          currentStepData.insuranceBackgroundImage ||
+          "";
+        const syncedInsurancePlanId =
+          fullPlan.employeePortalPreview?.insurancePlanId ||
+          currentStepData.insurancePlanId ||
+          "";
+        const syncedInsuranceLoginUrl =
+          fullPlan.employeePortalPreview?.insuranceLoginUrl ||
+          currentStepData.insuranceLoginUrl ||
+          "";
+
         saveStepData(1, {
           ...currentStepData,
           planId,
@@ -1138,6 +1176,9 @@ export function BenefitsStep1() {
           contactId: "",
           benefitTitle: "",
           companyLogo: null,
+          insuranceBackgroundImage: syncedInsuranceBg,
+          insurancePlanId: syncedInsurancePlanId,
+          insuranceLoginUrl: syncedInsuranceLoginUrl,
           brandImages: {
             ...currentStepData.brandImages,
             header: planBackground,
