@@ -2092,8 +2092,8 @@ export function BenefitsStep1() {
                       className="h-11 border-gray-200 dark:border-gray-600"
                     />
                     <p className="text-[10px] text-gray-400 italic">
-                      This title will override the default "
-                      {currentStepData.benefitCategory}" label in the
+                      This title will override the default &ldquo;
+                      {currentStepData.benefitCategory}&rdquo; label in the
                       portal.
                     </p>
                   </div>
