@@ -457,108 +457,104 @@ export function BenefitsStep5() {
       </CardContent>
     </Card>
 
-      {/* ── Main Disclaimer Editor Card ── */}
-      <Card className="border border-gray-200 dark:border-gray-700">
-        <CardContent className="pt-6">
-          {!disclaimer && showInitialPrompt && (
-            /* ── Initial prompt (no disclaimer yet) ── */
-            <div className="max-w-xl mx-auto space-y-6 py-4">
-              <div className="text-center space-y-2">
-                <div className="flex justify-center">
-                  <div className="p-3 rounded-full bg-red-50 dark:bg-red-900/20">
-                    <AlertCircle className="w-6 h-6 text-red-500" />
-                  </div>
-                </div>
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                  Disclaimer Required
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  You must create a disclaimer before proceeding. This legal
-                  notice will appear in the footer of your{" "}
-                  <strong className="text-gray-700 dark:text-gray-200">
-                    {portalCategory}
-                  </strong>{" "}
-                  portal page.
-                </p>
+      {/* ── Disclaimer content (no wrapper card — same width as header) ── */}
+      {!disclaimer && showInitialPrompt && (
+        /* ── Initial prompt (no disclaimer yet) ── */
+        <div className="space-y-6 py-4">
+          <div className="text-center space-y-2">
+            <div className="flex justify-center">
+              <div className="p-3 rounded-full bg-red-50 dark:bg-red-900/20">
+                <AlertCircle className="w-6 h-6 text-red-500" />
               </div>
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+              Disclaimer Required
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              You must create a disclaimer before proceeding. This legal
+              notice will appear in the footer of your{" "}
+              <strong className="text-gray-700 dark:text-gray-200">
+                {portalCategory}
+              </strong>{" "}
+              portal page.
+            </p>
+          </div>
 
+          <Button
+            onClick={() => {
+              setShowInitialPrompt(false);
+              setIsModalOpen(true);
+            }}
+            className="w-full h-12 text-base font-bold bg-[#23919C] hover:bg-[#1b727a] text-white rounded-xl shadow-lg shadow-[#23919C]/20"
+          >
+            <FileText className="w-5 h-5 mr-2" />
+            Create Disclaimer for {portalCategory}
+          </Button>
+        </div>
+      )}
+
+      {disclaimer && (
+        /* ── Single disclaimer summary ── */
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">
+                Disclaimer
+              </h2>
+            </div>
+            <div className="flex items-center gap-2">
               <Button
-                onClick={() => {
-                  setShowInitialPrompt(false);
-                  setIsModalOpen(true);
-                }}
-                className="w-full h-12 text-base font-bold bg-[#23919C] hover:bg-[#1b727a] text-white rounded-xl shadow-lg shadow-[#23919C]/20"
+                onClick={() => setPreviewFooterOpen(true)}
+                size="sm"
+                variant="outline"
+                className="border-gray-300 dark:border-gray-600"
               >
-                <FileText className="w-5 h-5 mr-2" />
-                Create Disclaimer for {portalCategory}
+                <Eye className="w-4 h-4 mr-1" />
+                Preview Footer
+              </Button>
+              <Button
+                onClick={() => setIsModalOpen(true)}
+                size="sm"
+                className="bg-[#23919C] hover:bg-[#1b727a] text-white"
+              >
+                <Edit2 className="w-4 h-4 mr-1" />
+                Edit
               </Button>
             </div>
-          )}
+          </div>
 
-          {disclaimer && (
-            /* ── Single disclaimer summary ── */
-            <div className="max-w-2xl mx-auto space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold text-foreground">
-                    Disclaimer
-                  </h2>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    onClick={() => setPreviewFooterOpen(true)}
-                    size="sm"
-                    variant="outline"
-                    className="border-gray-300 dark:border-gray-600"
+          {/* Single disclaimer card */}
+          <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-card dark:bg-gray-800/50">
+            <div className="flex items-center gap-2 flex-wrap mb-3">
+              <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Applies to:
+              </span>
+              {disclaimer.apply_all_benefits_categories ? (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] font-semibold">
+                  All Categories
+                </span>
+              ) : (
+                [
+                  ...disclaimer.locations,
+                  ...(disclaimer.customLocation
+                    ? [disclaimer.customLocation]
+                    : []),
+                ].map((loc) => (
+                  <span
+                    key={loc}
+                    className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#23919C]/10 text-[#23919C] text-[10px] font-semibold"
                   >
-                    <Eye className="w-4 h-4 mr-1" />
-                    Preview Footer
-                  </Button>
-                  <Button
-                    onClick={() => setIsModalOpen(true)}
-                    size="sm"
-                    className="bg-[#23919C] hover:bg-[#1b727a] text-white"
-                  >
-                    <Edit2 className="w-4 h-4 mr-1" />
-                    Edit
-                  </Button>
-                </div>
-              </div>
-
-              {/* Single disclaimer card */}
-              <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-card dark:bg-gray-800/50">
-                <div className="flex items-center gap-2 flex-wrap mb-3">
-                  <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Applies to:
+                    {loc}
                   </span>
-                  {disclaimer.apply_all_benefits_categories ? (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] font-semibold">
-                      All Categories
-                    </span>
-                  ) : (
-                    [
-                      ...disclaimer.locations,
-                      ...(disclaimer.customLocation
-                        ? [disclaimer.customLocation]
-                        : []),
-                    ].map((loc) => (
-                      <span
-                        key={loc}
-                        className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#23919C]/10 text-[#23919C] text-[10px] font-semibold"
-                      >
-                        {loc}
-                      </span>
-                    ))
-                  )}
-                </div>
-                <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap break-words border-t border-gray-100 dark:border-gray-700 pt-3">
-                  {disclaimer.text}
-                </div>
-              </div>
+                ))
+              )}
             </div>
-          )}
-        </CardContent>
-      </Card>
+            <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap break-words border-t border-gray-100 dark:border-gray-700 pt-3">
+              {disclaimer.text}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Create / Edit Disclaimer Modal ── */}
       {isModalOpen && (
