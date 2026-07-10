@@ -32,7 +32,6 @@ export interface BenefitsStep1Data {
     contactPhone?: string;
     contactPhoneExtension?: string;
     selectedPlan?: any | null;
-    currentSubStep?: "a" | "b";
     /** Per-category publish/hide toggle state. Default true (published). */
     benefitVisibility?: Record<string, boolean>;
     /** Customizable "How Can We Help You Today?" cards */
