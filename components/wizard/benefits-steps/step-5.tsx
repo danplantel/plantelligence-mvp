@@ -141,8 +141,8 @@ function DisclaimerModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full mx-4 h-[85vh] flex flex-col">
         {/* ── Fixed header ── */}
         <div className="flex items-start gap-3 p-6 pb-0 shrink-0">
           <div className="p-2 rounded-lg bg-[#23919C]/10 text-[#23919C] shrink-0">
