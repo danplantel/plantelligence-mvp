@@ -472,7 +472,6 @@ export default function DocumentsPage() {
   const [hasUnsavedUploadChanges, setHasUnsavedUploadChanges] = useState(false);
   const [uploadSaveFn, setUploadSaveFn] = useState<(() => Promise<void>) | null>(null);
   const [isTransitioningToDocuments, setIsTransitioningToDocuments] = useState(false);
-  const [previewLanguage, setPreviewLanguage] = useState<"EN" | "ES">("EN");
   const [docPortalPreviewOpen, setDocPortalPreviewOpen] = useState(false);
 
   const [docPreviews, setDocPreviews] = useState<Record<string, { blobUrl: string; loading: boolean }>>({});
@@ -723,8 +722,6 @@ export default function DocumentsPage() {
     return Array.from(languages).sort((a, b) => (a === "EN" && b === "ES" ? -1 : a === "ES" && b === "EN" ? 1 : 0));
   }, [sortedDocuments]);
 
-  useEffect(() => { if (availableLanguages.length > 0 && !availableLanguages.includes(previewLanguage)) setPreviewLanguage(availableLanguages[0]); }, [availableLanguages, previewLanguage]);
-
   const retirementDocs = useMemo<RetirementDocumentItem[]>(() => {
     const mappedDocs = sortedDocuments.map((doc) => {
       const docType = getDocumentType(doc);
@@ -742,8 +739,8 @@ export default function DocumentsPage() {
         onEdit: undefined, onDelete: () => handleDeleteClick(doc.id, doc.title), onDownload: () => handleDownload(doc.id, doc.fileName),
       };
     });
-    return mappedDocs.filter((doc) => doc.language === previewLanguage).sort((a, b) => (a.language === "EN" && b.language === "ES" ? -1 : a.language === "ES" && b.language === "EN" ? 1 : 0));
-  }, [sortedDocuments, previewLanguage]);
+    return mappedDocs.sort((a, b) => (a.language === "EN" && b.language === "ES" ? -1 : a.language === "ES" && b.language === "EN" ? 1 : 0));
+  }, [sortedDocuments]);
 
   const filteredDocs = useMemo(() => {
     return retirementDocs.filter((doc) => {
@@ -887,27 +884,30 @@ export default function DocumentsPage() {
                     <div className="flex flex-wrap items-center gap-3 justify-between">
                       <div className="flex items-center gap-3 flex-wrap">
                         <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v)}><SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue placeholder="Category" /></SelectTrigger><SelectContent><SelectItem value="all">All Categories</SelectItem><SelectItem value="Retirement">Retirement</SelectItem><SelectItem value="Group Health">Group Health</SelectItem><SelectItem value="Group Life">Group Life</SelectItem><SelectItem value="Multiple">Multiple</SelectItem><SelectItem value="Other Benefits">Other</SelectItem>{uniqueCategories.filter((c) => !["Retirement","Group Health","Group Life","Multiple","Other Benefits"].includes(c)).map((cat) => (<SelectItem key={cat} value={cat}>{cat}</SelectItem>))}</SelectContent></Select>
-                        {availableLanguages.length > 1 && (
-                          <div className="flex gap-2">
-                            {availableLanguages.map((lang) => {
-                              const isActive = previewLanguage === lang;
-                              const count = sortedDocuments.filter((doc) => {
-                                const docLang = (doc as any).language;
-                                const langMatch = docLang === lang || (!docLang && lang === "EN");
-                                const docCategory = (doc as any).category as string | undefined;
-                                const docCategories = (docCategory || "").split(",").map((c) => c.trim()).filter(Boolean);
-                                const catMatch = categoryFilter === "all" || docCategories.includes(categoryFilter);
-                                return langMatch && catMatch;
-                              }).length;
-                              return (
-                                <button key={lang} type="button" onClick={() => setPreviewLanguage(lang)}
-                                  className={`rounded-full px-4 py-1.5 text-xs font-semibold border transition-colors ${isActive ? "bg-accent-blue text-white border-accent-blue dark:bg-accent-blue dark:border-accent-blue" : "bg-white text-[#002B5B] border-[#D1D5DB] hover:bg-gray-50 dark:bg-gray-800 dark:text-blue-300 dark:border-gray-600 dark:hover:bg-gray-700"}`}>
-                                  {lang === "EN" ? `ENGLISH (${count})` : `ESPAÃ‘OL (${count})`}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
+                        {/* Language toggle buttons — always visible */}
+                        <div className="flex gap-1">
+                          {(["EN", "ES"] as const).map((lang) => {
+                            const isActive = languageFilter === lang;
+                            const count = sortedDocuments.filter((doc) => {
+                              const docLang = (doc as any).language;
+                              return (docLang === lang || (!docLang && lang === "EN"));
+                            }).length;
+                            return (
+                              <button
+                                key={lang}
+                                type="button"
+                                onClick={() => setLanguageFilter(isActive ? "all" : lang)}
+                                className={`rounded-full px-3.5 py-1.5 text-xs font-semibold border transition-colors ${
+                                  isActive
+                                    ? "bg-accent-blue text-white border-accent-blue"
+                                    : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+                                }`}
+                              >
+                                {lang === "EN" ? `ENGLISH (${count})` : `ESPANOL (${count})`}
+                              </button>
+                            );
+                          })}
+                        </div>
                         {filteredDocs.length !== retirementDocs.length && <span className="text-xs text-muted-foreground">{filteredDocs.length} of {retirementDocs.length} documents</span>}
                       </div>
                       <div className="flex items-center border rounded-md overflow-hidden dark:border-gray-600 shrink-0">
@@ -917,7 +917,7 @@ export default function DocumentsPage() {
                       </div>
                     </div>
                     {!isLoading && docsData && sortedDocuments.length === 0 && (<div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-4 rounded-lg border border-dashed border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/50"><p className="text-gray-900 dark:text-gray-100 text-lg font-semibold">No documents for this plan yet</p><p className="text-muted-foreground text-sm">Upload retirement plan documents for this client on the Upload tab. After you save, they will appear here.</p><Button type="button" onClick={goToUploadTab}>Upload documents</Button></div>)}
-                    {!isLoading && docsData && sortedDocuments.length > 0 && retirementDocs.length === 0 && (<div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-3"><p className="text-gray-900 dark:text-gray-100 text-lg font-semibold">No documents in {previewLanguage === "EN" ? "English" : "Spanish"}</p><p className="text-muted-foreground text-sm">This plan has documents in another language. Use the language toggle above, or upload a {previewLanguage === "EN" ? "English" : "Spanish"} file on the Upload tab.</p><Button type="button" variant="outline" onClick={goToUploadTab}>Go to Upload</Button></div>)}
+                    {!isLoading && docsData && sortedDocuments.length > 0 && retirementDocs.length === 0 && (<div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-3"><p className="text-gray-900 dark:text-gray-100 text-lg font-semibold">No documents in {languageFilter === "all" ? "English" : languageFilter === "EN" ? "English" : "Spanish"}</p><p className="text-muted-foreground text-sm">This plan has documents in another language. Use the language toggle above, or upload a file in the appropriate language on the Upload tab.</p><Button type="button" variant="outline" onClick={goToUploadTab}>Go to Upload</Button></div>)}
                     {!isLoading && docsData && retirementDocs.length > 0 && filteredDocs.length === 0 && (<div className="flex flex-col items-center justify-center py-12 px-4 text-center gap-3"><p className="text-gray-900 dark:text-gray-100 text-base font-semibold">No documents match the current filters</p><p className="text-muted-foreground text-sm">Try adjusting the type, category or language filters above.</p><Button size="sm" variant="outline" onClick={() => { setTypeFilter("all"); setCategoryFilter("all"); setLanguageFilter("all"); }}>Clear Filters</Button></div>)}
                     {/* Deleting loading indicator */}
                     {isDeleting && (
