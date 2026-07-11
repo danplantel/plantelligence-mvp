@@ -171,7 +171,7 @@ export function PortalHero({
   return (
     <section
       ref={sectionRef}
-      className={`px-4 sm:px-6 lg:px-20 min-h-[540px] sm:min-h-[700px] relative isolate overflow-hidden flex justify-center items-center ${hasBackgroundImage ? "bg-[#FEFCF7]" : "bg-white"
+      className={`px-4 sm:px-6 lg:px-20 min-h-[600px] sm:min-h-[700px] pt-20 sm:pt-0 relative isolate overflow-hidden flex justify-center items-center ${hasBackgroundImage ? "bg-[#FEFCF7]" : "bg-white"
         }`}
     >
       <div className="absolute inset-0">
@@ -243,7 +243,7 @@ export function PortalHero({
         )}
       </div>
 
-      <div className="z-10 relative flex justify-center items-center px-4 sm:px-6 lg:px-8 box-border h-full w-full">
+      <div className="z-10 relative flex justify-center items-center px-2 sm:px-6 lg:px-8 box-border h-full w-full">
         <div
           data-container="true"
           className={`text-container flex items-center justify-center px-4 sm:px-6 lg:px-10 box-border min-h-[280px] sm:min-h-[320px] w-full max-w-[900px] mx-auto transition-all relative ${isEditable && onContainerClick
@@ -300,7 +300,7 @@ export function PortalHero({
 
           {/* Content layer - text without opacity */}
           <div
-            className="text-content text-center flex flex-col items-center justify-center relative z-10"
+            className="text-content p-4 text-center flex flex-col items-center justify-center relative z-10"
             style={{
               color: containerInverted ? "#020617" : brandColor,
             }}
