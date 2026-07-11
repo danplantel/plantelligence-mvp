@@ -471,6 +471,7 @@ export default function DocumentsPage() {
   const [selectedPlan, setSelectedPlan] = useState<string>("");
   const [hasUnsavedUploadChanges, setHasUnsavedUploadChanges] = useState(false);
   const [uploadSaveFn, setUploadSaveFn] = useState<(() => Promise<void>) | null>(null);
+  const [isTransitioningToDocuments, setIsTransitioningToDocuments] = useState(false);
   const [previewLanguage, setPreviewLanguage] = useState<"EN" | "ES">("EN");
   const [docPortalPreviewOpen, setDocPortalPreviewOpen] = useState(false);
 
@@ -878,7 +879,7 @@ export default function DocumentsPage() {
                   {activeSection === "upload" ? (
                   <><h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Upload Documents</h3><p className="text-sm text-muted-foreground mb-6">
                     Upload PDFs for this Benefits Hub. Suggestions should be reviewed before publishing.</p>
-                    <DocumentUploadTab selectedPlan={selectedPlan} showSaveButton={true} onHasUnsavedChangesChange={setHasUnsavedUploadChanges} onSaveFunctionReady={setUploadSaveFn} onDocumentsSaved={() => { toast.success("Document saved successfully"); setTimeout(async () => { await fetchDocuments(); setActiveSection("documents"); const url = new URL(window.location.href); url.searchParams.set("section", "documents"); window.history.pushState({}, "", url.toString()); }, 500); }} /></>
+                    <DocumentUploadTab selectedPlan={selectedPlan} showSaveButton={true} onHasUnsavedChangesChange={setHasUnsavedUploadChanges} onSaveFunctionReady={setUploadSaveFn} onDocumentsAdded={() => setIsTransitioningToDocuments(true)} onDocumentsSaved={() => { toast.success("Documents saved successfully"); fetchDocuments(); setActiveSection("documents"); const url = new URL(window.location.href); url.searchParams.set("section", "documents"); window.history.pushState({}, "", url.toString()); setIsTransitioningToDocuments(false); }} /></>
                 ) : (
                   <div className="space-y-4">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Documents List</h3>
@@ -1217,6 +1218,18 @@ export default function DocumentsPage() {
       <DocumentPreviewModal isOpen={previewOpen} onClose={() => { setPreviewOpen(false); setPreviewDocument(null); }} document={previewDocument} isLoading={isLoadingPreview} />
       <DocumentEditModal isOpen={editModalOpen} onClose={() => { setEditModalOpen(false); setDocumentToEdit(null); }} document={documentToEdit} onSave={handleSaveEdit} />
       <NavigateAwayWarningDialog open={leaveGuard.dialogOpen} isSaving={leaveGuard.isSaving} isDiscarding={leaveGuard.isDiscarding} onStay={leaveGuard.stayAndKeepEditing} onSaveAndExit={leaveGuard.saveAndExit} onDiscardWithoutSaving={leaveGuard.discardWithoutSaving} onDialogOpenChange={leaveGuard.dialogOnOpenChange} onDiscardPointerDownCapture={leaveGuard.suppressStayOnNextClose} />
+      {/* Loading dialog shown while documents are being saved and transitioned to View Documents */}
+      <Dialog open={isTransitioningToDocuments}>
+        <DialogContent className="sm:max-w-sm [&>button.absolute]:hidden" onInteractOutside={(e) => e.preventDefault()}>
+          <div className="flex flex-col items-center gap-4 py-8">
+            <div className="animate-spin rounded-full h-10 w-10 border-[3px] border-accent-blue border-t-transparent" />
+            <DialogTitle className="text-lg font-semibold text-accent-blue">Adding Documents</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground text-center">
+              Saving and loading your documents…
+            </DialogDescription>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

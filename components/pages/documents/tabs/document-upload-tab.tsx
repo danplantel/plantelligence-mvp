@@ -9,6 +9,7 @@ interface DocumentUploadTabProps {
   showSaveButton?: boolean;
   onDocumentsSaved?: () => void;
   onSaveFunctionReady?: (saveFn: () => Promise<void>) => void;
+  onDocumentsAdded?: () => void;
 }
 
 export function DocumentUploadTab({
@@ -17,6 +18,7 @@ export function DocumentUploadTab({
   showSaveButton = true,
   onDocumentsSaved,
   onSaveFunctionReady,
+  onDocumentsAdded,
 }: DocumentUploadTabProps) {
   if (!selectedPlan) {
     return (
@@ -43,6 +45,7 @@ export function DocumentUploadTab({
       onHasUnsavedChangesChange={onHasUnsavedChangesChange}
       onSave={onDocumentsSaved}
       onSaveFunctionReady={onSaveFunctionReady}
+      onDocumentsAdded={onDocumentsAdded}
     />
   );
 }

@@ -73,6 +73,9 @@ interface ComplianceDocumentsUploadProps {
    * Wizard Step 3b: tighter info/dropzone; parent lays out at half width (`lg:grid-cols-2`).
    */
   compact?: boolean;
+  /** Called when new documents have been added (e.g., after review confirm),
+   *  before the save-to-API round-trip. Use for showing loading indicators. */
+  onDocumentsAdded?: () => void;
 }
 
 export function ComplianceDocumentsUpload({
@@ -95,6 +98,7 @@ export function ComplianceDocumentsUpload({
   filterDocuments,
   strictCategoryEnforcement = false,
   compact = false,
+  onDocumentsAdded,
 }: ComplianceDocumentsUploadProps) {
   // Parents often pass inline `onDocumentsChange` (new identity each render). Stabilize for
   // effect deps and always invoke the latest callback via a ref to avoid notify → sync → fetch loops.
@@ -348,6 +352,16 @@ export function ComplianceDocumentsUpload({
     }, 100);
     return () => clearTimeout(timeoutId);
   }, [retirementPlanDocuments, isWizardControlled]);
+
+  // Notify parent when document count increases (new docs added via review)
+  const prevDocCountRef = useRef(retirementPlanDocuments.length);
+  useEffect(() => {
+    if (!onDocumentsAdded) return;
+    if (retirementPlanDocuments.length > prevDocCountRef.current) {
+      onDocumentsAdded();
+    }
+    prevDocCountRef.current = retirementPlanDocuments.length;
+  }, [retirementPlanDocuments.length, onDocumentsAdded]);
 
   // Track previous clientId to detect changes
   const previousClientIdRef = useRef<string | undefined>(clientId);
