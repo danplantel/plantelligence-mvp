@@ -187,25 +187,26 @@ export function PortalWelcomeBanner({
   if (variant === "health-hub") {
     // Health Hub variant: dark teal rectangle with Benefits Logo on the right
     return (
-      <section className="relative mt-10 overflow-hidden">
-        {/* Background image */}
-        {isR2WelcomeBg && !background && backgroundLoading ? (
-          <div
-            className="absolute inset-0 animate-pulse bg-muted/50"
-            aria-hidden
-          />
-        ) : (
-          <img
-            src={welcomeBannerImgSrc}
-            alt="Background"
-            className="absolute inset-0 h-full w-full object-cover"
-          />
-        )}
+      <>
+        {/* Full-viewport background — fixed position ensures it always spans the viewport
+            regardless of the section's parent width constraints. */}
+        <div className="absolute inset-0 z-0">
+          {isR2WelcomeBg && !background && backgroundLoading ? (
+            <div className="absolute inset-0 animate-pulse bg-muted/50" aria-hidden />
+          ) : welcomeBannerImgSrc ? (
+            <img
+              src={welcomeBannerImgSrc}
+              alt=""
+              className="w-full h-full object-cover"
+            />
+          ) : null}
+        </div>
 
-        {/* Content Wrapper */}
-        <div className="relative mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
-          {/* Dark overlay rectangle */}
-          <div className="overflow-hidden border border-white/15 bg-black/40 backdrop-blur-sm">
+        <section className="relative mt-10">
+          {/* Content Wrapper */}
+          <div className="relative mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16 z-10">
+            {/* Dark overlay rectangle */}
+            <div className="overflow-hidden border border-white/15 bg-black/40 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, y: 50 }}
               animate={{ opacity: 1, y: 0 }}
@@ -265,8 +266,9 @@ export function PortalWelcomeBanner({
               </div>
             </motion.div>
           </div>
-        </div>
-      </section>
+          </div>
+        </section>
+      </>
     );
   }
 
@@ -285,25 +287,26 @@ export function PortalWelcomeBanner({
     : containerGradientStyle;
 
   return (
-    <section className="relative overflow-hidden mt-10 text-white">
-      {/* Background image */}
-      {isR2WelcomeBg && !background && backgroundLoading ? (
-        <div
-          className="absolute inset-0 animate-pulse bg-muted/50"
-          aria-hidden
-        />
-      ) : (
-        <img
-          src={welcomeBannerImgSrc}
-          alt="Background"
-          className="absolute inset-0 h-full w-full object-cover"
-          style={{ opacity: backgroundOpacity }}
-        />
-      )}
-      <div className="absolute inset-0" style={backgroundOverlayStyle} />
+    <>
+      {/* Full-viewport background — fixed position ensures it always spans the viewport
+          regardless of the section's parent width constraints. */}
+      <div className="absolute inset-0 z-0">
+        {isR2WelcomeBg && !background && backgroundLoading ? (
+          <div className="absolute inset-0 animate-pulse bg-muted/50" aria-hidden />
+        ) : welcomeBannerImgSrc ? (
+          <img
+            src={welcomeBannerImgSrc}
+            alt=""
+            className="w-full h-full object-cover"
+          />
+        ) : null}
+        {/* Overlay controls transparency */}
+        <div className="absolute inset-0" style={backgroundOverlayStyle} />
+      </div>
 
-      {/* CONTENT WRAPPER */}
-      <div className="relative mx-auto mt-8 max-w-6xl px-4 py-16 sm:px-6 lg:px-8">
+      <section className="relative mt-10 text-white">
+        {/* CONTENT WRAPPER */}
+        <div className="relative mx-auto mt-8 max-w-6xl px-4 py-16 sm:px-6 lg:px-8 z-10">
         <motion.div
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
@@ -375,7 +378,8 @@ export function PortalWelcomeBanner({
       <div
         className="absolute inset-x-0 bottom-0 h-0.5"
         style={{ background: brandColor }}
-      />
-    </section>
+        />
+      </section>
+    </>
   );
 }
