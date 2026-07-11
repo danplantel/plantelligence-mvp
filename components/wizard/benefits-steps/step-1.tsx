@@ -2090,12 +2090,28 @@ export function BenefitsStep1() {
                       }
                       placeholder={`e.g., 401(k) Retirement Plan`}
                       className="h-11 border-gray-200 dark:border-gray-600"
+                      maxLength={24}
                     />
-                    <p className="text-[10px] text-gray-400 italic">
-                      This title will override the default &ldquo;
-                      {currentStepData.benefitCategory}&rdquo; label in the
-                      portal.
-                    </p>
+                    <div className="flex justify-between items-center">
+                      <p className="text-[10px] text-gray-400 italic">
+                        This title will override the default &ldquo;
+                        {currentStepData.benefitCategory}&rdquo; label in the
+                        portal.
+                      </p>
+                      <span
+                        className={cn(
+                          "text-[10px] font-bold",
+                          (currentStepData.benefitTitle?.length || 0) >= 22
+                            ? "text-red-500"
+                            : (currentStepData.benefitTitle?.length || 0) < 10
+                              ? "text-amber-500"
+                              : "text-green-500",
+                        )}
+                      >
+                        {currentStepData.benefitTitle?.length || 0} / 24
+                        characters
+                      </span>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-bold text-gray-700 dark:text-gray-100">
@@ -2111,6 +2127,7 @@ export function BenefitsStep1() {
                       }
                       placeholder="Provide a high-level overview of this benefit for employees..."
                       className="min-h-[120px] border-gray-200 dark:border-gray-600 resize-none"
+                      maxLength={120}
                     />
                     <div className="flex justify-between items-center">
                       <p className="text-[10px] text-gray-400">
@@ -2119,13 +2136,15 @@ export function BenefitsStep1() {
                       <span
                         className={cn(
                           "text-[10px] font-bold",
-                          (currentStepData.shortDescription?.length || 0) < 50
-                            ? "text-amber-500"
-                            : "text-green-500",
+                          (currentStepData.shortDescription?.length || 0) >= 110
+                            ? "text-red-500"
+                            : (currentStepData.shortDescription?.length || 0) < 50
+                              ? "text-amber-500"
+                              : "text-green-500",
                         )}
                       >
-                        {currentStepData.shortDescription?.length || 0} / 50
-                        characters min
+                        {currentStepData.shortDescription?.length || 0} / 120
+                        characters
                       </span>
                     </div>
                   </div>

@@ -314,6 +314,7 @@ export function BenefitsEditorPanel({
                                 onChange={(e) => saveStepData(1, { ...step1Data, benefitTitle: e.target.value })}
                                 placeholder="e.g. 401(k) Retirement Plan"
                                 className="h-11 shadow-sm border-muted"
+                                maxLength={24}
                             />
                         </div>
                         <div className="space-y-2">
@@ -323,6 +324,7 @@ export function BenefitsEditorPanel({
                                 onChange={(e) => saveStepData(1, { ...step1Data, shortDescription: e.target.value })}
                                 placeholder="Provide a helpful overview for employees..."
                                 className="min-h-[120px] shadow-sm border-muted leading-relaxed"
+                                maxLength={120}
                             />
                         </div>
                     </div>

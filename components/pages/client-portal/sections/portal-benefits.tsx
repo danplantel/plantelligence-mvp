@@ -168,17 +168,14 @@ export function PortalBenefits({
   const normCat = (c: string | null | undefined) =>
     (c || "").toLowerCase().trim().replace(/\s+/g, " ");
 
-  // If API returned fewer than 4 benefits (e.g. after Create Benefits saved only one), merge with defaults so all 4 cards show
+  // Always show exactly 4 cards (Retirement, Health, Life, Wellness) mapped to default categories
   const benefitsFromApi = Array.isArray(dynamicBenefits) ? dynamicBenefits : [];
-  const rawMerged: Benefit[] =
-    benefitsFromApi.length >= 4
-      ? (benefitsFromApi as Benefit[])
-      : defaultBenefits.map((d) => {
-          const fromApi = (benefitsFromApi as any[]).find(
-            (b: any) => normCat(b.category) === normCat(d.category),
-          );
-          return (fromApi ?? d) as Benefit;
-        });
+  const rawMerged: Benefit[] = defaultBenefits.map((d) => {
+    const fromApi = (benefitsFromApi as any[]).find(
+      (b: any) => normCat(b.category) === normCat(d.category),
+    );
+    return (fromApi ?? d) as Benefit;
+  });
   // Fill empty card image / copy / CTA from hub defaults (retirement was saving partial rows).
   const mergedBenefits = rawMerged.map((b) => {
     const filled = mergeUserBenefitWithHubDefaults(
@@ -188,13 +185,8 @@ export function PortalBenefits({
     return { ...b, ...filled };
   });
 
-  // When client has custom benefits (from Step 5), respect only isEnabled and categoryPortalVisibility — do not auto-hide by completeness
-  const hasCustomBenefits = mergedBenefits.length > 0;
-  const noCategoryHidden =
-    !categoryPortalVisibility ||
-    (typeof categoryPortalVisibility === "object" &&
-      !Object.values(categoryPortalVisibility).some((v) => v === false));
-  // Determine visible benefits based on isEnabled, completeness, and portal visibility
+  // Determine visible benefits based on isEnabled and portal visibility
+  // Incomplete benefits are shown as placeholder cards rather than being hidden
   const displayBenefits = (mergedBenefits as Benefit[])
     .filter((benefit) => {
       // 0. Portal visibility: hide if category is hidden
@@ -204,21 +196,6 @@ export function PortalBenefits({
 
       // 1. Check if manually disabled (slider OFF in Step 5)
       if (benefit.isEnabled === false) return false;
-
-      // 2. Auto-hide Wellness/Other if incomplete — only when using defaults and only when user has hidden at least one category
-      if (!hasCustomBenefits && !noCategoryHidden) {
-        const isWellnessOrOther =
-          category === "Wellness Programs" ||
-          category === "Company / Plan Sponsor" ||
-          category === "Other Benefits";
-        if (isWellnessOrOther && hasClientId) {
-          const completeness = getBenefitCompleteness(
-            category as BenefitsCategory,
-            completenessInput,
-          );
-          if (!completeness.isComplete) return false;
-        }
-      }
 
       return true;
     })
@@ -315,113 +292,143 @@ export function PortalBenefits({
                 }}
                 className="w-full h-full flex justify-center"
               >
-                <Card
-                  className={`text-center w-full max-w-full sm:max-w-[303px] h-full rounded-xl border border-[#E5E7EB] shadow-sm bg-white overflow-hidden flex flex-col transition-all duration-300 ease-in-out relative group ${
-                    onEdit || (hasClientId && !completeness.isComplete)
-                      ? "cursor-pointer hover:-translate-y-2 hover:shadow-lg"
-                      : "hover:-translate-y-2 hover:shadow-lg"
-                  }`}
-                  onClick={(e) => {
-                    if (onEdit) {
-                      onEdit(benefit.id);
-                    } else if (hasClientId && !completeness.isComplete) {
-                      handleBenefitClick(e, benefit);
-                    }
-                  }}
-                >
-                  {/* Image Section - Top */}
-                  <div className="w-full h-[180px] sm:h-[200px] overflow-hidden relative">
-                    <img
-                      src={benefit.image || ""}
-                      alt={benefit.title}
-                      className="w-full h-full object-cover"
-                    />
-                    {!completeness.isComplete && (
+                {!completeness.isComplete ? (
+                  /* ── Placeholder Card for Incomplete Benefits ── */
+                  <Card
+                    className={`text-center w-full max-w-full sm:max-w-[303px] h-full rounded-xl border border-dashed border-gray-300 bg-gray-50/80 overflow-hidden flex flex-col transition-all duration-300 ease-in-out relative group ${
+                      hasClientId ? "cursor-pointer hover:-translate-y-2 hover:shadow-lg" : ""
+                    }`}
+                    onClick={(e) => {
+                      if (hasClientId) {
+                        handleBenefitClick(e, benefit);
+                      }
+                    }}
+                  >
+                    {/* Placeholder Image Area */}
+                    <div className="w-full h-[180px] sm:h-[200px] bg-gray-100 flex items-center justify-center relative">
+                      <div className="text-center">
+                        <Shield className="w-12 h-12 mx-auto text-gray-300" />
+                        <p className="text-xs text-gray-400 font-red-hat mt-2 font-medium">
+                          Coming Soon
+                        </p>
+                      </div>
                       <div className="absolute top-3 right-3 bg-amber-500 text-white px-2 py-1 rounded-full text-[10px] font-bold flex items-center gap-1 shadow-md z-10 animate-pulse">
                         <AlertCircle className="w-3 h-3" />
                         INCOMPLETE
                       </div>
-                    )}
-                  </div>
+                    </div>
 
-                  {/* Content Section - Bottom (White Background) */}
-                  <div className="flex-1 pb-4 sm:pb-5 flex flex-col justify-between bg-white">
-                    <div className="px-3 sm:px-4 mt-3 sm:mt-4">
-                      {/* Title */}
+                    {/* Placeholder Content */}
+                    <div className="flex-1 pb-4 sm:pb-5 flex flex-col justify-center bg-gray-50/80 px-3 sm:px-4">
                       <h3
-                        className="text-xl sm:text-2xl font-dm-serif mb-2 sm:mb-3"
+                        className="text-xl sm:text-2xl font-dm-serif text-center mb-2 sm:mb-3"
                         style={{ color: brandColor }}
                       >
                         {benefit.title}
                       </h3>
-
-                      {/* Description */}
-                      <p className="text-gray-600 text-sm sm:text-base font-red-hat leading-relaxed mb-3 sm:mb-4 whitespace-pre-line">
-                        {benefit.description || (benefit as any).shortDescription}
+                      <p className="text-gray-400 text-sm sm:text-base font-red-hat text-center leading-relaxed">
+                        This benefit is not yet set up. Check back soon for details.
                       </p>
                     </div>
+                  </Card>
+                ) : (
+                  /* ── Live Benefit Card ── */
+                  <Card
+                    className={`text-center w-full max-w-full sm:max-w-[303px] h-full rounded-xl border border-[#E5E7EB] shadow-sm bg-white overflow-hidden flex flex-col transition-all duration-300 ease-in-out relative group ${
+                      onEdit ? "cursor-pointer hover:-translate-y-2 hover:shadow-lg" : "hover:-translate-y-2 hover:shadow-lg"
+                    }`}
+                    onClick={(e) => {
+                      if (onEdit) {
+                        onEdit(benefit.id);
+                      }
+                    }}
+                  >
+                    {/* Image Section - Top */}
+                    <div className="w-full h-[180px] sm:h-[200px] overflow-hidden relative">
+                      <img
+                        src={benefit.image || ""}
+                        alt={benefit.title}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
 
-                    <div className="flex min-h-[130px] px-4 sm:px-5 flex-col items-center justify-between">
-                      {/* Partner logo */}
-                      <div className="flex justify-center mb-3 sm:mb-4">
-                        {onEdit && (
-                          <div className="absolute top-2 left-2 z-20 bg-blue-500 rounded-full p-1.5 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              width="12"
-                              height="12"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="white"
-                              strokeWidth="2.5"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
+                    {/* Content Section - Bottom (White Background) */}
+                    <div className="flex-1 pb-4 sm:pb-5 flex flex-col justify-between bg-white">
+                      <div className="px-3 sm:px-4 mt-3 sm:mt-4">
+                        {/* Title */}
+                        <h3
+                          className="text-xl sm:text-2xl font-dm-serif mb-2 sm:mb-3"
+                          style={{ color: brandColor }}
+                        >
+                          {benefit.title}
+                        </h3>
+
+                        {/* Description */}
+                        <p className="text-gray-600 text-sm sm:text-base font-red-hat leading-relaxed mb-3 sm:mb-4 whitespace-pre-line">
+                          {benefit.description || (benefit as any).shortDescription}
+                        </p>
+                      </div>
+
+                      <div className="flex min-h-[130px] px-4 sm:px-5 flex-col items-center justify-between">
+                        {/* Partner logo */}
+                        <div className="flex justify-center mb-3 sm:mb-4">
+                          {onEdit && (
+                            <div className="absolute top-2 left-2 z-20 bg-blue-500 rounded-full p-1.5 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="12"
+                                height="12"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="white"
+                                strokeWidth="2.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                                <path d="m15 5 4 4" />
+                              </svg>
+                            </div>
+                          )}
+                          {benefit.partnerLogo && (
+                            <div
+                              className={`relative ${
+                                onEdit
+                                  ? "group-hover:ring-2 group-hover:ring-blue-500/50 rounded p-1 transition-all"
+                                  : ""
+                              }`}
                             >
-                              <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                              <path d="m15 5 4 4" />
-                            </svg>
-                          </div>
-                        )}
-                        {benefit.partnerLogo && (
-                          <div
-                            className={`relative ${
-                              onEdit
-                                ? "group-hover:ring-2 group-hover:ring-blue-500/50 rounded p-1 transition-all"
-                                : ""
-                            }`}
+                              <BrandingImage
+                                src={benefit.partnerLogo}
+                                alt={benefit.title}
+                                className="opacity-90 w-auto h-auto max-w-[140px] sm:max-w-[160px]"
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Button */}
+                        {hasClientId ? (
+                          <Link
+                            href={`${basePath}${benefit.href}`}
+                            className="block w-full rounded-md py-2.5 sm:py-3 text-center text-xs sm:text-sm font-semibold tracking-wide text-white transition-all duration-300 hover:opacity-90 hover:scale-105"
+                            style={{ background: secondaryColor }}
+                            onClick={(e) => handleBenefitClick(e, benefit)}
                           >
-                            <BrandingImage
-                              src={benefit.partnerLogo}
-                              alt={benefit.title}
-                              className="opacity-90 w-auto h-auto max-w-[140px] sm:max-w-[160px]"
-                            />
+                            {benefit.buttonText}
+                          </Link>
+                        ) : (
+                          <div
+                            className="block w-full rounded-md py-2.5 sm:py-3 text-center text-xs sm:text-sm font-semibold tracking-wide text-white transition-all duration-300 cursor-default"
+                            style={{ background: secondaryColor }}
+                          >
+                            {benefit.buttonText}
                           </div>
                         )}
                       </div>
-
-                      {/* Button */}
-                      {hasClientId ? (
-                        <Link
-                          href={`${basePath}${benefit.href}`}
-                          className={`block w-full rounded-md py-2.5 sm:py-3 text-center text-xs sm:text-sm font-semibold tracking-wide text-white transition-all duration-300 hover:opacity-90 hover:scale-105 ${
-                            !completeness.isComplete ? "opacity-90" : ""
-                          }`}
-                          style={{ background: secondaryColor }}
-                          onClick={(e) => handleBenefitClick(e, benefit)}
-                        >
-                          {benefit.buttonText}
-                        </Link>
-                      ) : (
-                        <div
-                          className="block w-full rounded-md py-2.5 sm:py-3 text-center text-xs sm:text-sm font-semibold tracking-wide text-white transition-all duration-300 cursor-default"
-                          style={{ background: secondaryColor }}
-                        >
-                          {benefit.buttonText}
-                        </div>
-                      )}
                     </div>
-                  </div>
-                </Card>
+                  </Card>
+                )}
               </motion.div>
             );
           })}
