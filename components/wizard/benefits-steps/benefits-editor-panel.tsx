@@ -501,13 +501,24 @@ export function BenefitsEditorPanel({
                             <Label className="text-xs font-bold text-foreground">Plan ID #</Label>
                             <Input
                                 value={step1Data.insurancePlanId || ""}
-                                onChange={(e) => saveStepData(1, { ...step1Data, insurancePlanId: e.target.value })}
+                                onChange={(e) => {
+                                    // Count only non-dash characters for the limit
+                                    const nonDash = e.target.value.replace(/-/g, "");
+                                    if (nonDash.length <= 16) {
+                                        saveStepData(1, { ...step1Data, insurancePlanId: e.target.value });
+                                    }
+                                }}
                                 placeholder="e.g. AYR-401K-2024"
                                 className="h-11 shadow-sm border-muted"
                             />
-                            <p className="text-[11px] text-muted-foreground">
-                                This appears as &ldquo;PLAN ID: [value]&rdquo; on the Insurance Benefits card.
-                            </p>
+                            <div className="flex items-center justify-between">
+                                <p className="text-[11px] text-muted-foreground">
+                                    This appears as &ldquo;PLAN ID: [value]&rdquo; on the Insurance Benefits card.
+                                </p>
+                                <span className="text-[11px] text-muted-foreground tabular-nums">
+                                    {(step1Data.insurancePlanId || "").replace(/-/g, "").length}/16
+                                </span>
+                            </div>
                         </div>
                         <div className="space-y-2">
                             <Label className="text-xs font-bold text-foreground">Register or Login Here Button URL</Label>
