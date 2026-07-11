@@ -219,3 +219,62 @@
     }
   }
 }
+
+/* ── Benefits Hub Portal: force light theme regardless of dashboard dark mode ── */
+.portal-root {
+  color-scheme: light;
+
+  /* Reset all CSS custom properties to light values */
+  --background: 0 0% 100%;
+  --foreground: 240 10% 3.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 240 10% 3.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 10% 3.9%;
+  --primary: 191 100% 22.7%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 240 4.8% 95.9%;
+  --secondary-foreground: 240 5.9% 10%;
+  --muted: 240 4.8% 95.9%;
+  --muted-foreground: 240 3.8% 46.1%;
+  --accent: 240 4.8% 95.9%;
+  --accent-foreground: 240 5.9% 10%;
+  --accent-blue: #23919c;
+  --accent-blue-light: #d4eef0;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 0 0% 93.7%;
+  --input: 0 0% 93.7%;
+  --ring: 240 10% 3.9%;
+}
+
+/* Override Tailwind dark: variant utility classes to light equivalents within portal */
+.portal-root .dark\:bg-gray-800,
+.portal-root .dark\:bg-gray-700,
+.portal-root .dark\:bg-gray-900 {
+  background-color: #fff;
+}
+
+.portal-root .dark\:border-gray-600,
+.portal-root .dark\:border-gray-700 {
+  border-color: #e5e7eb;
+}
+
+.portal-root .dark\:text-gray-100,
+.portal-root .dark\:text-gray-300,
+.portal-root .dark\:text-gray-400,
+.portal-root .dark\:text-gray-500 {
+  color: #6b7280;
+}
+
+.portal-root .dark\:bg-green-900\/20 {
+  background-color: rgb(240 253 244 / 1);
+}
+
+.portal-root .dark\:text-green-400 {
+  color: rgb(22 163 74 / 1);
+}
+
+.portal-root .dark\:border-green-800 {
+  border-color: rgb(187 247 208 / 1);
+}

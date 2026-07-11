@@ -225,7 +225,7 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
   }, [showBanner]);
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white portal-root">
       <div ref={fixedHeaderRef} className="fixed top-0 left-0 w-full z-50">
         {/* Published Top Banner — rendered above the header */}
         {showBanner && (
