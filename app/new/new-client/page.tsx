@@ -25,6 +25,7 @@ export default function NewClientPage() {
   const { setTitle } = usePageTitleContext();
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [showSavingDialog, setShowSavingDialog] = useState(false);
   const {
     currentStep,
     totalSteps,
@@ -394,19 +395,17 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
 
   const onComplete = async () => {
     setIsLoading(true);
+    setShowSavingDialog(true);
     try {
       completeStep(currentStep);
       await completeWizard();
 
-      const { sessionId } = useNewClientWizardStore.getState();
-      window.sessionStorage.setItem("previousPage", window.location.pathname);
-
-      if (sessionId) {
-        window.location.href = `/new/view/${sessionId}`;
-      } else {
-        toast.error("Session ID missing after completion.");
-      }
+      // completeWizard() handles navigation to /new/clients on success.
+      // If we reach here without a redirect, something went wrong.
+      setShowSavingDialog(false);
+      toast.error("Session ID missing after completion.");
     } catch (error: any) {
+      setShowSavingDialog(false);
       toast.error("Cannot complete wizard:", {
         description: error.message,
         duration: 5000,
@@ -441,7 +440,8 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
   const isLastStep =
     currentStep === totalSteps &&
     (step5SubStep === "benefits-team" ||
-      step5SubStep === "step5d");
+      step5SubStep === "step5d" ||
+      step5SubStep === "disclaimers");
 
   const renderStep = () => {
     switch (currentStep) {
@@ -506,6 +506,23 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
             onDialogOpenChange={leaveGuard.dialogOnOpenChange}
             onDiscardPointerDownCapture={leaveGuard.suppressStayOnNextClose}
           />
+
+          {/* Saving / Completing Plan Loading Dialog */}
+          {showSavingDialog && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-8 flex flex-col items-center space-y-5">
+                <div className="w-14 h-14 border-[5px] border-accent-blue border-t-transparent rounded-full animate-spin" />
+                <div className="text-center space-y-1">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                    Saving Your Plan
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Please wait while we publish your client portal...
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
     </>

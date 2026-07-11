@@ -716,35 +716,33 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
             stepData.employeePortalPreview?.step5SubStep || "disclaimers";
 
           if (step5SubStep === "disclaimers") {
-            // Save step 5 data before transitioning to benefits-team
+            // Save the disclaimer data before completion
             try {
-              const stepDataForSave = stepData.employeePortalPreview;
-              if (stepDataForSave) {
+              const disclaimersData = stepData.disclaimers;
+              if (disclaimersData) {
+                await get().saveStepDataToServer(
+                  "disclaimers",
+                  disclaimersData,
+                );
+              }
+              const previewData = stepData.employeePortalPreview;
+              if (previewData) {
                 await get().saveStepDataToServer(
                   "employeePortalPreview",
-                  stepDataForSave,
+                  previewData,
                 );
-                await get().saveAsDraft();
               }
+              await get().saveAsDraft();
             } catch (saveError) {
               if (isDuplicatePlanNameError(saveError)) {
                 throw saveError;
               }
-              // Non-blocking: continue with transition even if save fails
+              // Non-blocking: continue even if save fails
             }
 
-            // Move to benefits-team (step5d)
-            set((state) => ({
-              stepData: {
-                ...state.stepData,
-                employeePortalPreview: {
-                  ...state.stepData.employeePortalPreview,
-                  previewData:
-                    state.stepData.employeePortalPreview?.previewData || {},
-                  step5SubStep: "benefits-team",
-                },
-              },
-            }));
+            // Do NOT transition to benefits-team — the wizard will treat
+            // this as the final step and the "Complete Setup" button will
+            // trigger completeWizard() which validates & publishes the plan.
             return { isValid: true, errors: [] };
           }
           // If on benefits-team/step5d, proceed to completion (handled below or by completeWizard)
@@ -1123,6 +1121,7 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
             "keyContacts",
             "contactBuilder",
             "complianceDocuments",
+            "disclaimers",
             "employeePortalPreview",
           ];
 
@@ -1166,7 +1165,7 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
 
           if (result.success && result.clientId) {
             set({ sessionId: result.clientId });
-            window.location.href = `/clients/${result.clientId}/view`;
+            window.location.href = "/new/clients";
           }
           set((state) => ({
             ...state,
