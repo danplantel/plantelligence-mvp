@@ -7,7 +7,7 @@ import {
   ClientPortalProvider,
   useClientPortal,
 } from "@/contexts/client-portal-context";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { PortalPlanHeader } from "@/components/pages/client-portal/sections/portal-plan-header";
 import { PortalPopUpOverlay } from "@/components/pages/client-portal/sections/portal-popup-overlay";
@@ -32,6 +32,8 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
   const [previousPage, setPreviousPage] = useState(true);
   const [banner, setBanner] = useState<BannerAsset | null>(null);
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const fixedHeaderRef = useRef<HTMLDivElement>(null);
+  const [fixedHeaderHeight, setFixedHeaderHeight] = useState(0);
 
   // Fetch published top banners (portal-notice type only)
   useEffect(() => {
@@ -203,9 +205,28 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
 
   const disclosuresText = getDisclosuresText();
 
+  // ── Measure fixed header+banner height so main content stays below it ──
+  useEffect(() => {
+    if (fixedHeaderRef.current) {
+      setFixedHeaderHeight(fixedHeaderRef.current.offsetHeight);
+    }
+    const onResize = () => {
+      if (fixedHeaderRef.current) {
+        setFixedHeaderHeight(fixedHeaderRef.current.offsetHeight);
+      }
+    };
+    window.addEventListener("resize", onResize);
+    // Re-measure after a small delay to account for font/image loading
+    const timer = setTimeout(onResize, 300);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      clearTimeout(timer);
+    };
+  }, [showBanner]);
+
   return (
     <div className="min-h-screen bg-white">
-      <div className="fixed top-0 left-0 w-full z-50">
+      <div ref={fixedHeaderRef} className="fixed top-0 left-0 w-full z-50">
         {/* Published Top Banner — rendered above the header */}
         {showBanner && (
           <div
@@ -322,6 +343,7 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
           {
             "--brand-color": brandColor,
             "--secondary-color": secondaryColor,
+            paddingTop: fixedHeaderHeight || undefined,
           } as React.CSSProperties
         }
       >
