@@ -204,7 +204,7 @@ export function RetirementJourneySection({
     "/Hiking-Couple-Looking.webp",
   );
   return (
-    <section className="relative overflow-hidden bg-black text-white">
+    <section className="relative flex min-h-[50vh] flex-col overflow-hidden bg-black text-white lg:min-h-screen">
       <div className="absolute inset-0" style={{ height: "60%" }}>
         <Image
           src={heroImageSrc}
@@ -225,7 +225,7 @@ export function RetirementJourneySection({
         />
       </div>
 
-      <div className="relative z-10 mx-auto flex flex-col items-center justify-center px-4 pt-16 sm:px-6 sm:pt-20 lg:px-8">
+      <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 sm:px-6 lg:px-8">
         <div className="grid w-full max-w-[1280px] items-center gap-6 pb-2 md:gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
           <div className="max-w-3xl">
             <h1 className="mb-4 font-unna font-dm-serif text-[28px] font-normal leading-tight sm:text-3xl md:text-4xl lg:text-[40px]">

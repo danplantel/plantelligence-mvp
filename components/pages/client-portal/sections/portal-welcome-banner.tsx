@@ -184,95 +184,6 @@ export function PortalWelcomeBanner({
     ? description
     : [description];
 
-  if (variant === "health-hub") {
-    // Health Hub variant: dark teal rectangle with Benefits Logo on the right
-    return (
-      <>
-        {/* Full-viewport background — fixed position ensures it always spans the viewport
-            regardless of the section's parent width constraints. */}
-        <div className="absolute inset-0 z-0">
-          {isR2WelcomeBg && !background && backgroundLoading ? (
-            <div className="absolute inset-0 animate-pulse bg-muted/50" aria-hidden />
-          ) : welcomeBannerImgSrc ? (
-            <img
-              src={welcomeBannerImgSrc}
-              alt=""
-              className="w-full h-full object-cover"
-            />
-          ) : null}
-        </div>
-
-        <section className="relative mt-10">
-          {/* Content Wrapper */}
-          <div className="relative mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16 z-10">
-            {/* Dark overlay rectangle */}
-            <div className="overflow-hidden border border-white/15 bg-black/40 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, y: 50 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, ease: "easeOut" }}
-              className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]"
-            >
-              {/* LEFT: Text content */}
-              <div className="order-2 lg:order-1 px-8 py-10 sm:px-10 lg:px-12 lg:py-12">
-                {/* Company Logo (top-left) — hidden on mobile to avoid duplicate logo */}
-                {clientData?.companyLogo ? (
-                  <div className="hidden lg:flex mb-6 inline-flex items-center gap-2 rounded border border-white/30 bg-white/10 px-3 py-2">
-                    <BrandingImage
-                      src={clientData.companyLogo}
-                      alt={`${clientData.companyName || "Company"} logo`}
-                      className="h-6 w-auto"
-                    />
-                    <span className="text-sm font-semibold text-white">
-                      {clientData.companyName || "Company"}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="hidden lg:flex mb-6 inline-flex items-center gap-2 rounded border border-white/30 bg-white/10 px-3 py-2">
-                    <span className="text-sm font-semibold text-white">
-                      LOGO HERE
-                    </span>
-                  </div>
-                )}
-
-                {/* Title */}
-                <h1 className="mb-6 font-serif text-4xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl">
-                  {headline}
-                </h1>
-
-                {/* Description paragraphs */}
-                <div className="space-y-4 text-base leading-relaxed text-white sm:text-lg">
-                  {descriptionParagraphs.map((para, idx) => (
-                    <p key={idx}>{para}</p>
-                  ))}
-                </div>
-              </div>
-
-              {/* RIGHT: Benefits Logo — no border/background/padding */}
-              <div className="order-1 lg:order-2 relative flex items-center justify-center">
-                {benefitsLogoUrl ? (
-                  <BrandingImage
-                    src={benefitsLogoUrl}
-                    alt={benefitsLogoAlt}
-                    className="h-auto max-h-40 w-auto max-w-full object-contain border-0 outline-0"
-                  />
-                ) : (
-                  <div className="relative flex min-h-[200px] w-full items-center justify-center">
-                    <span className="text-sm font-semibold tracking-wider text-white/50">
-                      BENEFITS LOGO
-                    </span>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          </div>
-          </div>
-        </section>
-      </>
-    );
-  }
-
-  // Default variant: Benefits Logo on the right, background image for the hero
   // Compute dynamic overlay styles
   const backgroundOverlayStyle = backgroundInverted
     ? { backgroundColor: `rgba(255, 255, 255, ${1 - backgroundOpacity})` }
@@ -287,9 +198,9 @@ export function PortalWelcomeBanner({
     : containerGradientStyle;
 
   return (
-    <>
-      {/* Full-viewport background — fixed position ensures it always spans the viewport
-          regardless of the section's parent width constraints. */}
+    <section className="relative overflow-hidden mt-10 min-h-[50vh] lg:min-h-screen text-white">
+      {/* Background layer — inside the section so it fills the section's full height,
+          including when the section grows beyond viewport height via min-h-screen. */}
       <div className="absolute inset-0 z-0">
         {isR2WelcomeBg && !background && backgroundLoading ? (
           <div className="absolute inset-0 animate-pulse bg-muted/50" aria-hidden />
@@ -304,59 +215,54 @@ export function PortalWelcomeBanner({
         <div className="absolute inset-0" style={backgroundOverlayStyle} />
       </div>
 
-      <section className="relative mt-10 text-white">
-        {/* CONTENT WRAPPER */}
-        <div className="relative mx-auto mt-8 max-w-6xl px-4 py-16 sm:px-6 lg:px-8 z-10">
-        <motion.div
-          initial={{ opacity: 0, y: 50 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
-          className="overflow-hidden"
-          style={{
-            background: inlineBlockStyle,
-          }}
-        >
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+      {variant === "health-hub" ? (
+        /* Health Hub variant: dark teal rectangle with Benefits Logo on the right */
+        <div className="relative z-10 flex flex-col justify-center mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-20">
+          {/* Dark overlay rectangle */}
+          <div className="overflow-hidden border border-white/15 bg-black/40 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+            className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]"
+          >
             {/* LEFT: Text content */}
-            <div className="order-2 lg:order-1 px-8 py-10 sm:px-12 lg:py-12">
+            <div className="order-2 lg:order-1 px-8 py-10 sm:px-10 lg:px-12 lg:py-12">
               {/* Company Logo (top-left) — hidden on mobile to avoid duplicate logo */}
               {clientData?.companyLogo ? (
-                <BrandingImage
-                  src={clientData.companyLogo}
-                  alt={`${clientData.companyName || "Company"} logo`}
-                  className="mb-6 h-10 w-auto hidden lg:block"
-                />
+                <div className="hidden lg:flex mb-6 inline-flex items-center gap-2 rounded border border-white/30 bg-white/10 px-3 py-2">
+                  <BrandingImage
+                    src={clientData.companyLogo}
+                    alt={`${clientData.companyName || "Company"} logo`}
+                    className="h-6 w-auto"
+                  />
+                  <span className="text-sm font-semibold text-white">
+                    {clientData.companyName || "Company"}
+                  </span>
+                </div>
               ) : (
-                <p className="mb-6 text-xs font-semibold tracking-[0.4em] text-white/70 hidden lg:block">
-                  LOGO HERE
-                </p>
+                <div className="hidden lg:flex mb-6 inline-flex items-center gap-2 rounded border border-white/30 bg-white/10 px-3 py-2">
+                  <span className="text-sm font-semibold text-white">
+                    LOGO HERE
+                  </span>
+                </div>
               )}
 
-              <h1 className="font-unna font-dm-serif text-3xl leading-tight text-white sm:text-4xl lg:text-5xl">
+              {/* Title */}
+              <h1 className="mb-6 font-serif text-4xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl">
                 {headline}
               </h1>
 
-              <div className="mt-6 text-base font-red-hat space-y-4">
+              {/* Description paragraphs */}
+              <div className="space-y-4 text-base leading-relaxed text-white sm:text-lg">
                 {descriptionParagraphs.map((para, idx) => (
                   <p key={idx}>{para}</p>
                 ))}
               </div>
-
-              <div className="pt-5">
-                <p className="text-lg font-dm-serif">{closing}</p>
-                <div className="mt-2 space-y-1">
-                  <p className="text-base font-dm-serif text-white">
-                    {signatureName}
-                  </p>
-                  <p className="text-xs uppercase tracking-[0.2em] text-white/90 font-red-hat">
-                    {signatureCompany}
-                  </p>
-                </div>
-              </div>
             </div>
 
             {/* RIGHT: Benefits Logo — no border/background/padding */}
-            <div className="order-1 lg:order-2 relative flex w-full items-center justify-center">
+            <div className="order-1 lg:order-2 relative flex items-center justify-center">
               {benefitsLogoUrl ? (
                 <BrandingImage
                   src={benefitsLogoUrl}
@@ -371,15 +277,88 @@ export function PortalWelcomeBanner({
                 </div>
               )}
             </div>
-          </div>
-        </motion.div>
-      </div>
+          </motion.div>
+        </div>
+        </div>
+      ) : (
+        /* Default variant: Benefits Logo on the right, background image for the hero */
+        <>
+          {/* CONTENT WRAPPER */}
+          <div className="relative z-10 mx-auto mt-8 max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+            className="overflow-hidden"
+            style={{
+              background: inlineBlockStyle,
+            }}
+          >
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+              {/* LEFT: Text content */}
+              <div className="order-2 lg:order-1 px-8 py-10 sm:px-12 lg:py-12">
+                {/* Company Logo (top-left) — hidden on mobile to avoid duplicate logo */}
+                {clientData?.companyLogo ? (
+                  <BrandingImage
+                    src={clientData.companyLogo}
+                    alt={`${clientData.companyName || "Company"} logo`}
+                    className="mb-6 h-10 w-auto hidden lg:block"
+                  />
+                ) : (
+                  <p className="mb-6 text-xs font-semibold tracking-[0.4em] text-white/70 hidden lg:block">
+                    LOGO HERE
+                  </p>
+                )}
 
-      <div
-        className="absolute inset-x-0 bottom-0 h-0.5"
-        style={{ background: brandColor }}
-        />
-      </section>
-    </>
+                <h1 className="font-unna font-dm-serif text-3xl leading-tight text-white sm:text-4xl lg:text-5xl">
+                  {headline}
+                </h1>
+
+                <div className="mt-6 text-base font-red-hat space-y-4">
+                  {descriptionParagraphs.map((para, idx) => (
+                    <p key={idx}>{para}</p>
+                  ))}
+                </div>
+
+                <div className="pt-5">
+                  <p className="text-lg font-dm-serif">{closing}</p>
+                  <div className="mt-2 space-y-1">
+                    <p className="text-base font-dm-serif text-white">
+                      {signatureName}
+                    </p>
+                    <p className="text-xs uppercase tracking-[0.2em] text-white/90 font-red-hat">
+                      {signatureCompany}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* RIGHT: Benefits Logo — no border/background/padding */}
+              <div className="order-1 lg:order-2 relative flex w-full items-center justify-center">
+                {benefitsLogoUrl ? (
+                  <BrandingImage
+                    src={benefitsLogoUrl}
+                    alt={benefitsLogoAlt}
+                    className="h-auto max-h-40 w-auto max-w-full object-contain border-0 outline-0"
+                  />
+                ) : (
+                  <div className="relative flex min-h-[200px] w-full items-center justify-center">
+                    <span className="text-sm font-semibold tracking-wider text-white/50">
+                      BENEFITS LOGO
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        </div>
+
+        <div
+          className="absolute inset-x-0 bottom-0 h-0.5"
+          style={{ background: brandColor }}
+          />
+        </>
+      )}
+    </section>
   );
 }
