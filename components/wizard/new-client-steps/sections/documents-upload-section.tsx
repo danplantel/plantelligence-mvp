@@ -116,6 +116,9 @@ export function DocumentsUploadSection({
   const [batchCategory, setBatchCategory] = useState<BenefitsCategory>("Retirement");
   const [batchMultipleCategories, setBatchMultipleCategories] = useState<string[]>(["Retirement"]);
   const [reviewDocuments, setReviewDocuments] = useState<Document[]>([]);
+  /** IDs of review documents that were originally uncategorized — the category dropdown
+   *  stays visible until the user confirms, even after a category is selected. */
+  const [uncategorizedReviewIds, setUncategorizedReviewIds] = useState<Set<string>>(new Set());
   const [isReviewing, setIsReviewing] = useState(false);
   const [confirmedReview, setConfirmedReview] = useState(false);
   const [isAnalyzingNames, setIsAnalyzingNames] = useState(false);
@@ -393,6 +396,9 @@ export function DocumentsUploadSection({
   const addDocumentsFromFiles = async (
     files: File[],
     groupCategory?: BenefitsCategory,
+    /** When true, all documents get category = undefined so per-file assignment
+     *  can happen in the review step (used when "Multiple" is selected). */
+    forceNoCategory?: boolean,
   ) => {
     const validFiles = files.filter((file) => validateFile(file));
     if (validFiles.length === 0) {
@@ -524,14 +530,18 @@ export function DocumentsUploadSection({
           const { category: suggestedCategory, confidence } = analyzeDocumentCategory(file.name, pdfText);
           // Multi-file: require explicit category per file unless fixedCategory,
           // groupCategory (batch dialog), or high-confidence auto-detect (3b.2).
+          // When forceNoCategory is true (user selected "Multiple"), don't assign
+          // any category — leave undefined so the user can pick per file in review.
           const detectedCategory = (
             fixedCategory
               ? fixedCategory
-              : groupCategory
-                ? groupCategory
-                : confidence >= 70
-                  ? suggestedCategory
-                  : undefined
+              : forceNoCategory
+                ? undefined
+                : groupCategory
+                  ? groupCategory
+                  : confidence >= 70
+                    ? suggestedCategory
+                    : undefined
           ) as BenefitsCategory | undefined;
 
           // Default expiration date: 1 year from now
@@ -642,6 +652,9 @@ export function DocumentsUploadSection({
           if (!fixedCategory) {
             setReviewDocuments(toAdd);
             setIsReviewing(true);
+            // Track which docs were uncategorized so the category dropdown
+            // stays visible even after the user selects a value.
+            setUncategorizedReviewIds(new Set(toAdd.filter((d) => !d.category?.trim()).map((d) => d.id)));
           } else {
             onDocumentsChange([...documents, ...toAdd]);
             const needsCategory = toAdd.filter((d) => !d.category?.trim());
@@ -972,8 +985,19 @@ export function DocumentsUploadSection({
     );
   };
 
+  const handleReviewCategoryUpdate = (docId: string, category: BenefitsCategory) => {
+    setReviewDocuments((prev) =>
+      prev.map((d) => (d.id === docId ? { ...d, category } : d)),
+    );
+  };
+
   const handleReviewRemoveOne = (docId: string) => {
     setReviewDocuments((prev) => prev.filter((d) => d.id !== docId));
+    setUncategorizedReviewIds((prev) => {
+      const next = new Set(prev);
+      next.delete(docId);
+      return next;
+    });
   };
 
   const handleReviewConfirm = () => {
@@ -988,6 +1012,7 @@ export function DocumentsUploadSection({
       setReviewDocuments([]);
       setIsReviewing(false);
       setConfirmedReview(false);
+      setUncategorizedReviewIds(new Set());
       return;
     }
     if (unique.length < reviewDocuments.length) {
@@ -1000,12 +1025,14 @@ export function DocumentsUploadSection({
     setReviewDocuments([]);
     setIsReviewing(false);
     setConfirmedReview(false);
+    setUncategorizedReviewIds(new Set());
   };
 
   const handleReviewCancel = () => {
     setReviewDocuments([]);
     setIsReviewing(false);
     setConfirmedReview(false);
+    setUncategorizedReviewIds(new Set());
   };
 
   const formatDateForInput = (isoDate?: string): string => {
@@ -1169,7 +1196,7 @@ export function DocumentsUploadSection({
                 {reviewDocuments.length !== 1 ? "s" : ""} before adding
               </h4>
               <Badge className="bg-accent-blue/10 text-accent-blue border-transparent text-[10px] dark:bg-accent-blue/20 dark:text-accent-blue dark:bg-accent-blue-light">
-                {batchCategory || "—"}
+                {batchCategory && String(batchCategory).includes(",") ? "Multiple" : batchCategory || "—"}
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground">
@@ -1288,6 +1315,36 @@ export function DocumentsUploadSection({
                         className="h-8 text-xs dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600"
                       />
                     </div>
+                    {/* Category selector — shown for docs that were originally uncategorized */}
+                    {uncategorizedReviewIds.has(doc.id) && (
+                      <div className="space-y-1">
+                        <Label className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                          Category <span className="text-red-500">*</span>
+                        </Label>
+                        <Select
+                          value={doc.category || ""}
+                          onValueChange={(val: BenefitsCategory) =>
+                            handleReviewCategoryUpdate(doc.id, val)
+                          }
+                        >
+                          <SelectTrigger className="h-8 text-xs bg-white border-gray-200 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300">
+                            <SelectValue placeholder="Select a category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Retirement">Retirement</SelectItem>
+                            <SelectItem value="Group Life">Group Life</SelectItem>
+                            <SelectItem value="Group Health">Group Health</SelectItem>
+                            <SelectItem value="Multiple">Multiple</SelectItem>
+                            <SelectItem value="Other Benefits">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {!doc.category && (
+                          <p className="text-[10px] text-amber-600 dark:text-amber-400">
+            Please assign a category before adding.
+          </p>
+                        )}
+                      </div>
+                    )}
                   </AccordionContent>
                 </AccordionItem>
               ))}
@@ -1306,7 +1363,12 @@ export function DocumentsUploadSection({
               <Button
                 type="button"
                 onClick={handleReviewConfirm}
-                disabled={!confirmedReview}
+                disabled={
+                  !confirmedReview ||
+                  reviewDocuments.some(
+                    (d) => !d.category?.trim() && !fixedCategory,
+                  )
+                }
                 className="flex-1"
               >
                 Add all {reviewDocuments.length} document
@@ -1686,42 +1748,11 @@ export function DocumentsUploadSection({
           </Label>
 
           {batchCategory === "Multiple" ? (
-            <div className="space-y-3 border rounded-md p-3 bg-gray-50 dark:bg-gray-900/50 dark:border-gray-700">
-              <p className="text-xs text-muted-foreground">Select all categories that apply:</p>
-              <div className="space-y-2">
-                {["Retirement", "Group Health", "Group Life", "Other Benefits"].map((cat) => (
-                  <label
-                    key={cat}
-                    className="flex items-center gap-2 cursor-pointer text-sm hover:text-accent-blue transition-colors"
-                  >
-                    <Checkbox
-                      checked={batchMultipleCategories.includes(cat)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setBatchMultipleCategories((prev) => [...prev, cat]);
-                        } else {
-                          setBatchMultipleCategories((prev) =>
-                            prev.filter((c) => c !== cat)
-                          );
-                        }
-                      }}
-                    />
-                    {cat}
-                  </label>
-                ))}
-              </div>
-              {batchMultipleCategories.length === 0 && (
-                <p className="text-xs text-red-500">Select at least one category</p>
-              )}
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="text-xs h-7"
-                onClick={() => setBatchCategory("Retirement")}
-              >
-                ← Back to single category
-              </Button>
+            <div className="rounded-md border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-950/30">
+              <p className="text-xs text-blue-700 dark:text-blue-300">
+                You&rsquo;ll assign a category to each file individually in the review
+                step after upload and AI naming are complete.
+              </p>
             </div>
           ) : (
             <Select
@@ -1761,13 +1792,20 @@ export function DocumentsUploadSection({
             Cancel
           </AlertDialogCancel>
           <AlertDialogAction
-            disabled={batchCategory === "Multiple" && batchMultipleCategories.length === 0}
             onClick={() => {
               setBatchCategoryDialogOpen(false);
-              const effectiveCategory = batchCategory === "Multiple"
-                ? batchMultipleCategories.join(",")
+              const isMultiple = batchCategory === "Multiple";
+              // When "Multiple" is selected, don't pass a groupCategory and
+              // set forceNoCategory=true so every file stays uncategorized
+              // for per-file assignment in the review step.
+              const effectiveCategory = isMultiple
+                ? undefined
                 : batchCategory;
-              void addDocumentsFromFiles(pendingBatchFiles, effectiveCategory as BenefitsCategory);
+              void addDocumentsFromFiles(
+                pendingBatchFiles,
+                effectiveCategory as BenefitsCategory | undefined,
+                isMultiple, // forceNoCategory
+              );
               setPendingBatchFiles([]);
             }}
           >
