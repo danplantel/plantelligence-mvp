@@ -171,7 +171,7 @@ export function PortalHero({
   return (
     <section
       ref={sectionRef}
-      className={`px-4 sm:px-6 lg:px-20 min-h-[600px] sm:min-h-[700px] pt-20 sm:pt-0 relative isolate overflow-hidden flex justify-center items-center ${hasBackgroundImage ? "bg-[#FEFCF7]" : "bg-white"
+      className={`px-4 sm:px-6 lg:px-20 min-h-[600px] sm:min-h-[700px] lg:min-h-screen sm:pt-0 relative isolate overflow-hidden flex justify-center items-center ${hasBackgroundImage ? "bg-[#FEFCF7]" : "bg-white"
         }`}
     >
       <div className="absolute inset-0">
@@ -246,7 +246,7 @@ export function PortalHero({
       <div className="z-10 relative flex justify-center items-center px-2 sm:px-6 lg:px-8 box-border h-full w-full">
         <div
           data-container="true"
-          className={`text-container flex items-center justify-center px-4 sm:px-6 lg:px-10 box-border min-h-[280px] sm:min-h-[320px] w-full max-w-[900px] mx-auto transition-all relative ${isEditable && onContainerClick
+          className={`text-container relative lg:bottom-20 flex items-center justify-center px-4 sm:px-6 lg:px-10 box-border min-h-[280px] sm:min-h-[320px] w-full max-w-[900px] mx-auto transition-all relative ${isEditable && onContainerClick
             ? "[&:hover:not(:has(.text-content:hover))]:ring-2 [&:hover:not(:has(.text-content:hover))]:ring-blue-500/50 [&:hover:not(:has(.text-content:hover))]:rounded-md cursor-pointer"
             : isEditable
               ? "[&:hover:not(:has(.text-content:hover))]:ring-2 [&:hover:not(:has(.text-content:hover))]:ring-blue-500/50 [&:hover:not(:has(.text-content:hover))]:rounded-md"

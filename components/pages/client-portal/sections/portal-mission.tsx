@@ -90,7 +90,7 @@ export function PortalMission({
               {company?.missionHeadline ||
                 "We care about people. We value teamwork. We deliver results."}
             </h2>
-            <p className="text-[#6B6B6B] font-red-hat text-sm sm:text-base leading-[1.8] mb-4 sm:mb-5">
+            <p className="text-[#6B6B6B] font-red-hat text-sm sm:text-base lg:text-[2em] leading-[1.8] mb-4 sm:mb-5">
               {company?.missionBody ||
                 "At Company Name, this employee benefits portal is one way we show our commitment to supporting you—in work, in life, and beyond. It reflects our foundation of integrity, service, and care by making it easier to access the resources, tools, and information you need. As we continue to grow and evolve, this portal reinforces our promise to invest in your well-being and success every step of the way."}
             </p>
