@@ -309,7 +309,7 @@ export function PortalBenefits({
                       <div className="text-center">
                         <Shield className="w-12 h-12 mx-auto text-gray-300" />
                         <p className="text-xs text-gray-400 font-red-hat mt-2 font-medium">
-                          Coming Soon
+                          Benefit Incomplete
                         </p>
                       </div>
                       <div className="absolute top-3 right-3 bg-amber-500 text-white px-2 py-1 rounded-full text-[10px] font-bold flex items-center gap-1 shadow-md z-10 animate-pulse">
@@ -327,7 +327,7 @@ export function PortalBenefits({
                         {benefit.title}
                       </h3>
                       <p className="text-gray-400 text-sm sm:text-base font-red-hat text-center leading-relaxed">
-                        This benefit is not yet set up. Check back soon for details.
+                        This benefit is not yet set up.
                       </p>
                     </div>
                   </Card>
