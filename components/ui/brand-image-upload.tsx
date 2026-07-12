@@ -375,8 +375,8 @@ export function BrandImageUpload({
         className={`border-2 border-dashed rounded-lg p-4 text-center transition-all duration-300 ${isDragOver
           ? "border-accent-blue bg-accent-blue/5"
           : isHighlighted
-            ? "border-blue-500/50 bg-white scale-[1.02] shadow-sm"
-            : "border-gray-300 hover:border-gray-400"
+            ? "border-blue-500/50 bg-white dark:bg-gray-800 scale-[1.02] shadow-sm"
+            : "border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500"
           }`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -384,11 +384,11 @@ export function BrandImageUpload({
       >
         {currentImage ? (
           <div className="w-full">
-            <div className="relative flex flex-col md:flex-row items-center gap-4 p-4 rounded-xl bg-muted/20 border border-gray-200">
+            <div className="relative flex flex-col md:flex-row items-center gap-4 p-4 rounded-xl bg-muted/20 border border-gray-200 dark:border-gray-700">
               {/* Preview Column */}
               <div className="flex items-center justify-center flex-shrink-0">
                 <div
-                  className={`relative overflow-hidden border border-gray-200 bg-gray-50 ${
+                  className={`relative overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 ${
                     universalModalType === "headshot"
                       ? "h-[140px] w-[140px] rounded-full"
                       : "flex items-center justify-center w-full max-w-[300px] h-[150px] rounded-xl"
@@ -420,7 +420,7 @@ export function BrandImageUpload({
                   <button
                     type="button"
                     onClick={handleRemove}
-                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-full hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     <X className="w-3.5 h-3.5" />
                     Delete
@@ -431,10 +431,10 @@ export function BrandImageUpload({
           </div>
         ) : (
           <div className="space-y-3">
-            <Upload className="w-6 h-6 mx-auto text-gray-400" />
+            <Upload className="w-6 h-6 mx-auto text-gray-400 dark:text-gray-500" />
             <div>
-              <p className="text-sm text-gray-600">No file selected</p>
-              <p className="text-xs text-gray-500">
+              <p className="text-sm text-gray-600 dark:text-gray-300">No file selected</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 Recommended: {slot.recommendedSize} • Accepted: {slot.accept} •
                 Max
                 {maxFileSize} MB

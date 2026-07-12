@@ -1451,10 +1451,10 @@ export function SimpleImageEditorModal({
       {/* Modal */}
       {modalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-2 sm:p-4">
-          <div className="bg-white rounded-lg w-full max-w-6xl mx-auto max-h-[95vh] overflow-hidden flex flex-col">
+          <div className="bg-white dark:bg-gray-900 rounded-lg w-full max-w-6xl mx-auto max-h-[95vh] overflow-hidden flex flex-col">
             {/* Header */}
-            <div className="p-3 sm:p-4 border-b flex-shrink-0">
-              <h2 className="text-base sm:text-lg font-semibold">
+            <div className="p-3 sm:p-4 border-b dark:border-gray-700 flex-shrink-0 bg-white dark:bg-gray-900">
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
                 {modalTitle}
               </h2>
               <p className="text-xs sm:text-sm text-muted-foreground">
@@ -1465,7 +1465,7 @@ export function SimpleImageEditorModal({
             {/* Content */}
             <div className="flex-1 flex flex-row overflow-hidden min-h-0">
               {/* Left: Editing Canvas */}
-              <div className="w-2/3 p-2 sm:p-3 md:p-4 flex items-center justify-center bg-gray-50">
+              <div className="w-2/3 p-2 sm:p-3 md:p-4 flex items-center justify-center bg-gray-50 dark:bg-gray-800">
                 {imageSrc ? (
                   <div className="w-full h-full flex items-center justify-center">
                     <div
@@ -1494,7 +1494,7 @@ export function SimpleImageEditorModal({
                     </div>
                   </div>
                 ) : (
-                  <div className="text-center text-gray-400">
+                  <div className="text-center text-gray-400 dark:text-gray-500">
                     <p className="text-sm">No image selected</p>
                     <p className="text-xs mt-1">
                       Upload an image to start editing
@@ -1504,23 +1504,23 @@ export function SimpleImageEditorModal({
               </div>
 
               {/* Right: Info Panel */}
-              <div className="w-1/3 p-2 sm:p-3 md:p-4 space-y-4 flex flex-col overflow-y-auto text-xs sm:text-sm">
+              <div className="w-1/3 p-2 sm:p-3 md:p-4 space-y-4 flex flex-col overflow-y-auto text-xs sm:text-sm bg-white dark:bg-gray-800 dark:text-gray-100">
                 {guidelinesContent && (
-                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-blue-900 text-[11px] sm:text-xs space-y-2">
+                  <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 p-3 text-blue-900 dark:text-blue-200 text-[11px] sm:text-xs space-y-2">
                     {guidelinesTitle && (
-                      <p className="font-semibold text-blue-900 text-xs sm:text-sm">
+                      <p className="font-semibold text-blue-900 dark:text-blue-300 text-xs sm:text-sm">
                         {guidelinesTitle}
                       </p>
                     )}
-                    <div className="text-blue-800">{guidelinesContent}</div>
+                    <div className="text-blue-800 dark:text-blue-200">{guidelinesContent}</div>
                   </div>
                 )}
 
                 <div>
-                  <Label className="text-sm font-medium text-gray-600">
+                  <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                     Preview
                   </Label>
-                  <div className="mt-2 border-2 border-gray-300 rounded-lg overflow-hidden bg-white flex items-center justify-center">
+                  <div className="mt-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700 flex items-center justify-center">
                     <div
                       style={{
                         width: "200px",
@@ -1537,7 +1537,7 @@ export function SimpleImageEditorModal({
                           className="max-w-full max-h-full object-contain"
                         />
                       ) : (
-                        <span className="text-gray-400 text-xs">No image</span>
+                        <span className="text-gray-400 dark:text-gray-500 text-xs">No image</span>
                       )}
                     </div>
                   </div>
@@ -1602,12 +1602,12 @@ export function SimpleImageEditorModal({
                       !isMoreThan5PercentLargerThanAutoSize &&
                       (hasLargeScaleDifference ||
                       hadLargeScaleDifferenceBeforeAutoSize ? (
-                        <div className="mt-3 rounded-md border border-green-200 bg-green-50 p-2 text-[11px] text-green-700">
+                        <div className="mt-3 rounded-md border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 p-2 text-[11px] text-green-700 dark:text-green-300">
                           Perfect! Image is properly scaled to the safe area.
                           You can reposition or resize it as you prefer.
                         </div>
                       ) : (
-                        <div className="mt-3 rounded-md border border-green-200 bg-green-50 p-2 text-[11px] text-green-700">
+                        <div className="mt-3 rounded-md border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 p-2 text-[11px] text-green-700 dark:text-green-300">
                           Image is already sized to the acceptable range. You
                           can still adjust it manually if you prefer.
                         </div>
@@ -1615,13 +1615,13 @@ export function SimpleImageEditorModal({
                     );
                   })()}
                   {hasTooMuchBlankSpace && (
-                    <div className="mt-3 rounded-md border border-red-200 bg-red-50 p-2 text-[11px] text-red-700">
+                    <div className="mt-3 rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 p-2 text-[11px] text-red-700 dark:text-red-300">
                       Too much blank space. Please scale up to the dotted line
                       for optimal display.
                     </div>
                   )}
                   {isOutsideGuidelines && (
-                    <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-700">
+                    <div className="mt-3 rounded-md border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-2 text-[11px] text-amber-700 dark:text-amber-300">
                       Please note: the photo will only be saved within the
                       frame. Anything outside the frame will be automatically
                       cropped.
@@ -1632,7 +1632,7 @@ export function SimpleImageEditorModal({
             </div>
 
             {/* Controls */}
-            <div className="p-4 border-t space-y-3">
+            <div className="p-4 border-t dark:border-gray-700 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   {/* Scale Control */}
