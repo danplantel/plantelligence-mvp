@@ -128,7 +128,7 @@ export function BannerSectionEditor({
   const lastHeroModalStateRef = useRef<{ isOpen: boolean; pendingData: BrandImageData | null } | null>(null);
 
   // Derive hero image data from store
-  const heroImageData = storeCompanyBasics?.brandImages?.header || storeCompanyBasics?.brandImages?.thumbnail || null;
+  const heroImageData = storeCompanyBasics?.brandImages?.header ?? null;
 
   // Hero background handlers
   const handleHeroBackgroundImageChange = (imageData: BrandImageData) => {
