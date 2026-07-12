@@ -123,15 +123,24 @@ export function BrandImagesSection({
     value: string,
     fileName: string,
     cropData?: import("@/components/ui/simple-image-editor-modal").CropMetadata,
-  ) => {
-    if (pendingImageData) {
+  ): Promise<void> => {
+    if (!pendingImageData) {
+      setIsModalOpen(false);
+      setPendingImageData(null);
+      return Promise.resolve();
+    }
+
+    return new Promise<void>((resolve) => {
       // Load image to get updated dimensions after editing
       const img = new Image();
-      img.onload = () => {
+      img.onload = async () => {
         const slot = BRAND_IMAGE_SLOTS.find(
           (s) => s.key === pendingImageData.slotKey,
         );
-        if (!slot) return;
+        if (!slot) {
+          resolve();
+          return;
+        }
 
         const warnings: string[] = [];
         const [recWidth, recHeight] = slot.recommendedSize
@@ -148,6 +157,7 @@ export function BrandImagesSection({
           [pendingImageData.slotKey]: {
             ...pendingImageData.data,
             url: value,
+            previewUrl: value, // data URL for instant preview display
             originalUrl:
               cropData?.originalImage ||
               pendingImageData.data.originalUrl ||
@@ -160,12 +170,15 @@ export function BrandImagesSection({
             cropData: cropData,
           },
         };
-        onBrandImagesChange(updatedBrandImages);
-        setIsModalOpen(false);
-        setPendingImageData(null);
+
+        // Await the parent's async chain (R2 upload + state update)
+        // before resolving — this keeps the modal spinner alive
+        await onBrandImagesChange(updatedBrandImages);
+
+        resolve();
       };
 
-      img.onerror = () => {
+      img.onerror = async () => {
         // Fallback if image fails to load
         const updatedBrandImages = {
           ...brandImages,
@@ -180,16 +193,15 @@ export function BrandImagesSection({
             cropData: cropData,
           },
         };
-        onBrandImagesChange(updatedBrandImages);
-        setIsModalOpen(false);
-        setPendingImageData(null);
+        await onBrandImagesChange(updatedBrandImages);
+        resolve();
       };
 
       img.src = value;
-    } else {
-      setIsModalOpen(false);
-      setPendingImageData(null);
-    }
+    });
+    // NOTE: do NOT set isModalOpen / pendingImageData here —
+    // SimpleImageEditorModal will call handleModalClose after
+    // the promise resolves and the 500ms spinner delay completes.
   };
 
   const handleModalClose = () => {

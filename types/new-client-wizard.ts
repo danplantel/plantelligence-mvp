@@ -39,6 +39,8 @@ export interface CompanyLogoData {
 export interface BrandImageData {
   url: string;
   originalUrl?: string;
+  /** Data URL for instant preview display before the R2-backed url resolves */
+  previewUrl?: string;
   fileName: string;
   fileSize: number;
   width: number;
