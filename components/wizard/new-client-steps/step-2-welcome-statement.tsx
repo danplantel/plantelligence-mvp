@@ -817,52 +817,67 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
         isAnimating={editorState.isEditorAnimating}
         editorScrollContainerRef={editorScrollContainerRef}
         onClose={editorState.handleCloseEditor}
-      >
-        <BannerSectionEditor
-          onCompanyDataChange={handleCompanyDataChange}
-          onWelcomeDataChange={(field, value) => {
-            if (field === "headline") updateField("headline", value);
-            if (field === "bodyText") updateField("bodyText", value);
-            if (field === "isAIGenerated") updateField("isAIGenerated", value);
-            const store = useNewClientWizardStore.getState();
-            const currentWelcome = store.stepData.welcomeStatement || { headline: "", bodyText: "", isAIGenerated: false };
-            store.saveStepDataLocally("welcomeStatement", { ...currentWelcome, [field]: value });
-          }}
-          onModalStateChange={modalStates.handleHeroModalStateChange}
-          onLogoModalStateChange={modalStates.handleLogoModalStateChange}
-          onOpenHeroTextEditor={handleOpenHeroTextEditor}
-          logoCardRef={logoCardRef} isLogoCardHighlighted={isLogoCardHighlighted} onLogoCardHighlightChange={setIsLogoCardHighlighted}
-          overlaySettingsCardRef={overlaySettingsCardRef} isOverlaySettingsHighlighted={isOverlaySettingsHighlighted} onOverlaySettingsHighlightChange={setIsOverlaySettingsHighlighted}
-          bannerTitleCardRef={bannerTitleCardRef} isBannerTitleHighlighted={isBannerTitleHighlighted} onBannerTitleHighlightChange={setIsBannerTitleHighlighted}
-          useDefaultBody={useDefaultWelcomeMessage}
-          onToggleDefaultBody={(checked) => {
-            setUseDefaultWelcomeMessage(checked);
-            if (checked) { handleCompanyDataChange("heroDescription", defaultWelcomeBodyText); updateField("bodyText", defaultWelcomeBodyText); }
-            else { handleCompanyDataChange("heroDescription", ""); updateField("bodyText", ""); }
-          }}
-          defaultBodyText={defaultWelcomeBodyText} errorFields={errorFields}
-        />
-        <ThumbnailSectionEditor
-          currentImage={stepData.companyBasics?.brandImages?.thumbnail || undefined}
-          isHighlighted={thumbnailImage.isThumbnailHighlighted}
-          onImageChange={thumbnailImage.handleThumbnailImageChange} onImageRemove={thumbnailImage.handleThumbnailImageRemove}
-          onDefaultPhotoClick={() => thumbnailImage.setGalleryOpen(true)}
-          onEditClick={thumbnailImage.handleThumbnailEditClick} onFileSelect={thumbnailImage.handleThumbnailFileSelect}
-        />
-        <MissionSectionEditor
-          missionHeadline={missionData.missionHeadline} missionBody={missionData.missionBody}
-          defaultHeadline={defaultHeadline} defaultBodyText={defaultWelcomeBodyText}
-          useDefaultHeadline={missionData.useDefaultHeadline} useDefaultBody={missionData.useDefaultBody}
-          headlineCharCount={missionData.headlineCharCount} bodyCharCount={missionData.bodyCharCount}
-          isHeadlineValid={missionData.isHeadlineValid} isBodyValid={missionData.isBodyValid}
-          errorFields={errorFields} headlineRef={headlineRef} bodyTextRef={bodyTextRef}
-          onHeadlineChange={missionData.handleHeadlineChange} onBodyChange={missionData.handleBodyChange}
-          onUseDefaultHeadlineChange={missionData.handleUseDefaultHeadline} onUseDefaultBodyChange={missionData.handleUseDefaultBody}
-          onGenerateMissionHeadline={missionData.handleGenerateMissionHeadline} onGenerateMissionBody={missionData.handleGenerateMissionBody}
-          thumbnailImgUrl={stepData.companyBasics?.brandImages?.thumbnail?.url}
-        />
-        <div data-section-id="thumbnail" ref={missionFieldsRef} style={{ minHeight: "1px", height: "60px" }} />
-      </EditorPanelWrapper>
+        sections={[
+          {
+            title: "Images",
+            content: (
+              <>
+                <BannerSectionEditor
+                  onCompanyDataChange={handleCompanyDataChange}
+                  onWelcomeDataChange={(field, value) => {
+                    if (field === "headline") updateField("headline", value);
+                    if (field === "bodyText") updateField("bodyText", value);
+                    if (field === "isAIGenerated") updateField("isAIGenerated", value);
+                    const store = useNewClientWizardStore.getState();
+                    const currentWelcome = store.stepData.welcomeStatement || { headline: "", bodyText: "", isAIGenerated: false };
+                    store.saveStepDataLocally("welcomeStatement", { ...currentWelcome, [field]: value });
+                  }}
+                  onModalStateChange={modalStates.handleHeroModalStateChange}
+                  onLogoModalStateChange={modalStates.handleLogoModalStateChange}
+                  onOpenHeroTextEditor={handleOpenHeroTextEditor}
+                  logoCardRef={logoCardRef} isLogoCardHighlighted={isLogoCardHighlighted} onLogoCardHighlightChange={setIsLogoCardHighlighted}
+                  overlaySettingsCardRef={overlaySettingsCardRef} isOverlaySettingsHighlighted={isOverlaySettingsHighlighted} onOverlaySettingsHighlightChange={setIsOverlaySettingsHighlighted}
+                  bannerTitleCardRef={bannerTitleCardRef} isBannerTitleHighlighted={isBannerTitleHighlighted} onBannerTitleHighlightChange={setIsBannerTitleHighlighted}
+                  useDefaultBody={useDefaultWelcomeMessage}
+                  onToggleDefaultBody={(checked) => {
+                    setUseDefaultWelcomeMessage(checked);
+                    if (checked) { handleCompanyDataChange("heroDescription", defaultWelcomeBodyText); updateField("bodyText", defaultWelcomeBodyText); }
+                    else { handleCompanyDataChange("heroDescription", ""); updateField("bodyText", ""); }
+                  }}
+                  defaultBodyText={defaultWelcomeBodyText} errorFields={errorFields}
+                />
+                <ThumbnailSectionEditor
+                  currentImage={stepData.companyBasics?.brandImages?.thumbnail || undefined}
+                  isHighlighted={thumbnailImage.isThumbnailHighlighted}
+                  onImageChange={thumbnailImage.handleThumbnailImageChange} onImageRemove={thumbnailImage.handleThumbnailImageRemove}
+                  onDefaultPhotoClick={() => thumbnailImage.setGalleryOpen(true)}
+                  onEditClick={thumbnailImage.handleThumbnailEditClick} onFileSelect={thumbnailImage.handleThumbnailFileSelect}
+                />
+              </>
+            ),
+          },
+          {
+            title: "Company Mission Statement",
+            content: (
+              <>
+                <MissionSectionEditor
+                  missionHeadline={missionData.missionHeadline} missionBody={missionData.missionBody}
+                  defaultHeadline={defaultHeadline} defaultBodyText={defaultWelcomeBodyText}
+                  useDefaultHeadline={missionData.useDefaultHeadline} useDefaultBody={missionData.useDefaultBody}
+                  headlineCharCount={missionData.headlineCharCount} bodyCharCount={missionData.bodyCharCount}
+                  isHeadlineValid={missionData.isHeadlineValid} isBodyValid={missionData.isBodyValid}
+                  errorFields={errorFields} headlineRef={headlineRef} bodyTextRef={bodyTextRef}
+                  onHeadlineChange={missionData.handleHeadlineChange} onBodyChange={missionData.handleBodyChange}
+                  onUseDefaultHeadlineChange={missionData.handleUseDefaultHeadline} onUseDefaultBodyChange={missionData.handleUseDefaultBody}
+                  onGenerateMissionHeadline={missionData.handleGenerateMissionHeadline} onGenerateMissionBody={missionData.handleGenerateMissionBody}
+                  thumbnailImgUrl={stepData.companyBasics?.brandImages?.thumbnail?.url}
+                />
+                <div data-section-id="thumbnail" ref={missionFieldsRef} style={{ minHeight: "1px", height: "60px" }} />
+              </>
+            ),
+          },
+        ]}
+      />
 
       {/* ════════════════════════════════════════════════
           Scalable preview — flex column

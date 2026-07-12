@@ -5,12 +5,30 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { X } from "lucide-react";
 
+export function SectionHeader({ number, title }: { number: number; title: string }) {
+  return (
+    <div className="mb-6">
+      <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.1em]">
+        Section {number}: {title}
+      </h3>
+      <div className="h-px w-12 bg-border mt-2" />
+    </div>
+  );
+}
+
+export interface EditorSection {
+  title: string;
+  content: React.ReactNode;
+}
+
 interface EditorPanelWrapperProps {
   isOpen: boolean;
   isAnimating: boolean;
   editorScrollContainerRef?: React.RefObject<HTMLDivElement>;
   onClose: () => void;
-  children: React.ReactNode;
+  children?: React.ReactNode;
+  /** Structured sections with headers — if provided, renders each section with a SectionHeader */
+  sections?: EditorSection[];
   /** Optional footer (e.g. Save button) — fixed at bottom of panel, always visible */
   footer?: React.ReactNode;
   /**
@@ -27,6 +45,7 @@ export function EditorPanelWrapper({
   editorScrollContainerRef,
   onClose,
   children,
+  sections,
   footer,
   variant = 'fixed',
 }: EditorPanelWrapperProps) {
@@ -70,7 +89,14 @@ export function EditorPanelWrapper({
         data-lenis-wrapper
       >
         <div data-lenis-content className="space-y-4">
-          {children}
+          {sections
+            ? sections.map((section, i) => (
+                <div key={i}>
+                  <SectionHeader number={i + 1} title={section.title} />
+                  {section.content}
+                </div>
+              ))
+            : children}
         </div>
       </div>
       {footer != null ? (
