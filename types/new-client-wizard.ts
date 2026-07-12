@@ -82,6 +82,7 @@ export interface CompanyBasicsData {
   heroCompanyNameColor?: "yellow" | "default";
   heroContainerInverted?: boolean;
   heroBackgroundInverted?: boolean;
+  heroUseGradient?: boolean;
 }
 
 // Step 2: Welcome Statement

@@ -26,9 +26,9 @@ export function HeroBackgroundCard({
 }: HeroBackgroundCardProps) {
   return (
     <>
-      <CardTitle className="flex pt-2 items-center gap-2 dark:text-gray-100">
+      {/* <CardTitle className="flex pt-2 items-center gap-2 dark:text-gray-100">
         Background Header Image (Hero)
-      </CardTitle>
+      </CardTitle> */}
       <p className="text-sm text-muted-foreground dark:text-gray-400">
         This image displays in the header background of your Employee Benefits Hub. Upload a wide hero image for best results. If not uploading a picture, the Square Thumbnail will be used.
       </p>
