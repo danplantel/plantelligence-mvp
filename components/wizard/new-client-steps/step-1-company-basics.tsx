@@ -770,7 +770,9 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
               </CardTitle>
               <p className="text-sm text-muted-foreground dark:text-gray-400">
                 Choose your primary and secondary brand colors for the employee
-                portal. Colors can be auto-extracted from your uploaded logo.
+                portal. Colors are automatically extracted from your uploaded logo
+                and applied to buttons, footers, headers, and more. Click on the colors
+                below to edit them to your liking.
               </p>
             </CardHeader>
             <CardContent>
@@ -907,23 +909,6 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                       {fieldErrors["secondaryColor"]}
                     </p>
                   )}
-                </div>
-              </div>
-
-              {/* Color Preview */}
-              <div className="mt-4 p-4 border rounded-lg dark:border-gray-600">
-                <h4 className="text-sm font-medium mb-2 dark:text-gray-300">Color Preview</h4>
-                <div className="flex gap-2">
-                  <div
-                    className="w-8 h-8 rounded border dark:border-gray-500"
-                    style={{ background: companyData.primaryColor }}
-                    title="Primary Color"
-                  />
-                  <div
-                    className="w-8 h-8 rounded border dark:border-gray-500"
-                    style={{ background: companyData.secondaryColor }}
-                    title="Secondary Color"
-                  />
                 </div>
               </div>
             </CardContent>
