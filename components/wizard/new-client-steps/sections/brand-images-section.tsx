@@ -7,6 +7,7 @@ import { BrandImagesData, BrandImageData } from "@/types/new-client-wizard";
 import { SimpleImageEditorModal } from "@/components/ui/simple-image-editor-modal";
 import { ModalGallery } from "@/components/ui/modalGallery";
 import { BrandImageUpload } from "../../../ui/brand-image-upload";
+import { toR2BrandingKey, getR2ObjectProxyUrl } from "@/lib/branding-image-url";
 
 interface BrandImagesSectionProps {
   brandImages: BrandImagesData;
@@ -174,6 +175,41 @@ export function BrandImagesSection({
         // Await the parent's async chain (R2 upload + state update)
         // before resolving — this keeps the modal spinner alive
         await onBrandImagesChange(updatedBrandImages);
+
+        // Read final R2 URLs from the store (handleBrandImagesChange
+        // replaced the data URLs with R2 keys internally) and preload
+        // the proxy URLs so the browser cache has them ready for step 2.
+        const { useNewClientWizardStore } = await import(
+          "@/lib/new-client-wizard-store"
+        );
+        const store = useNewClientWizardStore.getState();
+        const finalBrandImages = store.stepData.companyBasics?.brandImages;
+        const preloads: Promise<void>[] = [];
+        if (finalBrandImages) {
+          const slotsToCheck: (keyof BrandImagesData)[] = [
+            "header", "thumbnail", "secondaryBanner", "favicon",
+          ];
+          for (const key of slotsToCheck) {
+            const img = finalBrandImages[key];
+            if (img?.url) {
+              const r2Key = toR2BrandingKey(img.url);
+              if (r2Key) {
+                const proxyUrl = getR2ObjectProxyUrl(r2Key);
+                if (proxyUrl) {
+                  preloads.push(
+                    new Promise<void>((r) => {
+                      const preloadImg = new Image();
+                      preloadImg.onload = () => r();
+                      preloadImg.onerror = () => r();
+                      preloadImg.src = proxyUrl;
+                    }),
+                  );
+                }
+              }
+            }
+          }
+        }
+        await Promise.all(preloads);
 
         resolve();
       };

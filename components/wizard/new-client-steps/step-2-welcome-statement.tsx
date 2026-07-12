@@ -139,7 +139,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
         missionHeadline: cb?.missionHeadline || "",
         missionBody: cb?.missionBody || "",
         appointmentLink: cb?.appointmentLink || "",
-        backgroundImg: cb?.brandImages?.header?.url || "",
+        backgroundImg: cb?.brandImages?.header?.previewUrl || cb?.brandImages?.header?.url || "",
         backgroundImgName: cb?.brandImages?.header?.fileName || "",
         thumbnailImg: cb?.brandImages?.thumbnail?.url || "",
         thumbnailImgName: cb?.brandImages?.thumbnail?.fileName || "",
