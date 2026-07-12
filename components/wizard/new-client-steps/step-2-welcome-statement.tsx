@@ -145,7 +145,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
         thumbnailImgName: cb?.brandImages?.thumbnail?.fileName || "",
         disclaimers: "",
         heroTitle: cb?.heroTitle,
-        heroDescription: cb?.heroDescription,
+        heroDescription: cb?.heroDescription || defaultWelcomeBodyText,
         heroOverlayOpacity: cb?.heroOverlayOpacity,
         heroBackgroundOpacity: cb?.heroBackgroundOpacity,
         heroContainerOpacity: cb?.heroContainerOpacity,
