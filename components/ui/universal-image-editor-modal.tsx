@@ -2485,19 +2485,19 @@ export function UniversalImageEditorModal({
                 </div>
 
                 {/* Right: Info Panel */}
-                <div className="w-1/3 p-2 sm:p-3 md:p-4 space-y-1.5 sm:space-y-2 md:space-y-3 flex flex-col overflow-y-auto text-xs sm:text-sm bg-white dark:bg-gray-850 dark:text-gray-100">
+                <div className="w-1/3 p-2 sm:p-3 md:p-4 space-y-1.5 sm:space-y-2 md:space-y-3 flex flex-col overflow-y-auto text-xs sm:text-sm bg-white dark:bg-gray-800 dark:text-gray-100">
                   <div className="space-y-1.5 sm:space-y-2 md:space-y-3">
                     {/* Logo Guidelines */}
                     {(type === "logo" || type === "normalizer") &&
                       (tip === "no-text" ? null : (
-                        <div className="p-2 sm:p-2.5 md:p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-700 rounded-md space-y-1 sm:space-y-1.5">
-                          <h4 className="text-[10px] sm:text-xs md:text-sm font-semibold text-blue-900 dark:text-blue-900">
+                        <div className="p-2 sm:p-2.5 md:p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md space-y-1 sm:space-y-1.5">
+                          <h4 className="text-[10px] sm:text-xs md:text-sm font-semibold text-blue-900 dark:text-blue-300">
                             {previewTitle ? previewTitle : "Logo"} Guidelines
                           </h4>
-                          <ul className="space-y-1 sm:space-y-1.5 text-[9px] sm:text-[10px] md:text-xs text-blue-800 dark:text-blue-100">
+                          <ul className="space-y-1 sm:space-y-1.5 text-[9px] sm:text-[10px] md:text-xs text-blue-800 dark:text-blue-200">
                             <li className="flex items-start gap-2">
                               <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
-                              <span className="dark:text-gray-700">
+                              <span>
                                 Resize your{" "}
                                 {previewTitle ? previewTitle : "logo"} so it
                                 fits inside the <strong>dashed line</strong>.
@@ -2505,7 +2505,7 @@ export function UniversalImageEditorModal({
                             </li>
                             <li className="flex items-start gap-2">
                               <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
-                              <span className="dark:text-gray-700">
+                              <span>
                                 The dashed line marks the recommended{" "}
                                 {previewTitle ? previewTitle : "logo"} area (for
                                 best display on all devices).
@@ -2513,7 +2513,7 @@ export function UniversalImageEditorModal({
                             </li>
                             <li className="flex items-start gap-2">
                               <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
-                              <span className="dark:text-gray-700">
+                              <span>
                                 The solid border line marks the safe zone –
                                 anything beyond it may be cropped or hidden.
                               </span>
@@ -2523,36 +2523,36 @@ export function UniversalImageEditorModal({
                       ))}
 
                     {type === "headshot" && (
-                      <div className="p-2 sm:p-2.5 md:p-3 bg-blue-50 border border-blue-200 rounded-md space-y-1 sm:space-y-1.5">
-                        <h4 className="text-[10px] sm:text-xs md:text-sm font-semibold text-blue-900">
+                      <div className="p-2 sm:p-2.5 md:p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md space-y-1 sm:space-y-1.5">
+                        <h4 className="text-[10px] sm:text-xs md:text-sm font-semibold text-blue-900 dark:text-blue-300">
                           Photo Adjustment Tips
                         </h4>
-                        <ul className="space-y-1 sm:space-y-1.5 text-[9px] sm:text-[10px] md:text-xs text-blue-800">
+                        <ul className="space-y-1 sm:space-y-1.5 text-[9px] sm:text-[10px] md:text-xs text-blue-800 dark:text-blue-200">
                           <li className="flex items-start gap-2">
-                            <span className="text-blue-600 mt-0.5">•</span>
+                            <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
                             <span>
                               Grab the blue circles at the edges of your photo
                               to resize.
                             </span>
                           </li>
                           <li className="flex items-start gap-2">
-                            <span className="text-blue-600 mt-0.5">•</span>
+                            <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
                             <span>
                               Use the Scale slider below for fine-tuning.
                             </span>
                           </li>
                           <li className="flex items-start gap-2">
-                            <span className="text-blue-600 mt-0.5">•</span>
+                            <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
                             <span>
                               Center your face inside the dotted circle for best
                               results.
                             </span>
                           </li>
                           <li className="flex items-start gap-2">
-                            <span className="text-blue-600 mt-0.5">•</span>
+                            <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
                             <span>
                               photo sizes and formats vary, please review
-                              carefully to make sure there’s no blank space or
+                              carefully to make sure there's no blank space or
                               cutoff areas in the preview.
                             </span>
                           </li>
@@ -2565,9 +2565,9 @@ export function UniversalImageEditorModal({
                       <>
                         {/* Max Aspect Ratio Warning */}
                         {isBeyondMaxAspectRatio && (
-                          <div className="flex items-start space-x-1.5 sm:space-x-2 p-2 sm:p-2.5 md:p-3 bg-red-50 border border-red-200 rounded-md">
-                            <AlertTriangle className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
-                            <p className="text-[9px] sm:text-[10px] md:text-xs text-yellow-600">
+                          <div className="flex items-start space-x-1.5 sm:space-x-2 p-2 sm:p-2.5 md:p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-md">
+                            <AlertTriangle className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-yellow-600 dark:text-yellow-400 mt-0.5 flex-shrink-0" />
+                            <p className="text-[9px] sm:text-[10px] md:text-xs text-yellow-600 dark:text-yellow-400">
                               Image is wider than the supported max aspect ratio
                               (2.5:1). It will be cropped to fit the header
                               constraints.
@@ -2577,9 +2577,9 @@ export function UniversalImageEditorModal({
 
                         {/* Safe Zone Warning - RED (touching solid line) */}
                         {isOutsideSafeZone && (
-                          <div className="flex items-start space-x-1.5 sm:space-x-2 p-2 sm:p-2.5 md:p-3 bg-red-50 border border-red-200 rounded-md">
-                            <AlertTriangle className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-red-600 mt-0.5 flex-shrink-0" />
-                            <p className="text-[9px] sm:text-[10px] md:text-xs text-red-600">
+                          <div className="flex items-start space-x-1.5 sm:space-x-2 p-2 sm:p-2.5 md:p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-md">
+                            <AlertTriangle className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+                            <p className="text-[9px] sm:text-[10px] md:text-xs text-red-600 dark:text-red-400">
                               {previewTitle ? previewTitle : "Logo"} is touching
                               the solid line boundary. Scale down or reposition
                               to stay within the safe zone.
@@ -2589,9 +2589,9 @@ export function UniversalImageEditorModal({
 
                         {/* Outside Dotted Line Warning - ORANGE (between dotted and solid) */}
                         {isOutsideDottedLine && !isOutsideSafeZone && (
-                          <div className="flex items-start space-x-1.5 sm:space-x-2 p-2 sm:p-2.5 md:p-3 bg-orange-50 border border-orange-200 rounded-md">
-                            <AlertTriangle className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-orange-600 mt-0.5 flex-shrink-0" />
-                            <p className="text-[9px] sm:text-[10px] md:text-xs text-orange-600">
+                          <div className="flex items-start space-x-1.5 sm:space-x-2 p-2 sm:p-2.5 md:p-3 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-md">
+                            <AlertTriangle className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
+                            <p className="text-[9px] sm:text-[10px] md:text-xs text-orange-600 dark:text-orange-400">
                               {previewTitle ? previewTitle : "Logo"} extends
                               beyond the dotted line. Scale down to fit within
                               the dotted boundary for optimal display.
@@ -2603,9 +2603,9 @@ export function UniversalImageEditorModal({
                         {isTooSmall &&
                           !isOutsideSafeZone &&
                           !isOutsideDottedLine && (
-                            <div className="flex items-start space-x-1.5 sm:space-x-2 p-2 sm:p-2.5 md:p-3 bg-orange-50 border border-orange-200 rounded-md">
-                              <AlertTriangle className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-orange-600 mt-0.5 flex-shrink-0" />
-                              <p className="text-[9px] sm:text-[10px] md:text-xs text-orange-600">
+                            <div className="flex items-start space-x-1.5 sm:space-x-2 p-2 sm:p-2.5 md:p-3 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-md">
+                              <AlertTriangle className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
+                              <p className="text-[9px] sm:text-[10px] md:text-xs text-orange-600 dark:text-orange-400">
                                 Too much blank space. Please scale up to the
                                 dotted line for optimal display.
                               </p>
@@ -2617,9 +2617,9 @@ export function UniversalImageEditorModal({
                           !isOutsideSafeZone &&
                           !isOutsideDottedLine &&
                           !isTooSmall && (
-                            <div className="flex items-start space-x-1.5 sm:space-x-2 p-2 sm:p-2.5 md:p-3 bg-orange-50 border border-orange-200 rounded-md">
-                              <AlertTriangle className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-orange-600 mt-0.5 flex-shrink-0" />
-                              <p className="text-[9px] sm:text-[10px] md:text-xs text-orange-600">
+                            <div className="flex items-start space-x-1.5 sm:space-x-2 p-2 sm:p-2.5 md:p-3 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-md">
+                              <AlertTriangle className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
+                              <p className="text-[9px] sm:text-[10px] md:text-xs text-orange-600 dark:text-orange-400">
                                 Image is not scaled enough. Increase the scale
                                 to fit within the dotted guidelines.
                               </p>
@@ -2631,9 +2631,9 @@ export function UniversalImageEditorModal({
                           isNearDottedLine &&
                           !isOutsideSafeZone &&
                           !isOutsideDottedLine && (
-                            <div className="flex items-start space-x-1.5 sm:space-x-2 p-2 sm:p-2.5 md:p-3 bg-green-50 border border-green-200 rounded-md">
+                            <div className="flex items-start space-x-1.5 sm:space-x-2 p-2 sm:p-2.5 md:p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-md">
                               <svg
-                                className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-green-600 mt-0.5 flex-shrink-0"
+                                className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0"
                                 fill="none"
                                 viewBox="0 0 24 24"
                                 stroke="currentColor"
@@ -2645,7 +2645,7 @@ export function UniversalImageEditorModal({
                                   d="M5 13l4 4L19 7"
                                 />
                               </svg>
-                              <p className="text-[9px] sm:text-[10px] md:text-xs text-green-600">
+                              <p className="text-[9px] sm:text-[10px] md:text-xs text-green-600 dark:text-green-400">
                                 Perfect! {previewTitle ? previewTitle : "Logo"}{" "}
                                 is properly scaled to the dotted line.
                               </p>
@@ -2665,11 +2665,13 @@ export function UniversalImageEditorModal({
 
                       return (
                         <div key={format}>
-                          <Label className="text-sm font-medium text-gray-600">
-                            {previewText ||
-                              previewTitle ||
-                              modalTitle ||
-                              config.modalTitle}
+                          <Label className="text-sm font-medium text-gray-400">
+                            {type === "logo" && format === "rectangular"
+                              ? "Logo Preview"
+                              : previewText ||
+                                previewTitle ||
+                                modalTitle ||
+                                config.modalTitle}
                           </Label>
                           <div className="mt-2">
                             {isHeaderBarPreview ? (
@@ -2708,7 +2710,7 @@ export function UniversalImageEditorModal({
                             ) : (
                               // Standard preview for other formats
                               <div
-                                className={`overflow-hidden bg-white flex items-center justify-center border-2 border-gray-300 ${format === "circle"
+                                className={`overflow-hidden bg-white flex items-center justify-center border-2 border-gray-300 dark:border-gray-600 ${format === "circle"
                                   ? "rounded-full"
                                   : "rounded-lg"
                                   }`}
@@ -2732,9 +2734,9 @@ export function UniversalImageEditorModal({
                             )}
                           </div>
                           {previewTitle === "Thumbnail image" && (
-                            <div className="flex items-start space-x-1.5 sm:space-x-2 p-2 sm:p-2.5 md:p-3 bg-orange-50 border border-orange-200 rounded-md mt-3">
-                              <AlertTriangle className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-orange-600 mt-0.5 flex-shrink-0" />
-                              <p className="text-[9px] sm:text-[10px] md:text-xs text-orange-600">
+                            <div className="flex items-start space-x-1.5 sm:space-x-2 p-2 sm:p-2.5 md:p-3 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-md mt-3">
+                              <AlertTriangle className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
+                              <p className="text-[9px] sm:text-[10px] md:text-xs text-orange-600 dark:text-orange-400">
                                 The preview is square (900×900). Make sure your
                                 image fits well within these dimensions for best
                                 results.
@@ -2747,9 +2749,9 @@ export function UniversalImageEditorModal({
 
                     {/* Headshot Crop Warning - Show under previews for headshot type */}
                     {type === "headshot" && isHeadshotCropped && (
-                      <div className="flex items-start space-x-1.5 sm:space-x-2 p-2 sm:p-2.5 md:p-3 bg-orange-50 border border-orange-200 rounded-md mt-3">
-                        <AlertTriangle className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-orange-600 mt-0.5 flex-shrink-0" />
-                        <p className="text-[9px] sm:text-[10px] md:text-xs text-orange-600">
+                      <div className="flex items-start space-x-1.5 sm:space-x-2 p-2 sm:p-2.5 md:p-3 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-md mt-3">
+                        <AlertTriangle className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
+                        <p className="text-[9px] sm:text-[10px] md:text-xs text-orange-600 dark:text-orange-400">
                           Image may not fill the circular preview completely.
                           Increase the scale or center the image better.
                         </p>
@@ -2758,14 +2760,14 @@ export function UniversalImageEditorModal({
 
                     {/* File Details */}
                     {config.showFileDetails && imageSrc && (
-                      <div className="space-y-2 text-sm">
-                        <h4 className="font-medium">File Details</h4>
+                      <div className="space-y-2 text-sm dark:text-gray-200">
+                        <h4 className="font-medium dark:text-gray-100">File Details</h4>
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Type:</span>
+                          <span className="text-gray-600 dark:text-gray-400">Type:</span>
                           <span className="font-medium">PNG</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Size:</span>
+                          <span className="text-gray-600 dark:text-gray-400">Size:</span>
                           <span className="font-medium">
                             {type === "normalizer" || type === "logo"
                               ? canvasMode === "compact"
@@ -2775,11 +2777,11 @@ export function UniversalImageEditorModal({
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-600">File Size:</span>
+                          <span className="text-gray-600 dark:text-gray-400">File Size:</span>
                           <span className="font-medium">~18 KB</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Transparency:</span>
+                          <span className="text-gray-600 dark:text-gray-400">Transparency:</span>
                           <span className="font-medium">Yes</span>
                         </div>
                       </div>
@@ -2788,12 +2790,12 @@ export function UniversalImageEditorModal({
                     {/* Warnings */}
                     {config.showWarnings && warnings.length > 0 && (
                       <div className="space-y-2">
-                        <h4 className="font-medium">Warnings</h4>
+                        <h4 className="font-medium dark:text-gray-100">Warnings</h4>
                         <div className="space-y-1">
                           {warnings.map((warning, index) => (
                             <div
                               key={index}
-                              className="flex items-center gap-2 text-yellow-600"
+                              className="flex items-center gap-2 text-yellow-600 dark:text-yellow-400"
                             >
                               <AlertTriangle className="w-4 h-4" />
                               <span className="text-sm">{warning}</span>
