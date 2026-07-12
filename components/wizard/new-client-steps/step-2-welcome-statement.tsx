@@ -146,6 +146,8 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
         disclaimers: "",
         heroTitle: cb?.heroTitle,
         heroDescription: cb?.heroDescription,
+        heroOverlayOpacity: cb?.heroOverlayOpacity,
+        heroBackgroundOpacity: cb?.heroBackgroundOpacity,
         heroContainerOpacity: cb?.heroContainerOpacity,
         heroContainerBackgroundOpacity: cb?.heroContainerBackgroundOpacity,
         heroContainerBlockOpacity: cb?.heroContainerBlockOpacity,
