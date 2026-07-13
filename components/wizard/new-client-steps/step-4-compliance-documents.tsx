@@ -431,13 +431,10 @@ export function NewClientStep4({
     });
   }, [retirementPlanDocuments, previewLanguage, activeCategory]);
 
-  // Preview: only show categories that have documents; default Retirement or first with docs
+  // Preview: show all benefit categories (even if empty) so the filter bar is always visible
   const previewCategories = useMemo<BenefitsCategory[]>(() => {
-    const catsWithDocs = benefitCategories.filter((cat) =>
-      retirementPlanDocuments.some((d) => d.category === cat)
-    );
-    return catsWithDocs.length > 0 ? catsWithDocs : benefitCategories;
-  }, [retirementPlanDocuments]);
+    return benefitCategories;
+  }, []);
 
   // When switching to Preview tab: default to Retirement or first category with docs
   // Also reset if current category no longer has docs
@@ -823,15 +820,12 @@ export function NewClientStep4({
                   key={cat}
                   type="button"
                   onClick={() => setActiveCategory(cat)}
-                  className={`px-4 py-2 text-[14px] font-semibold transition-all relative ${isActive ? "text-[#002B5B] dark:text-white" : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                  className={`px-4 py-2 text-[14px] font-semibold transition-all relative ${isActive ? "text-accent-blue dark:text-accent-blue" : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                     }`}
                 >
                   {cat === "Other Benefits" ? "Other" : cat}
                   {isActive && (
-                    <div
-                      className="absolute bottom-[-17px] left-0 right-0 h-[3px] rounded-t-full"
-                      style={{ backgroundColor: primaryColor }}
-                    />
+                    <div className="absolute bottom-[-17px] left-0 right-0 h-[3px] rounded-t-full bg-accent-blue" />
                   )}
                 </button>
               );
@@ -841,8 +835,7 @@ export function NewClientStep4({
           {retirementDocs.length === 0 ? (
             <div className="flex items-center justify-center py-20">
               <p className="text-gray-600 text-lg dark:text-gray-400">
-                No documents found in{" "}
-                {previewLanguage === "EN" ? "English" : "Spanish"}.
+                No documents found.
               </p>
             </div>
           ) : (
@@ -928,8 +921,7 @@ export function NewClientStep4({
               {retirementDocs.length === 0 ? (
                 <div className="flex items-center justify-center py-20">
                   <p className="text-gray-600 text-lg dark:text-gray-400">
-                    No documents found in{" "}
-                    {previewLanguage === "EN" ? "English" : "Spanish"}.
+                    No documents found.
                   </p>
                 </div>
               ) : (
