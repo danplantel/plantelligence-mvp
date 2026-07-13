@@ -122,7 +122,7 @@ export function DocumentsCardsView({
       accentColor={accentColor}
       retirementDocs={documents}
       mode="editable"
-      showMetadata={true}
+      showMetadata={false}
       hideHeader={true}
       editingDocId={editingDocId}
       onStartEdit={handleStartEdit}

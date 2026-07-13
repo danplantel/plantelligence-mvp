@@ -513,15 +513,6 @@ export function RetirementDocumentsAccordion({
                     </div>
                   )}
 
-                  <h3
-                    className="mb-4 text-lg leading-tight font-dm-serif sm:text-[20px]"
-                    style={{
-                      color: brandColor,
-                    }}
-                  >
-                    Retirement Plan Documents
-                  </h3>
-
                   <DocsGrid
                     docs={filteredRetirementDocs}
                     brandColor={brandColor}
@@ -899,10 +890,10 @@ function SortableCard({
           ) : (
             <>
               <div
-                className="mb-4 flex h-12 w-12 items-center justify-center rounded-md"
+                className="mb-4 flex h-12 w-12 items-center justify-center rounded-md dark:bg-accent-blue/20"
                 style={{ backgroundColor: `${accentColor}1F` }}
               >
-                <FileText className="h-6 w-6" style={{ color: accentColor }} />
+                <FileText className="h-6 w-6 dark:!text-accent-blue" style={{ color: accentColor }} />
               </div>
               {doc.category && (
                 <div className="absolute top-4 left-11 flex flex-col gap-1 items-start z-10">
@@ -912,13 +903,6 @@ function SortableCard({
                   >
                     {doc.category}
                   </Badge>
-                  {typeof doc.categoryConfidence === "number" && doc.categoryConfidence >= 70 && (
-                    <Badge
-                      className="text-[10px] font-bold px-1.5 py-0 h-4.5 bg-green-50 text-green-600 border-green-100 hover:bg-green-50 shadow-none border dark:bg-green-900/20 dark:text-green-400 dark:border-green-800"
-                    >
-                      Auto-categorized
-                    </Badge>
-                  )}
                 </div>
               )}
               <h4
@@ -1100,7 +1084,7 @@ function SortableCard({
               (onEdit || onStartEdit) && (
                 <Button
                   variant="outline"
-                  className="flex-1 flex items-center justify-center gap-2 text-xs font-semibold transition-all duration-200 hover:scale-105 min-w-0 overflow-hidden"
+                  className="flex-1 flex items-center justify-center gap-2 text-xs font-semibold transition-all duration-200 hover:scale-105 min-w-0 overflow-hidden dark:!text-accent-blue dark:!border-accent-blue"
                   style={{
                     borderColor: brandColor,
                     color: brandColor,
@@ -1582,14 +1566,14 @@ export function DocsGrid({
               ) : (
                 <>
                   <div
-                    className="mb-4 flex h-12 w-12 items-center justify-center rounded-md transition-transform duration-200"
+                    className="mb-4 flex h-12 w-12 items-center justify-center rounded-md transition-transform duration-200 dark:bg-accent-blue/20"
                     style={{
                       backgroundColor: `${accentColor}1F`,
                     }}
                   >
-                    <span className="text-xl" style={{ color: accentColor }}>
+                    <span className="text-xl dark:!text-accent-blue" style={{ color: accentColor }}>
                       <FileText
-                        className="h-6 w-6"
+                        className="h-6 w-6 dark:!text-accent-blue"
                         style={{ color: accentColor }}
                       />
                     </span>
@@ -1618,13 +1602,6 @@ export function DocsGrid({
                   >
                     {doc.category}
                   </Badge>
-                  {typeof doc.categoryConfidence === "number" && doc.categoryConfidence >= 70 && (
-                    <Badge
-                      className="text-[10px] font-bold px-1.5 py-0 h-4.5 bg-green-50 text-green-600 border-green-100 hover:bg-green-50 shadow-none border dark:bg-green-900/20 dark:text-green-400 dark:border-green-800"
-                    >
-                      Auto-categorized
-                    </Badge>
-                  )}
                 </div>
               )}
               {/* Metadata section */}
@@ -1761,7 +1738,7 @@ export function DocsGrid({
                   (onEdit || onStartEdit) && (
                     <Button
                       variant="outline"
-                      className="flex-1 flex items-center justify-center gap-2 text-xs font-semibold tracking-wide transition-all duration-200 hover:scale-105 min-w-0 overflow-hidden"
+                      className="flex-1 flex items-center justify-center gap-2 text-xs font-semibold tracking-wide transition-all duration-200 hover:scale-105 min-w-0 overflow-hidden dark:!text-accent-blue dark:!border-accent-blue"
                       style={{
                         borderColor: brandColor,
                         color: brandColor,
