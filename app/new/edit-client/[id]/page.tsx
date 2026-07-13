@@ -1322,6 +1322,7 @@ export default function EditClientPage() {
           }}
           contacts={keyContacts}
           brandColor={companyData.primaryColor}
+          companyName={companyData.companyName}
         />
       </div>
 

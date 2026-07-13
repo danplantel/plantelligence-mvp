@@ -9,129 +9,209 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Monitor, Smartphone, Check, ChevronLeft } from "lucide-react";
+import {
+  Monitor,
+  Smartphone,
+  Check,
+  Palette,
+  LayoutGrid,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { KeyContact } from "@/types/new-client-wizard";
+import { LargeHorizontalCard } from "@/components/pages/my-benefits-team/large-horizontal-card";
+import { SmallVerticalCard } from "@/components/pages/my-benefits-team/small-vertical-card";
+import { PrimaryContactCard } from "@/components/pages/my-benefits-team/primary-contact-card";
 
-// ── Compact card placeholder previews ──
+// ── Slot system (mirrors step-3d.tsx) ──
 
-function CompactCardPlaceholder({
-  variant = "small",
-  brandColor,
-}: {
-  variant?: "primary" | "large" | "small";
-  brandColor?: string;
-}) {
-  const bg = brandColor || "#23919C";
+type CardSlotType = "primary" | "large" | "small";
 
-  if (variant === "primary") {
-    return (
-      <div
-        className="rounded-lg p-3 flex items-center gap-3 border"
-        style={{ backgroundColor: `${bg}10`, borderColor: `${bg}30` }}
-      >
-        <div
-          className="w-8 h-8 rounded-full flex-shrink-0"
-          style={{ backgroundColor: `${bg}40` }}
-        />
-        <div className="flex-1 space-y-1.5">
-          <div
-            className="h-2 w-16 rounded"
-            style={{ backgroundColor: `${bg}30` }}
-          />
-          <div
-            className="h-1.5 w-12 rounded"
-            style={{ backgroundColor: `${bg}20` }}
-          />
-          <div
-            className="h-5 w-full rounded flex items-center justify-center text-[8px] font-semibold text-white"
-            style={{ backgroundColor: bg }}
-          >
-            Contact
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (variant === "large") {
-    return (
-      <div
-        className="rounded-lg p-2 flex items-center gap-2 border"
-        style={{ backgroundColor: `${bg}08`, borderColor: `${bg}20` }}
-      >
-        <div
-          className="w-6 h-6 rounded-full flex-shrink-0"
-          style={{ backgroundColor: `${bg}40` }}
-        />
-        <div className="flex-1 space-y-1">
-          <div
-            className="h-2 w-14 rounded"
-            style={{ backgroundColor: `${bg}30` }}
-          />
-          <div
-            className="h-1 w-10 rounded"
-            style={{ backgroundColor: `${bg}20` }}
-          />
-          <div
-            className="h-4 w-full rounded flex items-center justify-center text-[7px] font-semibold text-white"
-            style={{ backgroundColor: bg }}
-          >
-            Contact
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // small variant
-  return (
-    <div
-      className="rounded-lg p-1.5 flex flex-col items-center border"
-      style={{ backgroundColor: `${bg}08`, borderColor: `${bg}20` }}
-    >
-      <div
-        className="w-5 h-5 rounded-full mb-1"
-        style={{ backgroundColor: `${bg}40` }}
-      />
-      <div
-        className="h-1.5 w-10 rounded mb-0.5"
-        style={{ backgroundColor: `${bg}30` }}
-      />
-      <div
-        className="h-1 w-8 rounded mb-1"
-        style={{ backgroundColor: `${bg}20` }}
-      />
-      <div
-        className="h-3.5 w-full rounded flex items-center justify-center text-[6px] font-semibold text-white"
-        style={{ backgroundColor: bg }}
-      >
-        Contact
-      </div>
-    </div>
-  );
+interface CardSlot {
+  id: string;
+  type: CardSlotType;
 }
 
-// ── Layout option thumbnail ──
+const getSlotsForLayout = (
+  layoutId: number,
+  maxContacts: number,
+): CardSlot[] => {
+  const slots: CardSlot[] = [];
 
-interface LayoutOptionDef {
+  if (layoutId === 0 || layoutId === 1) {
+    // Default Layout: 1 primary + 4 small
+    slots.push({ id: "slot-0", type: "primary" });
+    for (let i = 1; i < Math.min(5, maxContacts); i++) {
+      slots.push({ id: `slot-${i}`, type: "small" });
+    }
+  } else if (layoutId === 4) {
+    // Layout 4: 2 large (top row) + 3 small (bottom row)
+    slots.push({ id: "slot-0", type: "large" });
+    slots.push({ id: "slot-1", type: "large" });
+    for (let i = 2; i < Math.min(5, maxContacts); i++) {
+      slots.push({ id: `slot-${i}`, type: "small" });
+    }
+  } else if (layoutId === 2) {
+    // Layout 2: All large horizontal
+    for (let i = 0; i < Math.min(4, maxContacts); i++) {
+      slots.push({ id: `slot-${i}`, type: "large" });
+    }
+  } else if (layoutId === 3) {
+    // Layout 3: All small vertical
+    for (let i = 0; i < Math.min(8, maxContacts); i++) {
+      slots.push({ id: `slot-${i}`, type: "small" });
+    }
+  }
+
+  return slots;
+};
+
+// ── Render card by slot (mirrors step-3d.tsx's RenderCardBySlot) ──
+
+function RenderCardBySlot({
+  slot,
+  contact,
+  brandColor,
+  index,
+  compact,
+}: {
+  slot: CardSlot;
+  contact: any;
+  brandColor: string;
+  index?: number;
+  compact?: boolean;
+}) {
+  const contactWithProps = {
+    ...contact,
+    isPrimary: index === 0,
+  };
+
+  switch (slot.type) {
+    case "primary":
+      return (
+        <PrimaryContactCard
+          contact={contactWithProps}
+          brandColor={brandColor}
+          secondaryColor={brandColor}
+          appointmentLink=""
+          companyName={contact.companyName || ""}
+          compact={true}
+        />
+      );
+    case "large":
+      return (
+        <LargeHorizontalCard
+          contact={contactWithProps}
+          brandColor={brandColor}
+          secondaryColor={brandColor}
+          appointmentLink=""
+          companyName={contact.companyName || ""}
+          index={index}
+          disableAnimation={true}
+        />
+      );
+    case "small":
+      return (
+        <SmallVerticalCard
+          contact={contactWithProps}
+          brandColor={brandColor}
+          secondaryColor={brandColor}
+          appointmentLink=""
+          companyName={contact.companyName || ""}
+          index={index}
+          disableAnimation={true}
+          compact={compact}
+        />
+      );
+    default:
+      return null;
+  }
+}
+
+// ── Preview contact transformer (mirrors step-3d.tsx's previewContacts) ──
+
+function transformContactToPreview(
+  contact: KeyContact,
+  companyName: string,
+): any {
+  const displayName =
+    contact.name ||
+    (contact.contactType === "individual"
+      ? `${contact.firstName || ""} ${contact.lastName || ""}`.trim()
+      : contact.displayName) ||
+    "Unnamed Contact";
+
+  const rawBenefitsCategory =
+    contact.benefitsCategories?.[0] || contact.benefitsCategory || "Other";
+
+  const categoryLabel =
+    rawBenefitsCategory === "Group Health"
+      ? "Group Health"
+      : rawBenefitsCategory === "Group Life"
+      ? "Group Life"
+      : rawBenefitsCategory === "Retirement"
+      ? "Retirement"
+      : rawBenefitsCategory === "Other Benefits"
+      ? "Other Benefits"
+      : rawBenefitsCategory === "Company / Plan Sponsor"
+      ? "Company / Plan Sponsor"
+      : rawBenefitsCategory === "Third Party Contact"
+      ? "External HR / Administrator"
+      : rawBenefitsCategory || "Other";
+
+  return {
+    id: contact.id,
+    name: displayName,
+    firstName: contact.firstName,
+    lastName: contact.lastName,
+    title: contact.title,
+    customRole: contact.customRole || contact.role,
+    email: contact.email,
+    phone: contact.phone,
+    headshot: contact.headshot,
+    companyLogo: "",
+    showOnPortal: contact.showOnPortal !== false,
+    benefitsCategory: rawBenefitsCategory,
+    categoryLabel,
+    contactType: contact.contactType,
+    displayName: contact.displayName,
+    isPrimary: contact.isPrimary || false,
+    isPrimaryOverall: contact.isPrimaryOverall || false,
+    phoneExtension: contact.phoneExtension,
+    displayEmail: contact.displayEmail,
+    displayPhone: contact.displayPhone,
+    displayUrl: contact.displayUrl,
+    displayScheduleAppointment: contact.displayScheduleAppointment,
+    schedulingUrl: contact.schedulingUrl,
+    websiteUrl: contact.websiteUrl,
+    enableContactButton: contact.enableContactButton,
+    contactButtonType: contact.contactButtonType,
+  };
+}
+
+// ── Layout option thumbnail definition (matches step-3d.tsx's layoutOptions) ──
+
+interface LayoutThumbDef {
   id: number;
   name: string;
-  renderPreview: (brandColor?: string) => React.ReactNode;
+  description: string;
+  thumbnail: React.ReactNode;
 }
 
-const DESKTOP_LAYOUTS: LayoutOptionDef[] = [
+const DESKTOP_LAYOUT_THUMBS: LayoutThumbDef[] = [
   {
-    id: 0,
-    name: "Default",
-    renderPreview: (c) => (
-      <div className="space-y-1.5">
-        <CompactCardPlaceholder variant="primary" brandColor={c} />
-        <div className="grid grid-cols-4 gap-1">
+    id: 1,
+    name: "Layout 1 (Default)",
+    description: "1 primary + 4 small vertical (default)",
+    thumbnail: (
+      <div className="space-y-2">
+        <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded" />
+        <div className="grid grid-cols-4 gap-2">
           {Array.from({ length: 4 }).map((_, i) => (
-            <CompactCardPlaceholder key={i} brandColor={c} />
+            <div key={i} className="h-16 bg-gray-200 dark:bg-gray-700 rounded" />
           ))}
         </div>
       </div>
@@ -139,64 +219,67 @@ const DESKTOP_LAYOUTS: LayoutOptionDef[] = [
   },
   {
     id: 2,
-    name: "Large Cards",
-    renderPreview: (c) => (
-      <div className="grid grid-cols-2 gap-1.5">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <CompactCardPlaceholder key={i} variant="large" brandColor={c} />
-        ))}
+    name: "Layout 2",
+    description: "4 large horizontal cards",
+    thumbnail: (
+      <div className="grid grid-cols-2 gap-2">
+        <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded" />
+        <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded" />
+        <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded" />
+        <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded" />
       </div>
     ),
   },
   {
     id: 3,
-    name: "Small Cards",
-    renderPreview: (c) => (
-      <div className="grid grid-cols-4 gap-1">
+    name: "Layout 3",
+    description: "8 small vertical cards",
+    thumbnail: (
+      <div className="grid grid-cols-4 gap-2">
         {Array.from({ length: 8 }).map((_, i) => (
-          <CompactCardPlaceholder key={i} brandColor={c} />
+          <div key={i} className="h-12 bg-gray-200 dark:bg-gray-700 rounded" />
         ))}
       </div>
     ),
   },
   {
     id: 4,
-    name: "Mixed",
-    renderPreview: (c) => (
-      <div className="space-y-1.5">
-        <div className="grid grid-cols-2 gap-1.5">
-          <CompactCardPlaceholder variant="large" brandColor={c} />
-          <CompactCardPlaceholder variant="large" brandColor={c} />
-        </div>
-        <div className="grid grid-cols-3 gap-1">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <CompactCardPlaceholder key={i} brandColor={c} />
-          ))}
-        </div>
+    name: "Layout 4",
+    description: "2 large horizontal (top row) + 3 small vertical (bottom row)",
+    thumbnail: (
+      <div className="grid grid-cols-6 gap-1.5">
+        <div className="col-span-3 h-16 bg-gray-200 dark:bg-gray-700 rounded" />
+        <div className="col-span-3 h-16 bg-gray-200 dark:bg-gray-700 rounded" />
+        <div className="col-span-2 h-12 bg-gray-200 dark:bg-gray-700 rounded" />
+        <div className="col-span-2 h-12 bg-gray-200 dark:bg-gray-700 rounded" />
+        <div className="col-span-2 h-12 bg-gray-200 dark:bg-gray-700 rounded" />
       </div>
     ),
   },
 ];
 
-const MOBILE_LAYOUTS: LayoutOptionDef[] = [
+const MOBILE_LAYOUT_THUMBS: LayoutThumbDef[] = [
   {
     id: 0,
     name: "Stacked",
-    renderPreview: (c) => (
-      <div className="space-y-1">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <CompactCardPlaceholder key={i} variant="large" brandColor={c} />
-        ))}
+    description: "All cards stacked vertically (single column)",
+    thumbnail: (
+      <div className="space-y-1.5">
+        <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded" />
+        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded" />
+        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded" />
+        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded" />
       </div>
     ),
   },
   {
     id: 1,
     name: "2-Column Grid",
-    renderPreview: (c) => (
-      <div className="grid grid-cols-2 gap-1">
+    description: "All cards in a 2-column grid",
+    thumbnail: (
+      <div className="grid grid-cols-2 gap-1.5">
         {Array.from({ length: 4 }).map((_, i) => (
-          <CompactCardPlaceholder key={i} brandColor={c} />
+          <div key={i} className="h-8 bg-gray-200 dark:bg-gray-700 rounded" />
         ))}
       </div>
     ),
@@ -204,12 +287,13 @@ const MOBILE_LAYOUTS: LayoutOptionDef[] = [
   {
     id: 2,
     name: "Hero + Grid",
-    renderPreview: (c) => (
-      <div className="space-y-1">
-        <CompactCardPlaceholder variant="primary" brandColor={c} />
-        <div className="grid grid-cols-2 gap-1">
+    description: "First card full width, remaining in 2-column grid",
+    thumbnail: (
+      <div className="space-y-1.5">
+        <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded" />
+        <div className="grid grid-cols-2 gap-1.5">
           {Array.from({ length: 4 }).map((_, i) => (
-            <CompactCardPlaceholder key={i} brandColor={c} />
+            <div key={i} className="h-6 bg-gray-200 dark:bg-gray-700 rounded" />
           ))}
         </div>
       </div>
@@ -230,6 +314,8 @@ export interface ContactCardLayoutPreviewModalProps {
   contacts: KeyContact[];
   /** Brand color for preview accents */
   brandColor?: string;
+  /** Company name for preview */
+  companyName?: string;
 }
 
 // ── Component ──
@@ -241,35 +327,204 @@ export function ContactCardLayoutPreviewModal({
   onConfirm,
   contacts,
   brandColor,
+  companyName,
 }: ContactCardLayoutPreviewModalProps) {
-  // Convert persisted displayStyle to layout index
-  const initialDesktopIndex = currentDisplayStyle ?? 0;
+  // Convert persisted displayStyle (0 = default) to layout index (1 = default in step-3d)
+  const initialDesktopLayout =
+    currentDisplayStyle === null || currentDisplayStyle === 0 ? 1 : currentDisplayStyle;
 
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">(
     "desktop",
   );
   const [selectedDesktopLayout, setSelectedDesktopLayout] =
-    useState<number>(initialDesktopIndex);
+    useState<number>(initialDesktopLayout);
   const [selectedMobileLayout, setSelectedMobileLayout] = useState(0);
-  const [showPreview, setShowPreview] = useState(false);
+  const [isLayoutSectionCollapsed, setIsLayoutSectionCollapsed] =
+    useState(true);
 
   // Reset internal state when modal opens
   useEffect(() => {
     if (isOpen) {
-      setSelectedDesktopLayout(initialDesktopIndex);
+      const resetLayout =
+        currentDisplayStyle === null || currentDisplayStyle === 0 ? 1 : currentDisplayStyle;
+      setSelectedDesktopLayout(resetLayout);
       setSelectedMobileLayout(0);
       setPreviewMode("desktop");
-      setShowPreview(false);
+      setIsLayoutSectionCollapsed(true);
     }
-  }, [isOpen, initialDesktopIndex]);
+  }, [isOpen, currentDisplayStyle]);
 
   const hasContacts = contacts.length > 0;
 
   const handleConfirm = () => {
-    // Desktop layout is what we persist as displayStyle
-    // Mobile layout is stored separately (not persisted to displayStyle)
-    onConfirm(selectedDesktopLayout);
+    // Convert layout style back to displayStyle (1 → 0)
+    const displayStyleValue = selectedDesktopLayout === 1 ? 0 : selectedDesktopLayout;
+    onConfirm(displayStyleValue);
     onClose();
+  };
+
+  // ── Preview contact transformation (same as step-3d.tsx) ──
+
+  const previewContacts = useMemo(() => {
+    return contacts.map((contact) =>
+      transformContactToPreview(contact, companyName || ""),
+    );
+  }, [contacts, companyName]);
+
+  const currentDisplayStyleValue =
+    selectedDesktopLayout === 1 ? 0 : selectedDesktopLayout;
+
+  const slots = useMemo(() => {
+    return getSlotsForLayout(currentDisplayStyleValue, previewContacts.length);
+  }, [currentDisplayStyleValue, previewContacts.length]);
+
+  // ── Preview content (same rendering logic as step-3d.tsx) ──
+
+  const previewContent = useMemo(() => {
+    if (previewContacts.length === 0 || slots.length === 0) return null;
+
+    const slotElements = previewContacts
+      .slice(0, slots.length)
+      .map((contact, index) => {
+        const slot = slots[index];
+        if (!slot) return null;
+
+        // Mobile: all cards render as "small" type
+        const mobileSlot =
+          previewMode === "mobile"
+            ? ({ ...slot, type: "small" as const })
+            : slot;
+
+        // Desktop Layout 2 & 4: render large cards as compact small
+        const largeAsCompact =
+          previewMode !== "mobile" &&
+          (currentDisplayStyleValue === 2 || currentDisplayStyleValue === 4) &&
+          slot.type === "large";
+
+        const effectiveSlot = largeAsCompact
+          ? ({ ...slot, type: "small" as const })
+          : mobileSlot;
+
+        const isCompact = previewMode === "mobile" || largeAsCompact;
+
+        return (
+          <div key={contact.id} className="w-full min-w-0">
+            <RenderCardBySlot
+              slot={effectiveSlot}
+              contact={contact}
+              brandColor={brandColor || "#1F3A60"}
+              index={index}
+              compact={isCompact}
+            />
+          </div>
+        );
+      })
+      .filter(Boolean);
+
+    // Mobile layout wrappers
+    if (previewMode === "mobile") {
+      if (selectedMobileLayout === 0) {
+        return (
+          <div className="w-full min-w-0 max-w-none space-y-2">
+            {slotElements}
+          </div>
+        );
+      }
+      if (selectedMobileLayout === 1) {
+        return (
+          <div className="grid w-full min-w-0 grid-cols-2 gap-2 [&>*]:min-w-0">
+            {slotElements}
+          </div>
+        );
+      }
+      if (selectedMobileLayout === 2) {
+        const heroSlot = slotElements[0];
+        const gridSlots = slotElements.slice(1);
+        return (
+          <div className="w-full min-w-0 max-w-none space-y-2">
+            <div className="w-full min-w-0">{heroSlot}</div>
+            {gridSlots.length > 0 && (
+              <div className="grid w-full min-w-0 grid-cols-2 gap-2 [&>*]:min-w-0">
+                {gridSlots}
+              </div>
+            )}
+          </div>
+        );
+      }
+    }
+
+    // Desktop layout wrappers
+    if (currentDisplayStyleValue === 0 || currentDisplayStyleValue === null) {
+      const primarySlot = slotElements[0];
+      const smallSlots = slotElements.slice(1);
+      return (
+        <div className="w-full min-w-0 max-w-none space-y-4">
+          <div className="w-full min-w-0 shrink-0 -mt-10">{primarySlot}</div>
+          {smallSlots.length > 0 && (
+            <div className="grid w-full min-w-0 grid-cols-2 sm:grid-cols-4 gap-4 [&>*]:min-w-0">
+              {smallSlots}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    if (currentDisplayStyleValue === 4) {
+      const largeSlots = slotElements.slice(0, 2);
+      const smallSlots = slotElements.slice(2);
+      return (
+        <div className="w-full min-w-0 max-w-none space-y-4">
+          <div className="grid w-full min-w-0 grid-cols-1 md:grid-cols-2 gap-4 [&>*]:min-w-0">
+            {largeSlots}
+          </div>
+          {smallSlots.length > 0 && (
+            <div className="grid w-full min-w-0 grid-cols-2 sm:grid-cols-3 gap-4 [&>*]:min-w-0">
+              {smallSlots}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    if (currentDisplayStyleValue === 2) {
+      return (
+        <div className="grid w-full min-w-0 grid-cols-1 md:grid-cols-2 gap-4 [&>*]:min-w-0">
+          {slotElements}
+        </div>
+      );
+    }
+
+    if (currentDisplayStyleValue === 3) {
+      return (
+        <div className="grid w-full min-w-0 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 [&>*]:min-w-0">
+          {slotElements}
+        </div>
+      );
+    }
+
+    return null;
+  }, [
+    slots,
+    previewContacts,
+    currentDisplayStyleValue,
+    brandColor,
+    previewMode,
+    selectedMobileLayout,
+  ]);
+
+  const currentThumbs = previewMode === "desktop"
+    ? DESKTOP_LAYOUT_THUMBS
+    : MOBILE_LAYOUT_THUMBS;
+
+  const currentSelected =
+    previewMode === "desktop" ? selectedDesktopLayout : selectedMobileLayout;
+
+  const handleLayoutClick = (id: number) => {
+    if (previewMode === "desktop") {
+      setSelectedDesktopLayout(id);
+    } else {
+      setSelectedMobileLayout(id);
+    }
   };
 
   return (
@@ -314,171 +569,147 @@ export function ContactCardLayoutPreviewModal({
             </div>
           </div>
 
-          {/* Layout Options */}
-          <div>
-            <h4 className="text-sm font-semibold text-gray-900 mb-3 dark:text-gray-100">
-              {previewMode === "desktop"
-                ? "Desktop Layout"
-                : "Mobile Layout"}
-            </h4>
-
-            {previewMode === "desktop" ? (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {DESKTOP_LAYOUTS.map((layout) => {
-                  const isSelected = selectedDesktopLayout === layout.id;
-                  return (
-                    <Card
-                      key={layout.id}
-                      className={cn(
-                        "cursor-pointer transition-all duration-200 hover:shadow-md overflow-hidden",
-                        isSelected
-                          ? "ring-2 ring-accent-blue border-accent-blue shadow-sm"
-                          : "border border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500",
-                      )}
-                      onClick={() => setSelectedDesktopLayout(layout.id)}
-                    >
-                      <div className="p-2 flex flex-col h-full">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-[10px] font-semibold text-gray-900 dark:text-gray-100 leading-tight">
-                            {layout.name}
-                          </span>
-                          {isSelected && (
-                            <div className="bg-accent-blue rounded-full p-0.5 flex-shrink-0">
-                              <Check className="w-3 h-3 text-white" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex-1 flex items-center justify-center">
-                          <div className="w-full scale-[0.55] origin-top">
-                            {layout.renderPreview(brandColor)}
-                          </div>
-                        </div>
-                        <p className="text-[9px] text-muted-foreground mt-1 leading-tight text-center">
-                          {layout.id === 0 && "1 primary + 4 small"}
-                          {layout.id === 2 && "4 large horizontal cards"}
-                          {layout.id === 3 && "8 small vertical cards"}
-                          {layout.id === 4 && "2 large + 3 small"}
-                        </p>
-                      </div>
-                    </Card>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="grid grid-cols-3 gap-3">
-                {MOBILE_LAYOUTS.map((layout) => {
-                  const isSelected = selectedMobileLayout === layout.id;
-                  return (
-                    <Card
-                      key={layout.id}
-                      className={cn(
-                        "cursor-pointer transition-all duration-200 hover:shadow-md overflow-hidden",
-                        isSelected
-                          ? "ring-2 ring-accent-blue border-accent-blue shadow-sm"
-                          : "border border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500",
-                      )}
-                      onClick={() => setSelectedMobileLayout(layout.id)}
-                    >
-                      <div className="p-2 flex flex-col h-full">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-[10px] font-semibold text-gray-900 dark:text-gray-100 leading-tight">
-                            {layout.name}
-                          </span>
-                          {isSelected && (
-                            <div className="bg-accent-blue rounded-full p-0.5 flex-shrink-0">
-                              <Check className="w-3 h-3 text-white" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex-1 flex items-center justify-center">
-                          <div className="w-full scale-[0.55] origin-top">
-                            {layout.renderPreview(brandColor)}
-                          </div>
-                        </div>
-                        <p className="text-[9px] text-muted-foreground mt-1 leading-tight text-center">
-                          {layout.id === 0 && "Single column, stacked"}
-                          {layout.id === 1 && "2-column grid"}
-                          {layout.id === 2 && "Hero card + 2-column grid"}
-                        </p>
-                      </div>
-                    </Card>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Live Preview Section */}
+          {/* Live Preview — matches step-3d.tsx rendering */}
           {hasContacts && (
-            <div>
-              <button
-                onClick={() => setShowPreview(!showPreview)}
-                className="flex items-center gap-2 text-sm text-accent-blue hover:text-accent-blue/80 font-medium transition-colors"
-              >
-                {showPreview ? (
-                  <>
-                    <ChevronLeft className="w-4 h-4" />
-                    Hide live preview
-                  </>
-                ) : (
-                  <>
-                    <Monitor className="w-4 h-4" />
-                    Show live preview with contacts
-                  </>
-                )}
-              </button>
+            <Card className="space-y-4 dark:bg-gray-800 dark:border-gray-700 overflow-hidden">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Palette className="w-5 h-5 text-accent-blue" />
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                      Preview
+                    </h2>
+                  </div>
+                  <button
+                    onClick={() =>
+                      setIsLayoutSectionCollapsed(!isLayoutSectionCollapsed)
+                    }
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all cursor-pointer text-sm dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-700"
+                  >
+                    <LayoutGrid className="w-4 h-4 text-accent-blue" />
+                    <span className="text-gray-700 dark:text-gray-300 hidden sm:inline">
+                      {isLayoutSectionCollapsed
+                        ? "Show Layout Options"
+                        : "Hide Layout Options"}
+                    </span>
+                    {isLayoutSectionCollapsed ? (
+                      <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                    ) : (
+                      <ChevronUp className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                    )}
+                  </button>
+                </div>
+              </CardHeader>
 
-              {showPreview && (
-                <div className="mt-3 bg-[#F8F8F3] rounded-lg p-4 border border-gray-200">
-                  {/* Mobile frame wrapper */}
+              <CardContent className="space-y-4">
+                {/* Collapsible Layout Section */}
+                {!isLayoutSectionCollapsed && (
+                  <div className="space-y-4 pb-6 border-b border-gray-200 dark:border-gray-700">
+                    <h4 className="text-xs font-semibold text-gray-900 dark:text-gray-100">
+                      {previewMode === "mobile"
+                        ? "Mobile Layout Style"
+                        : "Card Layout Style"}
+                    </h4>
+
+                    <div
+                      className={cn(
+                        "grid gap-2",
+                        previewMode === "desktop"
+                          ? "grid-cols-2 sm:grid-cols-4"
+                          : "grid-cols-3",
+                      )}
+                    >
+                      {currentThumbs.map((layout) => {
+                        const isSelected = currentSelected === layout.id;
+                        return (
+                          <Card
+                            key={layout.id}
+                            className={cn(
+                              "cursor-pointer transition-all duration-200 hover:shadow-md overflow-hidden",
+                              isSelected
+                                ? "ring-2 ring-accent-blue border-accent-blue shadow-sm"
+                                : "border border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500",
+                              previewMode === "desktop"
+                                ? "h-[120px]"
+                                : "h-[110px]",
+                            )}
+                            onClick={() => handleLayoutClick(layout.id)}
+                          >
+                            <CardContent className="p-1 h-full flex flex-col">
+                              <div className="flex items-center justify-between mb-0.5">
+                                <h4 className="text-[9px] font-semibold text-gray-900 leading-tight dark:text-gray-100">
+                                  {layout.name}
+                                </h4>
+                                {isSelected && (
+                                  <div className="w-1.5 h-1.5 rounded-full bg-accent-blue flex-shrink-0" />
+                                )}
+                              </div>
+                              <div className="flex-1 flex items-center justify-center overflow-hidden">
+                                <div className="scale-[0.5] origin-center w-full">
+                                  {layout.thumbnail}
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Preview Content — matches step-3d.tsx exactly */}
+                <div className="bg-[#F8F8F3] rounded-lg p-8 border border-gray-200">
                   <div
                     className={cn(
                       previewMode === "mobile" &&
-                        "max-w-[320px] mx-auto rounded-[2rem] border-[4px] border-gray-800 bg-white dark:bg-gray-950 shadow-xl overflow-hidden transition-all",
+                        "max-w-[375px] mx-auto rounded-[3rem] border-[6px] border-gray-800 dark:border-gray-600 bg-white dark:bg-gray-950 shadow-xl overflow-hidden",
                     )}
                   >
                     {/* Notch bar for mobile frame */}
                     {previewMode === "mobile" && (
-                      <div className="flex items-center justify-center py-1.5 bg-gray-800">
-                        <div className="w-12 h-1 rounded-full bg-gray-600" />
+                      <div className="flex items-center justify-center py-2 bg-gray-800 dark:bg-gray-600">
+                        <div className="w-16 h-1.5 rounded-full bg-gray-600 dark:bg-gray-400" />
                       </div>
                     )}
 
                     <div
                       className={cn(
-                        "space-y-2",
-                        previewMode === "mobile" ? "px-2 py-3" : "p-2",
+                        previewMode === "mobile" ? "px-3 py-4" : undefined,
                       )}
                     >
-                      {/* "My Benefits Team" heading */}
                       <div
                         className={cn(
-                          "text-center font-semibold",
-                          previewMode === "mobile" ? "text-base mb-2" : "text-lg mb-3",
+                          "text-center",
+                          previewMode === "mobile" ? "mb-4" : "mb-16",
                         )}
-                        style={{
-                          fontFamily: '"DM Serif Display", serif',
-                          color: brandColor || "#1F3A60",
-                        }}
                       >
-                        My Benefits Team
+                        <h1
+                          className={cn(
+                            "font-semibold",
+                            previewMode === "mobile" ? "text-2xl" : "text-4xl",
+                          )}
+                          style={{
+                            fontFamily: '"DM Serif Display", serif',
+                            color: brandColor || "#1F3A60",
+                          }}
+                        >
+                          My Benefits Team
+                        </h1>
                       </div>
 
-                      {/* Render preview cards based on layout */}
-                      {previewMode === "desktop" &&
-                        renderDesktopPreview(selectedDesktopLayout, brandColor)}
-                      {previewMode === "mobile" &&
-                        renderMobilePreview(selectedMobileLayout, brandColor)}
+                      <div className="w-full min-w-0 max-w-none">
+                        {previewContent}
+                      </div>
                     </div>
                   </div>
                 </div>
-              )}
-            </div>
+              </CardContent>
+            </Card>
           )}
 
           {!hasContacts && (
-            <div className="text-center py-6 text-muted-foreground text-sm">
-              Add contacts to see a live preview of the layout.
+            <div className="text-center py-12 text-muted-foreground text-sm bg-[#F8F8F3] rounded-lg border border-gray-200">
+              Add contacts to preview the card layout.
             </div>
           )}
         </div>
@@ -497,98 +728,4 @@ export function ContactCardLayoutPreviewModal({
       </DialogContent>
     </Dialog>
   );
-}
-
-// ── Preview renderers ──
-
-function renderDesktopPreview(
-  layoutId: number,
-  brandColor?: string,
-): React.ReactNode {
-  const c = brandColor || "#23919C";
-
-  switch (layoutId) {
-    case 0: // Default: 1 primary + 4 small
-      return (
-        <div className="space-y-3">
-          <CompactCardPlaceholder variant="primary" brandColor={c} />
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <CompactCardPlaceholder key={i} brandColor={c} />
-            ))}
-          </div>
-        </div>
-      );
-    case 2: // All large
-      return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <CompactCardPlaceholder key={i} variant="large" brandColor={c} />
-          ))}
-        </div>
-      );
-    case 3: // All small
-      return (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <CompactCardPlaceholder key={i} brandColor={c} />
-          ))}
-        </div>
-      );
-    case 4: // 2 large + 3 small
-      return (
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-2">
-            <CompactCardPlaceholder variant="large" brandColor={c} />
-            <CompactCardPlaceholder variant="large" brandColor={c} />
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <CompactCardPlaceholder key={i} brandColor={c} />
-            ))}
-          </div>
-        </div>
-      );
-    default:
-      return null;
-  }
-}
-
-function renderMobilePreview(
-  layoutId: number,
-  brandColor?: string,
-): React.ReactNode {
-  const c = brandColor || "#23919C";
-
-  switch (layoutId) {
-    case 0: // Stacked
-      return (
-        <div className="space-y-2">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <CompactCardPlaceholder key={i} variant="large" brandColor={c} />
-          ))}
-        </div>
-      );
-    case 1: // 2-Column Grid
-      return (
-        <div className="grid grid-cols-2 gap-2">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <CompactCardPlaceholder key={i} brandColor={c} />
-          ))}
-        </div>
-      );
-    case 2: // Hero + Grid
-      return (
-        <div className="space-y-2">
-          <CompactCardPlaceholder variant="primary" brandColor={c} />
-          <div className="grid grid-cols-2 gap-2">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <CompactCardPlaceholder key={i} brandColor={c} />
-            ))}
-          </div>
-        </div>
-      );
-    default:
-      return null;
-  }
 }
