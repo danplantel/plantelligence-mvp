@@ -22,6 +22,8 @@ import type {
 
 // ── Constants matching Step 2 ──
 const DESKTOP_WIDTH = 1400;
+const HEADER_HEIGHT = 72;
+const BOTTOM_NAV_HEIGHT = 72;
 const MOBILE_ASPECT_RATIO = 21 / 9;
 const MOBILE_WIDTH = 390;
 
@@ -203,6 +205,29 @@ export function EditPlanPreviewSection({
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isEditorAnimating, setIsEditorAnimating] = useState(false);
   const editorIsOpen = isEditorOpen || isEditorAnimating;
+
+  // ── Sidebar widening (matches Step 2's approach to push content right) ──
+  const originalSidebarWidthRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const sidebarWidth = "36rem";
+    const shouldShift = isEditorOpen || isEditorAnimating;
+    if (shouldShift) {
+      if (originalSidebarWidthRef.current === null) {
+        originalSidebarWidthRef.current = document.documentElement.style.getPropertyValue("--sidebar-width");
+      }
+      document.documentElement.style.setProperty("--sidebar-width", sidebarWidth);
+    } else {
+      if (originalSidebarWidthRef.current !== null) {
+        if (originalSidebarWidthRef.current) {
+          document.documentElement.style.setProperty("--sidebar-width", originalSidebarWidthRef.current);
+        } else {
+          document.documentElement.style.removeProperty("--sidebar-width");
+        }
+        originalSidebarWidthRef.current = null;
+      }
+    }
+  }, [isEditorOpen, isEditorAnimating]);
 
   // ── Preview mode ──
   const [previewMode, setPreviewMode] = useState<PreviewMode>("desktop");
@@ -522,13 +547,28 @@ export function EditPlanPreviewSection({
     },
   ];
 
+  const totalFixedHeight = HEADER_HEIGHT + barHeight + BOTTOM_NAV_HEIGHT;
+  const effectiveLeft = "var(--sidebar-width, 0)";
+
   return (
-    <div className="w-full relative">
-      {/* ── Toolbar ── */}
+    <div className="w-full relative min-h-[600px]">
+      {/* Spacer for fixed toolbar */}
+      <div style={{ height: HEADER_HEIGHT + barHeight }} />
+
+      {/* ── Fixed toolbar (shifts right when editor opens via --sidebar-width) ── */}
       <div
-        ref={barRef}
-        className="sticky top-0 z-30 flex items-center justify-between px-4 py-3 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex-shrink-0"
+        className="fixed top-0 z-[45]"
+        style={{
+          left: effectiveLeft,
+          width: `calc(100% - ${effectiveLeft})`,
+          transition: "left 200ms ease-in-out, width 200ms ease-in-out",
+        }}
       >
+        <div style={{ height: `${HEADER_HEIGHT}px` }} />
+        <div
+          ref={barRef}
+          className="flex items-center justify-between px-4 py-3 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700"
+        >
           {/* Left: Edit Panel toggle */}
           <button
             type="button"
@@ -564,8 +604,9 @@ export function EditPlanPreviewSection({
             )}
           </button>
         </div>
+      </div>
 
-      {/* ── Editor Panel (fixed overlay, slides from left — matches Step 2) ── */}
+      {/* ── Editor Panel (fixed overlay, slides from left) ── */}
       <EditorPanelWrapper
         isOpen={isEditorOpen}
         isAnimating={isEditorAnimating}
@@ -573,11 +614,15 @@ export function EditPlanPreviewSection({
         sections={editorSections}
       />
 
-      {/* ── Preview area ── */}
+      {/* ── Preview area (shifts right when editor opens via --sidebar-width) ── */}
       <div
-        className="flex flex-col"
+        className="fixed z-40 flex flex-col"
         style={{
-          minHeight: `calc(100vh - ${barHeight + 200}px)`,
+          top: `${HEADER_HEIGHT + barHeight}px`,
+          left: effectiveLeft,
+          width: `calc(100% - ${effectiveLeft})`,
+          height: `calc(100vh - ${totalFixedHeight}px)`,
+          transition: "left 200ms ease-in-out, width 200ms ease-in-out",
         }}
       >
         {/* PortalHeader (sticky at top, hidden in mobile) */}
@@ -621,7 +666,6 @@ export function EditPlanPreviewSection({
               </div>
             </MobilePreviewFrame>
           ) : (
-            /* ── Desktop: scaled preview ── */
             <div style={{ height: scaledHeight != null ? `${scaledHeight}px` : "100%" }}>
               <div
                 ref={previewContentRef}
