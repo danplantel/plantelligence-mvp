@@ -84,16 +84,6 @@ export function DocumentListTab({
       <CardHeader>
         <CardTitle className="dark:text-gray-100">Document List</CardTitle>
       </CardHeader>
-      <div className="px-6 pb-2">
-        <div className="bg-blue-50 border border-blue-200 rounded-md p-4 flex items-start gap-3 dark:bg-accent-blue/10 dark:border-accent-blue/30">
-          <div className="text-blue-500 mt-0.5 dark:text-accent-blue-light">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line x1="12" x2="12.01" y1="16" y2="16" /></svg>
-          </div>
-          <div>
-            <p className="text-sm text-blue-800 font-medium dark:text-accent-blue-light">Please confirm document categories, then click Next to preview Document sections.</p>
-          </div>
-        </div>
-      </div>
       <CardContent>
         <DocumentsTableView
           documents={documents}
