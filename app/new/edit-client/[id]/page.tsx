@@ -815,21 +815,25 @@ export default function EditClientPage() {
   return (
     <TooltipProvider>
       <div className="flex-1 space-y-6 py-4 pb-24">
-        <EditClientHeader
-          clientStatus={clientStatus}
-          onStatusChange={setClientStatus}
-          onBackClick={() => router.push("/new/clients")}
-          hasClient={!!client}
-          isFormValid={isFormValid()}
-          clientId={clientId}
-        />
+        {/* EditClientHeader - hidden on Preview tab */}
+        {activeTab !== "preview" && (
+          <EditClientHeader
+            clientStatus={clientStatus}
+            onStatusChange={setClientStatus}
+            onBackClick={() => router.push("/new/clients")}
+            hasClient={!!client}
+            isFormValid={isFormValid()}
+            clientId={clientId}
+          />
+        )}
 
         <div className="mx-auto max-w-5xl px-4">
           <Tabs
             value={activeTab}
             onValueChange={(val) => setActiveTab(val as EditTabId)}
           >
-            <TabsList className="w-full justify-start gap-1 bg-transparent p-0 border-b rounded-none mb-8 flex-wrap h-auto min-h-fit">
+            {/* Tab bar sits between toolbar (z-[45]) and preview (z-20) */}
+            <TabsList className="relative z-[40] w-full justify-start gap-1 bg-transparent p-0 border-b rounded-none mb-8 flex-wrap h-auto min-h-fit">
               {EDIT_TABS.map((tab) => (
                 <TabsTrigger
                   key={tab.id}

@@ -22,8 +22,6 @@ import type {
 
 // ── Constants matching Step 2 ──
 const DESKTOP_WIDTH = 1400;
-const HEADER_HEIGHT = 72;
-const BOTTOM_NAV_HEIGHT = 72;
 const MOBILE_ASPECT_RATIO = 21 / 9;
 const MOBILE_WIDTH = 390;
 
@@ -547,82 +545,64 @@ export function EditPlanPreviewSection({
     },
   ];
 
-  const totalFixedHeight = HEADER_HEIGHT + barHeight + BOTTOM_NAV_HEIGHT;
-  const effectiveLeft = "var(--sidebar-width, 0)";
-
   return (
-    <div className="w-full relative min-h-[600px]">
-      {/* Spacer for fixed toolbar */}
-      <div style={{ height: HEADER_HEIGHT + barHeight }} />
-
-      {/* ── Fixed toolbar (shifts right when editor opens via --sidebar-width) ── */}
+    <div className="w-full">
+      {/* ── Toolbar (fixed, shifts with viewport via left offset) ── */}
       <div
-        className="fixed top-0 z-[45]"
+        ref={barRef}
+        className="fixed z-[45] flex items-center justify-between px-4 py-3 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm"
         style={{
-          left: effectiveLeft,
-          width: `calc(100% - ${effectiveLeft})`,
-          transition: "left 200ms ease-in-out, width 200ms ease-in-out",
+          top: "130px",
+          left: editorIsOpen ? "36rem" : "0",
+          right: 0,
+          transition: "left 300ms ease-in-out",
         }}
       >
-        <div style={{ height: `${HEADER_HEIGHT}px` }} />
-        <div
-          ref={barRef}
-          className="flex items-center justify-between px-4 py-3 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700"
+        {/* Left: Edit Panel toggle */}
+        <button
+          type="button"
+          onClick={handleToggleEditor}
+          className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
         >
-          {/* Left: Edit Panel toggle */}
-          <button
-            type="button"
-            onClick={handleToggleEditor}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-          >
-            {editorIsOpen ? (
-              <>
-                <X className="w-4 h-4" />
-                Close Edit Panel
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-                Open Edit Panel
-              </>
-            )}
-          </button>
+          {editorIsOpen ? (
+            <>
+              <X className="w-4 h-4" />
+              Close Edit Panel
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Open Edit Panel
+            </>
+          )}
+        </button>
 
-          {/* Right: preview mode toggle */}
-          <button
-            type="button"
-            onClick={togglePreviewMode}
-            className="inline-flex items-center gap-2 border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-            title={previewMode === "mobile" ? "Switch to Desktop preview" : "Switch to Mobile preview"}
-          >
-            {previewMode === "mobile" ? (
-              <><Monitor className="w-4 h-4" /> Desktop Preview</>
-            ) : (
-              <><Smartphone className="w-4 h-4" /> Mobile Preview</>
-            )}
-          </button>
-        </div>
+        {/* Right: preview mode toggle */}
+        <button
+          type="button"
+          onClick={togglePreviewMode}
+          className="inline-flex items-center gap-2 border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+          title={previewMode === "mobile" ? "Switch to Desktop preview" : "Switch to Mobile preview"}
+        >
+          {previewMode === "mobile" ? (
+            <><Monitor className="w-4 h-4" /> Desktop Preview</>
+          ) : (
+            <><Smartphone className="w-4 h-4" /> Mobile Preview</>
+          )}
+        </button>
       </div>
 
-      {/* ── Editor Panel (fixed overlay, slides from left) ── */}
-      <EditorPanelWrapper
-        isOpen={isEditorOpen}
-        isAnimating={isEditorAnimating}
-        onClose={handleCloseEditor}
-        sections={editorSections}
-      />
-
-      {/* ── Preview area (shifts right when editor opens via --sidebar-width) ── */}
+      {/* ── Preview area (fixed, shifts with viewport via left offset) ── */}
       <div
-        className="fixed z-40 flex flex-col"
+        className="fixed z-20 flex flex-col"
         style={{
-          top: `${HEADER_HEIGHT + barHeight}px`,
-          left: effectiveLeft,
-          width: `calc(100% - ${effectiveLeft})`,
-          height: `calc(100vh - ${totalFixedHeight}px)`,
-          transition: "left 200ms ease-in-out, width 200ms ease-in-out",
+          top: barHeight > 0 ? `${130 + barHeight}px` : "180px",
+          left: editorIsOpen ? "36rem" : "0",
+          right: 0,
+          bottom: 0,
+          transition: "left 300ms ease-in-out",
         }}
       >
         {/* PortalHeader (sticky at top, hidden in mobile) */}
@@ -687,6 +667,15 @@ export function EditPlanPreviewSection({
           )}
         </div>
       </div>
+
+      {/* ── Editor Panel (fixed overlay, slides from left, offset below page headers) ── */}
+      <EditorPanelWrapper
+        isOpen={isEditorOpen}
+        isAnimating={isEditorAnimating}
+        onClose={handleCloseEditor}
+        sections={editorSections}
+        topOffset={130}
+      />
     </div>
   );
 }

@@ -37,6 +37,8 @@ interface EditorPanelWrapperProps {
    * - 'inline': renders as a full-height inline panel for side-by-side Elementor-style layouts
    */
   variant?: 'fixed' | 'inline';
+  /** Optional top offset for fixed variant (e.g. to clear page headers) */
+  topOffset?: number;
 }
 
 export function EditorPanelWrapper({
@@ -48,6 +50,7 @@ export function EditorPanelWrapper({
   sections,
   footer,
   variant = 'fixed',
+  topOffset = 0,
 }: EditorPanelWrapperProps) {
   if (!isOpen && !isAnimating) return null;
 
@@ -67,7 +70,7 @@ export function EditorPanelWrapper({
             }`
       }
       style={{
-        marginTop: isInline ? undefined : "0",
+        marginTop: isInline ? undefined : `${topOffset}px`,
       }}
     >
       <CardHeader className="flex flex-row items-center justify-between px-4 py-4 border-b shadow-md dark:border-gray-700">
