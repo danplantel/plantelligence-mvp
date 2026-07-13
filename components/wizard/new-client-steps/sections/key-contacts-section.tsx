@@ -294,6 +294,8 @@ export const KeyContactsSection: React.FC<KeyContactsSectionProps> = ({
   const [expandedContactIds, setExpandedContactIds] = useState<string[]>([]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [modalOpen, setModalOpen] = useState<boolean>(false);
+  /** Tracks the previous set of contact IDs so we can detect newly added contacts and auto-expand them. */
+  const prevContactIdsRef = useRef<Set<string>>(new Set());
 
   const formatPhoneNumber = (value: string): string => {
     const phoneNumber = value.replace(/\D/g, "");
@@ -440,6 +442,18 @@ export const KeyContactsSection: React.FC<KeyContactsSectionProps> = ({
     });
   }, [contacts, organizationName, companyLogo, updateContact]);
 
+// Auto-expand newly added contacts so the user sees the form immediately
+useEffect(() => {
+  const currentIds = new Set(contacts.map((c) => c.id));
+  const newIds = [...currentIds].filter(
+    (id) => !prevContactIdsRef.current.has(id),
+  );
+  if (newIds.length > 0) {
+    setExpandedContactIds((prev) => [...prev, ...newIds]);
+  }
+  prevContactIdsRef.current = currentIds;
+}, [contacts]);
+
   return (
     <div className="space-y-4">
       {(title || description) && (
@@ -535,19 +549,17 @@ export const KeyContactsSection: React.FC<KeyContactsSectionProps> = ({
 
                               {/* Accordion chevron */}
                               <div className="flex items-center gap-1 flex-shrink-0">
-                                {contacts.length > 1 && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      removeContact(contact.id);
-                                    }}
-                                    className="p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-600 dark:text-gray-500 dark:hover:text-red-400 transition-colors"
-                                    title="Remove contact"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
-                                )}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    removeContact(contact.id);
+                                  }}
+                                  className="p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-600 dark:text-gray-500 dark:hover:text-red-400 transition-colors"
+                                  title="Remove contact"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
                                 {expandedContactIds.includes(contact.id)
                                   ? <ChevronUp className="h-5 w-5 text-gray-400" />
                                   : <ChevronDown className="h-5 w-5 text-gray-400" />}
