@@ -145,6 +145,8 @@ export function NewClientStep3a({
               profile.advisorLogo || profile.advisorLogoUrl || "",
             );
           }
+          // Store full profile in store so parent/other slides can use it synchronously
+          useNewClientWizardStore.getState().setAdvisorProfile(profile);
         }
       } catch (error) {
         console.error("Failed to fetch advisor organization:", error);

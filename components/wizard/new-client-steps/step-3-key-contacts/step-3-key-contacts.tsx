@@ -64,6 +64,7 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
     currentStep,
     step3SlideIndex,
     setStep3SlideIndex,
+    advisorProfile,
   } = useNewClientWizardStore();
 
   // Get contacts
@@ -165,9 +166,15 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/profile");
-        if (!res.ok || cancelled) return;
-        const profile = await res.json();
+        // Use advisorProfile from store if already available (set by step-3a or step-3b),
+        // otherwise fall back to fetching it.
+        let profile = advisorProfile;
+        if (!profile) {
+          const res = await fetch("/api/profile");
+          if (!res.ok || cancelled) return;
+          profile = await res.json();
+        }
+        if (!profile || cancelled) return;
 
         // Grab the latest contacts from the store (includes the user's just-saved
         // main contact) so mergeOnboardingAdvisorContactsIntoKeyContacts can
@@ -213,7 +220,7 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
     return () => {
       cancelled = true;
     };
-  }, [currentStep, contacts.length]);
+  }, [currentStep, contacts.length, advisorProfile]);
 
   // ==================== Helpers ====================
 
