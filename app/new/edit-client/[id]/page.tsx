@@ -13,6 +13,7 @@ import {
   Shield,
   Heart,
   Gift,
+  Monitor,
 } from "lucide-react";
 import {
   ActionsSection,
@@ -36,6 +37,7 @@ import {
 } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
 import { PlanMeetingsSection } from "@/components/pages/edit-client/plan-meetings-section";
 import { Input } from "@/components/ui/input";
+import { ContactCardLayoutPreviewModal } from "@/components/pages/edit-client/contact-card-layout-preview-modal";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ColorPicker } from "@/components/ui/color-picker";
@@ -562,6 +564,7 @@ export default function EditClientPage() {
   const [activeTab, setActiveTab] = useState<EditTabId>("company");
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [hasAttemptedSave, setHasAttemptedSave] = useState(false);
+  const [isPreviewLayoutModalOpen, setIsPreviewLayoutModalOpen] = useState(false);
 
   const logoRaw =
     typeof companyData.companyLogo === "string"
@@ -1207,7 +1210,18 @@ export default function EditClientPage() {
             <TabsContent value="contacts" className="mt-0">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-xl">Key Contacts</CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-xl">Key Contacts</CardTitle>
+                    <Button
+                      onClick={() => setIsPreviewLayoutModalOpen(true)}
+                      variant="outline"
+                      size="sm"
+                      className="text-sm"
+                    >
+                      <Monitor className="w-4 h-4 mr-2" />
+                      Preview / Modify Card Layout
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <EditKeyContactsSection
@@ -1296,6 +1310,18 @@ export default function EditClientPage() {
             setKeyContactsDisplayStyle(selectedIndex);
           }}
           initialSelectedIndex={keyContactsDisplayStyle ?? null}
+        />
+
+        {/* Contact Card Layout Preview Modal */}
+        <ContactCardLayoutPreviewModal
+          isOpen={isPreviewLayoutModalOpen}
+          onClose={() => setIsPreviewLayoutModalOpen(false)}
+          currentDisplayStyle={keyContactsDisplayStyle}
+          onConfirm={(displayStyle) => {
+            setKeyContactsDisplayStyle(displayStyle);
+          }}
+          contacts={keyContacts}
+          brandColor={companyData.primaryColor}
         />
       </div>
 
