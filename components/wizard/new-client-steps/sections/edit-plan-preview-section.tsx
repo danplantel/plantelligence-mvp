@@ -553,7 +553,7 @@ export function EditPlanPreviewSection({
         className="fixed z-[45] flex items-center justify-between px-4 py-3 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm"
         style={{
           top: "130px",
-          left: editorIsOpen ? "36rem" : "0",
+          left: "var(--sidebar-width, 18rem)",
           right: 0,
           transition: "left 300ms ease-in-out",
         }}
