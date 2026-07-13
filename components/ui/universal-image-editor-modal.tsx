@@ -2552,7 +2552,7 @@ export function UniversalImageEditorModal({
                             <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
                             <span>
                               photo sizes and formats vary, please review
-                              carefully to make sure there's no blank space or
+                              carefully to make sure there&rsquo;s no blank space or
                               cutoff areas in the preview.
                             </span>
                           </li>
