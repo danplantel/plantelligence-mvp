@@ -225,6 +225,18 @@ export function EditPlanPreviewSection({
         originalSidebarWidthRef.current = null;
       }
     }
+
+    return () => {
+      // Cleanup: restore original sidebar width on unmount
+      if (originalSidebarWidthRef.current !== null) {
+        if (originalSidebarWidthRef.current) {
+          document.documentElement.style.setProperty("--sidebar-width", originalSidebarWidthRef.current);
+        } else {
+          document.documentElement.style.removeProperty("--sidebar-width");
+        }
+        originalSidebarWidthRef.current = null;
+      }
+    };
   }, [isEditorOpen, isEditorAnimating]);
 
   // ── Preview mode ──
