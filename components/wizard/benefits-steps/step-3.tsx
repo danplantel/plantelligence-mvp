@@ -338,92 +338,6 @@ export function BenefitsStep3() {
   return (
     <>
       <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full mx-auto pb-20">
-        {/* FAQ Section */}
-        <Card className="border-none shadow-md overflow-hidden bg-card">
-          <CardHeader className="py-2 border-b bg-gray-50/50 dark:bg-gray-800 dark:border-gray-700">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <HelpCircle className="w-5 h-5 text-accent-blue" />
-                <div>
-                  <CardTitle className="text-lg font-bold text-foreground">
-                    Popular Questions (FAQ)
-                  </CardTitle>
-                  <CardDescription className="text-xs text-muted-foreground">
-                    Manage frequently asked questions for this benefit.
-                  </CardDescription>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  onClick={() => setPreviewOpen(true)}
-                  variant="outline"
-                  size="sm"
-                  className="h-8 gap-1.5 px-3 text-xs font-semibold"
-                >
-                  <Eye className="w-4 h-4" /> Preview
-                </Button>
-                <Button
-                  onClick={handleSaveFaqs}
-                  variant="default"
-                  size="sm"
-                  className="h-8 gap-1.5 px-3 text-xs font-semibold"
-                  disabled={savePending}
-                >
-                  {savePending ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Save className="w-4 h-4" />
-                  )}
-                  {savePending ? "Saving..." : "Save"}
-                </Button>
-                <Button
-                  onClick={addFaq}
-                  variant="outline"
-                  size="sm"
-                  className="h-8 gap-1 px-3 text-xs font-semibold"
-                >
-                  <Plus className="w-4 h-4" /> Add Question
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-3">
-            {resolvedFaqs.length === 0 ? (
-              <div className="text-center py-6 bg-gray-50 rounded-lg border border-dashed border-gray-200 dark:bg-gray-800/50 dark:border-gray-700">
-                <HelpCircle className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-1" />
-                <p className="text-xs text-muted-foreground">
-                  No questions added yet.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleDragEnd}
-                >
-                  <SortableContext
-                    items={resolvedFaqs.map((f) => f.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    {resolvedFaqs.map((faq, index) => (
-                      <SortableFaqItem
-                        key={faq.id}
-                        faq={faq}
-                        index={index}
-                        expandedId={expandedId}
-                        toggleExpand={toggleExpand}
-                        updateFaq={updateFaq}
-                        removeFaq={removeFaq}
-                      />
-                    ))}
-                  </SortableContext>
-                </DndContext>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
         {/* Support Contacts Section */}
         <Card className="border-none shadow-md overflow-hidden bg-card">
           <CardHeader className="py-2 border-b bg-gray-50/50 dark:bg-gray-800 dark:border-gray-700">
@@ -538,6 +452,92 @@ export function BenefitsStep3() {
                 );
               })}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* FAQ Section */}
+        <Card className="border-none shadow-md overflow-hidden bg-card">
+          <CardHeader className="py-2 border-b bg-gray-50/50 dark:bg-gray-800 dark:border-gray-700">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <HelpCircle className="w-5 h-5 text-accent-blue" />
+                <div>
+                  <CardTitle className="text-lg font-bold text-foreground">
+                    Popular Questions (FAQ)
+                  </CardTitle>
+                  <CardDescription className="text-xs text-muted-foreground">
+                    Manage frequently asked questions for this benefit.
+                  </CardDescription>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={() => setPreviewOpen(true)}
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1.5 px-3 text-xs font-semibold"
+                >
+                  <Eye className="w-4 h-4" /> Preview
+                </Button>
+                <Button
+                  onClick={handleSaveFaqs}
+                  variant="default"
+                  size="sm"
+                  className="h-8 gap-1.5 px-3 text-xs font-semibold"
+                  disabled={savePending}
+                >
+                  {savePending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  {savePending ? "Saving..." : "Save"}
+                </Button>
+                <Button
+                  onClick={addFaq}
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1 px-3 text-xs font-semibold"
+                >
+                  <Plus className="w-4 h-4" /> Add Question
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-3">
+            {resolvedFaqs.length === 0 ? (
+              <div className="text-center py-6 bg-gray-50 rounded-lg border border-dashed border-gray-200 dark:bg-gray-800/50 dark:border-gray-700">
+                <HelpCircle className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-1" />
+                <p className="text-xs text-muted-foreground">
+                  No questions added yet.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={resolvedFaqs.map((f) => f.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {resolvedFaqs.map((faq, index) => (
+                      <SortableFaqItem
+                        key={faq.id}
+                        faq={faq}
+                        index={index}
+                        expandedId={expandedId}
+                        toggleExpand={toggleExpand}
+                        updateFaq={updateFaq}
+                        removeFaq={removeFaq}
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
