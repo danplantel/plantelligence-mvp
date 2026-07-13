@@ -23,7 +23,7 @@ import {
   Eye, ArrowUpDown, ArrowUp, ArrowDown, LayoutGrid, List, Search, GripVertical, X,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { RetirementDocumentItem } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
+import { RetirementDocumentsAccordion, RetirementDocumentItem } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
 import { DocumentPreviewModal } from "@/components/pages/documents/components/document-preview-modal";
 import { DocumentEditModal } from "@/components/pages/documents/components/document-edit-modal";
 import { DocumentUploadTab } from "@/components/pages/documents/tabs/document-upload-tab";
@@ -1122,13 +1122,13 @@ export default function DocumentsPage() {
               )}
         </Card>
       </div>
-      {/* Portal Preview Dialog â€” shows document cards in the portal layout */}
+      {/* Portal Preview Dialog — shows document cards in the portal layout */}
       <Dialog open={docPortalPreviewOpen} onOpenChange={setDocPortalPreviewOpen}>
         <DialogContent className="max-w-5xl p-0 flex flex-col max-h-[90vh] [&>button.absolute]:hidden">
           {/* Fixed header */}
           <div className="flex items-start justify-between border-b px-6 py-4 shrink-0">
             <div>
-              <DialogTitle>Portal Preview â€” Documents</DialogTitle>
+              <DialogTitle>Portal Preview for Documents</DialogTitle>
               <DialogDescription className="mt-1">
                 See how your documents appear to plan members on the Benefits Hub.
               </DialogDescription>
@@ -1147,68 +1147,12 @@ export default function DocumentsPage() {
                 <p className="text-gray-500 text-sm">No documents available for preview.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-x-[16px] gap-y-[24px] md:grid-cols-2 lg:grid-cols-3">
-                {retirementDocs.map((doc) => {
-                  const docId = doc.meta?.id ?? doc.id;
-                  const docTitle = doc.title;
-                  // Find Spanish version of the same document
-                  const esDoc = sortedDocuments.find(
-                    (d) =>
-                      (d as any).language === "ES" &&
-                      d.title.toLowerCase() === docTitle.toLowerCase() &&
-                      d.id !== docId
-                  );
-                  const hasSpanish = !!esDoc;
-                  return (
-                    <div
-                      key={docId}
-                      className="border-b-[4px] bg-white pt-[10px] px-[15px] pb-[30px] lg:h-[260px] lg:p-[30px]"
-                      style={{ borderBottomColor: "#1F3A60" }}
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        height="512"
-                        width="512"
-                        viewBox="0 0 512 512"
-                        className="h-[45px] w-[45px]"
-                        style={{ fill: "#1F3A60" }}
-                      >
-                        <path d="m433.798 106.268-96.423-91.222c-10.256-9.703-23.68-15.046-37.798-15.046h-183.577c-30.327 0-55 24.673-55 55v402c0 30.327 24.673 55 55 55h280c30.327 0 55-24.673 55-55v-310.778c0-15.049-6.27-29.612-17.202-39.954zm-29.137 13.732h-74.661c-2.757 0-5-2.243-5-5v-70.364zm-8.661 362h-280c-13.785 0-25-11.215-25-25v-402c0-13.785 11.215-25 25-25h179v85c0 19.299 15.701 35 35 35h91v307c0 13.785-11.215 25-25 25z"></path>
-                        <path d="m363 200h-220c-8.284 0-15 6.716-15 15s6.716 15 15 15h220c8.284 0 15-6.716 15-15s-6.716-15-15-15z"></path>
-                        <path d="m363 280h-220c-8.284 0-15 6.716-15 15s6.716 15 15 15h220c8.284 0 15-6.716 15-15s-6.716-15-15-15z"></path>
-                        <path d="m215.72 360h-72.72c-8.284 0-15 6.716-15 15s6.716 15 15 15h72.72c8.284 0 15-6.716 15-15s-6.716-15-15-15z"></path>
-                      </svg>
-                      <p className="dm-serif mt-[20px] text-[20px] font-medium text-black lg:text-[16px] h-16">
-                        {docTitle}
-                      </p>
-                      <div className="mt-[20px] flex flex-col gap-2">
-                        <a
-                          href={doc.href}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 text-sm font-medium uppercase"
-                          style={{ color: "#DAC287" }}
-                        >
-                          Download
-                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-                        </a>
-                        {hasSpanish && esDoc && (
-                          <a
-                            href={`/api/documents/${esDoc.id}/view?t=${esDoc.uploadedAt}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 text-sm font-medium uppercase"
-                            style={{ color: "#DAC287" }}
-                          >
-                            Descargar en espaÃ±ol
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              <RetirementDocumentsAccordion
+                retirementDocs={retirementDocs}
+                hideHeader={true}
+                brandColor={clients.find((c) => c.id === selectedPlan) ? ((clients.find((c) => c.id === selectedPlan) as any).brandColor || "#1F3A60") : "#1F3A60"}
+                accentColor={clients.find((c) => c.id === selectedPlan) ? ((clients.find((c) => c.id === selectedPlan) as any).secondaryColor || "#6B7280") : "#6B7280"}
+              />
             )}
           </div>
         </DialogContent>
