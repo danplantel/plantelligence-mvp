@@ -60,6 +60,12 @@ interface BannerPreviewSectionProps {
   hideEditingSections?: boolean;
   hidePreviewCard?: boolean;
   renderModalOutside?: boolean;
+  /**
+   * When true, renders the preview card separately from the editing sections,
+   * giving a layout similar to Step 2's approach (prominent preview + organized editors below).
+   * Optimized for the Edit Plan workflow's tab-based layout.
+   */
+  separatePreview?: boolean;
   onModalStateChange?: (state: {
     isOpen: boolean;
     pendingData: BrandImageData | null;
@@ -132,6 +138,7 @@ export function BannerPreviewSection({
   onBannerTitleHighlightChange,
   isWelcomeBodyHighlighted,
   wrapInCard = false,
+  separatePreview = false,
 }: BannerPreviewSectionProps = {}) {
   const wizardStore = useNewClientWizardStore();
   const { stepData, saveStepDataLocally, goToStep } = wizardStore;
@@ -846,282 +853,310 @@ export function BannerPreviewSection({
     }
   }, [(companyData as any)?.heroDescription, heroDescription]);
 
-  const content = (
-    <div className="space-y-6">
-      {!hidePreviewCard && (
-        <BannerPreviewCard
-          heroBackgroundUrl={heroBackgroundUrl}
-          primaryColor={primaryColor}
-          secondaryColor={secondaryColor}
-          companyName={companyName}
-          companyLogo={companyLogo}
-          heroTitle={displayHeroTitle}
-          heroDescription={heroDescription}
-          inlineField={inlineField}
-          inlineValue={inlineValue}
-          onInlineValueChange={setInlineValue}
-          onStartInlineEdit={handleInlineEditStart}
-          onInlineCancel={handleInlineEditCancel}
-          onInlineSave={handleInlineEditSave}
-          backgroundOpacity={heroBackgroundOpacity}
-          containerBlockOpacity={heroContainerBlockOpacity}
-          containerInverted={heroContainerInverted}
-          backgroundInverted={heroBackgroundInverted}
-          useGradient={heroUseGradient}
-          isPreviewSticky={isPreviewSticky}
-          hidePreviewCard={hidePreviewCard}
-          isEditorOpen={isEditorOpen}
-          onLogoClick={onLogoModalStateChange ? handleLogoClick : undefined}
-          onContainerClick={handleContainerClick}
-          onBackgroundClick={handleBackgroundClick}
+  const bannerPreviewCard = (
+    <BannerPreviewCard
+      heroBackgroundUrl={heroBackgroundUrl}
+      primaryColor={primaryColor}
+      secondaryColor={secondaryColor}
+      companyName={companyName}
+      companyLogo={companyLogo}
+      heroTitle={displayHeroTitle}
+      heroDescription={heroDescription}
+      inlineField={inlineField}
+      inlineValue={inlineValue}
+      onInlineValueChange={setInlineValue}
+      onStartInlineEdit={handleInlineEditStart}
+      onInlineCancel={handleInlineEditCancel}
+      onInlineSave={handleInlineEditSave}
+      backgroundOpacity={heroBackgroundOpacity}
+      containerBlockOpacity={heroContainerBlockOpacity}
+      containerInverted={heroContainerInverted}
+      backgroundInverted={heroBackgroundInverted}
+      useGradient={heroUseGradient}
+      isPreviewSticky={isPreviewSticky}
+      hidePreviewCard={hidePreviewCard}
+      isEditorOpen={isEditorOpen}
+      onLogoClick={onLogoModalStateChange ? handleLogoClick : undefined}
+      onContainerClick={handleContainerClick}
+      onBackgroundClick={handleBackgroundClick}
+    />
+  );
+
+  const editingSections = (
+    <>
+      <CompanyLogoCard
+        ref={logoCardRef}
+        companyLogo={companyData?.companyLogo}
+        onLogoImageChange={handleLogoImageChange}
+        onLogoImageRemove={handleLogoImageRemove}
+        renderModalOutside={!!onLogoModalStateChange}
+        onLogoModalStateChange={onLogoModalStateChange}
+        isHighlighted={isLogoCardHighlighted}
+      />
+
+      <HeroBackgroundCard
+        heroImageData={heroImageData}
+        onImageChange={handleHeroBackgroundImageChange}
+        onImageRemove={handleHeroBackgroundImageRemove}
+        onEditClick={handleHeroBackgroundEditClick}
+        onFileSelect={handleHeroBackgroundFileSelect}
+        onDefaultPhotoClick={() => setGalleryOpen(true)}
+      />
+
+      <WelcomeStatementCard
+        welcomeData={externalCompanyData ? welcomeCardData : welcomeData}
+        companyName={companyName}
+        errorFields={errorFields}
+        useDefaultBody={currentUseDefaultBody}
+        onToggleDefaultBody={handleToggleDefaultBody}
+        defaultBodyText={effectiveDefaultBodyText}
+        onHeadlineChange={
+          externalCompanyData
+            ? (value) => {
+                setHeroTitle(value);
+                onCompanyDataChange?.("heroTitle", value);
+              }
+            : undefined
+        }
+        onBodyChange={handleBodyChange}
+        onCompanyNameEdit={
+          onCompanyDataChange
+            ? () => {
+                setEditedCompanyName(companyName || "");
+                setIsEditCompanyNameOpen(true);
+              }
+            : undefined
+        }
+        bannerTitleCardRef={externalBannerTitleCardRef}
+        isBannerTitleHighlighted={externalIsBannerTitleHighlighted}
+        isWelcomeBodyHighlighted={isWelcomeBodyHighlighted}
+      />
+
+      <BannerOverlaySettingsCard
+        ref={overlaySettingsCardRef}
+        backgroundOpacity={heroBackgroundOpacity}
+        containerBlockOpacity={heroContainerBlockOpacity}
+        containerInverted={heroContainerInverted}
+        backgroundInverted={heroBackgroundInverted}
+        useGradient={heroUseGradient}
+        onSettingsChange={handleSettingsChange}
+        isHighlighted={isOverlaySettingsHighlighted}
+      />
+
+      <ModalGallery
+        open={galleryOpen}
+        onOpenChange={setGalleryOpen}
+        onSelect={async (url) => {
+          let fileName = "default-image.png";
+          let fileExtension = "png";
+
+          if (url.startsWith("data:image/")) {
+            const match = url.match(/data:image\/(\w+);/);
+            if (match && match[1]) {
+              fileExtension = match[1];
+              fileName = `default-image.${fileExtension}`;
+            }
+          } else {
+            const urlMatch = url.match(/\.(png|jpg|jpeg|gif|webp)(\?|$)/i);
+            if (urlMatch && urlMatch[1]) {
+              fileExtension = urlMatch[1].toLowerCase();
+              fileName = `default-image.${fileExtension}`;
+            }
+          }
+
+          try {
+            const { croppedUrl, width, height } =
+              await autoCropHeroBackgroundImage(url);
+
+            const warnings: string[] = [];
+            if (
+              width < HERO_RECOMMENDED_WIDTH ||
+              height < HERO_RECOMMENDED_HEIGHT
+            ) {
+              warnings.push(
+                `Below recommended size (${HERO_RECOMMENDED_SIZE_LABEL}). May appear blurry.`,
+              );
+            }
+
+            const brandImageData: BrandImageData = {
+              url: croppedUrl,
+              fileName,
+              fileSize: 0,
+              width,
+              height,
+              recommendedSize: HERO_RECOMMENDED_SIZE_LABEL,
+              status: (warnings.length > 0 ? "warning" : "ok") as
+                | "ok"
+                | "warning"
+                | "error",
+              warnings,
+            };
+
+            handleBackgroundChange(brandImageData);
+            setGalleryOpen(false);
+          } catch (error) {
+            console.error("Failed to auto-crop image:", error);
+            const img = new Image();
+            img.onload = () => {
+              const warnings: string[] = [];
+              if (
+                img.width < HERO_RECOMMENDED_WIDTH ||
+                img.height < HERO_RECOMMENDED_HEIGHT
+              ) {
+                warnings.push(
+                  `Below recommended size (${HERO_RECOMMENDED_SIZE_LABEL}). May appear blurry.`,
+                );
+              }
+
+              const brandImageData: BrandImageData = {
+                url,
+                fileName,
+                fileSize: 0,
+                width: img.width,
+                height: img.height,
+                recommendedSize: HERO_RECOMMENDED_SIZE_LABEL,
+                status: (warnings.length > 0 ? "warning" : "ok") as
+                  | "ok"
+                  | "warning"
+                  | "error",
+                warnings,
+              };
+
+              handleBackgroundChange(brandImageData);
+              setGalleryOpen(false);
+            };
+            img.onerror = () => {
+              const brandImageData: BrandImageData = {
+                url,
+                fileName,
+                fileSize: 0,
+                width: 0,
+                height: 0,
+                recommendedSize: HERO_RECOMMENDED_SIZE_LABEL,
+                status: "ok",
+                warnings: [],
+              };
+              handleBackgroundChange(brandImageData);
+              setGalleryOpen(false);
+            };
+            img.src = url;
+          }
+        }}
+      />
+
+      {pendingHeroImageData && !renderModalOutside && (
+        <SimpleImageEditorModal
+          modalTitle="Background image"
+          modalDescription="Upload and edit your image."
+          value={pendingHeroImageData.url || ""}
+          fileName={pendingHeroImageData.fileName || ""}
+          onChange={handleHeroModalSave}
+          onRemove={handleHeroModalClose}
+          isOpen={isHeroModalOpen}
+          onClose={handleHeroModalClose}
+          saveButtonText="Save Background"
+          canvasWidth={640}
+          canvasHeight={600}
+          guidelineWidth={580}
+          guidelineHeight={240}
+          guidelinePadding={20}
         />
       )}
 
-      {hideEditingSections ? null : (
-        <>
-          <CompanyLogoCard
-            ref={logoCardRef}
-            companyLogo={companyData?.companyLogo}
-            onLogoImageChange={handleLogoImageChange}
-            onLogoImageRemove={handleLogoImageRemove}
-            renderModalOutside={!!onLogoModalStateChange}
-            onLogoModalStateChange={onLogoModalStateChange}
-            isHighlighted={isLogoCardHighlighted}
-          />
-
-          <HeroBackgroundCard
-            heroImageData={heroImageData}
-            onImageChange={handleHeroBackgroundImageChange}
-            onImageRemove={handleHeroBackgroundImageRemove}
-            onEditClick={handleHeroBackgroundEditClick}
-            onFileSelect={handleHeroBackgroundFileSelect}
-            onDefaultPhotoClick={() => setGalleryOpen(true)}
-          />
-
-          <WelcomeStatementCard
-            welcomeData={externalCompanyData ? welcomeCardData : welcomeData}
-            companyName={companyName}
-            errorFields={errorFields}
-            useDefaultBody={currentUseDefaultBody}
-            onToggleDefaultBody={handleToggleDefaultBody}
-            defaultBodyText={effectiveDefaultBodyText}
-            onHeadlineChange={
-              externalCompanyData
-                ? (value) => {
-                  setHeroTitle(value);
-                  onCompanyDataChange?.("heroTitle", value);
-                }
-                : undefined
-            }
-            onBodyChange={handleBodyChange}
-            onCompanyNameEdit={
-              onCompanyDataChange
-                ? () => {
-                  setEditedCompanyName(companyName || "");
-                  setIsEditCompanyNameOpen(true);
-                }
-                : undefined
-            }
-            bannerTitleCardRef={externalBannerTitleCardRef}
-            isBannerTitleHighlighted={externalIsBannerTitleHighlighted}
-            isWelcomeBodyHighlighted={isWelcomeBodyHighlighted}
-          />
-
-          <BannerOverlaySettingsCard
-            ref={overlaySettingsCardRef}
-            backgroundOpacity={heroBackgroundOpacity}
-            containerBlockOpacity={heroContainerBlockOpacity}
-            containerInverted={heroContainerInverted}
-            backgroundInverted={heroBackgroundInverted}
-            useGradient={heroUseGradient}
-            onSettingsChange={handleSettingsChange}
-            isHighlighted={isOverlaySettingsHighlighted}
-          />
-
-          <ModalGallery
-            open={galleryOpen}
-            onOpenChange={setGalleryOpen}
-            onSelect={async (url) => {
-              let fileName = "default-image.png";
-              let fileExtension = "png";
-
-              if (url.startsWith("data:image/")) {
-                const match = url.match(/data:image\/(\w+);/);
-                if (match && match[1]) {
-                  fileExtension = match[1];
-                  fileName = `default-image.${fileExtension}`;
-                }
-              } else {
-                const urlMatch = url.match(/\.(png|jpg|jpeg|gif|webp)(\?|$)/i);
-                if (urlMatch && urlMatch[1]) {
-                  fileExtension = urlMatch[1].toLowerCase();
-                  fileName = `default-image.${fileExtension}`;
-                }
-              }
-
-              try {
-                const { croppedUrl, width, height } =
-                  await autoCropHeroBackgroundImage(url);
-
-                const warnings: string[] = [];
-                if (
-                  width < HERO_RECOMMENDED_WIDTH ||
-                  height < HERO_RECOMMENDED_HEIGHT
-                ) {
-                  warnings.push(
-                    `Below recommended size (${HERO_RECOMMENDED_SIZE_LABEL}). May appear blurry.`,
-                  );
-                }
-
-                const brandImageData: BrandImageData = {
-                  url: croppedUrl,
-                  fileName,
-                  fileSize: 0,
-                  width,
-                  height,
-                  recommendedSize: HERO_RECOMMENDED_SIZE_LABEL,
-                  status: (warnings.length > 0 ? "warning" : "ok") as
-                    | "ok"
-                    | "warning"
-                    | "error",
-                  warnings,
-                };
-
-                handleBackgroundChange(brandImageData);
-                setGalleryOpen(false);
-              } catch (error) {
-                console.error("Failed to auto-crop image:", error);
-                const img = new Image();
-                img.onload = () => {
-                  const warnings: string[] = [];
-                  if (
-                    img.width < HERO_RECOMMENDED_WIDTH ||
-                    img.height < HERO_RECOMMENDED_HEIGHT
-                  ) {
-                    warnings.push(
-                      `Below recommended size (${HERO_RECOMMENDED_SIZE_LABEL}). May appear blurry.`,
-                    );
+      <Dialog
+        open={isEditCompanyNameOpen}
+        onOpenChange={setIsEditCompanyNameOpen}
+      >
+        <DialogContent className="z-[60]">
+          <DialogHeader>
+            <DialogTitle>Edit Banner Headline</DialogTitle>
+            <DialogDescription>
+              Update the Benefits Hub name. This will automatically update
+              the banner headline in preview.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="companyName">Benefits Hub Name</Label>
+              <Input
+                id="companyName"
+                value={editedCompanyName}
+                onChange={(e) => {
+                  const value = e.target.value.slice(0, 65);
+                  setEditedCompanyName(value);
+                  // Update preview in real-time
+                  if (value) {
+                    const previewHeadline = `Welcome to the ${value} Benefits Hub!`;
+                    isUpdatingHeroTitleRef.current = true;
+                    setHeroTitle(previewHeadline);
+                    setTimeout(() => {
+                      isUpdatingHeroTitleRef.current = false;
+                    }, 0);
                   }
+                }}
+                placeholder="Enter company name"
+                maxLength={65}
+              />
+              <p className="text-xs text-muted-foreground text-right">
+                {editedCompanyName.length}/65 characters
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                // Reset preview to original on cancel
+                setEditedCompanyName(companyData?.companyName || "");
+                const originalHeadline =
+                  welcomeData?.headline ||
+                  `Welcome to the ${companyData?.companyName || "Company Name"
+                  } Benefits Hub!`;
+                setHeroTitle(originalHeadline);
+                setIsEditCompanyNameOpen(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSaveCompanyName}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
 
-                  const brandImageData: BrandImageData = {
-                    url,
-                    fileName,
-                    fileSize: 0,
-                    width: img.width,
-                    height: img.height,
-                    recommendedSize: HERO_RECOMMENDED_SIZE_LABEL,
-                    status: (warnings.length > 0 ? "warning" : "ok") as
-                      | "ok"
-                      | "warning"
-                      | "error",
-                    warnings,
-                  };
-
-                  handleBackgroundChange(brandImageData);
-                  setGalleryOpen(false);
-                };
-                img.onerror = () => {
-                  const brandImageData: BrandImageData = {
-                    url,
-                    fileName,
-                    fileSize: 0,
-                    width: 0,
-                    height: 0,
-                    recommendedSize: HERO_RECOMMENDED_SIZE_LABEL,
-                    status: "ok",
-                    warnings: [],
-                  };
-                  handleBackgroundChange(brandImageData);
-                  setGalleryOpen(false);
-                };
-                img.src = url;
-              }
-            }}
-          />
-
-          {pendingHeroImageData && !renderModalOutside && (
-            <SimpleImageEditorModal
-              modalTitle="Background image"
-              modalDescription="Upload and edit your image."
-              value={pendingHeroImageData.url || ""}
-              fileName={pendingHeroImageData.fileName || ""}
-              onChange={handleHeroModalSave}
-              onRemove={handleHeroModalClose}
-              isOpen={isHeroModalOpen}
-              onClose={handleHeroModalClose}
-              saveButtonText="Save Background"
-              canvasWidth={640}
-              canvasHeight={600}
-              guidelineWidth={580}
-              guidelineHeight={240}
-              guidelinePadding={20}
-            />
-          )}
-
-          <Dialog
-            open={isEditCompanyNameOpen}
-            onOpenChange={setIsEditCompanyNameOpen}
-          >
-            <DialogContent className="z-[60]">
-              <DialogHeader>
-                <DialogTitle>Edit Banner Headline</DialogTitle>
-                <DialogDescription>
-                  Update the Benefits Hub name. This will automatically update
-                  the banner headline in preview.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="companyName">Benefits Hub Name</Label>
-                  <Input
-                    id="companyName"
-                    value={editedCompanyName}
-                    onChange={(e) => {
-                      const value = e.target.value.slice(0, 65);
-                      setEditedCompanyName(value);
-                      // Update preview in real-time
-                      if (value) {
-                        const previewHeadline = `Welcome to the ${value} Benefits Hub!`;
-                        isUpdatingHeroTitleRef.current = true;
-                        setHeroTitle(previewHeadline);
-                        setTimeout(() => {
-                          isUpdatingHeroTitleRef.current = false;
-                        }, 0);
-                      }
-                    }}
-                    placeholder="Enter company name"
-                    maxLength={65}
-                  />
-                  <p className="text-xs text-muted-foreground text-right">
-                    {editedCompanyName.length}/65 characters
-                  </p>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    // Reset preview to original on cancel
-                    setEditedCompanyName(companyData?.companyName || "");
-                    const originalHeadline =
-                      welcomeData?.headline ||
-                      `Welcome to the ${companyData?.companyName || "Company Name"
-                      } Benefits Hub!`;
-                    setHeroTitle(originalHeadline);
-                    setIsEditCompanyNameOpen(false);
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button onClick={handleSaveCompanyName}>Save Changes</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </>
+  const content = separatePreview ? (
+    <div className="space-y-8">
+      {/* Preview Section - prominent, like Step 2's approach */}
+      {!hidePreviewCard && (
+        <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+          {bannerPreviewCard}
+        </div>
       )}
+
+      {/* Editing Sections - organized below the preview, optimized for tab-based layout */}
+      {hideEditingSections ? null : (
+        <div className="space-y-6">
+          <div className="space-y-1.5">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              Branding & Hero Settings
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Configure your company logo, hero background image, welcome message, and overlay settings.
+            </p>
+          </div>
+          {editingSections}
+        </div>
+      )}
+    </div>
+  ) : (
+    <div className="space-y-6">
+      {!hidePreviewCard && bannerPreviewCard}
+      {hideEditingSections ? null : editingSections}
     </div>
   );
 
+  if (separatePreview) return content;
   if (!wrapInCard) return content;
 
   return (

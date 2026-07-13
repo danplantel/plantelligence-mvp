@@ -49,7 +49,6 @@ import {
   WELCOME_BODY_PRESETS,
   MISSION_STATEMENT_PRESETS,
 } from "@/components/wizard/new-client-steps/constants/welcome-statements";
-import { BrandingPreview } from "@/components/wizard/steps/sections/branding-preview/branding-preview";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import type {
   CompanyBasicsData,
@@ -59,12 +58,9 @@ import type {
   ComplianceDocumentsData,
   BenefitsCategory,
 } from "@/types/new-client-wizard";
-import { BannerPreviewSection } from "@/components/wizard/new-client-steps/sections/banner-preview-section";
-import { MissionStatementFields } from "@/components/wizard/new-client-steps/sections/mission-statement-fields";
+import { EditPlanPreviewSection } from "@/components/wizard/new-client-steps/sections/edit-plan-preview-section";
 import { CardSelectionModal } from "@/components/wizard/new-client-steps/card-selection-modal";
 import { uploadBrandingToR2 } from "@/lib/branding-r2";
-import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
-import { toR2BrandingKey } from "@/lib/branding-image-url";
 
 // ============================================================================
 // Helper Components
@@ -566,16 +562,6 @@ export default function EditClientPage() {
   const [hasAttemptedSave, setHasAttemptedSave] = useState(false);
   const [isPreviewLayoutModalOpen, setIsPreviewLayoutModalOpen] = useState(false);
 
-  const logoRaw =
-    typeof companyData.companyLogo === "string"
-      ? companyData.companyLogo
-      : companyData.companyLogo?.url ?? null;
-  const headerUrlRaw = companyData.brandImages?.header?.url ?? null;
-  const thumbnailUrlRaw = companyData.brandImages?.thumbnail?.url ?? null;
-  const { url: resolvedPreviewLogo } = useBrandingImageUrl(logoRaw);
-  const { url: resolvedPreviewHeader } = useBrandingImageUrl(headerUrlRaw);
-  const { url: resolvedPreviewThumbnail } = useBrandingImageUrl(thumbnailUrlRaw);
-
   // Mission Statement fields
   const missionHeadline = (companyData as any).missionHeadline || "";
   const missionBody = (companyData as any).missionBody || "";
@@ -602,25 +588,8 @@ export default function EditClientPage() {
   );
   const [userAvatar, setUserAvatar] = useState<string | null>(null);
 
-  const previewLogoProp =
-    toR2BrandingKey(logoRaw) != null
-      ? (resolvedPreviewLogo ?? "/logo-2.png")
-      : (resolvedPreviewLogo ?? logoRaw ?? "/logo-2.png");
-  const previewBackgroundProp =
-    toR2BrandingKey(headerUrlRaw) != null
-      ? (resolvedPreviewHeader ?? "")
-      : (resolvedPreviewHeader ?? headerUrlRaw ?? "");
-  const previewThumbProp =
-    toR2BrandingKey(thumbnailUrlRaw) != null
-      ? (resolvedPreviewThumbnail ?? userAvatar ?? "/images/alicia.png")
-      : (resolvedPreviewThumbnail ??
-        thumbnailUrlRaw ??
-        userAvatar ??
-        "/images/alicia.png");
-
   const headlineRef = useRef<HTMLInputElement>(null);
   const bodyTextRef = useRef<HTMLTextAreaElement>(null);
-  const previewRef = useRef<HTMLDivElement>(null);
 
   const headlineCharCount = missionHeadline?.length || 0;
   const bodyCharCount = missionBody?.length || 0;
@@ -1102,108 +1071,39 @@ export default function EditClientPage() {
             </TabsContent>
 
             {/* ── Tab 2: Preview ── */}
-            <TabsContent value="preview" className="space-y-6 mt-0">
-              <div data-section="bannerPreview">
-                <BannerPreviewSection
-                  companyData={companyData}
-                  onCompanyDataChange={handleInputChange}
-                  onHeadshotChange={handleHeadshotChange}
-                  onBackgroundChange={handleBackgroundChange}
-                  validationErrors={getValidationErrors()}
-                  useDefaultBody={useDefaultWelcomeMessage}
-                  onToggleDefaultBody={(checked) => {
-                    setUseDefaultWelcomeMessage(checked);
-                    if (checked) {
-                      handleInputChange("heroDescription", defaultWelcomeMessage);
-                    }
-                  }}
-                  defaultBodyText={defaultWelcomeMessage}
-                  wrapInCard
-                />
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Company Mission Statement</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <MissionStatementFields
-                      missionHeadline={missionHeadline}
-                      missionBody={missionBody}
-                      defaultHeadline={defaultHeadline}
-                      defaultBodyText={defaultBodyText}
-                      useDefaultHeadline={useDefaultHeadline}
-                      useDefaultBody={useDefaultBody}
-                      headlineCharCount={headlineCharCount}
-                      bodyCharCount={bodyCharCount}
-                      isHeadlineValid={isHeadlineValid}
-                      isBodyValid={isBodyValid}
-                      errorFields={errorFields}
-                      headlineRef={headlineRef}
-                      bodyTextRef={bodyTextRef}
-                      onHeadlineChange={handleHeadlineChange}
-                      onBodyChange={handleBodyChange}
-                      onUseDefaultHeadlineChange={handleUseDefaultHeadline}
-                      onUseDefaultBodyChange={handleUseDefaultBody}
-                      onGenerateMissionHeadline={handleGenerateMissionHeadline}
-                      onGenerateMissionBody={handleGenerateMissionBody}
-                      showUseDefault={false}
-                    />
-
-                    {/* Preview Section */}
-                    <div ref={previewRef} data-preview="welcome">
-                      <BrandingPreview
-                        logo={previewLogoProp}
-                        backgroundImage={previewBackgroundProp}
-                        brandColor={companyData.primaryColor || "#1F3A60"}
-                        aiAvatar={previewThumbProp}
-                        missionStatement={`${missionHeadline || "Company Welcome Statement"
-                          }\n\n${missionBody || "Your welcome message will appear here..."
-                          }`}
-                        headshot={previewThumbProp}
-                        headshotData={null}
-                        username={companyData.companyName || "Company Name"}
-                        title="Advisor"
-                        orgName={companyData.companyName || "Company Name"}
-                        onWelcomeMessageChange={(newText) => {
-                          const lines = newText.split("\n\n");
-                          const headline = lines[0] || "";
-                          const bodyText = lines.slice(1).join("\n") || "";
-                          handleInputChange("missionHeadline", headline);
-                          handleInputChange("missionBody", bodyText);
-                        }}
-                        onHeadshotChange={handleHeadshotChange}
-                        onEditHeadshot={() => {
-                          setActiveTab("company");
-                          setTimeout(() => {
-                            const brandImagesSection = document.querySelector(
-                              '[data-section="brandImages"]',
-                            );
-                            if (brandImagesSection) {
-                              brandImagesSection.scrollIntoView({
-                                behavior: "smooth",
-                              });
-                            }
-                          }, 100);
-                        }}
-                        onEditBackground={() => {
-                          setActiveTab("company");
-                          setTimeout(() => {
-                            const brandImagesSection = document.querySelector(
-                              '[data-section="brandImages"]',
-                            );
-                            if (brandImagesSection) {
-                              brandImagesSection.scrollIntoView({
-                                behavior: "smooth",
-                              });
-                            }
-                          }, 100);
-                        }}
-                        onBackgroundChange={handleBackgroundChange}
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
+            <TabsContent value="preview" className="mt-0">
+              <EditPlanPreviewSection
+                companyData={companyData}
+                onCompanyDataChange={handleInputChange}
+                onWelcomeChange={handleWelcomeChange}
+                welcomeData={welcomeData}
+                onHeadshotChange={handleHeadshotChange}
+                onBackgroundChange={handleBackgroundChange}
+                onLogoChange={handleLogoChange}
+                defaultWelcomeMessage={defaultWelcomeMessage}
+                useDefaultWelcomeMessage={useDefaultWelcomeMessage}
+                setUseDefaultWelcomeMessage={setUseDefaultWelcomeMessage}
+                clientId={clientId}
+                missionHeadline={missionHeadline}
+                missionBody={missionBody}
+                defaultHeadline={defaultHeadline}
+                defaultBodyText={defaultBodyText}
+                useDefaultHeadline={useDefaultHeadline}
+                useDefaultBody={useDefaultBody}
+                headlineRef={headlineRef}
+                bodyTextRef={bodyTextRef}
+                handleHeadlineChange={handleHeadlineChange}
+                handleBodyChange={handleBodyChange}
+                handleUseDefaultHeadline={handleUseDefaultHeadline}
+                handleUseDefaultBody={handleUseDefaultBody}
+                handleGenerateMissionHeadline={handleGenerateMissionHeadline}
+                handleGenerateMissionBody={handleGenerateMissionBody}
+                headlineCharCount={headlineCharCount}
+                bodyCharCount={bodyCharCount}
+                isHeadlineValid={isHeadlineValid}
+                isBodyValid={isBodyValid}
+                errorFields={errorFields}
+              />
             </TabsContent>
 
             {/* ── Tab 3: Key Contacts ── */}
