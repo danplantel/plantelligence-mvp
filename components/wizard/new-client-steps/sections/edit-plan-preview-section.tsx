@@ -668,13 +668,12 @@ export function EditPlanPreviewSection({
         </div>
       </div>
 
-      {/* ── Editor Panel (fixed overlay, slides from left, offset below page headers) ── */}
+      {/* ── Editor Panel (fixed overlay, slides from left) ── */}
       <EditorPanelWrapper
         isOpen={isEditorOpen}
         isAnimating={isEditorAnimating}
         onClose={handleCloseEditor}
         sections={editorSections}
-        topOffset={130}
       />
     </div>
   );
