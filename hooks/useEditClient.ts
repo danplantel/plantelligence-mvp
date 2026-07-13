@@ -360,50 +360,39 @@ export function useEditClient() {
             isAIGenerated: false,
           });
 
-          // Fetch documents separately using the same approach as webinars-dashboard
-          try {
-            const documentsResponse = await fetch(`/api/documents?clientId=${clientId}`);
-            if (documentsResponse.ok) {
-              const documentsData = await documentsResponse.json();
-              const docs = documentsData.data || documentsData;
+          // ── Documents: use data already returned from the client API ──
+          // The GET /api/clients/[id] route already fetches and returns all
+          // documents for this client (including fileUrl).  There is no need
+          // for a separate round-trip to /api/documents – doing so would
+          // serialise two requests and add ~1× latency for no benefit.
+          const docsFromClient = result.data.documents;
+          if (Array.isArray(docsFromClient) && docsFromClient.length > 0) {
+            // Map the Prisma shape to the shape buildDocumentFromApi expects.
+            // The key rename is fileUrl → file so buildDocumentFromApi picks it up.
+            const mappedDocs = docsFromClient.map((doc: any) => ({
+              ...doc,
+              file: doc.fileUrl,
+            }));
 
-              if (Array.isArray(docs)) {
-                const spdDoc = docs.find((doc: any) =>
-                  doc.type === "SPD" ||
-                  (doc.title && doc.title.toLowerCase().includes("spd")),
-                );
+            const spdDoc = mappedDocs.find((doc: any) =>
+              doc.type === "SPD" ||
+              (doc.title && doc.title.toLowerCase().includes("spd")),
+            );
 
-                const retirementDocs = docs
-                  .filter((doc: any) => doc.id !== spdDoc?.id)
-                  .map((doc: any) => buildDocumentFromApi(doc, "other"))
-                  .filter((doc: any, idx: number, arr: any[]) =>
-                    arr.findIndex((d: any) => d.id === doc.id) === idx,
-                  );
+            const retirementDocs = mappedDocs
+              .filter((doc: any) => doc.id !== spdDoc?.id)
+              .map((doc: any) => buildDocumentFromApi(doc, "other"))
+              .filter((doc: any, idx: number, arr: any[]) =>
+                arr.findIndex((d: any) => d.id === doc.id) === idx,
+              );
 
-                setDocumentsData({
-                  spdFile: spdDoc ? buildDocumentFromApi(spdDoc, "spd") : null,
-                  otherDocuments: [],
-                  retirementPlanDocuments: retirementDocs,
-                  recordkeeper: result.data.recordkeeper || "",
-                });
-              } else {
-                setDocumentsData({
-                  spdFile: null,
-                  otherDocuments: [],
-                  retirementPlanDocuments: [],
-                  recordkeeper: result.data.recordkeeper || "",
-                });
-              }
-            } else {
-              setDocumentsData({
-                spdFile: null,
-                otherDocuments: [],
-                retirementPlanDocuments: [],
-                recordkeeper: result.data.recordkeeper || "",
-              });
-            }
-          } catch (error) {
-            console.error("Error fetching documents:", error);
+            setDocumentsData({
+              spdFile: spdDoc ? buildDocumentFromApi(spdDoc, "spd") : null,
+              otherDocuments: [],
+              retirementPlanDocuments: retirementDocs,
+              recordkeeper: result.data.recordkeeper || "",
+            });
+          } else {
             setDocumentsData({
               spdFile: null,
               otherDocuments: [],

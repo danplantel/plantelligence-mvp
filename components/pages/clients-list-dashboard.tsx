@@ -262,6 +262,7 @@ export function ClientsListDashboardPage() {
   };
 
   const handleEditClient = (clientId: string) => {
+    router.prefetch(`/new/edit-client/${clientId}`);
     router.push(`/new/edit-client/${clientId}`);
   };
 
