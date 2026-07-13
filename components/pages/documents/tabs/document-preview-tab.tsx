@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { DocumentsCardsView } from "../views/documents-cards-view";
 import type { RetirementDocumentItem } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
@@ -37,6 +39,8 @@ export function DocumentPreviewTab({
   brandColor,
   accentColor,
 }: DocumentPreviewTabProps) {
+  const [isInfoVisible, setIsInfoVisible] = useState(true);
+
   if (!selectedPlan) {
     return (
       <Card className="dark:bg-gray-800 dark:border-gray-700">
@@ -62,17 +66,27 @@ export function DocumentPreviewTab({
 
   return (
     <div className="space-y-6">
-      <div className="bg-blue-50 border border-blue-200 rounded-md p-4 flex items-start gap-3 dark:bg-accent-blue/10 dark:border-accent-blue/30">
-        <div className="text-blue-500 mt-0.5 dark:text-accent-blue-light">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line x1="12" x2="12.01" y1="16" y2="16" /></svg>
+      {isInfoVisible && (
+        <div className="bg-blue-50 border border-blue-200 rounded-md p-4 pr-10 flex items-start gap-3 relative dark:bg-accent-blue/10 dark:border-accent-blue/30">
+          <div className="text-blue-500 mt-0.5 shrink-0 dark:text-accent-blue-light">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line x1="12" x2="12.01" y1="16" y2="16" /></svg>
+          </div>
+          <div className="space-y-1 flex-1">
+            <p className="text-sm text-blue-800 font-medium dark:text-accent-blue-light">This is how the documents will display on the Benefits Hub. Please confirm order, titles and descriptions of document cards, you can edit them here.</p>
+            {showWizardNextHint && (
+              <p className="text-sm text-blue-700 dark:text-accent-blue-light">From this stage, clicking the footer Next button will take you to the next step.</p>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsInfoVisible(false)}
+            className="absolute top-2 right-2 p-1 rounded-md text-blue-500 hover:text-blue-700 hover:bg-blue-100 dark:text-accent-blue-light dark:hover:text-white dark:hover:bg-accent-blue/20 transition-colors"
+            aria-label="Close info banner"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
-        <div className="space-y-1">
-          <p className="text-sm text-blue-800 font-medium dark:text-accent-blue-light">This is how the documents will display on the Benefits Hub. Please confirm order, titles and descriptions of document cards, you can edit them here.</p>
-          {showWizardNextHint && (
-            <p className="text-sm text-blue-700 dark:text-accent-blue-light">From this stage, clicking the footer Next button will take you to the next step.</p>
-          )}
-        </div>
-      </div>
+      )}
 
       {documents.length === 0 ? (
         <div className="flex items-center justify-center py-20">
