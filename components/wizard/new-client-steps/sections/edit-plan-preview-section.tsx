@@ -22,8 +22,6 @@ import type {
 
 // ── Constants matching Step 2 ──
 const DESKTOP_WIDTH = 1400;
-const HEADER_HEIGHT = 72;
-const BOTTOM_NAV_HEIGHT = 72;
 const MOBILE_ASPECT_RATIO = 21 / 9;
 const MOBILE_WIDTH = 390;
 
@@ -524,20 +522,13 @@ export function EditPlanPreviewSection({
     },
   ];
 
-  const totalFixedHeight = HEADER_HEIGHT + barHeight + BOTTOM_NAV_HEIGHT;
-
   return (
-    <div className="w-full relative min-h-[600px]">
-      {/* Spacer for fixed toolbar */}
-      <div style={{ height: HEADER_HEIGHT + barHeight }} />
-
-      {/* ── Fixed toolbar ── */}
-      <div className="fixed top-0 left-0 right-0 z-[45]">
-        <div style={{ height: `${HEADER_HEIGHT}px` }} />
-        <div
-          ref={barRef}
-          className="flex items-center justify-between px-4 py-3 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700"
-        >
+    <div className="w-full relative">
+      {/* ── Toolbar ── */}
+      <div
+        ref={barRef}
+        className="sticky top-0 z-30 flex items-center justify-between px-4 py-3 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex-shrink-0"
+      >
           {/* Left: Edit Panel toggle */}
           <button
             type="button"
@@ -573,23 +564,20 @@ export function EditPlanPreviewSection({
             )}
           </button>
         </div>
-      </div>
 
-      {/* ── Editor Panel (slides in from left) ── */}
+      {/* ── Editor Panel (fixed overlay, slides from left — matches Step 2) ── */}
       <EditorPanelWrapper
         isOpen={isEditorOpen}
         isAnimating={isEditorAnimating}
         onClose={handleCloseEditor}
         sections={editorSections}
-        variant="inline"
       />
 
       {/* ── Preview area ── */}
       <div
         className="flex flex-col"
         style={{
-          height: `calc(100vh - ${totalFixedHeight}px - 4rem)`, // account for page padding
-          minHeight: "400px",
+          minHeight: `calc(100vh - ${barHeight + 200}px)`,
         }}
       >
         {/* PortalHeader (sticky at top, hidden in mobile) */}
