@@ -103,7 +103,10 @@ export function PortalMission({
             <div className="relative">
               <h2
                 className={`mb-4 sm:mb-5 font-dm-serif text-xl sm:text-2xl md:text-3xl lg:text-[34px] leading-tight ${onMissionHeadlineClick
-                  ? "cursor-pointer transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/70"
+                  ? `cursor-pointer transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/70 ${hoveredElement === "headline"
+                      ? "opacity-90 ring-2 ring-blue-500/50 rounded-md px-2 -mx-2"
+                      : "hover:opacity-90"
+                    }`
                   : ""
                   }`}
                 style={{ color: brandColor }}
@@ -135,7 +138,10 @@ export function PortalMission({
             <div className="relative">
               <p
                 className={`text-[#6B6B6B] font-red-hat sm:text-base lg:text-[1.3em] leading-[1.8] mb-4 sm:mb-5 ${onMissionBodyClick
-                  ? "cursor-pointer transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/70"
+                  ? `cursor-pointer transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/70 ${hoveredElement === "body"
+                      ? "opacity-90 ring-2 ring-blue-500/50 rounded-md px-2 -mx-2"
+                      : "hover:opacity-90"
+                    }`
                   : ""
                   }`}
                 role={onMissionBodyClick ? "button" : undefined}
