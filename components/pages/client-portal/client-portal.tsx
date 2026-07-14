@@ -61,6 +61,7 @@ interface ClientPortalProps {
   className?: string;
   hideHeader?: boolean;
   hideFooter?: boolean;
+  hideBenefits?: boolean;
   clientId?: string;
   onHeroTitleClick?: () => void;
   onHeroDescriptionClick?: () => void;
@@ -72,6 +73,7 @@ export function ClientPortal({
   className = "",
   hideHeader = false,
   hideFooter = false,
+  hideBenefits = false,
   clientId,
   onHeroTitleClick,
   onHeroDescriptionClick,
@@ -153,32 +155,34 @@ export function ClientPortal({
         secondaryColor={secondaryColor}
       />
 
-      <PortalBenefits
-        brandColor={brandColor}
-        secondaryColor={secondaryColor}
-        clientId={clientId}
-        keyContacts={keyContacts}
-        benefits={
-          data?.employeePortalPreview?.benefits ??
-          data?.employeePortalPreview?.previewData?.benefits
-        }
-        documents={data?.documents}
-        employeePortalPreview={data?.employeePortalPreview}
-        categoryPortalVisibility={data?.categoryPortalVisibility}
-        baselineBackgroundColor={
-          (data?.keyContacts as any)?.cardBackgroundColor
-        }
-        completenessClientData={{
-          companyLogo: companyData?.companyLogo,
-          missionBody: companyData?.missionBody,
-          heroDescription: companyData?.heroDescription,
-          backgroundImg: heroBackgroundImg,
-          secondaryBannerImg: data?.secondaryBannerImg,
-          keyContacts,
-          documents: data?.documents,
-          employeePortalPreview: data?.employeePortalPreview,
-        }}
-      />
+      {!hideBenefits && (
+        <PortalBenefits
+          brandColor={brandColor}
+          secondaryColor={secondaryColor}
+          clientId={clientId}
+          keyContacts={keyContacts}
+          benefits={
+            data?.employeePortalPreview?.benefits ??
+            data?.employeePortalPreview?.previewData?.benefits
+          }
+          documents={data?.documents}
+          employeePortalPreview={data?.employeePortalPreview}
+          categoryPortalVisibility={data?.categoryPortalVisibility}
+          baselineBackgroundColor={
+            (data?.keyContacts as any)?.cardBackgroundColor
+          }
+          completenessClientData={{
+            companyLogo: companyData?.companyLogo,
+            missionBody: companyData?.missionBody,
+            heroDescription: companyData?.heroDescription,
+            backgroundImg: heroBackgroundImg,
+            secondaryBannerImg: data?.secondaryBannerImg,
+            keyContacts,
+            documents: data?.documents,
+            employeePortalPreview: data?.employeePortalPreview,
+          }}
+        />
+      )}
 
       {/* <motion.div
         variants={fadeRight}

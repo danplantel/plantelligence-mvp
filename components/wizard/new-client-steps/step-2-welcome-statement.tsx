@@ -926,7 +926,8 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
                 <ClientPortal
                   data={portalData}
                   hideHeader={true}
-                  hideFooter={false}
+                  hideFooter={true}
+                  hideBenefits={true}
                   clientId={draftClientId}
                 />
               </div>
@@ -947,7 +948,8 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
                 <ClientPortal
                   data={portalData}
                   hideHeader={true}
-                  hideFooter={false}
+                  hideFooter={true}
+                  hideBenefits={true}
                   clientId={draftClientId}
                 />
               </div>
