@@ -387,23 +387,6 @@ export function BrandingSetupCard({
           saveButtonText="Save Background Image"
           autoSizeOnOpen={true}
         />
-        {data.backgroundPreviewDataUrl && (
-          <div className="mt-4 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 rounded-lg p-4 flex flex-col items-center justify-center min-h-80">
-            <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-3">
-              Background Image Preview
-            </p>
-            <div className="flex items-center justify-center w-full flex-1">
-              <img
-                src={data.backgroundPreviewDataUrl}
-                alt="Background Image"
-                className="max-w-full max-h-72 object-cover rounded"
-                onError={(e) => {
-                  console.error("Failed to load background image:", e);
-                }}
-              />
-            </div>
-          </div>
-        )}
       </div>
 
     </div>
