@@ -10,10 +10,13 @@ import { ModalGallery } from "@/components/ui/modalGallery";
 import type {
   BrandImageData,
   CompanyLogoData,
+  WelcomeStatementData,
 } from "@/types/new-client-wizard";
 import { EditorPanelWrapper } from "./sections/components/editor-panel-wrapper";
 import { BannerSectionEditor } from "./sections/components/banner-section-editor";
 import { ThumbnailSectionEditor } from "./sections/components/thumbnail-section-editor";
+import { WelcomeStatementCard } from "./sections/components/welcome-statement-card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MissionSectionEditor } from "./sections/components/mission-section-editor";
 import { useEditorState } from "./sections/hooks/use-editor-state";
 import { useWelcomeData } from "./sections/hooks/use-welcome-data";
@@ -854,6 +857,49 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
                   onEditClick={thumbnailImage.handleThumbnailEditClick} onFileSelect={thumbnailImage.handleThumbnailFileSelect}
                 />
               </>
+            ),
+          },
+          {
+            title: "Hero Content",
+            content: (
+              <Card className="dark:bg-gray-800">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm dark:text-gray-100">Welcome Message</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <WelcomeStatementCard
+                    welcomeData={{
+                      headline: stepData.companyBasics?.heroTitle || welcomeData.headline || "",
+                      bodyText: stepData.companyBasics?.heroDescription || welcomeData.bodyText || "",
+                      isAIGenerated: false,
+                    }}
+                    companyName={stepData.companyBasics?.companyName || "Company Name"}
+                    errorFields={errorFields}
+                    useDefaultBody={useDefaultWelcomeMessage}
+                    onToggleDefaultBody={(checked) => {
+                      setUseDefaultWelcomeMessage(checked);
+                      if (checked) {
+                        handleCompanyDataChange("heroDescription", defaultWelcomeBodyText);
+                        updateField("bodyText", defaultWelcomeBodyText);
+                      } else {
+                        handleCompanyDataChange("heroDescription", "");
+                        updateField("bodyText", "");
+                      }
+                    }}
+                    defaultBodyText={defaultWelcomeBodyText}
+                    onHeadlineChange={(value) => {
+                      handleCompanyDataChange("heroTitle", value);
+                      updateField("headline", value);
+                    }}
+                    onBodyChange={(value) => {
+                      handleCompanyDataChange("heroDescription", value);
+                      updateField("bodyText", value);
+                    }}
+                    bannerTitleCardRef={bannerTitleCardRef}
+                    isBannerTitleHighlighted={isBannerTitleHighlighted}
+                  />
+                </CardContent>
+              </Card>
             ),
           },
           {
