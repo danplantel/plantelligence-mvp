@@ -637,16 +637,16 @@ export function Step5Summary({
           </CardHeader>
           <CardContent className="space-y-3">
             <div>
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <p className="text-sm font-bold text-gray-700 dark:text-gray-300">
                 Organization Type
               </p>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-muted-foreground">
                 {getOrganizationTypeDisplay()}
               </p>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Team Size</p>
-              <p className="text-sm text-gray-600 dark:text-gray-400">{getTeamSizeDisplay()}</p>
+              <p className="text-sm font-bold text-gray-700 dark:text-gray-300">Team Size</p>
+              <p className="text-sm text-muted-foreground">{getTeamSizeDisplay()}</p>
             </div>
           </CardContent>
         </Card>
@@ -674,8 +674,8 @@ export function Step5Summary({
           </CardHeader>
           <CardContent className="space-y-3">
             <div>
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Services</p>
-              <p className="text-sm text-gray-600 dark:text-gray-400">{getServicesDisplay()}</p>
+              <p className="text-sm font-bold text-gray-700 dark:text-gray-300">Services</p>
+              <p className="text-sm text-muted-foreground">{getServicesDisplay()}</p>
             </div>
           </CardContent>
         </Card>
@@ -702,25 +702,25 @@ export function Step5Summary({
           <CardContent className="space-y-3 flex justify-between">
             <div className="space-y-2">
               <div className="mt-4">
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <p className="text-sm font-bold text-gray-700 dark:text-gray-300">
                   Organization Name
                 </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-muted-foreground">
                   {stepData.clientProfile?.customOrganization ||
                     stepData.branding?.organizationName ||
                     "Not specified"}
                 </p>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <p className="text-sm font-bold text-gray-700 dark:text-gray-300">
                   Organization Website
                 </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-muted-foreground">
                   {stepData.branding?.website || "Not specified"}
                 </p>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Logo</p>
+                <p className="text-sm font-bold text-gray-700 dark:text-gray-300">Logo</p>
                 <div className="mt-2">
                   {stepData.branding?.logo ? (
                     <BrandingImage
@@ -736,7 +736,7 @@ export function Step5Summary({
                 </div>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Primary Color</p>
+                <p className="text-sm font-bold text-gray-700 dark:text-gray-300">Primary Color</p>
                 <div className="flex items-center gap-2">
                   <div
                     className="w-6 h-6 rounded border border-gray-300 dark:border-gray-600"
@@ -745,13 +745,13 @@ export function Step5Summary({
                         brandingPrimaryColor || stepData.branding?.primaryColor || "#1F3A60",
                     }}
                   ></div>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                  <span className="text-sm text-muted-foreground">
                     {getPrimaryColorDisplay()}
                   </span>
                 </div>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Secondary Color</p>
+                <p className="text-sm font-bold text-gray-700 dark:text-gray-300">Secondary Color</p>
                 <div className="flex items-center gap-2">
                   <div
                     className="w-6 h-6 rounded border border-gray-300 dark:border-gray-600"
@@ -760,7 +760,7 @@ export function Step5Summary({
                         brandingSecondaryColor || stepData.branding?.secondaryColor || "#4A90E2",
                     }}
                   ></div>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                  <span className="text-sm text-muted-foreground">
                     {getSecondaryColorDisplay()}
                   </span>
                 </div>
@@ -820,20 +820,20 @@ export function Step5Summary({
                 </div>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Name</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm font-bold text-gray-700 dark:text-gray-300">Name</p>
+                <p className="text-sm text-muted-foreground">
                   {stepData.userSetup?.name || "Not specified"}
                 </p>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Email</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm font-bold text-gray-700 dark:text-gray-300">Email</p>
+                <p className="text-sm text-muted-foreground">
                   {stepData.userSetup?.email || "Not specified"}
                 </p>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Phone</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm font-bold text-gray-700 dark:text-gray-300">Phone</p>
+                <p className="text-sm text-muted-foreground">
                   {formatPhoneNumber(stepData.userSetup?.phone || "")}
                   {stepData.userSetup?.phoneExtension && (
                     <span> Ext. {stepData.userSetup.phoneExtension}</span>
@@ -841,22 +841,22 @@ export function Step5Summary({
                 </p>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Title</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm font-bold text-gray-700 dark:text-gray-300">Title</p>
+                <p className="text-sm text-muted-foreground">
                   {stepData.userSetup?.title || "Not specified"}
                 </p>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Designations</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm font-bold text-gray-700 dark:text-gray-300">Designations</p>
+                <p className="text-sm text-muted-foreground">
                   {stepData.userSetup?.designations && stepData.userSetup.designations.length > 0
                     ? stepData.userSetup.designations.join(", ")
                     : "None"}
                 </p>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Save as Contact</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm font-bold text-gray-700 dark:text-gray-300">Save as Contact</p>
+                <p className="text-sm text-muted-foreground">
                   {stepData.userSetup?.saveAsContact !== false ? "Yes" : "No"}
                 </p>
               </div>
