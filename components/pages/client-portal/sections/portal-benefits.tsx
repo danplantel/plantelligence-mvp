@@ -333,8 +333,8 @@ export function PortalBenefits({
                   </Card>
                 ) : (
                   /* ── Live Benefit Card ── */
-                  <Card
-                    className={`text-center w-full max-w-full sm:max-w-[303px] h-full rounded-xl border border-[#E5E7EB] shadow-sm bg-white overflow-hidden flex flex-col transition-all duration-300 ease-in-out relative group ${
+                  <div
+                    className={`text-center w-full max-w-full sm:max-w-[303px] h-full rounded-xl ring-1 ring-[#E5E7EB] shadow-sm bg-white overflow-hidden flex flex-col transition-all duration-300 ease-in-out relative group ${
                       onEdit ? "cursor-pointer hover:-translate-y-2 hover:shadow-lg" : "hover:-translate-y-2 hover:shadow-lg"
                     }`}
                     onClick={(e) => {
@@ -344,13 +344,11 @@ export function PortalBenefits({
                     }}
                   >
                     {/* Image Section - Top */}
-                    <div className="w-full h-[180px] sm:h-[200px] overflow-hidden relative">
-                      <img
-                        src={benefit.image || ""}
-                        alt={benefit.title}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
+                    <img
+                      src={benefit.image || ""}
+                      alt={benefit.title}
+                      className="w-full h-[180px] sm:h-[200px] shrink-0 object-cover block rounded-t-xl relative bottom-4"
+                    />
 
                     {/* Content Section - Bottom (White Background) */}
                     <div className="flex-1 pb-4 sm:pb-5 flex flex-col justify-between bg-white">
@@ -427,7 +425,7 @@ export function PortalBenefits({
                         )}
                       </div>
                     </div>
-                  </Card>
+                  </div>
                 )}
               </motion.div>
             );
