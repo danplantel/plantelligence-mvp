@@ -366,6 +366,7 @@ export function UserSetupSection({
               data-field="designations"
               maxSelections={5}
               displayMode="chips"
+              showActionButtons
             />
           </div>
         )}
