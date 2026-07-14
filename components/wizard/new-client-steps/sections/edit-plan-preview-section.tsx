@@ -252,6 +252,7 @@ export function EditPlanPreviewSection({
   const logoCardRef = useRef<HTMLDivElement>(null);
   const overlaySettingsCardRef = useRef<HTMLDivElement>(null);
   const bannerTitleCardRef = useRef<HTMLDivElement>(null);
+  const editorScrollContainerRef = useRef<HTMLDivElement>(null);
 
   // ── Scale state and calculations (desktop only) ──
   const [scale, setScale] = useState(1);
@@ -328,6 +329,18 @@ export function EditPlanPreviewSection({
   const handleOpenEditor = useCallback(() => {
     setIsEditorOpen(true);
     setTimeout(() => setIsEditorAnimating(true), 10);
+  }, []);
+
+  const scrollEditorToSection = useCallback((sectionIndex: number) => {
+    const container = editorScrollContainerRef.current;
+    if (!container) return;
+    const sectionHeaders = container.querySelectorAll('[data-section-index]');
+    const target = sectionHeaders[sectionIndex];
+    if (target) {
+      setTimeout(() => {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 350);
+    }
   }, []);
 
   const handleToggleEditor = useCallback(() => {
@@ -657,13 +670,21 @@ export function EditPlanPreviewSection({
                   onHeroTitleClick={() => {
                     handleOpenEditor();
                     onCompanyDataChange("heroTitle", companyData?.heroTitle || "");
+                    scrollEditorToSection(1);
                   }}
                   onHeroDescriptionClick={() => {
                     handleOpenEditor();
                     onCompanyDataChange("heroDescription", companyData?.heroDescription || "");
+                    scrollEditorToSection(1);
                   }}
-                  onMissionHeadlineClick={() => handleOpenEditor()}
-                  onMissionBodyClick={() => handleOpenEditor()}
+                  onMissionHeadlineClick={() => {
+                    handleOpenEditor();
+                    scrollEditorToSection(2);
+                  }}
+                  onMissionBodyClick={() => {
+                    handleOpenEditor();
+                    scrollEditorToSection(2);
+                  }}
                 />
               </div>
             </MobilePreviewFrame>
@@ -683,13 +704,21 @@ export function EditPlanPreviewSection({
                   onHeroTitleClick={() => {
                     handleOpenEditor();
                     onCompanyDataChange("heroTitle", companyData?.heroTitle || "");
+                    scrollEditorToSection(1);
                   }}
                   onHeroDescriptionClick={() => {
                     handleOpenEditor();
                     onCompanyDataChange("heroDescription", companyData?.heroDescription || "");
+                    scrollEditorToSection(1);
                   }}
-                  onMissionHeadlineClick={() => handleOpenEditor()}
-                  onMissionBodyClick={() => handleOpenEditor()}
+                  onMissionHeadlineClick={() => {
+                    handleOpenEditor();
+                    scrollEditorToSection(2);
+                  }}
+                  onMissionBodyClick={() => {
+                    handleOpenEditor();
+                    scrollEditorToSection(2);
+                  }}
                 />
               </div>
             </div>

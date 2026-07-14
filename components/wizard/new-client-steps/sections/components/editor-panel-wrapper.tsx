@@ -94,7 +94,7 @@ export function EditorPanelWrapper({
         <div data-lenis-content className="space-y-4">
           {sections
             ? sections.map((section, i) => (
-                <div key={i}>
+                <div key={i} data-section-index={i}>
                   <SectionHeader number={i + 1} title={section.title} />
                   {section.content}
                 </div>
