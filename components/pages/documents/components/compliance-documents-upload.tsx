@@ -353,15 +353,6 @@ export function ComplianceDocumentsUpload({
     return () => clearTimeout(timeoutId);
   }, [retirementPlanDocuments, isWizardControlled]);
 
-  // Notify parent when document count increases (new docs added via review)
-  const prevDocCountRef = useRef(retirementPlanDocuments.length);
-  useEffect(() => {
-    if (!onDocumentsAdded) return;
-    if (retirementPlanDocuments.length > prevDocCountRef.current) {
-      onDocumentsAdded();
-    }
-    prevDocCountRef.current = retirementPlanDocuments.length;
-  }, [retirementPlanDocuments.length, onDocumentsAdded]);
 
   // Track previous clientId to detect changes
   const previousClientIdRef = useRef<string | undefined>(clientId);
@@ -485,6 +476,8 @@ export function ComplianceDocumentsUpload({
     }
 
     isPersistingRef.current = true;
+    // Notify parent that auto-persist has begun (e.g. to show a loading dialog)
+    onDocumentsAdded?.();
     persistNewDocumentsToApi(clientId, retirementPlanDocuments)
       .then((updated) => {
         setRetirementPlanDocuments(updated);
@@ -732,6 +725,9 @@ export function ComplianceDocumentsUpload({
       isSavingRef.current = false;
       return;
     }
+
+    // Notify parent that saving has begun (e.g. to show a loading dialog)
+    onDocumentsAdded?.();
 
     setIsSaving(true);
     try {

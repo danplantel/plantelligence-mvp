@@ -198,21 +198,29 @@ export function PortalWelcomeBanner({
     : containerGradientStyle;
 
   return (
-    <section className="relative overflow-hidden mt-10 min-h-[50vh] lg:min-h-screen text-white">
-      {/* Background layer — inside the section so it fills the section's full height,
-          including when the section grows beyond viewport height via min-h-screen. */}
-      <div className="absolute inset-0 z-0">
-        {isR2WelcomeBg && !background && backgroundLoading ? (
-          <div className="absolute inset-0 animate-pulse bg-muted/50" aria-hidden />
-        ) : welcomeBannerImgSrc ? (
-          <img
-            src={welcomeBannerImgSrc}
-            alt=""
-            className="w-full h-full object-cover"
+    <section className="relative isolate overflow-hidden min-h-[50vh] lg:min-h-screen text-white">
+      <div className="absolute inset-0">
+        <div className="absolute inset-0 z-0">
+          {isR2WelcomeBg && !background && backgroundLoading ? (
+            <div className="absolute inset-0 animate-pulse bg-muted/50" aria-hidden />
+          ) : welcomeBannerImgSrc ? (
+            <img
+              src={welcomeBannerImgSrc}
+              alt=""
+              className="w-full h-full object-cover pointer-events-none"
+            />
+          ) : null}
+          <div
+            className="absolute inset-0"
+            style={{
+              background: backgroundInverted
+                ? "rgba(255, 255, 255, 1)"
+                : "rgba(0, 0, 0, 1)",
+              opacity: 1 - backgroundOpacity,
+              isolation: "isolate",
+            }}
           />
-        ) : null}
-        {/* Overlay controls transparency */}
-        <div className="absolute inset-0" style={backgroundOverlayStyle} />
+        </div>
       </div>
 
       {variant === "health-hub" ? (
