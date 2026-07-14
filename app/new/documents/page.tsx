@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import {
   AlertTriangle, Clock, FileText, Download, Pencil, Trash2,
-  Eye, ArrowUpDown, ArrowUp, ArrowDown, LayoutGrid, List, Search, GripVertical, X,
+  Eye, ArrowUpDown, ArrowUp, ArrowDown, LayoutGrid, List, Search, GripVertical, X, ExternalLink,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { RetirementDocumentsAccordion, RetirementDocumentItem } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
@@ -211,7 +211,20 @@ function PlanSearchBar({
 
   return (
     <div className="space-y-2" ref={containerRef}>
-      <CardTitle className="text-2xl font-bold pb-2">View Documents</CardTitle>
+      <div className="flex items-center justify-between">
+        <CardTitle className="text-2xl font-bold">View Documents</CardTitle>
+        {value && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.open(`/new/view/${value}`, "_blank")}
+            className="gap-1.5 shrink-0 text-white bg-accent-blue hover:bg-accent-blue/80"
+          >
+            <ExternalLink className="h-4 w-4" />
+            Open Portal
+          </Button>
+        )}
+      </div>
       <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
         Select a plan
         <span className="text-red-500"> *</span>
