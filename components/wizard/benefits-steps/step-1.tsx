@@ -45,6 +45,7 @@ import {
   Info,
   Layout,
   AlertCircle,
+  ExternalLink,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -1494,12 +1495,27 @@ export function BenefitsStep1() {
       {/* 1. Plan & Benefit Selection */}
       <Card className="border border-gray-200 shadow-sm bg-card dark:bg-gray-800 dark:border-gray-700">
         <CardHeader className="pb-4">
-          <CardTitle className="text-lg text-gray-900 font-bold dark:text-gray-100">
-            Plan & Benefit Selection
-          </CardTitle>
-          <CardDescription className="text-sm text-gray-600 text-muted-foreground">
-            Choose which plan and benefit category you want to configure.
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-lg text-gray-900 font-bold dark:text-gray-100">
+                Plan & Benefit Selection
+              </CardTitle>
+              <CardDescription className="text-sm text-gray-600 text-muted-foreground">
+                Choose which plan and benefit category you want to configure.
+              </CardDescription>
+            </div>
+            {resolvedPlanId && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(`/new/view/${resolvedPlanId}`, "_blank")}
+                className="gap-1.5 shrink-0 bg-accent-blue text-white hover:bg-accent-blue/90"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Open Portal
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-5">
           {/* Plan Selector */}
