@@ -40,6 +40,7 @@ import {
   Clock,
   Building2,
   Play,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -464,6 +465,25 @@ export default function WebinarsPage() {
                 </Select>
                 {errors.client && (
                   <p className="text-sm text-red-500">This field is required</p>
+                )}
+                {formData.client && (
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const clientId = clients.find(
+                          (c) => c.companyName === formData.client
+                        )?.id;
+                        if (clientId) window.open(`/new/view/${clientId}`, "_blank");
+                      }}
+                      className="gap-1.5 bg-accent-blue text-white hover:bg-accent-blue/90"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      Open Portal
+                    </Button>
+                  </div>
                 )}
               </div>
 

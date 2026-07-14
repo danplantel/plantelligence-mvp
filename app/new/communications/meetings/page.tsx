@@ -60,6 +60,7 @@ import {
   CheckCircle,
   Search,
   Loader2,
+  ExternalLink,
 } from "lucide-react";
 import { format } from "date-fns";
 import { formatUsDate } from "@/lib/date";
@@ -316,7 +317,20 @@ function PlanSearchBar({ plans, value, onChange, disabled }: { plans: Client[]; 
   };
   return (
     <div className="space-y-2" ref={containerRef}>
-      <CardTitle className="text-2xl font-bold pb-2">Meeting Sessions</CardTitle>
+      <div className="flex items-center justify-between">
+        <CardTitle className="text-2xl font-bold">Meeting Sessions</CardTitle>
+        {value && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.open(`/new/view/${value}`, "_blank")}
+            className="gap-1.5 shrink-0 bg-accent-blue text-white hover:bg-accent-blue/90"
+          >
+            <ExternalLink className="h-4 w-4" />
+            Open Portal
+          </Button>
+        )}
+      </div>
       <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Select a plan<span className="text-red-500"> *</span></label>
 
       {/* Recent Plans chips (same style as benefits page) */}

@@ -19,7 +19,8 @@ import {
 } from "@/components/ui/accordion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { Search, Clock, ChevronDown, Loader2, Trash2, Eye } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Search, Clock, ChevronDown, Loader2, Trash2, Eye, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
@@ -226,7 +227,20 @@ function PlanSearchBar({
 
   return (
     <div className="space-y-2" ref={containerRef}>
-      <CardTitle className="text-2xl font-bold pb-2">Marketing</CardTitle>
+      <div className="flex items-center justify-between">
+        <CardTitle className="text-2xl font-bold">Marketing</CardTitle>
+        {value && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.open(`/new/view/${value}`, "_blank")}
+            className="gap-1.5 shrink-0 bg-accent-blue text-white hover:bg-accent-blue/90"
+          >
+            <ExternalLink className="h-4 w-4" />
+            Open Portal
+          </Button>
+        )}
+      </div>
       <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
         Select a plan
         <span className="text-red-500"> *</span>
