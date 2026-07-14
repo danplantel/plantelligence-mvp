@@ -1834,8 +1834,8 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
               companyName: client.companyName,
               companyWebsite: client.companyWebsite || "",
               companyLogo,
-              primaryColor: client.brandColor || "#1F3A60",
-              secondaryColor: client.secondaryColor || "#6B7280",
+              primaryColor: client.brandColor || "",
+              secondaryColor: client.secondaryColor || "",
               brandImages: {
                 header: client.backgroundImg
                   ? {

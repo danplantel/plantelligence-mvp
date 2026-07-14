@@ -45,8 +45,8 @@ export async function POST(request: NextRequest) {
         companyWebsite: data.companyData?.companyWebsite || '',
         companyLogo: data.companyData?.companyLogo || '',
         logoFileName: data.companyData?.logoFileName || '',
-        primaryColor: data.companyData?.brandColor || '#1F3A60',
-        secondaryColor: data.companyData?.secondaryColor || '#6B7280',
+        primaryColor: data.companyData?.brandColor || '',
+        secondaryColor: data.companyData?.secondaryColor || '',
         brandImages: [],
         updatedAt: new Date(),
       },
@@ -56,8 +56,8 @@ export async function POST(request: NextRequest) {
         companyWebsite: data.companyData?.companyWebsite || '',
         companyLogo: data.companyData?.companyLogo || '',
         logoFileName: data.companyData?.logoFileName || '',
-        primaryColor: data.companyData?.brandColor || '#1F3A60',
-        secondaryColor: data.companyData?.secondaryColor || '#6B7280',
+        primaryColor: data.companyData?.brandColor || '',
+        secondaryColor: data.companyData?.secondaryColor || '',
         brandImages: [],
       }
     });

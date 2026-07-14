@@ -43,8 +43,8 @@ const normalizeCompanyBasicsData = (
   companyName: data?.companyName || "",
   companyWebsite: data?.companyWebsite || "",
   companyLogo: data?.companyLogo || null,
-  primaryColor: data?.primaryColor || "#1F3A60",
-  secondaryColor: data?.secondaryColor || "#6B7280",
+  primaryColor: data?.primaryColor || "",
+  secondaryColor: data?.secondaryColor || "",
   brandImages: {
     header: data?.brandImages?.header || defaultBrandImages.header,
     thumbnail: data?.brandImages?.thumbnail || defaultBrandImages.thumbnail,
@@ -165,8 +165,9 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
   };
 
   const validateHexColor = (value: string, label: string): string | null => {
+    if (!value || value.trim() === "") return null; // optional until logo is uploaded
     const hexColorRegex = /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/;
-    if (!value || !hexColorRegex.test(value)) return `${label} must be a valid hex color (e.g., #1F3A60)`;
+    if (!hexColorRegex.test(value)) return `${label} must be a valid hex color (e.g., #1F3A60)`;
     return null;
   };
 
@@ -792,10 +793,10 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                           updateField("isSecondaryColorPickerOpen", false);
                         }
                       }}
-                      className={`w-9 h-9 border rounded cursor-pointer flex items-center justify-center ${isFieldInvalid("primaryColor") ? "border-red-500" : "border-gray-300 dark:border-gray-600"}`}
-                      style={{ background: companyData.primaryColor }}
+                      className={`w-9 h-9 border rounded cursor-pointer flex items-center justify-center ${isFieldInvalid("primaryColor") ? "border-red-500" : companyData.primaryColor ? "border-gray-300 dark:border-gray-600" : "border-dashed border-gray-400 dark:border-gray-500"}`}
+                      style={{ background: companyData.primaryColor || "transparent" }}
                     >
-                      <div className="w-4 h-4 rounded border border-white/20" />
+                      <div className={`w-4 h-4 rounded ${companyData.primaryColor ? "border border-white/20" : "border border-gray-400 dark:border-gray-500"}`} />
                     </button>
                     <Input
                       icon={<Palette className="h-4 w-4" />}
@@ -811,7 +812,7 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                         markTouched("primaryColor");
                         setFieldError("primaryColor", validateHexColor(companyData.primaryColor, "Primary color"));
                       }}
-                      placeholder="#1F3A60"
+                      placeholder="#..."
                       className="flex-1"
                       destructive={isFieldInvalid("primaryColor")}
                     />
@@ -859,10 +860,10 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                           updateField("isPrimaryColorPickerOpen", false);
                         }
                       }}
-                      className={`w-9 h-9 border rounded cursor-pointer flex items-center justify-center ${isFieldInvalid("secondaryColor") ? "border-red-500" : "border-gray-300 dark:border-gray-600"}`}
-                      style={{ background: companyData.secondaryColor }}
+                      className={`w-9 h-9 border rounded cursor-pointer flex items-center justify-center ${isFieldInvalid("secondaryColor") ? "border-red-500" : companyData.secondaryColor ? "border-gray-300 dark:border-gray-600" : "border-dashed border-gray-400 dark:border-gray-500"}`}
+                      style={{ background: companyData.secondaryColor || "transparent" }}
                     >
-                      <div className="w-4 h-4 rounded border border-white/20" />
+                      <div className={`w-4 h-4 rounded ${companyData.secondaryColor ? "border border-white/20" : "border border-gray-400 dark:border-gray-500"}`} />
                     </button>
                     <Input
                       icon={<Palette className="h-4 w-4" />}
@@ -878,7 +879,7 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                         markTouched("secondaryColor");
                         setFieldError("secondaryColor", validateHexColor(companyData.secondaryColor, "Secondary color"));
                       }}
-                      placeholder="#4A90E2"
+                      placeholder="#..."
                       className="flex-1"
                       destructive={isFieldInvalid("secondaryColor")}
                     />

@@ -50,18 +50,6 @@ export function mergeAdvisorProfileIntoWizardStepData(
     if (link) cb.companyWebsite = link;
   }
 
-  const branding = profile.wizardSessions?.[0]?.branding;
-  if (branding?.primaryColor?.trim()) {
-    if (!cb.primaryColor || cb.primaryColor === "#1F3A60") {
-      cb.primaryColor = branding.primaryColor;
-    }
-  }
-  if (branding?.secondaryColor?.trim()) {
-    if (!cb.secondaryColor || cb.secondaryColor === "#6B7280") {
-      cb.secondaryColor = branding.secondaryColor;
-    }
-  }
-
   const wsExisting = (stepData.welcomeStatement || {}) as Partial<WelcomeStatementData>;
   const welcomeStatement: WelcomeStatementData = {
     headline: wsExisting.headline ?? "",

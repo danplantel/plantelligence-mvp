@@ -99,8 +99,8 @@ export function useEditClient() {
     companyName: "",
     companyWebsite: "",
     companyLogo: null,
-    primaryColor: "#1F3A60",
-    secondaryColor: "#6B7280",
+    primaryColor: "",
+    secondaryColor: "",
     brandImages: {
       header: null,
       thumbnail: null,
@@ -281,8 +281,8 @@ export function useEditClient() {
               hasTransparency: false,
               warnings: []
             } : null,
-            primaryColor: result.data.brandColor || "#1F3A60",
-            secondaryColor: result.data.secondaryColor || "#6B7280",
+            primaryColor: result.data.brandColor || "",
+            secondaryColor: result.data.secondaryColor || "",
             brandImages: brandImagesData,
             isPrimaryColorPickerOpen: false,
             isSecondaryColorPickerOpen: false,
