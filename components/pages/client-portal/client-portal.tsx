@@ -65,6 +65,8 @@ interface ClientPortalProps {
   clientId?: string;
   onHeroTitleClick?: () => void;
   onHeroDescriptionClick?: () => void;
+  onMissionHeadlineClick?: () => void;
+  onMissionBodyClick?: () => void;
 }
 
 export function ClientPortal({
@@ -77,6 +79,8 @@ export function ClientPortal({
   clientId,
   onHeroTitleClick,
   onHeroDescriptionClick,
+  onMissionHeadlineClick,
+  onMissionBodyClick,
 }: ClientPortalProps) {
   const companyData = data?.companyData;
   const keyContacts = data?.keyContacts || [];
@@ -147,12 +151,16 @@ export function ClientPortal({
         containerInverted={companyData?.heroContainerInverted ?? false}
         backgroundInverted={companyData?.heroBackgroundInverted ?? false}
         useGradient={companyData?.heroUseGradient ?? false}
+        onHeroTitleClick={onHeroTitleClick}
+        onHeroDescriptionClick={onHeroDescriptionClick}
       />
 
       <PortalMission
         company={companyData}
         brandColor={brandColor}
         secondaryColor={secondaryColor}
+        onMissionHeadlineClick={onMissionHeadlineClick}
+        onMissionBodyClick={onMissionBodyClick}
       />
 
       {!hideBenefits && (

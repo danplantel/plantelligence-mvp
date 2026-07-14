@@ -1,7 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useRef } from "react";
+import { useRef, useState, KeyboardEvent } from "react";
+import { Pencil } from "lucide-react";
 import { BrandingImage } from "@/components/ui/branding-image";
 
 interface PortalMissionProps {
@@ -14,14 +15,30 @@ interface PortalMissionProps {
   };
   brandColor?: string;
   secondaryColor?: string;
+  onMissionHeadlineClick?: () => void;
+  onMissionBodyClick?: () => void;
 }
 
 export function PortalMission({
   company,
   brandColor = "#1F3A60",
   secondaryColor = "#6B7280",
+  onMissionHeadlineClick,
+  onMissionBodyClick,
 }: PortalMissionProps) {
   const sectionRef = useRef<HTMLElement>(null);
+  const [hoveredElement, setHoveredElement] = useState<string | null>(null);
+
+  const handleInteractiveKeyDown = (
+    event: KeyboardEvent<HTMLElement>,
+    handler?: () => void,
+  ) => {
+    if (!handler) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      handler();
+    }
+  };
 
   const fadeLeft = {
     hidden: { opacity: 0, x: -40 },
@@ -83,17 +100,69 @@ export function PortalMission({
           className="w-full"
         >
           <div className="flex flex-col justify-center p-4 sm:p-6 lg:p-10">
-            <h2
-              className="mb-4 sm:mb-5 font-dm-serif text-xl sm:text-2xl md:text-3xl lg:text-[34px] leading-tight"
-              style={{ color: brandColor }}
-            >
-              {company?.missionHeadline ||
-                "We care about people. We value teamwork. We deliver results."}
-            </h2>
-            <p className="text-[#6B6B6B] font-red-hat sm:text-base lg:text-[1.3em] leading-[1.8] mb-4 sm:mb-5">
-              {company?.missionBody ||
-                "At Company Name, this employee benefits portal is one way we show our commitment to supporting you—in work, in life, and beyond. It reflects our foundation of integrity, service, and care by making it easier to access the resources, tools, and information you need. As we continue to grow and evolve, this portal reinforces our promise to invest in your well-being and success every step of the way."}
-            </p>
+            <div className="relative">
+              <h2
+                className={`mb-4 sm:mb-5 font-dm-serif text-xl sm:text-2xl md:text-3xl lg:text-[34px] leading-tight ${onMissionHeadlineClick
+                  ? "cursor-pointer transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/70"
+                  : ""
+                  }`}
+                style={{ color: brandColor }}
+                role={onMissionHeadlineClick ? "button" : undefined}
+                tabIndex={onMissionHeadlineClick ? 0 : undefined}
+                onClick={(e) => {
+                  if (onMissionHeadlineClick) {
+                    e.stopPropagation();
+                    onMissionHeadlineClick();
+                  }
+                }}
+                onKeyDown={(event: KeyboardEvent<HTMLHeadingElement>) =>
+                  handleInteractiveKeyDown(event, onMissionHeadlineClick)
+                }
+                onMouseEnter={() => setHoveredElement("headline")}
+                onMouseLeave={() => setHoveredElement(null)}
+                onFocus={() => setHoveredElement("headline")}
+                onBlur={() => setHoveredElement(null)}
+              >
+                {company?.missionHeadline ||
+                  "We care about people. We value teamwork. We deliver results."}
+              </h2>
+              {onMissionHeadlineClick && hoveredElement === "headline" && (
+                <div className="absolute top-[-7px] left-[-7px] z-20 bg-blue-500 rounded-full p-1.5 shadow-lg">
+                  <Pencil className="w-3 h-3 text-white" />
+                </div>
+              )}
+            </div>
+            <div className="relative">
+              <p
+                className={`text-[#6B6B6B] font-red-hat sm:text-base lg:text-[1.3em] leading-[1.8] mb-4 sm:mb-5 ${onMissionBodyClick
+                  ? "cursor-pointer transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/70"
+                  : ""
+                  }`}
+                role={onMissionBodyClick ? "button" : undefined}
+                tabIndex={onMissionBodyClick ? 0 : undefined}
+                onClick={(e) => {
+                  if (onMissionBodyClick) {
+                    e.stopPropagation();
+                    onMissionBodyClick();
+                  }
+                }}
+                onKeyDown={(event: KeyboardEvent<HTMLParagraphElement>) =>
+                  handleInteractiveKeyDown(event, onMissionBodyClick)
+                }
+                onMouseEnter={() => setHoveredElement("body")}
+                onMouseLeave={() => setHoveredElement(null)}
+                onFocus={() => setHoveredElement("body")}
+                onBlur={() => setHoveredElement(null)}
+              >
+                {company?.missionBody ||
+                  "At Company Name, this employee benefits portal is one way we show our commitment to supporting you—in work, in life, and beyond. It reflects our foundation of integrity, service, and care by making it easier to access the resources, tools, and information you need. As we continue to grow and evolve, this portal reinforces our promise to invest in your well-being and success every step of the way."}
+              </p>
+              {onMissionBodyClick && hoveredElement === "body" && (
+                <div className="absolute top-[-7px] left-[-7px] z-20 bg-blue-500 rounded-full p-1.5 shadow-lg">
+                  <Pencil className="w-3 h-3 text-white" />
+                </div>
+              )}
+            </div>
             <button
               onClick={handleScrollDown}
               className="w-full sm:w-auto px-5 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm md:text-base text-white uppercase font-semibold rounded-md transition-colors duration-200 hover:opacity-90"

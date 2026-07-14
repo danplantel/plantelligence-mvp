@@ -654,6 +654,16 @@ export function EditPlanPreviewSection({
                   hideHeader={true}
                   hideFooter={false}
                   clientId={clientId}
+                  onHeroTitleClick={() => {
+                    handleOpenEditor();
+                    onCompanyDataChange("heroTitle", companyData?.heroTitle || "");
+                  }}
+                  onHeroDescriptionClick={() => {
+                    handleOpenEditor();
+                    onCompanyDataChange("heroDescription", companyData?.heroDescription || "");
+                  }}
+                  onMissionHeadlineClick={() => handleOpenEditor()}
+                  onMissionBodyClick={() => handleOpenEditor()}
                 />
               </div>
             </MobilePreviewFrame>
@@ -670,6 +680,16 @@ export function EditPlanPreviewSection({
                   hideHeader={true}
                   hideFooter={false}
                   clientId={clientId}
+                  onHeroTitleClick={() => {
+                    handleOpenEditor();
+                    onCompanyDataChange("heroTitle", companyData?.heroTitle || "");
+                  }}
+                  onHeroDescriptionClick={() => {
+                    handleOpenEditor();
+                    onCompanyDataChange("heroDescription", companyData?.heroDescription || "");
+                  }}
+                  onMissionHeadlineClick={() => handleOpenEditor()}
+                  onMissionBodyClick={() => handleOpenEditor()}
                 />
               </div>
             </div>

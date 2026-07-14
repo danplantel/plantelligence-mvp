@@ -975,6 +975,18 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
                   hideFooter={true}
                   hideBenefits={true}
                   clientId={draftClientId}
+                  onHeroTitleClick={() => handleOpenHeroTextEditor("title")}
+                  onHeroDescriptionClick={() => handleOpenHeroTextEditor("description")}
+                  onMissionHeadlineClick={() => {
+                    editorState.setFocusedTextField("headline");
+                    editorState.setIsEditorOpen(true);
+                    setTimeout(() => editorState.setIsEditorAnimating(true), 10);
+                  }}
+                  onMissionBodyClick={() => {
+                    editorState.setFocusedTextField("body");
+                    editorState.setIsEditorOpen(true);
+                    setTimeout(() => editorState.setIsEditorAnimating(true), 10);
+                  }}
                 />
               </div>
             </MobilePreviewFrame>
@@ -997,6 +1009,18 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
                   hideFooter={true}
                   hideBenefits={true}
                   clientId={draftClientId}
+                  onHeroTitleClick={() => handleOpenHeroTextEditor("title")}
+                  onHeroDescriptionClick={() => handleOpenHeroTextEditor("description")}
+                  onMissionHeadlineClick={() => {
+                    editorState.setFocusedTextField("headline");
+                    editorState.setIsEditorOpen(true);
+                    setTimeout(() => editorState.setIsEditorAnimating(true), 10);
+                  }}
+                  onMissionBodyClick={() => {
+                    editorState.setFocusedTextField("body");
+                    editorState.setIsEditorOpen(true);
+                    setTimeout(() => editorState.setIsEditorAnimating(true), 10);
+                  }}
                 />
               </div>
             </div>
