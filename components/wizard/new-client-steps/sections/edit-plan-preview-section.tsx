@@ -647,7 +647,7 @@ export function EditPlanPreviewSection({
         {/* Scrollable preview content */}
         <div
           ref={scrollableRef}
-          className="flex-1 overflow-y-auto bg-gray-300 dark:bg-gray-950"
+          className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-300 dark:bg-gray-950 flex flex-col items-center"
         >
           {previewMode === "mobile" ? (
             <MobilePreviewFrame width={MOBILE_WIDTH}>
@@ -689,11 +689,14 @@ export function EditPlanPreviewSection({
               </div>
             </MobilePreviewFrame>
           ) : (
-            <div style={{ width: "100%" }}>
+            <div style={{ height: scaledHeight != null ? `${scaledHeight}px` : "100%" }}>
               <div
                 ref={previewContentRef}
                 style={{
-                  width: "100%",
+                  transform: `scale(${scale})`,
+                  transformOrigin: "center top",
+                  width: `${DESKTOP_WIDTH}px`,
+                  overflowX: "hidden",
                 }}
               >
                 <ClientPortal
