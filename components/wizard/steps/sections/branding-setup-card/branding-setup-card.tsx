@@ -219,18 +219,26 @@ export function BrandingSetupCard({
           icon={<ImageIcon className="w-4 h-4" />}
           value={logo}
           fileName={logoFileName}
+          previewDataUrl={data.logoPreviewDataUrl}
           onChange={async (value, fileName, headshotData) => {
-            // CRITICAL: Extract colors from logo FIRST, so that primaryColor/secondaryColor
-            // are persisted to the store BEFORE onDataChange saves the branding data.
-            // Otherwise the branding data gets saved with stale default colors.
             const previewDataUrl: string | undefined =
               (headshotData as any)?.previewDataUrl;
             const previewSrc = previewDataUrl || (value?.startsWith("data:") ? value : undefined);
+
+            // SET the preview data URL IMMEDIATELY (synchronously, before any
+            // await) so that when the modal closes ~500ms later the trigger-area
+            // preview renders from the data URL instead of falling back to the
+            // slow async R2 proxy fetch.  The color-extraction and onLogoPreview
+            // callbacks are async and can take 5+ seconds each; we cannot wait
+            // for them before making the preview URL available.
             if (previewSrc) {
-              // Extract colors directly from the logo data URL (inline, like
-              // step-1-company-basics.tsx does).  This guarantees colors are
-              // extracted even when the parent does not supply an onLogoPreview
-              // callback (e.g. the Settings page).
+              onDataChange("logoPreviewDataUrl", previewSrc);
+            }
+
+            if (previewSrc) {
+              // Extract colors directly from the logo data URL.  This runs
+              // after we've already queued logoPreviewDataUrl, so the trigger
+              // preview updates without waiting for colour extraction.
               try {
                 const colors = await extractColorsFromImage(previewSrc);
                 onDataChange("primaryColor", colors.primary);
@@ -241,7 +249,6 @@ export function BrandingSetupCard({
               if (onLogoPreview) {
                 await onLogoPreview(previewSrc);
               }
-              onDataChange("logoPreviewDataUrl", previewSrc);
             }
             // Now save the logo/data – the extracted colors are already in the store
             onDataChange("logo", value);
@@ -354,6 +361,7 @@ export function BrandingSetupCard({
           icon={<ImageIcon className="w-4 h-4" />}
           value={data.backgroundImage || ""}
           fileName={data.backgroundFileName || ""}
+          previewDataUrl={data.backgroundPreviewDataUrl}
           onChange={(value, fileName, headshotData) => {
             onDataChange("backgroundImage", value);
             onDataChange("backgroundFileName", fileName);

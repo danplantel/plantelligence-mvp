@@ -202,6 +202,15 @@ interface UniversalImageEditorModalProps {
   // Hide "Perfect" message
   hidePerfectMessage?: boolean;
   forceCircularGuidelines?: boolean;
+
+  /**
+   * Immediate data URL for the trigger-area preview.
+   * When provided, the trigger shows this data URL instead of waiting for
+   * the async R2 URL resolution via useBrandingImageUrl(value).
+   * This eliminates the preview delay when the caller already has a data URL
+   * (e.g. from a previous upload or the editor crop output).
+   */
+  previewDataUrl?: string;
 }
 
 async function validateImage(
@@ -282,6 +291,7 @@ export function UniversalImageEditorModal({
   autoSizeOnOpen = false,
   hidePerfectMessage = false,
   forceCircularGuidelines = false,
+  previewDataUrl,
 }: UniversalImageEditorModalProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -363,10 +373,15 @@ export function UniversalImageEditorModal({
     canvasMode === "compact" ? 300 : config.canvasHeight,
   );
 
-  // Resolve R2 branding keys to displayable URLs for the trigger area preview
+  // Resolve R2 branding keys to displayable URLs for the trigger area preview.
+  // If the caller provides a previewDataUrl (e.g. a cached data URL from initial
+  // upload or the editor crop output), use it immediately to avoid waiting for
+  // the async R2 URL resolution — which can cause a visible flash/delay.
   const { url: displayUrl } = useBrandingImageUrl(value);
   const isStoredR2Key = toR2BrandingKey(value) != null;
-  const previewSrc = isStoredR2Key ? (displayUrl ?? undefined) : (displayUrl ?? value ?? undefined);
+  const previewSrc =
+    previewDataUrl ??
+    (isStoredR2Key ? (displayUrl ?? undefined) : (displayUrl ?? value ?? undefined));
 
   // Check if headshot image is cropped (for headshot type only)
   const checkHeadshotCropping = useCallback(() => {

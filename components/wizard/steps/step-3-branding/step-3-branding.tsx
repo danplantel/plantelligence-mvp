@@ -1,6 +1,31 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { toR2BrandingKey } from "@/lib/branding-image-url";
+
+/**
+ * Module-level cache for preview DataURLs keyed by R2 object key.
+ * Survives React component unmount/remount within the same page load,
+ * so navigating away from step 3 and back shows the logo/background
+ * preview immediately without waiting for the async R2 proxy fetch.
+ *
+ * The Zustand store explicitly strips base64 data from persistence
+ * (removeBase64Data in onboarding-wizard-store.ts), so we cannot
+ * rely on the store for this — module scope is the right level.
+ */
+const previewDataUrlCache = new Map<string, string>();
+
+function cachePreviewDataUrl(r2Key: string | null | undefined, dataUrl: string): void {
+  if (r2Key && dataUrl.startsWith("data:")) {
+    previewDataUrlCache.set(r2Key, dataUrl);
+  }
+}
+
+function getCachedPreviewDataUrl(value: string | null | undefined): string | undefined {
+  if (!value) return undefined;
+  const r2Key = toR2BrandingKey(value);
+  return r2Key ? previewDataUrlCache.get(r2Key) : undefined;
+}
 import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
@@ -57,16 +82,21 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
    const { setValue, watch } = methods;
    const watchedData = watch();
    const [logo, setLogo] = useState(stepData.branding?.logo || "");
-   // Decoupled preview DataURLs – never seeded from R2 keys, only set by
-   // onLogoPreview / onChange callbacks that pass actual displayable URLs.
-   const [logoPreviewDataUrl, setLogoPreviewDataUrl] = useState("");
+   // Preview DataURLs – seeded from the module-level cache on mount so that
+   // navigating back to step 3 within the same page load shows the logo and
+   // background image immediately, without waiting for the async R2 proxy fetch.
+   const [logoPreviewDataUrl, setLogoPreviewDataUrl] = useState(
+     getCachedPreviewDataUrl(stepData.branding?.logo) ?? "",
+   );
    const [logoFileName, setLogoFileName] = useState(
      stepData.branding?.logoFileName || "",
    );
    const [backgroundImage, setBackgroundImage] = useState(
      stepData.branding?.backgroundImage || "",
    );
-   const [backgroundPreviewDataUrl, setBackgroundPreviewDataUrl] = useState("");
+   const [backgroundPreviewDataUrl, setBackgroundPreviewDataUrl] = useState(
+     getCachedPreviewDataUrl(stepData.branding?.backgroundImage) ?? "",
+   );
    const [backgroundFileName, setBackgroundFileName] = useState(
      stepData.branding?.backgroundFileName || "",
    );
@@ -101,6 +131,11 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
 
   // Ref to store the latest logo value
   const latestLogoRef = useRef<string>("");
+
+  // Refs to track preview DataURLs so the caching logic in onDataChange can
+  // always read the latest value (React state may be stale due to batching).
+  const logoPreviewDataUrlRef = useRef("");
+  const backgroundPreviewDataUrlRef = useRef("");
 
   const [isPrimaryColorPickerOpen, setIsPrimaryColorPickerOpen] = useState(false);
   const [isSecondaryColorPickerOpen, setIsSecondaryColorPickerOpen] = useState(false);
@@ -301,6 +336,7 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
             errorFields={errorFields}
             onLogoPreview={async (dataUrl) => {
             setLogoPreviewDataUrl(dataUrl);
+              logoPreviewDataUrlRef.current = dataUrl;
               try {
                 const colors = await extractColorsFromImage(dataUrl);
                 setPrimaryColor(colors.primary);
@@ -368,16 +404,31 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
 
                if (field === "logo") {
                  latestLogoRef.current = value;
+                 // Cache the preview data URL against the new R2 key so that
+                 // navigating away and back within the same page load shows
+                 // the preview immediately.  Uses the ref because React state
+                 // (logoPreviewDataUrl) may still be stale due to batching.
+                 if (logoPreviewDataUrlRef.current) {
+                   cachePreviewDataUrl(value, logoPreviewDataUrlRef.current);
+                 }
                  // Do NOT overwrite logoPreview here — onLogoPreview already
                  // set it to the data URL. The R2 key is not a valid image src.
                }
 
                if (field === "logoPreviewDataUrl") {
                  setLogoPreviewDataUrl(value);
+                 logoPreviewDataUrlRef.current = value;
                }
 
                if (field === "backgroundPreviewDataUrl") {
                  setBackgroundPreviewDataUrl(value);
+                 backgroundPreviewDataUrlRef.current = value;
+               }
+
+               if (field === "backgroundImage") {
+                 if (backgroundPreviewDataUrlRef.current) {
+                   cachePreviewDataUrl(value, backgroundPreviewDataUrlRef.current);
+                 }
                }
 
               // Read latest branding data from store to avoid stale React state
@@ -453,8 +504,10 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
 
                 if (field === "logo") {
                   setLogoPreviewDataUrl(result);
+                  logoPreviewDataUrlRef.current = result;
                 } else if (field === "backgroundImage") {
                   setBackgroundPreviewDataUrl(result);
+                  backgroundPreviewDataUrlRef.current = result;
                 }
 
                 const fileHandlers = createFileHandlers(
@@ -515,9 +568,11 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
               if (field === "logo") {
                 removeHandlers.logo?.();
                 setLogoPreviewDataUrl("");
+                logoPreviewDataUrlRef.current = "";
               } else if (field === "backgroundImage") {
                 removeHandlers.background?.();
                 setBackgroundPreviewDataUrl("");
+                backgroundPreviewDataUrlRef.current = "";
               }
               
               await saveData();
