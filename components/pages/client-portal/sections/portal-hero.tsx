@@ -20,6 +20,7 @@ interface PortalHeroProps {
   onHeroDescriptionClick?: () => void;
   onContainerClick?: () => void;
   onBackgroundClick?: () => void;
+  showEditIndicators?: boolean;
   heroTitleSlot?: React.ReactNode;
   heroDescriptionSlot?: React.ReactNode;
   backgroundOpacity?: number; // Controls background image brightness (0-1)
@@ -39,6 +40,7 @@ export function PortalHero({
   onHeroTitleClick,
   onHeroDescriptionClick,
   onContainerClick,
+  onBackgroundClick,
   heroTitleSlot,
   heroDescriptionSlot,
   backgroundOpacity = 1.0,
@@ -47,7 +49,7 @@ export function PortalHero({
   containerInverted = false,
   backgroundInverted = false,
   useGradient = false,
-  onBackgroundClick,
+  showEditIndicators = true,
 }: PortalHeroProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const [hoveredElement, setHoveredElement] = useState<
@@ -98,12 +100,11 @@ export function PortalHero({
     ? backgroundImg ?? undefined
     : (backgroundImg ?? backgroundImgRaw) || undefined;
   const hasBackgroundImage = Boolean(backgroundImgRaw?.trim());
-  const isEditable = Boolean(
+  const isEditable = Boolean(showEditIndicators && (
     onHeroTitleClick ||
     onHeroDescriptionClick ||
-    onContainerClick ||
-    onBackgroundClick,
-  );
+    onContainerClick
+  ));
 
   const handleInteractiveKeyDown = (
     event: KeyboardEvent<HTMLElement>,
@@ -308,9 +309,9 @@ export function PortalHero({
             {heroTitleSlot || (
               <h1
                 className={`text-content mb-4 sm:mb-6 font-dm-serif text-3xl sm:text-4xl md:text-5xl lg:text-[48px] w-full sm:w-4/5 relative z-10 ${onHeroTitleClick
-                  ? `cursor-pointer transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${hoveredElement === "title"
+                  ? `cursor-pointer transition-all ${showEditIndicators ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 " : ""}${showEditIndicators && hoveredElement === "title"
                     ? "opacity-90 ring-2 ring-blue-500/50 rounded-md px-2 -mx-2"
-                    : "hover:opacity-90"
+                    : showEditIndicators ? "hover:opacity-90" : ""
                   }`
                   : ""
                   }`}
@@ -319,7 +320,7 @@ export function PortalHero({
                 }}
                 onMouseEnter={(e) => {
                   e.stopPropagation();
-                  if (onHeroTitleClick) {
+                  if (showEditIndicators && onHeroTitleClick) {
                     setHoveredElement("title");
                   }
                 }}
@@ -331,7 +332,7 @@ export function PortalHero({
                 {...titleInteractiveProps}
               >
                 {/* Edit icon indicator */}
-                {onHeroTitleClick && hoveredElement === "title" && (
+                {showEditIndicators && onHeroTitleClick && hoveredElement === "title" && (
                   <div className="absolute top-[-7px] left-[-7px] z-20 bg-blue-500 rounded-full p-1.5 shadow-lg">
                     <Pencil className="w-3 h-3 text-white" strokeWidth={2.5} />
                   </div>
@@ -390,9 +391,9 @@ export function PortalHero({
                 return paragraphs.length > 1 ? (
                   <div
                     className={`w-full text-center relative z-10 ${onHeroDescriptionClick
-                      ? `cursor-pointer transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 ${hoveredElement === "description"
+                      ? `cursor-pointer transition-all ${showEditIndicators ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 " : ""}${showEditIndicators && hoveredElement === "description"
                         ? "opacity-90 ring-2 ring-blue-500/50 rounded-lg px-2 -mx-2"
-                        : "hover:opacity-90"
+                        : showEditIndicators ? "hover:opacity-90" : ""
                       }`
                       : ""
                       }`}
@@ -402,7 +403,7 @@ export function PortalHero({
                     }}
                     onMouseEnter={(e) => {
                       e.stopPropagation();
-                      if (onHeroDescriptionClick) {
+                      if (showEditIndicators && onHeroDescriptionClick) {
                         setHoveredElement("description");
                       }
                     }}
@@ -415,7 +416,7 @@ export function PortalHero({
                     {...descriptionInteractiveProps}
                   >
                     {/* Edit icon indicator for description */}
-                    {onHeroDescriptionClick &&
+                    {showEditIndicators && onHeroDescriptionClick &&
                       hoveredElement === "description" && (
                         <div className="absolute top-[-7px] left-[-7px] z-20 bg-blue-500 rounded-full p-1.5 shadow-lg">
                           <Pencil
@@ -431,9 +432,9 @@ export function PortalHero({
                 ) : (
                   <p
                     className={`text-content font-red-hat text-sm sm:text-base leading-relaxed transition-all duration-600 ease-out opacity-100 translate-y-0 w-full sm:w-4/5 relative z-10 ${onHeroDescriptionClick
-                      ? `cursor-pointer transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 ${hoveredElement === "description"
+                      ? `cursor-pointer transition-all ${showEditIndicators ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 " : ""}${showEditIndicators && hoveredElement === "description"
                         ? "opacity-90 ring-2 ring-blue-500/50 rounded-lg px-2 -mx-2"
-                        : "hover:opacity-90"
+                        : showEditIndicators ? "hover:opacity-90" : ""
                       }`
                       : ""
                       }`}
@@ -443,7 +444,7 @@ export function PortalHero({
                     }}
                     onMouseEnter={(e) => {
                       e.stopPropagation();
-                      if (onHeroDescriptionClick) {
+                      if (showEditIndicators && onHeroDescriptionClick) {
                         setHoveredElement("description");
                       }
                     }}
@@ -456,7 +457,7 @@ export function PortalHero({
                     {...descriptionInteractiveProps}
                   >
                     {/* Edit icon indicator for single paragraph */}
-                    {onHeroDescriptionClick &&
+                    {showEditIndicators && onHeroDescriptionClick &&
                       hoveredElement === "description" && (
                         <div className="absolute top-[-7px] left-[-7px] z-20 bg-blue-500 rounded-full p-1.5 shadow-lg">
                           <Pencil

@@ -11,18 +11,7 @@ import {
 export default function ViewClientPage() {
   const { clientData } = useClientPortal();
   const params = useParams();
-  const router = useRouter();
   const clientId = params.id as string;
-
-  // Since /new/* routes are protected by middleware, if user is here, they're authenticated
-  // Allow editing for authenticated users (behind contacts/admin)
-  const handleHeroTitleClick = () => {
-    router.push(`/new/edit-client/${clientId}#bannerPreview`);
-  };
-
-  const handleHeroDescriptionClick = () => {
-    router.push(`/new/edit-client/${clientId}#bannerPreview`);
-  };
 
   if (!clientData) {
     return null;
@@ -117,8 +106,6 @@ export default function ViewClientPage() {
         hideHeader={true}
         hideFooter={true}
         clientId={clientId}
-        onHeroTitleClick={handleHeroTitleClick}
-        onHeroDescriptionClick={handleHeroDescriptionClick}
       />
     </>
   );

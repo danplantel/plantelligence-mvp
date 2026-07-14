@@ -17,6 +17,7 @@ interface PortalMissionProps {
   secondaryColor?: string;
   onMissionHeadlineClick?: () => void;
   onMissionBodyClick?: () => void;
+  showEditIndicators?: boolean;
 }
 
 export function PortalMission({
@@ -25,6 +26,7 @@ export function PortalMission({
   secondaryColor = "#6B7280",
   onMissionHeadlineClick,
   onMissionBodyClick,
+  showEditIndicators = true,
 }: PortalMissionProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const [hoveredElement, setHoveredElement] = useState<string | null>(null);
@@ -103,9 +105,12 @@ export function PortalMission({
             <div className="relative">
               <h2
                 className={`mb-4 sm:mb-5 font-dm-serif text-xl sm:text-2xl md:text-3xl lg:text-[34px] leading-tight ${onMissionHeadlineClick
-                  ? `cursor-pointer transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/70 ${hoveredElement === "headline"
-                      ? "opacity-90 ring-2 ring-blue-500/50 rounded-md px-2 -mx-2"
-                      : "hover:opacity-90"
+                  ? `${showEditIndicators
+                      ? `cursor-pointer transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/70 ${hoveredElement === "headline"
+                          ? "opacity-90 ring-2 ring-blue-500/50 rounded-md px-2 -mx-2"
+                          : "hover:opacity-90"
+                        }`
+                      : "cursor-pointer"
                     }`
                   : ""
                   }`}
@@ -129,7 +134,7 @@ export function PortalMission({
                 {company?.missionHeadline ||
                   "We care about people. We value teamwork. We deliver results."}
               </h2>
-              {onMissionHeadlineClick && hoveredElement === "headline" && (
+              {showEditIndicators && onMissionHeadlineClick && hoveredElement === "headline" && (
                 <div className="absolute top-[-7px] left-[-7px] z-20 bg-blue-500 rounded-full p-1.5 shadow-lg">
                   <Pencil className="w-3 h-3 text-white" />
                 </div>
@@ -138,9 +143,12 @@ export function PortalMission({
             <div className="relative">
               <p
                 className={`text-[#6B6B6B] font-red-hat sm:text-base lg:text-[1.3em] leading-[1.8] mb-4 sm:mb-5 ${onMissionBodyClick
-                  ? `cursor-pointer transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/70 ${hoveredElement === "body"
-                      ? "opacity-90 ring-2 ring-blue-500/50 rounded-md px-2 -mx-2"
-                      : "hover:opacity-90"
+                  ? `${showEditIndicators
+                      ? `cursor-pointer transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/70 ${hoveredElement === "body"
+                          ? "opacity-90 ring-2 ring-blue-500/50 rounded-md px-2 -mx-2"
+                          : "hover:opacity-90"
+                        }`
+                      : "cursor-pointer"
                     }`
                   : ""
                   }`}
@@ -163,7 +171,7 @@ export function PortalMission({
                 {company?.missionBody ||
                   "At Company Name, this employee benefits portal is one way we show our commitment to supporting you—in work, in life, and beyond. It reflects our foundation of integrity, service, and care by making it easier to access the resources, tools, and information you need. As we continue to grow and evolve, this portal reinforces our promise to invest in your well-being and success every step of the way."}
               </p>
-              {onMissionBodyClick && hoveredElement === "body" && (
+              {showEditIndicators && onMissionBodyClick && hoveredElement === "body" && (
                 <div className="absolute top-[-7px] left-[-7px] z-20 bg-blue-500 rounded-full p-1.5 shadow-lg">
                   <Pencil className="w-3 h-3 text-white" />
                 </div>

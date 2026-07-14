@@ -67,6 +67,7 @@ interface ClientPortalProps {
   onHeroDescriptionClick?: () => void;
   onMissionHeadlineClick?: () => void;
   onMissionBodyClick?: () => void;
+  showEditIndicators?: boolean;
 }
 
 export function ClientPortal({
@@ -81,6 +82,7 @@ export function ClientPortal({
   onHeroDescriptionClick,
   onMissionHeadlineClick,
   onMissionBodyClick,
+  showEditIndicators = true,
 }: ClientPortalProps) {
   const companyData = data?.companyData;
   const keyContacts = data?.keyContacts || [];
@@ -153,6 +155,7 @@ export function ClientPortal({
         useGradient={companyData?.heroUseGradient ?? false}
         onHeroTitleClick={onHeroTitleClick}
         onHeroDescriptionClick={onHeroDescriptionClick}
+        showEditIndicators={showEditIndicators}
       />
 
       <PortalMission
@@ -161,6 +164,7 @@ export function ClientPortal({
         secondaryColor={secondaryColor}
         onMissionHeadlineClick={onMissionHeadlineClick}
         onMissionBodyClick={onMissionBodyClick}
+        showEditIndicators={showEditIndicators}
       />
 
       {!hideBenefits && (
