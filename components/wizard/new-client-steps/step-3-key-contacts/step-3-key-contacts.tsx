@@ -210,9 +210,12 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
           saveStepDataToServer: saveServer,
           saveAsDraft: draft,
         } = useNewClientWizardStore.getState();
+        // Immediately update the store so the UI shows seeded contacts without
+        // waiting for the server round-trip (which can take many seconds).
         saveLocal("keyContacts", newKc);
-        await saveServer("keyContacts", newKc);
-        await draft();
+        // Fire-and-forget the server save — the UI already has the contacts.
+        saveServer("keyContacts", newKc).catch(() => {});
+        draft().catch(() => {});
       } catch {
         /* ignore */
       }

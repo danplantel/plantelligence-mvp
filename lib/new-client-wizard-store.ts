@@ -2134,7 +2134,10 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
           const response = await fetch("/api/profile");
           if (!response.ok) return;
           const profile = await response.json();
+          // Cache the full profile so Step 3 seeding can use it synchronously
+          // without needing its own /api/profile fetch.
           set((state) => ({
+            advisorProfile: profile,
             stepData: mergeAdvisorProfileIntoWizardStepData(
               state.stepData as unknown as Record<string, unknown>,
               profile,
