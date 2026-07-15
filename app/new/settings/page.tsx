@@ -123,7 +123,7 @@ export default function SettingsPage() {
   // Force re-render key for forms
   const [formKey, setFormKey] = useState(0);
 
-  // User profile data (for branding fallback)
+  // User profile data (for branding fallback and primaryServiceCategories)
   const [userProfile, setUserProfile] = useState<any>(null);
 
   // SWR: cache /api/profile
@@ -159,6 +159,10 @@ export default function SettingsPage() {
           // Fallback to User-level primaryServiceCategories from /api/profile
           if (primaryServiceCategories.length === 0 && cachedProfile?.primaryServiceCategories?.length > 0) {
             primaryServiceCategories = [...cachedProfile.primaryServiceCategories];
+          }
+          // Also check userProfile state (may be set from cachedProfile if SWR resolved before loadTabData)
+          if (primaryServiceCategories.length === 0 && userProfile?.primaryServiceCategories?.length > 0) {
+            primaryServiceCategories = [...userProfile.primaryServiceCategories];
           }
           const servicesArray = loadedData?.services?.services ?? useOnboardingWizardStore.getState().stepData?.services?.services ?? [];
           if (primaryServiceCategories.length === 0 && Array.isArray(servicesArray) && servicesArray.length > 0) {
@@ -243,7 +247,7 @@ export default function SettingsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
-  // Populate forms when stepData changes
+  // Populate forms when stepData or userProfile changes
   useEffect(() => {
     if (isLoading) return;
 
@@ -377,9 +381,33 @@ export default function SettingsPage() {
     };
 
     servicesForm.reset(servicesData, { keepDirtyValues: false });
-    setInitialServices(JSON.parse(JSON.stringify(servicesData)));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  setInitialServices(JSON.parse(JSON.stringify(servicesData)));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepData, isLoading, userProfile]);
+
+  // ── Sync primaryServiceCategories from userProfile when it becomes available ──
+  // This ensures categories from the User DB record are applied even if
+  // cachedProfile resolved after the initial form reset.
+  const profileCategoriesSyncedRef = useRef(false);
+  useEffect(() => {
+    if (!userProfile) return;
+    if (profileCategoriesSyncedRef.current) return;
+
+    const currentCategories = userSetupForm.getValues("primaryServiceCategories") || [];
+    if (currentCategories.length === 0 && userProfile.primaryServiceCategories?.length > 0) {
+      const categories = [...userProfile.primaryServiceCategories];
+      userSetupForm.setValue("primaryServiceCategories", categories, {
+        shouldDirty: false,
+        shouldTouch: false,
+      });
+      // Also sync to initialUserSetup so the dirty-comparison snapshot reflects the categories
+      setInitialUserSetup((prev: any) => {
+        if (!prev) return prev;
+        return { ...prev, primaryServiceCategories: categories };
+      });
+    }
+    profileCategoriesSyncedRef.current = true;
+  }, [userProfile, userSetupForm]);
 
   const handleSaveUserSetup = async () => {
     setIsSaving(true);
