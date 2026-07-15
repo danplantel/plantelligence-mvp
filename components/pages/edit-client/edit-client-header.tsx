@@ -66,7 +66,7 @@ export function EditClientHeader({
             Status:
           </Label>
           <Select value={clientStatus} onValueChange={onStatusChange}>
-            <SelectTrigger className="w-32 h-10 font-medium border-2 border-accent-blue bg-white hover:bg-accent-blue/5 focus:ring-2 focus:ring-accent-blue/20">
+            <SelectTrigger className="w-32 h-10 font-medium border-2 border-accent-blue bg-white dark:bg-gray-800 dark:text-gray-100 hover:bg-accent-blue/5 dark:hover:bg-accent-blue/10 focus:ring-2 focus:ring-accent-blue/20">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
