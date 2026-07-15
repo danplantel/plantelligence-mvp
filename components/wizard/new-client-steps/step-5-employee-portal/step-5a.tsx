@@ -348,8 +348,10 @@ export function NewClientStep5a({
     };
     setDisclaimer(d);
     setShowInitialPrompt(false);
-    await persistDisclaimer(d);
     setIsModalOpen(false);
+    // Fire-and-forget server persistence — the local store is already updated
+    // so the UI reflects the disclaimer immediately.
+    persistDisclaimer(d).catch(() => {});
   };
 
   // ── Build disclosure text for the preview ──
@@ -506,6 +508,11 @@ export function NewClientStep5a({
           onSave={handleSaveDisclaimer}
           onClose={() => {
             setIsModalOpen(false);
+            // If no disclaimer was saved, restore the initial prompt so the
+            // "Disclaimer Required" UI doesn't vanish when user cancels.
+            if (!disclaimer) {
+              setShowInitialPrompt(true);
+            }
           }}
         />
       )}
