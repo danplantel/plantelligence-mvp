@@ -64,6 +64,17 @@ export function NewClientWizard({
   const contactsOnStep3 = stepData.keyContacts?.contacts || [];
   const hasStep3Contact = currentStep === 3 ? contactsOnStep3.length > 0 : true;
 
+  // Step 3 sub-step derived once for use in gating and button logic
+  const step3SubStep =
+    (stepData as any)?.step3SubStep?.step3SubStep ||
+    (stepData as any)?.step3SubStep;
+
+  // The Next button should only be enabled on Step 3 when the user reaches
+  // the preview/layout slide (step3d).  The Category Explorer (step3c) has its
+  // own internal "Continue" button — the bottom-bar Next must not interfere.
+  const isStep3OnPreviewSlide = currentStep === 3 && step3SubStep === "step3d";
+  const isNextEnabled = currentStep === 3 ? isStep3OnPreviewSlide : hasStep3Contact;
+
   // Check if user needs to scroll to see all content
   const checkIfScrollNeeded = () => {
     if (!contentRef.current) return false;
@@ -393,10 +404,6 @@ export function NewClientWizard({
   }, [children, currentStep]);
 
   // Calculate if we're on Step 3c and have 2+ contacts to change button prioritization
-  const step3SubStep =
-    (stepData as any)?.step3SubStep?.step3SubStep ||
-    (stepData as any)?.step3SubStep;
-
   const isStep3c = currentStep === 3 && step3SubStep === "step3c";
   const contactCount = stepData.keyContacts?.contacts?.length || 0;
   const isStep3cWithMultipleContacts = isStep3c && contactCount >= 2;
@@ -465,10 +472,10 @@ export function NewClientWizard({
                       isLoading={isLoading || isProcessing}
                       loadingText="Saving client data..."
                       variant="default"
-                      disabled={!hasStep3Contact}
+                      disabled={!isNextEnabled}
                       className={cn(
                         "bg-accent-blue dark:bg-accent-blue dark:text-white hover:bg-accent-blue/90",
-                        !hasStep3Contact && "opacity-50 cursor-not-allowed",
+                        !isNextEnabled && "opacity-50 cursor-not-allowed",
                       )}
                     >
                       {needsScroll ? "Scroll to Continue" : "Next"}
