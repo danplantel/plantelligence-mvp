@@ -1394,39 +1394,38 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
                     : undefined,
                 }
               : null,
-            // Remove brandImages base64 URLs
+            // Remove base64 data URLs from brandImages but preserve R2 keys
             brandImages: data.brandImages
               ? {
                   ...data.brandImages,
-                  // Store only metadata for brand images, not the actual base64 URLs
                   header: data.brandImages.header
                     ? {
                         ...data.brandImages.header,
-                        url: "", // Remove large base64 content
+                        url: keepSmallDataUrl(data.brandImages.header.url, 10_000),
                       }
                     : undefined,
                   thumbnail: data.brandImages.thumbnail
                     ? {
                         ...data.brandImages.thumbnail,
-                        url: "", // Remove large base64 content
+                        url: keepSmallDataUrl(data.brandImages.thumbnail.url, 10_000),
                       }
                     : undefined,
                   secondaryBanner: data.brandImages.secondaryBanner
                     ? {
                         ...data.brandImages.secondaryBanner,
-                        url: "", // Remove large base64 content
+                        url: keepSmallDataUrl(data.brandImages.secondaryBanner.url, 10_000),
                       }
                     : undefined,
                   favicon: data.brandImages.favicon
                     ? {
                         ...data.brandImages.favicon,
-                        url: "", // Remove large base64 content
+                        url: keepSmallDataUrl(data.brandImages.favicon.url, 10_000),
                       }
                     : undefined,
                   logo: data.brandImages.logo
                     ? {
                         ...data.brandImages.logo,
-                        url: "", // Remove large base64 content
+                        url: keepSmallDataUrl(data.brandImages.logo.url, 10_000),
                       }
                     : undefined,
                 }
@@ -2268,21 +2267,27 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
                     : undefined,
                 }
               : null,
-            // Remove brandImages base64 URLs
+            // Remove base64 data URLs from brandImages but preserve R2 keys
+            // (R2 keys are short strings like "org/.../branding/background/..." — safe to persist)
             brandImages: cleanedStepData.companyBasics.brandImages
               ? {
                   ...cleanedStepData.companyBasics.brandImages,
-                  // Store only metadata for brand images, not the actual base64 URLs
                   header: cleanedStepData.companyBasics.brandImages.header
                     ? {
                         ...cleanedStepData.companyBasics.brandImages.header,
-                        url: "", // Remove large base64 content
+                        url: keepSmallDataUrl(
+                          cleanedStepData.companyBasics.brandImages.header.url,
+                          10_000,
+                        ),
                       }
                     : undefined,
                   thumbnail: cleanedStepData.companyBasics.brandImages.thumbnail
                     ? {
                         ...cleanedStepData.companyBasics.brandImages.thumbnail,
-                        url: "", // Remove large base64 content
+                        url: keepSmallDataUrl(
+                          cleanedStepData.companyBasics.brandImages.thumbnail.url,
+                          10_000,
+                        ),
                       }
                     : undefined,
                   secondaryBanner: cleanedStepData.companyBasics.brandImages
@@ -2290,19 +2295,28 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
                     ? {
                         ...cleanedStepData.companyBasics.brandImages
                           .secondaryBanner,
-                        url: "", // Remove large base64 content
+                        url: keepSmallDataUrl(
+                          cleanedStepData.companyBasics.brandImages.secondaryBanner.url,
+                          10_000,
+                        ),
                       }
                     : undefined,
                   favicon: cleanedStepData.companyBasics.brandImages.favicon
                     ? {
                         ...cleanedStepData.companyBasics.brandImages.favicon,
-                        url: "", // Remove large base64 content
+                        url: keepSmallDataUrl(
+                          cleanedStepData.companyBasics.brandImages.favicon.url,
+                          10_000,
+                        ),
                       }
                     : undefined,
                   logo: cleanedStepData.companyBasics.brandImages.logo
                     ? {
                         ...cleanedStepData.companyBasics.brandImages.logo,
-                        url: "", // Remove large base64 content
+                        url: keepSmallDataUrl(
+                          cleanedStepData.companyBasics.brandImages.logo.url,
+                          10_000,
+                        ),
                       }
                     : undefined,
                 }
