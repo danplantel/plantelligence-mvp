@@ -948,6 +948,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
               clientId={draftClientId}
               categoryPortalVisibility={null}
               benefits={null}
+              enableNavigation={false}
             />
           </div>
         )}
@@ -966,6 +967,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
                   clientId={draftClientId}
                   categoryPortalVisibility={null}
                   benefits={null}
+                  enableNavigation={false}
                 />
               </div>
               <div className="pt-20">

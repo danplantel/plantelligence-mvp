@@ -640,6 +640,7 @@ export function EditPlanPreviewSection({
               clientId={clientId}
               categoryPortalVisibility={null}
               benefits={null}
+              enableNavigation={false}
             />
           </div>
         )}
@@ -659,6 +660,7 @@ export function EditPlanPreviewSection({
                   clientId={clientId}
                   categoryPortalVisibility={null}
                   benefits={null}
+                  enableNavigation={false}
                 />
               </div>
               <div className="pt-20">
