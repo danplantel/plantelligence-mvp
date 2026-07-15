@@ -110,7 +110,7 @@ export function NewClientStep4({
   // Store selected language to persist during re-renders (controlled state)
   const [selectedLanguage, setSelectedLanguage] = useState<"EN" | "ES">("EN");
 
-  // Tabs state
+  // Tabs state — "upload" is the first (default) tab
   const [activeTab, setActiveTab] = useState("upload");
   const [sortColumn, setSortColumn] = useState<SortColumn>("uploadedAt");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
@@ -704,10 +704,97 @@ export function NewClientStep4({
     <div className="space-y-6 max-w-4xl mx-auto">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
+          <TabsTrigger value="upload">Upload</TabsTrigger>
           <TabsTrigger value="list">List</TabsTrigger>
           <TabsTrigger value="preview">Preview</TabsTrigger>
-          <TabsTrigger value="upload">Upload</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="upload" className="mt-4">
+          <ComplianceDocumentsUpload
+            clientId={draftClientId}
+            initialDocuments={retirementPlanDocuments}
+            onDocumentsChange={(docs) => {
+              const deduped = dedupeDocumentsById(docs);
+              if (
+                initialized.current &&
+                deduped.length > retirementPlanDocuments.length
+              ) {
+                setActiveTab("list");
+              }
+              setRetirementPlanDocuments(deduped);
+            }}
+            brandColor={primaryColor}
+            accentColor={secondaryColor}
+            showPreview={false}
+            showInfoCard={true}
+            language={selectedLanguage}
+            onLanguageChange={setSelectedLanguage}
+            compact={true}
+            secondaryAction={{
+              label: isInlineSkipLoading ? "Skipping..." : "Skip for now",
+              onClick: handleInlineSkip,
+              disabled: isInlineSkipLoading,
+            }}
+          />
+
+          {/* Document Preview with Language Switcher */}
+          {retirementPlanDocuments.length > 0 && (
+            <div className="mt-4">
+              {/* Language Switcher */}
+              {availableLanguages.length > 1 && (
+                <div className="mb-6 flex flex-wrap gap-2">
+                  {availableLanguages.map((lang) => {
+                    const isActive = previewLanguage === lang;
+                    return (
+                      <button
+                        key={lang}
+                        type="button"
+                        onClick={() => {
+                          setPreviewLanguage(lang);
+                        }}
+                        className={`rounded-full px-5 py-2 text-[16px] leading-tight font-red-hat font-semibold border transition-colors ${isActive
+                          ? "bg-[#002B5B] text-white border-[#002B5B]"
+                          : "bg-white text-[#002B5B] border-[#D1D5DB] hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600"
+                          }`}
+                        style={
+                          isActive
+                            ? {
+                              backgroundColor: primaryColor,
+                              borderColor: primaryColor,
+                            }
+                            : {}
+                        }
+                      >
+                        {lang === "EN" ? "ENGLISH" : "ESPAÑOL"}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Filtered Documents Preview */}
+              {retirementDocs.length === 0 ? (
+                <div className="flex items-center justify-center py-20">
+                  <p className="text-gray-600 text-lg dark:text-gray-400">
+                    No documents found.
+                  </p>
+                </div>
+              ) : (
+                <DocumentPreviewTab
+                  selectedPlan="current-plan"
+                  isLoading={false}
+                  documents={retirementDocs}
+                  onDelete={handleDeleteClick}
+                  onDownload={handleDownload}
+                  onDocumentsChange={refreshDocuments}
+                  onSaveEdit={handleSaveEdit}
+                  brandColor={primaryColor}
+                  accentColor={secondaryColor}
+                />
+              )}
+            </div>
+          )}
+        </TabsContent>
 
         <TabsContent value="list" className="mt-6">
           <DocumentListTab
@@ -851,93 +938,6 @@ export function NewClientStep4({
               brandColor={primaryColor}
               accentColor={secondaryColor}
             />
-          )}
-        </TabsContent>
-
-        <TabsContent value="upload" className="mt-4">
-          <ComplianceDocumentsUpload
-            clientId={draftClientId}
-            initialDocuments={retirementPlanDocuments}
-            onDocumentsChange={(docs) => {
-              const deduped = dedupeDocumentsById(docs);
-              if (
-                initialized.current &&
-                deduped.length > retirementPlanDocuments.length
-              ) {
-                setActiveTab("list");
-              }
-              setRetirementPlanDocuments(deduped);
-            }}
-            brandColor={primaryColor}
-            accentColor={secondaryColor}
-            showPreview={false}
-            showInfoCard={true}
-            language={selectedLanguage}
-            onLanguageChange={setSelectedLanguage}
-            compact={true}
-            secondaryAction={{
-              label: isInlineSkipLoading ? "Skipping..." : "Skip for now",
-              onClick: handleInlineSkip,
-              disabled: isInlineSkipLoading,
-            }}
-          />
-
-          {/* Document Preview with Language Switcher */}
-          {retirementPlanDocuments.length > 0 && (
-            <div className="mt-4">
-              {/* Language Switcher */}
-              {availableLanguages.length > 1 && (
-                <div className="mb-6 flex flex-wrap gap-2">
-                  {availableLanguages.map((lang) => {
-                    const isActive = previewLanguage === lang;
-                    return (
-                      <button
-                        key={lang}
-                        type="button"
-                        onClick={() => {
-                          setPreviewLanguage(lang);
-                        }}
-                        className={`rounded-full px-5 py-2 text-[16px] leading-tight font-red-hat font-semibold border transition-colors ${isActive
-                          ? "bg-[#002B5B] text-white border-[#002B5B]"
-                          : "bg-white text-[#002B5B] border-[#D1D5DB] hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600"
-                          }`}
-                        style={
-                          isActive
-                            ? {
-                              backgroundColor: primaryColor,
-                              borderColor: primaryColor,
-                            }
-                            : {}
-                        }
-                      >
-                        {lang === "EN" ? "ENGLISH" : "ESPAÑOL"}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Filtered Documents Preview */}
-              {retirementDocs.length === 0 ? (
-                <div className="flex items-center justify-center py-20">
-                  <p className="text-gray-600 text-lg dark:text-gray-400">
-                    No documents found.
-                  </p>
-                </div>
-              ) : (
-                <DocumentPreviewTab
-                  selectedPlan="current-plan"
-                  isLoading={false}
-                  documents={retirementDocs}
-                  onDelete={handleDeleteClick}
-                  onDownload={handleDownload}
-                  onDocumentsChange={refreshDocuments}
-                  onSaveEdit={handleSaveEdit}
-                  brandColor={primaryColor}
-                  accentColor={secondaryColor}
-                />
-              )}
-            </div>
           )}
         </TabsContent>
       </Tabs>
