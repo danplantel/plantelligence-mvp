@@ -256,34 +256,33 @@ function EditKeyContactsSection({
               </div>
             </CardHeader>
             <CardContent className="p-4">
-              {categoryContacts.length === 0 ? (
+              {categoryContacts.length === 0 && (
                 <p className="text-xs text-muted-foreground text-center py-4">
                   No contacts assigned to {section.label}. Click &ldquo;Add&rdquo; to create one.
                 </p>
-              ) : (
-                <KeyContactsSection
-                  contacts={categoryContacts}
-                  onContactsChange={(updatedContacts) => {
-                    const otherContacts = contacts.filter((c) => {
-                      if (section.isExternal) {
-                        const isExternal = c.contactType === "team_support" ||
-                          (c.role === "Other" && c.roleOther === "External HR / Administrator") ||
-                          (c.role as string) === "External HR / Administrator";
-                        return !isExternal;
-                      }
-                      return !(c.benefitsCategories?.includes(section.id as BenefitsCategory) ||
-                        c.benefitsCategory === section.id);
-                    });
-                    onContactsChange([...otherContacts, ...updatedContacts]);
-                  }}
-                  onHeadshotUpload={onHeadshotUpload}
-                  onHeadshotRemove={onHeadshotRemove}
-                  organizationName={companyData.companyName}
-                  companyLogo={companyData.companyLogo?.url}
-                  recordkeeperFromStep4={documentsData.recordkeeper}
-                  errorFields={validationErrors.keyContacts || []}
-                />
               )}
+              <KeyContactsSection
+                contacts={categoryContacts}
+                onContactsChange={(updatedContacts) => {
+                  const otherContacts = contacts.filter((c) => {
+                    if (section.isExternal) {
+                      const isExternal = c.contactType === "team_support" ||
+                        (c.role === "Other" && c.roleOther === "External HR / Administrator") ||
+                        (c.role as string) === "External HR / Administrator";
+                      return !isExternal;
+                    }
+                    return !(c.benefitsCategories?.includes(section.id as BenefitsCategory) ||
+                      c.benefitsCategory === section.id);
+                  });
+                  onContactsChange([...otherContacts, ...updatedContacts]);
+                }}
+                onHeadshotUpload={onHeadshotUpload}
+                onHeadshotRemove={onHeadshotRemove}
+                organizationName={companyData.companyName}
+                companyLogo={companyData.companyLogo?.url}
+                recordkeeperFromStep4={documentsData.recordkeeper}
+                errorFields={validationErrors.keyContacts || []}
+              />
             </CardContent>
           </Card>
         );
