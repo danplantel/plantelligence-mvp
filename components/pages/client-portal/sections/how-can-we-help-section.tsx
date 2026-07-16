@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, useInView } from "framer-motion";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 
 export interface HelpCardData {
@@ -19,6 +19,8 @@ interface HowCanWeHelpSectionProps {
   clientId?: string;
   /** Custom cards from the wizard. Falls back to HELP_CARDS defaults when omitted. */
   cards?: HelpCardData[];
+  /** Click handler for editing a specific card. Receives the card's ID. */
+  onCardEdit?: (cardId: string) => void;
 }
 
 const HELP_CARDS: HelpCardData[] = [
@@ -58,11 +60,21 @@ export function HowCanWeHelpSection({
   secondaryColor = "#E6C47A",
   clientId,
   cards,
+  onCardEdit,
 }: HowCanWeHelpSectionProps) {
   const resolvedCards = cards && cards.length > 0 ? cards : HELP_CARDS;
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: "-100px" });
   const basePath = clientId ? `/new/view/${clientId}` : "";
+  const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
+
+  const EditPencil = () => (
+    <div className="absolute -top-2 -left-2 z-20 bg-[#3b82f6] rounded-full p-1.5 shadow-lg border border-white/20">
+      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+      </svg>
+    </div>
+  );
 
   return (
     <section ref={ref} className="bg-white py-16 lg:py-20">
@@ -75,17 +87,24 @@ export function HowCanWeHelpSection({
 
       <div className="mx-auto flex max-w-7xl flex-wrap justify-center gap-8 px-4">
         {resolvedCards.map((card, index) => (
-          <motion.div
+          <div
             key={card.id}
-            initial={{ opacity: 0, y: 50 }}
-            animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
-            transition={{
-              duration: 0.6,
-              ease: "easeOut",
-              delay: index * 0.15,
-            }}
-            className="flex  min-h-[450px] w-full max-w-sm flex-col rounded-xl border border-neutral-200 bg-white px-8 py-10 shadow-sm"
+            className="relative cursor-pointer group"
+            onClick={() => onCardEdit?.(card.id)}
+            onMouseEnter={() => setHoveredCardId(card.id)}
+            onMouseLeave={() => setHoveredCardId(null)}
           >
+            {hoveredCardId === card.id && <EditPencil />}
+            <motion.div
+              initial={{ opacity: 0, y: 50 }}
+              animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
+              transition={{
+                duration: 0.6,
+                ease: "easeOut",
+                delay: index * 0.15,
+              }}
+              className="flex min-h-[450px] w-full max-w-sm flex-col rounded-xl border border-neutral-200 bg-white px-8 py-10 shadow-sm"
+            >
             <h3
               className="mb-5 text-2xl font-dm-serif"
               style={{
@@ -125,6 +144,7 @@ export function HowCanWeHelpSection({
               </button>
             )}
           </motion.div>
+          </div>
         ))}
       </div>
     </section>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { useBenefitsWizardStore, HelpCardData } from "@/lib/benefits-wizard-store";
 import { EditorPanelWrapper } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
 import { Label } from "@/components/ui/label";
@@ -77,6 +77,7 @@ export function BenefitsEditorPanel({
     const step3Data = (stepData.step3 || { faqs: [], supportContacts: [] }) as BenefitsStep3Data;
     const internalScrollRef = useRef<HTMLDivElement>(null);
     const editorScrollContainerRef = externalScrollRef || internalScrollRef;
+    const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
 
     // Refs for scrolling
     const sectionsRef = {
@@ -87,6 +88,14 @@ export function BenefitsEditorPanel({
     };
 
     const [highlightedSection, setHighlightedSection] = React.useState<string | null>(null);
+
+    // Sync highlightedField (cardId) with accordion open state.
+    // Only the clicked card's accordion opens; all others close.
+    useEffect(() => {
+        if (highlightedField && sectionsRef.helpCards) {
+            setOpenAccordionItems([highlightedField]);
+        }
+    }, [highlightedField]);
 
     // Resolve help cards from store or defaults
     const helpCards = step1Data.helpCards && step1Data.helpCards.length > 0
@@ -342,7 +351,12 @@ export function BenefitsEditorPanel({
                     <p className="text-[13px] text-muted-foreground mb-6">
                         Customize the three cards that appear in the &ldquo;How Can We Help You Today?&rdquo; section.
                     </p>
-                    <Accordion type="multiple" className="space-y-3">
+                    <Accordion
+                        type="multiple"
+                        value={openAccordionItems}
+                        onValueChange={setOpenAccordionItems}
+                        className="space-y-3"
+                    >
                         {helpCards.map((card) => (
                             <AccordionItem key={card.id} value={card.id} className="border border-muted rounded-xl px-4 shadow-sm bg-white">
                                 <AccordionTrigger className="text-sm font-semibold py-4 hover:no-underline">

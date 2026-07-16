@@ -256,21 +256,14 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
                     />
                 </div>
 
-                <div
-                    className={mobile ? "force-visible relative" : "relative group"}
-                    onClick={() => handleEdit("helpCards")}
-                    onMouseEnter={() => setHoveredSection("helpCards")}
-                    onMouseLeave={() => setHoveredSection(null)}
-                >
-                    <div className={mobile ? "" : "cursor-pointer"}>
-                        {hoveredSection === "helpCards" && <EditPencil />}
-                        <HowCanWeHelpSection
-                            brandColor={brandColor}
-                            secondaryColor={secondaryColor}
-                            clientId={step1Data?.planId}
-                            cards={step1Data?.helpCards}
-                        />
-                    </div>
+                <div className={mobile ? "force-visible relative" : "relative"}>
+                    <HowCanWeHelpSection
+                        brandColor={brandColor}
+                        secondaryColor={secondaryColor}
+                        clientId={step1Data?.planId}
+                        cards={step1Data?.helpCards}
+                        onCardEdit={(cardId) => handleEdit("helpCards", cardId)}
+                    />
                 </div>
 
                 <div
