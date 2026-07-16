@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo, useRef } from "react";
+import React, { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -42,7 +42,7 @@ import { ContactCardLayoutPreviewModal } from "@/components/pages/edit-client/co
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ColorPicker } from "@/components/ui/color-picker";
-import { Building2, Palette, Globe, FileText, CheckCircle2, AlertCircle } from "lucide-react";
+import { Building2, Palette, Globe, FileText, CheckCircle2, AlertCircle, Eye, X } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { PRIMARY_SERVICE_CATEGORY_OPTIONS } from "@/lib/service-categories";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -61,6 +61,7 @@ import type {
 } from "@/types/new-client-wizard";
 import { EditPlanPreviewSection } from "@/components/wizard/new-client-steps/sections/edit-plan-preview-section";
 import { CardSelectionModal } from "@/components/wizard/new-client-steps/card-selection-modal";
+import { PortalDisclaimers } from "@/components/pages/client-portal/sections/portal-disclaimers";
 import { uploadBrandingToR2 } from "@/lib/branding-r2";
 
 // ============================================================================
@@ -561,7 +562,37 @@ export default function EditClientPage() {
   const [isLogoModalOpen, setIsLogoModalOpen] = useState(false);
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [hasAttemptedSave, setHasAttemptedSave] = useState(false);
-  const [isPreviewLayoutModalOpen, setIsPreviewLayoutModalOpen] = useState(false);
+  const [isPreviewLayoutModalOpen, setIsPreviewLayoutModalOpen] =
+    useState(false);
+
+  // ── Footer background color state ──
+  const storedFooterBg =
+    ((companyData as any)?.footerBackground as
+      | { mode?: string; customColor?: string }
+      | undefined) ?? {};
+  const [footerBgMode, setFooterBgMode] = useState<
+    "primary" | "secondary" | "custom"
+  >(storedFooterBg.mode === "secondary" || storedFooterBg.mode === "custom"
+    ? storedFooterBg.mode
+    : "primary");
+  const [footerBgCustomColor, setFooterBgCustomColor] = useState(
+    storedFooterBg.customColor || "",
+  );
+  const [isFooterPreviewOpen, setIsFooterPreviewOpen] = useState(false);
+  const resolvedFooterBgColor =
+    footerBgMode === "secondary"
+      ? companyData.secondaryColor
+      : footerBgMode === "custom" && footerBgCustomColor.trim()
+        ? footerBgCustomColor.trim()
+        : companyData.primaryColor;
+
+  const persistFooterBg = useCallback(
+    (mode: string, customColor: string) => {
+      const payload = { mode, customColor };
+      (handleInputChange as any)("footerBackground", payload);
+    },
+    [handleInputChange],
+  );
 
   // Mission Statement fields
   const missionHeadline = (companyData as any).missionHeadline || "";
@@ -1298,32 +1329,125 @@ export default function EditClientPage() {
 
             {/* ── Tab 5: Disclaimers ── */}
             <TabsContent value="disclaimers" className="mt-0">
-              <Card>
+              <Card className="dark:bg-gray-800">
                 <CardHeader>
-                  <CardTitle className="text-xl">Disclaimers</CardTitle>
-                  <p className="text-sm text-muted-foreground font-normal mt-1">
-                    Manage disclaimer text displayed in the employee portal footer.
-                  </p>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <CardTitle className="text-xl dark:text-gray-100">
+                        Disclaimers
+                      </CardTitle>
+                      <p className="text-sm text-muted-foreground dark:text-gray-400 font-normal mt-1">
+                        Manage disclaimer text displayed in the employee portal
+                        footer.
+                      </p>
+                    </div>
+
+                    {/* Footer Background Color + Preview — inline in header */}
+                    <div className="flex flex-wrap items-center gap-2 shrink-0 pt-1">
+                      {(["primary", "secondary", "custom"] as const).map(
+                        (mode) => {
+                          const label =
+                            mode === "primary"
+                              ? "Primary"
+                              : mode === "secondary"
+                                ? "Secondary"
+                                : "Custom";
+                          const colorVal =
+                            mode === "primary"
+                              ? companyData.primaryColor
+                              : mode === "secondary"
+                                ? companyData.secondaryColor
+                                : footerBgCustomColor || "#888888";
+                          const isActive = footerBgMode === mode;
+                          return (
+                            <button
+                              key={mode}
+                              type="button"
+                              onClick={() => {
+                                setFooterBgMode(mode);
+                                persistFooterBg(mode, footerBgCustomColor);
+                              }}
+                              className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium border transition-all whitespace-nowrap ${
+                                isActive
+                                  ? "border-accent-blue ring-1 ring-accent-blue bg-accent-blue/5 dark:bg-accent-blue/10"
+                                  : "border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500"
+                              }`}
+                            >
+                              <span
+                                className="w-3 h-3 rounded-full border border-gray-300 shrink-0"
+                                style={{ background: colorVal }}
+                              />
+                              {label}
+                            </button>
+                          );
+                        },
+                      )}
+                      {footerBgMode === "custom" && (
+                        <>
+                          <input
+                            type="color"
+                            value={
+                              footerBgCustomColor || companyData.primaryColor
+                            }
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setFooterBgCustomColor(v);
+                              persistFooterBg("custom", v);
+                            }}
+                            className="w-6 h-6 rounded cursor-pointer border border-gray-300 p-0.5"
+                          />
+                          <input
+                            type="text"
+                            value={footerBgCustomColor}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setFooterBgCustomColor(v);
+                              persistFooterBg("custom", v);
+                            }}
+                            placeholder="#HEX"
+                            className="w-20 text-[11px] border border-gray-200 dark:border-gray-600 rounded px-1.5 py-1 bg-transparent dark:text-gray-200"
+                          />
+                        </>
+                      )}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsFooterPreviewOpen(true)}
+                        className="inline-flex items-center gap-1.5 ml-1"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        Preview
+                      </Button>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {/* Disclaimer Text */}
                   <div className="space-y-2">
-                    <Label htmlFor="disclaimers-text">
+                    <Label
+                      htmlFor="disclaimers-text"
+                      className="dark:text-gray-300"
+                    >
                       Disclaimer Text
                     </Label>
                     <Textarea
                       id="disclaimers-text"
                       value={(() => {
-                        // Extract text from disclaimer data in various shapes:
-                        // - "plain string", [{ text: "..." }], { text: "..." }, { disclaimers: [...] }
-                        const raw = (client as any)?.disclaimers ?? disclaimers;
+                        const raw =
+                          (client as any)?.disclaimers ?? disclaimers;
                         if (typeof raw === "string") return raw;
-                        // Array of disclaimer objects
                         if (Array.isArray(raw))
-                          return raw.map((item: any) => item?.text || item || "").filter(Boolean).join("\n\n");
-                        // Object like { disclaimers: [...], text: "..." }
+                          return raw
+                            .map((item: any) => item?.text || item || "")
+                            .filter(Boolean)
+                            .join("\n\n");
                         if (raw && typeof raw === "object") {
                           if (Array.isArray((raw as any).disclaimers))
-                            return (raw as any).disclaimers.map((d: any) => d?.text || "").filter(Boolean).join("\n\n");
+                            return (raw as any)
+                              .disclaimers.map((d: any) => d?.text || "")
+                              .filter(Boolean)
+                              .join("\n\n");
                           if (raw.text) return raw.text;
                         }
                         return "";
@@ -1331,14 +1455,171 @@ export default function EditClientPage() {
                       onChange={(e) => setDisclaimers(e.target.value)}
                       placeholder="Enter legal disclaimers to display in the portal footer..."
                       rows={8}
-                      className="min-h-[200px]"
+                      className="min-h-[200px] dark:bg-gray-900 dark:text-gray-200"
                     />
-                    <p className="text-xs text-muted-foreground">
-                      This text will appear in the footer of the employee benefits portal.
+                    <p className="text-xs text-muted-foreground dark:text-gray-400">
+                      This text will appear in the footer of the employee
+                      benefits portal.
                     </p>
                   </div>
                 </CardContent>
               </Card>
+
+              {/* ── Footer Preview Modal ── */}
+              {isFooterPreviewOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-5xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+                    {/* Header */}
+                    <div className="sticky top-0 z-10 flex items-start justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-t-xl">
+                      <div className="space-y-2">
+                        <div>
+                          <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                            Footer Preview
+                          </h3>
+                          <p className="text-sm text-muted-foreground dark:text-gray-400">
+                            How the disclaimer will appear on the{" "}
+                            <strong className="text-gray-600 dark:text-gray-300">
+                              Home Page
+                            </strong>
+                          </p>
+                        </div>
+                        {/* Footer Color selector in header */}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mr-1">
+                            Footer Color:
+                          </span>
+                          {(["primary", "secondary", "custom"] as const).map(
+                            (mode) => {
+                              const label =
+                                mode === "primary"
+                                  ? "Primary"
+                                  : mode === "secondary"
+                                    ? "Secondary"
+                                    : "Custom";
+                              const colorVal =
+                                mode === "primary"
+                                  ? companyData.primaryColor
+                                  : mode === "secondary"
+                                    ? companyData.secondaryColor
+                                    : footerBgCustomColor || "#888888";
+                              const isActive = footerBgMode === mode;
+                              return (
+                                <button
+                                  key={mode}
+                                  type="button"
+                                  onClick={() => {
+                                    setFooterBgMode(mode);
+                                    persistFooterBg(mode, footerBgCustomColor);
+                                  }}
+                                  className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium border transition-all ${
+                                    isActive
+                                      ? "border-accent-blue ring-1 ring-accent-blue bg-accent-blue/5"
+                                      : "border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500"
+                                  }`}
+                                >
+                                  <span
+                                    className="w-3 h-3 rounded-full border border-gray-300 shrink-0"
+                                    style={{ background: colorVal }}
+                                  />
+                                  {label}
+                                </button>
+                              );
+                            },
+                          )}
+                          {footerBgMode === "custom" && (
+                            <>
+                              <input
+                                type="color"
+                                value={
+                                  footerBgCustomColor || companyData.primaryColor
+                                }
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  setFooterBgCustomColor(v);
+                                  persistFooterBg("custom", v);
+                                }}
+                                className="w-6 h-6 rounded cursor-pointer border border-gray-300 p-0.5"
+                              />
+                              <input
+                                type="text"
+                                value={footerBgCustomColor}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  setFooterBgCustomColor(v);
+                                  persistFooterBg("custom", v);
+                                }}
+                                placeholder="#HEX"
+                                className="w-20 text-[11px] border border-gray-200 dark:border-gray-600 rounded px-1.5 py-1 bg-transparent dark:text-gray-200"
+                              />
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsFooterPreviewOpen(false)}
+                        className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors shrink-0"
+                      >
+                        <X className="w-5 h-5 text-gray-500" />
+                      </button>
+                    </div>
+
+                    {/* Preview content */}
+                    <div className="p-0">
+                      <div className="bg-black min-h-[200px]">
+                        {/* Home page content mock */}
+                        <div className="px-8 py-12 text-center">
+                          <h2 className="text-2xl font-bold text-white mb-2">
+                            Welcome to the Benefits Hub!
+                          </h2>
+                          <p className="text-gray-400 text-sm max-w-xl mx-auto">
+                            This is where the home page content would appear.
+                            Scroll down to see the Footer with your disclaimer.
+                          </p>
+                        </div>
+
+                        {/* PortalDisclaimers with disclaimer text */}
+                        <PortalDisclaimers
+                          companyData={{
+                            disclaimers: (() => {
+                              const raw =
+                                (client as any)?.disclaimers ?? disclaimers;
+                              if (typeof raw === "string") return raw;
+                              if (Array.isArray(raw))
+                                return raw
+                                  .map((item: any) => item?.text || item || "")
+                                  .filter(Boolean)
+                                  .join("\n\n");
+                              if (raw && typeof raw === "object") {
+                                if (Array.isArray((raw as any).disclaimers))
+                                  return (raw as any)
+                                    .disclaimers.map((d: any) => d?.text || "")
+                                    .filter(Boolean)
+                                    .join("\n\n");
+                                if (raw.text) return raw.text;
+                              }
+                              return "";
+                            })(),
+                            brandColor: resolvedFooterBgColor,
+                            companyName: companyData.companyName,
+                          }}
+                          brandColor={resolvedFooterBgColor}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Close button */}
+                    <div className="flex justify-center px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                      <Button
+                        onClick={() => setIsFooterPreviewOpen(false)}
+                        variant="outline"
+                      >
+                        Close Preview
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </TabsContent>
           </Tabs>
         </div>
