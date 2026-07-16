@@ -465,6 +465,26 @@ export default function MarketingAssetModal({
 
   const handleSave = async () => {
     if (isSaving) return;
+
+    // Validate Top Banner required fields
+    if (resolvedType === "portal-notice") {
+      if (!headline.trim()) {
+        toast({ title: "Validation error", description: "Headline is required for Top Banner.", variant: "destructive" });
+        setIsSaving(false);
+        return;
+      }
+      if (!startDate) {
+        toast({ title: "Validation error", description: "Start date is required for Top Banner.", variant: "destructive" });
+        setIsSaving(false);
+        return;
+      }
+      if (!endDate) {
+        toast({ title: "Validation error", description: "End date is required for Top Banner.", variant: "destructive" });
+        setIsSaving(false);
+        return;
+      }
+    }
+
     setIsSaving(true);
 
     let resolvedQrDataUrl = flyerQrDataUrl;
@@ -961,7 +981,10 @@ export default function MarketingAssetModal({
       {resolvedType === "portal-notice" && (
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="pn-headline">Headline</Label>
+            <Label htmlFor="pn-headline">
+              Headline
+              <span className="text-red-500 ml-0.5">*</span>
+            </Label>
             <Input id="pn-headline" placeholder="Enter headline…" value={headline} onChange={(e) => setHeadline(e.target.value)} maxLength={80} />
             <p className="text-[11px] text-muted-foreground text-right tabular-nums">{headline.length}/80</p>
           </div>
@@ -1191,15 +1214,21 @@ export default function MarketingAssetModal({
         </div>
       )}
 
-      {/* Date range — only for non-flyer assets */}
-      {resolvedType !== "flyer" && !(resolvedType === "portal-notice" && noticeType === "countdown") && (
+      {/* Date range — always shown for Top Banner; hidden for other countdown types */}
+      {resolvedType !== "flyer" && !(resolvedType !== "portal-notice" && noticeType === "countdown") && (
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label htmlFor="startDate">Start date</Label>
+            <Label htmlFor="startDate">
+              Start date
+              {resolvedType === "portal-notice" && <span className="text-red-500 ml-0.5">*</span>}
+            </Label>
             <Input id="startDate" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="endDate">End date</Label>
+            <Label htmlFor="endDate">
+              End date
+              {resolvedType === "portal-notice" && <span className="text-red-500 ml-0.5">*</span>}
+            </Label>
             <Input id="endDate" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
           </div>
         </div>
