@@ -629,6 +629,16 @@ export default function MeetingsPage() {
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
+  const resetMeetingForm = useCallback(() => {
+    setFormData({ ...DEFAULT_MEETING_FORM_DATA });
+    setDurationHour("0");
+    setDurationMinute("0");
+    setErrors({});
+    setTimeConflictWarning("");
+    setHasConfirmedConflict(false);
+    setEditingMeetingId(null);
+    setValueCastom("");
+  }, []);
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.clientId) { toast.error("You must select a plan before scheduling a meeting"); return; }
@@ -643,7 +653,7 @@ export default function MeetingsPage() {
       if (response.ok) {
         toast.success(isEditing ? "Meeting updated successfully!" : "Meeting created successfully!");
         if (isEditing) { setFormData({ ...DEFAULT_MEETING_FORM_DATA, meetingType: formData.meetingType, client: formData.client, clientId: formData.clientId }); setDurationHour("0"); setDurationMinute("0"); setErrors({}); setTimeConflictWarning(""); setHasConfirmedConflict(false); setEditingMeetingId(null); setMeetingModalOpen(false); }
-        else { setMeetingModalOpen(false); setPostSaveDialogOpen(true); }
+        else { resetMeetingForm(); setMeetingModalOpen(false); setPostSaveDialogOpen(true); }
         await fetchMeetings();
       } else toast.error(result.error || `Failed to ${isEditing ? "update" : "create"} meeting`);
     } catch (error) { toast.error(`An error occurred while ${editingMeetingId ? "updating" : "creating"} the meeting`); }
@@ -658,7 +668,7 @@ export default function MeetingsPage() {
       const todayStr = format(today, "yyyy-MM-dd");
       const response = await fetch("/api/meetings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ meeting: formData.meetingType || "Draft Meeting", meetingType: formData.meetingType || "Open Enrollment", client: formData.client || "Draft", clientId: formData.clientId || selectedPlan, date: formData.date || todayStr, time: formData.time || "12:00", timezone: formData.timezone || "America/New_York", duration: formData.duration || "1 hour", format: formData.format || "Virtual", platform: formData.platform || "Zoom", meetingUrl: formData.meetingUrl || "", meetingLink: formData.meetingLink || "", maxAttendees: formData.maxAttendees || "50", description: formData.description || "", address: formData.address || "", city: formData.city || "", state: formData.state || "", zip: formData.zip || "", language: formData.language || "English", benefitsCategory: formData.benefitsCategory || "", status: "Draft" }) });
       const result = await response.json();
-      if (response.ok) { toast.success("Draft meeting saved successfully!"); setMeetingModalOpen(false); await fetchMeetings(); }
+      if (response.ok) { toast.success("Draft meeting saved successfully!"); resetMeetingForm(); setMeetingModalOpen(false); await fetchMeetings(); }
       else toast.error(result.error || "Failed to save draft meeting");
     } catch { toast.error("An error occurred while saving the draft"); }
     finally { setIsSubmitting(false); }
@@ -745,13 +755,13 @@ export default function MeetingsPage() {
                       <Select value={benefitsCategoryFilter} onValueChange={setBenefitsCategoryFilter}><SelectTrigger className="w-40 h-8 bg-white dark:bg-gray-800 text-xs"><SelectValue placeholder="All Categories" /></SelectTrigger><SelectContent><SelectItem value="all">All Categories</SelectItem><SelectItem value="Retirement">Retirement</SelectItem><SelectItem value="Group Health">Group Health</SelectItem><SelectItem value="Group Life">Group Life</SelectItem><SelectItem value="Other">Other</SelectItem></SelectContent></Select>
                       <div className="w-px h-6 bg-border mx-1 shrink-0" />
                       <Button variant="outline" size="sm" onClick={() => setPreviewDialogOpen(true)} className="gap-1.5 shrink-0"><FileText className="h-4 w-4" />Preview</Button>
-                      <Button onClick={() => setMeetingModalOpen(true)} size="sm" className="gap-1.5 shrink-0"><Plus className="h-4 w-4" />Add Meeting</Button>
+                      <Button onClick={() => { resetMeetingForm(); setMeetingModalOpen(true); }} size="sm" className="gap-1.5 shrink-0"><Plus className="h-4 w-4" />Add Meeting</Button>
                     </div>
                   )}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {sortedMeetings.length === 0 ? (
                       <div className="col-span-full flex items-center justify-center py-10">
-                        <div className="text-center max-w-sm"><div className="mx-auto w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-5"><CalendarDays className="h-8 w-8 text-muted-foreground/60" /></div><h3 className="text-lg font-semibold text-foreground mb-2">No meetings added yet</h3><p className="text-sm text-muted-foreground mb-6 leading-relaxed">Get started by scheduling your first meeting session for a client.</p><Button onClick={() => setMeetingModalOpen(true)} className="gap-2"><Plus className="h-4 w-4" />Add Meeting</Button></div>
+                        <div className="text-center max-w-sm"><div className="mx-auto w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-5"><CalendarDays className="h-8 w-8 text-muted-foreground/60" /></div><h3 className="text-lg font-semibold text-foreground mb-2">No meetings added yet</h3><p className="text-sm text-muted-foreground mb-6 leading-relaxed">Get started by scheduling your first meeting session for a client.</p><Button onClick={() => { resetMeetingForm(); setMeetingModalOpen(true); }} className="gap-2"><Plus className="h-4 w-4" />Add Meeting</Button></div>
                       </div>
                     ) : sortedMeetings.map((meeting) => { const FormatIcon = formatIcons[meeting.format as keyof typeof formatIcons]; const meetingDate = formatUsDate(parseLocalDate(meeting.date)); const sc: Record<string, string> = { Upcoming: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200 border-blue-200 dark:border-blue-700/50", Past: "bg-gray-100 dark:bg-gray-800/50 text-gray-700 dark:text-gray-100 border-gray-200 dark:border-gray-700/50", Draft: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-200 border-amber-200 dark:border-amber-700/50" }; const ds = STATUS_LABEL_MAP[meeting.status] || meeting.status; return (
                       <div key={meeting.id} className={`p-4 dark:bg-gray-800 border border-border/60 rounded-xl bg-card flex flex-col h-full relative ${deletingMeetingId === meeting.id ? "opacity-50 pointer-events-none" : ""}`}>
