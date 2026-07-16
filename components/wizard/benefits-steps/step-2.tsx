@@ -384,6 +384,7 @@ export function BenefitsStep2() {
                             clientId={step1Data?.planId}
                             categoryPortalVisibility={step1Data?.benefitVisibility ?? null}
                             benefits={(step1Data?.selectedPlan as any)?.employeePortalPreview?.benefits ?? null}
+                            enableNavigation={false}
                         />
                     </div>
                 )}
@@ -411,6 +412,7 @@ export function BenefitsStep2() {
                                     clientId={step1Data?.planId}
                                     categoryPortalVisibility={step1Data?.benefitVisibility ?? null}
                                     benefits={(step1Data?.selectedPlan as any)?.employeePortalPreview?.benefits ?? null}
+                                    enableNavigation={false}
                                 />
                             </div>
                             <div className="pt-20">
