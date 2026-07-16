@@ -296,6 +296,8 @@ export const KeyContactsSection: React.FC<KeyContactsSectionProps> = ({
   const [modalOpen, setModalOpen] = useState<boolean>(false);
   /** Tracks the previous set of contact IDs so we can detect newly added contacts and auto-expand them. */
   const prevContactIdsRef = useRef<Set<string>>(new Set());
+  /** Prevents auto-expanding all contacts on initial mount — only true additions after mount should auto-open. */
+  const isInitialMountRef = useRef(true);
 
   const formatPhoneNumber = (value: string): string => {
     const phoneNumber = value.replace(/\D/g, "");
@@ -442,9 +444,19 @@ export const KeyContactsSection: React.FC<KeyContactsSectionProps> = ({
     });
   }, [contacts, organizationName, companyLogo, updateContact]);
 
-// Auto-expand newly added contacts so the user sees the form immediately
+// Auto-expand newly added contacts so the user sees the form immediately.
+// On initial mount, all contacts are seeded as "already seen" so none auto-open.
+// Only contacts added after the initial mount get auto-expanded.
 useEffect(() => {
   const currentIds = new Set(contacts.map((c) => c.id));
+
+  if (isInitialMountRef.current) {
+    // Seed the ref with existing IDs so they're not treated as "new" on mount
+    prevContactIdsRef.current = currentIds;
+    isInitialMountRef.current = false;
+    return;
+  }
+
   const newIds = [...currentIds].filter(
     (id) => !prevContactIdsRef.current.has(id),
   );
