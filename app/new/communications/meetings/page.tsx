@@ -428,6 +428,10 @@ export default function MeetingsPage() {
   const [durationPickerOpen, setDurationPickerOpen] = useState(false);
   const [durationHour, setDurationHour] = useState("0");
   const [durationMinute, setDurationMinute] = useState("0");
+  const durationHourRef = useRef(durationHour);
+  const durationMinuteRef = useRef(durationMinute);
+  useEffect(() => { durationHourRef.current = durationHour; }, [durationHour]);
+  useEffect(() => { durationMinuteRef.current = durationMinute; }, [durationMinute]);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
   const [timeConflictWarning, setTimeConflictWarning] = useState<string>("");
   const [hasConfirmedConflict, setHasConfirmedConflict] = useState(false);
@@ -592,13 +596,13 @@ export default function MeetingsPage() {
   };
   const handleDurationChange = useCallback((field: "hour" | "minute", value: string) => {
     if (field === "hour") setDurationHour(value); else setDurationMinute(value);
-    const hour = field === "hour" ? value : durationHour;
-    const minute = field === "minute" ? value : durationMinute;
+    const hour = field === "hour" ? value : durationHourRef.current;
+    const minute = field === "minute" ? value : durationMinuteRef.current;
     let durationText = "";
     if (hour !== "0" || minute !== "0") { const parts = []; if (hour !== "0") parts.push(`${hour} ${hour === "1" ? "hour" : "hours"}`); if (minute !== "0") parts.push(`${minute} ${minute === "1" ? "minute" : "minutes"}`); durationText = parts.join(" "); }
     handleInputChange("duration", durationText);
     if (errors.duration) setErrors((prev) => ({ ...prev, duration: false }));
-  }, [durationHour, durationMinute, errors.duration, handleInputChange]);
+  }, [errors.duration, handleInputChange]);
   const handleLocationSelect = (location: { address: string; city: string; state: string; zip: string; lat?: number; lng?: number; }) => {
     setFormData((prev) => ({ ...prev, address: location.address, city: location.city, state: location.state, zip: location.zip }));
     if (errors.address) setErrors((prev) => ({ ...prev, address: false }));
@@ -877,14 +881,14 @@ export default function MeetingsPage() {
                         <Label className="text-xs">Hours</Label>
                         <Select value={durationHour} onValueChange={(v) => handleDurationChange("hour", v)}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>{DURATION_HOURS.map((h) => <SelectItem key={h} value={h.toString()}>{h}</SelectItem>)}</SelectContent>
+                          <SelectContent>{DURATION_HOURS.map((h) => <SelectItem key={h} value={h.toString()}>{h.toString()}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs">Minutes</Label>
                         <Select value={durationMinute} onValueChange={(v) => handleDurationChange("minute", v)}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>{DURATION_MINUTES.filter((m) => m > 0 || durationHour !== "0").map((m) => <SelectItem key={m} value={m.toString()}>{m}</SelectItem>)}</SelectContent>
+                          <SelectContent>{DURATION_MINUTES.map((m) => <SelectItem key={m} value={m.toString()}>{m.toString()}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
                     </div>
