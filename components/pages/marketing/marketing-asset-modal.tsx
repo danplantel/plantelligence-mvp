@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import useSWR from "swr";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { downloadFlyerPdf } from "@/lib/marketing/flyer-pdf";
@@ -977,8 +978,11 @@ export default function MarketingAssetModal({
           </div>
           {noticeType === "countdown" && (
             <div className="space-y-1.5">
-              <Label htmlFor="countdownTarget">Countdown target date/time</Label>
-              <Input id="countdownTarget" type="datetime-local" value={countdownTarget} onChange={(e) => setCountdownTarget(e.target.value)} />
+              <Label>Countdown target date/time</Label>
+              <DateTimePickerPopup
+                value={countdownTarget}
+                onChange={setCountdownTarget}
+              />
             </div>
           )}
           <div className="space-y-1.5">
@@ -1547,6 +1551,247 @@ export default function MarketingAssetModal({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ── DateTime Picker Popup ─────────────────────────────────────
+
+function DateTimePickerPopup({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (val: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  // Parse existing value into date and time parts
+  const parsed = (() => {
+    if (!value) return { date: "", time: "" };
+    // value is "YYYY-MM-DDTHH:mm" from datetime-local
+    const [d, t] = value.split("T");
+    return { date: d ?? "", time: t ?? "" };
+  })();
+
+  const [localDate, setLocalDate] = useState(parsed.date);
+  const [localTime, setLocalTime] = useState(parsed.time);
+
+  // Sync internal state when value prop changes from outside
+  useEffect(() => {
+    const p = (() => {
+      if (!value) return { date: "", time: "" };
+      const [d, t] = value.split("T");
+      return { date: d ?? "", time: t ?? "" };
+    })();
+    setLocalDate(p.date);
+    setLocalTime(p.time);
+  }, [value]);
+
+  const handleOk = () => {
+    if (localDate && localTime) {
+      onChange(`${localDate}T${localTime}`);
+    } else if (localDate) {
+      onChange(`${localDate}T00:00`);
+    }
+    setOpen(false);
+  };
+
+  const handleCancel = () => {
+    // Reset local state to current value
+    const p = (() => {
+      if (!value) return { date: "", time: "" };
+      const [d, t] = value.split("T");
+      return { date: d ?? "", time: t ?? "" };
+    })();
+    setLocalDate(p.date);
+    setLocalTime(p.time);
+    setOpen(false);
+  };
+
+  const handleClear = () => {
+    setLocalDate("");
+    setLocalTime("");
+    onChange("");
+    setOpen(false);
+  };
+
+  // Format display value
+  const displayValue = (() => {
+    if (!value) return "";
+    try {
+      const d = new Date(value);
+      if (isNaN(d.getTime())) return value;
+      return d.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }) +
+      " " +
+      d.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+      });
+    } catch {
+      return value;
+    }
+  })();
+
+  return (
+    <>
+      {/* Trigger input (read-only, opens popup on click/focus) */}
+      <div className="relative">
+        <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <input
+          type="text"
+          readOnly
+          value={displayValue || ""}
+          placeholder="Select date & time\u2026"
+          onClick={() => setOpen(true)}
+          onFocus={() => setOpen(true)}
+          className={cn(
+            "flex h-10 w-full rounded-lg border px-3 py-2 text-sm pl-9 cursor-pointer",
+            "border-input bg-white dark:bg-gray-800",
+            "text-foreground placeholder:text-muted-foreground",
+            "hover:border-gray-400 dark:hover:border-gray-500",
+            "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+            !value && "text-muted-foreground"
+          )}
+          aria-label="Select countdown date and time"
+          aria-haspopup="dialog"
+        />
+        {value && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onChange("");
+            }}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            aria-label="Clear date/time"
+          >
+            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+            </svg>
+          </button>
+        )}
+      </div>
+
+      {/* Popup overlay — rendered via portal to escape Dialog transform stacking context */}
+      {open &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              onClick={handleCancel}
+            />
+            {/* Popup card */}
+            <div
+              className={cn(
+                "relative w-full max-w-sm rounded-xl border shadow-2xl overflow-hidden",
+                "border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900"
+              )}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-gray-200 px-5 py-3.5 dark:border-gray-700">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-accent-blue" />
+                  <h3 className="text-sm font-semibold text-foreground">
+                    Select Countdown Date & Time
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                  aria-label="Close"
+                >
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="space-y-4 px-5 py-4">
+                {/* Date field */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-foreground">
+                    Date
+                  </Label>
+                  <input
+                    type="date"
+                    value={localDate}
+                    onChange={(e) => setLocalDate(e.target.value)}
+                    className={cn(
+                      "flex h-10 w-full rounded-lg border px-3 py-2 text-sm",
+                      "border-input bg-white dark:bg-gray-800",
+                      "text-foreground placeholder:text-muted-foreground",
+                      "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                      "disabled:cursor-not-allowed disabled:opacity-50",
+                      "[color-scheme:light] dark:[color-scheme:dark]"
+                    )}
+                  />
+                </div>
+
+                {/* Time field */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-foreground">
+                    Time
+                  </Label>
+                  <input
+                    type="time"
+                    value={localTime}
+                    onChange={(e) => setLocalTime(e.target.value)}
+                    className={cn(
+                      "flex h-10 w-full rounded-lg border px-3 py-2 text-sm",
+                      "border-input bg-white dark:bg-gray-800",
+                      "text-foreground placeholder:text-muted-foreground",
+                      "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                      "disabled:cursor-not-allowed disabled:opacity-50",
+                      "[color-scheme:light] dark:[color-scheme:dark]"
+                    )}
+                  />
+                </div>
+              </div>
+
+              {/* Footer with Ok / Cancel */}
+              <div className="flex items-center justify-between border-t border-gray-200 px-5 py-3 dark:border-gray-700">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleClear}
+                  className="text-xs text-muted-foreground hover:text-red-600"
+                >
+                  Clear
+                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCancel}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    onClick={handleOk}
+                    disabled={!localDate}
+                  >
+                    Ok
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+    </>
   );
 }
 
