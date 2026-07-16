@@ -469,17 +469,46 @@ export default function MarketingAssetModal({
     // Validate Top Banner required fields
     if (resolvedType === "portal-notice") {
       if (!headline.trim()) {
-        toast({ title: "Validation error", description: "Headline is required for Top Banner.", variant: "destructive" });
+        toast({ title: "Validation error", description: "Headline is required for Top Banner.", variant: "destructive", className: "z-[9999]" });
         setIsSaving(false);
         return;
       }
       if (!startDate) {
-        toast({ title: "Validation error", description: "Start date is required for Top Banner.", variant: "destructive" });
+        toast({ title: "Validation error", description: "Start date is required for Top Banner.", variant: "destructive", className: "z-[9999]" });
         setIsSaving(false);
         return;
       }
       if (!endDate) {
-        toast({ title: "Validation error", description: "End date is required for Top Banner.", variant: "destructive" });
+        toast({ title: "Validation error", description: "End date is required for Top Banner.", variant: "destructive", className: "z-[9999]" });
+        setIsSaving(false);
+        return;
+      }
+    }
+
+    // Validate Pop-Up required fields
+    if (resolvedType === "pop-up") {
+      if (!headline.trim()) {
+        toast({ title: "Validation error", description: "Headline is required for Pop-Up.", variant: "destructive", className: "z-[9999]" });
+        setIsSaving(false);
+        return;
+      }
+      if (!body.trim()) {
+        toast({ title: "Validation error", description: "Body text is required for Pop-Up.", variant: "destructive", className: "z-[9999]" });
+        setIsSaving(false);
+        return;
+      }
+      if (popupPages.length === 0) {
+        toast({ title: "Validation error", description: "At least one page must be selected for Pop-Up.", variant: "destructive", className: "z-[9999]" });
+        setIsSaving(false);
+        return;
+      }
+      if (!startDate) {
+        toast({ title: "Validation error", description: "Start date is required for Pop-Up.", variant: "destructive", className: "z-[9999]" });
+        setIsSaving(false);
+        return;
+      }
+      if (!endDate) {
+        toast({ title: "Validation error", description: "End date is required for Pop-Up.", variant: "destructive", className: "z-[9999]" });
         setIsSaving(false);
         return;
       }
@@ -1047,7 +1076,10 @@ export default function MarketingAssetModal({
       {resolvedType === "pop-up" && (
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <Label htmlFor="pu-headline">Headline</Label>
+            <Label htmlFor="pu-headline">
+              Headline
+              <span className="text-red-500 ml-0.5">*</span>
+            </Label>
             <Input id="pu-headline" placeholder="Enter headline…" value={headline} onChange={(e) => setHeadline(e.target.value)} />
           </div>
           <div className="space-y-1.5">
@@ -1056,7 +1088,10 @@ export default function MarketingAssetModal({
           </div>
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <Label htmlFor="body">Body text</Label>
+              <Label htmlFor="body">
+                Body text
+                <span className="text-red-500 ml-0.5">*</span>
+              </Label>
               <span className="text-[11px] text-muted-foreground tabular-nums">{body.length}/300</span>
             </div>
             <Textarea id="body" rows={4} placeholder="Write your message…" value={body} onChange={(e) => setBody(e.target.value)} maxLength={300} className="dark:bg-gray-800" />
@@ -1070,7 +1105,10 @@ export default function MarketingAssetModal({
             <Input id="pu-cta-url" placeholder="https://example.com" value={popupCtaUrl} onChange={(e) => setPopupCtaUrl(e.target.value)} />
           </div>
           <div>
-            <Label className="text-sm font-medium">Show on pages</Label>
+            <Label className="text-sm font-medium">
+              Show on pages
+              <span className="text-red-500 ml-0.5">*</span>
+            </Label>
             <p className="text-xs text-muted-foreground mt-0.5">Select which pages this pop-up will appear on.</p>
           </div>
           <div className="space-y-2">
@@ -1220,14 +1258,14 @@ export default function MarketingAssetModal({
           <div className="space-y-1.5">
             <Label htmlFor="startDate">
               Start date
-              {resolvedType === "portal-notice" && <span className="text-red-500 ml-0.5">*</span>}
+              {(resolvedType === "portal-notice" || resolvedType === "pop-up") && <span className="text-red-500 ml-0.5">*</span>}
             </Label>
             <Input id="startDate" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="endDate">
               End date
-              {resolvedType === "portal-notice" && <span className="text-red-500 ml-0.5">*</span>}
+              {(resolvedType === "portal-notice" || resolvedType === "pop-up") && <span className="text-red-500 ml-0.5">*</span>}
             </Label>
             <Input id="endDate" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
           </div>
