@@ -678,7 +678,8 @@ export function EditPlanPreviewSection({
                 <ClientPortal
                   data={portalData as any}
                   hideHeader={true}
-                  hideFooter={false}
+                  hideFooter={true}
+                  hideBenefits={true}
                   clientId={clientId}
                   onHeroTitleClick={() => {
                     handleOpenEditor();
@@ -715,7 +716,8 @@ export function EditPlanPreviewSection({
                 <ClientPortal
                   data={portalData as any}
                   hideHeader={true}
-                  hideFooter={false}
+                  hideFooter={true}
+                  hideBenefits={true}
                   clientId={clientId}
                   onHeroTitleClick={() => {
                     handleOpenEditor();
