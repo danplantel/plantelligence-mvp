@@ -965,8 +965,8 @@ export default function MeetingsPage() {
               {/* Format */}
               <div className="space-y-2">
                 <Label>Format <span className="text-red-500">*</span></Label>
-                <Select value={formData.format} onValueChange={(v) => handleInputChange("format", v)}>
-                  <SelectTrigger className={`${errors.format ? "border-red-500" : ""} dark:bg-gray-800`}>
+                <Select value={formData.format || undefined} onValueChange={(v) => handleInputChange("format", v)}>
+                  <SelectTrigger className={cn(`${errors.format ? "border-red-500" : ""} dark:bg-gray-800`, !formData.format && "text-gray-400 dark:text-gray-500")}>
                     <SelectValue placeholder="Select format" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1042,8 +1042,8 @@ export default function MeetingsPage() {
             {/* Language */}
             <div className="space-y-2">
               <Label>Language</Label>
-              <Select value={formData.language} onValueChange={(v) => handleInputChange("language", v)}>
-                <SelectTrigger className="dark:bg-gray-800"><SelectValue placeholder="Select language" /></SelectTrigger>
+              <Select value={formData.language || undefined} onValueChange={(v) => handleInputChange("language", v)}>
+                <SelectTrigger className={cn("dark:bg-gray-800", !formData.language && "text-gray-400 dark:text-gray-500")}><SelectValue placeholder="Select language" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="English">English</SelectItem>
                   <SelectItem value="Spanish">Spanish</SelectItem>
@@ -1054,8 +1054,8 @@ export default function MeetingsPage() {
             {/* Benefits Category */}
             <div className="space-y-2">
               <Label>Benefits Category</Label>
-              <Select value={formData.benefitsCategory} onValueChange={(v) => handleInputChange("benefitsCategory", v)}>
-                <SelectTrigger className="dark:bg-gray-800"><SelectValue placeholder="Select category" /></SelectTrigger>
+              <Select value={formData.benefitsCategory || undefined} onValueChange={(v) => handleInputChange("benefitsCategory", v)}>
+                <SelectTrigger className={cn("dark:bg-gray-800", !formData.benefitsCategory && "text-gray-400 dark:text-gray-500")}><SelectValue placeholder="Select category" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Retirement">Retirement</SelectItem>
                   <SelectItem value="Group Health">Group Health</SelectItem>
