@@ -424,8 +424,14 @@ export default function MeetingsPage() {
   const { data: meetingsData, isLoading: meetingsLoading, mutate: refreshMeetings } = useSWR(meetingsKey, jsonFetcher, { keepPreviousData: true, dedupingInterval: 60_000, revalidateOnFocus: false });
   const meetings: Meeting[] = meetingsData?.data ?? [];
   const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [tempDate, setTempDate] = useState("");
   const [timePickerOpen, setTimePickerOpen] = useState(false);
+  const [tempHour, setTempHour] = useState("");
+  const [tempMinute, setTempMinute] = useState("");
+  const [tempAmpm, setTempAmpm] = useState("");
   const [durationPickerOpen, setDurationPickerOpen] = useState(false);
+  const [tempDurationHour, setTempDurationHour] = useState("0");
+  const [tempDurationMinute, setTempDurationMinute] = useState("0");
   const [durationHour, setDurationHour] = useState("0");
   const [durationMinute, setDurationMinute] = useState("0");
   const durationHourRef = useRef(durationHour);
@@ -813,7 +819,10 @@ export default function MeetingsPage() {
               {/* Date */}
               <div className="space-y-2">
                 <Label>Date <span className="text-red-500">*</span></Label>
-                <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                <Popover open={datePickerOpen} onOpenChange={(open) => {
+                  setDatePickerOpen(open);
+                  if (open) setTempDate(formData.date);
+                }}>
                   <PopoverTrigger asChild>
                     <Button variant="outline" className={`w-full justify-start text-left font-normal ${!formData.date && "text-muted-foreground"} ${errors.date ? "border-red-500" : ""}`}>
                       <Calendar className="mr-2 h-4 w-4" />
@@ -821,8 +830,12 @@ export default function MeetingsPage() {
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarComponent mode="single" selected={formData.date ? parseLocalDate(formData.date) : undefined}
-                      onSelect={(d) => { if (d) { handleInputChange("date", format(d, "yyyy-MM-dd")); setDatePickerOpen(false); } }} initialFocus />
+                    <CalendarComponent mode="single" selected={tempDate ? parseLocalDate(tempDate) : undefined}
+                      onSelect={(d) => { if (d) setTempDate(format(d, "yyyy-MM-dd")); }} initialFocus />
+                    <div className="flex items-center justify-end gap-2 p-3 border-t border-border">
+                      <Button type="button" size="sm" variant="outline" onClick={() => setDatePickerOpen(false)}>Cancel</Button>
+                      <Button type="button" size="sm" onClick={() => { if (tempDate) handleInputChange("date", tempDate); setDatePickerOpen(false); }}>OK</Button>
+                    </div>
                   </PopoverContent>
                 </Popover>
               </div>
@@ -830,7 +843,14 @@ export default function MeetingsPage() {
               {/* Time */}
               <div className="space-y-2">
                 <Label>Time <span className="text-red-500">*</span></Label>
-                <Popover open={timePickerOpen} onOpenChange={setTimePickerOpen}>
+                <Popover open={timePickerOpen} onOpenChange={(open) => {
+                  setTimePickerOpen(open);
+                  if (open) {
+                    setTempHour(formData.hour);
+                    setTempMinute(formData.minute);
+                    setTempAmpm(formData.ampm);
+                  }
+                }}>
                   <PopoverTrigger asChild>
                     <Button variant="outline" className={`w-full justify-start text-left font-normal ${!formData.time && "text-muted-foreground"} ${errors.time ? "border-red-500" : ""}`}>
                       <Clock className="mr-2 h-4 w-4" />
@@ -841,25 +861,46 @@ export default function MeetingsPage() {
                     <div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
                       <div className="space-y-1">
                         <Label className="text-xs">Hour</Label>
-                        <Select value={formData.hour} onValueChange={(v) => handleTimeChange("hour", v)}>
+                        <Select value={tempHour} onValueChange={setTempHour}>
                           <SelectTrigger><SelectValue placeholder="-" /></SelectTrigger>
                           <SelectContent>{HOURS.map((h) => <SelectItem key={h} value={h.toString()}>{h}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs">Minute</Label>
-                        <Select value={formData.minute} onValueChange={(v) => handleTimeChange("minute", v)}>
+                        <Select value={tempMinute} onValueChange={setTempMinute}>
                           <SelectTrigger><SelectValue placeholder="-" /></SelectTrigger>
                           <SelectContent>{MINUTES.map((m) => <SelectItem key={m} value={m.toString().padStart(2, "0")}>{m.toString().padStart(2, "0")}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs">AM/PM</Label>
-                        <Select value={formData.ampm} onValueChange={(v) => handleTimeChange("ampm", v)}>
+                        <Select value={tempAmpm} onValueChange={setTempAmpm}>
                           <SelectTrigger><SelectValue placeholder="-" /></SelectTrigger>
                           <SelectContent>{AMPM_OPTIONS.map((ap) => <SelectItem key={ap} value={ap}>{ap}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
+                    </div>
+                    <div className="flex items-center justify-end gap-2 pt-3 border-t border-border mt-3">
+                      <Button type="button" size="sm" variant="outline" onClick={() => setTimePickerOpen(false)}>Cancel</Button>
+                      <Button type="button" size="sm" onClick={() => {
+                        if (tempHour && tempMinute && tempAmpm) {
+                          setFormData((prev) => {
+                            const hour24 = tempAmpm === "AM"
+                              ? (tempHour === "12" ? "00" : tempHour.padStart(2, "0"))
+                              : tempHour === "12" ? "12" : (parseInt(tempHour) + 12).toString();
+                            return {
+                              ...prev,
+                              hour: tempHour,
+                              minute: tempMinute,
+                              ampm: tempAmpm,
+                              time: `${hour24}:${tempMinute.padStart(2, "0")}`,
+                            };
+                          });
+                          if (errors.time) setErrors((prev) => ({ ...prev, time: false }));
+                        }
+                        setTimePickerOpen(false);
+                      }}>OK</Button>
                     </div>
                   </PopoverContent>
                 </Popover>
@@ -868,7 +909,13 @@ export default function MeetingsPage() {
               {/* Duration */}
               <div className="space-y-2">
                 <Label>Duration <span className="text-red-500">*</span></Label>
-                <Popover open={durationPickerOpen} onOpenChange={setDurationPickerOpen}>
+                <Popover open={durationPickerOpen} onOpenChange={(open) => {
+                  setDurationPickerOpen(open);
+                  if (open) {
+                    setTempDurationHour(durationHour);
+                    setTempDurationMinute(durationMinute);
+                  }
+                }}>
                   <PopoverTrigger asChild>
                     <Button variant="outline" className={`w-full justify-start text-left font-normal ${!formData.duration && "text-muted-foreground"} ${errors.duration ? "border-red-500" : ""}`}>
                       <Clock className="mr-2 h-4 w-4" />
@@ -879,18 +926,37 @@ export default function MeetingsPage() {
                     <div className="grid grid-cols-2 gap-2 items-end">
                       <div className="space-y-1">
                         <Label className="text-xs">Hours</Label>
-                        <Select value={durationHour} onValueChange={(v) => handleDurationChange("hour", v)}>
+                        <Select value={tempDurationHour} onValueChange={setTempDurationHour}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>{DURATION_HOURS.map((h) => <SelectItem key={h} value={h.toString()}>{h.toString()}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs">Minutes</Label>
-                        <Select value={durationMinute} onValueChange={(v) => handleDurationChange("minute", v)}>
+                        <Select value={tempDurationMinute} onValueChange={setTempDurationMinute}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>{DURATION_MINUTES.map((m) => <SelectItem key={m} value={m.toString()}>{m.toString()}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
+                    </div>
+                    <div className="flex items-center justify-end gap-2 pt-3 border-t border-border mt-3">
+                      <Button type="button" size="sm" variant="outline" onClick={() => setDurationPickerOpen(false)}>Cancel</Button>
+                      <Button type="button" size="sm" onClick={() => {
+                        setDurationHour(tempDurationHour);
+                        setDurationMinute(tempDurationMinute);
+                        const hour = tempDurationHour;
+                        const minute = tempDurationMinute;
+                        let durationText = "";
+                        if (hour !== "0" || minute !== "0") {
+                          const parts = [];
+                          if (hour !== "0") parts.push(`${hour} ${hour === "1" ? "hour" : "hours"}`);
+                          if (minute !== "0") parts.push(`${minute} ${minute === "1" ? "minute" : "minutes"}`);
+                          durationText = parts.join(" ");
+                        }
+                        handleInputChange("duration", durationText);
+                        if (errors.duration) setErrors((prev) => ({ ...prev, duration: false }));
+                        setDurationPickerOpen(false);
+                      }}>OK</Button>
                     </div>
                   </PopoverContent>
                 </Popover>
