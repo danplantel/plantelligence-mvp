@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
-import { Building2, Palette, Globe, Image as ImageIcon, CheckCircle2, AlertCircle, Sparkles, Upload, Plus, X, AlertTriangle } from "lucide-react";
+import { Building2, Palette, Globe, Image as ImageIcon, CheckCircle2, AlertCircle, Sparkles, Upload, Plus, X, AlertTriangle, ArrowLeftRight } from "lucide-react";
 import { isValidDomain, normalizeCleanDomain } from "@/lib/url-utils";
 import { extractColorsFromImage } from "@/lib/extract-colors-from-image";
 import { deleteFromR2 } from "@/lib/upload-to-r2";
@@ -911,6 +911,25 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                     </p>
                   )}
                 </div>
+              </div>
+
+              {/* Swap Colors */}
+              <div className="flex justify-center pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const prim = companyData.primaryColor;
+                    const sec = companyData.secondaryColor;
+                    updateField("primaryColor", sec);
+                    updateField("secondaryColor", prim);
+                  }}
+                  className="inline-flex items-center gap-2 text-xs"
+                >
+                  <ArrowLeftRight className="w-3.5 h-3.5" />
+                  Swap Colors
+                </Button>
               </div>
             </CardContent>
           </Card>

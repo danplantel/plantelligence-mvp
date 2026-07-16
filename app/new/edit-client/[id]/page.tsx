@@ -42,7 +42,7 @@ import { ContactCardLayoutPreviewModal } from "@/components/pages/edit-client/co
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ColorPicker } from "@/components/ui/color-picker";
-import { Building2, Palette, Globe, FileText, CheckCircle2, AlertCircle, Eye, X } from "lucide-react";
+import { Building2, Palette, Globe, FileText, CheckCircle2, AlertCircle, Eye, X, ArrowLeftRight } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { PRIMARY_SERVICE_CATEGORY_OPTIONS } from "@/lib/service-categories";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -1230,6 +1230,25 @@ export default function EditClientPage() {
                         title="Secondary Color"
                       />
                     </div>
+                  </div>
+
+                  {/* Swap Colors */}
+                  <div className="flex justify-center pt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const prim = companyData.primaryColor;
+                        const sec = companyData.secondaryColor;
+                        handleInputChange("primaryColor", sec);
+                        handleInputChange("secondaryColor", prim);
+                      }}
+                      className="inline-flex items-center gap-2 text-xs"
+                    >
+                      <ArrowLeftRight className="w-3.5 h-3.5" />
+                      Swap Colors
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
