@@ -1287,14 +1287,14 @@ export default function MarketingAssetModal({
             <Label htmlFor="np-cta-url">Button link (optional)</Label>
             <Input id="np-cta-url" placeholder="https://example.com" value={newsPostCtaUrl} onChange={(e) => setNewsPostCtaUrl(e.target.value)} />
           </div>
-          {/* Accent color */}
-          <div className="space-y-1.5">
-            <Label htmlFor="np-bgColor">Accent color</Label>
-            <div className="flex items-center gap-3">
-              <Input id="np-bgColor" type="color" className="w-12 h-9 p-1 cursor-pointer" value={bgColor} onChange={(e) => setBgColor(e.target.value)} />
-              <span className="text-xs text-muted-foreground font-mono">{bgColor}</span>
-            </div>
-          </div>
+          {/* Button color */}
+          <PlanColorSelector
+            label="Button color"
+            value={bgColor}
+            onChange={setBgColor}
+            planPrimaryColor={planBrandColor}
+            planSecondaryColor={planSecondaryColor}
+          />
         </div>
       )}
 
@@ -2149,7 +2149,7 @@ function PreviewPane({
     case "pop-up":
       return <PopUpPreview headline={headline} body={body} ctaText={ctaText} bgColor={bgColor} planName={planName} planLogo={planLogo} subtitle={flyerSubtitle} isMobile={isMobile} />;
     case "news-post":
-      return <NewsPostPreview headline={headline} body={body} planName={planName} ctaText={ctaText} subtitle={flyerSubtitle} bgImage={bgImage} postCategory={postCategory} startDate={startDate} isMobile={isMobile} />;
+      return <NewsPostPreview headline={headline} body={body} planName={planName} ctaText={ctaText} subtitle={flyerSubtitle} bgImage={bgImage} postCategory={postCategory} startDate={startDate} isMobile={isMobile} bgColor={bgColor} />;
   }
 }
 
@@ -2486,6 +2486,7 @@ function NewsPostPreview({
   postCategory,
   startDate,
   isMobile,
+  bgColor,
 }: {
   headline: string;
   body: string;
@@ -2496,6 +2497,7 @@ function NewsPostPreview({
   postCategory?: string;
   startDate?: string;
   isMobile?: boolean;
+  bgColor?: string;
 }) {
   const bgSrc = bgImage ? getBgImageSrc(bgImage) : "";
   const hasBg = !!bgSrc;
@@ -2542,12 +2544,15 @@ function NewsPostPreview({
         )}
         {/* CTA */}
         <div className="mt-auto pt-4">
-          <span className="inline-flex items-center rounded-lg bg-white/20 backdrop-blur-sm px-5 py-2.5 text-sm font-semibold text-white shadow-sm border border-white/30 hover:bg-white/30 transition-all duration-200 cursor-default">
-            {ctaText || "Learn more"}
-            <svg className="ml-2 h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M5 12h14" /><polyline points="12 5 19 12 12 19" />
-            </svg>
-          </span>
+          {ctaText && (
+            <span className="inline-flex items-center rounded-lg backdrop-blur-sm px-5 py-2.5 text-sm font-semibold text-white shadow-sm border border-white/30 hover:opacity-90 transition-all duration-200 cursor-default"
+              style={{ background: bgColor || "rgba(255,255,255,0.2)" }}>
+              {ctaText}
+              <svg className="ml-2 h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12h14" /><polyline points="12 5 19 12 12 19" />
+              </svg>
+            </span>
+          )}
         </div>
       </div>
     </>
