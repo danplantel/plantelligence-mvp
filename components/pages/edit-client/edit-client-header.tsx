@@ -61,7 +61,7 @@ export function EditClientHeader({
           )}
           <Label
             htmlFor="status-select"
-            className="text-sm font-semibold text-gray-700"
+            className="text-sm font-semibold text-gray-700 dark:text-gray-200"
           >
             Status:
           </Label>
