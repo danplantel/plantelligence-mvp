@@ -800,7 +800,7 @@ export default function MeetingsPage() {
               <div className="space-y-2">
                 <Label>Meeting Type <span className="text-red-500">*</span></Label>
                 <Select value={formData.meetingType} onValueChange={(v) => handleInputChange("meetingType", v)}>
-                  <SelectTrigger className={errors.meetingType ? "border-red-500" : ""}>
+                  <SelectTrigger className={`${errors.meetingType ? "border-red-500" : ""} dark:bg-gray-800`}>
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -824,7 +824,7 @@ export default function MeetingsPage() {
                   if (open) setTempDate(formData.date);
                 }}>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className={`w-full justify-start text-left font-normal ${!formData.date && "text-muted-foreground"} ${errors.date ? "border-red-500" : ""}`}>
+                    <Button variant="outline" className={`w-full justify-start text-left font-normal ${!formData.date && "text-muted-foreground"} ${errors.date ? "border-red-500" : ""} dark:bg-gray-800`}>
                       <Calendar className="mr-2 h-4 w-4" />
                       {formData.date ? format(parseLocalDate(formData.date), "PPP") : "Pick a date"}
                     </Button>
@@ -852,7 +852,7 @@ export default function MeetingsPage() {
                   }
                 }}>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className={`w-full justify-start text-left font-normal ${!formData.time && "text-muted-foreground"} ${errors.time ? "border-red-500" : ""}`}>
+                    <Button variant="outline" className={`w-full justify-start text-left font-normal ${!formData.time && "text-muted-foreground"} ${errors.time ? "border-red-500" : ""} dark:bg-gray-800`}>
                       <Clock className="mr-2 h-4 w-4" />
                       {formData.time ? formatTime12h(formData.time) : "Select time"}
                     </Button>
@@ -862,21 +862,21 @@ export default function MeetingsPage() {
                       <div className="space-y-1">
                         <Label className="text-xs">Hour</Label>
                         <Select value={tempHour} onValueChange={setTempHour}>
-                          <SelectTrigger><SelectValue placeholder="-" /></SelectTrigger>
+                          <SelectTrigger className="dark:bg-gray-800"><SelectValue placeholder="-" /></SelectTrigger>
                           <SelectContent>{HOURS.map((h) => <SelectItem key={h} value={h.toString()}>{h}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs">Minute</Label>
                         <Select value={tempMinute} onValueChange={setTempMinute}>
-                          <SelectTrigger><SelectValue placeholder="-" /></SelectTrigger>
+                          <SelectTrigger className="dark:bg-gray-800"><SelectValue placeholder="-" /></SelectTrigger>
                           <SelectContent>{MINUTES.map((m) => <SelectItem key={m} value={m.toString().padStart(2, "0")}>{m.toString().padStart(2, "0")}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs">AM/PM</Label>
                         <Select value={tempAmpm} onValueChange={setTempAmpm}>
-                          <SelectTrigger><SelectValue placeholder="-" /></SelectTrigger>
+                          <SelectTrigger className="dark:bg-gray-800"><SelectValue placeholder="-" /></SelectTrigger>
                           <SelectContent>{AMPM_OPTIONS.map((ap) => <SelectItem key={ap} value={ap}>{ap}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
@@ -917,7 +917,7 @@ export default function MeetingsPage() {
                   }
                 }}>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className={`w-full justify-start text-left font-normal ${!formData.duration && "text-muted-foreground"} ${errors.duration ? "border-red-500" : ""}`}>
+                    <Button variant="outline" className={`w-full justify-start text-left font-normal ${!formData.duration && "text-muted-foreground"} ${errors.duration ? "border-red-500" : ""} dark:bg-gray-800`}>
                       <Clock className="mr-2 h-4 w-4" />
                       {formData.duration || "Select duration"}
                     </Button>
@@ -927,14 +927,14 @@ export default function MeetingsPage() {
                       <div className="space-y-1">
                         <Label className="text-xs">Hours</Label>
                         <Select value={tempDurationHour} onValueChange={setTempDurationHour}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectTrigger className="dark:bg-gray-800"><SelectValue /></SelectTrigger>
                           <SelectContent>{DURATION_HOURS.map((h) => <SelectItem key={h} value={h.toString()}>{h.toString()}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs">Minutes</Label>
                         <Select value={tempDurationMinute} onValueChange={setTempDurationMinute}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectTrigger className="dark:bg-gray-800"><SelectValue /></SelectTrigger>
                           <SelectContent>{DURATION_MINUTES.map((m) => <SelectItem key={m} value={m.toString()}>{m.toString()}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
@@ -966,7 +966,7 @@ export default function MeetingsPage() {
               <div className="space-y-2">
                 <Label>Format <span className="text-red-500">*</span></Label>
                 <Select value={formData.format} onValueChange={(v) => handleInputChange("format", v)}>
-                  <SelectTrigger className={errors.format ? "border-red-500" : ""}>
+                  <SelectTrigger className={`${errors.format ? "border-red-500" : ""} dark:bg-gray-800`}>
                     <SelectValue placeholder="Select format" />
                   </SelectTrigger>
                   <SelectContent>
@@ -980,7 +980,7 @@ export default function MeetingsPage() {
                 <div className="space-y-2">
                   <Label>Platform <span className="text-red-500">*</span></Label>
                   <Select value={formData.platform} onValueChange={(v) => handleInputChange("platform", v)}>
-                    <SelectTrigger className={errors.platform ? "border-red-500" : ""}>
+                    <SelectTrigger className={`${errors.platform ? "border-red-500" : ""} dark:bg-gray-800`}>
                       <SelectValue placeholder="Select platform" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1032,7 +1032,7 @@ export default function MeetingsPage() {
             <div className="space-y-2">
               <Label>Timezone</Label>
               <Select value={formData.timezone} onValueChange={(v) => handleInputChange("timezone", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="dark:bg-gray-800"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {TIMEZONE_OPTIONS.map((tz) => <SelectItem key={tz.value} value={tz.value}>{tz.label}</SelectItem>)}
                 </SelectContent>
@@ -1043,7 +1043,7 @@ export default function MeetingsPage() {
             <div className="space-y-2">
               <Label>Language</Label>
               <Select value={formData.language} onValueChange={(v) => handleInputChange("language", v)}>
-                <SelectTrigger><SelectValue placeholder="Select language" /></SelectTrigger>
+                <SelectTrigger className="dark:bg-gray-800"><SelectValue placeholder="Select language" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="English">English</SelectItem>
                   <SelectItem value="Spanish">Spanish</SelectItem>
@@ -1055,7 +1055,7 @@ export default function MeetingsPage() {
             <div className="space-y-2">
               <Label>Benefits Category</Label>
               <Select value={formData.benefitsCategory} onValueChange={(v) => handleInputChange("benefitsCategory", v)}>
-                <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                <SelectTrigger className="dark:bg-gray-800"><SelectValue placeholder="Select category" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Retirement">Retirement</SelectItem>
                   <SelectItem value="Group Health">Group Health</SelectItem>
