@@ -2359,9 +2359,11 @@ function PopUpPreview({
               </div>
             )}
             <div className="pt-1 flex items-center gap-3">
-              <span className="inline-flex items-center rounded-lg px-5 py-2.5 text-sm font-semibold text-white shadow-sm" style={{ background: bgColor }}>
-                {ctaText || "Learn More"}
-              </span>
+              {ctaText && (
+                <span className="inline-flex items-center rounded-lg px-5 py-2.5 text-sm font-semibold text-white shadow-sm" style={{ background: bgColor }}>
+                  {ctaText}
+                </span>
+              )}
               <span className="text-xs text-gray-400">Dismiss</span>
             </div>
           </div>
@@ -2406,9 +2408,11 @@ function PopUpPreview({
             </div>
           )}
           <div className="pt-1 flex items-center gap-3">
-            <span className="inline-flex items-center rounded-lg px-5 py-2.5 text-sm font-semibold text-white shadow-sm" style={{ background: bgColor }}>
-              {ctaText || "Learn More"}
-            </span>
+            {ctaText && (
+              <span className="inline-flex items-center rounded-lg px-5 py-2.5 text-sm font-semibold text-white shadow-sm" style={{ background: bgColor }}>
+                {ctaText}
+              </span>
+            )}
             <span className="text-xs text-gray-400">Dismiss</span>
           </div>
         </div>
