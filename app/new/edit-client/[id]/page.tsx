@@ -850,7 +850,7 @@ export default function EditClientPage() {
             {/* ── Tab 1: Company Basics & Branding ── */}
             <TabsContent value="company" className="space-y-6 mt-0">
               {/* Plan Type */}
-              <Card>
+              <Card className="dark:bg-gray-800">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Building2 className="w-5 h-5 text-accent-blue" />
@@ -917,7 +917,7 @@ export default function EditClientPage() {
               </Card>
 
               {/* Company Information */}
-              <Card>
+              <Card className="dark:bg-gray-800">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Building2 className="w-5 h-5 text-accent-blue" />
@@ -967,7 +967,7 @@ export default function EditClientPage() {
               </Card>
 
               {/* Company Logo */}
-              <Card>
+              <Card className="dark:bg-gray-800">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <ImageIcon className="w-5 h-5 text-accent-blue" />
@@ -1038,7 +1038,7 @@ export default function EditClientPage() {
               </Card>
 
               {/* Brand Colors */}
-              <Card>
+              <Card className="dark:bg-gray-800">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Palette className="w-5 h-5 text-accent-blue" />
