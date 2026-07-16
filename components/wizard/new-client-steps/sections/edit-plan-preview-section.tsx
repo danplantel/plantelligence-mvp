@@ -257,6 +257,7 @@ export function EditPlanPreviewSection({
   // ── Scale state and calculations (desktop only) ──
   const [scale, setScale] = useState(1);
   const [scaledHeight, setScaledHeight] = useState<number | undefined>(undefined);
+  const [contentWidth, setContentWidth] = useState(DESKTOP_WIDTH);
 
   const updateScale = useCallback(() => {
     if (previewMode === "mobile") return;
@@ -264,10 +265,20 @@ export function EditPlanPreviewSection({
     const scrollable = scrollableRef.current;
     if (!content || !scrollable) return;
     const availableWidth = scrollable.clientWidth;
-    const newScale = Math.min(availableWidth / DESKTOP_WIDTH, 1);
-    setScale(newScale);
-    const contentHeight = content.scrollHeight;
-    setScaledHeight(contentHeight * newScale);
+    if (availableWidth >= DESKTOP_WIDTH) {
+      // Enough space — fill full width, no scaling needed
+      setContentWidth(availableWidth);
+      setScale(1);
+      const contentHeight = content.scrollHeight;
+      setScaledHeight(contentHeight);
+    } else {
+      // Limited space — use fixed width and scale down
+      setContentWidth(DESKTOP_WIDTH);
+      const newScale = availableWidth / DESKTOP_WIDTH;
+      setScale(newScale);
+      const contentHeight = content.scrollHeight;
+      setScaledHeight(contentHeight * newScale);
+    }
   }, [previewMode]);
 
   useEffect(() => {
@@ -624,7 +635,7 @@ export function EditPlanPreviewSection({
         className="fixed z-20 flex flex-col"
         style={{
           top: barHeight > 0 ? `${130 + barHeight}px` : "180px",
-          left: editorIsOpen ? "36rem" : "0",
+          left: "var(--sidebar-width, 18rem)",
           right: 0,
           bottom: 0,
           transition: "left 300ms ease-in-out",
@@ -697,7 +708,7 @@ export function EditPlanPreviewSection({
                 style={{
                   transform: `scale(${scale})`,
                   transformOrigin: "center top",
-                  width: `${DESKTOP_WIDTH}px`,
+                  width: `${contentWidth}px`,
                   overflowX: "hidden",
                 }}
               >
