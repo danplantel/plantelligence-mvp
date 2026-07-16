@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { ExternalLink } from "lucide-react";
 import Image from "next/image";
+import { useState } from "react";
 import { useClientPortal } from "@/contexts/client-portal-context";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { isR2BrandingKey } from "@/lib/branding-image-url";
@@ -18,6 +19,7 @@ interface PortalMaterialsHeroProps {
   buttonLabel?: string;
   featureBullets?: string[];
   onButtonClick?: () => void;
+  onPlanIdClick?: () => void;
 }
 
 export function PortalMaterialsHero({
@@ -35,6 +37,7 @@ export function PortalMaterialsHero({
     "Update dependents",
   ],
   onButtonClick: onButtonClickProp,
+  onPlanIdClick,
 }: PortalMaterialsHeroProps) {
   // Resolve insurance fields from client portal context (persisted inside employeePortalPreview)
   const { clientData } = useClientPortal();
@@ -53,6 +56,16 @@ export function PortalMaterialsHero({
   const isR2 = isR2BrandingKey(rawBg);
   const { url: resolvedR2Bg } = useBrandingImageUrl(isR2 ? rawBg : null);
   const resolvedBackgroundImage = isR2 ? (resolvedR2Bg || rawBg) : (rawBg || undefined);
+
+  const [hoveredField, setHoveredField] = useState<string | null>(null);
+
+  const EditPencil = () => (
+    <div className="absolute -top-2 -left-2 z-20 bg-[#3b82f6] rounded-full p-1.5 shadow-lg border border-white/20">
+      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+      </svg>
+    </div>
+  );
 
   return (
     <section className="relative h-[750px] overflow-hidden">
@@ -82,9 +95,17 @@ export function PortalMaterialsHero({
               </h3>
 
               <div className="my-6 text-center">
-                <span className="inline-block rounded-lg bg-black/60 px-4 py-2 font-red-hat text-[16px] leading-tight font-semibold text-[#b78e42] backdrop-blur-sm">
-                  {resolvedPlanIdLabel}
-                </span>
+                <div
+                  className="relative inline-block cursor-pointer group"
+                  onClick={(e) => { e.stopPropagation(); onPlanIdClick?.(); }}
+                  onMouseEnter={() => setHoveredField("planId")}
+                  onMouseLeave={() => setHoveredField(null)}
+                >
+                  {hoveredField === "planId" && <EditPencil />}
+                  <span className="inline-block rounded-lg bg-black/60 px-4 py-2 font-red-hat text-[16px] leading-tight font-semibold text-[#b78e42] backdrop-blur-sm">
+                    {resolvedPlanIdLabel}
+                  </span>
+                </div>
               </div>
 
               <Button

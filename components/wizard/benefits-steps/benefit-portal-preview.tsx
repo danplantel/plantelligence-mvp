@@ -285,20 +285,15 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
                     />
                 </div>
 
-                <div
-                    className="relative cursor-pointer group"
-                    onClick={() => handleEdit("insurance")}
-                    onMouseEnter={() => setHoveredSection("insurance")}
-                    onMouseLeave={() => setHoveredSection(null)}
-                >
-                    {hoveredSection === "insurance" && <EditPencil />}
+                <div className="relative">
                     <PortalMaterialsHero
                         brandColor={brandColor}
                         backgroundImage={step1Data?.insuranceBackgroundImage || undefined}
                         containerBlockOpacity={step1Data?.insuranceContainerBlockOpacity ?? 0.8}
-                        planIdLabel={step1Data?.insurancePlanId ? `PLAN ID: ${step1Data.insurancePlanId}` : undefined}
+                        planIdLabel={step1Data?.insurancePlanId ? `PLAN ID: ${step1Data.insurancePlanId}` : "PLAN ID: [Not Set]"}
                         buttonLabel="REGISTER OR LOGIN HERE"
                         onButtonClick={step1Data?.insuranceLoginUrl ? () => window.open(step1Data.insuranceLoginUrl, "_blank", "noopener,noreferrer") : undefined}
+                        onPlanIdClick={() => handleEdit("insurance", "planId")}
                     />
                 </div>
 
