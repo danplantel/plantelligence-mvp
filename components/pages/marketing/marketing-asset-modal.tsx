@@ -170,6 +170,10 @@ export default function MarketingAssetModal({
     () => (planData?.data as { brandColor?: string })?.brandColor,
     [planData],
   );
+  const planSecondaryColor: string | undefined = useMemo(
+    () => (planData?.data as { secondaryColor?: string })?.secondaryColor,
+    [planData],
+  );
 
   // Shared fields
   const [headline, setHeadline] = useState("");
@@ -206,6 +210,7 @@ export default function MarketingAssetModal({
   const [noticeType, setNoticeType] = useState<"text" | "countdown">("text");
   const [countdownTarget, setCountdownTarget] = useState("");
   const [portalCtaUrl, setPortalCtaUrl] = useState("");
+  const [buttonColor, setButtonColor] = useState("#ffffff");
 
   // Pop-up specific
   const [showEveryVisit, setShowEveryVisit] = useState(false);
@@ -312,6 +317,7 @@ export default function MarketingAssetModal({
         setCountdownTarget((d.countdownTarget as string) || "");
         setPortalCtaUrl((d.portalCtaUrl as string) || "");
         setPortalElement((editingAsset.portalElement as PortalNoticeElement) || "top-banner");
+        setButtonColor((d.buttonColor as string) || "#ffffff");
       }
 
       // Pop-up specific
@@ -373,6 +379,7 @@ export default function MarketingAssetModal({
       setNoticeType("text");
       setCountdownTarget("");
       setPortalCtaUrl("");
+      setButtonColor("#ffffff");
       setCtaText("");
       setPostCategory("Retirement");
       setSelectedBgImage("");
@@ -503,6 +510,7 @@ export default function MarketingAssetModal({
       data.noticeType = noticeType;
       data.countdownTarget = countdownTarget || null;
       data.portalCtaUrl = portalCtaUrl || null;
+      data.buttonColor = buttonColor || null;
     }
     if (resolvedType === "pop-up") {
       data.showEveryVisit = showEveryVisit;
@@ -994,13 +1002,21 @@ export default function MarketingAssetModal({
             <Input id="portalCtaUrl" placeholder="https://example.com" value={portalCtaUrl} onChange={(e) => setPortalCtaUrl(e.target.value)} />
           </div>
           {/* Background color */}
-          <div className="space-y-1.5">
-            <Label htmlFor="pn-bgColor">Background color</Label>
-            <div className="flex items-center gap-3">
-              <Input id="pn-bgColor" type="color" className="w-12 h-9 p-1 cursor-pointer" value={bgColor} onChange={(e) => setBgColor(e.target.value)} />
-              <span className="text-xs text-muted-foreground font-mono">{bgColor}</span>
-            </div>
-          </div>
+          <PlanColorSelector
+            label="Background color"
+            value={bgColor}
+            onChange={setBgColor}
+            planPrimaryColor={planBrandColor}
+            planSecondaryColor={planSecondaryColor}
+          />
+          {/* Button color */}
+          <PlanColorSelector
+            label="Button color"
+            value={buttonColor}
+            onChange={setButtonColor}
+            planPrimaryColor={planBrandColor}
+            planSecondaryColor={planSecondaryColor}
+          />
         </div>
       )}
       
@@ -1447,6 +1463,7 @@ export default function MarketingAssetModal({
                         noticeType={noticeType}
                         countdownTarget={countdownTarget}
                         portalCtaUrl={portalCtaUrl}
+                        buttonColor={buttonColor}
                         bgImage={resolvedType === "news-post" ? selectedBgImage : undefined}
                         postCategory={postCategory}
                         previewMode="mobile"
@@ -1481,6 +1498,7 @@ export default function MarketingAssetModal({
                   noticeType={noticeType}
                   countdownTarget={countdownTarget}
                   portalCtaUrl={portalCtaUrl}
+                  buttonColor={buttonColor}
                   bgImage={resolvedType === "news-post" ? selectedBgImage : undefined}
                   postCategory={postCategory}
                   previewMode={previewMode}
@@ -1645,7 +1663,7 @@ function DateTimePickerPopup({
           type="text"
           readOnly
           value={displayValue || ""}
-          placeholder="Select date & time\u2026"
+          placeholder="Select date & time"
           onClick={() => setOpen(true)}
           onFocus={() => setOpen(true)}
           className={cn(
@@ -1795,6 +1813,103 @@ function DateTimePickerPopup({
   );
 }
 
+// ── Plan Color Selector ───────────────────────────────────────
+
+function PlanColorSelector({
+  label,
+  value,
+  onChange,
+  planPrimaryColor,
+  planSecondaryColor,
+}: {
+  label: string;
+  value: string;
+  onChange: (color: string) => void;
+  planPrimaryColor?: string;
+  planSecondaryColor?: string;
+}) {
+  const planColors = useMemo(() => {
+    const colors: { label: string; value: string }[] = [];
+    if (planPrimaryColor) colors.push({ label: "Primary", value: planPrimaryColor });
+    if (planSecondaryColor) colors.push({ label: "Secondary", value: planSecondaryColor });
+    return colors;
+  }, [planPrimaryColor, planSecondaryColor]);
+
+  const isPlanColor = (color: string) =>
+    planColors.some((pc) => pc.value.toLowerCase() === color.toLowerCase());
+
+  return (
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      <div className="flex items-center gap-3">
+        {/* Plan color swatches */}
+        {planColors.map((pc) => (
+          <button
+            key={pc.value}
+            type="button"
+            title={`${pc.label}: ${pc.value}`}
+            onClick={() => onChange(pc.value)}
+            className={cn(
+              "relative h-9 w-9 shrink-0 rounded-lg border-2 transition-all",
+              value.toLowerCase() === pc.value.toLowerCase()
+                ? "border-gray-900 ring-2 ring-gray-900/20 dark:border-white dark:ring-white/30"
+                : "border-gray-300 hover:border-gray-500 dark:border-gray-600 dark:hover:border-gray-400"
+            )}
+            style={{ background: pc.value }}
+          >
+            {value.toLowerCase() === pc.value.toLowerCase() && (
+              <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold"
+                style={{ color: isLightColor(pc.value) ? "#000" : "#fff" }}
+              >
+                ✓
+              </span>
+            )}
+          </button>
+        ))}
+        {/* Custom color picker */}
+        <div className="relative flex items-center gap-2 flex-1">
+          <input
+            type="color"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className={cn(
+              "h-9 w-12 cursor-pointer rounded-lg border p-1",
+              isPlanColor(value)
+                ? "border-gray-200 dark:border-gray-700"
+                : "border-gray-900 dark:border-white"
+            )}
+          />
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (/^#[0-9a-fA-F]{0,6}$/.test(v)) onChange(v);
+            }}
+            placeholder="#HEX"
+            className={cn(
+              "flex h-9 w-24 rounded-lg border px-2.5 py-1.5 text-xs font-mono",
+              "border-input bg-white dark:bg-gray-800",
+              "text-foreground placeholder:text-muted-foreground",
+              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            )}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Quick luminance check to choose ✓ color */
+function isLightColor(hex: string): boolean {
+  const c = hex.replace("#", "");
+  if (c.length !== 6) return true;
+  const r = parseInt(c.substring(0, 2), 16);
+  const g = parseInt(c.substring(2, 4), 16);
+  const b = parseInt(c.substring(4, 6), 16);
+  return r * 0.299 + g * 0.587 + b * 0.114 > 150;
+}
+
 // ── Preview pane ──────────────────────────────────────────────
 
 function PreviewPane({
@@ -1819,6 +1934,7 @@ function PreviewPane({
   noticeType,
   countdownTarget,
   portalCtaUrl,
+  buttonColor,
   bgImage,
   postCategory,
   previewMode,
@@ -1844,6 +1960,7 @@ function PreviewPane({
   noticeType?: "text" | "countdown";
   countdownTarget?: string;
   portalCtaUrl?: string;
+  buttonColor?: string;
   bgImage?: string;
   postCategory?: string;
   previewMode?: "desktop" | "mobile";
@@ -1912,6 +2029,7 @@ function PreviewPane({
           countdownTarget={countdownTarget}
           ctaText={ctaText}
           portalCtaUrl={portalCtaUrl}
+          buttonColor={buttonColor}
           isMobile={isMobile}
         />
       );
@@ -1941,6 +2059,7 @@ function NoticePreview({
   countdownTarget,
   ctaText,
   portalCtaUrl,
+  buttonColor,
   isMobile,
 }: {
   headline: string;
@@ -1953,6 +2072,7 @@ function NoticePreview({
   countdownTarget?: string;
   ctaText?: string;
   portalCtaUrl?: string;
+  buttonColor?: string;
   isMobile?: boolean;
 }) {
   const [countdown, setCountdown] = useState({ d: 0, h: 0, m: 0, s: 0, expired: false });
@@ -2026,7 +2146,7 @@ function NoticePreview({
               {ctaText && (
                 <span
                   className="inline-flex items-center rounded-lg px-1.5 py-0.5 text-[9px] font-semibold text-white shadow-sm"
-                  style={{ background: adjustColor(bgColor, -30) }}
+                  style={{ background: buttonColor || adjustColor(bgColor, -30) }}
                 >
                   {ctaText}
                 </span>
@@ -2091,7 +2211,7 @@ function NoticePreview({
             {ctaText && (
               <span
                 className="inline-flex items-center rounded-lg px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm"
-                style={{ background: adjustColor(bgColor, -30) }}
+                style={{ background: buttonColor || adjustColor(bgColor, -30) }}
               >
                 {ctaText}
               </span>
