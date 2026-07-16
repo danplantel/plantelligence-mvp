@@ -2479,9 +2479,9 @@ function NewsPostPreview({
         <h3 className="font-dm-serif text-xl font-bold leading-tight text-white sm:text-2xl lg:text-[28px]">
           {headline || "News Post Title"}
         </h3>
-        {subtitle && (
-          <p className="text-sm text-white/80 mt-1.5 font-red-hat">{subtitle}</p>
-        )}
+        <p className={cn("text-sm mt-1.5 font-red-hat", subtitle ? "text-white/80" : "text-white/40 italic")}>
+          {subtitle || "A short description\u2026"}
+        </p>
         {/* Body */}
         {body ? (
           <p className="text-sm text-gray-200 leading-relaxed mt-3 flex-1 line-clamp-3 font-red-hat">
