@@ -2307,7 +2307,7 @@ function PopUpPreview({
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <h3 className="text-lg font-bold text-gray-900 leading-snug">{headline || "Announcement"}</h3>
-                {subtitle && <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>}
+                <p className={cn("text-xs mt-0.5", subtitle ? "text-gray-500" : "text-gray-300 italic")}>{subtitle || "A short description\u2026"}</p>
               </div>
               <div className="h-6 w-6 shrink-0 rounded-full border-2 border-gray-300 flex items-center justify-center text-gray-400 text-xs">✕</div>
             </div>
@@ -2354,7 +2354,7 @@ function PopUpPreview({
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
               <h3 className="text-lg font-bold text-gray-900 leading-snug">{headline || "Announcement"}</h3>
-              {subtitle && <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>}
+              <p className={cn("text-xs mt-0.5", subtitle ? "text-gray-500" : "text-gray-300 italic")}>{subtitle || "A short description\u2026"}</p>
             </div>
             <div className="h-6 w-6 shrink-0 rounded-full border-2 border-gray-300 flex items-center justify-center text-gray-400 text-xs">✕</div>
           </div>
