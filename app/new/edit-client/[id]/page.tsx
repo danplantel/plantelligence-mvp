@@ -42,7 +42,7 @@ import { ContactCardLayoutPreviewModal } from "@/components/pages/edit-client/co
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ColorPicker } from "@/components/ui/color-picker";
-import { Building2, Palette, Globe, FileText } from "lucide-react";
+import { Building2, Palette, Globe, FileText, CheckCircle2, AlertCircle } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { PRIMARY_SERVICE_CATEGORY_OPTIONS } from "@/lib/service-categories";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -1040,76 +1040,148 @@ export default function EditClientPage() {
               {/* Brand Colors */}
               <Card className="dark:bg-gray-800">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2 dark:text-gray-100">
                     <Palette className="w-5 h-5 text-accent-blue" />
                     Brand Colors
                   </CardTitle>
+                  <p className="text-sm text-muted-foreground dark:text-gray-400">
+                    Choose your primary and secondary brand colors for the
+                    employee portal. Colors are automatically extracted from
+                    your uploaded logo and applied to buttons, footers, headers,
+                    and more. Click on the colors below to edit them to your
+                    liking.
+                  </p>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Primary Color */}
                     <div className="space-y-3 relative">
-                      <Label>Primary Color</Label>
-                      <div className="flex items-center gap-3">
-                        <Button
+                      <Label className="dark:text-gray-300">
+                        Primary Color <span className="text-red-500">*</span>
+                      </Label>
+                      <div className="flex items-center space-x-3">
+                        <button
                           type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
+                          onClick={() => {
                             handleInputChange(
                               "isPrimaryColorPickerOpen",
                               !companyData.isPrimaryColorPickerOpen,
-                            )
-                          }
-                          className="h-10 px-3"
+                            );
+                            if (
+                              !companyData.isPrimaryColorPickerOpen &&
+                              companyData.isSecondaryColorPickerOpen
+                            ) {
+                              handleInputChange(
+                                "isSecondaryColorPickerOpen",
+                                false,
+                              );
+                            }
+                          }}
+                          className={`w-9 h-9 border rounded cursor-pointer flex items-center justify-center ${
+                            companyData.primaryColor
+                              ? "border-gray-300 dark:border-gray-600"
+                              : "border-dashed border-gray-400 dark:border-gray-500"
+                          }`}
+                          style={{
+                            background:
+                              companyData.primaryColor || "transparent",
+                          }}
                         >
                           <div
-                            className="w-6 h-6 rounded border"
-                            style={{
-                              backgroundColor: companyData.primaryColor,
-                            }}
+                            className={`w-4 h-4 rounded ${
+                              companyData.primaryColor
+                                ? "border border-white/20"
+                                : "border border-gray-400 dark:border-gray-500"
+                            }`}
                           />
-                        </Button>
-                        <span className="text-sm text-muted-foreground">
-                          {companyData.primaryColor}
-                        </span>
+                        </button>
+                        <Input
+                          icon={<Palette className="h-4 w-4" />}
+                          type="text"
+                          value={companyData.primaryColor}
+                          onChange={(e) =>
+                            handleInputChange(
+                              "primaryColor",
+                              e.target.value,
+                            )
+                          }
+                          placeholder="#..."
+                          className="flex-1"
+                        />
                       </div>
                       <ColorPicker
                         value={companyData.primaryColor}
                         onChange={(color) =>
                           handleInputChange("primaryColor", color)
                         }
-                        isOpen={companyData.isPrimaryColorPickerOpen || false}
+                        isOpen={
+                          companyData.isPrimaryColorPickerOpen || false
+                        }
                         onOpenChange={(open) =>
                           handleInputChange(
                             "isPrimaryColorPickerOpen",
                             open || false,
                           )
                         }
+                        title="Primary Color"
                       />
                     </div>
+
+                    {/* Secondary Color */}
                     <div className="space-y-3 relative">
-                      <Label>Secondary Color</Label>
-                      <div className="flex items-center gap-3">
-                        <Button
+                      <Label className="dark:text-gray-300">
+                        Secondary Color{" "}
+                        <span className="text-red-500">*</span>
+                      </Label>
+                      <div className="flex items-center space-x-3">
+                        <button
                           type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
+                          onClick={() => {
                             handleInputChange(
                               "isSecondaryColorPickerOpen",
                               !companyData.isSecondaryColorPickerOpen,
-                            )
-                          }
-                          className="h-10 px-3"
+                            );
+                            if (
+                              !companyData.isSecondaryColorPickerOpen &&
+                              companyData.isPrimaryColorPickerOpen
+                            ) {
+                              handleInputChange(
+                                "isPrimaryColorPickerOpen",
+                                false,
+                              );
+                            }
+                          }}
+                          className={`w-9 h-9 border rounded cursor-pointer flex items-center justify-center ${
+                            companyData.secondaryColor
+                              ? "border-gray-300 dark:border-gray-600"
+                              : "border-dashed border-gray-400 dark:border-gray-500"
+                          }`}
+                          style={{
+                            background:
+                              companyData.secondaryColor || "transparent",
+                          }}
                         >
                           <div
-                            className="w-6 h-6 rounded border"
-                            style={{ background: companyData.secondaryColor }}
+                            className={`w-4 h-4 rounded ${
+                              companyData.secondaryColor
+                                ? "border border-white/20"
+                                : "border border-gray-400 dark:border-gray-500"
+                            }`}
                           />
-                        </Button>
-                        <span className="text-sm text-muted-foreground">
-                          {companyData.secondaryColor}
-                        </span>
+                        </button>
+                        <Input
+                          icon={<Palette className="h-4 w-4" />}
+                          type="text"
+                          value={companyData.secondaryColor}
+                          onChange={(e) =>
+                            handleInputChange(
+                              "secondaryColor",
+                              e.target.value,
+                            )
+                          }
+                          placeholder="#..."
+                          className="flex-1"
+                        />
                       </div>
                       <ColorPicker
                         value={companyData.secondaryColor}
@@ -1125,6 +1197,7 @@ export default function EditClientPage() {
                             open || false,
                           )
                         }
+                        title="Secondary Color"
                       />
                     </div>
                   </div>
