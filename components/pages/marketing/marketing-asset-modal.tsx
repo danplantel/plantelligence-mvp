@@ -993,9 +993,9 @@ export default function MarketingAssetModal({
             <Label htmlFor="portalCtaUrl">Button link (optional)</Label>
             <Input id="portalCtaUrl" placeholder="https://example.com" value={portalCtaUrl} onChange={(e) => setPortalCtaUrl(e.target.value)} />
           </div>
-          {/* Accent color */}
+          {/* Background color */}
           <div className="space-y-1.5">
-            <Label htmlFor="pn-bgColor">Accent color</Label>
+            <Label htmlFor="pn-bgColor">Background color</Label>
             <div className="flex items-center gap-3">
               <Input id="pn-bgColor" type="color" className="w-12 h-9 p-1 cursor-pointer" value={bgColor} onChange={(e) => setBgColor(e.target.value)} />
               <span className="text-xs text-muted-foreground font-mono">{bgColor}</span>
