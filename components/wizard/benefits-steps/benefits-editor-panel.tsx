@@ -231,7 +231,7 @@ export function BenefitsEditorPanel({
                     ref={sectionsRef.branding}
                     className={cn(
                         "transition-all duration-500 rounded-xl",
-                        highlightedSection === "branding" ? "ring-2 ring-blue-500/50 scale-[1.01] shadow-lg p-4 -m-4 bg-white" : ""
+                        highlightedSection === "branding" ? "ring-2 ring-blue-500/50 scale-[1.01] shadow-lg p-4 -m-4 bg-white dark:bg-gray-800" : ""
                     )}
                 >
                     <SectionHeader number={1} title="Branding" />
@@ -311,7 +311,7 @@ export function BenefitsEditorPanel({
                     ref={sectionsRef.messaging}
                     className={cn(
                         "transition-all duration-500 rounded-xl",
-                        highlightedSection === "messaging" ? "ring-2 ring-blue-500/50 scale-[1.01] shadow-lg p-4 -m-4 bg-white" : ""
+                        highlightedSection === "messaging" ? "ring-2 ring-blue-500/50 scale-[1.01] shadow-lg p-4 -m-4 bg-white dark:bg-gray-800" : ""
                     )}
                 >
                     <SectionHeader number={2} title="Benefit Messaging" />
@@ -344,7 +344,7 @@ export function BenefitsEditorPanel({
                     ref={sectionsRef.helpCards}
                     className={cn(
                         "transition-all duration-500 rounded-xl",
-                        highlightedSection === "helpCards" ? "ring-2 ring-blue-500/50 scale-[1.01] shadow-lg p-4 -m-4 bg-white" : ""
+                        highlightedSection === "helpCards" ? "ring-2 ring-blue-500/50 scale-[1.01] shadow-lg p-4 -m-4 bg-white dark:bg-gray-800" : ""
                     )}
                 >
                     <SectionHeader number={3} title="How Can We Help You Today?" />
@@ -358,7 +358,7 @@ export function BenefitsEditorPanel({
                         className="space-y-3"
                     >
                         {helpCards.map((card) => (
-                            <AccordionItem key={card.id} value={card.id} className="border border-muted rounded-xl px-4 shadow-sm bg-white">
+                            <AccordionItem key={card.id} value={card.id} className="border border-muted rounded-xl px-4 shadow-sm bg-white dark:bg-gray-800 dark:border-gray-600">
                                 <AccordionTrigger className="text-sm font-semibold py-4 hover:no-underline">
                                     {card.title || "Untitled Card"}
                                 </AccordionTrigger>
@@ -451,7 +451,7 @@ export function BenefitsEditorPanel({
                     ref={sectionsRef.insurance}
                     className={cn(
                         "transition-all duration-500 rounded-xl",
-                        highlightedSection === "insurance" ? "ring-2 ring-blue-500/50 scale-[1.01] shadow-lg p-4 -m-4 bg-white" : ""
+                        highlightedSection === "insurance" ? "ring-2 ring-blue-500/50 scale-[1.01] shadow-lg p-4 -m-4 bg-white dark:bg-gray-800" : ""
                     )}
                 >
                     <SectionHeader number={4} title="Insurance Benefits Access & Materials" />
