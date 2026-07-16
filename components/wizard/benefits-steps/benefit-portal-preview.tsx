@@ -266,18 +266,6 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
                     />
                 </div>
 
-                <div
-                    className="relative cursor-pointer"
-                    onClick={() => handleEdit("faqs")}
-                >
-                    <FAQSection
-                        brandColor={brandColor}
-                        secondaryColor={secondaryColor}
-                        faqs={faqsForCategory}
-                        contacts={faqContacts}
-                    />
-                </div>
-
                 <div className="relative">
                     <PortalMaterialsHero
                         brandColor={brandColor}
@@ -287,17 +275,6 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
                         buttonLabel="REGISTER OR LOGIN HERE"
                         onButtonClick={step1Data?.insuranceLoginUrl ? () => window.open(step1Data.insuranceLoginUrl, "_blank", "noopener,noreferrer") : undefined}
                         onPlanIdClick={() => handleEdit("insurance", "planId")}
-                    />
-                </div>
-
-                <div className="relative group">
-                    {/* Documents section */}
-                    <RetirementDocumentsAccordion
-                        brandColor={brandColor}
-                        accentColor={secondaryColor}
-                        retirementDocs={documents}
-                        title={`${category} Documents & Forms`}
-                        description={`Access all your important ${category.toLowerCase()} plan documents and forms.`}
                     />
                 </div>
             </main>
