@@ -692,6 +692,18 @@ export default function MeetingsPage() {
   const currentMeetings = activeTab === "upcoming" ? upcomingMeetings : pastMeetings;
   const filteredMeetings = currentMeetings.filter((m) => (statusFilter === "all" || m.status === statusFilter) && (clientFilter === "all" || m.client.toLowerCase() === clientFilter.toLowerCase()) && (benefitsCategoryFilter === "all" || m.benefitsCategory === benefitsCategoryFilter));
   const sortedMeetings = [...filteredMeetings].sort((a, b) => { let av: any = a[sortColumn]; let bv: any = b[sortColumn]; if (sortColumn === "date") { av = new Date(av).getTime(); bv = new Date(bv).getTime(); } else { av = av?.toString().toLowerCase() || ""; bv = bv?.toString().toLowerCase() || ""; } return sortDirection === "asc" ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1); });
+
+  // Determine if the selected plan has any meetings (regardless of current tab/filters)
+  const selectedPlanHasMeetings = useMemo(() => {
+    if (!selectedPlan) return false;
+    const planClient = clients.find((c) => c.id === selectedPlan);
+    if (!planClient) return false;
+    return meetings.some(
+      (m) =>
+        (m.clientId && m.clientId === selectedPlan) ||
+        (m.client && m.client.toLowerCase() === planClient.companyName.toLowerCase()),
+    );
+  }, [meetings, selectedPlan, clients]);
   return (
     <div className="p-6 bg-background">
       <div className="w-full space-y-6 max-w-4xl mx-auto">
@@ -712,21 +724,23 @@ export default function MeetingsPage() {
             <Card className="shadow-sm">
               <CardContent className="pt-6">
                 <div className="space-y-4">
-                  <div className="flex items-center justify-center gap-2 flex-wrap">
-                    <div className="flex space-x-1 bg-[#F2F2F4] dark:bg-[#030303] border border-[#efefef] dark:border-[#1c1c1c] p-0.5 rounded-lg shrink-0">
-                      <button onClick={() => setActiveTab("upcoming")} className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-[0.75em] font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 min-w-[100px] ${activeTab === "upcoming" ? "bg-accent-blue dark:bg-accent-blue text-white shadow" : "text-muted-foreground hover:text-foreground"}`}>Upcoming ({upcomingMeetings.length})</button>
-                      <button onClick={() => setActiveTab("past")} className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-[0.75em] font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 min-w-[100px] ${activeTab === "past" ? "bg-accent-blue dark:bg-accent-blue text-white shadow" : "text-muted-foreground hover:text-foreground"}`}>Past ({pastMeetings.length})</button>
+                  {selectedPlanHasMeetings && (
+                    <div className="flex items-center justify-center gap-2 flex-wrap">
+                      <div className="flex space-x-1 bg-[#F2F2F4] dark:bg-[#030303] border border-[#efefef] dark:border-[#1c1c1c] p-0.5 rounded-lg shrink-0">
+                        <button onClick={() => setActiveTab("upcoming")} className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-[0.75em] font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 min-w-[100px] ${activeTab === "upcoming" ? "bg-accent-blue dark:bg-accent-blue text-white shadow" : "text-muted-foreground hover:text-foreground"}`}>Upcoming ({upcomingMeetings.length})</button>
+                        <button onClick={() => setActiveTab("past")} className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-[0.75em] font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 min-w-[100px] ${activeTab === "past" ? "bg-accent-blue dark:bg-accent-blue text-white shadow" : "text-muted-foreground hover:text-foreground"}`}>Past ({pastMeetings.length})</button>
+                      </div>
+                      <div className="w-px h-6 bg-border mx-1 shrink-0" />
+                      <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger className="w-32 h-8 bg-white dark:bg-gray-800 text-xs"><SelectValue placeholder="All Status" /></SelectTrigger><SelectContent><SelectItem value="all">All Status</SelectItem><SelectItem value="Upcoming">Upcoming</SelectItem><SelectItem value="Past">Past</SelectItem><SelectItem value="Draft">Draft</SelectItem></SelectContent></Select>
+                      <Select value={benefitsCategoryFilter} onValueChange={setBenefitsCategoryFilter}><SelectTrigger className="w-40 h-8 bg-white dark:bg-gray-800 text-xs"><SelectValue placeholder="All Categories" /></SelectTrigger><SelectContent><SelectItem value="all">All Categories</SelectItem><SelectItem value="Retirement">Retirement</SelectItem><SelectItem value="Group Health">Group Health</SelectItem><SelectItem value="Group Life">Group Life</SelectItem><SelectItem value="Other">Other</SelectItem></SelectContent></Select>
+                      <div className="w-px h-6 bg-border mx-1 shrink-0" />
+                      <Button variant="outline" size="sm" onClick={() => setPreviewDialogOpen(true)} className="gap-1.5 shrink-0"><FileText className="h-4 w-4" />Preview</Button>
+                      <Button onClick={() => setMeetingModalOpen(true)} size="sm" className="gap-1.5 shrink-0"><Plus className="h-4 w-4" />Add Meeting</Button>
                     </div>
-                    <div className="w-px h-6 bg-border mx-1 shrink-0" />
-                    <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger className="w-32 h-8 bg-white dark:bg-gray-800 text-xs"><SelectValue placeholder="All Status" /></SelectTrigger><SelectContent><SelectItem value="all">All Status</SelectItem><SelectItem value="Upcoming">Upcoming</SelectItem><SelectItem value="Past">Past</SelectItem><SelectItem value="Draft">Draft</SelectItem></SelectContent></Select>
-                    <Select value={benefitsCategoryFilter} onValueChange={setBenefitsCategoryFilter}><SelectTrigger className="w-40 h-8 bg-white dark:bg-gray-800 text-xs"><SelectValue placeholder="All Categories" /></SelectTrigger><SelectContent><SelectItem value="all">All Categories</SelectItem><SelectItem value="Retirement">Retirement</SelectItem><SelectItem value="Group Health">Group Health</SelectItem><SelectItem value="Group Life">Group Life</SelectItem><SelectItem value="Other">Other</SelectItem></SelectContent></Select>
-                    <div className="w-px h-6 bg-border mx-1 shrink-0" />
-                    <Button variant="outline" size="sm" onClick={() => setPreviewDialogOpen(true)} className="gap-1.5 shrink-0"><FileText className="h-4 w-4" />Preview</Button>
-                    <Button onClick={() => setMeetingModalOpen(true)} size="sm" className="gap-1.5 shrink-0"><Plus className="h-4 w-4" />Add Meeting</Button>
-                  </div>
+                  )}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {sortedMeetings.length === 0 ? (
-                      <div className="col-span-full flex items-center justify-center py-20">
+                      <div className="col-span-full flex items-center justify-center py-10">
                         <div className="text-center max-w-sm"><div className="mx-auto w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-5"><CalendarDays className="h-8 w-8 text-muted-foreground/60" /></div><h3 className="text-lg font-semibold text-foreground mb-2">No meetings added yet</h3><p className="text-sm text-muted-foreground mb-6 leading-relaxed">Get started by scheduling your first meeting session for a client.</p><Button onClick={() => setMeetingModalOpen(true)} className="gap-2"><Plus className="h-4 w-4" />Add Meeting</Button></div>
                       </div>
                     ) : sortedMeetings.map((meeting) => { const FormatIcon = formatIcons[meeting.format as keyof typeof formatIcons]; const meetingDate = formatUsDate(parseLocalDate(meeting.date)); const sc: Record<string, string> = { Upcoming: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200 border-blue-200 dark:border-blue-700/50", Past: "bg-gray-100 dark:bg-gray-800/50 text-gray-700 dark:text-gray-100 border-gray-200 dark:border-gray-700/50", Draft: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-200 border-amber-200 dark:border-amber-700/50" }; const ds = STATUS_LABEL_MAP[meeting.status] || meeting.status; return (
