@@ -514,6 +514,40 @@ export default function MarketingAssetModal({
       }
     }
 
+    // Validate News Post required fields
+    if (resolvedType === "news-post") {
+      if (!headline.trim()) {
+        toast({ title: "Validation error", description: "Headline is required for News Post.", variant: "destructive", className: "z-[9999]" });
+        setIsSaving(false);
+        return;
+      }
+      if (!body.trim()) {
+        toast({ title: "Validation error", description: "Body text is required for News Post.", variant: "destructive", className: "z-[9999]" });
+        setIsSaving(false);
+        return;
+      }
+      if (!postCategory) {
+        toast({ title: "Validation error", description: "Category is required for News Post.", variant: "destructive", className: "z-[9999]" });
+        setIsSaving(false);
+        return;
+      }
+      if (!selectedBgImage) {
+        toast({ title: "Validation error", description: "Background image is required for News Post.", variant: "destructive", className: "z-[9999]" });
+        setIsSaving(false);
+        return;
+      }
+      if (!startDate) {
+        toast({ title: "Validation error", description: "Start date is required for News Post.", variant: "destructive", className: "z-[9999]" });
+        setIsSaving(false);
+        return;
+      }
+      if (!endDate) {
+        toast({ title: "Validation error", description: "End date is required for News Post.", variant: "destructive", className: "z-[9999]" });
+        setIsSaving(false);
+        return;
+      }
+    }
+
     setIsSaving(true);
 
     let resolvedQrDataUrl = flyerQrDataUrl;
@@ -1158,7 +1192,10 @@ export default function MarketingAssetModal({
           )}
 
           <div className="space-y-1.5">
-            <Label htmlFor="np-headline">Headline</Label>
+            <Label htmlFor="np-headline">
+              Headline
+              <span className="text-red-500 ml-0.5">*</span>
+            </Label>
             <Input id="np-headline" placeholder="Enter headline…" value={headline} onChange={(e) => setHeadline(e.target.value)} />
           </div>
           <div className="space-y-1.5">
@@ -1167,13 +1204,19 @@ export default function MarketingAssetModal({
           </div>
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <Label htmlFor="np-body">Body text</Label>
+              <Label htmlFor="np-body">
+                Body text
+                <span className="text-red-500 ml-0.5">*</span>
+              </Label>
               <span className="text-[11px] text-muted-foreground tabular-nums">{body.length}/300</span>
             </div>
             <Textarea id="np-body" rows={4} placeholder="Write your message…" value={body} onChange={(e) => setBody(e.target.value)} maxLength={300} className="dark:bg-gray-800" />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="category">Category</Label>
+            <Label htmlFor="category">
+              Category
+              <span className="text-red-500 ml-0.5">*</span>
+            </Label>
             <select
               id="category"
               className="flex h-9 w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -1190,7 +1233,10 @@ export default function MarketingAssetModal({
 
           {/* Background Image Selector */}
           <div className="space-y-2">
-            <Label>Background image</Label>
+            <Label>
+              Background image
+              <span className="text-red-500 ml-0.5">*</span>
+            </Label>
             <p className="text-xs text-muted-foreground">Select a background photo for this post. Each image can only be used once per plan.</p>
             <div className="grid grid-cols-2 gap-2">
               {NEWS_POST_BG_IMAGES.map((img) => {
@@ -1258,14 +1304,14 @@ export default function MarketingAssetModal({
           <div className="space-y-1.5">
             <Label htmlFor="startDate">
               Start date
-              {(resolvedType === "portal-notice" || resolvedType === "pop-up") && <span className="text-red-500 ml-0.5">*</span>}
+              {(resolvedType === "portal-notice" || resolvedType === "pop-up" || resolvedType === "news-post") && <span className="text-red-500 ml-0.5">*</span>}
             </Label>
             <Input id="startDate" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="endDate">
               End date
-              {(resolvedType === "portal-notice" || resolvedType === "pop-up") && <span className="text-red-500 ml-0.5">*</span>}
+              {(resolvedType === "portal-notice" || resolvedType === "pop-up" || resolvedType === "news-post") && <span className="text-red-500 ml-0.5">*</span>}
             </Label>
             <Input id="endDate" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
           </div>
