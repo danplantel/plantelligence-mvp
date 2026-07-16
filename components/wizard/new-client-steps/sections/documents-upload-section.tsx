@@ -1322,7 +1322,7 @@ export function DocumentsUploadSection({
                           Category <span className="text-red-500">*</span>
                         </Label>
                         <Select
-                          value={doc.category || ""}
+                          value={doc.category || undefined}
                           onValueChange={(val: BenefitsCategory) =>
                             handleReviewCategoryUpdate(doc.id, val)
                           }

@@ -1131,7 +1131,7 @@ export function ComplianceDocumentsUpload({
               <span className="text-[10px] font-bold text-red-600 uppercase dark:text-red-400">Apply to all:</span>
               <Select onValueChange={(value: any) => handleApplyCategoryToAll(value)}>
                 <SelectTrigger className="h-7 text-[10px] bg-white border-red-200 w-32 dark:bg-gray-700 dark:border-red-800 dark:text-gray-300">
-                  <SelectValue placeholder="Select Category" />
+                  <SelectValue placeholder="Select Benefit" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Retirement">Retirement</SelectItem>
@@ -1179,10 +1179,11 @@ export function ComplianceDocumentsUpload({
                   </div>
                   <div className="w-full sm:w-48">
                     <Select
+                      value={doc.category || undefined}
                       onValueChange={(value: any) => handleUpdateDocumentCategory(doc.id, value)}
                     >
                       <SelectTrigger className="h-8 text-xs bg-white border-red-200 focus:ring-red-500 dark:bg-gray-700 dark:border-red-800 dark:text-gray-300">
-                        <SelectValue placeholder="Select Category" />
+                        <SelectValue placeholder="Select Benefit" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Retirement">Retirement</SelectItem>
