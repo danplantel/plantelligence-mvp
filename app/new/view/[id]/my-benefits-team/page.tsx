@@ -147,11 +147,11 @@ export default function MyBenefitsTeamPage() {
 
   return (
     <div className="min-h-screen bg-white pb-24">
-      <div className="mx-auto w-full max-w-5xl px-4 sm:px-6 lg:px-8 pt-24">
+      <div className="mx-auto w-full max-w-5xl px-4 sm:px-6 lg:px-8 pt-8">
         {/* TITLE */}
         <div className="text-center">
           <h1
-            className="text-4xl font-semibold mt-10"
+            className="text-4xl font-semibold"
             style={{
               fontFamily: '"DM Serif Display", serif',
               color: brandColor,
