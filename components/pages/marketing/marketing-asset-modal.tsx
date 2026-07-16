@@ -1098,13 +1098,13 @@ export default function MarketingAssetModal({
             Show on every visit
           </label>
           {/* Button color */}
-          <div className="space-y-1.5">
-            <Label htmlFor="pu-bgColor">Button color</Label>
-            <div className="flex items-center gap-3">
-              <Input id="pu-bgColor" type="color" className="w-12 h-9 p-1 cursor-pointer" value={bgColor} onChange={(e) => setBgColor(e.target.value)} />
-              <span className="text-xs text-muted-foreground font-mono">{bgColor}</span>
-            </div>
-          </div>
+          <PlanColorSelector
+            label="Button color"
+            value={bgColor}
+            onChange={setBgColor}
+            planPrimaryColor={planBrandColor}
+            planSecondaryColor={planSecondaryColor}
+          />
         </div>
       )}
 
