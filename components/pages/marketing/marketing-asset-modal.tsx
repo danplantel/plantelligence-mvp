@@ -1097,9 +1097,9 @@ export default function MarketingAssetModal({
             <input type="checkbox" checked={showEveryVisit} onChange={(e) => setShowEveryVisit(e.target.checked)} className="rounded border-gray-300 text-gray-900 focus:ring-gray-900" />
             Show on every visit
           </label>
-          {/* Accent color */}
+          {/* Button color */}
           <div className="space-y-1.5">
-            <Label htmlFor="pu-bgColor">Accent color</Label>
+            <Label htmlFor="pu-bgColor">Button color</Label>
             <div className="flex items-center gap-3">
               <Input id="pu-bgColor" type="color" className="w-12 h-9 p-1 cursor-pointer" value={bgColor} onChange={(e) => setBgColor(e.target.value)} />
               <span className="text-xs text-muted-foreground font-mono">{bgColor}</span>
