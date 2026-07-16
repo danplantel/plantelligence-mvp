@@ -501,7 +501,7 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 dark:text-gray-100">
                 <Building2 className="w-5 h-5 text-accent-blue" />
-                Plan Type
+                Plan Type <span className="text-red-500">*</span>
               </CardTitle>
               <p className="text-sm text-muted-foreground dark:text-gray-400">
                 Select the type of plan you&apos;re creating

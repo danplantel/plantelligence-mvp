@@ -189,38 +189,58 @@ export function CompanyLogoSection({
         }}
       >
         {logoData ? (
-          <div className="space-y-4">
-            {/* Image Preview */}
-            <div className="flex items-center justify-center p-4 bg-gray-50 rounded-lg min-h-[8rem]">
-              <BrandingImage
-                src={logoData.url}
-                alt="Company Logo Preview"
-                className="max-h-32 max-w-full object-contain"
-              />
-            </div>
+          <div className="space-y-3">
+            {/* Compact preview row — image + info side by side */}
+            <div className="flex flex-col sm:flex-row items-center gap-3 p-3 bg-gray-50 rounded-lg">
+              {/* Logo preview */}
+              <div className="flex items-center justify-center flex-shrink-0 w-full sm:w-auto min-h-[60px]">
+                <BrandingImage
+                  src={logoData.url}
+                  alt="Company Logo Preview"
+                  className="max-h-14 max-w-[180px] object-contain"
+                />
+              </div>
 
-            {/* File Info */}
-            <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
-              <ImageIcon className="w-4 h-4" />
-              <span className="font-medium truncate">{logoData.fileName}</span>
-              {logoData.fileSize > 0 && (
-                <>
-                  <span className="text-gray-400">•</span>
-                  <span className="text-gray-500">
-                    {logoData.fileSize > 1024 * 1024
-                      ? `${(logoData.fileSize / (1024 * 1024)).toFixed(1)} MB`
-                      : `${(logoData.fileSize / 1024).toFixed(1)} KB`}
+              {/* File info + actions */}
+              <div className="flex flex-col items-center sm:items-start gap-2 flex-1 min-w-0">
+                {/* File Name & Size */}
+                <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                  <ImageIcon className="w-3.5 h-3.5 shrink-0" />
+                  <span className="font-medium truncate max-w-[160px]">
+                    {logoData.fileName}
                   </span>
-                </>
-              )}
-              {logoData.width && logoData.height && (
-                <>
-                  <span className="text-gray-400">•</span>
-                  <span className="text-gray-500">
-                    {logoData.width} × {logoData.height}
-                  </span>
-                </>
-              )}
+                  {logoData.fileSize > 0 && (
+                    <span className="text-gray-400 shrink-0">
+                      •{" "}
+                      {logoData.fileSize > 1024 * 1024
+                        ? `${(logoData.fileSize / (1024 * 1024)).toFixed(1)} MB`
+                        : `${(logoData.fileSize / 1024).toFixed(1)} KB`}
+                    </span>
+                  )}
+                  {logoData.width && logoData.height && (
+                    <span className="text-gray-400 shrink-0">
+                      • {logoData.width}×{logoData.height}
+                    </span>
+                  )}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemove();
+                    }}
+                    className="text-red-600 hover:text-red-700 hover:border-red-600"
+                  >
+                    <X className="w-3.5 h-3.5 mr-1" />
+                    Remove
+                  </Button>
+                </div>
+              </div>
             </div>
 
             {/* Warnings */}
@@ -239,33 +259,6 @@ export function CompanyLogoSection({
                   ))}
                 </div>
               )}
-
-            {/* Action Buttons */}
-            <div className="flex items-center justify-center gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setPendingLogoData(logoData);
-                  setIsModalOpen(true);
-                }}
-              >
-                Edit Logo
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleRemove();
-                }}
-                className="text-red-600 hover:text-red-700 hover:border-red-600"
-              >
-                <X className="w-4 h-4 mr-1" />
-                Remove
-              </Button>
-            </div>
           </div>
         ) : (
           <div className="space-y-3">

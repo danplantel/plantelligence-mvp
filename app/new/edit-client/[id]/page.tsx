@@ -14,6 +14,7 @@ import {
   Heart,
   Gift,
   Monitor,
+  Image as ImageIcon,
 } from "lucide-react";
 import {
   ActionsSection,
@@ -25,7 +26,7 @@ import {
 import { SaveButton } from "@/components/pages/edit-client/save-button";
 import { useEditClient } from "@/hooks/useEditClient";
 // Import components from new-client-steps
-import { CompanyLogoSection } from "@/components/wizard/new-client-steps/sections/company-logo-section";
+import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { BrandImagesSection } from "@/components/wizard/new-client-steps/sections/brand-images-section";
 import { KeyContactsSection } from "@/components/wizard/new-client-steps/sections/key-contacts-section";
 import { DocumentsUploadSection } from "@/components/wizard/new-client-steps/sections/documents-upload-section";
@@ -558,6 +559,7 @@ export default function EditClientPage() {
   } = useEditClient();
 
   const [activeTab, setActiveTab] = useState<EditTabId>("company");
+  const [isLogoModalOpen, setIsLogoModalOpen] = useState(false);
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [hasAttemptedSave, setHasAttemptedSave] = useState(false);
   const [isPreviewLayoutModalOpen, setIsPreviewLayoutModalOpen] = useState(false);
@@ -852,7 +854,7 @@ export default function EditClientPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Building2 className="w-5 h-5 text-accent-blue" />
-                    Plan Type
+                    Plan Type <span className="text-red-500">*</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -965,12 +967,75 @@ export default function EditClientPage() {
               </Card>
 
               {/* Company Logo */}
-              <CompanyLogoSection
-                logoData={companyData.companyLogo}
-                onLogoChange={handleLogoChange}
-                errorFields={getValidationErrors().companyLogo || []}
-                clientId={clientId}
-              />
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ImageIcon className="w-5 h-5 text-accent-blue" />
+                    Company Logo <span className="text-red-500">*</span>
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Upload your company logo. Recommended size: 300×250px.
+                    Accepted formats: PNG, JPG, WebP, SVG. Max file size: 15 MB.
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <UniversalImageEditorModal
+                    type="logo"
+                    icon={<ImageIcon className="w-4 h-4" />}
+                    value={companyData.companyLogo?.url || ""}
+                    fileName={companyData.companyLogo?.fileName || ""}
+                    isOpen={isLogoModalOpen}
+                    onClose={() => setIsLogoModalOpen(false)}
+                    onChange={async (value, fileName) => {
+                      let url = value;
+                      if (clientId && value.startsWith("data:")) {
+                        try {
+                          const key = await uploadBrandingToR2({
+                            dataUrlOrFile: value,
+                            fileName: fileName || "logo.png",
+                            clientId,
+                            slot: "logo",
+                          });
+                          if (key) url = key;
+                        } catch (_) {
+                          // keep data URL
+                        }
+                      }
+                      const logoData: CompanyLogoData = {
+                        url,
+                        fileName,
+                        fileSize: 0,
+                        width: 0,
+                        height: 0,
+                        hasTransparency:
+                          value.includes("data:image/png") ||
+                          value.includes("data:image/svg"),
+                        warnings: [],
+                      };
+                      handleLogoChange(logoData);
+                      setIsLogoModalOpen(false);
+                    }}
+                    onRemove={async () => {
+                      const currentLogoUrl = companyData.companyLogo?.url;
+                      if (
+                        typeof currentLogoUrl === "string" &&
+                        currentLogoUrl.startsWith("org/")
+                      ) {
+                        const { deleteFromR2 } = await import(
+                          "@/lib/upload-to-r2"
+                        );
+                        await deleteFromR2(currentLogoUrl);
+                      }
+                      handleLogoChange(null);
+                      setIsLogoModalOpen(false);
+                    }}
+                    placeholder="Upload Logo"
+                    destructive={
+                      getValidationErrors().companyLogo?.length > 0
+                    }
+                  />
+                </CardContent>
+              </Card>
 
               {/* Brand Colors */}
               <Card>
