@@ -218,10 +218,7 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
                 `}</style>
             )}
             <main>
-                <div
-                    className="relative cursor-pointer"
-                    onClick={() => handleEdit("branding")}
-                >
+                <div className="relative">
                     <PortalWelcomeBanner
                         brandColor={brandColor}
                         secondaryColor={secondaryColor}
@@ -242,6 +239,8 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
                                 : step1Data?.selectedPlan?.companyLogo,
                             secondaryBannerImg: step1Data?.brandImages?.header?.url,
                         } as any}
+                        onTitleClick={() => handleEdit("messaging", "benefitTitle")}
+                        onDescriptionClick={() => handleEdit("messaging", "shortDescription")}
                     />
                 </div>
 
@@ -257,13 +256,21 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
                     />
                 </div>
 
-                <div className={mobile ? "force-visible relative" : "relative group"}>
-                    <HowCanWeHelpSection
-                        brandColor={brandColor}
-                        secondaryColor={secondaryColor}
-                        clientId={step1Data?.planId}
-                        cards={step1Data?.helpCards}
-                    />
+                <div
+                    className={mobile ? "force-visible relative" : "relative group"}
+                    onClick={() => handleEdit("helpCards")}
+                    onMouseEnter={() => setHoveredSection("helpCards")}
+                    onMouseLeave={() => setHoveredSection(null)}
+                >
+                    <div className={mobile ? "" : "cursor-pointer"}>
+                        {hoveredSection === "helpCards" && <EditPencil />}
+                        <HowCanWeHelpSection
+                            brandColor={brandColor}
+                            secondaryColor={secondaryColor}
+                            clientId={step1Data?.planId}
+                            cards={step1Data?.helpCards}
+                        />
+                    </div>
                 </div>
 
                 <div
@@ -278,14 +285,22 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
                     />
                 </div>
 
-                <PortalMaterialsHero
-                    brandColor={brandColor}
-                    backgroundImage={step1Data?.insuranceBackgroundImage || undefined}
-                    containerBlockOpacity={step1Data?.insuranceContainerBlockOpacity ?? 0.8}
-                    planIdLabel={step1Data?.insurancePlanId ? `PLAN ID: ${step1Data.insurancePlanId}` : undefined}
-                    buttonLabel="REGISTER OR LOGIN HERE"
-                    onButtonClick={step1Data?.insuranceLoginUrl ? () => window.open(step1Data.insuranceLoginUrl, "_blank", "noopener,noreferrer") : undefined}
-                />
+                <div
+                    className="relative cursor-pointer group"
+                    onClick={() => handleEdit("insurance")}
+                    onMouseEnter={() => setHoveredSection("insurance")}
+                    onMouseLeave={() => setHoveredSection(null)}
+                >
+                    {hoveredSection === "insurance" && <EditPencil />}
+                    <PortalMaterialsHero
+                        brandColor={brandColor}
+                        backgroundImage={step1Data?.insuranceBackgroundImage || undefined}
+                        containerBlockOpacity={step1Data?.insuranceContainerBlockOpacity ?? 0.8}
+                        planIdLabel={step1Data?.insurancePlanId ? `PLAN ID: ${step1Data.insurancePlanId}` : undefined}
+                        buttonLabel="REGISTER OR LOGIN HERE"
+                        onButtonClick={step1Data?.insuranceLoginUrl ? () => window.open(step1Data.insuranceLoginUrl, "_blank", "noopener,noreferrer") : undefined}
+                    />
+                </div>
 
                 <div className="relative group">
                     {/* Documents section */}

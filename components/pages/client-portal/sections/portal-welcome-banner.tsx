@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { BrandingImage } from "@/components/ui/branding-image";
@@ -11,6 +11,10 @@ import {
 } from "@/lib/portal-category-hero-background";
 
 interface PortalWelcomeBannerProps {
+  /** Click handler for the benefit portal title (headline). Opens the editor. */
+  onTitleClick?: () => void;
+  /** Click handler for the summary description text. Opens the editor. */
+  onDescriptionClick?: () => void;
   clientData?: {
     companyName?: string;
     missionHeadline?: string;
@@ -56,6 +60,8 @@ export function PortalWelcomeBanner({
   brandColor = "#1F3A60",
   secondaryColor = "#C89B5B",
   variant = "default",
+  onTitleClick,
+  onDescriptionClick,
   customHeadline,
   customDescription,
   customClosing,
@@ -197,6 +203,16 @@ export function PortalWelcomeBanner({
     ? `linear-gradient(to bottom, rgba(255, 255, 255, ${containerBlockOpacity}), rgba(255, 255, 255, ${containerBlockOpacity * 0.3}))`
     : containerGradientStyle;
 
+  const [hoveredField, setHoveredField] = useState<string | null>(null);
+
+  const EditPencil = () => (
+    <div className="absolute -top-2 -left-2 z-20 bg-[#3b82f6] rounded-full p-1.5 shadow-lg border border-white/20">
+      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+      </svg>
+    </div>
+  );
+
   return (
     <section className="relative isolate overflow-hidden min-h-[50vh] lg:min-h-screen text-white">
       <div className="absolute inset-0">
@@ -257,15 +273,31 @@ export function PortalWelcomeBanner({
               )}
 
               {/* Title */}
-              <h1 className="mb-6 font-serif text-4xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl">
-                {headline}
-              </h1>
+              <div
+                className="relative cursor-pointer group"
+                onClick={(e) => { e.stopPropagation(); onTitleClick?.(); }}
+                onMouseEnter={() => setHoveredField("title")}
+                onMouseLeave={() => setHoveredField(null)}
+              >
+                {hoveredField === "title" && <EditPencil />}
+                <h1 className="mb-6 font-serif text-4xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl">
+                  {headline}
+                </h1>
+              </div>
 
               {/* Description paragraphs */}
-              <div className="space-y-4 text-base leading-relaxed text-white sm:text-lg">
-                {descriptionParagraphs.map((para, idx) => (
-                  <p key={idx}>{para}</p>
-                ))}
+              <div
+                className="relative cursor-pointer group"
+                onClick={(e) => { e.stopPropagation(); onDescriptionClick?.(); }}
+                onMouseEnter={() => setHoveredField("description")}
+                onMouseLeave={() => setHoveredField(null)}
+              >
+                {hoveredField === "description" && <EditPencil />}
+                <div className="space-y-4 text-base leading-relaxed text-white sm:text-lg">
+                  {descriptionParagraphs.map((para, idx) => (
+                    <p key={idx}>{para}</p>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -318,14 +350,30 @@ export function PortalWelcomeBanner({
                   </p>
                 )}
 
-                <h1 className="font-unna font-dm-serif text-3xl leading-tight text-white sm:text-4xl lg:text-5xl">
-                  {headline}
-                </h1>
+                <div
+                  className="relative cursor-pointer group"
+                  onClick={(e) => { e.stopPropagation(); onTitleClick?.(); }}
+                  onMouseEnter={() => setHoveredField("title")}
+                  onMouseLeave={() => setHoveredField(null)}
+                >
+                  {hoveredField === "title" && <EditPencil />}
+                  <h1 className="font-unna font-dm-serif text-3xl leading-tight text-white sm:text-4xl lg:text-5xl">
+                    {headline}
+                  </h1>
+                </div>
 
-                <div className="mt-6 text-base font-red-hat space-y-4">
-                  {descriptionParagraphs.map((para, idx) => (
-                    <p key={idx}>{para}</p>
-                  ))}
+                <div
+                  className="relative cursor-pointer group mt-6"
+                  onClick={(e) => { e.stopPropagation(); onDescriptionClick?.(); }}
+                  onMouseEnter={() => setHoveredField("description")}
+                  onMouseLeave={() => setHoveredField(null)}
+                >
+                  {hoveredField === "description" && <EditPencil />}
+                  <div className="text-base font-red-hat space-y-4">
+                    {descriptionParagraphs.map((para, idx) => (
+                      <p key={idx}>{para}</p>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="pt-5">

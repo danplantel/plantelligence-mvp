@@ -14,8 +14,15 @@ export function useBenefitsEditorState() {
             const sectionId = event.detail?.sectionId || null;
             const fieldId = event.detail?.fieldId || null;
 
-            setActiveSection(sectionId);
-            setHighlightedField(fieldId);
+            // Reset activeSection first so the editor panel's scroll effect
+            // re-runs even when clicking the same section again
+            setActiveSection(null);
+            setHighlightedField(null);
+            // Use microtask to ensure state reset is processed before setting the new section
+            setTimeout(() => {
+                setActiveSection(sectionId);
+                setHighlightedField(fieldId);
+            }, 0);
             setIsEditorOpen(true);
             setTimeout(() => setIsEditorAnimating(true), 10);
         };
