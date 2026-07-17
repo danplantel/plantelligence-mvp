@@ -53,6 +53,10 @@ interface PortalWelcomeBannerProps {
   containerInverted?: boolean;
   backgroundInverted?: boolean;
   useGradient?: boolean;
+  /** Desktop background image focal point (percentage) */
+  desktopHeroBackgroundPosition?: { x: number; y: number };
+  /** Mobile background image focal point (percentage) */
+  mobileHeroBackgroundPosition?: { x: number; y: number };
 }
 
 export function PortalWelcomeBanner({
@@ -74,6 +78,8 @@ export function PortalWelcomeBanner({
   containerInverted = false,
   backgroundInverted = false,
   useGradient = false,
+  desktopHeroBackgroundPosition,
+  mobileHeroBackgroundPosition,
 }: PortalWelcomeBannerProps) {
   // Look up per-category benefit data from employeePortalPreview (saved by Step 1)
   const categoryBenefit = useMemo(() => {
@@ -220,11 +226,28 @@ export function PortalWelcomeBanner({
           {isR2WelcomeBg && !background && backgroundLoading ? (
             <div className="absolute inset-0 animate-pulse bg-muted/50" aria-hidden />
           ) : welcomeBannerImgSrc ? (
-            <img
-              src={welcomeBannerImgSrc}
-              alt=""
-              className="w-full h-full object-cover pointer-events-none"
-            />
+            <>
+              <img
+                id="welcome-banner-bg-img"
+                src={welcomeBannerImgSrc}
+                alt=""
+                className="w-full h-full object-cover pointer-events-none"
+                style={
+                  desktopHeroBackgroundPosition
+                    ? { objectPosition: `${desktopHeroBackgroundPosition.x}% ${desktopHeroBackgroundPosition.y}%` }
+                    : undefined
+                }
+              />
+              {mobileHeroBackgroundPosition && (
+                <style>{`
+                  @media (max-width: 640px) {
+                    #welcome-banner-bg-img {
+                      object-position: ${mobileHeroBackgroundPosition.x}% ${mobileHeroBackgroundPosition.y}% !important;
+                    }
+                  }
+                `}</style>
+              )}
+            </>
           ) : null}
           <div
             className="absolute inset-0"

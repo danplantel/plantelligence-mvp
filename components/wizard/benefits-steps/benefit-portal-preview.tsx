@@ -241,6 +241,8 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
                         } as any}
                         onTitleClick={() => handleEdit("messaging", "benefitTitle")}
                         onDescriptionClick={() => handleEdit("messaging", "shortDescription")}
+                        desktopHeroBackgroundPosition={(step1Data as any)?.desktopHeroBackgroundPosition}
+                        mobileHeroBackgroundPosition={(step1Data as any)?.mobileHeroBackgroundPosition}
                     />
                 </div>
 
