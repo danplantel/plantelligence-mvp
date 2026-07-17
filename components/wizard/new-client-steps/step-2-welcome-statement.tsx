@@ -41,17 +41,22 @@ const defaultWelcomeBodyText =
 const DESKTOP_WIDTH = 1400;
 const HEADER_HEIGHT = 72;
 const BOTTOM_NAV_HEIGHT = 72;
-/** Mobile preview aspect ratio (9:21 = width:height) */
-const MOBILE_ASPECT_RATIO = 21 / 9;
+/** Mobile preview aspect ratio (18:9 phone) */
+const MOBILE_ASPECT_RATIO = 18 / 9;
 /** Mobile preview width in px */
-const MOBILE_WIDTH = 390;
+const MOBILE_WIDTH = 200;
+/** Reference mobile viewport width — content renders at 390 px and scales down */
+const REFERENCE_MOBILE_WIDTH = 390;
 
 type PreviewMode = "desktop" | "mobile";
 
-/** Shared iframe-based mobile preview frame using 9:21 aspect ratio */
+/** Mobile preview iframe with CSS-transform scaling */
 function MobilePreviewFrame({ children, width }: { children: React.ReactNode; width: number }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [mountNode, setMountNode] = useState<HTMLElement | null>(null);
+
+  const scale = width / REFERENCE_MOBILE_WIDTH;
+  const innerHeight = Math.round((width * MOBILE_ASPECT_RATIO) / scale);
 
   useEffect(() => {
     const iframe = iframeRef.current;
@@ -61,9 +66,9 @@ function MobilePreviewFrame({ children, width }: { children: React.ReactNode; wi
 
     doc.open();
     doc.write(
-      '<!DOCTYPE html><html style="overflow-x:hidden"><head>' +
-      '<meta name="viewport" content="width=' + width + ', initial-scale=1">' +
-      '</head><body style="overflow-x:hidden; width:100%; margin:0"></body></html>',
+      '<!DOCTYPE html><html style="overflow:hidden"><head>' +
+      '<meta name="viewport" content="width=' + REFERENCE_MOBILE_WIDTH + ', initial-scale=1">' +
+      '</head><body style="overflow:hidden; width:100%; height:100%; margin:0"></body></html>',
     );
     doc.close();
 
@@ -106,7 +111,19 @@ function MobilePreviewFrame({ children, width }: { children: React.ReactNode; wi
     >
       {mountNode &&
         createPortal(
-          <div style={{ width: `${width}px`, minHeight: "100%", overflowX: "hidden", overflowY: "auto" }}>
+          <div
+            style={{
+              width: `${REFERENCE_MOBILE_WIDTH}px`,
+              height: `${innerHeight}px`,
+              transform: `scale(${scale})`,
+              transformOrigin: "top left",
+              overflowY: "auto",
+              overflowX: "hidden",
+              scrollbarWidth: "none",
+              msOverflowStyle: "none",
+            }}
+            className="[&::-webkit-scrollbar]:hidden"
+          >
             {children}
           </div>,
           mountNode,
@@ -955,43 +972,62 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
 
         <div
           ref={scrollableRef}
-          className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-300 dark:bg-gray-950 flex flex-col items-center"
+          className={`flex-1 overflow-x-hidden bg-gray-300 dark:bg-gray-950 flex flex-col items-center ${
+            previewMode === "mobile" ? "overflow-y-hidden justify-center" : "overflow-y-auto"
+          }`}
         >
           {previewMode === "mobile" ? (
-            <MobilePreviewFrame width={MOBILE_WIDTH}>
-              <div className="fixed top-0 left-0 w-full z-50">
-                <PortalHeader
-                  companyData={{ companyLogo: planCompanyLogo }}
-                  brandColor={brandColor}
-                  secondaryColor={secondaryColor}
-                  clientId={draftClientId}
-                  categoryPortalVisibility={null}
-                  benefits={null}
-                  enableNavigation={false}
-                />
+            /* ── Mobile phone frame — centered without scrolling ── */
+            <div className="flex items-center justify-center w-full py-6 px-4 flex-shrink-0">
+              <div
+                className="relative rounded-[36px] border-[4px] border-gray-800 dark:border-gray-700 bg-gray-900 shadow-2xl flex-shrink-0 overflow-hidden"
+                style={{ width: MOBILE_WIDTH + 20 }}
+              >
+                {/* Phone notch */}
+                <div className="absolute top-[7px] left-1/2 -translate-x-1/2 w-[90px] h-[5px] bg-gray-900 dark:bg-gray-800 rounded-full z-50" />
+                {/* Side buttons (decorative) */}
+                <div className="absolute top-24 -left-[3px] w-[3px] h-8 bg-gray-700 dark:bg-gray-600 rounded-l" />
+                <div className="absolute top-36 -left-[3px] w-[3px] h-12 bg-gray-700 dark:bg-gray-600 rounded-l" />
+                <div className="absolute top-20 -right-[3px] w-[3px] h-10 bg-gray-700 dark:bg-gray-600 rounded-r" />
+                <div className="flex items-center justify-center py-2">
+                  <MobilePreviewFrame width={MOBILE_WIDTH}>
+                    <div className="fixed top-0 left-0 w-full z-50">
+                      <PortalHeader
+                        companyData={{ companyLogo: planCompanyLogo }}
+                        brandColor={brandColor}
+                        secondaryColor={secondaryColor}
+                        clientId={draftClientId}
+                        categoryPortalVisibility={null}
+                        benefits={null}
+                        enableNavigation={false}
+                      />
+                    </div>
+                    <div className="pt-20">
+                      <ClientPortal
+                        data={portalData}
+                        className="!min-h-0"
+                        hideHeader={true}
+                        hideFooter={true}
+                        hideBenefits={true}
+                        clientId={draftClientId}
+                        onHeroTitleClick={() => handleOpenHeroTextEditor("title")}
+                        onHeroDescriptionClick={() => handleOpenHeroTextEditor("description")}
+                        onMissionHeadlineClick={() => {
+                          editorState.setFocusedTextField("headline");
+                          editorState.setIsEditorOpen(true);
+                          setTimeout(() => editorState.setIsEditorAnimating(true), 10);
+                        }}
+                        onMissionBodyClick={() => {
+                          editorState.setFocusedTextField("body");
+                          editorState.setIsEditorOpen(true);
+                          setTimeout(() => editorState.setIsEditorAnimating(true), 10);
+                        }}
+                      />
+                    </div>
+                  </MobilePreviewFrame>
+                </div>
               </div>
-              <div className="pt-20">
-                <ClientPortal
-                  data={portalData}
-                  hideHeader={true}
-                  hideFooter={true}
-                  hideBenefits={true}
-                  clientId={draftClientId}
-                  onHeroTitleClick={() => handleOpenHeroTextEditor("title")}
-                  onHeroDescriptionClick={() => handleOpenHeroTextEditor("description")}
-                  onMissionHeadlineClick={() => {
-                    editorState.setFocusedTextField("headline");
-                    editorState.setIsEditorOpen(true);
-                    setTimeout(() => editorState.setIsEditorAnimating(true), 10);
-                  }}
-                  onMissionBodyClick={() => {
-                    editorState.setFocusedTextField("body");
-                    editorState.setIsEditorOpen(true);
-                    setTimeout(() => editorState.setIsEditorAnimating(true), 10);
-                  }}
-                />
-              </div>
-            </MobilePreviewFrame>
+            </div>
           ) : (
             /* ── Desktop: scaled preview using ClientPortal to
              *    match the benefits hub landing page UI. ── */
