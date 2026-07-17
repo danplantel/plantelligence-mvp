@@ -1,44 +1,46 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Move, RotateCcw } from "lucide-react";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import type { MobileHeroPosition } from "@/types/new-client-wizard";
 
-// Mobile phone portrait aspect ratio (~9:19.5 scale) so the image
-// is cropped both horizontally AND vertically, making X and Y
-// repositioning both meaningful.
-const CANVAS_WIDTH = 260;
-const CANVAS_HEIGHT = 380;
+type DeviceType = "desktop" | "mobile";
 
-interface MobileHeroCanvasProps {
+const DIMENSIONS: Record<DeviceType, { width: number; height: number; label: string }> = {
+  desktop: { width: 320, height: 180, label: "Desktop (16:9)" },
+  mobile: { width: 260, height: 380, label: "Mobile (portrait)" },
+};
+
+interface HeroCanvasProps {
   /** The hero image URL to display and position */
   imageUrl: string | undefined;
-  /** Current mobile background position (percentage-based) */
+  /** Current background position (percentage-based) */
   position: MobileHeroPosition;
   /** Called when the user drags to a new position */
   onPositionChange: (position: MobileHeroPosition) => void;
   /** Whether the canvas is disabled (e.g., no image selected) */
   disabled?: boolean;
+  /** Device variant — changes the canvas dimensions and label */
+  device?: DeviceType;
 }
 
-export function MobileHeroCanvas({
+export function HeroCanvas({
   imageUrl,
   position,
   onPositionChange,
   disabled = false,
-}: MobileHeroCanvasProps) {
+  device = "mobile",
+}: HeroCanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef<{ x: number; y: number; startPosX: number; startPosY: number } | null>(null);
 
   // Resolve the image URL (handles R2 keys, data URLs, absolute URLs)
   const { url: resolvedImageUrl, loading: imageLoading } = useBrandingImageUrl(imageUrl ?? null);
-
-  // Use the resolved URL for <img>, fall back to raw imageUrl for data URLs
   const displaySrc = resolvedImageUrl ?? imageUrl;
 
-  // Convert percentage position to CSS object-position
+  const { width: CANVAS_WIDTH, height: CANVAS_HEIGHT } = DIMENSIONS[device];
   const bgPositionX = position.x;
   const bgPositionY = position.y;
 
@@ -66,9 +68,6 @@ export function MobileHeroCanvas({
       const dx = e.clientX - dragStartRef.current.x;
       const dy = e.clientY - dragStartRef.current.y;
 
-      // Scale the drag sensitivity: moving the mouse N pixels moves the
-      // background position by a proportional amount.
-      // Smaller divisor = more sensitive dragging.
       const sensitivity = 2.5;
       let newX = dragStartRef.current.startPosX - dx / sensitivity;
       let newY = dragStartRef.current.startPosY - dy / sensitivity;
@@ -93,7 +92,6 @@ export function MobileHeroCanvas({
     [isDragging],
   );
 
-  // Also end drag if pointer leaves
   const handlePointerLeave = useCallback(() => {
     if (isDragging) {
       setIsDragging(false);
@@ -111,7 +109,9 @@ export function MobileHeroCanvas({
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground dark:text-gray-400">
-          Drag the image to choose which portion is visible on mobile devices.
+          {device === "desktop"
+            ? "Drag the image to set the focal point visible on desktop screens."
+            : "Drag the image to choose which portion is visible on mobile devices."}
         </p>
         <button
           type="button"
@@ -124,13 +124,15 @@ export function MobileHeroCanvas({
         </button>
       </div>
 
-      {/* Mobile phone frame */}
+      {/* Device frame */}
       <div className="flex justify-center">
-        <div className="relative rounded-[18px] border-[3px] border-gray-800 dark:border-gray-600 bg-gray-900 overflow-hidden shadow-lg"
+        <div
+          className="relative rounded-[18px] border-[3px] border-gray-800 dark:border-gray-600 bg-gray-900 overflow-hidden shadow-lg"
           style={{ width: CANVAS_WIDTH + 16, paddingTop: 16, paddingBottom: 16 }}
         >
           {/* Screen area */}
-          <div className="mx-auto rounded-[10px] overflow-hidden bg-gray-100 dark:bg-gray-800"
+          <div
+            className="mx-auto rounded-[10px] overflow-hidden bg-gray-100 dark:bg-gray-800"
             style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT }}
           >
             <div
@@ -154,7 +156,7 @@ export function MobileHeroCanvas({
               ) : hasImage ? (
                 <img
                   src={displaySrc}
-                  alt="Mobile hero preview"
+                  alt={`${device} hero preview`}
                   className="absolute inset-0 w-full h-full pointer-events-none"
                   style={{
                     objectFit: "cover",
@@ -218,8 +220,10 @@ export function MobileHeroCanvas({
             </div>
           </div>
 
-          {/* Phone notch */}
-          <div className="absolute top-[6px] left-1/2 -translate-x-1/2 w-16 h-1.5 bg-gray-700 dark:bg-gray-500 rounded-full" />
+          {/* Phone notch (only for mobile) */}
+          {device === "mobile" && (
+            <div className="absolute top-[6px] left-1/2 -translate-x-1/2 w-16 h-1.5 bg-gray-700 dark:bg-gray-500 rounded-full" />
+          )}
         </div>
       </div>
 

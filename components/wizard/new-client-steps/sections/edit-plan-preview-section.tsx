@@ -124,6 +124,7 @@ function buildPortalData(companyData: CompanyBasicsData) {
       heroContainerInverted: (companyData as any).heroContainerInverted,
       heroBackgroundInverted: (companyData as any).heroBackgroundInverted,
       heroUseGradient: (companyData as any).heroUseGradient,
+      desktopHeroBackgroundPosition: companyData.desktopHeroBackgroundPosition,
       mobileHeroBackgroundPosition: companyData.mobileHeroBackgroundPosition,
       brandImages: companyData.brandImages,
     },
@@ -249,6 +250,20 @@ export function EditPlanPreviewSection({
   // ── Hero segment mode (Desktop / Mobile tabs inside Hero Background card) ──
   const [heroSegmentMode, setHeroSegmentMode] = useState<HeroSegmentMode>("desktop");
 
+  // ── Desktop hero background position (percentage-based) ──
+  const [desktopHeroPosition, setDesktopHeroPosition] = useState<MobileHeroPosition>(() => {
+    const saved = (companyData as any)?.desktopHeroBackgroundPosition;
+    return saved ?? { x: 50, y: 50 };
+  });
+
+  // Sync desktopHeroPosition from companyData when it changes externally
+  useEffect(() => {
+    const saved = (companyData as any)?.desktopHeroBackgroundPosition;
+    if (saved && (saved.x !== desktopHeroPosition.x || saved.y !== desktopHeroPosition.y)) {
+      setDesktopHeroPosition(saved);
+    }
+  }, [(companyData as any)?.desktopHeroBackgroundPosition]);
+
   // ── Mobile hero background position (percentage-based) ──
   const [mobileHeroPosition, setMobileHeroPosition] = useState<MobileHeroPosition>(() => {
     const saved = (companyData as any)?.mobileHeroBackgroundPosition;
@@ -263,15 +278,28 @@ export function EditPlanPreviewSection({
     }
   }, [(companyData as any)?.mobileHeroBackgroundPosition]);
 
-  // ── Handle segment mode change: switching to Mobile also switches preview ──
+  // ── Handle segment mode change: syncs the main preview to match ──
   const handleHeroSegmentModeChange = useCallback(
     (mode: HeroSegmentMode) => {
       setHeroSegmentMode(mode);
       if (mode === "mobile" && previewMode !== "mobile") {
         setPreviewMode("mobile");
+      } else if (mode === "desktop" && previewMode !== "desktop") {
+        setPreviewMode("desktop");
       }
     },
     [previewMode],
+  );
+
+  // ── Handle desktop hero position change ──
+  const handleDesktopHeroPositionChange = useCallback(
+    (position: MobileHeroPosition) => {
+      setDesktopHeroPosition(position);
+      if (onCompanyDataChange) {
+        onCompanyDataChange("desktopHeroBackgroundPosition", position);
+      }
+    },
+    [onCompanyDataChange],
   );
 
   // ── Handle mobile hero position change ──
@@ -540,6 +568,8 @@ export function EditPlanPreviewSection({
                 onDefaultPhotoClick={() => {}}
                 segmentMode={heroSegmentMode}
                 onSegmentModeChange={handleHeroSegmentModeChange}
+                desktopPosition={desktopHeroPosition}
+                onDesktopPositionChange={handleDesktopHeroPositionChange}
                 mobilePosition={mobileHeroPosition}
                 onMobilePositionChange={handleMobileHeroPositionChange}
               />

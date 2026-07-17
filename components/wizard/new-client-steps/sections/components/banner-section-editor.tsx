@@ -346,6 +346,8 @@ export function BannerSectionEditor({
             onDefaultPhotoClick={() => setHeroGalleryOpen(true)}
             segmentMode="desktop"
             onSegmentModeChange={() => {}}
+            desktopPosition={{ x: 50, y: 50 }}
+            onDesktopPositionChange={() => {}}
             mobilePosition={{ x: 50, y: 50 }}
             onMobilePositionChange={() => {}}
           />

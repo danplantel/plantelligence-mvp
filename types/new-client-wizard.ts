@@ -93,6 +93,10 @@ export interface CompanyBasicsData {
   heroBackgroundInverted?: boolean;
   heroUseGradient?: boolean;
   /** Desktop/Mobile split background position for the hero header image.
+   *  When set, the desktop preview uses this position to offset the hero
+   *  background so the user can reposition the focal point on large screens. */
+  desktopHeroBackgroundPosition?: MobileHeroPosition;
+  /** Desktop/Mobile split background position for the hero header image.
    *  When set, the mobile preview uses this position to offset the hero
    *  background so the user can choose which portion is visible on small screens. */
   mobileHeroBackgroundPosition?: MobileHeroPosition;

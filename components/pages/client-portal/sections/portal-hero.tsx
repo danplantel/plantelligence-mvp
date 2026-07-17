@@ -29,6 +29,9 @@ interface PortalHeroProps {
   containerInverted?: boolean;
   backgroundInverted?: boolean;
   useGradient?: boolean;
+  /** Desktop-specific background image position (percentage-based).
+   *  Applied via object-position on the hero background <img>. */
+  desktopHeroBackgroundPosition?: { x: number; y: number };
   /** Mobile-specific background image position (percentage-based).
    *  Applied via object-position on the hero background <img>. */
   mobileHeroBackgroundPosition?: { x: number; y: number };
@@ -53,6 +56,7 @@ export function PortalHero({
   backgroundInverted = false,
   useGradient = false,
   showEditIndicators = true,
+  desktopHeroBackgroundPosition,
   mobileHeroBackgroundPosition,
 }: PortalHeroProps) {
   const sectionRef = useRef<HTMLElement>(null);
@@ -104,6 +108,11 @@ export function PortalHero({
     ? backgroundImg ?? undefined
     : (backgroundImg ?? backgroundImgRaw) || undefined;
   const hasBackgroundImage = Boolean(backgroundImgRaw?.trim());
+
+  // Determine the active background position — mobile takes priority (for iframe context),
+  // desktop is the fallback for larger viewports.
+  const activeBgPosition = mobileHeroBackgroundPosition ?? desktopHeroBackgroundPosition;
+
   const isEditable = Boolean(showEditIndicators && (
     onHeroTitleClick ||
     onHeroDescriptionClick ||
@@ -221,8 +230,8 @@ export function PortalHero({
                   alt="Company background"
                   className="w-full h-full object-cover pointer-events-none"
                   style={
-                    mobileHeroBackgroundPosition
-                      ? { objectPosition: `${mobileHeroBackgroundPosition.x}% ${mobileHeroBackgroundPosition.y}%` }
+                    activeBgPosition
+                      ? { objectPosition: `${activeBgPosition.x}% ${activeBgPosition.y}%` }
                       : undefined
                   }
                 />
