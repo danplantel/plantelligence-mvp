@@ -8,7 +8,7 @@ import { ImageIcon, Settings, Image as ImageIcon2 } from "lucide-react";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import { deleteFromR2 } from "@/lib/upload-to-r2";
 import { BannerOverlaySettingsCard } from "./banner-overlay-settings-card";
-import { HeroBackgroundCard } from "./hero-background-card";
+import { HeroBackgroundCard, type HeroSegmentMode } from "./hero-background-card";
 import { ModalGallery } from "@/components/ui/modalGallery";
 import { useHeroOverlaySettings } from "../hooks/use-hero-overlay-settings";
 import {
@@ -20,6 +20,7 @@ import {
 import type {
   BrandImageData,
   CompanyLogoData,
+  MobileHeroPosition,
 } from "@/types/new-client-wizard";
 
 interface BannerSectionEditorProps {
@@ -103,6 +104,15 @@ export function BannerSectionEditor({
 }: BannerSectionEditorProps) {
   // Overlay settings hook for Hero section
   const storeCompanyBasics = useNewClientWizardStore((state) => state.stepData.companyBasics);
+
+  // ── Hero Background segment mode & position state ──
+  const [heroSegmentMode, setHeroSegmentMode] = useState<HeroSegmentMode>("edit");
+  const [desktopHeroPosition, setDesktopHeroPosition] = useState<MobileHeroPosition>(
+    () => (storeCompanyBasics as any)?.desktopHeroBackgroundPosition ?? { x: 50, y: 50 },
+  );
+  const [mobileHeroPosition, setMobileHeroPosition] = useState<MobileHeroPosition>(
+    () => (storeCompanyBasics as any)?.mobileHeroBackgroundPosition ?? { x: 50, y: 50 },
+  );
   const saveStepDataLocally = useNewClientWizardStore((state) => state.saveStepDataLocally);
   
   const {
@@ -344,12 +354,18 @@ export function BannerSectionEditor({
             onEditClick={handleHeroBackgroundEditClick}
             onFileSelect={handleHeroBackgroundFileSelect}
             onDefaultPhotoClick={() => setHeroGalleryOpen(true)}
-            segmentMode="desktop"
-            onSegmentModeChange={() => {}}
-            desktopPosition={{ x: 50, y: 50 }}
-            onDesktopPositionChange={() => {}}
-            mobilePosition={{ x: 50, y: 50 }}
-            onMobilePositionChange={() => {}}
+            segmentMode={heroSegmentMode}
+            onSegmentModeChange={setHeroSegmentMode}
+            desktopPosition={desktopHeroPosition}
+            onDesktopPositionChange={(pos) => {
+              setDesktopHeroPosition(pos);
+              onCompanyDataChange("desktopHeroBackgroundPosition", pos);
+            }}
+            mobilePosition={mobileHeroPosition}
+            onMobilePositionChange={(pos) => {
+              setMobileHeroPosition(pos);
+              onCompanyDataChange("mobileHeroBackgroundPosition", pos);
+            }}
           />
         </CardContent>
       </Card>
