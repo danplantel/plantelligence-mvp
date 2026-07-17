@@ -16,10 +16,12 @@ const DESKTOP_WIDTH = 1400;
 const HEADER_HEIGHT = 72;
 /** Estimated height of the fixed bottom navigation bar from BenefitsWizard */
 const BOTTOM_NAV_HEIGHT = 72;
-/** Mobile preview aspect ratio (9:21 = width:height) */
-const MOBILE_ASPECT_RATIO = 21 / 9;
+/** Mobile preview aspect ratio (18:9 phone) */
+const MOBILE_ASPECT_RATIO = 18 / 9;
 /** Mobile preview width in px */
-const MOBILE_WIDTH = 390;
+const MOBILE_WIDTH = 200;
+/** Reference mobile viewport width — content renders at 390 px and scales down */
+const REFERENCE_MOBILE_WIDTH = 390;
 
 type PreviewMode = "desktop" | "mobile";
 
@@ -32,53 +34,39 @@ function MobilePreviewFrame({ children, width }: { children: React.ReactNode; wi
     const iframeRef = useRef<HTMLIFrameElement>(null);
     const [mountNode, setMountNode] = useState<HTMLElement | null>(null);
 
+    const scale = width / REFERENCE_MOBILE_WIDTH;
+    const innerHeight = Math.round((width * MOBILE_ASPECT_RATIO) / scale);
+
     useEffect(() => {
         const iframe = iframeRef.current;
         if (!iframe) return;
-
         const doc = iframe.contentDocument;
         if (!doc) return;
 
-        // Reset the iframe document with viewport meta so media queries
-        // evaluate against the iframe's actual width (390px), not a default.
-        // Body overflow-x: hidden prevents any horizontal scroll within the iframe.
         doc.open();
         doc.write(
-            '<!DOCTYPE html><html style="overflow-x:hidden"><head>' +
-            '<meta name="viewport" content="width=' + width + ', initial-scale=1">' +
-            '</head><body style="overflow-x:hidden; width:100%; margin:0"></body></html>',
+            '<!DOCTYPE html><html style="overflow:hidden"><head>' +
+            '<meta name="viewport" content="width=' + REFERENCE_MOBILE_WIDTH + ', initial-scale=1">' +
+            '</head><body style="overflow:hidden; width:100%; height:100%; margin:0"></body></html>',
         );
         doc.close();
 
-        // Copy stylesheets from parent to iframe so Tailwind etc. apply.
         const parentStyles = Array.from(
             document.querySelectorAll("style, link[rel=stylesheet]"),
         ) as (HTMLStyleElement | HTMLLinkElement)[];
-
         parentStyles.forEach((el) => {
             const clone = el.cloneNode(true) as HTMLElement;
             doc.head.appendChild(clone);
         });
 
-        // Copy body classes (dark mode, theme, etc.)
-        document.body.classList.forEach((cls) => {
-            doc.body.classList.add(cls);
-        });
+        document.body.classList.forEach((cls) => { doc.body.classList.add(cls); });
 
-        // Copy CSS custom properties from parent :root
         const rootStyles = getComputedStyle(document.documentElement);
-        const vars = Array.from(document.documentElement.style).filter((k) =>
-            k.startsWith("--"),
-        );
-        vars.forEach((k) => {
-            doc.documentElement.style.setProperty(k, rootStyles.getPropertyValue(k));
-        });
+        const vars = Array.from(document.documentElement.style).filter((k) => k.startsWith("--"));
+        vars.forEach((k) => { doc.documentElement.style.setProperty(k, rootStyles.getPropertyValue(k)); });
 
         setMountNode(doc.body);
-
-        return () => {
-            setMountNode(null);
-        };
+        return () => { setMountNode(null); };
     }, [width]);
 
     const height = Math.round(width * MOBILE_ASPECT_RATIO);
@@ -100,11 +88,16 @@ function MobilePreviewFrame({ children, width }: { children: React.ReactNode; wi
                 createPortal(
                     <div
                         style={{
-                            width: `${width}px`,
-                            minHeight: "100%",
-                            overflowX: "hidden",
+                            width: `${REFERENCE_MOBILE_WIDTH}px`,
+                            height: `${innerHeight}px`,
+                            transform: `scale(${scale})`,
+                            transformOrigin: "top left",
                             overflowY: "auto",
+                            overflowX: "hidden",
+                            scrollbarWidth: "none",
+                            msOverflowStyle: "none",
                         }}
+                        className="[&::-webkit-scrollbar]:hidden"
                     >
                         {children}
                     </div>,
@@ -399,33 +392,43 @@ export function BenefitsStep2() {
                 {/* Scrollable content — items-center keeps the preview centered */}
                 <div
                     ref={scrollableRef}
-                    className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-300 dark:bg-gray-950 flex flex-col items-center"
+                    className={`flex-1 overflow-x-hidden bg-gray-300 dark:bg-gray-950 flex flex-col items-center ${
+                        previewMode === "mobile" ? "overflow-y-hidden justify-center" : "overflow-y-auto"
+                    }`}
                 >
                     {previewMode === "mobile" ? (
-                        /* ── Mobile: rendered in an iframe so viewport-based
-                         *    media queries (Tailwind sm:, md:, lg:) evaluate
-                         *    against the iframe's actual MOBILE_WIDTH.
-                         *    PortalHeader is wrapped in a fixed container
-                         *    matching app/new/view/[id]/layout.tsx structure.
-                         *    The iframe uses 9:21 aspect ratio with max-height
-                         *    capped to available space so it doesn't overflow
-                         *    the bottom nav or toolbar. ── */
-                        <MobilePreviewFrame width={MOBILE_WIDTH}>
-                            <div className="fixed top-0 left-0 w-full z-50">
-                                <PortalHeader
-                                    companyData={{ companyLogo: planCompanyLogo }}
-                                    brandColor={brandColor}
-                                    secondaryColor={secondaryColor}
-                                    clientId={step1Data?.planId}
-                                    categoryPortalVisibility={step1Data?.benefitVisibility ?? null}
-                                    benefits={(step1Data?.selectedPlan as any)?.employeePortalPreview?.benefits ?? null}
-                                    enableNavigation={false}
-                                />
+                        /* ── Mobile phone frame — centered without scrolling ── */
+                        <div className="flex items-center justify-center w-full py-6 px-4 flex-shrink-0">
+                            <div
+                                className="relative rounded-[36px] border-[4px] border-gray-800 dark:border-gray-700 bg-gray-900 shadow-2xl flex-shrink-0 overflow-hidden"
+                                style={{ width: MOBILE_WIDTH + 20 }}
+                            >
+                                {/* Phone notch */}
+                                <div className="absolute top-[7px] left-1/2 -translate-x-1/2 w-[90px] h-[5px] bg-gray-900 dark:bg-gray-800 rounded-full z-50" />
+                                {/* Side buttons (decorative) */}
+                                <div className="absolute top-24 -left-[3px] w-[3px] h-8 bg-gray-700 dark:bg-gray-600 rounded-l" />
+                                <div className="absolute top-36 -left-[3px] w-[3px] h-12 bg-gray-700 dark:bg-gray-600 rounded-l" />
+                                <div className="absolute top-20 -right-[3px] w-[3px] h-10 bg-gray-700 dark:bg-gray-600 rounded-r" />
+                                <div className="flex items-center justify-center py-2">
+                                    <MobilePreviewFrame width={MOBILE_WIDTH}>
+                                        <div className="fixed top-0 left-0 w-full z-50">
+                                            <PortalHeader
+                                                companyData={{ companyLogo: planCompanyLogo }}
+                                                brandColor={brandColor}
+                                                secondaryColor={secondaryColor}
+                                                clientId={step1Data?.planId}
+                                                categoryPortalVisibility={step1Data?.benefitVisibility ?? null}
+                                                benefits={(step1Data?.selectedPlan as any)?.employeePortalPreview?.benefits ?? null}
+                                                enableNavigation={false}
+                                            />
+                                        </div>
+                                        <div className="pt-20">
+                                            <BenefitPortalPreview mobile />
+                                        </div>
+                                    </MobilePreviewFrame>
+                                </div>
                             </div>
-                            <div className="pt-20">
-                                <BenefitPortalPreview mobile />
-                            </div>
-                        </MobilePreviewFrame>
+                        </div>
                     ) : (
                         /* ── Desktop: scaled preview ── */
                         <div
