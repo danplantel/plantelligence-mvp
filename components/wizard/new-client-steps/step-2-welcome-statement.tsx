@@ -175,6 +175,8 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
         heroContainerInverted: cb?.heroContainerInverted,
         heroBackgroundInverted: cb?.heroBackgroundInverted,
         heroUseGradient: cb?.heroUseGradient,
+        desktopHeroBackgroundPosition: (cb as any)?.desktopHeroBackgroundPosition,
+        mobileHeroBackgroundPosition: (cb as any)?.mobileHeroBackgroundPosition,
         brandImages: cb?.brandImages,
       },
       keyContacts: [],
