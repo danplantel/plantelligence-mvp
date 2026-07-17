@@ -867,6 +867,13 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
                     else { handleCompanyDataChange("heroDescription", ""); updateField("bodyText", ""); }
                   }}
                   defaultBodyText={defaultWelcomeBodyText} errorFields={errorFields}
+                  onHeroSegmentModeChange={(mode) => {
+                    if (mode === "desktop" && previewMode !== "desktop") {
+                      setPreviewMode("desktop");
+                    } else if (mode === "mobile" && previewMode !== "mobile") {
+                      setPreviewMode("mobile");
+                    }
+                  }}
                 />
                 <ThumbnailSectionEditor
                   currentImage={stepData.companyBasics?.brandImages?.thumbnail || undefined}

@@ -64,6 +64,8 @@ interface BannerSectionEditorProps {
   onToggleDefaultBody: (checked: boolean) => void;
   defaultBodyText: string;
   errorFields?: string[];
+  /** Called when the user switches between Edit / Desktop / Mobile in Hero Background */
+  onHeroSegmentModeChange?: (mode: HeroSegmentMode) => void;
   /** Self-contained logo editor — same as Step 1's UniversalImageEditorModal */
   isLogoModalOpen?: boolean;
   pendingLogoData?: CompanyLogoData | null;
@@ -96,6 +98,7 @@ export function BannerSectionEditor({
   onToggleDefaultBody,
   defaultBodyText,
   errorFields = [],
+  onHeroSegmentModeChange,
   isLogoModalOpen,
   pendingLogoData,
   onLogoModalChange,
@@ -355,7 +358,12 @@ export function BannerSectionEditor({
             onFileSelect={handleHeroBackgroundFileSelect}
             onDefaultPhotoClick={() => setHeroGalleryOpen(true)}
             segmentMode={heroSegmentMode}
-            onSegmentModeChange={setHeroSegmentMode}
+            onSegmentModeChange={(mode) => {
+              setHeroSegmentMode(mode);
+              if (onHeroSegmentModeChange) {
+                onHeroSegmentModeChange(mode);
+              }
+            }}
             desktopPosition={desktopHeroPosition}
             onDesktopPositionChange={(pos) => {
               setDesktopHeroPosition(pos);
