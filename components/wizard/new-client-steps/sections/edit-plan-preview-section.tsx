@@ -312,8 +312,21 @@ export function EditPlanPreviewSection({
       } else if (mode === "desktop" && previewMode !== "desktop") {
         setPreviewMode("desktop");
       }
+      // Scroll the editor panel to the Hero Background card (section 0)
+      if (editorIsOpen) {
+        const container = editorScrollContainerRef.current;
+        if (container) {
+          const sectionHeaders = container.querySelectorAll("[data-section-index]");
+          const target = sectionHeaders[0];
+          if (target) {
+            setTimeout(() => {
+              target.scrollIntoView({ behavior: "smooth", block: "start" });
+            }, 100);
+          }
+        }
+      }
     },
-    [previewMode],
+    [previewMode, editorIsOpen],
   );
 
   // ── Handle desktop hero position change ──
@@ -867,6 +880,7 @@ export function EditPlanPreviewSection({
       <EditorPanelWrapper
         isOpen={isEditorOpen}
         isAnimating={isEditorAnimating}
+        editorScrollContainerRef={editorScrollContainerRef}
         onClose={handleCloseEditor}
         sections={editorSections}
       />
