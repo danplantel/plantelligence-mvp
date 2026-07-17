@@ -299,6 +299,8 @@ export function useEditClient() {
             heroCompanyNameColor: (result.data as any).heroCompanyNameColor || "yellow",
             heroInverted: (result.data as any).heroInverted ?? false,
             heroUseGradient: (result.data as any).heroUseGradient ?? false,
+            desktopHeroBackgroundPosition: (result.data as any).desktopHeroBackgroundPosition,
+            mobileHeroBackgroundPosition: (result.data as any).mobileHeroBackgroundPosition,
           } as any);
 
           // Parse keyContacts if it's a string (JSON)
