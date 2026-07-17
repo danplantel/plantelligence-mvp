@@ -860,7 +860,6 @@ export function useEditClient() {
       const result = await response.json();
       if (result.success) {
         toast.success("Client updated successfully");
-        router.push("/new/clients");
       } else {
         throw new Error("Failed to update client");
       }

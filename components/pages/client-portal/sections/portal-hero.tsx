@@ -109,9 +109,8 @@ export function PortalHero({
     : (backgroundImg ?? backgroundImgRaw) || undefined;
   const hasBackgroundImage = Boolean(backgroundImgRaw?.trim());
 
-  // Determine the active background position — mobile takes priority (for iframe context),
-  // desktop is the fallback for larger viewports.
-  const activeBgPosition = mobileHeroBackgroundPosition ?? desktopHeroBackgroundPosition;
+  // Use a unique ID so the media‑query style can target this section precisely
+  const sectionId = "hero-bg-section";
 
   const isEditable = Boolean(showEditIndicators && (
     onHeroTitleClick ||
@@ -225,16 +224,28 @@ export function PortalHero({
                   aria-hidden
                 />
               ) : displayBackgroundSrc ? (
-                <img
-                  src={displayBackgroundSrc}
-                  alt="Company background"
-                  className="w-full h-full object-cover pointer-events-none"
-                  style={
-                    activeBgPosition
-                      ? { objectPosition: `${activeBgPosition.x}% ${activeBgPosition.y}%` }
-                      : undefined
-                  }
-                />
+                <>
+                  <img
+                    id="hero-bg-img"
+                    src={displayBackgroundSrc}
+                    alt="Company background"
+                    className="w-full h-full object-cover pointer-events-none"
+                    style={
+                      desktopHeroBackgroundPosition
+                        ? { objectPosition: `${desktopHeroBackgroundPosition.x}% ${desktopHeroBackgroundPosition.y}%` }
+                        : undefined
+                    }
+                  />
+                  {mobileHeroBackgroundPosition && (
+                    <style>{`
+                      @media (max-width: 640px) {
+                        #hero-bg-img {
+                          object-position: ${mobileHeroBackgroundPosition.x}% ${mobileHeroBackgroundPosition.y}% !important;
+                        }
+                      }
+                    `}</style>
+                  )}
+                </>
               ) : null}
 
               {/* Overlay DIV controls transparency - reacts to backgroundInverted */}

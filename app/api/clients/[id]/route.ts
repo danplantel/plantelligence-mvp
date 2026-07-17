@@ -188,6 +188,8 @@ export async function PUT(
       heroContainerInverted,
       heroBackgroundInverted,
       heroUseGradient,
+      desktopHeroBackgroundPosition,
+      mobileHeroBackgroundPosition,
       employeePortalPreview,
       categoryPortalVisibility,
     } = body;
@@ -323,6 +325,8 @@ export async function PUT(
       heroBackgroundInverted: heroBackgroundInverted !== undefined ? heroBackgroundInverted : (existingClient as any)?.heroBackgroundInverted ?? false,
       // heroInverted: heroInverted !== undefined ? heroInverted : (existingClient as any).heroInverted, // Removed: missing from schema
       heroUseGradient: heroUseGradient !== undefined ? heroUseGradient : (existingClient as any).heroUseGradient,
+      desktopHeroBackgroundPosition: (body as any).desktopHeroBackgroundPosition !== undefined ? (body as any).desktopHeroBackgroundPosition : (existingClient as any)?.desktopHeroBackgroundPosition,
+      mobileHeroBackgroundPosition: (body as any).mobileHeroBackgroundPosition !== undefined ? (body as any).mobileHeroBackgroundPosition : (existingClient as any)?.mobileHeroBackgroundPosition,
       keyContacts: keyContacts
         ? (keyContacts as any)
         : existingClient.keyContacts,

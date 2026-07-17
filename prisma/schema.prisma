@@ -678,6 +678,8 @@ model Client {
   heroContainerInverted           Boolean? @default(false) // Invert container colors (white container with dark text)
   heroBackgroundInverted          Boolean? @default(false) // Invert background overlay colors (white overlay)
   heroUseGradient                 Boolean? @default(false) // Use gradient from top (transparent) to bottom (opaque)
+  desktopHeroBackgroundPosition   Json? // { x: number, y: number } — desktop hero background focal point (percentage)
+  mobileHeroBackgroundPosition    Json? // { x: number, y: number } — mobile hero background focal point (percentage)
 
   // Brand Images
   backgroundImg          String? // Base64 or URL (header/hero image)

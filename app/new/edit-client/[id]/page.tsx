@@ -561,7 +561,6 @@ export default function EditClientPage() {
   const [activeTab, setActiveTab] = useState<EditTabId>("company");
   const [isLogoModalOpen, setIsLogoModalOpen] = useState(false);
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
-  const [hasAttemptedSave, setHasAttemptedSave] = useState(false);
   const [isPreviewLayoutModalOpen, setIsPreviewLayoutModalOpen] =
     useState(false);
 
@@ -787,31 +786,7 @@ export default function EditClientPage() {
     setTitle("Edit Plan");
   }, [setTitle]);
 
-  // Navigate to tab with validation errors after save attempt
-  useEffect(() => {
-    if (clientStatus !== "Active") return;
-    if (!hasAttemptedSave) return;
-
-    const errors = getValidationErrors();
-    const hasCompanyErrors =
-      errors.companyName?.length > 0 || errors.companyLogo?.length > 0;
-    const hasBannerErrors =
-      errors.heroTitle?.length > 0 || errors.heroDescription?.length > 0;
-    const hasMissionErrors =
-      errors.missionHeadline?.length > 0 || errors.missionBody?.length > 0;
-    const hasContactErrors = errors.keyContacts?.length > 0;
-
-    if (hasCompanyErrors) {
-      setActiveTab("company");
-    } else if (hasBannerErrors || hasMissionErrors) {
-      setActiveTab("preview");
-    } else if (hasContactErrors) {
-      setActiveTab("contacts");
-    }
-  }, [getValidationErrors, clientStatus, hasAttemptedSave]);
-
   const handleSaveClick = () => {
-    setHasAttemptedSave(true);
     handleSave();
   };
 

@@ -97,6 +97,8 @@ export default function ViewClientPage() {
             heroOverlayOpacity: (clientData as any).heroOverlayOpacity,
             heroBackgroundOpacity: (clientData as any).heroBackgroundOpacity,
             heroUseGradient: (clientData as any).heroUseGradient,
+            desktopHeroBackgroundPosition: (clientData as any).desktopHeroBackgroundPosition,
+            mobileHeroBackgroundPosition: (clientData as any).mobileHeroBackgroundPosition,
           },
           keyContacts: visibleContacts,
           documents: (clientData as any).documents,

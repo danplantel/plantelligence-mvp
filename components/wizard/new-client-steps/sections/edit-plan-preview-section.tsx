@@ -275,33 +275,13 @@ export function EditPlanPreviewSection({
   // ── Hero segment mode (Desktop / Mobile tabs inside Hero Background card) ──
   const [heroSegmentMode, setHeroSegmentMode] = useState<HeroSegmentMode>("desktop");
 
-  // ── Desktop hero background position (percentage-based) ──
-  const [desktopHeroPosition, setDesktopHeroPosition] = useState<MobileHeroPosition>(() => {
-    const saved = (companyData as any)?.desktopHeroBackgroundPosition;
-    return saved ?? { x: 50, y: 50 };
-  });
+  // ── Desktop hero background position — derived directly from companyData ──
+  const desktopHeroPosition: MobileHeroPosition =
+    (companyData as any)?.desktopHeroBackgroundPosition ?? { x: 50, y: 50 };
 
-  // Sync desktopHeroPosition from companyData when it changes externally
-  useEffect(() => {
-    const saved = (companyData as any)?.desktopHeroBackgroundPosition;
-    if (saved && (saved.x !== desktopHeroPosition.x || saved.y !== desktopHeroPosition.y)) {
-      setDesktopHeroPosition(saved);
-    }
-  }, [(companyData as any)?.desktopHeroBackgroundPosition]);
-
-  // ── Mobile hero background position (percentage-based) ──
-  const [mobileHeroPosition, setMobileHeroPosition] = useState<MobileHeroPosition>(() => {
-    const saved = (companyData as any)?.mobileHeroBackgroundPosition;
-    return saved ?? { x: 50, y: 50 };
-  });
-
-  // Sync mobileHeroPosition from companyData when it changes externally
-  useEffect(() => {
-    const saved = (companyData as any)?.mobileHeroBackgroundPosition;
-    if (saved && (saved.x !== mobileHeroPosition.x || saved.y !== mobileHeroPosition.y)) {
-      setMobileHeroPosition(saved);
-    }
-  }, [(companyData as any)?.mobileHeroBackgroundPosition]);
+  // ── Mobile hero background position — derived directly from companyData ──
+  const mobileHeroPosition: MobileHeroPosition =
+    (companyData as any)?.mobileHeroBackgroundPosition ?? { x: 50, y: 50 };
 
   // ── Handle segment mode change: syncs the main preview to match ──
   const handleHeroSegmentModeChange = useCallback(
@@ -319,7 +299,6 @@ export function EditPlanPreviewSection({
   // ── Handle desktop hero position change ──
   const handleDesktopHeroPositionChange = useCallback(
     (position: MobileHeroPosition) => {
-      setDesktopHeroPosition(position);
       if (onCompanyDataChange) {
         onCompanyDataChange("desktopHeroBackgroundPosition", position);
       }
@@ -330,7 +309,6 @@ export function EditPlanPreviewSection({
   // ── Handle mobile hero position change ──
   const handleMobileHeroPositionChange = useCallback(
     (position: MobileHeroPosition) => {
-      setMobileHeroPosition(position);
       if (onCompanyDataChange) {
         onCompanyDataChange("mobileHeroBackgroundPosition", position);
       }
