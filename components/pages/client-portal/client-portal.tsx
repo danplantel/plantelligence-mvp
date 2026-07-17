@@ -43,6 +43,9 @@ interface CompanyData {
   heroOverlayOpacity?: number;
   heroBackgroundOpacity?: number;
   heroUseGradient?: boolean;
+  /** Mobile-specific background image position (percentage-based).
+   *  Applied via object-position when a hero background image is present. */
+  mobileHeroBackgroundPosition?: { x: number; y: number };
 }
 
 interface ClientPortalData {
@@ -153,6 +156,7 @@ export function ClientPortal({
         containerInverted={companyData?.heroContainerInverted ?? false}
         backgroundInverted={companyData?.heroBackgroundInverted ?? false}
         useGradient={companyData?.heroUseGradient ?? false}
+        mobileHeroBackgroundPosition={companyData?.mobileHeroBackgroundPosition}
         onHeroTitleClick={onHeroTitleClick}
         onHeroDescriptionClick={onHeroDescriptionClick}
         showEditIndicators={showEditIndicators}

@@ -9,7 +9,7 @@ import { ClientPortal } from "@/components/pages/client-portal/client-portal";
 import { MissionStatementFields } from "@/components/wizard/new-client-steps/sections/mission-statement-fields";
 import { EditorPanelWrapper } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
 import { CompanyLogoCard } from "@/components/wizard/new-client-steps/sections/components/company-logo-card";
-import { HeroBackgroundCard } from "@/components/wizard/new-client-steps/sections/components/hero-background-card";
+import { HeroBackgroundCard, type HeroSegmentMode } from "@/components/wizard/new-client-steps/sections/components/hero-background-card";
 import { WelcomeStatementCard } from "@/components/wizard/new-client-steps/sections/components/welcome-statement-card";
 import { BannerOverlaySettingsCard } from "@/components/wizard/new-client-steps/sections/components/banner-overlay-settings-card";
 import { useHeroOverlaySettings } from "@/components/wizard/new-client-steps/sections/hooks/use-hero-overlay-settings";
@@ -18,6 +18,7 @@ import type {
   CompanyLogoData,
   BrandImageData,
   WelcomeStatementData,
+  MobileHeroPosition,
 } from "@/types/new-client-wizard";
 
 // ── Constants matching Step 2 ──
@@ -123,6 +124,7 @@ function buildPortalData(companyData: CompanyBasicsData) {
       heroContainerInverted: (companyData as any).heroContainerInverted,
       heroBackgroundInverted: (companyData as any).heroBackgroundInverted,
       heroUseGradient: (companyData as any).heroUseGradient,
+      mobileHeroBackgroundPosition: companyData.mobileHeroBackgroundPosition,
       brandImages: companyData.brandImages,
     },
     keyContacts: [],
@@ -243,6 +245,45 @@ export function EditPlanPreviewSection({
   const [previewMode, setPreviewMode] = useState<PreviewMode>("desktop");
   const togglePreviewMode = () =>
     setPreviewMode((prev) => (prev === "desktop" ? "mobile" : "desktop"));
+
+  // ── Hero segment mode (Desktop / Mobile tabs inside Hero Background card) ──
+  const [heroSegmentMode, setHeroSegmentMode] = useState<HeroSegmentMode>("desktop");
+
+  // ── Mobile hero background position (percentage-based) ──
+  const [mobileHeroPosition, setMobileHeroPosition] = useState<MobileHeroPosition>(() => {
+    const saved = (companyData as any)?.mobileHeroBackgroundPosition;
+    return saved ?? { x: 50, y: 50 };
+  });
+
+  // Sync mobileHeroPosition from companyData when it changes externally
+  useEffect(() => {
+    const saved = (companyData as any)?.mobileHeroBackgroundPosition;
+    if (saved && (saved.x !== mobileHeroPosition.x || saved.y !== mobileHeroPosition.y)) {
+      setMobileHeroPosition(saved);
+    }
+  }, [(companyData as any)?.mobileHeroBackgroundPosition]);
+
+  // ── Handle segment mode change: switching to Mobile also switches preview ──
+  const handleHeroSegmentModeChange = useCallback(
+    (mode: HeroSegmentMode) => {
+      setHeroSegmentMode(mode);
+      if (mode === "mobile" && previewMode !== "mobile") {
+        setPreviewMode("mobile");
+      }
+    },
+    [previewMode],
+  );
+
+  // ── Handle mobile hero position change ──
+  const handleMobileHeroPositionChange = useCallback(
+    (position: MobileHeroPosition) => {
+      setMobileHeroPosition(position);
+      if (onCompanyDataChange) {
+        onCompanyDataChange("mobileHeroBackgroundPosition", position);
+      }
+    },
+    [onCompanyDataChange],
+  );
 
   // ── Refs ──
   const barRef = useRef<HTMLDivElement>(null);
@@ -497,6 +538,10 @@ export function EditPlanPreviewSection({
                 onEditClick={() => {}}
                 onFileSelect={(data) => handleHeroImageChange(data)}
                 onDefaultPhotoClick={() => {}}
+                segmentMode={heroSegmentMode}
+                onSegmentModeChange={handleHeroSegmentModeChange}
+                mobilePosition={mobileHeroPosition}
+                onMobilePositionChange={handleMobileHeroPositionChange}
               />
             </CardContent>
           </Card>

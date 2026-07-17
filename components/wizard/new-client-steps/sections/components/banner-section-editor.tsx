@@ -344,6 +344,10 @@ export function BannerSectionEditor({
             onEditClick={handleHeroBackgroundEditClick}
             onFileSelect={handleHeroBackgroundFileSelect}
             onDefaultPhotoClick={() => setHeroGalleryOpen(true)}
+            segmentMode="desktop"
+            onSegmentModeChange={() => {}}
+            mobilePosition={{ x: 50, y: 50 }}
+            onMobilePositionChange={() => {}}
           />
         </CardContent>
       </Card>

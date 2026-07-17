@@ -901,6 +901,10 @@ export function BannerPreviewSection({
         onEditClick={handleHeroBackgroundEditClick}
         onFileSelect={handleHeroBackgroundFileSelect}
         onDefaultPhotoClick={() => setGalleryOpen(true)}
+        segmentMode="desktop"
+        onSegmentModeChange={() => {}}
+        mobilePosition={{ x: 50, y: 50 }}
+        onMobilePositionChange={() => {}}
       />
 
       <WelcomeStatementCard

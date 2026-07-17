@@ -51,6 +51,15 @@ export interface BrandImageData {
   cropData?: CropMetadata;
 }
 
+export interface MobileHeroPosition {
+  /** Horizontal position of the background image as a percentage (0-100).
+   *  0 = left-aligned, 100 = right-aligned, 50 = centered. */
+  x: number;
+  /** Vertical position of the background image as a percentage (0-100).
+   *  0 = top-aligned, 100 = bottom-aligned, 50 = centered. */
+  y: number;
+}
+
 export interface BrandImagesData {
   header: BrandImageData | null;
   thumbnail: BrandImageData | null;
@@ -83,6 +92,10 @@ export interface CompanyBasicsData {
   heroContainerInverted?: boolean;
   heroBackgroundInverted?: boolean;
   heroUseGradient?: boolean;
+  /** Desktop/Mobile split background position for the hero header image.
+   *  When set, the mobile preview uses this position to offset the hero
+   *  background so the user can choose which portion is visible on small screens. */
+  mobileHeroBackgroundPosition?: MobileHeroPosition;
 }
 
 // Step 2: Welcome Statement

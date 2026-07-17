@@ -29,6 +29,9 @@ interface PortalHeroProps {
   containerInverted?: boolean;
   backgroundInverted?: boolean;
   useGradient?: boolean;
+  /** Mobile-specific background image position (percentage-based).
+   *  Applied via object-position on the hero background <img>. */
+  mobileHeroBackgroundPosition?: { x: number; y: number };
 }
 
 export function PortalHero({
@@ -50,6 +53,7 @@ export function PortalHero({
   backgroundInverted = false,
   useGradient = false,
   showEditIndicators = true,
+  mobileHeroBackgroundPosition,
 }: PortalHeroProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const [hoveredElement, setHoveredElement] = useState<
@@ -216,6 +220,11 @@ export function PortalHero({
                   src={displayBackgroundSrc}
                   alt="Company background"
                   className="w-full h-full object-cover pointer-events-none"
+                  style={
+                    mobileHeroBackgroundPosition
+                      ? { objectPosition: `${mobileHeroBackgroundPosition.x}% ${mobileHeroBackgroundPosition.y}%` }
+                      : undefined
+                  }
                 />
               ) : null}
 
