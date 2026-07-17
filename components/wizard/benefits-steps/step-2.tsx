@@ -411,7 +411,7 @@ export function BenefitsStep2() {
                                 <div className="absolute top-20 -right-[3px] w-[3px] h-10 bg-gray-700 dark:bg-gray-600 rounded-r" />
                                 <div className="flex items-center justify-center py-2">
                                     <MobilePreviewFrame width={MOBILE_WIDTH}>
-                                        <div className="fixed top-0 left-0 w-full z-50">
+                                        <div className="sticky top-0 w-full z-50 shrink-0">
                                             <PortalHeader
                                                 companyData={{ companyLogo: planCompanyLogo }}
                                                 brandColor={brandColor}
