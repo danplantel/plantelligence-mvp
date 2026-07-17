@@ -1011,7 +1011,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
                         enableNavigation={false}
                       />
                     </div>
-                    <div className="pt-20">
+                    <div>
                       <ClientPortal
                         data={portalData}
                         className="!min-h-0"

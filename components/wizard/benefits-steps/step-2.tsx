@@ -422,7 +422,7 @@ export function BenefitsStep2() {
                                                 enableNavigation={false}
                                             />
                                         </div>
-                                        <div className="pt-20">
+                                        <div>
                                             <BenefitPortalPreview mobile />
                                         </div>
                                     </MobilePreviewFrame>

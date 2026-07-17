@@ -767,7 +767,7 @@ export function EditPlanPreviewSection({
                         enableNavigation={false}
                       />
                     </div>
-                    <div className="pt-20">
+                    <div>
                       <ClientPortal
                         data={portalData as any}
                         className="!min-h-0"
