@@ -41,6 +41,10 @@ function MobilePreviewFrame({ children, width }: { children: React.ReactNode; wi
   const [mountNode, setMountNode] = useState<HTMLElement | null>(null);
 
   const scale = width / REFERENCE_MOBILE_WIDTH;
+  // The wrapper needs to be taller than the iframe so that after scale()
+  // it fills the iframe height exactly.  overflow-y handles content
+  // that is longer than the compensated height.
+  const innerHeight = Math.round((width * MOBILE_ASPECT_RATIO) / scale);
 
   useEffect(() => {
     const iframe = iframeRef.current;
@@ -50,10 +54,9 @@ function MobilePreviewFrame({ children, width }: { children: React.ReactNode; wi
 
     doc.open();
     doc.write(
-      '<!DOCTYPE html><html style="overflow-y:auto; overflow-x:hidden"><head>' +
+      '<!DOCTYPE html><html style="overflow:hidden"><head>' +
       '<meta name="viewport" content="width=' + REFERENCE_MOBILE_WIDTH + ', initial-scale=1">' +
-      '<style>html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}</style>' +
-      '</head><body style="overflow-y:auto; overflow-x:hidden; width:100%; height:100%; margin:0; scrollbar-width:none; -ms-overflow-style:none"></body></html>',
+      '</head><body style="overflow:hidden; width:100%; height:100%; margin:0"></body></html>',
     );
     doc.close();
 
@@ -99,9 +102,15 @@ function MobilePreviewFrame({ children, width }: { children: React.ReactNode; wi
           <div
             style={{
               width: `${REFERENCE_MOBILE_WIDTH}px`,
+              height: `${innerHeight}px`,
               transform: `scale(${scale})`,
               transformOrigin: "top left",
+              overflowY: "auto",
+              overflowX: "hidden",
+              scrollbarWidth: "none",
+              msOverflowStyle: "none",
             }}
+            className="[&::-webkit-scrollbar]:hidden"
           >
             {children}
           </div>,
@@ -783,6 +792,7 @@ export function EditPlanPreviewSection({
                     <div className="pt-20">
                       <ClientPortal
                         data={portalData as any}
+                        className="!min-h-0"
                         hideHeader={true}
                         hideFooter={true}
                         hideBenefits={true}
