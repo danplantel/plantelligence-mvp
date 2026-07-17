@@ -5,8 +5,11 @@ import { Move, RotateCcw } from "lucide-react";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import type { MobileHeroPosition } from "@/types/new-client-wizard";
 
-const CANVAS_WIDTH = 280;
-const CANVAS_HEIGHT = 200;
+// Mobile phone portrait aspect ratio (~9:19.5 scale) so the image
+// is cropped both horizontally AND vertically, making X and Y
+// repositioning both meaningful.
+const CANVAS_WIDTH = 260;
+const CANVAS_HEIGHT = 380;
 
 interface MobileHeroCanvasProps {
   /** The hero image URL to display and position */
