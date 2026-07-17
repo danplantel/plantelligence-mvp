@@ -15,11 +15,12 @@ import { ImageIcon, Layout, Mail, HelpCircle, CheckCircle2, Circle, Pencil, Plus
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { SupportContact, FAQItem, BenefitsStep1Data, BenefitsStep3Data } from "@/lib/benefits-wizard-store";
-import { KeyContact, BrandImageData, CompanyLogoData } from "@/types/new-client-wizard";
+import { KeyContact, BrandImageData, CompanyLogoData, MobileHeroPosition } from "@/types/new-client-wizard";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { v4 as uuidv4 } from "uuid";
 import { BannerOverlaySettingsCard } from "@/components/wizard/new-client-steps/sections/components/banner-overlay-settings-card";
+import { HeroBackgroundCard, type HeroSegmentMode } from "@/components/wizard/new-client-steps/sections/components/hero-background-card";
 
 const DEFAULT_HELP_CARDS: HelpCardData[] = [
     {
@@ -59,6 +60,8 @@ interface BenefitsEditorPanelProps {
     onClose: () => void;
     activeSection?: string | null;
     editorScrollContainerRef?: React.RefObject<HTMLDivElement>;
+    /** Called when the user switches between Edit / Desktop / Mobile in Hero Background */
+    onHeroSegmentModeChange?: (mode: HeroSegmentMode) => void;
     /** Layout variant passed through to EditorPanelWrapper */
     variant?: 'fixed' | 'inline';
 }
@@ -71,10 +74,18 @@ export function BenefitsEditorPanel({
     highlightedField,
     editorScrollContainerRef: externalScrollRef,
     variant,
+    onHeroSegmentModeChange,
 }: BenefitsEditorPanelProps & { highlightedField?: string | null }) {
     const { stepData, saveStepData } = useBenefitsWizardStore();
     const step1Data = (stepData.step1 || {}) as BenefitsStep1Data;
     const step3Data = (stepData.step3 || { faqs: [], supportContacts: [] }) as BenefitsStep3Data;
+
+    // ── Hero Background segment mode & position state ──
+    const [heroSegmentMode, setHeroSegmentMode] = useState<HeroSegmentMode>("edit");
+    const desktopHeroPosition: MobileHeroPosition =
+        (step1Data as any)?.desktopHeroBackgroundPosition ?? { x: 50, y: 50 };
+    const mobileHeroPosition: MobileHeroPosition =
+        (step1Data as any)?.mobileHeroBackgroundPosition ?? { x: 50, y: 50 };
     const internalScrollRef = useRef<HTMLDivElement>(null);
     const editorScrollContainerRef = externalScrollRef || internalScrollRef;
     const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
@@ -268,26 +279,31 @@ export function BenefitsEditorPanel({
                         </div>
                         <div className="space-y-4">
                             <Label className="text-xs font-bold text-foreground">Header Background</Label>
-                            <BrandImageUpload
-                                slotKey="header"
-                                slot={{
-                                    title: "",
-                                    description: "This image displays behind the welcome headline.",
-                                    recommendedSize: "1920×1080 px",
-                                    accept: ".png,.jpg,.jpeg",
-                                    required: true,
-                                    previewAspectRatio: 2.75,
-                                    previewLabel: "Hero Background Preview",
-                                }}
-                                currentImage={step1Data.brandImages?.header || undefined}
+                            <HeroBackgroundCard
+                                heroImageData={step1Data.brandImages?.header || null}
                                 onImageChange={handleBackgroundImageChange}
                                 onImageRemove={() => saveStepData(1, {
                                     ...step1Data,
                                     brandImages: { ...step1Data.brandImages, header: null }
                                 })}
-                                hideButtons={true}
-                                useUniversalModal={true}
-                                universalModalType="normalizer"
+                                onEditClick={() => {}}
+                                onFileSelect={handleBackgroundImageChange}
+                                onDefaultPhotoClick={() => {}}
+                                segmentMode={heroSegmentMode}
+                                onSegmentModeChange={(mode) => {
+                                    setHeroSegmentMode(mode);
+                                    if (onHeroSegmentModeChange) {
+                                        onHeroSegmentModeChange(mode);
+                                    }
+                                }}
+                                desktopPosition={desktopHeroPosition}
+                                onDesktopPositionChange={(pos) => {
+                                    saveStepData(1, { ...step1Data, desktopHeroBackgroundPosition: pos } as any);
+                                }}
+                                mobilePosition={mobileHeroPosition}
+                                onMobilePositionChange={(pos) => {
+                                    saveStepData(1, { ...step1Data, mobileHeroBackgroundPosition: pos } as any);
+                                }}
                             />
                         </div>
 

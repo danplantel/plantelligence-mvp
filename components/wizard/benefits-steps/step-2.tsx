@@ -359,6 +359,13 @@ export function BenefitsStep2() {
                 activeSection={editorState.activeSection}
                 highlightedField={editorState.highlightedField}
                 editorScrollContainerRef={editorScrollContainerRef}
+                onHeroSegmentModeChange={(mode) => {
+                    if (mode === "desktop" && previewMode !== "desktop") {
+                        setPreviewMode("desktop");
+                    } else if (mode === "mobile" && previewMode !== "mobile") {
+                        setPreviewMode("mobile");
+                    }
+                }}
             />
 
             {/* ════════════════════════════════════════════════════════════════
