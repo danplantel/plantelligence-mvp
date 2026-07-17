@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Move, RotateCcw } from "lucide-react";
+import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import type { MobileHeroPosition } from "@/types/new-client-wizard";
 
 const CANVAS_WIDTH = 280;
@@ -28,7 +29,13 @@ export function MobileHeroCanvas({
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef<{ x: number; y: number; startPosX: number; startPosY: number } | null>(null);
 
-  // Convert percentage position to CSS background-position
+  // Resolve the image URL (handles R2 keys, data URLs, absolute URLs)
+  const { url: resolvedImageUrl, loading: imageLoading } = useBrandingImageUrl(imageUrl ?? null);
+
+  // Use the resolved URL for <img>, fall back to raw imageUrl for data URLs
+  const displaySrc = resolvedImageUrl ?? imageUrl;
+
+  // Convert percentage position to CSS object-position
   const bgPositionX = position.x;
   const bgPositionY = position.y;
 
@@ -95,7 +102,7 @@ export function MobileHeroCanvas({
     onPositionChange({ x: 50, y: 50 });
   }, [onPositionChange]);
 
-  const hasImage = !!imageUrl && !disabled;
+  const hasImage = !!displaySrc && !disabled;
 
   return (
     <div className="space-y-3">
@@ -136,15 +143,21 @@ export function MobileHeroCanvas({
               onPointerLeave={handlePointerLeave}
               onPointerCancel={handlePointerUp}
             >
-              {hasImage ? (
+              {hasImage && imageLoading ? (
                 <div
-                  className="absolute inset-0"
+                  className="absolute inset-0 animate-pulse bg-muted/50"
+                  aria-hidden
+                />
+              ) : hasImage ? (
+                <img
+                  src={displaySrc}
+                  alt="Mobile hero preview"
+                  className="absolute inset-0 w-full h-full pointer-events-none"
                   style={{
-                    backgroundImage: `url(${imageUrl})`,
-                    backgroundSize: "cover",
-                    backgroundPosition: `${bgPositionX}% ${bgPositionY}%`,
-                    backgroundRepeat: "no-repeat",
+                    objectFit: "cover",
+                    objectPosition: `${bgPositionX}% ${bgPositionY}%`,
                   }}
+                  draggable={false}
                 />
               ) : (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 dark:text-gray-500">
