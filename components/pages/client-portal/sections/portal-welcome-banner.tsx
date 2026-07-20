@@ -267,25 +267,18 @@ export function PortalWelcomeBanner({
             className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]"
           >
             {/* LEFT: Text content */}
-            <div className="order-2 lg:order-1 px-8 py-10 sm:px-10 lg:px-12 lg:py-12">
+            <div className="order-2 lg:order-1 px-8 py-10 sm:px-12 lg:py-12">
               {/* Company Logo (top-left) — hidden on mobile */}
               {clientData?.companyLogo ? (
-                <div className="hidden lg:inline-flex items-center gap-2 rounded border border-white/30 bg-white/10 px-3 py-2 mb-6">
-                  <BrandingImage
-                    src={clientData.companyLogo}
-                    alt={`${clientData.companyName || "Company"} logo`}
-                    className="h-6 w-auto"
-                  />
-                  <span className="text-sm font-semibold text-white">
-                    {clientData.companyName || "Company"}
-                  </span>
-                </div>
+                <BrandingImage
+                  src={clientData.companyLogo}
+                  alt={`${clientData.companyName || "Company"} logo`}
+                  className="mb-6 h-10 w-auto hidden lg:block"
+                />
               ) : (
-                <div className="hidden lg:inline-flex items-center gap-2 rounded border border-white/30 bg-white/10 px-3 py-2 mb-6">
-                  <span className="text-sm font-semibold text-white">
-                    LOGO HERE
-                  </span>
-                </div>
+                <p className="mb-6 text-xs font-semibold tracking-[0.4em] text-white/70 hidden lg:block">
+                  LOGO HERE
+                </p>
               )}
 
               {/* Title */}
@@ -296,20 +289,20 @@ export function PortalWelcomeBanner({
                 onMouseLeave={() => setHoveredField(null)}
               >
                 {hoveredField === "title" && <EditPencil />}
-                <h1 className="mb-6 font-serif text-4xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl">
+                <h1 className="font-unna font-dm-serif text-3xl leading-tight text-white sm:text-4xl lg:text-5xl">
                   {headline}
                 </h1>
               </div>
 
               {/* Description paragraphs */}
               <div
-                className="relative cursor-pointer group"
+                className="relative cursor-pointer group mt-6"
                 onClick={(e) => { e.stopPropagation(); onDescriptionClick?.(); }}
                 onMouseEnter={() => setHoveredField("description")}
                 onMouseLeave={() => setHoveredField(null)}
               >
                 {hoveredField === "description" && <EditPencil />}
-                <div className="space-y-4 text-base leading-relaxed text-white sm:text-lg">
+                <div className="text-base font-red-hat space-y-4">
                   {descriptionParagraphs.map((para, idx) => (
                     <p key={idx}>{para}</p>
                   ))}
