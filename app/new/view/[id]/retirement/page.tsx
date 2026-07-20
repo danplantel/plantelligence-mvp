@@ -293,13 +293,13 @@ export default function RetirementPage() {
   };
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen w-full">
       <CompletenessAutoTrigger
         category="Retirement"
         clientData={clientData}
         clientId={clientId}
       />
-      <main>
+      <main className="w-full">
         <PortalWelcomeBanner
           clientData={clientData}
           brandColor={brandColor}

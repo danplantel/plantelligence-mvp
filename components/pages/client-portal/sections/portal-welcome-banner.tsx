@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { BrandingImage } from "@/components/ui/branding-image";
-import { isR2BrandingKey } from "@/lib/branding-image-url";
+import { isR2BrandingKey, toNextImageSrc } from "@/lib/branding-image-url";
 import {
   DEFAULT_WELCOME_BG,
   getPortalWelcomeBackgroundUrl,
@@ -39,7 +39,6 @@ interface PortalWelcomeBannerProps {
   category?: string;
   brandColor?: string;
   secondaryColor?: string;
-  variant?: "default" | "health-hub";
   // Custom content overrides
   customHeadline?: string;
   customDescription?: string | string[]; // Can be single string or array of paragraphs
@@ -63,7 +62,6 @@ export function PortalWelcomeBanner({
   clientData,
   brandColor = "#1F3A60",
   secondaryColor = "#C89B5B",
-  variant = "default",
   onTitleClick,
   onDescriptionClick,
   customHeadline,
@@ -176,9 +174,8 @@ export function PortalWelcomeBanner({
     customImageAlt ||
     `${clientData?.companyName || "Company"} Benefits Logo`;
 
-  // Background image: categoryBenefit.image (Step 1 per-category) → getPortalWelcomeBackgroundUrl chain
-  const categoryBgImage = categoryBenefit?.image || "";
-  const backgroundRaw = categoryBgImage || getPortalWelcomeBackgroundUrl(clientData ?? null);
+  // Background image: use client-level backgroundImg (same as portal-hero uses)
+  const backgroundRaw = clientData?.backgroundImg || getPortalWelcomeBackgroundUrl(clientData ?? null);
   const { url: backgroundResolved, loading: backgroundLoading } =
     useBrandingImageUrl(backgroundRaw || null);
   const isR2WelcomeBg = isR2BrandingKey(backgroundRaw);
@@ -219,54 +216,50 @@ export function PortalWelcomeBanner({
     </div>
   );
 
+  const heroImageSrc = toNextImageSrc(welcomeBannerImgSrc, DEFAULT_WELCOME_BG);
+
   return (
-    <section className="relative isolate overflow-hidden min-h-[50vh] lg:min-h-screen text-white">
-      <div className="absolute inset-0">
-        <div className="absolute inset-0 z-0">
-          {isR2WelcomeBg && !background && backgroundLoading ? (
-            <div className="absolute inset-0 animate-pulse bg-muted/50" aria-hidden />
-          ) : welcomeBannerImgSrc ? (
-            <>
-              <img
-                id="welcome-banner-bg-img"
-                src={welcomeBannerImgSrc}
-                alt=""
-                className="w-full h-full object-cover pointer-events-none"
-                style={
-                  desktopHeroBackgroundPosition
-                    ? { objectPosition: `${desktopHeroBackgroundPosition.x}% ${desktopHeroBackgroundPosition.y}%` }
-                    : undefined
-                }
-              />
-              {mobileHeroBackgroundPosition && (
-                <style>{`
-                  @media (max-width: 640px) {
-                    #welcome-banner-bg-img {
-                      object-position: ${mobileHeroBackgroundPosition.x}% ${mobileHeroBackgroundPosition.y}% !important;
-                    }
-                  }
-                `}</style>
-              )}
-            </>
-          ) : null}
-          <div
-            className="absolute inset-0"
-            style={{
-              background: backgroundInverted
-                ? "rgba(255, 255, 255, 1)"
-                : "rgba(0, 0, 0, 1)",
-              opacity: 1 - backgroundOpacity,
-              isolation: "isolate",
-            }}
-          />
-        </div>
+    <section
+      id="portal-welcome-banner"
+      className="relative isolate overflow-hidden min-h-[50vh] lg:min-h-screen w-full text-white"
+    >
+      {/* Background Image */}
+      <div className="absolute inset-0 z-0">
+        <img
+          src={heroImageSrc}
+          alt=""
+          className="w-full h-full object-cover pointer-events-none"
+          style={
+            desktopHeroBackgroundPosition
+              ? { objectPosition: `${desktopHeroBackgroundPosition.x}% ${desktopHeroBackgroundPosition.y}%` }
+              : undefined
+          }
+        />
+        {mobileHeroBackgroundPosition && (
+          <style>{`
+            @media (max-width: 640px) {
+              #portal-welcome-banner .absolute.inset-0.z-0 img {
+                object-position: ${mobileHeroBackgroundPosition.x}% ${mobileHeroBackgroundPosition.y}% !important;
+              }
+            }
+          `}</style>
+        )}
+        {/* Overlay */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background: backgroundInverted
+              ? "rgba(255, 255, 255, 1)"
+              : "rgba(0, 0, 0, 1)",
+            opacity: 1 - backgroundOpacity,
+            isolation: "isolate",
+          }}
+        />
       </div>
 
-      {variant === "health-hub" ? (
-        /* Health Hub variant: dark teal rectangle with Benefits Logo on the right */
-        <div className="relative z-10 flex flex-col justify-center mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-20">
-          {/* Dark overlay rectangle */}
-          <div className="overflow-hidden border border-white/15 bg-black/40 backdrop-blur-sm">
+      {/* Health-Hub UI (unified for all categories) */}
+      <div className="relative z-10 flex flex-col justify-center mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-20">
+        <div className="overflow-hidden border border-white/15 bg-black/40 backdrop-blur-sm">
           <motion.div
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
@@ -275,9 +268,9 @@ export function PortalWelcomeBanner({
           >
             {/* LEFT: Text content */}
             <div className="order-2 lg:order-1 px-8 py-10 sm:px-10 lg:px-12 lg:py-12">
-              {/* Company Logo (top-left) — hidden on mobile to avoid duplicate logo */}
+              {/* Company Logo (top-left) — hidden on mobile */}
               {clientData?.companyLogo ? (
-                <div className="hidden lg:flex mb-6 inline-flex items-center gap-2 rounded border border-white/30 bg-white/10 px-3 py-2">
+                <div className="hidden lg:inline-flex items-center gap-2 rounded border border-white/30 bg-white/10 px-3 py-2 mb-6">
                   <BrandingImage
                     src={clientData.companyLogo}
                     alt={`${clientData.companyName || "Company"} logo`}
@@ -288,7 +281,7 @@ export function PortalWelcomeBanner({
                   </span>
                 </div>
               ) : (
-                <div className="hidden lg:flex mb-6 inline-flex items-center gap-2 rounded border border-white/30 bg-white/10 px-3 py-2">
+                <div className="hidden lg:inline-flex items-center gap-2 rounded border border-white/30 bg-white/10 px-3 py-2 mb-6">
                   <span className="text-sm font-semibold text-white">
                     LOGO HERE
                   </span>
@@ -322,9 +315,22 @@ export function PortalWelcomeBanner({
                   ))}
                 </div>
               </div>
+
+              {/* Closing & Signature */}
+              <div className="pt-5">
+                <p className="text-lg font-dm-serif">{closing}</p>
+                <div className="mt-2 space-y-1">
+                  <p className="text-base font-dm-serif text-white">
+                    {signatureName}
+                  </p>
+                  <p className="text-xs uppercase tracking-[0.2em] text-white/90 font-red-hat">
+                    {signatureCompany}
+                  </p>
+                </div>
+              </div>
             </div>
 
-            {/* RIGHT: Benefits Logo — no border/background/padding */}
+            {/* RIGHT: Benefits Logo */}
             <div className="order-1 lg:order-2 relative flex items-center justify-center">
               {benefitsLogoUrl ? (
                 <BrandingImage
@@ -342,102 +348,13 @@ export function PortalWelcomeBanner({
             </div>
           </motion.div>
         </div>
-        </div>
-      ) : (
-        /* Default variant: Benefits Logo on the right, background image for the hero */
-        <>
-          {/* CONTENT WRAPPER */}
-          <div className="relative z-10 mx-auto mt-8 max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-            className="overflow-hidden"
-            style={{
-              background: inlineBlockStyle,
-            }}
-          >
-            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-              {/* LEFT: Text content */}
-              <div className="order-2 lg:order-1 px-8 py-10 sm:px-12 lg:py-12">
-                {/* Company Logo (top-left) — hidden on mobile to avoid duplicate logo */}
-                {clientData?.companyLogo ? (
-                  <BrandingImage
-                    src={clientData.companyLogo}
-                    alt={`${clientData.companyName || "Company"} logo`}
-                    className="mb-6 h-10 w-auto hidden lg:block"
-                  />
-                ) : (
-                  <p className="mb-6 text-xs font-semibold tracking-[0.4em] text-white/70 hidden lg:block">
-                    LOGO HERE
-                  </p>
-                )}
+      </div>
 
-                <div
-                  className="relative cursor-pointer group"
-                  onClick={(e) => { e.stopPropagation(); onTitleClick?.(); }}
-                  onMouseEnter={() => setHoveredField("title")}
-                  onMouseLeave={() => setHoveredField(null)}
-                >
-                  {hoveredField === "title" && <EditPencil />}
-                  <h1 className="font-unna font-dm-serif text-3xl leading-tight text-white sm:text-4xl lg:text-5xl">
-                    {headline}
-                  </h1>
-                </div>
-
-                <div
-                  className="relative cursor-pointer group mt-6"
-                  onClick={(e) => { e.stopPropagation(); onDescriptionClick?.(); }}
-                  onMouseEnter={() => setHoveredField("description")}
-                  onMouseLeave={() => setHoveredField(null)}
-                >
-                  {hoveredField === "description" && <EditPencil />}
-                  <div className="text-base font-red-hat space-y-4">
-                    {descriptionParagraphs.map((para, idx) => (
-                      <p key={idx}>{para}</p>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="pt-5">
-                  <p className="text-lg font-dm-serif">{closing}</p>
-                  <div className="mt-2 space-y-1">
-                    <p className="text-base font-dm-serif text-white">
-                      {signatureName}
-                    </p>
-                    <p className="text-xs uppercase tracking-[0.2em] text-white/90 font-red-hat">
-                      {signatureCompany}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* RIGHT: Benefits Logo — no border/background/padding */}
-              <div className="order-1 lg:order-2 relative flex w-full items-center justify-center">
-                {benefitsLogoUrl ? (
-                  <BrandingImage
-                    src={benefitsLogoUrl}
-                    alt={benefitsLogoAlt}
-                    className="h-auto max-h-40 w-auto max-w-full object-contain border-0 outline-0"
-                  />
-                ) : (
-                  <div className="relative flex min-h-[200px] w-full items-center justify-center">
-                    <span className="text-sm font-semibold tracking-wider text-white/50">
-                      BENEFITS LOGO
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        </div>
-
-        <div
-          className="absolute inset-x-0 bottom-0 h-0.5"
-          style={{ background: brandColor }}
-          />
-        </>
-      )}
+      {/* Bottom accent line */}
+      <div
+        className="absolute inset-x-0 bottom-0 h-0.5"
+        style={{ background: brandColor }}
+      />
     </section>
   );
 }

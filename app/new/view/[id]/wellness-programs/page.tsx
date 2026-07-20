@@ -192,13 +192,13 @@ export default function WellnessProgramsPage() {
   }, [clientData?.keyContacts]);
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen w-full">
       <CompletenessAutoTrigger
         category="Company / Plan Sponsor"
         clientData={clientData}
         clientId={clientId}
       />
-      <main>
+      <main className="w-full">
         <PortalWelcomeBanner
           clientData={clientData}
           brandColor={brandColor}

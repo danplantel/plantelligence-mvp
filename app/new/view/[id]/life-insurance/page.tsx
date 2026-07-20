@@ -238,13 +238,13 @@ export default function LifeInsurancePage() {
   };
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen w-full">
       <CompletenessAutoTrigger
         category="Group Life"
         clientData={clientData}
         clientId={clientId}
       />
-      <main>
+      <main className="w-full">
         <PortalWelcomeBanner
           clientData={clientData}
           brandColor={brandColor}

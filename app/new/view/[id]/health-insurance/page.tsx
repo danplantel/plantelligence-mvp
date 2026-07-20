@@ -194,15 +194,14 @@ export default function HealthInsurancePage() {
   };
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen w-full">
       <CompletenessAutoTrigger
         category="Group Health"
         clientData={clientData}
         clientId={clientId}
       />
-      <main>
+      <main className="w-full">
         <PortalWelcomeBanner
-          variant="health-hub"
           clientData={clientData}
           brandColor={brandColor}
           customHeadline="Health Insurance Hub"

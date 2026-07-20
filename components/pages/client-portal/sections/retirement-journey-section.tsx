@@ -206,13 +206,13 @@ export function RetirementJourneySection({
   return (
     <section className="relative flex min-h-[50vh] flex-col overflow-hidden bg-black text-white lg:min-h-screen">
       <div className="absolute inset-0" style={{ height: "60%" }}>
-        <Image
+        {/* <Image
           src={heroImageSrc}
           alt={backgroundImageAlt}
           className="w-full object-cover"
           fill
           priority
-        />
+        /> */}
 
         <div className="absolute inset-x-0 bottom-0 h-1/2 bg-black" />
 
