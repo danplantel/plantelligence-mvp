@@ -3,8 +3,29 @@
 import React, { useMemo, useState } from "react";
 
 // Preview-specific overrides so child sections expand to fill the wide container.
-// Preserve max-w-3xl for the FAQ section so it matches the benefits hub layout width.
-const previewStyles = ``;
+// Preserve PortalWelcomeBanner inner content width (max-w-7xl).
+const previewStyles = `
+  .preview-portal-container {
+    width: 100% !important;
+    max-width: none !important;
+  }
+  .preview-portal-container section {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  .preview-portal-container .max-w-4xl,
+  .preview-portal-container .max-w-7xl,
+  .preview-portal-container .max-w-5xl,
+  .preview-portal-container .max-w-6xl {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+  /* FAQ section — restore benefits hub width (max-w-3xl = 48rem) */
+  .preview-portal-container section.py-20.bg-white > .max-w-3xl {
+    max-width: 48rem !important;
+    width: 100% !important;
+  }
+`;
 
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
 import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
@@ -185,9 +206,10 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
 
     return (
         <div
-            className="min-h-screen bg-black overflow-x-hidden relative w-full"
-            style={!mobile ? { width: "1400px", maxWidth: "none", marginLeft: "auto", marginRight: "auto" } : undefined}
+            className="min-h-screen bg-black overflow-x-hidden relative w-full preview-portal-container"
         >
+            {/* Preview CSS overrides */}
+            {!mobile && <style>{previewStyles}</style>}
             {/* Mobile mode: force framer-motion animated elements visible
                 (useInView / IntersectionObserver may not fire inside the iframe) */}
             {mobile && (
