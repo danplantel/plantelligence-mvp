@@ -222,24 +222,26 @@ export function PortalWelcomeBanner({
     <section
       id="portal-welcome-banner"
       className="relative isolate overflow-hidden min-h-[50vh] lg:min-h-screen w-full text-white"
+      style={{ backgroundColor: "#0F172A" }}
     >
-      {/* Background Image */}
-      <div className="absolute inset-0 z-0">
-        <img
-          src={heroImageSrc}
-          alt=""
-          className="w-full h-full object-cover pointer-events-none"
-          style={
-            desktopHeroBackgroundPosition
-              ? { objectPosition: `${desktopHeroBackgroundPosition.x}% ${desktopHeroBackgroundPosition.y}%` }
-              : undefined
-          }
-        />
+      {/* Background Image — CSS background-image (most reliable, no gaps possible) */}
+      <div
+        className="absolute inset-0 z-0"
+        style={{
+          backgroundColor: "#0F172A",
+          backgroundImage: heroImageSrc ? `url(${heroImageSrc})` : undefined,
+          backgroundSize: "cover",
+          backgroundRepeat: "no-repeat",
+          backgroundPosition: desktopHeroBackgroundPosition
+            ? `${desktopHeroBackgroundPosition.x}% ${desktopHeroBackgroundPosition.y}%`
+            : "center",
+        }}
+      >
         {mobileHeroBackgroundPosition && (
           <style>{`
             @media (max-width: 640px) {
-              #portal-welcome-banner .absolute.inset-0.z-0 img {
-                object-position: ${mobileHeroBackgroundPosition.x}% ${mobileHeroBackgroundPosition.y}% !important;
+              #portal-welcome-banner .absolute.inset-0.z-0 {
+                background-position: ${mobileHeroBackgroundPosition.x}% ${mobileHeroBackgroundPosition.y}% !important;
               }
             }
           `}</style>

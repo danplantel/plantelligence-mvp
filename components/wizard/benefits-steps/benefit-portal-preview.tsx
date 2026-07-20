@@ -4,27 +4,7 @@ import React, { useMemo, useState } from "react";
 
 // Preview-specific overrides so child sections expand to fill the wide container.
 // Preserve max-w-3xl for the FAQ section so it matches the benefits hub layout width.
-const previewStyles = `
-  .preview-portal-container {
-    width: 1400px !important;
-    max-width: none !important;
-    margin-left: auto !important;
-    margin-right: auto !important;
-  }
-  .preview-portal-container section > div:first-child,
-  .preview-portal-container .max-w-4xl,
-  .preview-portal-container .max-w-7xl,
-  .preview-portal-container .max-w-5xl,
-  .preview-portal-container .max-w-6xl {
-    max-width: 100% !important;
-    width: 100% !important;
-  }
-  /* FAQ section — restore benefits hub width (max-w-3xl = 48rem) */
-  .preview-portal-container section.py-20.bg-white > .max-w-3xl {
-    max-width: 48rem !important;
-    width: 100% !important;
-  }
-`;
+const previewStyles = ``;
 
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
 import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
@@ -41,7 +21,7 @@ import { Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { normalizePortalDocumentLanguage } from "@/lib/portal-document-language";
 import { resolvePersistedDocumentCategory } from "@/lib/document-category";
-import { getCategoryHeroBackgroundUrl } from "@/lib/portal-category-hero-background";
+import { getCategoryHeroBackgroundUrl, DEFAULT_WELCOME_BG } from "@/lib/portal-category-hero-background";
 import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
 
 export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
@@ -204,9 +184,10 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
     );
 
     return (
-        <div className={mobile ? "min-h-screen bg-black overflow-x-hidden relative w-full" : "min-h-screen bg-black overflow-x-auto relative w-full preview-portal-container"}>
-            {/* In mobile mode, skip previewStyles so the content uses natural responsive widths */}
-            {!mobile && <style>{previewStyles}</style>}
+        <div
+            className="min-h-screen bg-black overflow-x-hidden relative w-full"
+            style={!mobile ? { width: "1400px", maxWidth: "none", marginLeft: "auto", marginRight: "auto" } : undefined}
+        >
             {/* Mobile mode: force framer-motion animated elements visible
                 (useInView / IntersectionObserver may not fire inside the iframe) */}
             {mobile && (
@@ -237,6 +218,10 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
                             companyLogo: typeof step1Data?.selectedPlan?.companyLogo === 'object'
                                 ? (step1Data?.selectedPlan?.companyLogo as any)?.url
                                 : step1Data?.selectedPlan?.companyLogo,
+                            backgroundImg: (step1Data?.selectedPlan as any)?.backgroundImg
+                                || (step1Data as any)?.heroBackgroundImage
+                                || step1Data?.brandImages?.header?.url
+                                || DEFAULT_WELCOME_BG,
                             secondaryBannerImg: step1Data?.brandImages?.header?.url,
                         } as any}
                         onTitleClick={() => handleEdit("messaging", "benefitTitle")}
