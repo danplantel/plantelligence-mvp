@@ -260,7 +260,10 @@ export function PortalWelcomeBanner({
       </div>
 
       {/* Health-Hub UI (unified for all categories) */}
-      <div className="relative z-10 flex flex-col justify-center mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-20">
+      <div
+        className="relative z-10 flex flex-col justify-center mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-20"
+        style={{ maxWidth: "80rem" }}
+      >
         <div className="overflow-hidden border border-white/15 bg-black/40 backdrop-blur-sm">
           <motion.div
             initial={{ opacity: 0, y: 50 }}

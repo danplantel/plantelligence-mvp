@@ -441,7 +441,7 @@ export function BenefitsStep2() {
                                 style={{
                                     transform: `scale(${scale})`,
                                     transformOrigin: "center top",
-                                    width: '100%',
+                                    width: editorIsOpen ? `${DESKTOP_WIDTH}px` : "100%",
                                     overflowX: "hidden",
                                 }}
                             >
