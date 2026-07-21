@@ -260,14 +260,31 @@ function StickyPreviewContainer({ children }: { children: React.ReactNode }) {
     if (!el) return;
 
     const threshold = 130; // px from viewport top — start pinning well before the header
+    const BOTTOM_PADDING = 180; // px to keep clear at the bottom for the buttons + bottom nav bar
 
     const recalc = () => {
       const rect = el.getBoundingClientRect();
       // rect.top includes any translateY already applied.
       // Subtract the current offset to get the natural (untransformed) position.
       const naturalTop = rect.top - offsetYRef.current;
+      const elHeight = rect.height;
+      const viewportHeight = window.innerHeight;
+
       if (naturalTop < threshold) {
-        const newOffset = threshold - naturalTop;
+        // Desired offset to bring the element's top to `threshold`
+        let newOffset = threshold - naturalTop;
+
+        // Bottom constraint: keep the card's bottom edge above the
+        // Back / Save & Continue buttons and the fixed bottom nav bar.
+        const elementBottomWithOffset = threshold + elHeight;
+        const maxAllowedBottom = viewportHeight - BOTTOM_PADDING;
+
+        if (elementBottomWithOffset > maxAllowedBottom) {
+          // Cap the offset so the bottom aligns with maxAllowedBottom
+          newOffset = maxAllowedBottom - naturalTop - elHeight;
+          if (newOffset < 0) newOffset = 0;
+        }
+
         offsetYRef.current = newOffset;
         setOffsetY(newOffset);
       } else {
@@ -277,9 +294,13 @@ function StickyPreviewContainer({ children }: { children: React.ReactNode }) {
     };
 
     window.addEventListener("scroll", recalc, { passive: true });
+    window.addEventListener("resize", recalc, { passive: true });
     recalc();
 
-    return () => window.removeEventListener("scroll", recalc);
+    return () => {
+      window.removeEventListener("scroll", recalc);
+      window.removeEventListener("resize", recalc);
+    };
   }, []);
 
   return (
@@ -1469,8 +1490,9 @@ export function ContactFormSlide({
         </StickyPreviewContainer>
       </div>
 
-      {/* Navigation Buttons */}
-      <div className="flex items-center justify-center gap-4 w-full max-w-md">
+      {/* Navigation Buttons — extra top margin prevents the sticky preview
+          card from overlapping the buttons at zoomed-in resolutions */}
+      <div className="flex items-center justify-center gap-4 w-full max-w-md mt-8">
         <Button
           type="button"
           variant="outline"
