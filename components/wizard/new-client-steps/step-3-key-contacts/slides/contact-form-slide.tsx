@@ -629,7 +629,7 @@ export function ContactFormSlide({
               ? companyName || defaultCompanyName
               : companyName || "",
           companyLogo:
-            category === "Third Party Contact" && useCustomLogo && externalAdminLogo
+            category !== "Company / Plan Sponsor" && externalAdminLogo
               ? externalAdminLogo
               : defaultCompanyLogo || undefined,
           name:
@@ -789,7 +789,7 @@ export function ContactFormSlide({
             ? companyName || defaultCompanyName
             : companyName || "",
         companyLogo:
-          category === "Third Party Contact" && useCustomLogo && externalAdminLogo
+          category !== "Company / Plan Sponsor" && externalAdminLogo
             ? externalAdminLogo
             : defaultCompanyLogo || undefined,
         name:
@@ -1368,66 +1368,36 @@ export function ContactFormSlide({
               </div>
             )}
 
-            {/* External Admin Logo — only shown for "Third Party Contact" (External HR / Administrator) */}
-            {category === "Third Party Contact" && (
+            {/* Contact Company Logo — shown for all non-Plan-Sponsor contacts */}
+            {category !== "Company / Plan Sponsor" && (
               <div className="border-t border-gray-100 dark:border-gray-700 pt-3 mt-2 space-y-2.5">
                 <Label className="dark:text-gray-300 text-xs font-medium">
-                  External Admin Logo
+                  Upload Contact Company Logo
                 </Label>
                 <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                  Choose a logo to display on this contact&rsquo;s portal card.
+                  Upload a logo to display on this contact&rsquo;s portal card instead of the plan&rsquo;s company logo.
                 </p>
 
-                {/* Logo source toggle */}
-                <div className="flex items-center gap-4">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="logo-source"
-                      checked={!useCustomLogo}
-                      onChange={() => setUseCustomLogo(false)}
-                      className="accent-accent-blue"
-                    />
-                    <span className="text-xs font-medium dark:text-gray-300">
-                      Use Company Logo
-                    </span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="logo-source"
-                      checked={useCustomLogo}
-                      onChange={() => setUseCustomLogo(true)}
-                      className="accent-accent-blue"
-                    />
-                    <span className="text-xs font-medium dark:text-gray-300">
-                      Upload External Admin Logo
-                    </span>
-                  </label>
+                {/* Upload logo */}
+                <div className="pt-1">
+                  <UniversalImageEditorModal
+                    value={externalAdminLogo || ""}
+                    fileName={externalAdminLogoFileName || ""}
+                    onChange={(value, fileName) => {
+                      setExternalAdminLogo(value);
+                      setExternalAdminLogoFileName(fileName || "");
+                    }}
+                    onRemove={() => {
+                      setExternalAdminLogo("");
+                      setExternalAdminLogoFileName("");
+                    }}
+                    placeholder="Upload Contact Company Logo"
+                    modalTitle="Edit Contact Company Logo"
+                    modalDescription="Upload a logo for this contact's portal card."
+                    saveButtonText="Save Logo"
+                    type="logo"
+                  />
                 </div>
-
-                {/* Upload logo when custom is selected */}
-                {useCustomLogo && (
-                  <div className="pt-1">
-                    <UniversalImageEditorModal
-                      value={externalAdminLogo || ""}
-                      fileName={externalAdminLogoFileName || ""}
-                      onChange={(value, fileName) => {
-                        setExternalAdminLogo(value);
-                        setExternalAdminLogoFileName(fileName || "");
-                      }}
-                      onRemove={() => {
-                        setExternalAdminLogo("");
-                        setExternalAdminLogoFileName("");
-                      }}
-                      placeholder="Upload Logo"
-                      modalTitle="Edit External Admin Logo"
-                      modalDescription="Upload a logo for this External HR / Administrator contact."
-                      saveButtonText="Save Logo"
-                      type="logo"
-                    />
-                  </div>
-                )}
               </div>
             )}
 
@@ -1498,7 +1468,7 @@ export function ContactFormSlide({
             headshot={headshot}
             companyName={companyName}
             companyLogoSrc={
-              category === "Third Party Contact" && useCustomLogo && externalAdminLogo
+              category !== "Company / Plan Sponsor" && externalAdminLogo
                 ? externalAdminLogo
                 : defaultCompanyLogo
             }
