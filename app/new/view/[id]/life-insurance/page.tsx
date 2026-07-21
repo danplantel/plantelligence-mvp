@@ -263,6 +263,7 @@ export default function LifeInsurancePage() {
           dbFeaturedVideo={dbFeaturedVideo || undefined}
           mainTitle="Life Insurance: Protecting What Matters Most"
           subtitle="Secure your family's financial future with the right coverage."
+          description="Protect what matters most. Our life insurance resources help you understand your coverage options and ensure your loved ones are financially secure, no matter what life brings. Explore term life, whole life, and supplemental coverage tailored to your needs."
           firstCarouselTitle="Life Insurance Essentials"
           secondCarouselTitle="Beneficiaries & Estate Planning"
           backgroundImage={categoryHeroBg}

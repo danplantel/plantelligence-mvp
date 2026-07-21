@@ -215,10 +215,11 @@ export default function WellnessProgramsPage() {
           onFeaturedVideoClick={handleFeaturedVideoClick}
           dbVideos={dbVideos}
           dbFeaturedVideo={dbFeaturedVideo || undefined}
-          mainTitle="Understanding Your Health Benefits"
-          subtitle="Protect yourself and your family with comprehensive coverage."
-          firstCarouselTitle="Health Plan Essentials"
-          secondCarouselTitle="Insurance Benefits"
+          mainTitle="Whole-Person Wellness Programs"
+          subtitle="Supporting your health, mind, and financial well-being."
+          description="Your well-being goes beyond traditional benefits. Discover programs designed to support your physical, mental, and financial health—from fitness stipends and nutrition coaching to mental health resources and financial wellness tools. Thrive at work and at home."
+          firstCarouselTitle="Wellness Programs"
+          secondCarouselTitle="Mindfulness & Well-being"
           backgroundImage={categoryHeroBg}
         />
 

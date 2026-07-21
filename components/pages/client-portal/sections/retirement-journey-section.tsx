@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
+import { motion, useInView } from "framer-motion";
 import { toNextImageSrc } from "@/lib/branding-image-url";
 
 export interface JourneyVideo {
@@ -167,6 +168,7 @@ interface RetirementJourneySectionProps {
   dbFeaturedVideo?: FeaturedJourneyVideo;
   mainTitle?: string;
   subtitle?: string;
+  description?: string;
   firstCarouselTitle?: string;
   secondCarouselTitle?: string;
   backgroundImage?: string;
@@ -183,7 +185,8 @@ export function RetirementJourneySection({
   dbVideos,
   dbFeaturedVideo,
   mainTitle = "Your Retirement Journey Starts Here",
-  subtitle = "Build your financial future with confidence.",
+  subtitle = "Build your future with confidence.",
+  description,
   firstCarouselTitle = "Retirement Planning Essentials",
   secondCarouselTitle = "Financial Planning & Strategy",
   backgroundImage = "/Hiking-Couple-Looking.webp",
@@ -203,43 +206,52 @@ export function RetirementJourneySection({
     backgroundImage,
     "/Hiking-Couple-Looking.webp",
   );
+
+  const sectionRef = useRef(null);
+  const isInView = useInView(sectionRef, { once: true, margin: "-80px" });
+
+  const textVariants = {
+    hidden: { opacity: 0, x: -80 },
+    visible: { opacity: 1, x: 0 },
+  };
+
+  const imageVariants = {
+    hidden: { opacity: 0, x: 80 },
+    visible: { opacity: 1, x: 0 },
+  };
+
   return (
-    <section className="relative flex min-h-[50vh] flex-col overflow-hidden bg-black text-white lg:min-h-screen">
-      <div className="absolute inset-0" style={{ height: "60%" }}>
-        {/* <Image
-          src={heroImageSrc}
-          alt={backgroundImageAlt}
-          className="w-full object-cover"
-          fill
-          priority
-        /> */}
-
-        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-black" />
-
-        <div
-          className="absolute inset-x-0 bg-gradient-to-t from-black to-transparent"
-          style={{
-            bottom: "50%",
-            height: "135%",
-          }}
-        />
-      </div>
-
+    <section
+      ref={sectionRef}
+      className="relative flex min-h-[50vh] flex-col overflow-hidden bg-gray-100 text-white lg:min-h-screen"
+    >
       <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 sm:px-6 lg:px-8">
         <div className="grid w-full max-w-[1280px] items-center gap-6 pb-2 md:gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
-          <div className="max-w-3xl">
-            <h1 className="mb-4 font-unna font-dm-serif text-[28px] font-normal leading-tight sm:text-3xl md:text-4xl lg:text-[40px]">
+          <motion.div
+            className="max-w-3xl"
+            variants={textVariants}
+            initial="hidden"
+            animate={isInView ? "visible" : "hidden"}
+            transition={{ duration: 0.7, ease: "easeOut" }}
+          >
+            <h1 className="mb-4 mt-[2em] lg:mt-0 font-unna font-dm-serif text-gray-900 text-[28px] font-normal leading-tight sm:text-3xl md:text-4xl lg:text-[40px]">
               {mainTitle}
             </h1>
             <h2 className="mb-5 text-lg font-medium font-dm-serif text-[#26A69A] sm:text-xl md:text-2xl lg:text-[24px]">
               {subtitle}
             </h2>
-            <p className="mb-6 text-base leading-relaxed text-white/90 sm:text-[19px] font-red-hat">
-              {featuredVideo.description}
+            <p className="mb-6 sm:text-[19px] text-base leading-relaxed text-gray-800 font-red-hat">
+              {description || featuredVideo.description}
             </p>
-          </div>
+          </motion.div>
 
-          <div className="relative w-full">
+          <motion.div
+            className="relative w-full"
+            variants={imageVariants}
+            initial="hidden"
+            animate={isInView ? "visible" : "hidden"}
+            transition={{ duration: 0.7, ease: "easeOut", delay: 0.15 }}
+          >
             <div className="aspect-video overflow-hidden rounded-xl border border-white/15 bg-black/80 shadow-2xl sm:rounded-2xl">
               <Image
                 src={featuredVideo.thumbnail || "/placeholder.svg"}
@@ -249,7 +261,7 @@ export function RetirementJourneySection({
                 sizes="(max-width: 1024px) 100vw, 50vw"
               />
             </div>
-          </div>
+          </motion.div>
         </div>
       </div>
     </section>
