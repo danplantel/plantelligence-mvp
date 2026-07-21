@@ -3,24 +3,14 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { useClientPortal } from "@/contexts/client-portal-context";
-import { VideoCarousel } from "@/components/video-carousel";
 import { VideoModal } from "@/components/video-modal";
-import { InteractiveTools } from "@/components/interactive-tools";
-import { FAQSection } from "@/components/faq-section";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Play, Clock, Star } from "lucide-react";
+import { FAQSection, DynamicFAQItem, FAQContact } from "@/components/faq-section";
+import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
 import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
 import { PortalMaterialsHero } from "@/components/pages/client-portal/sections/portal-materials-hero";
 import { DocumentsSection } from "@/components/pages/client-portal/sections/documents-section";
 import { CompletenessAutoTrigger } from "@/components/pages/client-portal/sections/completeness-auto-trigger";
-import {
-  HaveQuestionsSection,
-  ContactInfo,
-} from "@/components/pages/client-portal/sections/have-questions-section";
-import { Mail } from "lucide-react";
 import { HowCanWeHelpSection } from "@/components/pages/client-portal/sections/how-can-we-help-section";
-import { BenefitsFAQAccordion } from "@/components/pages/client-portal/sections/benefits-faq-accordion";
 import {
   RetirementJourneySection,
   JourneyVideo,
@@ -28,20 +18,11 @@ import {
 } from "@/components/pages/client-portal/sections/retirement-journey-section";
 import { getCategoryHeroBackgroundUrl } from "@/lib/portal-category-hero-background";
 
-interface VideoItem {
-  id: string;
-  title: string;
-  thumbnail: string;
-  duration: string;
-  tag?: string;
-  description?: string;
-}
-
 export default function WellnessProgramsPage() {
   const { clientData } = useClientPortal();
   const params = useParams();
   const clientId = params.id as string;
-  const [selectedVideo, setSelectedVideo] = useState<VideoItem | null>(null);
+  const [selectedVideo, setSelectedVideo] = useState<JourneyVideo | null>(null);
   const [dbVideos, setDbVideos] = useState<JourneyVideo[]>([]);
   const [dbFeaturedVideo, setDbFeaturedVideo] =
     useState<FeaturedJourneyVideo | null>(null);
@@ -54,11 +35,67 @@ export default function WellnessProgramsPage() {
     [clientData],
   );
 
+  // Extract FAQs for this category from employeePortalPreview.benefits.
+  const faqsForCategory = useMemo(() => {
+    const benefits = (clientData as any)?.employeePortalPreview?.benefits ?? [];
+    const wellnessBenefit = benefits.find(
+      (b: any) => b.category === "Company / Plan Sponsor",
+    );
+    const faqs = wellnessBenefit?.faqs;
+    if (faqs && Array.isArray(faqs)) {
+      const enabled = faqs.filter(
+        (f: any) => f.enabled !== false,
+      ) as DynamicFAQItem[];
+      if (enabled.length > 0) return enabled;
+    }
+    const defaults = DEFAULT_FAQS["Company / Plan Sponsor"];
+    if (defaults && defaults.length > 0) {
+      return defaults as DynamicFAQItem[];
+    }
+    return undefined;
+  }, [clientData?.employeePortalPreview]);
+
+  // Resolve support contacts for this category.
+  const supportContactsForFAQ = useMemo(() => {
+    const rawContacts = Array.isArray(clientData?.keyContacts)
+      ? clientData?.keyContacts
+      : (clientData?.keyContacts as any)?.contacts || [];
+
+    const benefits = (clientData as any)?.employeePortalPreview?.benefits ?? [];
+    const wellnessBenefit = benefits.find(
+      (b: any) => b.category === "Company / Plan Sponsor",
+    );
+    const rawSupportContacts = wellnessBenefit?.supportContacts;
+    if (!Array.isArray(rawSupportContacts)) return undefined;
+
+    const enabled = rawSupportContacts.filter((sc: any) => sc.enabled !== false);
+    if (enabled.length === 0) return undefined;
+
+    return enabled.map((sc: any) => {
+      const matched = rawContacts.find((c: any) => c.id === sc.contactId);
+      return {
+        id: sc.contactId,
+        title: sc.title || matched?.name || `${matched?.firstName ?? ""} ${matched?.lastName ?? ""}`.trim() || "Support Contact",
+        description: sc.description || matched?.customRole || matched?.title || "",
+        email: matched?.email || "",
+        phone: matched?.phone || "",
+        phoneExtension: matched?.phoneExtension,
+        headshot: matched?.headshot || undefined,
+      } as FAQContact;
+    });
+  }, [clientData?.employeePortalPreview, clientData?.keyContacts]);
+
+  // Extract benefit data (benefitTitle, shortDescription) for this category
+  const benefitData = useMemo(() => {
+    const benefits = (clientData as any)?.employeePortalPreview?.benefits ?? [];
+    return benefits.find((b: any) => b.category === "Company / Plan Sponsor");
+  }, [clientData?.employeePortalPreview]);
+
   const featuredVideo = {
     id: "wellness-programs-featured",
     title: "Whole-Person Wellness Programs",
     description:
-      "Discover how your company supports every aspect of your wellbeing—from mental health resources and fitness challenges to financial coaching and personalized wellness journeys. Learn what’s included and how to get started today.",
+      "Discover how your company supports every aspect of your wellbeing—from mental health resources and fitness challenges to financial coaching and personalized wellness journeys. Learn what's included and how to get started today.",
     thumbnail:
       "https://images.unsplash.com/photo-1528590316233-4c417adf211d?w=1600&q=80",
     duration: "10:45",
@@ -67,7 +104,7 @@ export default function WellnessProgramsPage() {
     embedUrl: "https://www.youtube.com/embed/YE7VzlLtp-4",
   };
 
-  const wellnessVideos: VideoItem[] = [
+  const wellnessVideos: JourneyVideo[] = [
     {
       id: "mental-health",
       title: "Mental Health Support Overview",
@@ -120,7 +157,7 @@ export default function WellnessProgramsPage() {
     fetchVideos();
   }, [clientId]);
 
-  const mindfulnessVideos: VideoItem[] = [
+  const mindfulnessVideos: JourneyVideo[] = [
     {
       id: "burnout-toolkit",
       title: "Burnout Recovery Toolkit",
@@ -146,7 +183,7 @@ export default function WellnessProgramsPage() {
     },
   ];
 
-  const handleVideoClick = (video: VideoItem) => {
+  const handleVideoClick = (video: JourneyVideo) => {
     setSelectedVideo(video);
   };
 
@@ -164,33 +201,6 @@ export default function WellnessProgramsPage() {
     setSelectedVideo(null);
   };
 
-  // Filter and map real contacts from database
-  const contacts = useMemo(() => {
-    const rawContacts = Array.isArray(clientData?.keyContacts)
-      ? clientData?.keyContacts
-      : (clientData?.keyContacts as any)?.contacts || [];
-
-    // Filter contacts for this category
-    const relevantContacts = rawContacts.filter((c: any) =>
-      c.benefitsCategory === "Company / Plan Sponsor" ||
-      c.benefitsCategories?.includes("Company / Plan Sponsor")
-    );
-
-    if (relevantContacts.length === 0) return undefined;
-
-    return relevantContacts.map((c: any) => ({
-      id: c.id,
-      title: c.name || `${c.firstName} ${c.lastName}`,
-      description: c.customRole || c.title || "Wellness Program Representative",
-      icon: Mail,
-      email: c.email,
-      phone: c.phone,
-      iconType: c.headshot ? "image" : undefined,
-      iconSrc: c.headshot,
-      iconAlt: c.name
-    })) as ContactInfo[];
-  }, [clientData?.keyContacts]);
-
   return (
     <div className="min-h-screen w-full">
       <CompletenessAutoTrigger
@@ -203,6 +213,8 @@ export default function WellnessProgramsPage() {
           clientData={clientData}
           brandColor={brandColor}
           secondaryColor={secondaryColor}
+          customHeadline={benefitData?.title}
+          customDescription={benefitData?.shortDescription}
           category="Company / Plan Sponsor"
         />
 
@@ -215,9 +227,9 @@ export default function WellnessProgramsPage() {
           onFeaturedVideoClick={handleFeaturedVideoClick}
           dbVideos={dbVideos}
           dbFeaturedVideo={dbFeaturedVideo || undefined}
-          mainTitle="Whole-Person Wellness Programs"
+          mainTitle={benefitData?.title || "Whole-Person Wellness Programs"}
           subtitle="Supporting your health, mind, and financial well-being."
-          description="Your well-being goes beyond traditional benefits. Discover programs designed to support your physical, mental, and financial health—from fitness stipends and nutrition coaching to mental health resources and financial wellness tools. Thrive at work and at home."
+          description={benefitData?.shortDescription || "Your well-being goes beyond traditional benefits. Discover programs designed to support your physical, mental, and financial health—from fitness stipends and nutrition coaching to mental health resources and financial wellness tools. Thrive at work and at home."}
           firstCarouselTitle="Wellness Programs"
           secondCarouselTitle="Mindfulness & Well-being"
           backgroundImage={categoryHeroBg}
@@ -229,38 +241,7 @@ export default function WellnessProgramsPage() {
           clientId={clientId}
         />
 
-        <BenefitsFAQAccordion
-          title="Frequently Asked Questions"
-          subtitle="Get quick answers to common benefits questions"
-          items={[
-            {
-              id: "life-1",
-              question: "What is life insurance?",
-              answer:
-                "Life insurance is a contract between an insurance company and a policyholder, where the insurer promises to pay a death benefit to named beneficiaries upon the death of the policyholder.",
-              linkLabel: "View Life Insurance Benefits >>",
-              linkHref: "/benefits/life-insurance",
-            },
-            {
-              id: "life-2",
-              question: "What is life insurance?",
-              answer:
-                "Life insurance is a contract between an insurance company and a policyholder, where the insurer promises to pay a death benefit to named beneficiaries upon the death of the policyholder.",
-              linkLabel: "View Life Insurance Benefits >>",
-              linkHref: "/benefits/life-insurance",
-            },
-            {
-              id: "life-3",
-              question: "What is life insurance?",
-              answer:
-                "Life insurance is a contract between an insurance company and a policyholder, where the insurer promises to pay a death benefit to named beneficiaries upon the death of the policyholder.",
-              linkLabel: "View Life Insurance Benefits >>",
-              linkHref: "/benefits/life-insurance",
-            },
-          ]}
-          brandColor={brandColor}
-          accentColor={secondaryColor}
-        />
+        <FAQSection brandColor={brandColor} secondaryColor={secondaryColor} faqs={faqsForCategory} contacts={supportContactsForFAQ} />
 
         <PortalMaterialsHero brandColor={brandColor} />
 
@@ -270,13 +251,6 @@ export default function WellnessProgramsPage() {
           clientId={clientId}
           categoryPortalVisibility={(clientData as any)?.categoryPortalVisibility}
           documentHubCategory="Company / Plan Sponsor"
-        />
-
-        <HaveQuestionsSection
-          brandColor={brandColor}
-          secondaryColor={secondaryColor}
-          contacts={contacts}
-          cardWidth="390px"
         />
       </main>
 

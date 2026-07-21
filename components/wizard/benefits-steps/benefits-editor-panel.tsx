@@ -333,7 +333,7 @@ export function BenefitsEditorPanel({
                     <SectionHeader number={2} title="Benefit Messaging" />
                     <div className="space-y-6">
                         <div className="space-y-2">
-                            <Label className="text-xs font-bold text-foreground">Benefit Portal Title</Label>
+                            <Label className="text-xs font-bold text-foreground">Display Title</Label>
                             <Input
                                 value={step1Data.benefitTitle || ""}
                                 onChange={(e) => saveStepData(1, { ...step1Data, benefitTitle: e.target.value })}
@@ -343,7 +343,7 @@ export function BenefitsEditorPanel({
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label className="text-xs font-bold text-foreground">Summary Description</Label>
+                            <Label className="text-xs font-bold text-foreground">Benefit Description</Label>
                             <Textarea
                                 value={step1Data.shortDescription || ""}
                                 onChange={(e) => saveStepData(1, { ...step1Data, shortDescription: e.target.value })}

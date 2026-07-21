@@ -3,15 +3,10 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { useClientPortal } from "@/contexts/client-portal-context";
-import { VideoCarousel } from "@/components/video-carousel";
 import { VideoModal } from "@/components/video-modal";
-import { InteractiveTools } from "@/components/interactive-tools";
-import { FAQSection } from "@/components/faq-section";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Play, Clock, Star } from "lucide-react";
+import { FAQSection, DynamicFAQItem, FAQContact } from "@/components/faq-section";
+import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
 import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
-import { BenefitsFAQAccordion } from "@/components/pages/client-portal/sections/benefits-faq-accordion";
 import {
   RetirementJourneySection,
   JourneyVideo,
@@ -19,25 +14,15 @@ import {
 } from "@/components/pages/client-portal/sections/retirement-journey-section";
 import { HowCanWeHelpSection } from "@/components/pages/client-portal/sections/how-can-we-help-section";
 import { PortalMaterialsHero } from "@/components/pages/client-portal/sections/portal-materials-hero";
-import { HaveQuestionsSection } from "@/components/pages/client-portal/sections/have-questions-section";
 import { DocumentsSection } from "@/components/pages/client-portal/sections/documents-section";
 import { CompletenessAutoTrigger } from "@/components/pages/client-portal/sections/completeness-auto-trigger";
 import { getCategoryHeroBackgroundUrl } from "@/lib/portal-category-hero-background";
-
-interface VideoItem {
-  id: string;
-  title: string;
-  thumbnail: string;
-  duration: string;
-  tag?: string;
-  description?: string;
-}
 
 export default function HealthInsurancePage() {
   const { clientData } = useClientPortal();
   const params = useParams();
   const clientId = params.id as string;
-  const [selectedVideo, setSelectedVideo] = useState<VideoItem | null>(null);
+  const [selectedVideo, setSelectedVideo] = useState<JourneyVideo | null>(null);
   const [dbVideos, setDbVideos] = useState<JourneyVideo[]>([]);
   const [dbFeaturedVideo, setDbFeaturedVideo] =
     useState<FeaturedJourneyVideo | null>(null);
@@ -50,32 +35,61 @@ export default function HealthInsurancePage() {
     [clientData],
   );
 
-  // Filter and map real contacts from database
-  const contacts = useMemo(() => {
+  // Extract FAQs for this category from employeePortalPreview.benefits.
+  const faqsForCategory = useMemo(() => {
+    const benefits = (clientData as any)?.employeePortalPreview?.benefits ?? [];
+    const healthBenefit = benefits.find(
+      (b: any) => b.category === "Group Health",
+    );
+    const faqs = healthBenefit?.faqs;
+    if (faqs && Array.isArray(faqs)) {
+      const enabled = faqs.filter(
+        (f: any) => f.enabled !== false,
+      ) as DynamicFAQItem[];
+      if (enabled.length > 0) return enabled;
+    }
+    const defaults = DEFAULT_FAQS["Group Health"];
+    if (defaults && defaults.length > 0) {
+      return defaults as DynamicFAQItem[];
+    }
+    return undefined;
+  }, [clientData?.employeePortalPreview]);
+
+  // Resolve support contacts for this category.
+  const supportContactsForFAQ = useMemo(() => {
     const rawContacts = Array.isArray(clientData?.keyContacts)
       ? clientData?.keyContacts
       : (clientData?.keyContacts as any)?.contacts || [];
 
-    // Filter contacts for this category
-    const relevantContacts = rawContacts.filter((c: any) =>
-      c.benefitsCategory === "Group Health" ||
-      c.benefitsCategories?.includes("Group Health")
+    const benefits = (clientData as any)?.employeePortalPreview?.benefits ?? [];
+    const healthBenefit = benefits.find(
+      (b: any) => b.category === "Group Health",
     );
+    const rawSupportContacts = healthBenefit?.supportContacts;
+    if (!Array.isArray(rawSupportContacts)) return undefined;
 
-    if (relevantContacts.length === 0) return undefined;
+    const enabled = rawSupportContacts.filter((sc: any) => sc.enabled !== false);
+    if (enabled.length === 0) return undefined;
 
-    return relevantContacts.map((c: any) => ({
-      id: c.id,
-      title: c.name || `${c.firstName} ${c.lastName}`,
-      description: c.customRole || c.title || "Health Benefits Representative",
-      icon: Play, // Default icon
-      email: c.email,
-      phone: c.phone,
-      iconType: c.headshot ? "image" : undefined,
-      iconSrc: c.headshot,
-      iconAlt: c.name
-    })) as any[];
-  }, [clientData?.keyContacts]);
+    return enabled.map((sc: any) => {
+      const matched = rawContacts.find((c: any) => c.id === sc.contactId);
+      return {
+        id: sc.contactId,
+        title: sc.title || matched?.name || `${matched?.firstName ?? ""} ${matched?.lastName ?? ""}`.trim() || "Support Contact",
+        description: sc.description || matched?.customRole || matched?.title || "",
+        email: matched?.email || "",
+        phone: matched?.phone || "",
+        phoneExtension: matched?.phoneExtension,
+        headshot: matched?.headshot || undefined,
+      } as FAQContact;
+    });
+  }, [clientData?.employeePortalPreview, clientData?.keyContacts]);
+
+  // Extract benefit data (benefitTitle, shortDescription) for this category
+  const benefitData = useMemo(() => {
+    const benefits = (clientData as any)?.employeePortalPreview?.benefits ?? [];
+    return benefits.find((b: any) => b.category === "Group Health");
+  }, [clientData?.employeePortalPreview]);
 
   const featuredVideo: FeaturedJourneyVideo = {
     id: "health-insurance-featured",
@@ -204,11 +218,8 @@ export default function HealthInsurancePage() {
         <PortalWelcomeBanner
           clientData={clientData}
           brandColor={brandColor}
-          customHeadline="Health Insurance Hub"
-          customDescription={[
-            "Your health benefits are a vital part of your overall well-being, and we're committed to helping you make the most of them. Your company has partnered with us to ensure you have access to clear information, dependable coverage, and the support you need to navigate your medical, dental, and vision benefits with confidence.",
-            "Our goal is simple - to give you the tools, guidance, and resources to protect your health and your family's well-being throughout the year.",
-          ]}
+          customHeadline={benefitData?.title}
+          customDescription={benefitData?.shortDescription}
           category="Group Health"
         />
 
@@ -221,9 +232,9 @@ export default function HealthInsurancePage() {
           onFeaturedVideoClick={handleFeaturedVideoClick}
           dbVideos={dbVideos}
           dbFeaturedVideo={dbFeaturedVideo || undefined}
-          mainTitle="Understanding Your Health Benefits"
+          mainTitle={benefitData?.title || "Understanding Your Health Benefits"}
           subtitle="Navigate your coverage with confidence."
-          description="Your health and well-being are our priority. Explore our health insurance resources to understand your coverage options, maximize your benefits, and make informed decisions about your medical, dental, and vision care for you and your family."
+          description={benefitData?.shortDescription || "Your health and well-being are our priority. Explore our health insurance resources to understand your coverage options, maximize your benefits, and make informed decisions about your medical, dental, and vision care for you and your family."}
           backgroundImage={categoryHeroBg}
         />
 
@@ -233,13 +244,7 @@ export default function HealthInsurancePage() {
           clientId={clientId}
         />
 
-        <BenefitsFAQAccordion
-          title="Frequently Asked Questions"
-          subtitle="Get quick answers to common benefits questions"
-          items={healthFaqItems}
-          brandColor={brandColor}
-          accentColor={secondaryColor}
-        />
+        <FAQSection brandColor={brandColor} secondaryColor={secondaryColor} faqs={faqsForCategory} contacts={supportContactsForFAQ} />
 
         <PortalMaterialsHero brandColor={brandColor} />
 
@@ -249,12 +254,6 @@ export default function HealthInsurancePage() {
           clientId={clientId}
           categoryPortalVisibility={(clientData as any)?.categoryPortalVisibility}
           documentHubCategory="Group Health"
-        />
-
-        <HaveQuestionsSection
-          brandColor={brandColor}
-          secondaryColor={secondaryColor}
-          contacts={contacts}
         />
       </main>
 
@@ -268,83 +267,3 @@ export default function HealthInsurancePage() {
   );
 }
 
-export type FaqItemWithLink = {
-  id: string;
-  question: string;
-  answer: string;
-  linkLabel: string;
-  linkHref: string;
-};
-
-const healthFaqItems: FaqItemWithLink[] = [
-  {
-    id: "health-coverage",
-    question: "What does my health insurance cover?",
-    answer:
-      "Review your full benefits and cost details in your plan’s Summary of Benefits and Coverage:",
-    linkLabel: "View Benefits Summary (SBC) >>",
-    linkHref: "/benefits/summary", // placeholder
-  },
-  {
-    id: "enroll-or-change",
-    question: "How do I enroll or make changes?",
-    answer:
-      "You can enroll or update your coverage during open enrollment or after a qualifying life event using your benefits portal:",
-    linkLabel: "Go to Benefits Portal >>",
-    linkHref: "/benefits/portal",
-  },
-  {
-    id: "in-network-provider",
-    question: "How do I find an in-network doctor or specialist?",
-    answer:
-      "Use your insurance carrier’s provider directory to search for in-network doctors, hospitals, urgent care, and specialists:",
-    linkLabel: "Search for Providers >>",
-    linkHref: "/benefits/providers",
-  },
-  {
-    id: "digital-id-card",
-    question: "Where can I view my digital ID card?",
-    answer:
-      "Most carriers provide instant access to your digital ID card in your online member account or app:",
-    linkLabel: "Download Digital ID Card >>",
-    linkHref: "/benefits/id-card",
-  },
-  {
-    id: "deductible-copay-coins",
-    question:
-      "What’s the difference between a deductible, copay, and coinsurance?",
-    answer: "View your personalized cost-sharing details online:",
-    linkLabel: "Check My Plan Costs >>",
-    linkHref: "/benefits/costs",
-  },
-  {
-    id: "bill-after-visit",
-    question: "Why did I receive a bill after visiting the doctor?",
-    answer:
-      "Compare the bill with your Explanation of Benefits (EOB) from your carrier:",
-    linkLabel: "Review Claims & EOBs >>",
-    linkHref: "/benefits/claims-eobs",
-  },
-  {
-    id: "preventive-services",
-    question: "Do preventive services cost anything?",
-    answer:
-      "Preventive care is usually covered at 100 percent in-network. Confirm what’s covered under your plan:",
-    linkLabel: "See Preventive Services List >>",
-    linkHref: "/benefits/preventive-services",
-  },
-  {
-    id: "prescription-covered",
-    question: "How do I check if a prescription is covered?",
-    answer: "Look up your prescription drug coverage and pricing here:",
-    linkLabel: "Check Prescription Coverage >>",
-    linkHref: "/benefits/prescriptions",
-  },
-  {
-    id: "add-remove-dependents",
-    question: "How do I add or remove dependents?",
-    answer: "You can update dependents through your benefits portal:",
-    linkLabel: "Manage Dependents >>",
-    linkHref: "/benefits/dependents",
-  },
-];

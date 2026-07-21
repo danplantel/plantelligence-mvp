@@ -52,6 +52,12 @@ export default function RetirementPage() {
     [clientData],
   );
 
+  // Extract benefit data (benefitTitle, shortDescription) for this category
+  const benefitData = useMemo(() => {
+    const benefits = (clientData as any)?.employeePortalPreview?.benefits ?? [];
+    return benefits.find((b: any) => b.category === "Retirement");
+  }, [clientData?.employeePortalPreview]);
+
   /** Re-merge documents when embedded list ids change — avoids re-fetching on every clientData reference churn. */
   const documentsSig = useMemo(() => {
     const d = clientData?.documents;
@@ -304,6 +310,8 @@ export default function RetirementPage() {
           clientData={clientData}
           brandColor={brandColor}
           secondaryColor={secondaryColor}
+          customHeadline={benefitData?.title}
+          customDescription={benefitData?.shortDescription}
           category="Retirement"
         />
 
@@ -316,9 +324,9 @@ export default function RetirementPage() {
           onFeaturedVideoClick={handleFeaturedVideoClick}
           dbVideos={dbVideos}
           dbFeaturedVideo={dbFeaturedVideo || undefined}
-          mainTitle="Your Retirement Journey Starts Here"
+          mainTitle={benefitData?.title || "Your Retirement Journey Starts Here"}
           subtitle="Build your future with confidence."
-          description="Take control of your financial future with our comprehensive retirement planning resources. Whether you're just starting your career or preparing for the next chapter, we provide the tools and guidance you need to build a secure retirement."
+          description={benefitData?.shortDescription || "Take control of your financial future with our comprehensive retirement planning resources. Whether you're just starting your career or preparing for the next chapter, we provide the tools and guidance you need to build a secure retirement."}
           backgroundImage={categoryHeroBg}
         />
 

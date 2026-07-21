@@ -16,12 +16,6 @@ import {
 import { HowCanWeHelpSection } from "@/components/pages/client-portal/sections/how-can-we-help-section";
 import { RetirementDocumentsAccordion } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
 import { CompletenessAutoTrigger } from "@/components/pages/client-portal/sections/completeness-auto-trigger";
-import {
-  HaveQuestionsSection,
-  ContactInfo,
-} from "@/components/pages/client-portal/sections/have-questions-section";
-import { Mail } from "lucide-react";
-import { BenefitsFAQAccordion } from "@/components/pages/client-portal/sections/benefits-faq-accordion";
 import { DocumentsSection } from "@/components/pages/client-portal/sections/documents-section";
 import { getCategoryHeroBackgroundUrl } from "@/lib/portal-category-hero-background";
 
@@ -94,32 +88,11 @@ export default function LifeInsurancePage() {
     });
   }, [clientData?.employeePortalPreview, clientData?.keyContacts]);
 
-  // Filter and map real contacts from database
-  const contacts = useMemo(() => {
-    const rawContacts = Array.isArray(clientData?.keyContacts)
-      ? clientData?.keyContacts
-      : (clientData?.keyContacts as any)?.contacts || [];
-
-    // Filter contacts for this category
-    const relevantContacts = rawContacts.filter((c: any) =>
-      c.benefitsCategory === "Group Life" ||
-      c.benefitsCategories?.includes("Group Life")
-    );
-
-    if (relevantContacts.length === 0) return undefined;
-
-    return relevantContacts.map((c: any) => ({
-      id: c.id,
-      title: c.name || `${c.firstName} ${c.lastName}`,
-      description: c.customRole || c.title || "Life Insurance Representative",
-      icon: Mail,
-      email: c.email,
-      phone: c.phone,
-      iconType: c.headshot ? "image" : undefined,
-      iconSrc: c.headshot,
-      iconAlt: c.name
-    })) as ContactInfo[];
-  }, [clientData?.keyContacts]);
+  // Extract benefit data (benefitTitle, shortDescription) for this category
+  const benefitData = useMemo(() => {
+    const benefits = (clientData as any)?.employeePortalPreview?.benefits ?? [];
+    return benefits.find((b: any) => b.category === "Group Life");
+  }, [clientData?.employeePortalPreview]);
 
   const featuredVideo: FeaturedJourneyVideo = {
     id: "life-insurance-featured",
@@ -249,6 +222,8 @@ export default function LifeInsurancePage() {
           clientData={clientData}
           brandColor={brandColor}
           secondaryColor={secondaryColor}
+          customHeadline={benefitData?.title}
+          customDescription={benefitData?.shortDescription}
           category="Group Life"
         />
 
@@ -261,9 +236,9 @@ export default function LifeInsurancePage() {
           onFeaturedVideoClick={handleFeaturedVideoClick}
           dbVideos={dbVideos}
           dbFeaturedVideo={dbFeaturedVideo || undefined}
-          mainTitle="Life Insurance: Protecting What Matters Most"
+          mainTitle={benefitData?.title || "Life Insurance: Protecting What Matters Most"}
           subtitle="Secure your family's financial future with the right coverage."
-          description="Protect what matters most. Our life insurance resources help you understand your coverage options and ensure your loved ones are financially secure, no matter what life brings. Explore term life, whole life, and supplemental coverage tailored to your needs."
+          description={benefitData?.shortDescription || "Protect what matters most. Our life insurance resources help you understand your coverage options and ensure your loved ones are financially secure, no matter what life brings. Explore term life, whole life, and supplemental coverage tailored to your needs."}
           firstCarouselTitle="Life Insurance Essentials"
           secondCarouselTitle="Beneficiaries & Estate Planning"
           backgroundImage={categoryHeroBg}
@@ -288,12 +263,6 @@ export default function LifeInsurancePage() {
           documentHubCategory="Group Life"
         />
 
-        <HaveQuestionsSection
-          brandColor={brandColor}
-          secondaryColor={secondaryColor}
-          contacts={contacts}
-          cardWidth="390px"
-        />
       </main>
 
       <VideoModal

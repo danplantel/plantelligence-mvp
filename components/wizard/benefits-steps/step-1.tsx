@@ -2094,7 +2094,7 @@ export function BenefitsStep1() {
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label className="text-sm font-bold text-gray-700 dark:text-gray-100">
-                      Custom Display Title
+                      Display Title
                     </Label>
                     <Input
                       value={currentStepData.benefitTitle}
@@ -2131,7 +2131,7 @@ export function BenefitsStep1() {
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-bold text-gray-700 dark:text-gray-100">
-                      Benefit Summary / Description
+                      Benefit Description
                     </Label>
                     <Textarea
                       value={currentStepData.shortDescription || ""}
