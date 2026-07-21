@@ -45,6 +45,8 @@ interface ContactFormFieldsProps {
   errorFields?: string[];
   // Disabled state
   disabled?: boolean;
+  // Hide the circular headshot preview that appears to the right of the uploader
+  hideHeadshotPreview?: boolean;
 }
 
 export function ContactFormFields({
@@ -75,6 +77,7 @@ export function ContactFormFields({
   titleRef,
   errorFields = [],
   disabled = false,
+  hideHeadshotPreview = false,
 }: ContactFormFieldsProps) {
   return (
     <>
@@ -104,7 +107,7 @@ export function ContactFormFields({
                 />
               </div>
             </div>
-            {headshot && (
+            {!hideHeadshotPreview && headshot && (
               <div className="-mt-2 h-16 w-16 rounded-full border border-gray-200 overflow-hidden dark:border-gray-600">
                 <Headshot src={headshot} alt="Headshot preview" />
               </div>

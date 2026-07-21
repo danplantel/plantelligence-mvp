@@ -5,16 +5,16 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { useState, memo } from "react";
-import { RotateCcw, Palette, Users, ChevronDown, ChevronUp, User, Globe, Calendar, Mail, Phone, Building2, Trash2 } from "lucide-react";
+import { RotateCcw, Palette, Users, ChevronDown, ChevronUp, User, Globe, Calendar, Mail, Phone, Building2, Trash2, Star } from "lucide-react";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import { cn } from "@/lib/utils";
-import { Slider } from "@/components/ui/slider";
-import { Maximize2 } from "lucide-react";
 import { ContactFormFields } from "../../step-3-key-contacts/components/contact-form-fields";
 import { CompanyNameSelector } from "../../step-3-key-contacts/components/company-name-selector";
 import { ContactCardActions } from "../../step-3-key-contacts/components/contact-card-actions";
+import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { useEffect, useRef, useCallback, useMemo } from "react";
 import { BenefitsCategory, KeyContact } from "@/types/new-client-wizard";
 import { Badge } from "@/components/ui/badge";
@@ -23,48 +23,16 @@ interface ContactSectionEditorProps {
     errorFields?: string[];
 }
 
-/**
- * Memoized slider for logo scale. Extracted so that the `value` array is
- * stable across re-renders — without this, `[contact.logoScale || 1]` creates
- * a new array every render, which can cause Radix Slider's internal
- * `useComposedRefs` to enter an infinite loop during rapid re-renders.
- */
-const LogoScaleSlider = memo(function LogoScaleSlider({
-  logoScale,
-  onLogoScaleChange,
-}: {
-  logoScale: number;
-  onLogoScaleChange: (value: number) => void;
-}) {
-  // Stabilise the value array so Radix Slider only sees changes when the
-  // actual number changes, not when the parent creates a fresh array literal.
-  const sliderValue = useMemo(() => [logoScale], [logoScale]);
-
-  return (
-    <>
-      <Slider
-        value={sliderValue}
-        onValueChange={([value]) => onLogoScaleChange(value)}
-        min={0.5}
-        max={2}
-        step={0.05}
-        className="w-full"
-      />
-      <div className="flex justify-between text-[10px] text-gray-400 font-mono mt-1">
-        <span>0.5x</span>
-        <span>{logoScale.toFixed(2)}x</span>
-        <span>2.0x</span>
-      </div>
-    </>
-  );
-});
+const CTA_TYPES = [
+  { value: "schedule", label: "Schedule Appt.", icon: Calendar },
+  { value: "call", label: "Call", icon: Phone },
+  { value: "email", label: "Email", icon: Mail },
+  { value: "contact", label: "Contact Form", icon: Globe },
+] as const;
 
 export const ContactSectionEditor = memo(function ContactSectionEditor({ errorFields = [] }: ContactSectionEditorProps) {
     const { styles, updateStyle } = useContactStyles();
     const { stepData, saveStepDataLocally, saveStepDataToServer, saveAsDraft } = useNewClientWizardStore();
-
-    // Track which picker is open for which contact
-    const [activePicker, setActivePicker] = useState<{ id: string, type: 'background' } | null>(null);
 
     // Track which contact is expanded in the editor
     const [expandedContactId, setExpandedContactId] = useState<string | null>(null);
@@ -74,18 +42,6 @@ export const ContactSectionEditor = memo(function ContactSectionEditor({ errorFi
 
     const keyContactsData = stepData.keyContacts || { contacts: [] };
     const savedContacts: KeyContact[] = keyContactsData.contacts || [];
-
-    const handleReset = (contactId?: string) => {
-        if (contactId) {
-            handleUpdateContactFields(contactId, {
-                cardBackgroundColor: undefined,
-                logoScale: undefined
-            });
-        } else {
-            updateStyle("cardBackgroundColor", "#ffffff");
-            updateStyle("logoScale", 1);
-        }
-    };
 
     // Listen for the focus event from the preview cards
     useEffect(() => {
@@ -166,6 +122,10 @@ export const ContactSectionEditor = memo(function ContactSectionEditor({ errorFi
         }
     };
 
+    const resolveCategory = (contact: any): string => {
+        return contact.benefitsCategories?.[0] || contact.benefitsCategory || "";
+    };
+
     return (
         <div className="space-y-8 pb-20">
 
@@ -173,7 +133,7 @@ export const ContactSectionEditor = memo(function ContactSectionEditor({ errorFi
             <div data-section-id="contacts-list" className="space-y-6">
                 <div className="mb-4">
                     <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                        Contact Details & Styling
+                        Contact Details
                     </h3>
                     <div className="h-px w-12 bg-border mt-2" />
                 </div>
@@ -182,6 +142,14 @@ export const ContactSectionEditor = memo(function ContactSectionEditor({ errorFi
                     {savedContacts.map((contact, index) => {
                         const isExpanded = expandedContactId === contact.id;
                         const contactName = contact.name || (contact.contactType === "individual" ? "New Individual" : "New Team");
+                        const category = resolveCategory(contact);
+                        const isPlanSponsor = category === "Company / Plan Sponsor";
+                        const ctaType = (contact.contactButtonType === "calendar" ? "schedule"
+                            : contact.contactButtonType === "phone" ? "call"
+                            : contact.contactButtonType === "email" ? "email"
+                            : contact.contactButtonType === "url" ? "contact"
+                            : "schedule") as "schedule" | "call" | "email" | "contact";
+                        const hasCtaEnabled = !!(contact as any).enableContactButton;
 
                         return (
                             <Card
@@ -210,6 +178,103 @@ export const ContactSectionEditor = memo(function ContactSectionEditor({ errorFi
 
                                 {isExpanded && (
                                     <div className="p-4 border-t bg-gray-50/30 space-y-4">
+                                        {/* Primary Contact Toggle — hidden for Company / Plan Sponsor */}
+                                        {!isPlanSponsor && (
+                                            <div className="pb-2 border-b border-gray-100 mb-1">
+                                                <div className="flex items-center space-x-2">
+                                                    <Checkbox
+                                                        id={`is-primary-${contact.id}`}
+                                                        checked={contact.isPrimaryOverall || contact.isPrimary || false}
+                                                        onCheckedChange={(checked) => {
+                                                            const isPrimary = checked === true;
+                                                            if (isPrimary) {
+                                                                const updatedContacts = savedContacts.map((c: any) => {
+                                                                    if (c.id === contact.id) {
+                                                                        return { ...c, isPrimary: true, isPrimaryOverall: true };
+                                                                    }
+                                                                    const cCat = c.benefitsCategories?.[0] || c.benefitsCategory || "";
+                                                                    if (cCat === category && (c.isPrimary || c.isPrimaryOverall)) {
+                                                                        return { ...c, isPrimary: false, isPrimaryOverall: false };
+                                                                    }
+                                                                    return c;
+                                                                });
+                                                                const updatedData = { ...keyContactsData, contacts: updatedContacts };
+                                                                saveStepDataLocally("keyContacts", updatedData);
+                                                            } else {
+                                                                handleUpdateContactFields(contact.id, { isPrimary: false, isPrimaryOverall: false });
+                                                            }
+                                                        }}
+                                                    />
+                                                    <Label
+                                                        htmlFor={`is-primary-${contact.id}`}
+                                                        className="text-xs font-medium cursor-pointer"
+                                                    >
+                                                        <Star className="w-3.5 h-3.5 inline mr-1 text-amber-500" />
+                                                        Mark as primary contact for this category
+                                                    </Label>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Contact Type Toggle */}
+                                        <div className="space-y-1.5">
+                                            <Label className="font-medium text-xs">Contact Type</Label>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleUpdateContactField(contact.id, "contactType", "individual");
+                                                    }}
+                                                    className={cn(
+                                                        "flex items-center gap-2 p-3 rounded-lg border-2 text-left transition-all",
+                                                        (contact.contactType || "individual") === "individual"
+                                                            ? "border-accent-blue bg-accent-blue/5 shadow-sm"
+                                                            : "border-gray-200 bg-white hover:border-gray-300",
+                                                    )}
+                                                >
+                                                    <div className={cn(
+                                                        "w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors",
+                                                        (contact.contactType || "individual") === "individual" ? "border-accent-blue" : "border-gray-300",
+                                                    )}>
+                                                        {(contact.contactType || "individual") === "individual" && (
+                                                            <div className="w-2 h-2 rounded-full bg-accent-blue" />
+                                                        )}
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-xs font-semibold text-gray-900">Individual</span>
+                                                        <span className="text-[10px] text-gray-500">A specific person</span>
+                                                    </div>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleUpdateContactField(contact.id, "contactType", "team_support");
+                                                    }}
+                                                    className={cn(
+                                                        "flex items-center gap-2 p-3 rounded-lg border-2 text-left transition-all",
+                                                        contact.contactType === "team_support"
+                                                            ? "border-accent-blue bg-accent-blue/5 shadow-sm"
+                                                            : "border-gray-200 bg-white hover:border-gray-300",
+                                                    )}
+                                                >
+                                                    <div className={cn(
+                                                        "w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors",
+                                                        contact.contactType === "team_support" ? "border-accent-blue" : "border-gray-300",
+                                                    )}>
+                                                        {contact.contactType === "team_support" && (
+                                                            <div className="w-2 h-2 rounded-full bg-accent-blue" />
+                                                        )}
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-xs font-semibold text-gray-900">Team / Support</span>
+                                                        <span className="text-[10px] text-gray-500">A department or group</span>
+                                                    </div>
+                                                </button>
+                                            </div>
+                                        </div>
+
                                         <ContactFormFields
                                             contactType={contact.contactType || "individual"}
                                             firstName={contact.firstName || ""}
@@ -232,7 +297,52 @@ export const ContactSectionEditor = memo(function ContactSectionEditor({ errorFi
                                             }}
                                             headshot={contact.headshot || ""}
                                             headshotFileName={contact.headshotFileName || ""}
+                                            hideHeadshotPreview
                                         />
+
+                                        {/* Company / Organization — for non-Plan-Sponsor */}
+                                        {!isPlanSponsor && (
+                                            <div className="space-y-1.5 pt-2 border-t">
+                                                <Label className="text-xs font-medium">
+                                                    Company / Organization <span className="text-red-500">*</span>
+                                                </Label>
+                                                <Input
+                                                    value={contact.companyName || ""}
+                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleUpdateContactField(contact.id, "companyName", e.target.value)}
+                                                    placeholder="e.g. Benefits Provider Inc."
+                                                    className="h-9 text-sm"
+                                                />
+                                            </div>
+                                        )}
+
+                                        {/* Contact Company Logo — for non-Plan-Sponsor */}
+                                        {!isPlanSponsor && (
+                                            <div className="border-t border-gray-100 pt-3 space-y-2.5">
+                                                <Label className="text-xs font-medium">
+                                                    Contact Company Logo
+                                                </Label>
+                                                <p className="text-[10px] text-gray-400">
+                                                    Upload a logo to display on this contact&rsquo;s portal card.
+                                                </p>
+                                                <div className="pt-1">
+                                                    <UniversalImageEditorModal
+                                                        value={(contact as any).companyLogo || ""}
+                                                        fileName={(contact as any).companyLogoFileName || ""}
+                                                        onChange={(value, fileName) => {
+                                                            handleUpdateContactFields(contact.id, { companyLogo: value, companyLogoFileName: fileName });
+                                                        }}
+                                                        onRemove={() => {
+                                                            handleUpdateContactFields(contact.id, { companyLogo: "", companyLogoFileName: "" });
+                                                        }}
+                                                        placeholder="Upload Contact Company Logo"
+                                                        modalTitle="Edit Contact Company Logo"
+                                                        modalDescription="Upload a logo for this contact's portal card."
+                                                        saveButtonText="Save Logo"
+                                                        type="logo"
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
 
                                         <div className="space-y-2 pt-2 border-t mt-4">
                                             <Label className="text-xs font-medium uppercase text-gray-500">Contact Info</Label>
@@ -272,7 +382,6 @@ export const ContactSectionEditor = memo(function ContactSectionEditor({ errorFi
                                                         />
                                                     </div>
                                                 </div>
-
                                             </div>
                                         </div>
 
@@ -294,88 +403,114 @@ export const ContactSectionEditor = memo(function ContactSectionEditor({ errorFi
                                             />
                                         </div>
 
-                                        {/* Card Styling: same colors panel as main contact for all category cards */}
-                                        <div className="space-y-2 pt-4 border-t">
-                                            <div className="flex items-center justify-between mb-3">
-                                                <Label className="text-[11px] font-semibold uppercase text-gray-500 tracking-wider">Card Styling</Label>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="h-7 text-[11px] text-muted-foreground hover:text-accent-blue hover:bg-accent-blue/5 transition-colors"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleUpdateContactFields(contact.id, { cardBackgroundColor: undefined, logoScale: undefined });
+                                        {/* CTA Button Section */}
+                                        <div className="border-t border-gray-100 pt-3 space-y-2.5">
+                                            <div className="flex items-center space-x-2">
+                                                <Checkbox
+                                                    id={`enable-cta-${contact.id}`}
+                                                    checked={hasCtaEnabled}
+                                                    onCheckedChange={(checked) => {
+                                                        const enabled = checked === true;
+                                                        handleUpdateContactFields(contact.id, {
+                                                            enableContactButton: enabled,
+                                                            displayScheduleAppointment: enabled ? (ctaType === "schedule") : false,
+                                                            displayUrl: enabled ? (ctaType === "contact") : false,
+                                                        });
                                                     }}
+                                                />
+                                                <Label
+                                                    htmlFor={`enable-cta-${contact.id}`}
+                                                    className="text-xs font-medium cursor-pointer"
                                                 >
-                                                    <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
-                                                    Reset to Brand
-                                                </Button>
+                                                    Add a call to action button
+                                                </Label>
                                             </div>
 
-                                            <div className="grid grid-cols-2 gap-4 mt-2">
-                                                <div className="space-y-2 relative">
-                                                    <Label className="text-sm font-medium text-gray-700">Card Background</Label>
-                                                    <div className="flex flex-col gap-2">
-                                                        <Button
-                                                            variant="outline"
-                                                            className="h-9 w-full rounded-md border border-gray-200 cursor-pointer flex items-center px-3 gap-3 justify-start font-normal hover:bg-white hover:border-gray-300 transition-all shadow-sm"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setActivePicker(activePicker?.id === contact.id && activePicker?.type === 'background' ? null : { id: contact.id, type: 'background' });
-                                                            }}
-                                                        >
-                                                            <div className="w-5 h-5 rounded-full border-2 border-gray-300 shadow-sm" style={{ background: contact.cardBackgroundColor || "#ffffff" }} />
-                                                            <span className="text-sm text-gray-600">{contact.cardBackgroundColor || "Default"}</span>
-                                                        </Button>
-                                                        <div className="flex gap-1.5">
-                                                            {[
-                                                                { name: "White", value: "#ffffff" },
-                                                                { name: "Navy", value: "#1F3A60" },
-                                                                { name: "Dark Gray", value: "#374151" },
-                                                                { name: "Black", value: "#000000" },
-                                                            ].map((preset) => (
+                                            {hasCtaEnabled && (
+                                                <>
+                                                    <div className="grid grid-cols-2 gap-1.5">
+                                                        {CTA_TYPES.map((opt) => {
+                                                            const isActive = ctaType === opt.value;
+                                                            const Icon = opt.icon;
+                                                            return (
                                                                 <button
-                                                                    key={preset.value}
+                                                                    key={opt.value}
                                                                     type="button"
-                                                                    className={cn(
-                                                                        "w-6 h-6 rounded-full border-2 border-gray-300 shadow-sm transition-transform hover:scale-110",
-                                                                        contact.cardBackgroundColor === preset.value && "ring-2 ring-accent-blue ring-offset-1"
-                                                                    )}
-                                                                    style={{ backgroundColor: preset.value }}
-                                                                    title={preset.name}
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
-                                                                        handleUpdateContactField(contact.id, "cardBackgroundColor", preset.value);
+                                                                        const newContactButtonType =
+                                                                            opt.value === "schedule" ? "calendar"
+                                                                            : opt.value === "call" ? "phone"
+                                                                            : opt.value === "email" ? "email"
+                                                                            : "url";
+                                                                        handleUpdateContactFields(contact.id, {
+                                                                            contactButtonType: newContactButtonType,
+                                                                            displayScheduleAppointment: opt.value === "schedule",
+                                                                            displayUrl: opt.value === "contact",
+                                                                        });
                                                                     }}
-                                                                />
-                                                            ))}
-                                                        </div>
+                                                                    className={cn(
+                                                                        "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-left transition-all",
+                                                                        isActive
+                                                                            ? "border-accent-blue bg-accent-blue/5 shadow-sm"
+                                                                            : "border-gray-200 bg-white hover:border-gray-300",
+                                                                    )}
+                                                                >
+                                                                    <Icon
+                                                                        className={cn(
+                                                                            "w-3.5 h-3.5 flex-shrink-0",
+                                                                            isActive ? "text-accent-blue" : "text-gray-400",
+                                                                        )}
+                                                                    />
+                                                                    <span className="text-[11px] font-medium">{opt.label}</span>
+                                                                </button>
+                                                            );
+                                                        })}
                                                     </div>
-                                                    {activePicker?.id === contact.id && activePicker?.type === 'background' && (
-                                                        <div className="absolute z-50 top-full left-0 mt-2">
-                                                            <ColorPicker
-                                                                value={contact.cardBackgroundColor || "#ffffff"}
-                                                                onChange={(color) => handleUpdateContactField(contact.id, "cardBackgroundColor", color)}
-                                                                isOpen={true}
-                                                                onOpenChange={(open) => !open && setActivePicker(null)}
+
+                                                    {ctaType === "schedule" && (
+                                                        <div className="space-y-1">
+                                                            <Label className="text-xs font-medium">Scheduling URL</Label>
+                                                            <Input
+                                                                value={(contact as any).schedulingUrl || ""}
+                                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleUpdateContactField(contact.id, "schedulingUrl", e.target.value)}
+                                                                placeholder="https://calendly.com/..."
+                                                                className="h-9 text-sm"
                                                             />
                                                         </div>
                                                     )}
-                                                </div>
 
-                                                <div className="space-y-2">
-                                                    <div className="flex items-center gap-2">
-                                                        <Maximize2 className="w-3.5 h-3.5 text-gray-500" />
-                                                        <Label className="text-sm font-medium text-gray-700">Logo Scale</Label>
-                                                    </div>
-                                                    <div className="pt-2 px-1">
-                                                        <LogoScaleSlider
-                                                            logoScale={contact.logoScale || 1}
-                                                            onLogoScaleChange={(value) => handleUpdateContactField(contact.id, "logoScale", value)}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </div>
+                                                    {ctaType === "contact" && (
+                                                        <div className="space-y-1">
+                                                            <Label className="text-xs font-medium">Contact Form URL</Label>
+                                                            <Input
+                                                                value={(contact as any).websiteUrl || ""}
+                                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleUpdateContactField(contact.id, "websiteUrl", e.target.value)}
+                                                                placeholder="https://forms.company.com/..."
+                                                                className="h-9 text-sm"
+                                                            />
+                                                        </div>
+                                                    )}
+
+                                                    {ctaType === "call" && (
+                                                        <div className="space-y-1">
+                                                            <Label className="text-xs font-medium">Phone Number</Label>
+                                                            <p className="text-[11px] text-gray-500 bg-gray-50 rounded px-2.5 py-1.5">
+                                                                {contact.phone || "Complete the Phone field above first"}
+                                                            </p>
+                                                        </div>
+                                                    )}
+
+                                                    {ctaType === "email" && (
+                                                        <div className="space-y-1">
+                                                            <Label className="text-xs font-medium">Email</Label>
+                                                            <p className="text-[11px] text-gray-500 bg-gray-50 rounded px-2.5 py-1.5">
+                                                                {contact.email || "Complete the Email field above first"}
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                </>
+                                            )}
                                         </div>
 
                                         <div className="pt-4 border-t mt-2 flex justify-end">
