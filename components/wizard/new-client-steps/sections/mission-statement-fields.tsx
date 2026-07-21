@@ -162,7 +162,7 @@ export function MissionStatementFields({
               value={missionBody}
               onChange={(e) => onBodyChange(e.target.value)}
               rows={6}
-              maxLength={800}
+              maxLength={600}
               placeholder="Share the bigger mission behind your organization..."
               data-field="missionBody"
               destructive={errorFields.includes("missionBody")}
@@ -179,14 +179,14 @@ export function MissionStatementFields({
                     : !isBodyValid
                       ? bodyCharCount < 250
                         ? "Mission Statement must be at least 250 characters"
-                        : "Mission Statement must be 800 characters or less"
+                        : "Mission Statement must be 600 characters or less"
                       : undefined
                 }
               />
             )}
             {!errorFields.includes("missionBody") && bodyCharCount > 0 && (
               <p className="text-xs text-muted-foreground mt-1 dark:text-gray-400">
-                {bodyCharCount}/800 characters
+                {bodyCharCount}/600 characters
                 {bodyCharCount < 250 && (
                   <span className="text-amber-600 ml-2 dark:text-amber-400">
                     (minimum 250 characters)

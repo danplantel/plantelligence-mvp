@@ -303,18 +303,18 @@ export function WelcomeMissionSection({
                   onMissionFieldChange("missionBody", e.target.value);
                 }}
                 rows={6}
-                maxLength={800}
+                maxLength={600}
                 placeholder="Share the bigger mission behind your organization..."
                 data-field="missionBody"
                 destructive={errorFields.includes("missionBody")}
               />
               <div className="flex items-center justify-between mt-1">
-                <p className={`text-xs ${missionBody.length >= 250 && missionBody.length <= 800 ? "text-muted-foreground dark:text-gray-400" : "text-red-500 dark:text-red-400"}`}>
-                  {missionBody.length}/800 characters
+                <p className={`text-xs ${missionBody.length >= 250 && missionBody.length <= 600 ? "text-muted-foreground dark:text-gray-400" : "text-red-500 dark:text-red-400"}`}>
+                  {missionBody.length}/600 characters
                 </p>
-                {missionBody.length > 0 && (missionBody.length < 250 || missionBody.length > 800) && (
+                {missionBody.length > 0 && (missionBody.length < 250 || missionBody.length > 600) && (
                   <Badge variant="destructive" className="text-xs">
-                    {missionBody.length < 250 ? "Too short (min 250)" : "Too long (max 800)"}
+                    {missionBody.length < 250 ? "Too short (min 250)" : "Too long (max 600)"}
                   </Badge>
                 )}
               </div>
