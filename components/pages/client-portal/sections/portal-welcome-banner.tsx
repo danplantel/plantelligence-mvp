@@ -288,12 +288,12 @@ export function PortalWelcomeBanner({
 
               {/* Title */}
               <div
-                className="relative cursor-pointer group"
+                className={`relative ${onTitleClick ? "cursor-pointer group" : ""}`}
                 onClick={(e) => { e.stopPropagation(); onTitleClick?.(); }}
-                onMouseEnter={() => setHoveredField("title")}
-                onMouseLeave={() => setHoveredField(null)}
+                onMouseEnter={() => onTitleClick && setHoveredField("title")}
+                onMouseLeave={() => onTitleClick && setHoveredField(null)}
               >
-                {hoveredField === "title" && <EditPencil />}
+                {onTitleClick && hoveredField === "title" && <EditPencil />}
                 <h1 className="font-unna font-dm-serif text-3xl leading-tight text-white sm:text-4xl lg:text-5xl">
                   {headline}
                 </h1>
@@ -301,12 +301,12 @@ export function PortalWelcomeBanner({
 
               {/* Description paragraphs */}
               <div
-                className="relative cursor-pointer group mt-6"
+                className={`relative ${onDescriptionClick ? "cursor-pointer group mt-6" : "mt-6"}`}
                 onClick={(e) => { e.stopPropagation(); onDescriptionClick?.(); }}
-                onMouseEnter={() => setHoveredField("description")}
-                onMouseLeave={() => setHoveredField(null)}
+                onMouseEnter={() => onDescriptionClick && setHoveredField("description")}
+                onMouseLeave={() => onDescriptionClick && setHoveredField(null)}
               >
-                {hoveredField === "description" && <EditPencil />}
+                {onDescriptionClick && hoveredField === "description" && <EditPencil />}
                 <div className="text-base font-red-hat space-y-4">
                   {descriptionParagraphs.map((para, idx) => (
                     <p key={idx}>{para}</p>

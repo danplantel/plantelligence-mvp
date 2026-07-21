@@ -96,12 +96,12 @@ export function PortalMaterialsHero({
 
               <div className="my-6 text-center">
                 <div
-                  className="relative inline-block cursor-pointer group"
+                  className={`relative inline-block ${onPlanIdClick ? "cursor-pointer group" : ""}`}
                   onClick={(e) => { e.stopPropagation(); onPlanIdClick?.(); }}
-                  onMouseEnter={() => setHoveredField("planId")}
-                  onMouseLeave={() => setHoveredField(null)}
+                  onMouseEnter={() => onPlanIdClick && setHoveredField("planId")}
+                  onMouseLeave={() => onPlanIdClick && setHoveredField(null)}
                 >
-                  {hoveredField === "planId" && <EditPencil />}
+                  {onPlanIdClick && hoveredField === "planId" && <EditPencil />}
                   <span className="inline-block rounded-lg bg-black/60 px-4 py-2 font-red-hat text-[16px] leading-tight font-semibold text-[#b78e42] backdrop-blur-sm">
                     {resolvedPlanIdLabel}
                   </span>

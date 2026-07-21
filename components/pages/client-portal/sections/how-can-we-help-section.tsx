@@ -89,12 +89,12 @@ export function HowCanWeHelpSection({
         {resolvedCards.map((card, index) => (
           <div
             key={card.id}
-            className="relative cursor-pointer group"
+            className={`relative ${onCardEdit ? "cursor-pointer group" : ""}`}
             onClick={() => onCardEdit?.(card.id)}
-            onMouseEnter={() => setHoveredCardId(card.id)}
-            onMouseLeave={() => setHoveredCardId(null)}
+            onMouseEnter={() => onCardEdit && setHoveredCardId(card.id)}
+            onMouseLeave={() => onCardEdit && setHoveredCardId(null)}
           >
-            {hoveredCardId === card.id && <EditPencil />}
+            {onCardEdit && hoveredCardId === card.id && <EditPencil />}
             <motion.div
               initial={{ opacity: 0, y: 50 }}
               animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
