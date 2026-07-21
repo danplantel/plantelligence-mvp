@@ -6,18 +6,14 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ColorPicker } from "@/components/ui/color-picker";
 import { useState, memo } from "react";
-import { RotateCcw, Palette, Users, ChevronDown, ChevronUp, User, Globe, Calendar, Mail, Phone, Building2, Trash2, Star } from "lucide-react";
+import { RotateCcw, ChevronDown, ChevronUp, Globe, Calendar, Mail, Phone, Building2, Trash2, Star } from "lucide-react";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import { cn } from "@/lib/utils";
 import { ContactFormFields } from "../../step-3-key-contacts/components/contact-form-fields";
-import { CompanyNameSelector } from "../../step-3-key-contacts/components/company-name-selector";
-import { ContactCardActions } from "../../step-3-key-contacts/components/contact-card-actions";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
-import { useEffect, useRef, useCallback, useMemo } from "react";
+import { useEffect, useRef, useMemo } from "react";
 import { BenefitsCategory, KeyContact } from "@/types/new-client-wizard";
-import { Badge } from "@/components/ui/badge";
 
 interface ContactSectionEditorProps {
     errorFields?: string[];
@@ -383,24 +379,6 @@ export const ContactSectionEditor = memo(function ContactSectionEditor({ errorFi
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
-
-                                        <div className="space-y-2 pt-4 border-t">
-                                            <Label className="text-xs font-medium uppercase text-gray-500">Actions & Links</Label>
-                                            <ContactCardActions
-                                                displayEmail={contact.displayEmail ?? true}
-                                                displayPhone={contact.displayPhone ?? true}
-                                                displayScheduleAppointment={contact.displayScheduleAppointment ?? false}
-                                                displayWebsite={contact.displayUrl ?? false}
-                                                onEmailChange={(v) => handleUpdateContactField(contact.id, "displayEmail", v)}
-                                                onPhoneChange={(v) => handleUpdateContactField(contact.id, "displayPhone", v)}
-                                                onScheduleAppointmentChange={(v) => handleUpdateContactField(contact.id, "displayScheduleAppointment", v)}
-                                                onWebsiteChange={(v) => handleUpdateContactField(contact.id, "displayUrl", v)}
-                                                contactInfoOrder={contact.contactInfoOrder as any || ["phone", "email"]}
-                                                onContactInfoOrderChange={(v) => handleUpdateContactField(contact.id, "contactInfoOrder", v)}
-                                                actionButtonOrder={contact.actionButtonOrder as any || ["schedule", "website"]}
-                                                onActionButtonOrderChange={(v) => handleUpdateContactField(contact.id, "actionButtonOrder", v)}
-                                            />
                                         </div>
 
                                         {/* CTA Button Section */}
