@@ -89,6 +89,8 @@ interface ContactCardPreviewProps {
   ctaType?: "schedule" | "call" | "email" | "contact";
   displayEmail?: boolean;
   displayPhone?: boolean;
+  /** Brand color for the CTA button background */
+  ctaColor?: string;
 }
 
 function ContactCardPreview({
@@ -109,6 +111,7 @@ function ContactCardPreview({
   ctaType = "schedule",
   displayEmail = true,
   displayPhone = true,
+  ctaColor = "#1F3A60",
 }: ContactCardPreviewProps) {
   const resolvedName =
     contactType === "individual"
@@ -220,25 +223,37 @@ function ContactCardPreview({
         {enableCtaButton && (
           <div className="w-full pt-1.5">
             {ctaType === "schedule" && (
-              <span className="inline-flex items-center gap-1.5 w-full justify-center rounded-md bg-accent-blue px-3 py-1.5 text-[10px] font-semibold text-white shadow-sm">
+              <span
+                className="inline-flex items-center gap-1.5 w-full justify-center rounded-md px-3 py-1.5 text-[10px] font-semibold text-white shadow-sm"
+                style={{ backgroundColor: ctaColor }}
+              >
                 <Calendar className="w-3 h-3" />
                 Schedule Appt.
               </span>
             )}
             {ctaType === "call" && (
-              <span className="inline-flex items-center gap-1.5 w-full justify-center rounded-md bg-accent-blue px-3 py-1.5 text-[10px] font-semibold text-white shadow-sm">
+              <span
+                className="inline-flex items-center gap-1.5 w-full justify-center rounded-md px-3 py-1.5 text-[10px] font-semibold text-white shadow-sm"
+                style={{ backgroundColor: ctaColor }}
+              >
                 <Phone className="w-3 h-3" />
                 Call Now
               </span>
             )}
             {ctaType === "email" && (
-              <span className="inline-flex items-center gap-1.5 w-full justify-center rounded-md bg-accent-blue px-3 py-1.5 text-[10px] font-semibold text-white shadow-sm">
+              <span
+                className="inline-flex items-center gap-1.5 w-full justify-center rounded-md px-3 py-1.5 text-[10px] font-semibold text-white shadow-sm"
+                style={{ backgroundColor: ctaColor }}
+              >
                 <Mail className="w-3 h-3" />
                 Send Email
               </span>
             )}
             {ctaType === "contact" && (
-              <span className="inline-flex items-center gap-1.5 w-full justify-center rounded-md bg-accent-blue px-3 py-1.5 text-[10px] font-semibold text-white shadow-sm">
+              <span
+                className="inline-flex items-center gap-1.5 w-full justify-center rounded-md px-3 py-1.5 text-[10px] font-semibold text-white shadow-sm"
+                style={{ backgroundColor: ctaColor }}
+              >
                 <Globe className="w-3 h-3" />
                 Contact
               </span>
@@ -1514,6 +1529,7 @@ export function ContactFormSlide({
             ctaType={ctaType}
             displayEmail={displayEmail}
             displayPhone={displayPhone}
+            ctaColor={stepData?.companyBasics?.primaryColor || "#1F3A60"}
           />
         </StickyPreviewContainer>
       </div>
