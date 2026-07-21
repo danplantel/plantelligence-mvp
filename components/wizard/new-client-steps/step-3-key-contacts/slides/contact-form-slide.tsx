@@ -371,11 +371,10 @@ export function ContactFormSlide({
   const [headshotFileName, setHeadshotFileName] = useState<string>(
     step3bData.headshotFileName || "",
   );
-  const [companyName, setCompanyName] = useState(
-    isFromSomeoneElse
-      ? (step3bData.companyName || "")
-      : (step3bData.companyName || defaultCompanyName || ""),
-  );
+  // Company/Organization always starts blank for new contacts.
+  // When editing an existing contact, the editingContactId useEffect
+  // below restores the saved companyName from step3b data.
+  const [companyName, setCompanyName] = useState("");
   const [isPrimary, setIsPrimary] = useState(
     category === "Company / Plan Sponsor"
       ? true
@@ -479,7 +478,7 @@ export function ContactFormSlide({
       setExternalAdminLogo(sb.externalAdminLogo || "");
       setExternalAdminLogoFileName(sb.externalAdminLogoFileName || "");
       setUseCustomLogo(sb.useCustomLogo === true);
-      setCompanyName(sb.companyName || defaultCompanyName || "");
+      setCompanyName(sb.companyName || "");
       setIsPrimary(
         category === "Company / Plan Sponsor"
           ? true
@@ -921,6 +920,11 @@ export function ContactFormSlide({
     // Custom Benefits is required when category is "Other Benefits"
     if (category === "Other Benefits" && !customBenefits.trim()) {
       errors.push("customBenefits");
+    }
+
+    // Company / Organization is required for non-Plan-Sponsor contacts
+    if (category !== "Company / Plan Sponsor" && !isFromSomeoneElse && !companyName.trim()) {
+      errors.push("companyName");
     }
 
     if (!phone.trim()) errors.push("phone");
@@ -1454,13 +1458,17 @@ export function ContactFormSlide({
             {category !== "Company / Plan Sponsor" && !isFromSomeoneElse && (
               <div className="space-y-1.5">
                 <Label className="dark:text-gray-300">
-                  Company / Organization (optional)
+                  Company / Organization <span className="text-red-500">*</span>
                 </Label>
                 <Input
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
                   placeholder="e.g. Benefits Provider Inc."
+                  className={cn("h-8 text-sm", hasError("companyName") && "border-red-500")}
                 />
+                {hasError("companyName") && (
+                  <p className="text-[10px] text-red-500">Company / Organization is required</p>
+                )}
               </div>
             )}
 
