@@ -14,6 +14,7 @@ import { Headshot } from "@/components/ui/headshot";
 import { BenefitsCategory, ContactType } from "@/types/new-client-wizard";
 import { cn } from "@/lib/utils";
 import { formatPhoneWithExtension } from "@/lib/phone-utils";
+import { toast } from "sonner";
 
 // ==================== Types ====================
 
@@ -402,6 +403,11 @@ export function ContactFormSlide({
   // Refs
   const firstNameRef = useRef<HTMLInputElement>(null);
   const lastNameRef = useRef<HTMLInputElement>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
+  const displayNameRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const phoneRef = useRef<HTMLInputElement>(null);
+  const customBenefitsRef = useRef<HTMLInputElement>(null);
   // Capture editingContactId on mount so auto-save preserves it without reactive deps
   const editingContactIdRef = useRef<string | null | undefined>(
     (stepData as any)?.step3b?.editingContactId,
@@ -874,15 +880,26 @@ export function ContactFormSlide({
     setValidationAttempted(true);
 
     if (errors.length > 0) {
-      // Focus first error field
+      // Scroll to and focus the first invalid field, then show a toast
       const firstError = errors[0];
-      if (firstError === "customBenefits") {
-        // Focus will be handled by scrolling to the input
-      } else if (firstError === "firstName" && firstNameRef.current) {
-        firstNameRef.current.focus();
-      } else if (firstError === "lastName" && lastNameRef.current) {
-        lastNameRef.current.focus();
+      const errorRefMap: Record<string, React.RefObject<HTMLInputElement | null>> = {
+        firstName: firstNameRef,
+        lastName: lastNameRef,
+        title: titleRef,
+        displayName: displayNameRef,
+        email: emailRef,
+        phone: phoneRef,
+        customBenefits: customBenefitsRef,
+      };
+      const targetRef = errorRefMap[firstError];
+      if (targetRef?.current) {
+        targetRef.current.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+        targetRef.current.focus();
       }
+      toast.error("Please fill out all required fields");
     }
 
     return errors.length === 0;
@@ -1067,6 +1084,7 @@ export function ContactFormSlide({
                   Custom Benefits <span className="text-red-500">*</span>
                 </Label>
                 <Input
+                  ref={customBenefitsRef}
                   value={customBenefits}
                   onChange={(e) => setCustomBenefits(e.target.value)}
                   placeholder="e.g. Disability, Dental, Vision, etc."
@@ -1119,6 +1137,7 @@ export function ContactFormSlide({
                     Job Title <span className="text-red-500">*</span>
                   </Label>
                   <Input
+                    ref={titleRef}
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder="e.g. HR Director"
@@ -1135,6 +1154,7 @@ export function ContactFormSlide({
                   Team / Department Name <span className="text-red-500">*</span>
                 </Label>
                 <Input
+                  ref={displayNameRef}
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   placeholder="e.g. Benefits Support Team"
@@ -1151,6 +1171,7 @@ export function ContactFormSlide({
                 Email <span className="text-red-500">*</span>
               </Label>
               <Input
+                ref={emailRef}
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -1169,6 +1190,7 @@ export function ContactFormSlide({
               <div className="flex gap-2">
                 <div className="flex-1">
                   <Input
+                    ref={phoneRef}
                     type="tel"
                     value={phone ? formatPhoneNumber(phone) : ""}
                     onChange={(e) => {
