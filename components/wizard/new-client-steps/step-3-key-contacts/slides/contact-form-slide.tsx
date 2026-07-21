@@ -122,7 +122,7 @@ function ContactCardPreview({
   const showAvatar = contactType === "individual";
 
   return (
-    <Card className="w-full max-w-xs overflow-hidden border border-gray-200 dark:border-gray-700 shadow-md rounded-xl bg-white dark:bg-gray-800">
+    <Card className="w-full max-w-xs overflow-hidden border border-gray-200 shadow-md rounded-xl bg-white">
       <CardContent className="p-5 flex flex-col items-center gap-3">
         {/* Company Logo above the headshot */}
         {companyLogoSrc?.trim() && (
@@ -153,39 +153,39 @@ function ContactCardPreview({
         {/* Name */}
         {resolvedName ? (
           <h3
-            className="text-base font-semibold text-center text-gray-900 dark:text-gray-100 font-dm-serif leading-tight"
+            className="text-base font-semibold text-center text-gray-900 font-dm-serif leading-tight"
           >
             {resolvedName}
           </h3>
         ) : (
-          <h3 className="text-base font-semibold text-center text-gray-400 dark:text-gray-500 font-dm-serif italic leading-tight">
+          <h3 className="text-base font-semibold text-center text-gray-400 font-dm-serif italic leading-tight">
             Contact name...
           </h3>
         )}
 
         {/* Title / Department */}
-        <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400 text-center -mt-1">
+        <p className="text-[11px] font-medium text-gray-500 text-center -mt-1">
           {resolvedTitle}
         </p>
 
         {/* Company name */}
         {companyName && (
-          <p className="text-[10px] text-gray-400 dark:text-gray-500 text-center -mt-1">
+          <p className="text-[10px] text-gray-400 text-center -mt-1">
             {companyName}
           </p>
         )}
 
         {/* Divider */}
-        <div className="w-full border-t border-gray-100 dark:border-gray-700 pt-2 space-y-1.5">
+        <div className="w-full border-t border-gray-100 pt-2 space-y-1.5">
           {/* Email — controlled by displayEmail toggle */}
           {displayEmail && (
             email ? (
-              <div className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-200">
+              <div className="flex items-center gap-2 text-[11px] text-gray-600">
                 <Mail className="w-3 h-3 flex-shrink-0" style={{ color: accentColor }} />
-                <span className="truncate text-gray-500 dark:text-gray-200">{email}</span>
+                <span className="truncate text-gray-500">{email}</span>
               </div>
             ) : (
-              <div className="flex items-center gap-2 text-[11px] text-gray-400 dark:text-gray-500">
+              <div className="flex items-center gap-2 text-[11px] text-gray-400">
                 <Mail className="w-3 h-3 flex-shrink-0" />
                 <span>email@company.com</span>
               </div>
@@ -195,12 +195,12 @@ function ContactCardPreview({
           {/* Phone — controlled by displayPhone toggle */}
           {displayPhone && (
             phone ? (
-              <div className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-200">
+              <div className="flex items-center gap-2 text-[11px] text-gray-600">
                 <Phone className="w-3 h-3 flex-shrink-0" style={{ color: accentColor }} />
-                <span className="truncate text-gray-500 dark:text-gray-200">{formatPhoneWithExtension(phone, phoneExtension)}</span>
+                <span className="truncate text-gray-500">{formatPhoneWithExtension(phone, phoneExtension)}</span>
               </div>
             ) : (
-              <div className="flex items-center gap-2 text-[11px] text-gray-400 dark:text-gray-500">
+              <div className="flex items-center gap-2 text-[11px] text-gray-400">
                 <Phone className="w-3 h-3 flex-shrink-0" />
                 <span>(555) 000-0000</span>
               </div>
