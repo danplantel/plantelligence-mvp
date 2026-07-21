@@ -1754,37 +1754,37 @@ export function DocumentsUploadSection({
             Category
           </Label>
 
-          {batchCategory === "Multiple" ? (
-            <div className="rounded-md border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-950/30">
+          <Select
+            value={batchCategory}
+            onValueChange={(v: any) => {
+              setBatchCategory(v);
+              if (v === "Multiple") {
+                setBatchMultipleCategories(["Retirement"]);
+              }
+            }}
+          >
+            <SelectTrigger
+              id="batch-category"
+              className="w-full dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"
+            >
+              <SelectValue placeholder="Select Category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Retirement">Retirement</SelectItem>
+              <SelectItem value="Group Life">Group Life</SelectItem>
+              <SelectItem value="Group Health">Group Health</SelectItem>
+              <SelectItem value="Multiple">Multiple</SelectItem>
+              <SelectItem value="Other Benefits">Other</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {batchCategory === "Multiple" && (
+            <div className="mt-3 rounded-md border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-950/30">
               <p className="text-xs text-blue-700 dark:text-blue-300">
                 You&rsquo;ll assign a category to each file individually in the review
                 step after upload and AI naming are complete.
               </p>
             </div>
-          ) : (
-            <Select
-              value={batchCategory}
-              onValueChange={(v: any) => {
-                setBatchCategory(v);
-                if (v === "Multiple") {
-                  setBatchMultipleCategories(["Retirement"]);
-                }
-              }}
-            >
-              <SelectTrigger
-                id="batch-category"
-                className="w-full dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"
-              >
-                <SelectValue placeholder="Select Category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Retirement">Retirement</SelectItem>
-                <SelectItem value="Group Life">Group Life</SelectItem>
-                <SelectItem value="Group Health">Group Health</SelectItem>
-                <SelectItem value="Multiple">Multiple</SelectItem>
-                <SelectItem value="Other Benefits">Other</SelectItem>
-              </SelectContent>
-            </Select>
           )}
         </div>
 

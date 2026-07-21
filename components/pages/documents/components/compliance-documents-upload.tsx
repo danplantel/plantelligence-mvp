@@ -966,6 +966,9 @@ export function ComplianceDocumentsUpload({
   };
 
   const handleApplyCategoryToAll = (category: BenefitsCategory) => {
+    // "Multiple" is not a real category assignment — skip so the dropdown stays open
+    // and the user can pick a different option.
+    if (category === "Multiple") return;
     const updatedDocuments = retirementPlanDocuments.map((doc) =>
       !doc.category ? { ...doc, category } : doc
     );
