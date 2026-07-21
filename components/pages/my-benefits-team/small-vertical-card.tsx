@@ -221,7 +221,7 @@ export function SmallVerticalCard({
         className={`${cardWidth} h-full ${minH} flex flex-col items-center rounded-xl border border-[#E5E5E5] ${cardPadding} shadow-sm transition-all duration-200 hover:shadow-md hover:border-gray-300 cursor-pointer`}
         style={{ backgroundColor }}
       >
-        <div className="flex flex-col items-center flex-shrink-0">
+        <div className="flex flex-col items-center flex-1 w-full">
           {/* LOGO AND COMPANY NAME */}
           <div className={`flex flex-col items-center gap-2 ${gapLogo} flex-shrink-0`} style={{ height: `${logoHeight * (contact.logoScale || baselineLogoScale || 1)}px` }}>
             {(contact.companyLogo || contact.logo) && (
@@ -374,7 +374,7 @@ export function SmallVerticalCard({
           )}
 
           {/* ACTION BUTTONS */}
-          <div className={`w-full ${buttonGap} flex-shrink-0 pt-2`}>
+          <div className={`w-full ${buttonGap} flex-shrink-0 pt-2 mt-auto`}>
             {hasAnyButton && buttons.map((button, idx) => {
               const isPrimaryButton = idx === primaryIndex;
               const buttonBg = isPrimaryButton
@@ -433,7 +433,7 @@ export function SmallVerticalCard({
       className={`${cardWidth} h-auto min-h-0 sm:min-h-[580px] flex flex-col items-center rounded-xl border border-[#E5E5E5] px-4 py-6 sm:px-8 sm:py-10 shadow-sm transition-all duration-200 hover:shadow-md hover:border-gray-300 cursor-pointer`}
       style={{ backgroundColor }}
     >
-      <div className="flex flex-col items-center flex-shrink-0">
+      <div className="flex flex-col items-center flex-1 w-full">
         {/* LOGO AND COMPANY NAME */}
         <div className="flex flex-col items-center gap-2 mb-3 sm:mb-6 flex-shrink-0">
           {(contact.companyLogo || contact.logo) && (
@@ -577,7 +577,7 @@ export function SmallVerticalCard({
 
         {/* ACTION BUTTONS - ALWAYS AT BOTTOM */}
         {hasAnyButton && (
-          <div className="w-full space-y-1 sm:space-y-2 flex-shrink-0">
+          <div className="w-full space-y-1 sm:space-y-2 flex-shrink-0 mt-auto">
             {buttons.map((button, idx) => {
               const isPrimaryButton = idx === primaryIndex;
               const buttonBg = isPrimaryButton

@@ -206,8 +206,8 @@ export function PrimaryContactCard({
           </div>
         </div>
 
-        {/* RIGHT: CONTENT */}
-        <div className="flex flex-col justify-center font-red-hat gap-2" style={{ color: textColor }}>
+        {/* RIGHT: CONTENT — uses flex-1 + mt-auto to push CTA buttons to the bottom */}
+        <div className="flex flex-col font-red-hat gap-2 h-full" style={{ color: textColor }}>
           {/* COMPANY LOGO */}
           {(contact.companyLogo || contact.logo) && (
             <div className="mb-1">
@@ -280,7 +280,7 @@ export function PrimaryContactCard({
           )}
 
           {/* SCHEDULE APPOINTMENT BUTTON */}
-          <div className="mt-4 w-full">
+          <div className="mt-auto w-full pt-4">
             {buttons.length > 0 ? (
               buttons.map((button, idx) => {
                 const isPrimaryButton = idx === primaryIndex;

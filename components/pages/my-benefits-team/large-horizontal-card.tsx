@@ -198,7 +198,7 @@ export function LargeHorizontalCard({
         </div>
       </div>
 
-      {/* RIGHT: CONTENT — top-aligned stack (avoid justify-between stretching on tall min-height cards) */}
+      {/* RIGHT: CONTENT — stretches vertically so action buttons are pushed to the bottom */}
       <div className="flex-1 min-w-0 text-left flex flex-col justify-start gap-4 py-1">
         {/* LOGO — full width of column so wordmarks can scale; height follows slider (1× = 120px) */}
         <div
