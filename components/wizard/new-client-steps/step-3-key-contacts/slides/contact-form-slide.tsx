@@ -125,13 +125,19 @@ function ContactCardPreview({
   return (
     <Card className="w-full max-w-xs overflow-hidden border border-gray-200 shadow-md rounded-xl bg-white">
       <CardContent className="p-5 flex flex-col items-center gap-3">
-        {/* Company Logo above the headshot */}
-        {companyLogoSrc?.trim() && (
+        {/* Company Logo above the headshot — or placeholder when not set */}
+        {companyLogoSrc?.trim() ? (
           <BrandingImage
             src={companyLogoSrc}
             alt="Company logo"
-            className="h-8 w-auto max-w-[140px] object-contain mb-1"
+            className="h-12 w-auto max-w-[120px] mb-1"
           />
+        ) : (
+          <div className="h-12 w-auto max-w-[120px] mb-1 flex items-center justify-center rounded bg-gray-50 border border-dashed border-gray-200 px-3">
+            <span className="text-[10px] text-gray-400 font-medium text-center leading-tight">
+              [Upload Logo]
+            </span>
+          </div>
         )}
 
         {/* Avatar / headshot */}
@@ -1470,7 +1476,9 @@ export function ContactFormSlide({
             companyLogoSrc={
               category !== "Company / Plan Sponsor" && externalAdminLogo
                 ? externalAdminLogo
-                : defaultCompanyLogo
+                : category === "Company / Plan Sponsor"
+                  ? defaultCompanyLogo
+                  : undefined
             }
             isPrimary={isPrimary}
             category={category}
