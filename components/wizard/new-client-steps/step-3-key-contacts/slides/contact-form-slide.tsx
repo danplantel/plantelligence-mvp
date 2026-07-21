@@ -362,7 +362,22 @@ export function ContactFormSlide({
       : (step3bData.companyName || defaultCompanyName || ""),
   );
   const [isPrimary, setIsPrimary] = useState(
-    category === "Company / Plan Sponsor" ? true : (step3bData.isPrimaryOverall ?? defaultIsPrimary),
+    category === "Company / Plan Sponsor"
+      ? true
+      : (() => {
+          // Auto-check primary when this is the first contact for the category
+          const existingContacts = (
+            stepData.keyContacts?.contacts || []
+          ) as any[];
+          const contactsInCategory = existingContacts.filter((c: any) => {
+            const cats: BenefitsCategory[] =
+              c.benefitsCategories ||
+              (c.benefitsCategory ? [c.benefitsCategory] : []);
+            return cats.includes(category);
+          });
+          const isFirstContact = contactsInCategory.length === 0;
+          return step3bData.isPrimaryOverall ?? (isFirstContact || defaultIsPrimary);
+        })(),
   );
 
   // Display toggles for Email / Phone on the card
@@ -453,7 +468,19 @@ export function ContactFormSlide({
       setIsPrimary(
         category === "Company / Plan Sponsor"
           ? true
-          : (sb.isPrimaryOverall ?? defaultIsPrimary),
+          : (() => {
+              const existingContacts = (
+                stepData.keyContacts?.contacts || []
+              ) as any[];
+              const contactsInCategory = existingContacts.filter((c: any) => {
+                const cats: BenefitsCategory[] =
+                  c.benefitsCategories ||
+                  (c.benefitsCategory ? [c.benefitsCategory] : []);
+                return cats.includes(category);
+              });
+              const isFirstContact = contactsInCategory.length === 0;
+              return sb.isPrimaryOverall ?? (isFirstContact || defaultIsPrimary);
+            })(),
       );
       setDisplayEmail(sb.displayEmail ?? true);
       setDisplayPhone(sb.displayPhone ?? true);
