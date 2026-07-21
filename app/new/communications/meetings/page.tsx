@@ -162,6 +162,8 @@ interface MeetingFormData {
   customBenefitsCategory: string;
 }
 
+const MAX_DESCRIPTION_LENGTH = 500;
+
 const DEFAULT_MEETING_DESCRIPTION =
   "Learn about upcoming plan options, updates, and key dates so you can make informed choices for the year ahead.";
 
@@ -774,7 +776,19 @@ export default function MeetingsPage() {
                               {meeting.benefitsCategory && <span className="text-[10px] font-medium text-muted-foreground/60 border border-border/40 px-1.5 py-px rounded shrink-0 leading-tight">{meeting.benefitsCategory}</span>}
                               {meeting.language && <span className={`text-[10px] font-semibold px-1.5 py-px rounded shrink-0 leading-tight ${meeting.language === "Spanish" ? "bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-200 border border-amber-200 dark:border-amber-700/50" : "bg-sky-50 dark:bg-sky-900/30 text-sky-700 dark:text-sky-200 border border-sky-200 dark:border-sky-700/50"}`}>{meeting.language === "Spanish" ? "ES" : "EN"}</span>}
                             </div>
-                            {meeting.description && <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed bg-muted/40 rounded-md px-2 py-1.5 border-l-2 border-primary/20">{meeting.description}</p>}
+                            {meeting.description && (
+                              <div className="group relative mt-1">
+                                <div className="flex items-start gap-2 bg-muted/30 rounded-lg px-3 py-2 border-l-2 border-accent-blue/20 hover:border-accent-blue/40 transition-colors">
+                                  <FileText className="h-3.5 w-3.5 text-muted-foreground/50 mt-0.5 shrink-0" />
+                                  <p
+                                    className="text-xs text-muted-foreground leading-relaxed line-clamp-2 group-hover:line-clamp-none transition-all duration-200"
+                                    title={meeting.description}
+                                  >
+                                    {meeting.description}
+                                  </p>
+                                </div>
+                              </div>
+                            )}
                           </div>
                           <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="h-7 w-7 p-0 shrink-0 opacity-50"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => handleEditMeeting(meeting)}><Edit className="mr-2 h-4 w-4" />Edit</DropdownMenuItem><DropdownMenuItem onClick={() => handleDuplicateMeeting(meeting)}><Copy className="mr-2 h-4 w-4" />Duplicate</DropdownMenuItem><DropdownMenuItem onClick={() => handleDeleteMeeting(meeting)} className="text-destructive dark:text-red-500"><Trash2 className="mr-2 h-4 w-4" />Delete</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
                         </div>
@@ -1032,7 +1046,19 @@ export default function MeetingsPage() {
             <div className="space-y-2">
               <Label>Description</Label>
               <Textarea value={formData.description} onChange={(e) => handleInputChange("description", e.target.value)}
-                rows={3} placeholder={DEFAULT_MEETING_DESCRIPTION} />
+                rows={3} placeholder={DEFAULT_MEETING_DESCRIPTION} maxLength={MAX_DESCRIPTION_LENGTH} />
+              <div className="flex justify-end">
+                <span className={cn(
+                  "text-xs tabular-nums",
+                  formData.description.length >= MAX_DESCRIPTION_LENGTH
+                    ? "text-red-500 font-medium"
+                    : formData.description.length >= MAX_DESCRIPTION_LENGTH * 0.9
+                      ? "text-amber-500"
+                      : "text-muted-foreground"
+                )}>
+                  {formData.description.length}/{MAX_DESCRIPTION_LENGTH}
+                </span>
+              </div>
             </div>
 
             {/* RSVP Link */}
