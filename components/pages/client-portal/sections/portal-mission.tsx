@@ -179,7 +179,7 @@ export function PortalMission({
             </div>
             <button
               onClick={handleScrollDown}
-              className="w-full sm:w-auto px-5 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm md:text-base text-white uppercase font-semibold rounded-md transition-colors duration-200 hover:opacity-90"
+              className="w-full sm:w-auto sm:self-start px-5 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm md:text-base text-white uppercase font-semibold rounded-md transition-colors duration-200 hover:opacity-90"
               style={{
                 background: secondaryColor || brandColor || "#D4A574",
               }}
