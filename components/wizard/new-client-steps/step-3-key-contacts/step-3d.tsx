@@ -440,13 +440,24 @@ export function NewClientStep3d({
     return placements.map((p) => p.contactId).filter((id) => id !== "");
   });
 
-  // Sync previewOrder with placements when they change
+  // Sync previewOrder with placements when they change.
+  // Guard against infinite loop: placements is a useMemo derived from
+  // sortedContacts (which always gets a new reference from Zustand), so
+  // the effect would fire every render and setPreviewOrder with a fresh
+  // array → another render → another placements reference → …
+  const prevPlacementsOrderRef = useRef<string>("");
+
   useEffect(() => {
     if (isDraggingRef.current || justFinishedDragRef.current) return;
 
     const newOrder = placements
       .map((p) => p.contactId)
       .filter((id) => id !== "");
+    const newOrderKey = JSON.stringify(newOrder);
+
+    if (prevPlacementsOrderRef.current === newOrderKey) return;
+    prevPlacementsOrderRef.current = newOrderKey;
+
     setPreviewOrder(newOrder);
   }, [placements]);
 
