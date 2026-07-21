@@ -56,6 +56,11 @@ interface LayoutOption {
   preview: React.ReactNode;
 }
 
+/** Preview layout constants — mirrors step-2 pattern */
+const DESKTOP_PREVIEW_WIDTH = 1100;
+const HEADER_HEIGHT = 72;
+const BOTTOM_NAV_HEIGHT = 72;
+
 // ==================== SLOT SYSTEM ====================
 
 type CardSlotType = "primary" | "large" | "small";
@@ -306,6 +311,19 @@ export function NewClientStep3d({
   const [isEditorAnimating, setIsEditorAnimating] = useState(false);
   const editorScrollContainerRef = useRef<HTMLDivElement>(null);
 
+  // Sidebar widening — pushes preview content right when editor opens
+  const originalSidebarWidthRef = useRef<string | null>(null);
+
+  // Scale state for preview content
+  const previewContentRef = useRef<HTMLDivElement>(null);
+  const scrollableRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  const [scaledHeight, setScaledHeight] = useState<number | undefined>(undefined);
+
+  // Toolbar height measurement
+  const barRef = useRef<HTMLDivElement>(null);
+  const [barHeight, setBarHeight] = useState(48);
+
   // Sync editor state with window events
   useEffect(() => {
     const handleOpenEditor = () => {
@@ -325,6 +343,76 @@ export function NewClientStep3d({
       window.removeEventListener("closeStep3Editor", handleCloseEditor);
     };
   }, []);
+
+  // ── Sidebar widening — pushes preview content right when editor opens ──
+  useEffect(() => {
+    const sidebarWidth = "36rem";
+    const shouldShift = isEditorOpen || isEditorAnimating;
+    if (shouldShift) {
+      if (originalSidebarWidthRef.current === null) {
+        originalSidebarWidthRef.current =
+          document.documentElement.style.getPropertyValue("--sidebar-width");
+      }
+      document.documentElement.style.setProperty("--sidebar-width", sidebarWidth);
+    } else {
+      if (originalSidebarWidthRef.current !== null) {
+        if (originalSidebarWidthRef.current) {
+          document.documentElement.style.setProperty(
+            "--sidebar-width",
+            originalSidebarWidthRef.current,
+          );
+        } else {
+          document.documentElement.style.removeProperty("--sidebar-width");
+        }
+        originalSidebarWidthRef.current = null;
+      }
+    }
+  }, [isEditorOpen, isEditorAnimating]);
+
+  // ── Measure toolbar height ──
+  useEffect(() => {
+    const el = barRef.current;
+    if (!el) return;
+    setBarHeight(el.offsetHeight);
+    const observer = new ResizeObserver(() => {
+      if (barRef.current) setBarHeight(barRef.current.offsetHeight);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // ── Scale calculation ──
+  const updateScale = useCallback(() => {
+    const content = previewContentRef.current;
+    const scrollable = scrollableRef.current;
+    if (!content || !scrollable) return;
+    const availableWidth = scrollable.clientWidth;
+    const newScale = Math.min(availableWidth / DESKTOP_PREVIEW_WIDTH, 1);
+    setScale(newScale);
+    const contentHeight = content.scrollHeight;
+    setScaledHeight(contentHeight * newScale);
+  }, []);
+
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => updateScale());
+    return () => cancelAnimationFrame(raf);
+  }, [updateScale, isEditorOpen]);
+
+  useEffect(() => {
+    const content = previewContentRef.current;
+    if (!content) return;
+    const observer = new ResizeObserver(() => updateScale());
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [updateScale]);
+
+  useEffect(() => {
+    const scrollable = scrollableRef.current;
+    if (!scrollable) return;
+    const observer = new ResizeObserver(() => updateScale());
+    observer.observe(scrollable);
+    return () => observer.disconnect();
+  }, [updateScale]);
 
   // Dispatch state change events for WizardStepper
   useEffect(() => {
@@ -1107,14 +1195,70 @@ export function NewClientStep3d({
     previewMode,
   ]);
 
+  const totalFixedHeight = HEADER_HEIGHT + barHeight + BOTTOM_NAV_HEIGHT;
+
   return (
-    <div
-      className="space-y-8 transition-all duration-200"
-      style={{
-        transition:
-          "margin-left 200ms ease-in-out, padding-left 200ms ease-in-out",
-      }}
-    >
+    <div>
+      {/* Spacer for fixed elements */}
+      <div style={{ height: HEADER_HEIGHT + barHeight }} />
+
+      {/* Fixed Toolbar */}
+      <div
+        className="fixed top-0 z-[45]"
+        style={{
+          left: "var(--sidebar-width, 18rem)",
+          width: "calc(100% - var(--sidebar-width, 18rem))",
+        }}
+      >
+        <div style={{ height: HEADER_HEIGHT }} />
+        <div
+          ref={barRef}
+          className="flex items-center justify-between px-4 py-3 bg-gray-100 border-b border-gray-200 dark:bg-gray-800 dark:border-gray-700"
+        >
+          <button
+            type="button"
+            onClick={() => {
+              if (isEditorOpen) {
+                setIsEditorAnimating(false);
+                setTimeout(() => setIsEditorOpen(false), 200);
+              } else {
+                setIsEditorOpen(true);
+                setTimeout(() => setIsEditorAnimating(true), 10);
+              }
+            }}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+          >
+            {isEditorOpen ? "Close Edit Panel" : "Open Edit Panel"}
+          </button>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPreviewMode("desktop")}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-2 text-sm transition-all rounded-l-lg border border-gray-200",
+                previewMode === "desktop"
+                  ? "bg-accent-blue text-white border-accent-blue"
+                  : "bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600",
+              )}
+            >
+              <Monitor className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setPreviewMode("mobile")}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-2 text-sm transition-all rounded-r-lg border border-gray-200",
+                previewMode === "mobile"
+                  ? "bg-accent-blue text-white border-accent-blue"
+                  : "bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600",
+              )}
+            >
+              <Smartphone className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
       {/* Side editor panel */}
       <EditorPanelWrapper
         isOpen={isEditorOpen}
@@ -1128,245 +1272,272 @@ export function NewClientStep3d({
         <ContactSectionEditor />
       </EditorPanelWrapper>
 
-      {/* Combined Preview Section with Collapsible Layout */}
-      {sortedContacts.length > 0 && (
-        <Card className="space-y-4 dark:bg-gray-800 dark:border-gray-700">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900 mb-1 flex items-center gap-2 dark:text-gray-100">
-                  <Palette className="w-5 h-5 text-accent-blue" />
-                  Preview
-                </h2>
-                <p className="text-sm max-w-[700px] text-muted-foreground">
-                  Choose a layout style for your contact cards. Drag and drop to
-                  reorder contacts directly in the preview.
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                {/* Desktop / Mobile Toggle */}
-                <div className="flex items-center rounded-lg border border-gray-200 overflow-hidden dark:border-gray-600">
-                  <button
-                    onClick={() => setPreviewMode("desktop")}
-                    className={cn(
-                      "flex items-center gap-1.5 px-3 py-2 text-sm transition-all cursor-pointer",
-                      previewMode === "desktop"
-                        ? "bg-accent-blue text-white"
-                        : "bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700",
-                    )}
-                  >
-                    <Monitor className="w-4 h-4" />
-                    <span className="hidden sm:inline">Desktop</span>
-                  </button>
-                  <button
-                    onClick={() => setPreviewMode("mobile")}
-                    className={cn(
-                      "flex items-center gap-1.5 px-3 py-2 text-sm transition-all cursor-pointer",
-                      previewMode === "mobile"
-                        ? "bg-accent-blue text-white"
-                        : "bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700",
-                    )}
-                  >
-                    <Smartphone className="w-4 h-4" />
-                    <span className="hidden sm:inline">Mobile</span>
-                  </button>
-                </div>
-
-                {/* Collapsible Layout Button */}
-                <button
-                  onClick={() =>
-                    setIsLayoutSectionCollapsed(!isLayoutSectionCollapsed)
-                  }
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all cursor-pointer text-sm dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-700"
-                >
-                  <LayoutGrid className="w-4 h-4 text-accent-blue" />
-                  <span className="text-gray-700 dark:text-gray-300">
-                    {isLayoutSectionCollapsed
-                      ? "Show Layout Options"
-                      : "Hide Layout Options"}
-                  </span>
-                  {isLayoutSectionCollapsed ? (
-                    <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                  ) : (
-                    <ChevronUp className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                  )}
-                </button>
-              </div>
-            </div>
-          </CardHeader>
-
-          <CardContent className="space-y-4">
-            {/* Collapsible Layout Section */}
-            {!isLayoutSectionCollapsed && (
-              <div className="space-y-4 pb-6 border-b border-gray-200 dark:border-gray-700">
-                <div>
-                  <h4 className="text-xs font-semibold text-gray-900 mb-2 dark:text-gray-100">
-                    {previewMode === "mobile"
-                      ? "Mobile Layout Style"
-                      : "Card Layout Style"}
-                  </h4>
-
-                  {/* Desktop Layout Options */}
-                  {previewMode === "desktop" && (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {layoutOptions.map((layout) => {
-                        const isSelected = layoutStyle === layout.id;
-                        return (
-                          <Card
-                            key={layout.id}
-                            className={cn(
-                              "cursor-pointer transition-all duration-200 hover:shadow-md h-[120px] overflow-hidden",
-                              isSelected
-                                ? "border-2 border-accent-blue shadow-sm"
-                                : "border border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500",
-                            )}
-                            onClick={() => handleLayoutChange(layout.id)}
-                          >
-                            <CardContent className="p-1 h-full flex flex-col">
-                              <div className="flex items-center justify-between mb-0.5">
-                                <h4 className="text-[9px] font-semibold text-gray-900 leading-tight dark:text-gray-100">
-                                  {layout.name}
-                                </h4>
-                                {isSelected && (
-                                  <div className="w-1.5 h-1.5 rounded-full bg-accent-blue flex-shrink-0" />
-                                )}
-                              </div>
-                              <div className="flex-1 flex items-center justify-center overflow-hidden">
-                                <div className="scale-[0.5] origin-center w-full">
-                                  {layout.preview}
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Mobile Layout Options */}
-                  {previewMode === "mobile" && (
-                    <div className="grid grid-cols-3 gap-2">
-                      {mobileLayoutOptions.map((layout) => {
-                        const isSelected = mobileLayoutStyle === layout.id;
-                        return (
-                          <Card
-                            key={layout.id}
-                            className={cn(
-                              "cursor-pointer transition-all duration-200 hover:shadow-md h-[110px] overflow-hidden",
-                              isSelected
-                                ? "border-2 border-accent-blue shadow-sm"
-                                : "border border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500",
-                            )}
-                            onClick={() => setMobileLayoutStyle(layout.id)}
-                          >
-                            <CardContent className="p-1 h-full flex flex-col">
-                              <div className="flex items-center justify-between mb-0.5">
-                                <h4 className="text-[9px] font-semibold text-gray-900 leading-tight dark:text-gray-100">
-                                  {layout.name}
-                                </h4>
-                                {isSelected && (
-                                  <div className="w-1.5 h-1.5 rounded-full bg-accent-blue flex-shrink-0" />
-                                )}
-                              </div>
-                              <div className="flex-1 flex items-center justify-center overflow-hidden">
-                                <div className="scale-[0.5] origin-center w-full">
-                                  {layout.preview}
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Preview Content */}
-            <div className="bg-[#F8F8F3] rounded-lg p-8 border border-gray-200">
-              {/* Mobile frame wrapper */}
+      {/* Preview Container — shifts right with sidebar and scales content down */}
+      <div
+        className="fixed z-40 flex flex-col"
+        style={{
+          top: HEADER_HEIGHT + barHeight,
+          left: "var(--sidebar-width, 18rem)",
+          width: "calc(100% - var(--sidebar-width, 18rem))",
+          height: `calc(100vh - ${totalFixedHeight}px)`,
+        }}
+      >
+        <div
+          ref={scrollableRef}
+          className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-300 dark:bg-gray-950 flex flex-col items-center"
+        >
+          {sortedContacts.length > 0 && (
+            <div style={{ height: scaledHeight != null ? `${scaledHeight}px` : "100%" }}>
               <div
-                className={cn(
-                  previewMode === "mobile" &&
-                    "max-w-[375px] mx-auto rounded-[3rem] border-[6px] border-gray-800 dark:border-gray-600 bg-white dark:bg-gray-950 shadow-xl overflow-hidden",
-                )}
+                ref={previewContentRef}
+                style={{
+                  transform: `scale(${scale})`,
+                  transformOrigin: "center top",
+                  width: `${DESKTOP_PREVIEW_WIDTH}px`,
+                  padding: "2rem",
+                }}
               >
-                {/* Notch bar for mobile frame */}
-                {previewMode === "mobile" && (
-                  <div className="flex items-center justify-center py-2 bg-gray-800 dark:bg-gray-600">
-                    <div className="w-16 h-1.5 rounded-full bg-gray-600 dark:bg-gray-400" />
+                {/* Combined Preview Section with Collapsible Layout */}
+                <Card className="space-y-4 dark:bg-gray-800 dark:border-gray-700">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h2 className="text-xl font-semibold text-gray-900 mb-1 flex items-center gap-2 dark:text-gray-100">
+                          <Palette className="w-5 h-5 text-accent-blue" />
+                          Preview
+                        </h2>
+                        <p className="text-sm max-w-[700px] text-muted-foreground">
+                          Choose a layout style for your contact cards. Drag and drop to
+                          reorder contacts directly in the preview.
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {/* Desktop / Mobile Toggle */}
+                        <div className="flex items-center rounded-lg border border-gray-200 overflow-hidden dark:border-gray-600">
+                          <button
+                            onClick={() => setPreviewMode("desktop")}
+                            className={cn(
+                              "flex items-center gap-1.5 px-3 py-2 text-sm transition-all cursor-pointer",
+                              previewMode === "desktop"
+                                ? "bg-accent-blue text-white"
+                                : "bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700",
+                            )}
+                          >
+                            <Monitor className="w-4 h-4" />
+                            <span className="hidden sm:inline">Desktop</span>
+                          </button>
+                          <button
+                            onClick={() => setPreviewMode("mobile")}
+                            className={cn(
+                              "flex items-center gap-1.5 px-3 py-2 text-sm transition-all cursor-pointer",
+                              previewMode === "mobile"
+                                ? "bg-accent-blue text-white"
+                                : "bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700",
+                            )}
+                          >
+                            <Smartphone className="w-4 h-4" />
+                            <span className="hidden sm:inline">Mobile</span>
+                          </button>
+                        </div>
+
+                        {/* Collapsible Layout Button */}
+                        <button
+                          onClick={() =>
+                            setIsLayoutSectionCollapsed(!isLayoutSectionCollapsed)
+                          }
+                          className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all cursor-pointer text-sm dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-700"
+                        >
+                          <LayoutGrid className="w-4 h-4 text-accent-blue" />
+                          <span className="text-gray-700 dark:text-gray-300">
+                            {isLayoutSectionCollapsed
+                              ? "Show Layout Options"
+                              : "Hide Layout Options"}
+                          </span>
+                          {isLayoutSectionCollapsed ? (
+                            <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                          ) : (
+                            <ChevronUp className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </CardHeader>
+
+                  <CardContent className="space-y-4">
+                    {/* Collapsible Layout Section */}
+                    {!isLayoutSectionCollapsed && (
+                      <div className="space-y-4 pb-6 border-b border-gray-200 dark:border-gray-700">
+                        <div>
+                          <h4 className="text-xs font-semibold text-gray-900 mb-2 dark:text-gray-100">
+                            {previewMode === "mobile"
+                              ? "Mobile Layout Style"
+                              : "Card Layout Style"}
+                          </h4>
+
+                          {/* Desktop Layout Options */}
+                          {previewMode === "desktop" && (
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                              {layoutOptions.map((layout) => {
+                                const isSelected = layoutStyle === layout.id;
+                                return (
+                                  <Card
+                                    key={layout.id}
+                                    className={cn(
+                                      "cursor-pointer transition-all duration-200 hover:shadow-md h-[120px] overflow-hidden",
+                                      isSelected
+                                        ? "border-2 border-accent-blue shadow-sm"
+                                        : "border border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500",
+                                    )}
+                                    onClick={() => handleLayoutChange(layout.id)}
+                                  >
+                                    <CardContent className="p-1 h-full flex flex-col">
+                                      <div className="flex items-center justify-between mb-0.5">
+                                        <h4 className="text-[9px] font-semibold text-gray-900 leading-tight dark:text-gray-100">
+                                          {layout.name}
+                                        </h4>
+                                        {isSelected && (
+                                          <div className="w-1.5 h-1.5 rounded-full bg-accent-blue flex-shrink-0" />
+                                        )}
+                                      </div>
+                                      <div className="flex-1 flex items-center justify-center overflow-hidden">
+                                        <div className="scale-[0.5] origin-center w-full">
+                                          {layout.preview}
+                                        </div>
+                                      </div>
+                                    </CardContent>
+                                  </Card>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {/* Mobile Layout Options */}
+                          {previewMode === "mobile" && (
+                            <div className="grid grid-cols-3 gap-2">
+                              {mobileLayoutOptions.map((layout) => {
+                                const isSelected = mobileLayoutStyle === layout.id;
+                                return (
+                                  <Card
+                                    key={layout.id}
+                                    className={cn(
+                                      "cursor-pointer transition-all duration-200 hover:shadow-md h-[110px] overflow-hidden",
+                                      isSelected
+                                        ? "border-2 border-accent-blue shadow-sm"
+                                        : "border border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500",
+                                    )}
+                                    onClick={() => setMobileLayoutStyle(layout.id)}
+                                  >
+                                    <CardContent className="p-1 h-full flex flex-col">
+                                      <div className="flex items-center justify-between mb-0.5">
+                                        <h4 className="text-[9px] font-semibold text-gray-900 leading-tight dark:text-gray-100">
+                                          {layout.name}
+                                        </h4>
+                                        {isSelected && (
+                                          <div className="w-1.5 h-1.5 rounded-full bg-accent-blue flex-shrink-0" />
+                                        )}
+                                      </div>
+                                      <div className="flex-1 flex items-center justify-center overflow-hidden">
+                                        <div className="scale-[0.5] origin-center w-full">
+                                          {layout.preview}
+                                        </div>
+                                      </div>
+                                    </CardContent>
+                                  </Card>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Preview Content */}
+                    <div className="bg-[#F8F8F3] rounded-lg p-8 border border-gray-200">
+                      {/* Mobile frame wrapper */}
+                      <div
+                        className={cn(
+                          previewMode === "mobile" &&
+                            "max-w-[375px] mx-auto rounded-[3rem] border-[6px] border-gray-800 dark:border-gray-600 bg-white dark:bg-gray-950 shadow-xl overflow-hidden",
+                        )}
+                      >
+                        {/* Notch bar for mobile frame */}
+                        {previewMode === "mobile" && (
+                          <div className="flex items-center justify-center py-2 bg-gray-800 dark:bg-gray-600">
+                            <div className="w-16 h-1.5 rounded-full bg-gray-600 dark:bg-gray-400" />
+                          </div>
+                        )}
+
+                        <div
+                          className={cn(
+                            previewMode === "mobile" ? "px-3 py-4" : undefined,
+                          )}
+                        >
+                          <div
+                            className={cn(
+                              "text-center",
+                              previewMode === "mobile" ? "mb-4" : "mb-16",
+                            )}
+                          >
+                            <h1
+                              className={cn(
+                                "font-semibold",
+                                previewMode === "mobile"
+                                  ? "text-2xl"
+                                  : "text-4xl",
+                              )}
+                              style={{
+                                fontFamily: '"DM Serif Display", serif',
+                                color: brandColor,
+                              }}
+                            >
+                              My Benefits Team
+                            </h1>
+                          </div>
+                          <DndContext
+                            sensors={sensors}
+                            collisionDetection={closestCenter}
+                            measuring={{
+                              droppable: {
+                                strategy: MeasuringStrategy.Always,
+                              },
+                            }}
+                            onDragStart={handlePreviewDragStart}
+                            onDragOver={handlePreviewDragOver}
+                            onDragEnd={handlePreviewDragEnd}
+                            onDragCancel={handlePreviewDragCancel}
+                          >
+                            <SortableContext
+                              key={`layout-${currentDisplayStyle}`}
+                              items={previewOrder}
+                              strategy={rectSortingStrategy}
+                            >
+                              <div className="w-full min-w-0 max-w-none">{previewContent}</div>
+                            </SortableContext>
+                          </DndContext>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                {/* Back button to return to Category Explorer */}
+                {onBack && (
+                  <div className="flex justify-center pt-4 pb-8">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={onBack}
+                      className="flex items-center gap-2"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      Back to Categories
+                    </Button>
                   </div>
                 )}
-
-                <div
-                  className={cn(
-                    previewMode === "mobile" ? "px-3 py-4" : undefined,
-                  )}
-                >
-                  <div
-                    className={cn(
-                      "text-center",
-                      previewMode === "mobile" ? "mb-4" : "mb-16",
-                    )}
-                  >
-                    <h1
-                      className={cn(
-                        "font-semibold",
-                        previewMode === "mobile"
-                          ? "text-2xl"
-                          : "text-4xl",
-                      )}
-                      style={{
-                        fontFamily: '"DM Serif Display", serif',
-                        color: brandColor,
-                      }}
-                    >
-                      My Benefits Team
-                    </h1>
-                  </div>
-                  <DndContext
-                    sensors={sensors}
-                    collisionDetection={closestCenter}
-                    measuring={{
-                      droppable: {
-                        strategy: MeasuringStrategy.Always,
-                      },
-                    }}
-                    onDragStart={handlePreviewDragStart}
-                    onDragOver={handlePreviewDragOver}
-                    onDragEnd={handlePreviewDragEnd}
-                    onDragCancel={handlePreviewDragCancel}
-                  >
-                    <SortableContext
-                      key={`layout-${currentDisplayStyle}`}
-                      items={previewOrder}
-                      strategy={rectSortingStrategy}
-                    >
-                      <div className="w-full min-w-0 max-w-none">{previewContent}</div>
-                    </SortableContext>
-                  </DndContext>
-                </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Back button to return to Category Explorer */}
-      {onBack && (
-        <div className="flex justify-center pt-4 pb-8">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onBack}
-            className="flex items-center gap-2"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            Back to Categories
-          </Button>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
