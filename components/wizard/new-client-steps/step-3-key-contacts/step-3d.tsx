@@ -496,11 +496,13 @@ export function NewClientStep3d({
   }, [sortedContacts, contacts]);
 
   // Transform KeyContact to Contact format — memoized on a stable JSON key so new
-  // object references from the store don't force downstream re-renders.
+  // object references from the store don't force downstream re-renders, BUT also
+  // captures field-level changes (firstName, email, phone, etc.) so that edits in
+  // the side panel produce real-time preview updates.
   // Derives from sortedContacts (always reflects current store data) instead of local contacts state
   // which can be stale due to sync-effect guards. Visual order is driven by previewOrder, not by this array.
   const previewContactsKey = useMemo(
-    () => JSON.stringify(sortedContacts.map((c) => c.id)),
+    () => JSON.stringify(sortedContacts),
     [sortedContacts],
   );
   const previewContacts = useMemo(() => {
