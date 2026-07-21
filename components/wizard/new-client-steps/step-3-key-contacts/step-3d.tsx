@@ -15,6 +15,7 @@ import {
   Palette,
   Monitor,
   Smartphone,
+  Pencil,
 } from "lucide-react";
 import { BenefitsCategory, KeyContact } from "@/types/new-client-wizard";
 import { cn } from "@/lib/utils";
@@ -121,12 +122,12 @@ function SortablePreviewCard({
   id,
   children,
   isDragging: externalIsDragging,
-  onClick,
+  onEdit,
 }: {
   id: string | number;
   children: React.ReactNode;
   isDragging?: boolean;
-  onClick?: () => void;
+  onEdit?: () => void;
 }) {
   const {
     attributes,
@@ -163,14 +164,20 @@ function SortablePreviewCard({
       )}
       {...attributes}
       {...listeners}
-      onClick={(e) => {
-        // Only trigger click if not clicking on the drag handle
-        const target = e.target as HTMLElement;
-        if (!target.closest('[title="Drag to reorder"]')) {
-          onClick?.();
-        }
-      }}
     >
+      {/* Edit button — visible on hover, positioned next to drag handle */}
+      {onEdit && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onEdit(); }}
+          className="absolute top-2 left-12 z-20 opacity-0 group-hover:opacity-100 transition-opacity bg-white border border-gray-300 rounded-md px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-accent-blue shadow-sm"
+          title="Edit this contact"
+        >
+          <Pencil className="w-3 h-3 inline mr-1" />
+          Edit
+        </button>
+      )}
+
       {/* Gray drag handle - visible on hover and when dragging */}
       <div
         {...dragHandleListeners}
@@ -468,10 +475,23 @@ export function NewClientStep3d({
         setIsEditorOpen(true);
         setTimeout(() => setIsEditorAnimating(true), 10);
       }
-      // Dispatch focus event for the specific contact
-      window.dispatchEvent(
-        new CustomEvent("focusContact", { detail: { contactId } }),
-      );
+
+      // If editor is already open, dispatch focus immediately.
+      // If it needs to open first, wait for ContactSectionEditor to mount
+      // (EditorPanelWrapper returns null when closed, so the focusContact
+      //  event listener won't be registered yet).
+      if (isEditorOpen) {
+        window.dispatchEvent(
+          new CustomEvent("focusContact", { detail: { contactId } }),
+        );
+      } else {
+        // Give React time to render the editor + its useEffect to register the listener
+        setTimeout(() => {
+          window.dispatchEvent(
+            new CustomEvent("focusContact", { detail: { contactId } }),
+          );
+        }, 300);
+      }
     },
     [isEditorOpen],
   );
@@ -1059,7 +1079,7 @@ export function NewClientStep3d({
             key={contact.id}
             id={contact.id}
             isDragging={activePreviewId === contact.id}
-            onClick={() => handleCardClick(contact.id)}
+            onEdit={() => handleCardClick(contact.id)}
           >
             <RenderCardBySlot
               slot={effectiveSlot}
@@ -1306,7 +1326,7 @@ export function NewClientStep3d({
                           <Palette className="w-5 h-5 text-accent-blue" />
                           Preview
                         </h2>
-                        <p className="text-sm max-w-[700px] text-muted-foreground">
+                        <p className="text-sm max-w-[500px] text-muted-foreground">
                           Choose a layout style for your contact cards. Drag and drop to
                           reorder contacts directly in the preview.
                         </p>
