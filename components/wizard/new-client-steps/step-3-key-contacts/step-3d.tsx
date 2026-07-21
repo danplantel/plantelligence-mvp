@@ -314,12 +314,17 @@ export function NewClientStep3d({
     currentStep,
   } = useNewClientWizardStore();
 
-  // Show skeleton during the initial render frame while card components mount
-  const [showPreviewSkeleton, setShowPreviewSkeleton] = useState(true);
+  // Show skeleton when this step becomes active (step3SubStep === "step3d")
+  const step3SubStep = (stepData as any)?.step3SubStep?.step3SubStep;
+  const isStep3dActive = step3SubStep === "step3d";
+  const [showPreviewSkeleton, setShowPreviewSkeleton] = useState(false);
   useEffect(() => {
-    const raf = requestAnimationFrame(() => setShowPreviewSkeleton(false));
-    return () => cancelAnimationFrame(raf);
-  }, []);
+    if (isStep3dActive) {
+      setShowPreviewSkeleton(true);
+      const timer = setTimeout(() => setShowPreviewSkeleton(false), 600);
+      return () => clearTimeout(timer);
+    }
+  }, [isStep3dActive]);
 
   // Editor state
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -1314,7 +1319,7 @@ export function NewClientStep3d({
           ref={scrollableRef}
           className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-300 dark:bg-gray-950 flex flex-col items-center"
         >
-          {sortedContacts.length > 0 && !showPreviewSkeleton ? (
+          {!showPreviewSkeleton ? (
             <div style={{ height: scaledHeight != null ? `${scaledHeight}px` : "100%" }}>
               <div
                 ref={previewContentRef}
