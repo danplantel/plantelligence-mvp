@@ -1537,7 +1537,7 @@ export function ContactFormSlide({
             ctaType={ctaType}
             displayEmail={displayEmail}
             displayPhone={displayPhone}
-            ctaColor={stepData?.companyBasics?.primaryColor || "#1F3A60"}
+            ctaColor={stepData?.companyBasics?.secondaryColor || "#6B7280"}
           />
         </StickyPreviewContainer>
       </div>
