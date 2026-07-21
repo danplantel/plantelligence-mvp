@@ -130,10 +130,11 @@ function ContactCardPreview({
           <BrandingImage
             src={companyLogoSrc}
             alt="Company logo"
-            className="h-12 w-auto max-w-[120px] mb-1"
+            className="!w-[120px] h-12 mb-1"
+            style={{ width: "120px", overflow: "visible" }}
           />
         ) : (
-          <div className="h-12 w-auto max-w-[120px] mb-1 flex items-center justify-center rounded bg-gray-50 border border-dashed border-gray-200 px-3">
+          <div className="h-12 w-[120px] mb-1 flex items-center justify-center rounded bg-gray-50 border border-dashed border-gray-200 px-3">
             <span className="text-[10px] text-gray-400 font-medium text-center leading-tight">
               [Upload Logo]
             </span>
