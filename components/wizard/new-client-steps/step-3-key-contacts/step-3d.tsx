@@ -551,7 +551,7 @@ export function NewClientStep3d({
         benefitsCategory: mapBenefitsCategory(rawBenefitsCategory),
         benefitsCategoryOther: contact.benefitsCategoryOther,
         categoryLabel,
-        companyName: "",
+        companyName: contact.companyName || "",
         contactType: contact.contactType,
         displayName: contact.displayName,
         teamImage: contact.teamImage,
