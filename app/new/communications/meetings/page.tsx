@@ -126,6 +126,8 @@ interface Client {
   id: string;
   companyName: string;
   status?: string;
+  brandColor?: string;
+  secondaryColor?: string;
 }
 
 const benefitsChipStyles = {
@@ -162,7 +164,7 @@ interface MeetingFormData {
   customBenefitsCategory: string;
 }
 
-const MAX_DESCRIPTION_LENGTH = 500;
+const MAX_DESCRIPTION_LENGTH = 180;
 
 const DEFAULT_MEETING_DESCRIPTION =
   "Learn about upcoming plan options, updates, and key dates so you can make informed choices for the year ahead.";
@@ -1170,6 +1172,14 @@ export default function MeetingsPage() {
             {formData.clientId ? (
               <WebinarsSection
                 clientId={formData.clientId}
+                brandColor={(() => {
+                  const client = clients.find((c) => c.id === formData.clientId);
+                  return client?.brandColor || "#002B5B";
+                })()}
+                secondaryColor={(() => {
+                  const client = clients.find((c) => c.id === formData.clientId);
+                  return client?.secondaryColor || "#C9A961";
+                })()}
                 onLoadComplete={() => setPreviewLoading(false)}
               />
             ) : (

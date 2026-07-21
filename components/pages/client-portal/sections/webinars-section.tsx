@@ -25,6 +25,7 @@ export interface UpcomingWebinar {
   registrationLink?: string;
   replayLink?: string;
   isPast?: boolean;
+  description?: string;
 }
 
 type WebinarLanguage = "EN" | "ES";
@@ -129,6 +130,10 @@ function mapHubMeetingToWebinar(
     typeof m.timezone === "string" && m.timezone.trim()
       ? m.timezone.trim()
       : "";
+  const description =
+    typeof m.description === "string" && m.description.trim()
+      ? m.description.trim()
+      : "";
 
   const isUrl = (s: string) => hasWebUrlPrefix(s);
   const locAsLink = loc && isUrl(loc) ? loc : undefined;
@@ -145,6 +150,7 @@ function mapHubMeetingToWebinar(
     location: loc && !isUrl(loc) ? loc : undefined,
     replayLink: replay || undefined,
     isPast,
+    description,
   };
 }
 
@@ -169,45 +175,54 @@ export function UpcomingWebinarCard({
   const isPast = Boolean(webinar.isPast);
   const replayHref = webinar.replayLink?.trim();
   const canReplay = isHttpUrl(replayHref);
+  const hasDescription = Boolean(webinar.description?.trim());
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-full">
       {/* Top accent bar */}
       <div style={{ backgroundColor: accentColor }} className="h-2 w-full shrink-0" />
 
-      {/* Calendar icon + session type row */}
-      <div className="flex items-center gap-3 px-6 pt-6 pb-3">
+      {/* Header: icon + format + title combined */}
+      <div className="flex items-start gap-3 px-6 pt-6 pb-3">
         <div
-          className="inline-flex p-2.5 rounded-lg shrink-0"
+          className="inline-flex p-2.5 rounded-lg shrink-0 mt-0.5"
           style={{ backgroundColor: accentColor + "18" }}
         >
           <Calendar className="w-5 h-5" style={{ color: accentColor }} />
         </div>
-        <span className="text-sm font-semibold uppercase tracking-wider" style={{ color: accentColor }}>
-          {formatLabel}
-        </span>
+        <div className="min-w-0 flex-1">
+          <span className="text-sm font-semibold uppercase tracking-wider" style={{ color: accentColor }}>
+            {formatLabel}
+          </span>
+          <h3 className="text-xl font-bold text-[#002B5B] leading-snug mt-1">
+            {webinar.title}
+          </h3>
+        </div>
       </div>
 
       {/* Content body */}
       <div className="px-6 pb-4 flex-1 space-y-4">
-        <h3 className="text-xl font-bold text-[#002B5B] leading-snug">
-          {webinar.title}
-        </h3>
 
-        {/* Description placeholder */}
-        <div className="text-sm text-gray-600 space-y-2 leading-relaxed">
-          <p>
-            Join us for this informative session covering key plan features and strategies
-            to help you make informed decisions about your benefits.
-          </p>
-          <p className="font-semibold text-gray-800">What we&rsquo;ll cover:</p>
-          <ul className="list-disc list-inside space-y-1 text-gray-600">
-            <li>Plan features and investment options</li>
-            <li>How to make the most of your benefits</li>
-            <li>Key dates and deadlines</li>
-            <li>Resources available to help</li>
-          </ul>
-        </div>
+        {/* Description — show actual content from the meeting, fall back to defaults */}
+        {hasDescription ? (
+          <div className="text-sm text-gray-600 leading-relaxed line-clamp-4">
+            {webinar.description}
+          </div>
+        ) : (
+          <div className="text-sm text-gray-600 space-y-2 leading-relaxed">
+            <p>
+              Join us for this informative session covering key plan features and strategies
+              to help you make informed decisions about your benefits.
+            </p>
+            <p className="font-semibold text-gray-800">What we&rsquo;ll cover:</p>
+            <ul className="list-disc list-inside space-y-1 text-gray-600">
+              <li>Plan features and investment options</li>
+              <li>How to make the most of your benefits</li>
+              <li>Key dates and deadlines</li>
+              <li>Resources available to help</li>
+            </ul>
+          </div>
+        )}
 
         {/* Details */}
         <div className="space-y-3 pt-2 border-t border-gray-100">
