@@ -6,6 +6,7 @@ import { useClientPortal } from "@/contexts/client-portal-context";
 import { VideoModal } from "@/components/video-modal";
 import { FAQSection, DynamicFAQItem, FAQContact } from "@/components/faq-section";
 import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
+import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions-faq";
 import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
 import { PortalMaterialsHero } from "@/components/pages/client-portal/sections/portal-materials-hero";
 import { DocumentsSection } from "@/components/pages/client-portal/sections/documents-section";
@@ -252,6 +253,8 @@ export default function WellnessProgramsPage() {
           categoryPortalVisibility={(clientData as any)?.categoryPortalVisibility}
           documentHubCategory="Company / Plan Sponsor"
         />
+
+        <HaveQuestions brandColor={brandColor} secondaryColor={secondaryColor} contacts={supportContactsForFAQ} />
       </main>
 
       <VideoModal

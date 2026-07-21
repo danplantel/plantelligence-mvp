@@ -7,6 +7,7 @@ import { VideoModal } from "@/components/video-modal";
 import { InteractiveTools } from "@/components/interactive-tools";
 import { FAQSection, DynamicFAQItem, FAQContact } from "@/components/faq-section";
 import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
+import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions-faq";
 import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
 import {
   RetirementJourneySection,
@@ -347,6 +348,8 @@ export default function RetirementPage() {
           title="Retirement Plan Documents & Forms"
           description="Access all your important retirement plan documents, forms, and notices in one convenient location."
         />
+
+        <HaveQuestions brandColor={brandColor} secondaryColor={secondaryColor} contacts={supportContactsForFAQ} />
 
       </main>
 
