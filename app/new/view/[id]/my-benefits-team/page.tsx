@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useEffect } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useClientPortal } from "@/contexts/client-portal-context";
 import {
   isContactVisibleInPortal,
@@ -55,18 +56,16 @@ interface Contact {
  *       3) Render only those contacts; layouts also filter again before render (defensive).
  */
 export default function MyBenefitsTeamPage() {
-  const { clientData, refetch } = useClientPortal();
+  const { clientData, loading, refetch } = useClientPortal();
 
   useEffect(() => {
     refetch();
   }, [refetch]);
 
-  if (!clientData) return null;
-
-  const brandColor = clientData.brandColor || "#0D315F";
-  const secondaryColor = clientData.secondaryColor || "#C89B5B";
+  const brandColor = clientData?.brandColor || "#0D315F";
+  const secondaryColor = clientData?.secondaryColor || "#C89B5B";
   const appointmentLink =
-    clientData.appointmentLink ||
+    clientData?.appointmentLink ||
     "https://go.oncehub.com/WFAParticipantInquiry";
 
   // Normalize keyContacts to handle both old format (array) and new format (object with contacts and displayStyle)
@@ -76,7 +75,7 @@ export default function MyBenefitsTeamPage() {
   /** Wizard saves logoScale on keyContacts root (same as card colors), not per contact */
   let globalLogoScale: number | undefined = undefined;
 
-  if (clientData.keyContacts) {
+  if (clientData?.keyContacts) {
     if (Array.isArray(clientData.keyContacts)) {
       // Old format: just an array
       contacts = clientData.keyContacts.filter(
@@ -145,6 +144,14 @@ export default function MyBenefitsTeamPage() {
     c.isPrimary = false;
   });
 
+  const companyName = clientData?.companyName || "";
+
+  // Show skeleton while loading, null when no data after loading
+  if (!clientData) {
+    if (loading) return <MyBenefitsTeamSkeleton />;
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-white pb-24">
       <div className="mx-auto w-full max-w-5xl px-4 sm:px-6 lg:px-8 pt-8">
@@ -170,7 +177,7 @@ export default function MyBenefitsTeamPage() {
             brandColor={brandColor}
             secondaryColor={secondaryColor}
             appointmentLink={appointmentLink}
-            companyName={clientData.companyName}
+            companyName={companyName}
             baselineBackgroundColor={globalBackgroundColor}
           />
         )}
@@ -182,7 +189,7 @@ export default function MyBenefitsTeamPage() {
             brandColor={brandColor}
             secondaryColor={secondaryColor}
             appointmentLink={appointmentLink}
-            companyName={clientData.companyName}
+            companyName={companyName}
             baselineBackgroundColor={globalBackgroundColor}
           />
         )}
@@ -193,7 +200,7 @@ export default function MyBenefitsTeamPage() {
             brandColor={brandColor}
             secondaryColor={secondaryColor}
             appointmentLink={appointmentLink}
-            companyName={clientData.companyName}
+            companyName={companyName}
             baselineBackgroundColor={globalBackgroundColor}
           />
         )}
@@ -204,7 +211,7 @@ export default function MyBenefitsTeamPage() {
             brandColor={brandColor}
             secondaryColor={secondaryColor}
             appointmentLink={appointmentLink}
-            companyName={clientData.companyName}
+            companyName={companyName}
             baselineBackgroundColor={globalBackgroundColor}
           />
         )}
@@ -216,7 +223,7 @@ export default function MyBenefitsTeamPage() {
             brandColor={brandColor}
             secondaryColor={secondaryColor}
             appointmentLink={appointmentLink}
-            companyName={clientData.companyName}
+            companyName={companyName}
             baselineBackgroundColor={globalBackgroundColor}
           />
         )}
@@ -228,7 +235,7 @@ export default function MyBenefitsTeamPage() {
             brandColor={brandColor}
             secondaryColor={secondaryColor}
             appointmentLink={appointmentLink}
-            companyName={clientData.companyName}
+            companyName={companyName}
             baselineBackgroundColor={globalBackgroundColor}
           />
         )}
@@ -474,5 +481,29 @@ function DefaultLayout({
         </div>
       )}
     </>
+  );
+}
+
+/* ---------- Skeleton shown while clientData is loading ---------- */
+function MyBenefitsTeamSkeleton() {
+  return (
+    <div className="min-h-screen bg-white pb-24">
+      <div className="mx-auto w-full max-w-5xl px-4 sm:px-6 lg:px-8 pt-8">
+        <div className="text-center mb-11">
+          <Skeleton className="h-10 w-64 mx-auto" />
+        </div>
+
+        {/* Default layout skeleton: 1 primary + 4 small */}
+        <Skeleton className="h-52 w-full rounded-xl" />
+        <div className="mt-3 w-full min-w-0">
+          <div className="grid w-full min-w-0 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-1">
+            <Skeleton className="h-36 rounded-xl" />
+            <Skeleton className="h-36 rounded-xl" />
+            <Skeleton className="h-36 rounded-xl" />
+            <Skeleton className="h-36 rounded-xl" />
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

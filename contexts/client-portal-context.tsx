@@ -137,18 +137,7 @@ export function ClientPortalProvider({
     };
   }, [clientId, fetchClient]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#FAFAF6]">
-        <div className="flex items-center gap-2">
-          <Loader2 className="h-6 w-6 animate-spin" />
-          <span>Loading...</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !clientData) {
+  if (error || (!clientData && !loading)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FAFAF6]">
         <div className="text-center space-y-4">

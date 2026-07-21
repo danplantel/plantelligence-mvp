@@ -5,6 +5,7 @@ import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   GripVertical,
   LayoutGrid,
@@ -312,6 +313,13 @@ export function NewClientStep3d({
     saveAsDraft,
     currentStep,
   } = useNewClientWizardStore();
+
+  // Show skeleton during the initial render frame while card components mount
+  const [showPreviewSkeleton, setShowPreviewSkeleton] = useState(true);
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setShowPreviewSkeleton(false));
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   // Editor state
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -1306,7 +1314,7 @@ export function NewClientStep3d({
           ref={scrollableRef}
           className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-300 dark:bg-gray-950 flex flex-col items-center"
         >
-          {sortedContacts.length > 0 && (
+          {sortedContacts.length > 0 && !showPreviewSkeleton ? (
             <div style={{ height: scaledHeight != null ? `${scaledHeight}px` : "100%" }}>
               <div
                 ref={previewContentRef}
@@ -1553,6 +1561,44 @@ export function NewClientStep3d({
                     </Button>
                   </div>
                 )}
+              </div>
+            </div>
+          ) : (
+            /* Skeleton preview while contacts / data load */
+            <div className="w-full max-w-5xl px-8 py-8">
+              <Card className="space-y-4 dark:bg-gray-800 dark:border-gray-700">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-2">
+                      <Skeleton className="h-6 w-32" />
+                      <Skeleton className="h-4 w-72" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-9 w-20 rounded-lg" />
+                      <Skeleton className="h-9 w-40 rounded-lg" />
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Skeleton: default layout — 1 primary + 4 small */}
+                  <div className="bg-[#F8F8F3] rounded-lg p-8 border border-gray-200">
+                    <div className="text-center mb-16">
+                      <Skeleton className="h-10 w-64 mx-auto" style={{ fontFamily: '"DM Serif Display", serif' }} />
+                    </div>
+                    <div className="space-y-4">
+                      <Skeleton className="h-44 w-full rounded-xl" />
+                      <div className="grid grid-cols-4 gap-4">
+                        <Skeleton className="h-32 rounded-xl" />
+                        <Skeleton className="h-32 rounded-xl" />
+                        <Skeleton className="h-32 rounded-xl" />
+                        <Skeleton className="h-32 rounded-xl" />
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <div className="flex justify-center pt-4 pb-8">
+                <Skeleton className="h-10 w-44 rounded-lg" />
               </div>
             </div>
           )}
