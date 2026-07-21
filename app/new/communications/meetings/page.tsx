@@ -1159,7 +1159,7 @@ export default function MeetingsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Preview Dialog â€” shows meetings as they appear in the client portal */}
+      {/* Preview Dialog shows meetings as they appear in the client portal */}
       <Dialog open={previewDialogOpen} onOpenChange={setPreviewDialogOpen}>
         <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>

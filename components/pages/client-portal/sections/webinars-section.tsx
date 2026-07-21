@@ -18,6 +18,7 @@ export interface UpcomingWebinar {
   date: string;
   time?: string;
   format?: string;
+  meetingFormat?: string;
   platform?: string;
   link?: string;
   location?: string;
@@ -26,6 +27,8 @@ export interface UpcomingWebinar {
   replayLink?: string;
   isPast?: boolean;
   description?: string;
+  duration?: string;
+  language?: string;
 }
 
 type WebinarLanguage = "EN" | "ES";
@@ -134,6 +137,22 @@ function mapHubMeetingToWebinar(
     typeof m.description === "string" && m.description.trim()
       ? m.description.trim()
       : "";
+  const duration =
+    typeof m.duration === "string" && m.duration.trim()
+      ? m.duration.trim()
+      : "";
+  const language =
+    typeof m.language === "string" && m.language.trim()
+      ? m.language.trim()
+      : "";
+  const meetingFormat =
+    typeof m.format === "string" && m.format.trim()
+      ? m.format.trim()
+      : "";
+  const platform =
+    typeof m.platform === "string" && m.platform.trim()
+      ? m.platform.trim()
+      : "";
 
   const isUrl = (s: string) => hasWebUrlPrefix(s);
   const locAsLink = loc && isUrl(loc) ? loc : undefined;
@@ -145,12 +164,16 @@ function mapHubMeetingToWebinar(
     date: format(parseLocalDate(hubDateKey(dateRaw)), "MM/dd/yyyy"),
     time: tz ? `${formatTime12h(time)} (${tz})` : formatTime12h(time),
     format: meetingType,
+    meetingFormat,
+    platform,
     link: locAsLink,
     registrationLink: registerUrl,
     location: loc && !isUrl(loc) ? loc : undefined,
     replayLink: replay || undefined,
     isPast,
     description,
+    duration,
+    language,
   };
 }
 
@@ -176,6 +199,10 @@ export function UpcomingWebinarCard({
   const replayHref = webinar.replayLink?.trim();
   const canReplay = isHttpUrl(replayHref);
   const hasDescription = Boolean(webinar.description?.trim());
+  const hasDuration = Boolean(webinar.duration?.trim());
+  const hasLanguage = Boolean(webinar.language?.trim());
+  const hasMeetingFormat = Boolean(webinar.meetingFormat?.trim());
+  const hasPlatform = Boolean(webinar.platform?.trim());
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-full">
@@ -183,9 +210,9 @@ export function UpcomingWebinarCard({
       <div style={{ backgroundColor: accentColor }} className="h-2 w-full shrink-0" />
 
       {/* Header: icon + format + title combined */}
-      <div className="flex items-start gap-3 px-6 pt-6 pb-3">
+      <div className="flex items-center gap-3 px-6 pt-6 pb-3">
         <div
-          className="inline-flex p-2.5 rounded-lg shrink-0 mt-0.5"
+          className="inline-flex p-2.5 rounded-lg shrink-0"
           style={{ backgroundColor: accentColor + "18" }}
         >
           <Calendar className="w-5 h-5" style={{ color: accentColor }} />
@@ -194,9 +221,6 @@ export function UpcomingWebinarCard({
           <span className="text-sm font-semibold uppercase tracking-wider" style={{ color: accentColor }}>
             {formatLabel}
           </span>
-          <h3 className="text-xl font-bold text-[#002B5B] leading-snug mt-1">
-            {webinar.title}
-          </h3>
         </div>
       </div>
 
@@ -236,6 +260,26 @@ export function UpcomingWebinarCard({
             <div className="flex items-center gap-2.5 text-sm text-gray-700">
               <Clock className="w-4 h-4 shrink-0" style={{ color: accentColor }} />
               <span>{timeLabel}</span>
+            </div>
+          )}
+          {hasDuration && (
+            <div className="flex items-center gap-2.5 text-sm text-gray-700">
+              <Clock className="w-4 h-4 shrink-0" style={{ color: accentColor }} />
+              <span>{webinar.duration}</span>
+            </div>
+          )}
+          {hasMeetingFormat && (
+            <div className="flex items-center gap-2.5 text-sm text-gray-700">
+              <MapPin className="w-4 h-4 shrink-0" style={{ color: accentColor }} />
+              <span>{hasPlatform ? `${webinar.meetingFormat} · ${webinar.platform}` : webinar.meetingFormat}</span>
+            </div>
+          )}
+          {hasLanguage && (
+            <div className="flex items-center gap-2.5 text-sm text-gray-700">
+              <span className="inline-flex items-center justify-center w-4 h-4 shrink-0 rounded-full text-[10px] font-bold uppercase" style={{ color: accentColor, backgroundColor: accentColor + "18" }}>
+                {webinar.language === "Spanish" ? "ES" : "EN"}
+              </span>
+              <span>{webinar.language}</span>
             </div>
           )}
           {locationLabel && (
