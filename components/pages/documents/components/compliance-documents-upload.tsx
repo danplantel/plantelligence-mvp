@@ -76,6 +76,8 @@ interface ComplianceDocumentsUploadProps {
   /** Called when new documents have been added (e.g., after review confirm),
    *  before the save-to-API round-trip. Use for showing loading indicators. */
   onDocumentsAdded?: () => void;
+  /** Called when upload state changes (true = uploading in progress). */
+  onUploadingChange?: (isUploading: boolean) => void;
 }
 
 export function ComplianceDocumentsUpload({
@@ -99,6 +101,7 @@ export function ComplianceDocumentsUpload({
   strictCategoryEnforcement = false,
   compact = false,
   onDocumentsAdded,
+  onUploadingChange,
 }: ComplianceDocumentsUploadProps) {
   // Parents often pass inline `onDocumentsChange` (new identity each render). Stabilize for
   // effect deps and always invoke the latest callback via a ref to avoid notify → sync → fetch loops.
@@ -1226,6 +1229,7 @@ export function ComplianceDocumentsUpload({
                 ? handleBulkCategoryAssignmentHint
                 : undefined
             }
+            onUploadingChange={onUploadingChange}
           />
         </div>
       )}
@@ -1254,6 +1258,7 @@ export function ComplianceDocumentsUpload({
               ? handleBulkCategoryAssignmentHint
               : undefined
           }
+          onUploadingChange={onUploadingChange}
         />
       )}
 

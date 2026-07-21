@@ -77,6 +77,8 @@ interface DocumentsUploadSectionProps {
   onBulkCategoryAssignmentHint?: (hint: BulkCategoryAssignmentHint) => void;
   /** Shorter dropzone (Step 3 Add Contact Details) so upload does not dominate the viewport. */
   compactDropzone?: boolean;
+  /** Called when upload state changes (true = uploading in progress). */
+  onUploadingChange?: (isUploading: boolean) => void;
 }
 
 export function DocumentsUploadSection({
@@ -93,6 +95,7 @@ export function DocumentsUploadSection({
   pdfOnly = false,
   onBulkCategoryAssignmentHint,
   compactDropzone = false,
+  onUploadingChange,
 }: DocumentsUploadSectionProps) {
   const [currentDocumentName, setCurrentDocumentName] = useState("");
   const [currentDocumentDescription, setCurrentDocumentDescription] =
@@ -109,6 +112,10 @@ export function DocumentsUploadSection({
   >(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  // Notify parent when upload state changes (e.g. to disable tab switches)
+  useEffect(() => {
+    onUploadingChange?.(isUploading);
+  }, [isUploading, onUploadingChange]);
   const [isCancelling, setIsCancelling] = useState(false);
   const isAddingRef = useRef(false);
   const [batchCategoryDialogOpen, setBatchCategoryDialogOpen] = useState(false);

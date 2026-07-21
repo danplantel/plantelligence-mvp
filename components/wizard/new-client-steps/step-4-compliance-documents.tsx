@@ -103,6 +103,9 @@ export function NewClientStep4({
     otherDocuments: [],
   });
 
+  // Track whether documents are currently being uploaded (disable tab switching)
+  const [isUploading, setIsUploading] = useState(false);
+
   // Separate state for retirement plan documents section
   const [retirementPlanDocuments, setRetirementPlanDocuments] =
     useState<Document[]>(initialPlanDocuments);
@@ -705,8 +708,8 @@ export function NewClientStep4({
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="upload">Upload</TabsTrigger>
-          <TabsTrigger value="list">List</TabsTrigger>
-          <TabsTrigger value="preview">Preview</TabsTrigger>
+          <TabsTrigger value="list" disabled={isUploading}>List</TabsTrigger>
+          <TabsTrigger value="preview" disabled={isUploading}>Preview</TabsTrigger>
         </TabsList>
 
         <TabsContent value="upload" className="mt-4">
@@ -723,6 +726,7 @@ export function NewClientStep4({
               }
               setRetirementPlanDocuments(deduped);
             }}
+            onUploadingChange={setIsUploading}
             brandColor={primaryColor}
             accentColor={secondaryColor}
             showPreview={false}
