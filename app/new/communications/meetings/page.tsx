@@ -985,6 +985,17 @@ export default function MeetingsPage() {
                 </Select>
               </div>
 
+              {/* Timezone */}
+              <div className="space-y-2">
+                <Label>Timezone</Label>
+                <Select value={formData.timezone} onValueChange={(v) => handleInputChange("timezone", v)}>
+                  <SelectTrigger className="dark:bg-gray-800"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {TIMEZONE_OPTIONS.map((tz) => <SelectItem key={tz.value} value={tz.value}>{tz.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+
               {/* Platform (Virtual) */}
               {formData.format === "Virtual" && (
                 <div className="space-y-2">
@@ -1036,17 +1047,6 @@ export default function MeetingsPage() {
               <Label>Max Attendees</Label>
               <Input type="number" value={formData.maxAttendees} onChange={(e) => handleInputChange("maxAttendees", e.target.value)}
                 placeholder="50" />
-            </div>
-
-            {/* Timezone */}
-            <div className="space-y-2">
-              <Label>Timezone</Label>
-              <Select value={formData.timezone} onValueChange={(v) => handleInputChange("timezone", v)}>
-                <SelectTrigger className="dark:bg-gray-800"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {TIMEZONE_OPTIONS.map((tz) => <SelectItem key={tz.value} value={tz.value}>{tz.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
             </div>
 
             {/* Language */}
