@@ -1,10 +1,19 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 
 export function useContactStyles() {
     const { stepData, saveStepDataLocally, saveStepDataToServer } = useNewClientWizardStore();
+
+    // Track whether we're currently syncing FROM the store (to avoid writing
+    // back what we just read). Using a ref avoids adding it to effect deps.
     const isSyncingFromStore = useRef(false);
 
+    // Keep a ref to the latest store keyContacts so the "Save" effect can
+    // read it without listing `stepData.keyContacts` as a dependency.
+    // This breaks the circular effect chain:
+    //   styles change → save to store → store changes → sync from store → styles change → …
+    const latestKeyContactsRef = useRef(stepData.keyContacts);
+    latestKeyContactsRef.current = stepData.keyContacts;
 
     const getInitialStyles = () => {
         const keyContacts = stepData.keyContacts;
@@ -18,14 +27,15 @@ export function useContactStyles() {
 
     const [styles, setStyles] = useState(getInitialStyles());
 
-    // Save data when it changes
+    // Save local styles to the store when they change.
+    // Does NOT depend on `stepData.keyContacts` — uses a ref instead.
     useEffect(() => {
         if (isSyncingFromStore.current) {
             isSyncingFromStore.current = false;
             return;
         }
 
-        const currentKeyContacts = stepData.keyContacts || { contacts: [] };
+        const currentKeyContacts = latestKeyContactsRef.current || { contacts: [] };
         if (
             currentKeyContacts.cardPrimaryColor === styles.cardPrimaryColor &&
             currentKeyContacts.cardSecondaryColor === styles.cardSecondaryColor &&
@@ -44,13 +54,10 @@ export function useContactStyles() {
         };
 
         saveStepDataLocally("keyContacts", updatedKeyContacts);
-
-        // Also persist to server to ensure data survives page refresh and wizard completion
         saveStepDataToServer("keyContacts", updatedKeyContacts);
-    }, [styles, saveStepDataLocally, saveStepDataToServer, stepData.keyContacts]);
+    }, [styles, saveStepDataLocally, saveStepDataToServer]);
 
-
-    // Sync with store when it changes externally
+    // Sync local styles FROM the store when the store changes externally.
     useEffect(() => {
         const keyContacts = stepData.keyContacts;
         const storeStyles = {
@@ -79,9 +86,12 @@ export function useContactStyles() {
         stepData.companyBasics?.secondaryColor,
     ]);
 
-    const updateStyle = (field: "cardPrimaryColor" | "cardSecondaryColor" | "cardBackgroundColor" | "logoScale", value: any) => {
-        setStyles((prev) => ({ ...prev, [field]: value }));
-    };
+    const updateStyle = useCallback(
+        (field: "cardPrimaryColor" | "cardSecondaryColor" | "cardBackgroundColor" | "logoScale", value: any) => {
+            setStyles((prev) => ({ ...prev, [field]: value }));
+        },
+        [],
+    );
 
     return {
         styles,

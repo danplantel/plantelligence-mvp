@@ -484,9 +484,14 @@ export function NewClientStep3d({
     }
   }, [sortedContacts, contacts]);
 
-  // Transform KeyContact to Contact format
+  // Transform KeyContact to Contact format — memoized on a stable JSON key so new
+  // object references from the store don't force downstream re-renders.
   // Derives from sortedContacts (always reflects current store data) instead of local contacts state
   // which can be stale due to sync-effect guards. Visual order is driven by previewOrder, not by this array.
+  const previewContactsKey = useMemo(
+    () => JSON.stringify(sortedContacts.map((c) => c.id)),
+    [sortedContacts],
+  );
   const previewContacts = useMemo(() => {
     return sortedContacts.map((contact, index) => {
       const displayName =
@@ -574,7 +579,7 @@ export function NewClientStep3d({
         actionButtonOrder: contact.actionButtonOrder,
       };
     });
-  }, [sortedContacts, companyName]);
+  }, [previewContactsKey, companyName]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -753,6 +758,21 @@ export function NewClientStep3d({
     isDraggingRef.current = false;
   };
 
+  // Sync contacts from store — use a stable JSON key so the effect only
+  // fires when the actual data changes, NOT when the store returns a new
+  // object reference with identical content (Zustand always creates fresh
+  // slices). Without this guard, any store write (e.g. from the editor
+  // panel) would cause a new `stepData.keyContacts` reference, triggering
+  // this effect → comparing → returning early → but still counting as a
+  // re-render cycle, which can cascade into the Radix Checkbox setRef loop.
+  const keyContactsFingerprint = useMemo(
+    () =>
+      stepData.keyContacts
+        ? JSON.stringify(stepData.keyContacts)
+        : null,
+    [stepData.keyContacts],
+  );
+
   useEffect(() => {
     // Don't update if we're dragging or just finished a drag
     if (isDraggingRef.current || justFinishedDragRef.current) return;
@@ -760,14 +780,15 @@ export function NewClientStep3d({
     // Keep existing contacts when the store hasn't hydrated yet (skipHydration: true).
     // This prevents the local contacts state from being cleared on initial page load
     // before the Zustand persist middleware has rehydrated from localStorage.
-    if (!stepData.keyContacts) return;
+    if (!keyContactsFingerprint) return;
 
     const currentKeyContactsData = stepData.keyContacts;
+    if (!currentKeyContactsData) return;
 
     if (
       lastPersistedKeyContactsData.current &&
       JSON.stringify(lastPersistedKeyContactsData.current) ===
-        JSON.stringify(currentKeyContactsData)
+        keyContactsFingerprint
     ) {
       return;
     }
@@ -786,7 +807,7 @@ export function NewClientStep3d({
       currentKeyContactsData.contactDisplayOrder ||
       newContacts.map((c: any) => c.id);
     setPreviewOrder(newOrder);
-  }, [stepData.keyContacts]);
+  }, [keyContactsFingerprint]);
 
   // Layout previews
   const layoutOptions: LayoutOption[] = [

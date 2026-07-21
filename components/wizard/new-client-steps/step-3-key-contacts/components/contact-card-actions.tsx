@@ -1,8 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Phone, Mail, Globe, GripVertical } from "lucide-react";
 import {
@@ -111,15 +109,17 @@ function SortableContactInfoItem({
           </Label>
         </div>
       </div>
-      <Checkbox
+      <input
+        type="checkbox"
         id={item.id}
         checked={item.checked}
-        onCheckedChange={(checked) => {
+        onChange={(e) => {
           if (!disabled) {
-            item.onChange(checked === true);
+            item.onChange(e.target.checked);
           }
         }}
         disabled={disabled}
+        className="h-4 w-4 rounded border-gray-300 text-accent-blue focus:ring-accent-blue cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
       />
     </div>
   );
@@ -190,15 +190,17 @@ function SortableActionButton({
           </div>
         </div>
       </div>
-      <Checkbox
+      <input
+        type="checkbox"
         id={button.id}
         checked={button.checked}
-        onCheckedChange={(checked) => {
+        onChange={(e) => {
           if (!disabled) {
-            button.onChange(checked === true);
+            button.onChange(e.target.checked);
           }
         }}
         disabled={disabled}
+        className="h-4 w-4 rounded border-gray-300 text-accent-blue focus:ring-accent-blue cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
       />
     </div>
   );
@@ -224,25 +226,11 @@ export function ContactCardActions({
   const defaultContactInfoOrder: ContactInfoType[] = ["phone", "email"];
   const defaultActionButtonOrder: ActionButtonType[] = ["schedule", "website"];
 
-  const [contactInfoOrderState, setContactInfoOrderState] = useState<
-    ContactInfoType[]
-  >(contactInfoOrder || defaultContactInfoOrder);
-  const [actionButtonOrderState, setActionButtonOrderState] = useState<
-    ActionButtonType[]
-  >(actionButtonOrder || defaultActionButtonOrder);
-
-  // Sync with prop changes
-  useEffect(() => {
-    if (contactInfoOrder) {
-      setContactInfoOrderState(contactInfoOrder);
-    }
-  }, [contactInfoOrder]);
-
-  useEffect(() => {
-    if (actionButtonOrder) {
-      setActionButtonOrderState(actionButtonOrder);
-    }
-  }, [actionButtonOrder]);
+  // Use props directly — no local state or useEffect syncing, which eliminates
+  // the infinite re-render loop when parent passes new array references every
+  // render (e.g. `contact.contactInfoOrder || ["phone", "email"]`).
+  const contactInfoOrderState = contactInfoOrder || defaultContactInfoOrder;
+  const actionButtonOrderState = actionButtonOrder || defaultActionButtonOrder;
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -263,7 +251,6 @@ export function ContactCardActions({
         over.id as ContactInfoType,
       );
       const newOrder = arrayMove(contactInfoOrderState, oldIndex, newIndex);
-      setContactInfoOrderState(newOrder);
       if (onContactInfoOrderChange) {
         onContactInfoOrderChange(newOrder);
       }
@@ -281,7 +268,6 @@ export function ContactCardActions({
         over.id as ActionButtonType,
       );
       const newOrder = arrayMove(actionButtonOrderState, oldIndex, newIndex);
-      setActionButtonOrderState(newOrder);
       if (onActionButtonOrderChange) {
         onActionButtonOrderChange(newOrder);
       }

@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ColorPicker } from "@/components/ui/color-picker";
-import { useState } from "react";
+import { useState, memo } from "react";
 import { RotateCcw, Palette, Users, ChevronDown, ChevronUp, User, Globe, Calendar, Mail, Phone, Building2, Trash2 } from "lucide-react";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import { cn } from "@/lib/utils";
@@ -15,7 +15,7 @@ import { Maximize2 } from "lucide-react";
 import { ContactFormFields } from "../../step-3-key-contacts/components/contact-form-fields";
 import { CompanyNameSelector } from "../../step-3-key-contacts/components/company-name-selector";
 import { ContactCardActions } from "../../step-3-key-contacts/components/contact-card-actions";
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useMemo } from "react";
 import { BenefitsCategory, KeyContact } from "@/types/new-client-wizard";
 import { Badge } from "@/components/ui/badge";
 
@@ -23,7 +23,43 @@ interface ContactSectionEditorProps {
     errorFields?: string[];
 }
 
-export function ContactSectionEditor({ errorFields = [] }: ContactSectionEditorProps) {
+/**
+ * Memoized slider for logo scale. Extracted so that the `value` array is
+ * stable across re-renders — without this, `[contact.logoScale || 1]` creates
+ * a new array every render, which can cause Radix Slider's internal
+ * `useComposedRefs` to enter an infinite loop during rapid re-renders.
+ */
+const LogoScaleSlider = memo(function LogoScaleSlider({
+  logoScale,
+  onLogoScaleChange,
+}: {
+  logoScale: number;
+  onLogoScaleChange: (value: number) => void;
+}) {
+  // Stabilise the value array so Radix Slider only sees changes when the
+  // actual number changes, not when the parent creates a fresh array literal.
+  const sliderValue = useMemo(() => [logoScale], [logoScale]);
+
+  return (
+    <>
+      <Slider
+        value={sliderValue}
+        onValueChange={([value]) => onLogoScaleChange(value)}
+        min={0.5}
+        max={2}
+        step={0.05}
+        className="w-full"
+      />
+      <div className="flex justify-between text-[10px] text-gray-400 font-mono mt-1">
+        <span>0.5x</span>
+        <span>{logoScale.toFixed(2)}x</span>
+        <span>2.0x</span>
+      </div>
+    </>
+  );
+});
+
+export const ContactSectionEditor = memo(function ContactSectionEditor({ errorFields = [] }: ContactSectionEditorProps) {
     const { styles, updateStyle } = useContactStyles();
     const { stepData, saveStepDataLocally, saveStepDataToServer, saveAsDraft } = useNewClientWizardStore();
 
@@ -333,19 +369,10 @@ export function ContactSectionEditor({ errorFields = [] }: ContactSectionEditorP
                                                         <Label className="text-sm font-medium text-gray-700">Logo Scale</Label>
                                                     </div>
                                                     <div className="pt-2 px-1">
-                                                        <Slider
-                                                            value={[contact.logoScale || 1]}
-                                                            onValueChange={([value]) => handleUpdateContactField(contact.id, "logoScale", value)}
-                                                            min={0.5}
-                                                            max={2}
-                                                            step={0.05}
-                                                            className="w-full"
+                                                        <LogoScaleSlider
+                                                            logoScale={contact.logoScale || 1}
+                                                            onLogoScaleChange={(value) => handleUpdateContactField(contact.id, "logoScale", value)}
                                                         />
-                                                        <div className="flex justify-between text-[10px] text-gray-400 font-mono mt-1">
-                                                            <span>0.5x</span>
-                                                            <span>{(contact.logoScale || 1).toFixed(2)}x</span>
-                                                            <span>2.0x</span>
-                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -374,4 +401,4 @@ export function ContactSectionEditor({ errorFields = [] }: ContactSectionEditorP
             </div>
         </div>
     );
-}
+});
