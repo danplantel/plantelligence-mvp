@@ -5,8 +5,6 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import prisma from "./prisma";
 
-const SALT = "$2b$10$79lD55dzSIAAVfHGPCRt.e";
-
 export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
@@ -20,41 +18,58 @@ export const authOptions: NextAuthOptions = {
           type: "email",
           placeholder: "example@gmail.com",
         },
-        password: { label: "password", type: "password" }, // Include password field here
+        password: { label: "password", type: "password" },
       },
       async authorize(credentials: any) {
-        try {
-          if (!credentials) {
-            throw new Error("Invalid credentials.");
-          }
+        if (!credentials?.email || !credentials?.password) {
+          console.error("[authorize] Missing email or password in credentials");
+          return null;
+        }
 
+        try {
           const user = await prisma.user.findUnique({
             where: {
               email: credentials.email,
             },
           });
+
           if (!user) {
-            throw new Error("Invalid credentials.");
+            console.error(
+              `[authorize] No user found for email: ${credentials.email}`,
+            );
+            return null;
+          }
+
+          // User exists but has no password set (e.g. Google OAuth-only account)
+          if (!user.password) {
+            console.error(
+              `[authorize] User ${credentials.email} has no password set (Google OAuth-only account)`,
+            );
+            return null;
           }
 
           const isValidPassword = await bcrypt.compare(
             credentials.password,
-            user.password || "",
+            user.password,
           );
 
           if (!isValidPassword) {
-            throw new Error("Invalid credentials.");
+            console.error(
+              `[authorize] Invalid password for email: ${credentials.email}`,
+            );
+            return null;
           }
 
           return user;
         } catch (err) {
-          throw new Error("Invalid credentials.");
+          console.error("[authorize] Unexpected error during authorization:", err);
+          return null;
         }
       },
     }),
   ],
   pages: {
-    signIn: "/",
+    signIn: "/signin",
     // signUp: "/signup",
   },
   session: {
@@ -96,39 +111,54 @@ export const authOptions: NextAuthOptions = {
       const { account, user } = params;
 
       if (!user?.email) {
+        console.error("[signIn callback] No user email provided");
         return false;
       }
 
-      // Search by email only (not email + provider) to handle cross-provider sign-in
-      const existUser = await prisma.user.findFirst({
-        where: {
-          email: user.email,
-        },
-      });
-
-      if (!existUser) {
-        // No existing user — create a new one
-        const newUser: Prisma.UserCreateInput = {
-          email: user.email,
-          provider: (account?.provider as any) || "local",
-          name: user?.name || "",
-        };
-        await prisma.user.create({
-          data: newUser,
-        });
-      } else if (existUser.provider !== (account?.provider as any)) {
-        // User exists with a different provider — update their provider
-        // This allows a user who signed up via email to also sign in with Google
-        await prisma.user.update({
-          where: { id: existUser.id },
-          data: {
-            provider: (account?.provider as any) || "local",
-            name: existUser.name || user?.name || "",
+      try {
+        // Search by email only (not email + provider) to handle cross-provider sign-in
+        const existUser = await prisma.user.findFirst({
+          where: {
+            email: user.email,
           },
         });
-      }
 
-      return true;
+        if (!existUser) {
+          // No existing user — create a new one (OAuth first-time sign-in)
+          console.log(
+            `[signIn callback] Creating new user for email: ${user.email} via ${account?.provider}`,
+          );
+          const newUser: Prisma.UserCreateInput = {
+            email: user.email,
+            provider: (account?.provider as any) || "credentials",
+            name: user?.name || "",
+          };
+          await prisma.user.create({
+            data: newUser,
+          });
+        } else if (existUser.provider !== (account?.provider as any)) {
+          // User exists with a different provider — update their provider
+          // This allows a user who signed up via email to also sign in with Google
+          console.log(
+            `[signIn callback] Updating provider for ${user.email}: ${existUser.provider} → ${account?.provider}`,
+          );
+          await prisma.user.update({
+            where: { id: existUser.id },
+            data: {
+              provider: (account?.provider as any) || "credentials",
+              name: existUser.name || user?.name || "",
+            },
+          });
+        }
+
+        return true;
+      } catch (err) {
+        console.error("[signIn callback] Error during sign-in:", err);
+        // Do NOT return false for DB errors on an existing user;
+        // the user was already authenticated by the provider/authorize step.
+        // Only return false if the user truly doesn't exist and we can't create them.
+        return false;
+      }
     },
   },
 };

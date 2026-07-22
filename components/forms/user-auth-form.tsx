@@ -56,7 +56,20 @@ export default function UserAuthForm() {
       });
 
       if (result?.error) {
-        setError(result.error);
+        // Map NextAuth error codes to user-friendly messages
+        const errorMessages: Record<string, string> = {
+          CredentialsSignin: "Invalid email or password. Please try again.",
+          OAuthSignin: "There was a problem signing in with Google.",
+          OAuthCallback: "There was a problem signing in with Google.",
+          OAuthCreateAccount: "There was a problem creating your account with Google.",
+          EmailCreateAccount: "There was a problem creating your account.",
+          Callback: "There was a problem signing in.",
+          OAuthAccountNotLinked: "This email is already associated with another sign-in method.",
+          EmailSignin: "There was a problem sending the sign-in email.",
+          SessionRequired: "You must be signed in to access this page.",
+          default: "An unexpected error occurred. Please try again.",
+        };
+        setError(errorMessages[result.error] || errorMessages.default);
       } else {
         window.location.href =
           callbackUrl && callbackUrl !== null ? callbackUrl : "/new/dashboard";
