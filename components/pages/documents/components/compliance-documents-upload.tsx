@@ -1179,15 +1179,56 @@ export function ComplianceDocumentsUpload({
 
       {/* Uncategorized Documents Review List */}
       {!allDocumentsCategorized && (
-        <Alert variant="destructive" className="bg-red-50 border-red-200 text-red-900 dark:bg-red-900/20 dark:border-red-800 dark:text-red-200">
-          <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full mr-6">
-            <AlertTitle className="font-semibold mb-0 dark:text-red-200">Uncategorized Documents</AlertTitle>
+        <div className="rounded-lg border border-red-200 bg-red-50/60 dark:border-red-800 dark:bg-red-900/20 overflow-hidden">
+          <div className="px-4 py-3 border-b border-red-200 dark:border-red-800">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="flex-shrink-0 w-7 h-7 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center">
+                  <AlertCircle className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold text-red-800 dark:text-red-200">Uncategorized Documents</h4>
+                  <p className="text-xs text-red-600/80 dark:text-red-400/80 mt-0.5">Assign a category to each before proceeding.</p>
+                </div>
+              </div>
+              {!strictCategoryEnforcement && (
+                <Button variant="ghost" size="sm" className="h-7 text-[10px] text-red-600 hover:text-red-700 hover:bg-red-100 font-bold uppercase shrink-0 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/30" onClick={() => setHasSkippedCategorization(true)}>
+                  Skip
+                </Button>
+              )}
+            </div>
+          </div>
+          <div className="divide-y divide-red-200/60 dark:divide-red-800/60">
+            {uncategorizedDocuments.map((doc) => (
+              <div key={doc.id} className="flex items-center gap-3 px-4 py-2.5 bg-white/60 dark:bg-gray-800/40">
+                <FileText className="h-4 w-4 text-red-400 flex-shrink-0 dark:text-red-500" />
+                <span className="text-sm font-medium text-red-900 truncate flex-1 min-w-0 dark:text-gray-200">{doc.name}</span>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {lowConfidenceIdSet.has(doc.id) && (
+                    <Badge variant="outline" className="text-[10px] py-0 h-4.5 border-amber-300 text-amber-700 bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:bg-amber-900/20">Low AI confidence</Badge>
+                  )}
+                  <Select value={doc.category || undefined} onValueChange={(value: any) => handleUpdateDocumentCategory(doc.id, value)}>
+                    <SelectTrigger className="h-8 text-xs bg-white border-red-200 w-40 dark:bg-gray-700 dark:border-red-800 dark:text-gray-300">
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Retirement">Retirement</SelectItem>
+                      <SelectItem value="Group Life">Group Life</SelectItem>
+                      <SelectItem value="Group Health">Group Health</SelectItem>
+                      <SelectItem value="Multiple">Multiple</SelectItem>
+                      <SelectItem value="Other Benefits">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              ))}
+            </div>
+          <div className="px-4 py-2.5 border-t border-red-200 dark:border-red-800 bg-red-50/40 dark:bg-red-900/10">
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold text-red-600 uppercase dark:text-red-400">Apply to all:</span>
+              <span className="text-[10px] font-bold text-red-600 uppercase tracking-wider dark:text-red-400">Apply to all uncategorized:</span>
               <Select onValueChange={(value: any) => handleApplyCategoryToAll(value)}>
-                <SelectTrigger className="h-7 text-[10px] bg-white border-red-200 w-32 dark:bg-gray-700 dark:border-red-800 dark:text-gray-300">
-                  <SelectValue placeholder="Select Benefit" />
+                <SelectTrigger className="h-7 text-[10px] bg-white border-red-200 w-36 dark:bg-gray-700 dark:border-red-800 dark:text-gray-300">
+                  <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Retirement">Retirement</SelectItem>
@@ -1199,67 +1240,14 @@ export function ComplianceDocumentsUpload({
               </Select>
             </div>
           </div>
-          <AlertDescription className="space-y-3 mt-2">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <p className="text-sm opacity-90">
-                Please assign a category to the following documents before proceeding.
-              </p>
-              {!strictCategoryEnforcement && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-[10px] text-red-600 hover:text-red-700 hover:bg-red-100/50 font-bold uppercase underline dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/30"
-                  onClick={() => setHasSkippedCategorization(true)}
-                >
-                  Skip for now
-                </Button>
-              )}
-            </div>
-            <div className="bg-white/50 rounded-lg border border-red-100 divide-y divide-red-100 overflow-hidden dark:bg-gray-800/50 dark:border-red-800 dark:divide-red-800">
-              {uncategorizedDocuments.map((doc) => (
-                <div key={doc.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 gap-3 dark:text-gray-300">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <FileText className="h-4 w-4 text-red-400 flex-shrink-0 dark:text-red-500" />
-                    <span className="text-sm font-medium truncate">{doc.name}</span>
-                    <Badge variant="outline" className="text-[10px] py-0 h-4 border-red-200 text-red-600 bg-red-50 dark:border-red-800 dark:text-red-400 dark:bg-red-900/20">
-                      Required
-                    </Badge>
-                    {lowConfidenceIdSet.has(doc.id) && (
-                      <Badge
-                        variant="outline"
-                        className="text-[10px] py-0 h-4 border-amber-300 text-amber-800 bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:bg-amber-900/20"
-                      >
-                        Low AI confidence
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="w-full sm:w-48">
-                    <Select
-                      value={doc.category || undefined}
-                      onValueChange={(value: any) => handleUpdateDocumentCategory(doc.id, value)}
-                    >
-                      <SelectTrigger className="h-8 text-xs bg-white border-red-200 focus:ring-red-500 dark:bg-gray-700 dark:border-red-800 dark:text-gray-300">
-                        <SelectValue placeholder="Select Benefit" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Retirement">Retirement</SelectItem>
-                        <SelectItem value="Group Life">Group Life</SelectItem>
-                        <SelectItem value="Group Health">Group Health</SelectItem>
-                        <SelectItem value="Multiple">Multiple</SelectItem>
-                        <SelectItem value="Other Benefits">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              ))}
-            </div>
-            {secondaryAction && (
+          {secondaryAction && (
+            <div className="px-4 py-2 border-t border-red-200 dark:border-red-800 bg-red-50/30 dark:bg-red-900/10">
               <p className="text-[10px] text-red-600 font-medium dark:text-red-400">
                 * &quot;{secondaryAction.label}&quot; button is disabled until all documents are categorized.
               </p>
-            )}
-          </AlertDescription>
-        </Alert>
+            </div>
+          )}
+        </div>
       )}
 
       {editingDocument && (
