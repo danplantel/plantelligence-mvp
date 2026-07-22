@@ -26,6 +26,8 @@ export default function NewClientPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [showSavingDialog, setShowSavingDialog] = useState(false);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [successPortalUrl, setSuccessPortalUrl] = useState("");
   const {
     currentStep,
     totalSteps,
@@ -399,9 +401,15 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
     try {
       completeStep(currentStep);
       await completeWizard();
-      // completeWizard() handles navigation on success via window.location.href.
-      // If we reach here, the API returned success:false — the store threw an
-      // error which was caught below.
+
+      // completeWizard() stored the portal URL on the store. Show a dialog
+      // so the user can choose to view the portal or go to View Plans.
+      setShowSavingDialog(false);
+      const portalUrl = useNewClientWizardStore.getState().completedPortalUrl;
+      if (portalUrl) {
+        setSuccessPortalUrl(portalUrl);
+        setShowSuccessDialog(true);
+      }
     } catch (error: any) {
       setShowSavingDialog(false);
       toast.error("Cannot complete wizard:", {
@@ -517,6 +525,44 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
                   <p className="text-sm text-muted-foreground">
                     Please wait while we publish your client portal...
                   </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Plan Created — Success Dialog */}
+          {showSuccessDialog && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-8 flex flex-col items-center space-y-5">
+                <div className="text-center space-y-1">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                    Plan Created Successfully!
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Your client portal is ready. What would you like to do?
+                  </p>
+                </div>
+                <div className="flex flex-col gap-3 w-full">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.open(successPortalUrl, "_blank", "noopener,noreferrer");
+                      setShowSuccessDialog(false);
+                    }}
+                    className="w-full py-3 px-4 rounded-xl bg-accent-blue text-white font-semibold hover:bg-accent-blue/90 transition-colors"
+                  >
+                    View Portal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowSuccessDialog(false);
+                      window.location.href = "/new/clients";
+                    }}
+                    className="w-full py-3 px-4 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Go to View Plans
+                  </button>
                 </div>
               </div>
             </div>

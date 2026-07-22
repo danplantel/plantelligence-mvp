@@ -136,6 +136,8 @@ export interface NewClientWizardState {
   };
   sessionId?: string;
   draftClientId?: string; // ID of the draft client being edited (if loaded from draft)
+  /** Set by completeWizard on success — the URL to open in a new tab. */
+  completedPortalUrl?: string;
   errorFields: string[];
   nextStep: () => Promise<{ isValid: boolean; errors: any[] }>;
   previousStep: () => void;
@@ -1165,7 +1167,7 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
 
           if (result.success && result.clientId) {
             set({ sessionId: result.clientId });
-            // Clean up before redirect so the wizard is fresh on next visit
+            // Clean up so the wizard is fresh on next visit
             set((state) => ({
               ...state,
               isCompleted: true,
@@ -1178,11 +1180,12 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
               })),
             }));
             localStorage.removeItem("new-client-wizard-store");
-            // Redirect to the slug-based plan view URL when available,
-            // falling back to the clients list for backward compatibility.
-            window.location.href = result.slug
-              ? `/new/view/${result.slug}`
-              : "/new/clients";
+            // Store the portal URL so onComplete can show the success dialog
+            set({
+              completedPortalUrl: result.slug
+                ? `/new/view/${result.slug}`
+                : `/new/view/${result.clientId}`,
+            });
             return;
           }
 
