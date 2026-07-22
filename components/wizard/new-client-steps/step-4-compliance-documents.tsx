@@ -801,6 +801,14 @@ export function NewClientStep4({
         </TabsContent>
 
         <TabsContent value="list" className="mt-6">
+          <Alert className="mb-6 border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30">
+            <AlertTitle className="text-sm font-semibold text-blue-800 dark:text-blue-300">
+              Plan Documents Overview
+            </AlertTitle>
+            <AlertDescription className="text-xs text-blue-700 dark:text-blue-400">
+              Review all uploaded plan documents, forms, and notices below. Use the column headers to sort, and expand rows to preview or edit. Documents with missing categories will need to be assigned before proceeding.
+            </AlertDescription>
+          </Alert>
           <DocumentListTab
             selectedPlan="current-plan"
             isLoading={false}
