@@ -68,6 +68,7 @@ export async function GET(request: NextRequest) {
         take: limit,
         select: {
           id: true,
+          slug: true,
           companyName: true,
           companyWebsite: true,
           companyLogo: true,

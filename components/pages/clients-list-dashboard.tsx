@@ -79,6 +79,7 @@ import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 
 interface Client {
   id: string;
+  slug?: string;
   companyName: string;
   companyWebsite?: string;
   companyLogo?: string;
@@ -258,6 +259,7 @@ export function ClientsListDashboardPage() {
   };
 
   const handleViewClient = (clientId: string) => {
+    // If a slug is available (stored on the client object), prefer it
     window.open(`/new/view/${clientId}`, "_blank");
   };
 
@@ -646,11 +648,11 @@ export function ClientsListDashboardPage() {
                                       size="icon"
                                       className="h-8 w-8"
                                       onClick={() =>
-                                        window.open(
-                                          `/new/view/${client.id}`,
-                                          "_blank",
-                                        )
-                                      }
+                                          window.open(
+                                            `/new/view/${client.slug || client.id}`,
+                                            "_blank",
+                                          )
+                                        }
                                     >
                                       <Globe className="h-4 w-4" />
                                     </Button>
