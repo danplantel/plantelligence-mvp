@@ -400,6 +400,9 @@ export function DocumentsUploadSection({
     }
   };
 
+  /** Ref guard to prevent concurrent executions (same pattern as isAddingRef). */
+  const isAddingBatchRef = useRef(false);
+
   const addDocumentsFromFiles = async (
     files: File[],
     groupCategory?: BenefitsCategory,
@@ -427,6 +430,11 @@ export function DocumentsUploadSection({
         return;
       }
     }
+
+    // Prevent concurrent batch uploads — guards against any double-invocation
+    // (placed after validation so early returns don't leave the lock engaged)
+    if (isAddingBatchRef.current) return;
+    isAddingBatchRef.current = true;
 
     setFailedBatchFiles([]);
     const failedFiles: File[] = [];
@@ -700,11 +708,14 @@ export function DocumentsUploadSection({
       setIsUploading(false);
       setIsAnalyzingNames(false);
       setUploadProgress(null);
+      isAddingBatchRef.current = false;
     }
   };
 
   const handleFilesSelected = (files: File[]) => {
     if (files.length === 0) return;
+    // Prevent new file selections while an upload or review is in progress
+    if (isUploading || isReviewing || isAnalyzingNames) return;
 
     if (editingDocument) {
       processFile(files[0]);
@@ -1008,31 +1019,39 @@ export function DocumentsUploadSection({
   };
 
   const handleReviewConfirm = () => {
-    const existingNames = new Set(
-      documents.map((d) => (d.originalFileName || d.name || "").toLowerCase()),
-    );
-    const unique = reviewDocuments.filter(
-      (d) => !existingNames.has((d.originalFileName || d.name || "").toLowerCase()),
-    );
-    if (unique.length === 0) {
-      toast.info("All files are duplicates of existing documents.");
+    // Prevent double-clicks / duplicate submissions (same pattern as handleAddDocument)
+    if (isAddingRef.current) return;
+    isAddingRef.current = true;
+
+    try {
+      const existingNames = new Set(
+        documents.map((d) => (d.originalFileName || d.name || "").toLowerCase()),
+      );
+      const unique = reviewDocuments.filter(
+        (d) => !existingNames.has((d.originalFileName || d.name || "").toLowerCase()),
+      );
+      if (unique.length === 0) {
+        toast.info("All files are duplicates of existing documents.");
+        setReviewDocuments([]);
+        setIsReviewing(false);
+        setConfirmedReview(false);
+        setUncategorizedReviewIds(new Set());
+        return;
+      }
+      if (unique.length < reviewDocuments.length) {
+        toast.info(
+          `${reviewDocuments.length - unique.length} duplicate file(s) skipped.`,
+        );
+      }
+      onDocumentsChange([...documents, ...unique]);
+      toast.success(`${unique.length} document(s) added`);
       setReviewDocuments([]);
       setIsReviewing(false);
       setConfirmedReview(false);
       setUncategorizedReviewIds(new Set());
-      return;
+    } finally {
+      isAddingRef.current = false;
     }
-    if (unique.length < reviewDocuments.length) {
-      toast.info(
-        `${reviewDocuments.length - unique.length} duplicate file(s) skipped.`,
-      );
-    }
-    onDocumentsChange([...documents, ...unique]);
-    toast.success(`${unique.length} document(s) added`);
-    setReviewDocuments([]);
-    setIsReviewing(false);
-    setConfirmedReview(false);
-    setUncategorizedReviewIds(new Set());
   };
 
   const handleReviewCancel = () => {
@@ -1371,6 +1390,7 @@ export function DocumentsUploadSection({
                 type="button"
                 onClick={handleReviewConfirm}
                 disabled={
+                  isAddingRef.current ||
                   !confirmedReview ||
                   reviewDocuments.some(
                     (d) => !d.category?.trim() && !fixedCategory,

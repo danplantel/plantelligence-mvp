@@ -111,6 +111,35 @@ export function ComplianceDocumentsUpload({
 
   const [retirementPlanDocuments, setRetirementPlanDocuments] =
     useState<Document[]>(initialDocuments);
+  
+  // Deduplicate documents by storageKey — safety net for any double-processing
+  // Deduplicate documents by storageKey — safety net for any double-processing.
+  // Uses length-based trigger to avoid infinite re-render loops.
+  const prevDocLengthRef = useRef(0);
+  useEffect(() => {
+    if (isWizardControlled || !clientId) return;
+    const curLen = retirementPlanDocuments.length;
+    if (curLen === prevDocLengthRef.current) return;
+    prevDocLengthRef.current = curLen;
+
+    setRetirementPlanDocuments((prev) => {
+      const seen = new Set<string>();
+      const deduped = prev.filter((d) => {
+        const key = (d as any).storageKey as string | undefined;
+        if (!key || !key.trim()) return true;
+        if (seen.has(key.trim())) return false;
+        seen.add(key.trim());
+        return true;
+      });
+      if (deduped.length !== prev.length) {
+        console.warn(
+          `[ComplianceDocumentsUpload] Removed ${prev.length - deduped.length} duplicate document(s) by storageKey`,
+        );
+      }
+      return deduped;
+    });
+  }, [retirementPlanDocuments.length, clientId, isWizardControlled]);
+
   const [editingDocument, setEditingDocument] = useState<Document | null>(null);
   const editSectionRef = useRef<HTMLDivElement>(null);
   const initialized = useRef(false);
@@ -495,7 +524,9 @@ export function ComplianceDocumentsUpload({
               id: d.id,
               name: d.name,
               shortDescription: d.shortDescription || "",
-              fileSignature: (d as any).storageKey ? "r2" : "",
+              fileSignature: d.file
+                ? d.file.substring(0, 100) + (d.file.length > 100 ? "..." : "")
+                : "",
               originalFileName: d.originalFileName || "",
             }))
             .sort((a, b) => a.id.localeCompare(b.id))
@@ -562,15 +593,24 @@ export function ComplianceDocumentsUpload({
     onHasUnsavedChangesChange,
   ]);
 
-  // Save documents to server when they change (if clientId is provided and auto-save is enabled)
+  // Save documents to server when they change (if clientId is provided and auto-save is enabled).
+  // IMPORTANT: This effect must NOT run when auto-persist is in flight — auto-persist handles
+  // R2-based documents via persistNewDocumentsToApi. Running both creates duplicate DB records.
   useEffect(() => {
     if (!clientId || isWizardControlled || showSaveButton) return; // Skip if in wizard mode or manual save mode
+
+    // Skip if auto-persist is currently running (prevents duplicate saves to different endpoints)
+    if (isPersistingRef.current) return;
 
     // Skip if there are no documents loaded yet (prevents spurious saves on mount / tab switch)
     if (!initialized.current) return;
 
     // Skip if documents haven't changed or are empty — avoid saving an empty list
     if (retirementPlanDocuments.length === 0) return;
+
+    // Skip if all documents already have real MongoDB IDs (auto-persist already persisted them)
+    const isRealMongoId = (id: string) => /^[0-9a-fA-F]{24}$/.test(id);
+    if (retirementPlanDocuments.every((d) => isRealMongoId(String(d.id)))) return;
 
     // Create a serialized version to compare (same format as tracking)
     const currentDocumentsSerialized = JSON.stringify(
