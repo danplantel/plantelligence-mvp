@@ -44,6 +44,7 @@ interface PortalWelcomeBannerProps {
   customDescription?: string | string[]; // Can be single string or array of paragraphs
   customClosing?: string;
   customSignature?: string;
+  customSignatureCompany?: string;
   customImage?: string; // Override right-side Benefits Logo
   customImageAlt?: string;
   // Hero overlay settings
@@ -68,6 +69,7 @@ export function PortalWelcomeBanner({
   customDescription,
   customClosing,
   customSignature,
+  customSignatureCompany,
   customImage,
   customImageAlt,
   category,
@@ -161,7 +163,9 @@ export function PortalWelcomeBanner({
       : "Ty G. Rogers Managing Partner");
 
   const signatureCompany =
-    primaryContact?.companyName || "Waypoint Financial Advisors";
+    customSignatureCompany ||
+    primaryContact?.companyName ||
+    "Waypoint Financial Advisors";
 
   // Right-side Benefits Logo: customImage override → categoryBenefit.partnerLogo (per-category, set in Step 1) → companyLogo (top-level) → null
   const benefitsLogoUrl =

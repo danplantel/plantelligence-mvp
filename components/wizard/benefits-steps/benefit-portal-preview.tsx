@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 
 // Preview-specific overrides so child sections expand to fill the wide container.
 // Preserve PortalWelcomeBanner inner content width (max-w-7xl).
@@ -47,6 +48,7 @@ import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
 
 export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
     const { stepData } = useBenefitsWizardStore();
+    const { data: session } = useSession();
     const step1Data = stepData.step1;
     const step3Data = stepData.step3;
     const step4Data = stepData.step4;
@@ -246,6 +248,17 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
                                 || DEFAULT_WELCOME_BG,
                             secondaryBannerImg: step1Data?.brandImages?.header?.url,
                         } as any}
+                        customClosing={step1Data?.signatureMode === "custom" ? (step1Data.customClosing || "Custom closing message") : undefined}
+                        customSignature={
+                            step1Data?.signatureMode === "custom"
+                                ? (step1Data.customSignatureName || "Your Name, Your Title")
+                                : (session?.user?.name || undefined)
+                        }
+                        customSignatureCompany={
+                            step1Data?.signatureMode === "custom"
+                                ? (step1Data.customSignatureCompany || "Your Company")
+                                : undefined
+                        }
                         onTitleClick={() => handleEdit("messaging", "benefitTitle")}
                         onDescriptionClick={() => handleEdit("messaging", "shortDescription")}
                         desktopHeroBackgroundPosition={(step1Data as any)?.desktopHeroBackgroundPosition}

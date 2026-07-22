@@ -54,8 +54,15 @@ export interface BenefitsStep1Data {
     heroContainerInverted?: boolean;
     /** Invert hero background colors */
     heroBackgroundInverted?: boolean;
-    /** Use gradient on hero overlay */
     heroUseGradient?: boolean;
+    /** Closing & Signature mode: "user" = use contact's info, "custom" = custom text */
+    signatureMode?: "user" | "custom";
+    /** Custom closing text (when signatureMode is "custom") */
+    customClosing?: string;
+    /** Custom signature name & title (when signatureMode is "custom") */
+    customSignatureName?: string;
+    /** Custom signature company name (when signatureMode is "custom") */
+    customSignatureCompany?: string;
 }
 
 export interface FAQItem {

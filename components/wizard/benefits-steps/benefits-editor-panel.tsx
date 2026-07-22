@@ -352,6 +352,58 @@ export function BenefitsEditorPanel({
                                 maxLength={120}
                             />
                         </div>
+
+                        {/* Closing & Signature */}
+                        <div className="space-y-3 pt-4 border-t border-border">
+                            <Label className="text-xs font-bold text-foreground">Closing & Signature</Label>
+                            <div className="space-y-2">
+                                <div className="flex items-center space-x-2">
+                                    <input
+                                        type="radio"
+                                        id="emsig-user"
+                                        name="signatureMode"
+                                        checked={(step1Data.signatureMode || "user") === "user"}
+                                        onChange={() => saveStepData(1, { ...step1Data, signatureMode: "user" })}
+                                        className="h-4 w-4"
+                                    />
+                                    <Label htmlFor="emsig-user" className="text-xs font-normal cursor-pointer">Use Contact's Name & Title</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <input
+                                        type="radio"
+                                        id="emsig-custom"
+                                        name="signatureMode"
+                                        checked={(step1Data.signatureMode || "user") === "custom"}
+                                        onChange={() => saveStepData(1, { ...step1Data, signatureMode: "custom" })}
+                                        className="h-4 w-4"
+                                    />
+                                    <Label htmlFor="emsig-custom" className="text-xs font-normal cursor-pointer">Custom Signature</Label>
+                                </div>
+                            </div>
+
+                            {(step1Data.signatureMode || "user") === "custom" && (
+                                <div className="space-y-2 pl-4">
+                                    <Input
+                                        value={step1Data.customClosing || ""}
+                                        onChange={(e) => saveStepData(1, { ...step1Data, customClosing: e.target.value })}
+                                        placeholder='Closing text e.g. "We hope to inspire you to save!"'
+                                        className="h-9 shadow-sm border-muted text-xs"
+                                    />
+                                    <Input
+                                        value={step1Data.customSignatureName || ""}
+                                        onChange={(e) => saveStepData(1, { ...step1Data, customSignatureName: e.target.value })}
+                                        placeholder='Signature name e.g. "[Name] - [Position]"'
+                                        className="h-9 shadow-sm border-muted text-xs"
+                                    />
+                                    <Input
+                                        value={step1Data.customSignatureCompany || ""}
+                                        onChange={(e) => saveStepData(1, { ...step1Data, customSignatureCompany: e.target.value })}
+                                        placeholder='Company Name'
+                                        className="h-9 shadow-sm border-muted text-xs"
+                                    />
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 

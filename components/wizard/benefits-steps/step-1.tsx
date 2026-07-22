@@ -2166,6 +2166,91 @@ export function BenefitsStep1() {
                   </div>
                 </div>
 
+                {/* Closing & Signature */}
+                <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-bold text-gray-700 dark:text-gray-100">
+                      Closing & Signature
+                    </Label>
+                    <RadioGroup
+                      value={currentStepData.signatureMode || "user"}
+                      onValueChange={(v) =>
+                        saveStepData(1, {
+                          ...currentStepData,
+                          signatureMode: v as "user" | "custom",
+                        })
+                      }
+                      className="space-y-2"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="user" id="sig-user" />
+                        <Label htmlFor="sig-user" className="text-sm font-normal cursor-pointer">
+                          Use Contact's Name & Title
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="custom" id="sig-custom" />
+                        <Label htmlFor="sig-custom" className="text-sm font-normal cursor-pointer">
+                          Custom Signature
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+
+                  {(currentStepData.signatureMode || "user") === "custom" && (
+                    <div className="space-y-3 pl-6 animate-in slide-in-from-top-2 duration-200">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold text-gray-600 dark:text-gray-400">
+                          Closing Text
+                        </Label>
+                        <Input
+                          value={currentStepData.customClosing || ""}
+                          onChange={(e) =>
+                            saveStepData(1, {
+                              ...currentStepData,
+                              customClosing: e.target.value,
+                            })
+                          }
+                          placeholder='e.g. "We hope to inspire you to save!"'
+                          className="h-9 border-gray-200 dark:border-gray-600 text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold text-gray-600 dark:text-gray-400">
+                          Signature Name & Title
+                        </Label>
+                        <Input
+                          value={currentStepData.customSignatureName || ""}
+                          onChange={(e) =>
+                            saveStepData(1, {
+                              ...currentStepData,
+                              customSignatureName: e.target.value,
+                            })
+                          }
+                          placeholder='e.g. "Ty G. Rogers Managing Partner"'
+                          className="h-9 border-gray-200 dark:border-gray-600 text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold text-gray-600 dark:text-gray-400">
+                          Company Name
+                        </Label>
+                        <Input
+                          value={currentStepData.customSignatureCompany || ""}
+                          onChange={(e) =>
+                            saveStepData(1, {
+                              ...currentStepData,
+                              customSignatureCompany: e.target.value,
+                            })
+                          }
+                          placeholder='e.g. "Waypoint Financial Advisors"'
+                          className="h-9 border-gray-200 dark:border-gray-600 text-sm"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex justify-end pt-4 border-t border-gray-100 dark:border-gray-700">
                   <Button
                     onClick={() => handleContinue("contacts")}
