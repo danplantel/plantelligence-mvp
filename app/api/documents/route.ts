@@ -20,15 +20,28 @@ export async function GET(request: NextRequest) {
 
     // Build where clause — do not use `archivedAt: null` in Prisma MongoDB where (omits docs
     // where the field is missing). Filter active docs in JS instead (same pattern as client portal).
-    const whereClause: any = {
-      client: {
-        userId: session.user.id, // Only documents from user's clients
-      },
-    };
+    //
+    // Use direct clientId + verify ownership via separate client lookup, because the
+    // Prisma relation filter `client: { userId }` can behave inconsistently with MongoDB
+    // (same pattern as GET /api/documents/client/[clientId]).
+    const whereClause: any = {};
 
     // Add client filter if specified
     if (clientId) {
+      // Verify client belongs to user
+      const client = await prisma.client.findFirst({
+        where: { id: clientId, userId: session.user.id },
+        select: { id: true },
+      });
+      if (!client) {
+        return NextResponse.json({ error: "Client not found" }, { status: 404 });
+      }
       whereClause.clientId = clientId;
+    } else {
+      // When no clientId is specified, fall back to the relation filter
+      whereClause.client = {
+        userId: session.user.id,
+      };
     }
 
     // Add search filter if specified
@@ -48,6 +61,7 @@ export async function GET(request: NextRequest) {
     // Fetch documents with client information
     // IMPORTANT: Don't return fileUrl (base64 data) for security and performance
     // Using include instead of select to avoid issues with optional fields
+    // Take limit prevents MongoDB sort memory errors on large datasets
     const documentsRaw = await prisma.document.findMany({
       where: whereClause,
       include: {
@@ -61,6 +75,7 @@ export async function GET(request: NextRequest) {
       orderBy: {
         uploadedAt: "desc",
       },
+      take: 500,
     });
 
     const activeRaw = includeArchived

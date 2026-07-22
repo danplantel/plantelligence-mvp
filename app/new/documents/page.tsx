@@ -421,11 +421,6 @@ function RecentPlanLabels({
 export default function DocumentsPage() {
   const { setTitle } = usePageTitleContext();
 
-  // Fetch user profile to derive default categoryFilter from primaryServiceCategories
-  const { data: profileData } = useSWR("/api/profile", jsonFetcher, {
-    dedupingInterval: 60_000,
-    revalidateOnFocus: false,
-  });
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -564,20 +559,10 @@ export default function DocumentsPage() {
     router.replace(newURL);
   };
 
-  // Set default category filter from user's primaryServiceCategories once profile loads,
-  // then persist to localStorage so the value is available instantly on next page load.
-  const defaultCategorySetRef = useRef(false);
-  useEffect(() => {
-    if (!profileData || defaultCategorySetRef.current) return;
-    const cats: string[] = (profileData as any)?.primaryServiceCategories ?? [];
-    if (cats.length === 0) return;
-    const defaultCat = cats.includes("Retirement") ? "Retirement" : cats[0];
-    setCategoryFilter(defaultCat);
-    try {
-      localStorage.setItem("plantelligence:defaultDocCategory", defaultCat);
-    } catch {}
-    defaultCategorySetRef.current = true;
-  }, [profileData]);
+  // NOTE: Default category filter is intentionally kept as "all" (set in useState).
+  // Auto-setting from primaryServiceCategories was removed because it filtered out
+  // documents whose category didn't match the user's default service category,
+  // causing documents to appear invisible until the user manually cleared the filter.
 
   useEffect(() => {
     setTitle("Documents");

@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
-import { useSession } from "next-auth/react";
+import React, { useMemo, useState, useEffect } from "react";
 
 // Preview-specific overrides so child sections expand to fill the wide container.
 // Preserve PortalWelcomeBanner inner content width (max-w-7xl).
@@ -48,7 +47,15 @@ import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
 
 export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
     const { stepData } = useBenefitsWizardStore();
-    const { data: session } = useSession();
+    const [userName, setUserName] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        fetch("/api/profile", { credentials: "same-origin" })
+            .then(r => r.json())
+            .then(data => { if (!cancelled) setUserName((data as any)?.name || (data as any)?.user?.name || null); })
+            .catch(() => {});
+        return () => { cancelled = true; };
+    }, []);
     const step1Data = stepData.step1;
     const step3Data = stepData.step3;
     const step4Data = stepData.step4;
@@ -252,7 +259,7 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
                         customSignature={
                             step1Data?.signatureMode === "custom"
                                 ? (step1Data.customSignatureName || "Your Name, Your Title")
-                                : (session?.user?.name || undefined)
+                                : (userName || undefined)
                         }
                         customSignatureCompany={
                             step1Data?.signatureMode === "custom"
