@@ -445,12 +445,17 @@ export function ComplianceDocumentsUpload({
     loadDocuments();
   }, [clientId, isWizardControlled, onHasUnsavedChangesChange]);
 
-  // Documents page: persist new R2 uploads immediately so they appear in Preview/List without requiring Save
-  // DISABLED when showSaveButton is true (the user must click Save manually)
+  // Auto-persist: persists new R2 uploads so they appear in Preview/List without
+  // requiring an explicit Save button. DISABLED when showSaveButton is true (manual save mode,
+  // e.g. wizard). Only fires when temp docs with storageKeys exist — which happens after the user
+  // clicks "Add X Documents" in the review UI, NOT on mount or during file upload.
+  //
+  // Shows the "Adding Documents" modal via onDocumentsAdded when temp docs are detected
+  // (i.e., after user action) and closes it via onSave/onDocumentsSaved on completion.
   const isPersistingRef = useRef(false);
   const persistedStorageKeys = useRef<Set<string>>(new Set());
   useEffect(() => {
-    if (!clientId || isWizardControlled || !showSaveButton) return;
+    if (!clientId || isWizardControlled || showSaveButton) return;
     // Don't auto-persist while a manual save is in progress (and vice versa)
     if (isSavingRef.current) return;
 
@@ -479,7 +484,7 @@ export function ComplianceDocumentsUpload({
     }
 
     isPersistingRef.current = true;
-    // Notify parent that auto-persist has begun (e.g. to show a loading dialog)
+    // Show modal — user has just clicked "Add X Documents"
     onDocumentsAdded?.();
     persistNewDocumentsToApi(clientId, retirementPlanDocuments)
       .then((updated) => {
@@ -498,8 +503,7 @@ export function ComplianceDocumentsUpload({
         lastSavedDocumentsRef.current = savedState;
         setHasUnsavedChanges(false);
         if (onHasUnsavedChangesChange) onHasUnsavedChangesChange(false);
-        // Notify the parent so it can re-fetch SWR data — mutual exclusion
-        // guards now prevent duplicate persistence from cascading re-fetches.
+        // Close modal / notify parent on success
         onSave?.(updated);
       })
       .catch((err) => {
@@ -508,6 +512,8 @@ export function ComplianceDocumentsUpload({
         for (const d of tempDocs) {
           persistedStorageKeys.current.delete((d as any).storageKey.trim());
         }
+        // Close modal even on error so UI isn't stuck
+        onSave?.(retirementPlanDocuments);
       })
       .finally(() => {
         isPersistingRef.current = false;
@@ -830,6 +836,10 @@ export function ComplianceDocumentsUpload({
     } catch (error) {
       console.error("Error saving documents to server:", error);
       toast.error("Error saving documents. Please try again.");
+      // Ensure the "Adding Documents" modal closes even on error
+      if (onSave) {
+        onSave(retirementPlanDocuments);
+      }
     } finally {
       setIsSaving(false);
       isSavingRef.current = false;
