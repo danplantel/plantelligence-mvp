@@ -366,7 +366,7 @@ export function BenefitsEditorPanel({
                                         onChange={() => saveStepData(1, { ...step1Data, signatureMode: "user" })}
                                         className="h-4 w-4"
                                     />
-                                    <Label htmlFor="emsig-user" className="text-xs font-normal cursor-pointer">Use Contact's Name & Title</Label>
+                                    <Label htmlFor="emsig-user" className="text-xs font-normal cursor-pointer">Use Contact&rsquo;s Name & Title</Label>
                                 </div>
                                 <div className="flex items-center space-x-2">
                                     <input

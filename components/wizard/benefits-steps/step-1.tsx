@@ -2185,7 +2185,7 @@ export function BenefitsStep1() {
                       <div className="flex items-center space-x-2">
                         <RadioGroupItem value="user" id="sig-user" />
                         <Label htmlFor="sig-user" className="text-sm font-normal cursor-pointer">
-                          Use Contact's Name & Title
+                          Use Contact&rsquo;s Name & Title
                         </Label>
                       </div>
                       <div className="flex items-center space-x-2">

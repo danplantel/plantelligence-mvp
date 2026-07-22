@@ -1,10 +1,13 @@
 /**
  * Canonical Benefits Hub entry path (employee-facing portal root).
  * Must stay aligned with portal routing (e.g. portal-plan-header base path).
+ *
+ * Accepts both MongoDB ObjectIds and human-readable slugs — the [id] view route
+ * resolves both via dual lookup in GET /api/clients/[id].
  */
 
-export function getBenefitsHubPath(clientId: string): string {
-  const id = String(clientId || "").trim();
+export function getBenefitsHubPath(clientIdOrSlug: string): string {
+  const id = String(clientIdOrSlug || "").trim();
   if (!id) {
     throw new Error("clientId is required for Benefits Hub URL");
   }
@@ -12,10 +15,19 @@ export function getBenefitsHubPath(clientId: string): string {
 }
 
 /**
+ * Convenience wrapper that constructs a portal path from a plan slug.
+ * Equivalent to getBenefitsHubPath — exists for semantic clarity when
+ * you know you're passing a slug.
+ */
+export function getBenefitsHubPathFromSlug(slug: string): string {
+  return getBenefitsHubPath(slug);
+}
+
+/**
  * Absolute URL used in flyer QR codes. Requires server env configuration.
  */
-export function getBenefitsHubAbsoluteUrl(clientId: string): string {
-  const path = getBenefitsHubPath(clientId);
+export function getBenefitsHubAbsoluteUrl(clientIdOrSlug: string): string {
+  const path = getBenefitsHubPath(clientIdOrSlug);
   const base =
     process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
     process.env.NEXTAUTH_URL?.replace(/\/$/, "") ||

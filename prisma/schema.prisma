@@ -651,6 +651,9 @@ model Client {
   id     String @id @default(auto()) @map("_id") @db.ObjectId
   userId String @db.ObjectId
 
+  // URL-friendly identifier (e.g. "acme-corp")
+  slug   String? @unique
+
   // Company Information
   companyName     String
   companyWebsite  String?

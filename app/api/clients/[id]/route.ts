@@ -30,18 +30,36 @@ export async function GET(
     const clientId = params.id;
     const forPortal = request.nextUrl.searchParams.get("forPortal") === "1";
 
-    const client = await prisma.client.findUnique({
-      where: {
-        id: clientId,
-      },
-    });
+    // Dual lookup: try ObjectId first, then slug
+    const isObjectId = ObjectId.isValid(clientId);
+    let client = null;
+
+    if (isObjectId) {
+      client = await prisma.client.findUnique({
+        where: { id: clientId },
+      });
+    }
+
+    if (!client) {
+      // Slug lookup — scope by userId for authenticated requests,
+      // global for public portal requests (employees don't have sessions)
+      if (forPortal) {
+        client = await prisma.client.findFirst({
+          where: { slug: clientId },
+        });
+      } else {
+        client = await prisma.client.findFirst({
+          where: { slug: clientId, userId: session.user.id },
+        });
+      }
+    }
 
     if (!client) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
 
-    // Check if user owns this client
-    if (client.userId !== session.user.id) {
+    // Check if user owns this client (skip for portal requests — slug is globally unique)
+    if (!forPortal && client.userId !== session.user.id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -142,10 +160,21 @@ export async function PUT(
     const clientId = params.id;
     const body = await request.json();
 
-    // Check if client exists and belongs to current user
-    const existingClient = await prisma.client.findUnique({
-      where: { id: clientId },
-    });
+    // Dual lookup: try ObjectId first, then slug
+    const isObjectId = ObjectId.isValid(clientId);
+    let existingClient = null;
+
+    if (isObjectId) {
+      existingClient = await prisma.client.findUnique({
+        where: { id: clientId },
+      });
+    }
+
+    if (!existingClient) {
+      existingClient = await prisma.client.findFirst({
+        where: { slug: clientId, userId: session.user.id },
+      });
+    }
 
     if (!existingClient) {
       return NextResponse.json(
@@ -769,9 +798,21 @@ export async function DELETE(
 
     const clientId = params.id;
 
-    const client = await prisma.client.findUnique({
-      where: { id: clientId },
-    });
+    // Dual lookup: try ObjectId first, then slug
+    const isObjectId = ObjectId.isValid(clientId);
+    let client = null;
+
+    if (isObjectId) {
+      client = await prisma.client.findUnique({
+        where: { id: clientId },
+      });
+    }
+
+    if (!client) {
+      client = await prisma.client.findFirst({
+        where: { slug: clientId, userId: session.user.id },
+      });
+    }
 
     if (!client) {
       return NextResponse.json(

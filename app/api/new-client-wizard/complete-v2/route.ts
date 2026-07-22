@@ -17,6 +17,7 @@ import {
 } from "@/lib/r2";
 import { resolvePersistedDocumentCategory } from "@/lib/document-category";
 import { getOnboardingAdvisorBackgroundImage } from "@/lib/wizard-onboarding-background";
+import { generateUniquePlanSlug } from "@/lib/slug";
 
 function isR2Key(s: string | null | undefined): boolean {
   return typeof s === "string" && s.startsWith("org/");
@@ -310,8 +311,11 @@ export async function POST(request: NextRequest) {
         const secondaryBannerImgCreate = isR2Key(brandImgs?.secondaryBanner?.url) ? brandImgs.secondaryBanner.url : (useR2Branding && brandImgs?.secondaryBanner?.url ? null : (brandImgs?.secondaryBanner?.url ?? null));
         const faviconImgCreate = isR2Key(brandImgs?.favicon?.url) ? brandImgs.favicon.url : (useR2Branding && brandImgs?.favicon?.url ? null : (brandImgs?.favicon?.url ?? null));
 
+        const planSlug = await generateUniquePlanSlug(companyBasics.companyName);
+
         const client = await (prisma.client as any).create({
           data: {
+            slug: planSlug,
             companyName: companyBasics.companyName,
             companyWebsite: companyBasics.companyWebsite,
             companyLogo: companyLogoCreate,
@@ -808,6 +812,7 @@ export async function POST(request: NextRequest) {
           success: true,
           message: "New client wizard completed successfully",
           clientId: client.id,
+          slug: planSlug,
           documentsCount: documents.length
         });
 

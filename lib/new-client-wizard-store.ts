@@ -1165,7 +1165,11 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
 
           if (result.success && result.clientId) {
             set({ sessionId: result.clientId });
-            window.location.href = "/new/clients";
+            // Redirect to the slug-based plan view URL when available,
+            // falling back to the clients list for backward compatibility.
+            window.location.href = result.slug
+              ? `/new/view/${result.slug}`
+              : "/new/clients";
           }
           set((state) => ({
             ...state,
