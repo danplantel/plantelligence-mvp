@@ -1165,25 +1165,29 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
 
           if (result.success && result.clientId) {
             set({ sessionId: result.clientId });
+            // Clean up before redirect so the wizard is fresh on next visit
+            set((state) => ({
+              ...state,
+              isCompleted: true,
+              currentStep: 1,
+              stepData: {},
+              draftClientId: undefined,
+              steps: newClientWizardSteps.map((step) => ({
+                ...step,
+                completed: false,
+              })),
+            }));
+            localStorage.removeItem("new-client-wizard-store");
             // Redirect to the slug-based plan view URL when available,
             // falling back to the clients list for backward compatibility.
             window.location.href = result.slug
               ? `/new/view/${result.slug}`
               : "/new/clients";
+            return;
           }
-          set((state) => ({
-            ...state,
-            isCompleted: true,
-            currentStep: 1,
-            stepData: {},
-            draftClientId: undefined, // Clear draft client ID after completion
-            steps: newClientWizardSteps.map((step) => ({
-              ...step,
-              completed: false,
-            })),
-          }));
 
-          localStorage.removeItem("new-client-wizard-store");
+          // API responded but success was false — throw so onComplete catch shows the error
+          throw new Error(result.error || "Failed to complete wizard");
         } catch (error) {
           throw error;
         }

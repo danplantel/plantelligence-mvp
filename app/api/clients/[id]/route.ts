@@ -27,7 +27,7 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const clientId = params.id;
+    let clientId = params.id;
     const forPortal = request.nextUrl.searchParams.get("forPortal") === "1";
 
     // Dual lookup: try ObjectId first, then slug
@@ -62,6 +62,10 @@ export async function GET(
     if (!forPortal && client.userId !== session.user.id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+
+    // After resolving by slug, use the actual MongoDB ObjectId for all subsequent
+    // DB queries (Prisma requires valid ObjectIds for relation fields like clientId)
+    clientId = client.id;
 
     // Portal requests must exclude soft-archived docs (`archivedAt` set). Do not use
     // `where: { archivedAt: null }` in Prisma MongoDB: it omits rows where the field is
@@ -157,7 +161,7 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const clientId = params.id;
+    let clientId = params.id;
     const body = await request.json();
 
     // Dual lookup: try ObjectId first, then slug
@@ -186,6 +190,9 @@ export async function PUT(
     if (existingClient.userId !== session.user.id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+
+    // After resolving by slug, use the actual MongoDB ObjectId for all subsequent DB queries
+    clientId = existingClient.id;
 
     // Extract data from payload
     const {
@@ -796,7 +803,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const clientId = params.id;
+    let clientId = params.id;
 
     // Dual lookup: try ObjectId first, then slug
     const isObjectId = ObjectId.isValid(clientId);
@@ -824,6 +831,9 @@ export async function DELETE(
     if (client.userId !== session.user.id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+
+    // After resolving by slug, use the actual MongoDB ObjectId for all subsequent DB queries
+    clientId = client.id;
 
     // Get client name before deletion for meeting cleanup
     const clientName = client.companyName;

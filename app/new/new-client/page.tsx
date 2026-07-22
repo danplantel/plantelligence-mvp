@@ -399,11 +399,9 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
     try {
       completeStep(currentStep);
       await completeWizard();
-
-      // completeWizard() handles navigation to /new/clients on success.
-      // If we reach here without a redirect, something went wrong.
-      setShowSavingDialog(false);
-      toast.error("Session ID missing after completion.");
+      // completeWizard() handles navigation on success via window.location.href.
+      // If we reach here, the API returned success:false — the store threw an
+      // error which was caught below.
     } catch (error: any) {
       setShowSavingDialog(false);
       toast.error("Cannot complete wizard:", {
