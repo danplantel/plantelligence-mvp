@@ -11,18 +11,35 @@ interface CompressionOptions {
 }
 
 /**
+ * Auto-detect MIME type from a data URL so we preserve the source format
+ * and its capabilities (e.g. PNG → preserve transparency).
+ */
+function detectMimeType(dataUrl: string): 'image/jpeg' | 'image/png' | 'image/webp' {
+    if (dataUrl.startsWith('data:image/png')) return 'image/png';
+    if (dataUrl.startsWith('data:image/webp')) return 'image/webp';
+    if (dataUrl.startsWith('data:image/jpeg') || dataUrl.startsWith('data:image/jpg')) return 'image/jpeg';
+    // For SVG or unknown, default to PNG to preserve transparency
+    if (dataUrl.startsWith('data:image/svg')) return 'image/png';
+    return 'image/png';
+}
+
+/**
  * Compresses an image data URL.
  * Returns the original if it's already small enough or if compression fails.
+ * Preserves PNG transparency by default — transparent areas will NOT turn black.
  */
 export async function compressImage(
     dataUrl: string,
     options: CompressionOptions = {}
 ): Promise<string> {
+    const detectedMime = detectMimeType(dataUrl);
     const {
         maxWidth = 1200,
         maxHeight = 1200,
         quality = 0.8,
-        mimeType = 'image/jpeg'
+        // Default to the detected source format so transparency is preserved
+        // (JPEG has no alpha channel — transparent PNGs would render with a black background)
+        mimeType = detectedMime,
     } = options;
 
     // Don't compress small strings (SVG or tiny icons)
@@ -56,6 +73,10 @@ export async function compressImage(
                 resolve(dataUrl);
                 return;
             }
+
+            // Clear canvas with transparency before drawing (important for PNGs
+            // with alpha — prevents garbage pixels in the cleared region)
+            ctx.clearRect(0, 0, width, height);
 
             // Draw image on canvas
             ctx.drawImage(img, 0, 0, width, height);
