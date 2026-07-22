@@ -20,7 +20,7 @@ interface BrandImagesSectionProps {
 const BRAND_IMAGE_SLOTS = [
   {
     key: "header" as keyof BrandImagesData,
-    title: "Background Header Image (Hero)",
+    title: "Background Image",
     description:
       "This image displays in the header background of your Employee Benefits Hub. Upload a wide hero image for best results. If not uploading a picture, the Square Thumbnail will be used.",
     recommendedSize: "1920×1080 px",
@@ -45,7 +45,7 @@ const BRAND_IMAGE_SLOTS = [
   },
   {
     key: "secondaryBanner" as keyof BrandImagesData,
-    title: "Secondary Banner Image (Optional)",
+    title: "Secondary Section",
     description: "Used for secondary sections (like below Welcome Statement).",
     recommendedSize: "1600×600 px",
     required: false,

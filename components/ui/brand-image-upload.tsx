@@ -311,7 +311,7 @@ export function BrandImageUpload({
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex-1">
-          {/* <h4 className="font-medium text-sm dark:text-gray-100">{slot.title}</h4> */}
+          <h4 className="font-medium text-sm dark:text-gray-100">{slot.title}</h4>
           {editableDescription ? (
             <div className="mt-1">
               {isEditingDescription ? (
