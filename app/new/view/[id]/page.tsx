@@ -9,11 +9,49 @@ import {
 } from "@/lib/portal-category-visibility";
 
 export default function ViewClientPage() {
-  const { clientData } = useClientPortal();
+  const { clientData, loading } = useClientPortal();
   const params = useParams();
   const clientId = params.id as string;
 
+  // Loading skeleton while client data is being fetched
   if (!clientData) {
+    if (loading) {
+      return (
+        <div className="min-h-screen bg-white animate-pulse">
+          {/* Hero banner skeleton */}
+          <div className="h-[320px] bg-gray-100 flex items-center justify-center">
+            <div className="text-center space-y-4">
+              <div className="h-8 w-64 bg-gray-200 rounded mx-auto" />
+              <div className="h-4 w-96 bg-gray-200 rounded mx-auto" />
+            </div>
+          </div>
+
+          {/* Benefit cards skeleton */}
+          <div className="max-w-7xl mx-auto px-6 py-12">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="rounded-2xl bg-gray-50 p-6 space-y-4">
+                  <div className="h-12 w-12 rounded-xl bg-gray-200" />
+                  <div className="h-5 w-32 bg-gray-200 rounded" />
+                  <div className="space-y-2">
+                    <div className="h-3 w-full bg-gray-200 rounded" />
+                    <div className="h-3 w-3/4 bg-gray-200 rounded" />
+                  </div>
+                  <div className="h-10 w-full rounded-lg bg-gray-200" />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Footer skeleton */}
+          <div className="border-t border-gray-100 mt-12">
+            <div className="max-w-7xl mx-auto px-6 py-8">
+              <div className="h-4 w-48 bg-gray-200 rounded mx-auto" />
+            </div>
+          </div>
+        </div>
+      );
+    }
     return null;
   }
 
