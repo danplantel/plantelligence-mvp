@@ -288,17 +288,42 @@ function BenefitsPageInner() {
       // Current-category documents: wizard Step 4 is the source of truth, BUT if the store rehydrated
       // empty (navigated away, refresh) while the DB still has R2 rows from auto-persist, merge in API
       // rows for this category so we never send an empty list and delete everything.
+      //
+      // IMPORTANT: step4List may contain documents from ALL categories. Filter to only the current
+      // editingHub to avoid duplicating other-category documents when concatenated with
+      // retirementPlanDocuments below.
       const step4List = (step4Data?.documents || []) as any[];
+      const step4ForCurrentCategory = step4List.filter((d) =>
+        resolvePersistedDocumentCategory(
+          d.type || "Document",
+          d.category,
+          d.storageKey,
+        ) === editingHub
+      );
       const fromApiThisHub = (currentDocuments as any[]).filter(
         (d) =>
           d.type === "Document" &&
           resolvePersistedDocumentCategory(d.type, d.category) === editingHub,
       );
-      const step4IdSet = new Set(step4List.map((d) => String(d.id ?? "")));
-      const onlyOnServer = fromApiThisHub.filter(
-        (d) => !step4IdSet.has(String(d.id)),
+      // Deduplicate by both ID AND storageKey: step4 may have temp-ID docs whose
+      // storageKey matches real-ID docs from the API (e.g., auto-persisted R2 uploads).
+      // Without storageKey matching, both the temp-ID and real-ID versions would be
+      // included, doubling the documents on every completion.
+      const step4IdSet = new Set(step4ForCurrentCategory.map((d) => String(d.id ?? "")));
+      const step4KeySet = new Set(
+        step4ForCurrentCategory
+          .map((d) => (d.storageKey ? String(d.storageKey).trim() : ""))
+          .filter(Boolean),
       );
-      const mergedForCurrentCategory = [...step4List, ...onlyOnServer];
+      const onlyOnServer = fromApiThisHub.filter(
+        (d) => {
+          if (step4IdSet.has(String(d.id))) return false;
+          const apiKey = (d.storageKey && String(d.storageKey).trim()) || "";
+          if (apiKey && step4KeySet.has(apiKey)) return false;
+          return true;
+        },
+      );
+      const mergedForCurrentCategory = [...step4ForCurrentCategory, ...onlyOnServer];
 
       const newDocuments = mergedForCurrentCategory.map((doc: any) => {
         // `GET /api/clients` documents use `title`/`fileUrl`; wizard Step 4 uses `name`/`file`
@@ -327,6 +352,7 @@ function BenefitsPageInner() {
             category: step1Data?.benefitCategory,
             language: doc.language || "EN",
             shortDescription: doc.shortDescription || "",
+            expirationDate: doc.expirationDate || undefined,
           };
         }
 
@@ -349,6 +375,7 @@ function BenefitsPageInner() {
           category: step1Data?.benefitCategory,
           language: doc.language || "EN",
           shortDescription: doc.shortDescription || "",
+          expirationDate: doc.expirationDate || undefined,
         };
       });
 
@@ -407,8 +434,29 @@ function BenefitsPageInner() {
         },
         categoryPortalVisibility: categoryPortalVisibilityForComplete,
         ...(step5Disclaimers ? { disclaimers: { disclaimers: step5Disclaimers } } : {}),
-        documentsData: {
-          retirementPlanDocuments: [...retirementPlanDocuments, ...newDocuments],
+      };
+
+      // Only include documentsData if documents actually changed in the wizard.
+      // Sending documentsData always triggers a DELETE + RECREATE of all Document-type
+      // docs on the server. If the user is just editing a benefit without touching
+      // documents, skip documentsData to avoid any risk of duplication.
+      const finalRetirementDocs = [...retirementPlanDocuments, ...newDocuments];
+      const hasNewOrChangedDocs =
+        onlyOnServer.length > 0 ||
+        step4ForCurrentCategory.some((d) => {
+          // Temp IDs (doc-, temp-, plan-doc-, optional-doc-) indicate wizard-added docs
+          const sid = String(d.id ?? "");
+          return (
+            sid.startsWith("temp-") ||
+            sid.startsWith("doc-") ||
+            sid.startsWith("plan-doc-") ||
+            sid.startsWith("optional-doc-")
+          );
+        });
+
+      if (hasNewOrChangedDocs) {
+        (updatePayload as any).documentsData = {
+          retirementPlanDocuments: finalRetirementDocs,
           // Preserve other types
           otherDocuments: currentDocuments.filter((d: any) => d.type !== "Document" && d.type !== "SPD" && d.type !== "SBC"),
           spdFile: currentDocuments.find((d: any) => d.type === "SPD") ? {
