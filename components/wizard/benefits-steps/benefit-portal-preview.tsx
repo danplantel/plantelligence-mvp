@@ -249,9 +249,10 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
                             companyLogo: typeof step1Data?.selectedPlan?.companyLogo === 'object'
                                 ? (step1Data?.selectedPlan?.companyLogo as any)?.url
                                 : step1Data?.selectedPlan?.companyLogo,
-                            backgroundImg: (step1Data?.selectedPlan as any)?.backgroundImg
+                            // Priority: Editor Panel upload → plan-level hero background → plan-level backgroundImg → default
+                            backgroundImg: step1Data?.brandImages?.header?.url
                                 || (step1Data as any)?.heroBackgroundImage
-                                || step1Data?.brandImages?.header?.url
+                                || (step1Data?.selectedPlan as any)?.backgroundImg
                                 || DEFAULT_WELCOME_BG,
                             secondaryBannerImg: step1Data?.brandImages?.header?.url,
                         } as any}
