@@ -26,16 +26,24 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
+        // Normalize: trim whitespace and lowercase email
+        // Prevents subtle mismatches from auto-fill, whitespace, or casing
+        const email = String(credentials.email).trim().toLowerCase();
+        const password = String(credentials.password);
+
+        if (!email || !password) {
+          console.error("[authorize] Email or password empty after normalization");
+          return null;
+        }
+
         try {
           const user = await prisma.user.findUnique({
-            where: {
-              email: credentials.email,
-            },
+            where: { email },
           });
 
           if (!user) {
             console.error(
-              `[authorize] No user found for email: ${credentials.email}`,
+              `[authorize] No user found for email: ${email}`,
             );
             return null;
           }
@@ -43,19 +51,19 @@ export const authOptions: NextAuthOptions = {
           // User exists but has no password set (e.g. Google OAuth-only account)
           if (!user.password) {
             console.error(
-              `[authorize] User ${credentials.email} has no password set (Google OAuth-only account)`,
+              `[authorize] User ${email} has no password set (Google OAuth-only account)`,
             );
             return null;
           }
 
           const isValidPassword = await bcrypt.compare(
-            credentials.password,
+            password,
             user.password,
           );
 
           if (!isValidPassword) {
             console.error(
-              `[authorize] Invalid password for email: ${credentials.email}`,
+              `[authorize] Invalid password for email: ${email}`,
             );
             return null;
           }
