@@ -106,7 +106,10 @@ export const authOptions: NextAuthOptions = {
           token.id = dbUser?.id || user.id;
           token.organizationName = dbUser?.organizationName || undefined;
         } else {
+          // Credentials provider — user is the full Prisma User object
           token.id = user.id;
+          // organizationName is available directly on the user object for credentials login
+          token.organizationName = (user as any).organizationName || undefined;
         }
       }
 
