@@ -251,29 +251,41 @@ export function PortalWelcomeBanner({
       }`}
       style={{ backgroundColor: "#0F172A" }}
     >
-      {/* Background Image — CSS background-image (most reliable, no gaps possible) */}
+      {/* Background Image — uses min-height/min-width to guarantee full coverage for any image resolution */}
       <div
         className="absolute inset-0 z-0"
-        style={{
-          backgroundColor: "#0F172A",
-          backgroundImage: heroImageSrc ? `url(${heroImageSrc})` : undefined,
-          backgroundSize: "cover",
-          backgroundRepeat: "no-repeat",
-          backgroundPosition: desktopHeroBackgroundPosition
-            ? `${desktopHeroBackgroundPosition.x}% ${desktopHeroBackgroundPosition.y}%`
-            : "center",
-        }}
+        style={{ backgroundColor: "#0F172A" }}
       >
-        {mobileHeroBackgroundPosition && (
-          <style>{`
-            @media (max-width: 640px) {
-              #portal-welcome-banner .absolute.inset-0.z-0 {
-                background-position: ${mobileHeroBackgroundPosition.x}% ${mobileHeroBackgroundPosition.y}% !important;
-              }
-            }
-          `}</style>
+        {heroImageSrc && (
+          <img
+            src={heroImageSrc}
+            alt=""
+            style={{
+              minWidth: "100%",
+              minHeight: "100%",
+              width: "auto",
+              height: "auto",
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              objectFit: "cover",
+              objectPosition: desktopHeroBackgroundPosition
+                ? `${desktopHeroBackgroundPosition.x}% ${desktopHeroBackgroundPosition.y}%`
+                : "center",
+            }}
+          />
         )}
       </div>
+      {mobileHeroBackgroundPosition && (
+        <style>{`
+          @media (max-width: 640px) {
+            #portal-welcome-banner .absolute.inset-0.z-0 img {
+              object-position: ${mobileHeroBackgroundPosition.x}% ${mobileHeroBackgroundPosition.y}% !important;
+            }
+          }
+        `}</style>
+      )}
 
       {/* Background overlay — separate element at section level with explicit z-index to ensure it renders above the background image */}
       <div
