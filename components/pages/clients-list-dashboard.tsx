@@ -648,14 +648,12 @@ export function ClientsListDashboardPage() {
                                       size="icon"
                                       className="h-8 w-8"
                                       onClick={() => {
-                                        // Build subdomain URL when available
-                                        const rootDomain =
-                                          process.env.NEXT_PUBLIC_ROOT_DOMAIN ||
-                                          "plantelligence-mvp.vercel.app";
-                                        const userSubdomain = (session?.user as any)?.subdomain ||
-                                          (session?.user && (session.user as any)?.organizationName
-                                            ? (session.user as any).organizationName.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, "")
-                                            : undefined);
+                                        // Build subdomain URL from the advisor's organizationName
+                                        const rootDomain = "plantelligence-mvp.vercel.app";
+                                        const orgName = (session?.user as any)?.organizationName;
+                                        const userSubdomain = orgName
+                                          ? orgName.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, "")
+                                          : undefined;
                                         const path = `/new/view/${client.slug || client.id}`;
                                         const url = userSubdomain
                                           ? `https://${userSubdomain}.${rootDomain}${path}`

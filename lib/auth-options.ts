@@ -92,44 +92,36 @@ export const authOptions: NextAuthOptions = {
       }
 
       (session as any).provider = token.provider;
-      // Pass subdomain and organizationName from token to session
-      (session as any).subdomain = token.subdomain;
       (session as any).organizationName = token.organizationName;
 
       return session;
     },
     async jwt({ token, user, account }) {
       if (user) {
-        // For OAuth providers (Google), user.id is the provider's 'sub' (e.g. Google numeric ID),
-        // not the MongoDB _id. Look up the actual MongoDB user by email.
         if (account?.provider === "google") {
           const dbUser = await prisma.user.findUnique({
             where: { email: user.email as string },
-            select: { id: true, subdomain: true, organizationName: true },
+            select: { id: true, organizationName: true },
           });
           token.id = dbUser?.id || user.id;
-          token.subdomain = dbUser?.subdomain || undefined;
           token.organizationName = dbUser?.organizationName || undefined;
         } else {
-          // For credentials provider, user.id is already the MongoDB _id
           token.id = user.id;
         }
       }
 
-      // On every JWT refresh, ensure subdomain and org name are in the token
-      // (fetches from DB if not already present)
-      if (!token.subdomain && !token.organizationName) {
+      // On every JWT refresh, ensure organizationName is in the token
+      if (!token.organizationName) {
         try {
           const dbUser = await prisma.user.findUnique({
             where: { id: token.id as string },
-            select: { subdomain: true, organizationName: true },
+            select: { organizationName: true },
           });
-          if (dbUser) {
-            token.subdomain = dbUser.subdomain || undefined;
-            token.organizationName = dbUser.organizationName || undefined;
+          if (dbUser?.organizationName) {
+            token.organizationName = dbUser.organizationName;
           }
         } catch {
-          // Silently ignore — token will be populated on next refresh
+          // Silently ignore
         }
       }
 

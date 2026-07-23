@@ -24,7 +24,7 @@ function extractSubdomain(host: string): string | null {
 }
 
 /** Slugify a string for use as a subdomain: "Waypoint Wealth" → "waypoint-wealth" */
-function slugifySubdomain(name: string): string {
+function slugifyOrgName(name: string): string {
   return name
     .toLowerCase()
     .trim()
@@ -35,29 +35,19 @@ function slugifySubdomain(name: string): string {
 
 /** Resolve an advisor userId from a subdomain string like "waypoint".
  *
- *  Matches against both User.subdomain and a slugified version of
- *  User.organizationName so that "waypoint" resolves whether it was
- *  set as the subdomain or the organization name. */
+ *  Matches the slugified version of User.organizationName against
+ *  the subdomain extracted from the host header. */
 async function resolveAdvisorFromSubdomain(
   subdomain: string,
-): Promise<{ id: string; subdomain: string | null; organizationName: string | null } | null> {
+): Promise<{ id: string; organizationName: string | null } | null> {
   try {
-    // 1. Try exact subdomain match
-    let user = await prisma.user.findFirst({
-      where: { subdomain },
-      select: { id: true, subdomain: true, organizationName: true },
-    });
-    if (user) return user as any;
-
-    // 2. Fall back to matching a slugified organizationName
-    //    e.g. "Waypoint Wealth" stored as org name → "waypoint-wealth" subdomain
     const allUsers = await prisma.user.findMany({
       where: { organizationName: { not: null } },
-      select: { id: true, subdomain: true, organizationName: true },
+      select: { id: true, organizationName: true },
     });
 
     for (const u of allUsers) {
-      if (u.organizationName && slugifySubdomain(u.organizationName) === subdomain) {
+      if (u.organizationName && slugifyOrgName(u.organizationName) === subdomain) {
         return u as any;
       }
     }
@@ -92,9 +82,6 @@ export default withAuth(
       if (advisor) {
         // Pass the resolved advisor ID to all downstream handlers
         response.headers.set("x-advisor-id", advisor.id);
-        if (advisor.subdomain) {
-          response.headers.set("x-advisor-subdomain", advisor.subdomain);
-        }
       }
       // Subdomain access does NOT require auth (employees view the portal)
       return response;

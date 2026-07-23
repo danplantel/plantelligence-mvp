@@ -33,15 +33,19 @@ export function getBenefitsHubPathFromSlug(slug: string): string {
  */
 export function getBenefitsHubAbsoluteUrl(
   clientIdOrSlug: string,
-  userSubdomain?: string,
+  userOrganizationName?: string,
 ): string {
   const path = getBenefitsHubPath(clientIdOrSlug);
-  const rootDomain =
-    process.env.NEXT_PUBLIC_ROOT_DOMAIN || "plantelligence-mvp.vercel.app";
+  const rootDomain = "plantelligence-mvp.vercel.app";
 
-  if (userSubdomain) {
-    // Production / subdomain: https://waypoint.plantel.pro/new/view/gloomis
-    return `https://${userSubdomain}.${rootDomain}${path}`;
+  if (userOrganizationName) {
+    // Slugify the organization name for the subdomain
+    const subdomain = userOrganizationName
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    return `https://${subdomain}.${rootDomain}${path}`;
   }
 
   // Fallback for local dev or when no subdomain is configured

@@ -73,7 +73,6 @@ export async function POST(request: NextRequest) {
         name: true,
         advisorLogo: true,
         advisorLogoUrl: true,
-        subdomain: true,
         organizationName: true,
       },
     });
@@ -84,13 +83,7 @@ export async function POST(request: NextRequest) {
 
     let hubAbsoluteUrl: string;
     try {
-      // Use subdomain, or fall back to slugified organization name
-      const userSubdomain =
-        user?.subdomain ||
-        (user?.organizationName
-          ? (user as any).organizationName.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, "")
-          : undefined);
-      hubAbsoluteUrl = getBenefitsHubAbsoluteUrl(clientId, userSubdomain);
+      hubAbsoluteUrl = getBenefitsHubAbsoluteUrl(clientId, user?.organizationName ?? undefined);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Hub URL misconfigured";
       return NextResponse.json({ error: msg }, { status: 500 });
