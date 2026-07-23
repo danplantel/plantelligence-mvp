@@ -252,18 +252,13 @@ export function PortalWelcomeBanner({
             }
           `}</style>
         )}
-        {/* Overlay */}
-        <div
-          className="absolute inset-0"
-          style={{
-            background: backgroundInverted
-              ? "rgba(255, 255, 255, 1)"
-              : "rgba(0, 0, 0, 1)",
-            opacity: 1 - backgroundOpacity,
-            isolation: "isolate",
-          }}
-        />
       </div>
+
+      {/* Background overlay — separate element at section level with explicit z-index to ensure it renders above the background image */}
+      <div
+        className="absolute inset-0 z-[1]"
+        style={backgroundOverlayStyle}
+      />
 
       {/* Health-Hub UI (unified for all categories) */}
       <div
