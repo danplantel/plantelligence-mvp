@@ -267,6 +267,13 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
                                 ? (step1Data.customSignatureCompany || "Your Company")
                                 : undefined
                         }
+                        // Closing & Signature style flags (per-line bold/italic)
+                        customClosingBold={step1Data?.customClosingBold ?? true}
+                        customClosingItalic={step1Data?.customClosingItalic ?? false}
+                        customSignatureNameBold={step1Data?.customSignatureNameBold ?? false}
+                        customSignatureNameItalic={step1Data?.customSignatureNameItalic ?? false}
+                        customSignatureCompanyBold={step1Data?.customSignatureCompanyBold ?? false}
+                        customSignatureCompanyItalic={step1Data?.customSignatureCompanyItalic ?? true}
                         onTitleClick={() => handleEdit("messaging", "benefitTitle")}
                         onDescriptionClick={() => handleEdit("messaging", "shortDescription")}
                         desktopHeroBackgroundPosition={(step1Data as any)?.desktopHeroBackgroundPosition}

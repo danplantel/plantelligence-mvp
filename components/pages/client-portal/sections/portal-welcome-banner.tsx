@@ -53,6 +53,13 @@ interface PortalWelcomeBannerProps {
   containerInverted?: boolean;
   backgroundInverted?: boolean;
   useGradient?: boolean;
+  // Closing & Signature style flags (per-line bold/italic)
+  customClosingBold?: boolean;
+  customClosingItalic?: boolean;
+  customSignatureNameBold?: boolean;
+  customSignatureNameItalic?: boolean;
+  customSignatureCompanyBold?: boolean;
+  customSignatureCompanyItalic?: boolean;
   /** Desktop background image focal point (percentage) */
   desktopHeroBackgroundPosition?: { x: number; y: number };
   /** Mobile background image focal point (percentage) */
@@ -78,6 +85,12 @@ export function PortalWelcomeBanner({
   containerInverted = false,
   backgroundInverted = false,
   useGradient = false,
+  customClosingBold = true,
+  customClosingItalic = false,
+  customSignatureNameBold = false,
+  customSignatureNameItalic = false,
+  customSignatureCompanyBold = false,
+  customSignatureCompanyItalic = true,
   desktopHeroBackgroundPosition,
   mobileHeroBackgroundPosition,
 }: PortalWelcomeBannerProps) {
@@ -329,16 +342,16 @@ export function PortalWelcomeBanner({
 
               {/* Closing & Signature */}
               <div className="pt-5">
-                <p className="text-lg font-dm-serif">{closing}</p>
+                <p className={`text-lg font-red-hat ${customClosingBold ? "font-bold" : "font-normal"} ${customClosingItalic ? "italic" : ""}`}>{closing}</p>
                 <div className="mt-2 space-y-1">
-                  <p className={`text-base font-dm-serif ${
+                  <p className={`text-base font-red-hat font-normal ${
                     containerInverted ? "text-gray-900" : "text-white"
-                  }`}>
+                  } ${customSignatureNameBold ? "font-bold" : ""} ${customSignatureNameItalic ? "italic" : ""}`}>
                     {signatureName}
                   </p>
-                  <p className={`text-xs uppercase tracking-[0.2em] font-red-hat ${
+                  <p className={`text-xs uppercase tracking-[0.2em] font-red-hat font-normal ${
                     containerInverted ? "text-gray-500" : "text-white/90"
-                  }`}>
+                  } ${customSignatureCompanyBold ? "font-bold" : ""} ${customSignatureCompanyItalic ? "italic" : ""}`}>
                     {signatureCompany}
                   </p>
                 </div>

@@ -382,25 +382,133 @@ export function BenefitsEditorPanel({
                             </div>
 
                             {(step1Data.signatureMode || "user") === "custom" && (
+                                <div className="space-y-3 pl-4">
+                                    <div className="space-y-1">
+                                        <div className="flex items-center gap-2">
+                                            <Input
+                                                value={step1Data.customClosing || ""}
+                                                onChange={(e) => saveStepData(1, { ...step1Data, customClosing: e.target.value })}
+                                                placeholder='Closing text e.g. "We hope to inspire you to save!"'
+                                                className="h-9 shadow-sm border-muted text-xs flex-1"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => saveStepData(1, { ...step1Data, customClosingBold: !(step1Data.customClosingBold ?? true) })}
+                                                className={`h-9 w-9 flex items-center justify-center rounded text-xs font-bold transition-colors ${(step1Data.customClosingBold ?? true) ? "bg-blue-600 text-white" : "border border-gray-300 bg-white text-gray-600 hover:bg-gray-50"}`}
+                                                title="Bold"
+                                            >B</button>
+                                            <button
+                                                type="button"
+                                                onClick={() => saveStepData(1, { ...step1Data, customClosingItalic: !step1Data.customClosingItalic })}
+                                                className={`h-9 w-9 flex items-center justify-center rounded text-xs italic transition-colors ${step1Data.customClosingItalic ? "bg-blue-600 text-white" : "border border-gray-300 bg-white text-gray-600 hover:bg-gray-50"}`}
+                                                title="Italic"
+                                            >I</button>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <div className="flex items-center gap-2">
+                                            <Input
+                                                value={step1Data.customSignatureName || ""}
+                                                onChange={(e) => saveStepData(1, { ...step1Data, customSignatureName: e.target.value })}
+                                                placeholder='Signature name e.g. "[Name] - [Position]"'
+                                                className="h-9 shadow-sm border-muted text-xs flex-1"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => saveStepData(1, { ...step1Data, customSignatureNameBold: !step1Data.customSignatureNameBold })}
+                                                className={`h-9 w-9 flex items-center justify-center rounded text-xs font-bold transition-colors ${step1Data.customSignatureNameBold ? "bg-blue-600 text-white" : "border border-gray-300 bg-white text-gray-600 hover:bg-gray-50"}`}
+                                                title="Bold"
+                                            >B</button>
+                                            <button
+                                                type="button"
+                                                onClick={() => saveStepData(1, { ...step1Data, customSignatureNameItalic: !step1Data.customSignatureNameItalic })}
+                                                className={`h-9 w-9 flex items-center justify-center rounded text-xs italic transition-colors ${step1Data.customSignatureNameItalic ? "bg-blue-600 text-white" : "border border-gray-300 bg-white text-gray-600 hover:bg-gray-50"}`}
+                                                title="Italic"
+                                            >I</button>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <div className="flex items-center gap-2">
+                                            <Input
+                                                value={step1Data.customSignatureCompany || ""}
+                                                onChange={(e) => saveStepData(1, { ...step1Data, customSignatureCompany: e.target.value })}
+                                                placeholder='Company Name'
+                                                className="h-9 shadow-sm border-muted text-xs flex-1"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => saveStepData(1, { ...step1Data, customSignatureCompanyBold: !step1Data.customSignatureCompanyBold })}
+                                                className={`h-9 w-9 flex items-center justify-center rounded text-xs font-bold transition-colors ${step1Data.customSignatureCompanyBold ? "bg-blue-600 text-white" : "border border-gray-300 bg-white text-gray-600 hover:bg-gray-50"}`}
+                                                title="Bold"
+                                            >B</button>
+                                            <button
+                                                type="button"
+                                                onClick={() => saveStepData(1, { ...step1Data, customSignatureCompanyItalic: !(step1Data.customSignatureCompanyItalic ?? true) })}
+                                                className={`h-9 w-9 flex items-center justify-center rounded text-xs italic transition-colors ${(step1Data.customSignatureCompanyItalic ?? true) ? "bg-blue-600 text-white" : "border border-gray-300 bg-white text-gray-600 hover:bg-gray-50"}`}
+                                                title="Italic"
+                                            >I</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Per-line style controls for "Use Contact's Name & Title" mode */}
+                            {(step1Data.signatureMode || "user") === "user" && (
                                 <div className="space-y-2 pl-4">
-                                    <Input
-                                        value={step1Data.customClosing || ""}
-                                        onChange={(e) => saveStepData(1, { ...step1Data, customClosing: e.target.value })}
-                                        placeholder='Closing text e.g. "We hope to inspire you to save!"'
-                                        className="h-9 shadow-sm border-muted text-xs"
-                                    />
-                                    <Input
-                                        value={step1Data.customSignatureName || ""}
-                                        onChange={(e) => saveStepData(1, { ...step1Data, customSignatureName: e.target.value })}
-                                        placeholder='Signature name e.g. "[Name] - [Position]"'
-                                        className="h-9 shadow-sm border-muted text-xs"
-                                    />
-                                    <Input
-                                        value={step1Data.customSignatureCompany || ""}
-                                        onChange={(e) => saveStepData(1, { ...step1Data, customSignatureCompany: e.target.value })}
-                                        placeholder='Company Name'
-                                        className="h-9 shadow-sm border-muted text-xs"
-                                    />
+                                    <Label className="text-[11px] text-muted-foreground">Text Style</Label>
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs text-muted-foreground">Closing</span>
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => saveStepData(1, { ...step1Data, customClosingBold: !(step1Data.customClosingBold ?? true) })}
+                                                    className={`h-7 w-7 flex items-center justify-center rounded text-[11px] font-bold transition-colors ${(step1Data.customClosingBold ?? true) ? "bg-blue-600 text-white" : "border border-gray-300 bg-white text-gray-600 hover:bg-gray-50"}`}
+                                                    title="Bold"
+                                                >B</button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => saveStepData(1, { ...step1Data, customClosingItalic: !step1Data.customClosingItalic })}
+                                                    className={`h-7 w-7 flex items-center justify-center rounded text-[11px] italic transition-colors ${step1Data.customClosingItalic ? "bg-blue-600 text-white" : "border border-gray-300 bg-white text-gray-600 hover:bg-gray-50"}`}
+                                                    title="Italic"
+                                                >I</button>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs text-muted-foreground">Signature Name</span>
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => saveStepData(1, { ...step1Data, customSignatureNameBold: !step1Data.customSignatureNameBold })}
+                                                    className={`h-7 w-7 flex items-center justify-center rounded text-[11px] font-bold transition-colors ${step1Data.customSignatureNameBold ? "bg-blue-600 text-white" : "border border-gray-300 bg-white text-gray-600 hover:bg-gray-50"}`}
+                                                    title="Bold"
+                                                >B</button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => saveStepData(1, { ...step1Data, customSignatureNameItalic: !step1Data.customSignatureNameItalic })}
+                                                    className={`h-7 w-7 flex items-center justify-center rounded text-[11px] italic transition-colors ${step1Data.customSignatureNameItalic ? "bg-blue-600 text-white" : "border border-gray-300 bg-white text-gray-600 hover:bg-gray-50"}`}
+                                                    title="Italic"
+                                                >I</button>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs text-muted-foreground">Company Name</span>
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => saveStepData(1, { ...step1Data, customSignatureCompanyBold: !step1Data.customSignatureCompanyBold })}
+                                                    className={`h-7 w-7 flex items-center justify-center rounded text-[11px] font-bold transition-colors ${step1Data.customSignatureCompanyBold ? "bg-blue-600 text-white" : "border border-gray-300 bg-white text-gray-600 hover:bg-gray-50"}`}
+                                                    title="Bold"
+                                                >B</button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => saveStepData(1, { ...step1Data, customSignatureCompanyItalic: !(step1Data.customSignatureCompanyItalic ?? true) })}
+                                                    className={`h-7 w-7 flex items-center justify-center rounded text-[11px] italic transition-colors ${(step1Data.customSignatureCompanyItalic ?? true) ? "bg-blue-600 text-white" : "border border-gray-300 bg-white text-gray-600 hover:bg-gray-50"}`}
+                                                    title="Italic"
+                                                >I</button>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             )}
                         </div>

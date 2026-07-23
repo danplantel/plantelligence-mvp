@@ -63,6 +63,13 @@ export interface BenefitsStep1Data {
     customSignatureName?: string;
     /** Custom signature company name (when signatureMode is "custom") */
     customSignatureCompany?: string;
+    // Per-line bold/italic toggles (applied in both "user" and "custom" modes)
+    customClosingBold?: boolean;
+    customClosingItalic?: boolean;
+    customSignatureNameBold?: boolean;
+    customSignatureNameItalic?: boolean;
+    customSignatureCompanyBold?: boolean;
+    customSignatureCompanyItalic?: boolean;
 }
 
 export interface FAQItem {
