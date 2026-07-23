@@ -5,6 +5,17 @@ export const DEFAULT_CATEGORY_SECTION_BG = "/Hiking-Couple-Looking.webp";
 export const DEFAULT_WELCOME_BG =
   "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=2400&q=80";
 
+/**
+ * Per-category default hero background images.
+ * Used when no custom background is uploaded for a benefit hub page.
+ */
+export const CATEGORY_DEFAULT_BGS: Record<string, string> = {
+  Retirement: "/benefit-hub-default-bg/benefits-hub-default-bg-01.jpg",
+  "Group Health": "/benefit-hub-default-bg/benefits-hub-default-bg-02.jpg",
+  "Group Life": "/benefit-hub-default-bg/benefits-hub-default-bg-03.jpg",
+  "Company / Plan Sponsor": "/benefit-hub-default-bg/benefits-hub-default-bg-04.jpg",
+};
+
 function onboardingBgFromClient(clientData: {
   employeePortalPreview?: any;
 } | null): string {
@@ -51,5 +62,6 @@ export function getPortalWelcomeBackgroundUrl(
   if (main) return main;
   const secondary = (clientData?.secondaryBannerImg || "").trim();
   if (secondary) return secondary;
-  return DEFAULT_WELCOME_BG;
+  // Return empty — the caller's <img> fallback chain handles the per-category default
+  return "";
 }

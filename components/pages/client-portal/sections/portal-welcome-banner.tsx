@@ -7,6 +7,7 @@ import { BrandingImage } from "@/components/ui/branding-image";
 import { isR2BrandingKey, toNextImageSrc } from "@/lib/branding-image-url";
 import {
   DEFAULT_WELCOME_BG,
+  CATEGORY_DEFAULT_BGS,
   getPortalWelcomeBackgroundUrl,
 } from "@/lib/portal-category-hero-background";
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
@@ -193,8 +194,8 @@ export function PortalWelcomeBanner({
     `${clientData?.companyName || "Company"} Benefits Logo`;
 
   // Background image: prioritize the wizard Editor Panel upload (Step 2) over
-  // the API's backgroundImg (which may still reflect Step 1's original image).
-  // Falls back to the portal welcome URL resolver for unsaved / no-wizard cases.
+  // the API's backgroundImg. Falls back to DEFAULT_WELCOME_BG when no custom
+  // image is available (the Unsplash beach photo).
   const wizardStep1Data = useBenefitsWizardStore((s) => s.stepData?.step1 as any);
   const backgroundRaw =
     wizardStep1Data?.brandImages?.header?.url
@@ -207,10 +208,7 @@ export function PortalWelcomeBanner({
     ? backgroundResolved ?? undefined
     : (backgroundResolved ?? backgroundRaw) || undefined;
 
-  const welcomeBannerImgSrc =
-    background ??
-    (!isR2WelcomeBg ? backgroundRaw : undefined) ??
-    DEFAULT_WELCOME_BG;
+  const welcomeBannerImgSrc = background ?? (!isR2WelcomeBg ? backgroundRaw : undefined);
 
   // Handle description as string or array of paragraphs
   const descriptionParagraphs = Array.isArray(description)
@@ -243,6 +241,9 @@ export function PortalWelcomeBanner({
 
   const heroImageSrc = toNextImageSrc(welcomeBannerImgSrc, DEFAULT_WELCOME_BG);
 
+  // Compute the default background image per category
+  const categoryDefaultBg = CATEGORY_DEFAULT_BGS[category || ""] || DEFAULT_WELCOME_BG;
+
   return (
     <section
       id="portal-welcome-banner"
@@ -256,26 +257,24 @@ export function PortalWelcomeBanner({
         className="absolute inset-0 z-0"
         style={{ backgroundColor: "#0F172A" }}
       >
-        {heroImageSrc && (
-          <img
-            src={heroImageSrc}
-            alt=""
-            style={{
-              minWidth: "100%",
-              minHeight: "100%",
-              width: "auto",
-              height: "auto",
-              position: "absolute",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              objectFit: "cover",
-              objectPosition: desktopHeroBackgroundPosition
-                ? `${desktopHeroBackgroundPosition.x}% ${desktopHeroBackgroundPosition.y}%`
-                : "center",
-            }}
-          />
-        )}
+        <img
+          src={categoryDefaultBg}
+          alt=""
+          style={{
+            minWidth: "100%",
+            minHeight: "100%",
+            width: "auto",
+            height: "auto",
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            objectFit: "cover",
+            objectPosition: desktopHeroBackgroundPosition
+              ? `${desktopHeroBackgroundPosition.x}% ${desktopHeroBackgroundPosition.y}%`
+              : "center",
+          }}
+        />
       </div>
       {mobileHeroBackgroundPosition && (
         <style>{`
