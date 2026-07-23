@@ -29,6 +29,8 @@ export async function GET(
 
     let clientId = params.id;
     const forPortal = request.nextUrl.searchParams.get("forPortal") === "1";
+    // Resolve advisor from subdomain header (set by middleware when accessed via *.rootdomain)
+    const advisorIdHeader = request.headers.get("x-advisor-id");
 
     // Dual lookup: try ObjectId first, then slug
     const isObjectId = ObjectId.isValid(clientId);
@@ -42,8 +44,12 @@ export async function GET(
 
     if (!client) {
       // Slug lookup — scope by userId for authenticated requests,
-      // global for public portal requests (employees don't have sessions)
-      if (forPortal) {
+      // by advisorId from subdomain for portal requests, or global fallback
+      if (forPortal && advisorIdHeader) {
+        client = await prisma.client.findFirst({
+          where: { slug: clientId, userId: advisorIdHeader },
+        });
+      } else if (forPortal) {
         client = await prisma.client.findFirst({
           where: { slug: clientId },
         });

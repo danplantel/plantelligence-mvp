@@ -25,9 +25,26 @@ export function getBenefitsHubPathFromSlug(slug: string): string {
 
 /**
  * Absolute URL used in flyer QR codes. Requires server env configuration.
+ *
+ * When a subdomain is provided (the advisor's User.subdomain), the URL is built
+ * as: https://{subdomain}.{rootDomain}/new/view/{slug}
+ *
+ * Example: https://waypoint.plantel.pro/new/view/gloomis
  */
-export function getBenefitsHubAbsoluteUrl(clientIdOrSlug: string): string {
+export function getBenefitsHubAbsoluteUrl(
+  clientIdOrSlug: string,
+  userSubdomain?: string,
+): string {
   const path = getBenefitsHubPath(clientIdOrSlug);
+  const rootDomain =
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN || "plantelligence-mvp.vercel.app";
+
+  if (userSubdomain) {
+    // Production / subdomain: https://waypoint.plantel.pro/new/view/gloomis
+    return `https://${userSubdomain}.${rootDomain}${path}`;
+  }
+
+  // Fallback for local dev or when no subdomain is configured
   const base =
     process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
     process.env.NEXTAUTH_URL?.replace(/\/$/, "") ||
