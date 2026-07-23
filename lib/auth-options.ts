@@ -92,6 +92,9 @@ export const authOptions: NextAuthOptions = {
       }
 
       (session as any).provider = token.provider;
+      // Pass subdomain and organizationName from token to session
+      (session as any).subdomain = token.subdomain;
+      (session as any).organizationName = token.organizationName;
 
       return session;
     },
@@ -102,14 +105,34 @@ export const authOptions: NextAuthOptions = {
         if (account?.provider === "google") {
           const dbUser = await prisma.user.findUnique({
             where: { email: user.email as string },
-            select: { id: true },
+            select: { id: true, subdomain: true, organizationName: true },
           });
           token.id = dbUser?.id || user.id;
+          token.subdomain = dbUser?.subdomain || undefined;
+          token.organizationName = dbUser?.organizationName || undefined;
         } else {
           // For credentials provider, user.id is already the MongoDB _id
           token.id = user.id;
         }
       }
+
+      // On every JWT refresh, ensure subdomain and org name are in the token
+      // (fetches from DB if not already present)
+      if (!token.subdomain && !token.organizationName) {
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: token.id as string },
+            select: { subdomain: true, organizationName: true },
+          });
+          if (dbUser) {
+            token.subdomain = dbUser.subdomain || undefined;
+            token.organizationName = dbUser.organizationName || undefined;
+          }
+        } catch {
+          // Silently ignore — token will be populated on next refresh
+        }
+      }
+
       if (account) {
         token.provider = account.provider;
       }
