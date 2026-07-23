@@ -9,6 +9,7 @@ import {
   DEFAULT_WELCOME_BG,
   getPortalWelcomeBackgroundUrl,
 } from "@/lib/portal-category-hero-background";
+import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
 
 interface PortalWelcomeBannerProps {
   /** Click handler for the benefit portal title (headline). Opens the editor. */
@@ -191,8 +192,14 @@ export function PortalWelcomeBanner({
     customImageAlt ||
     `${clientData?.companyName || "Company"} Benefits Logo`;
 
-  // Background image: use client-level backgroundImg (same as portal-hero uses)
-  const backgroundRaw = clientData?.backgroundImg || getPortalWelcomeBackgroundUrl(clientData ?? null);
+  // Background image: prioritize the wizard Editor Panel upload (Step 2) over
+  // the API's backgroundImg (which may still reflect Step 1's original image).
+  // Falls back to the portal welcome URL resolver for unsaved / no-wizard cases.
+  const wizardStep1Data = useBenefitsWizardStore((s) => s.stepData?.step1 as any);
+  const backgroundRaw =
+    wizardStep1Data?.brandImages?.header?.url
+    || clientData?.backgroundImg
+    || getPortalWelcomeBackgroundUrl(clientData ?? null);
   const { url: backgroundResolved, loading: backgroundLoading } =
     useBrandingImageUrl(backgroundRaw || null);
   const isR2WelcomeBg = isR2BrandingKey(backgroundRaw);

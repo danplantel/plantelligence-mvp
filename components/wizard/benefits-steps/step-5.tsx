@@ -372,6 +372,9 @@ export function BenefitsStep5() {
   const persistToPlan = useCallback(
     async (d: Disclaimer) => {
       if (!planId) return;
+      // Include Step 1 branding data so the uploaded header background image is persisted
+      const step1Data = stepData.step1;
+      const brandImages = step1Data?.brandImages;
       try {
         await fetch(`/api/clients/${planId}`, {
           method: "PUT",
@@ -380,6 +383,9 @@ export function BenefitsStep5() {
             disclaimers: {
               disclaimers: [d],
             },
+            // Persist brand images so the header background (uploaded in Step 2 Editor Panel)
+            // appears on the live Benefit Hub pages
+            ...(brandImages ? { brandImages } : {}),
           }),
         });
 
@@ -394,7 +400,7 @@ export function BenefitsStep5() {
         console.error("Failed to persist disclaimer to plan:", err);
       }
     },
-    [planId],
+    [planId, stepData.step1],
   );
 
   // ── Create / Update handler ──

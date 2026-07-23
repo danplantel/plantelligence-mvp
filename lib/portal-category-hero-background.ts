@@ -16,6 +16,7 @@ function onboardingBgFromClient(clientData: {
 
 /**
  * Hero behind video / journey blocks on category subpages (Retirement, Health, Life, …).
+ * Priority: employeePortalPreview onbaording → backgroundImg (wizard upload) → secondaryBannerImg → default.
  */
 export function getCategoryHeroBackgroundUrl(
   clientData: {
@@ -26,15 +27,16 @@ export function getCategoryHeroBackgroundUrl(
 ): string {
   const onboarding = onboardingBgFromClient(clientData);
   if (onboarding) return onboarding;
-  const secondary = (clientData?.secondaryBannerImg || "").trim();
-  if (secondary) return secondary;
   const main = (clientData?.backgroundImg || "").trim();
   if (main) return main;
+  const secondary = (clientData?.secondaryBannerImg || "").trim();
+  if (secondary) return secondary;
   return DEFAULT_CATEGORY_SECTION_BG;
 }
 
 /**
- * Welcome banner on hub + category pages (matches previous secondary → main → stock order).
+ * Welcome banner on hub + category pages.
+ * Priority: employeePortalPreview onboarding → backgroundImg (wizard upload) → secondaryBannerImg → default.
  */
 export function getPortalWelcomeBackgroundUrl(
   clientData: {
@@ -45,9 +47,9 @@ export function getPortalWelcomeBackgroundUrl(
 ): string {
   const onboarding = onboardingBgFromClient(clientData);
   if (onboarding) return onboarding;
-  const secondary = (clientData?.secondaryBannerImg || "").trim();
-  if (secondary) return secondary;
   const main = (clientData?.backgroundImg || "").trim();
   if (main) return main;
+  const secondary = (clientData?.secondaryBannerImg || "").trim();
+  if (secondary) return secondary;
   return DEFAULT_WELCOME_BG;
 }
