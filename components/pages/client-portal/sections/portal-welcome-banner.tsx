@@ -225,7 +225,9 @@ export function PortalWelcomeBanner({
   return (
     <section
       id="portal-welcome-banner"
-      className="relative isolate overflow-hidden min-h-[50vh] lg:min-h-screen w-full text-white"
+      className={`relative isolate overflow-hidden min-h-[50vh] lg:min-h-screen w-full ${
+        containerInverted ? "text-gray-900" : "text-white"
+      }`}
       style={{ backgroundColor: "#0F172A" }}
     >
       {/* Background Image — CSS background-image (most reliable, no gaps possible) */}
@@ -269,7 +271,11 @@ export function PortalWelcomeBanner({
         style={{ maxWidth: "80rem" }}
       >
         <div
-          className="overflow-hidden border border-white/15 backdrop-blur-sm"
+          className={`overflow-hidden backdrop-blur-sm ${
+            containerInverted
+              ? "border border-gray-300"
+              : "border border-white/15"
+          }`}
           style={{ backgroundImage: inlineBlockStyle }}
         >
           <motion.div
@@ -288,7 +294,9 @@ export function PortalWelcomeBanner({
                   className="mb-6 h-10 w-auto hidden lg:block"
                 />
               ) : (
-                <p className="mb-6 text-xs font-semibold tracking-[0.4em] text-white/70 hidden lg:block">
+                <p className={`mb-6 text-xs font-semibold tracking-[0.4em] hidden lg:block ${
+                  containerInverted ? "text-gray-400" : "text-white/70"
+                }`}>
                   LOGO HERE
                 </p>
               )}
@@ -301,7 +309,9 @@ export function PortalWelcomeBanner({
                 onMouseLeave={() => onTitleClick && setHoveredField(null)}
               >
                 {onTitleClick && hoveredField === "title" && <EditPencil />}
-                <h1 className="font-unna font-dm-serif text-3xl leading-tight text-white sm:text-4xl lg:text-5xl">
+                <h1 className={`font-unna font-dm-serif text-3xl leading-tight sm:text-4xl lg:text-5xl ${
+                  containerInverted ? "text-gray-900" : "text-white"
+                }`}>
                   {headline}
                 </h1>
               </div>
@@ -325,10 +335,14 @@ export function PortalWelcomeBanner({
               <div className="pt-5">
                 <p className="text-lg font-dm-serif">{closing}</p>
                 <div className="mt-2 space-y-1">
-                  <p className="text-base font-dm-serif text-white">
+                  <p className={`text-base font-dm-serif ${
+                    containerInverted ? "text-gray-900" : "text-white"
+                  }`}>
                     {signatureName}
                   </p>
-                  <p className="text-xs uppercase tracking-[0.2em] text-white/90 font-red-hat">
+                  <p className={`text-xs uppercase tracking-[0.2em] font-red-hat ${
+                    containerInverted ? "text-gray-500" : "text-white/90"
+                  }`}>
                     {signatureCompany}
                   </p>
                 </div>
@@ -345,7 +359,9 @@ export function PortalWelcomeBanner({
                 />
               ) : (
                 <div className="relative flex min-h-[200px] w-full items-center justify-center">
-                  <span className="text-sm font-semibold tracking-wider text-white/50">
+                  <span className={`text-sm font-semibold tracking-wider ${
+                    containerInverted ? "text-gray-400" : "text-white/50"
+                  }`}>
                     BENEFITS LOGO
                   </span>
                 </div>
