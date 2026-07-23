@@ -258,7 +258,17 @@ export function PortalWelcomeBanner({
         style={{ backgroundColor: "#0F172A" }}
       >
         <img
-          src={categoryDefaultBg}
+          src={(() => {
+            // Per-category image from employeePortalPreview.benefits (persisted per category from wizard/API)
+            const benefits = clientData?.employeePortalPreview?.benefits ?? [];
+            const catBenefit = benefits.find((b: any) => (b.category || "").toLowerCase() === (category || "").toLowerCase());
+            const persistedImage = catBenefit?.image;
+            // Wizard store image from the current editor session (fallback)
+            const wizardImage = wizardStep1Data?.brandImages?.header?.url;
+            // Only use wizard image if it matches the current category
+            const wizardMatch = wizardStep1Data?.benefitCategory && category && wizardStep1Data.benefitCategory === category ? wizardImage : undefined;
+            return persistedImage || wizardMatch || categoryDefaultBg;
+          })()}
           alt=""
           style={{
             minWidth: "100%",
