@@ -98,7 +98,7 @@ export default function WellnessProgramsPage() {
     description:
       "Discover how your company supports every aspect of your wellbeing—from mental health resources and fitness challenges to financial coaching and personalized wellness journeys. Learn what's included and how to get started today.",
     thumbnail:
-      "https://images.unsplash.com/photo-1528590316233-4c417adf211d?w=1600&q=80",
+      "https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=1600&q=80",
     duration: "10:45",
     rating: "4.7",
     category: "Wellbeing",
