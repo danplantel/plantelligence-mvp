@@ -296,12 +296,6 @@ export function PortalWelcomeBanner({
         `}</style>
       )}
 
-      {/* Background overlay — separate element at section level with explicit z-index to ensure it renders above the background image */}
-      <div
-        className="absolute inset-0 z-[1]"
-        style={backgroundOverlayStyle}
-      />
-
       {/* Health-Hub UI (unified for all categories) */}
       <div
         className="relative z-10 flex flex-col justify-center mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-20"
