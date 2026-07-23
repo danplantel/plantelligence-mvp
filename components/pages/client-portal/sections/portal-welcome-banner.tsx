@@ -202,13 +202,14 @@ export function PortalWelcomeBanner({
     ? { backgroundColor: `rgba(255, 255, 255, ${1 - backgroundOpacity})` }
     : { backgroundColor: `rgba(0, 0, 0, ${1 - backgroundOpacity})` };
 
-  const containerGradientStyle = useGradient
-    ? `linear-gradient(to bottom, rgba(0, 0, 0, ${containerBlockOpacity}), rgba(0, 0, 0, ${containerBlockOpacity * 0.3}))`
-    : `linear-gradient(to bottom, rgba(0, 0, 0, ${containerBlockOpacity}), rgba(0, 0, 0, ${containerBlockOpacity}))`;
-
-  const inlineBlockStyle = containerInverted
-    ? `linear-gradient(to bottom, rgba(255, 255, 255, ${containerBlockOpacity}), rgba(255, 255, 255, ${containerBlockOpacity * 0.3}))`
-    : containerGradientStyle;
+  // Container background: solid backgroundColor when gradient is off, backgroundImage gradient when on
+  const containerBgStyle = containerInverted
+    ? useGradient
+      ? { backgroundImage: `linear-gradient(to bottom, rgba(255, 255, 255, ${containerBlockOpacity}), rgba(255, 255, 255, ${containerBlockOpacity * 0.3}))` }
+      : { backgroundColor: `rgba(255, 255, 255, ${containerBlockOpacity})` }
+    : useGradient
+      ? { backgroundImage: `linear-gradient(to bottom, rgba(0, 0, 0, ${containerBlockOpacity}), rgba(0, 0, 0, ${containerBlockOpacity * 0.3}))` }
+      : { backgroundColor: `rgba(0, 0, 0, ${containerBlockOpacity})` };
 
   const [hoveredField, setHoveredField] = useState<string | null>(null);
 
@@ -271,7 +272,7 @@ export function PortalWelcomeBanner({
               ? "border border-gray-300"
               : "border border-white/15"
           }`}
-          style={{ backgroundImage: inlineBlockStyle }}
+          style={containerBgStyle}
         >
           <motion.div
             initial={{ opacity: 0, y: 50 }}
