@@ -173,6 +173,8 @@ interface RetirementJourneySectionProps {
   secondCarouselTitle?: string;
   backgroundImage?: string;
   backgroundImageAlt?: string;
+  /** When provided, a <video> element replaces the right-column featured image */
+  planVideoUrl?: string;
 }
 
 export function RetirementJourneySection({
@@ -191,6 +193,7 @@ export function RetirementJourneySection({
   secondCarouselTitle = "Financial Planning & Strategy",
   backgroundImage = "/Hiking-Couple-Looking.webp",
   backgroundImageAlt = "Two hikers climbing mountain at sunset - retirement journey metaphor",
+  planVideoUrl,
 }: RetirementJourneySectionProps) {
   // Use database videos if provided, otherwise use static videos
   const featuredVideo = dbFeaturedVideo || propFeaturedVideo;
@@ -253,13 +256,23 @@ export function RetirementJourneySection({
             transition={{ duration: 0.7, ease: "easeOut", delay: 0.15 }}
           >
             <div className="aspect-video overflow-hidden rounded-xl border border-white/15 bg-black/80 shadow-2xl sm:rounded-2xl">
-              <Image
-                src={featuredVideo.thumbnail || "/placeholder.svg"}
-                alt={featuredVideo.title}
-                fill
-                className="object-cover"
-                sizes="(max-width: 1024px) 100vw, 50vw"
-              />
+              {planVideoUrl ? (
+                <video
+                  src={planVideoUrl}
+                  controls
+                  className="h-full w-full object-cover"
+                  playsInline
+                  preload="metadata"
+                />
+              ) : (
+                <Image
+                  src={featuredVideo.thumbnail || "/placeholder.svg"}
+                  alt={featuredVideo.title}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                />
+              )}
             </div>
           </motion.div>
         </div>

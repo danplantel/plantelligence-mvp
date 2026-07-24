@@ -290,6 +290,7 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
                         onVideoClick={() => { }}
                         onFeaturedVideoClick={() => { }}
                         backgroundImage={categoryHeroBg}
+                        planVideoUrl={step1Data?.planVideo}
                     />
                 </div>
 

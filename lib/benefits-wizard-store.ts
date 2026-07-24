@@ -70,6 +70,10 @@ export interface BenefitsStep1Data {
     customSignatureNameItalic?: boolean;
     customSignatureCompanyBold?: boolean;
     customSignatureCompanyItalic?: boolean;
+    /** Plan Video URL (uploaded in Step 2, Section 3 — replaces the right-column image in RetirementJourneySection) */
+    planVideo?: string;
+    /** Original file name of the uploaded plan video */
+    planVideoFileName?: string;
 }
 
 export interface FAQItem {

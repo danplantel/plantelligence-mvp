@@ -11,7 +11,7 @@ import { BrandImageUpload } from "@/components/ui/brand-image-upload";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { ImageIcon, Layout, Mail, HelpCircle, CheckCircle2, Circle, Pencil, Plus, Search, ChevronsUpDown, Trash2, GripVertical, Settings } from "lucide-react";
+import { ImageIcon, Layout, Mail, HelpCircle, CheckCircle2, Circle, Pencil, Plus, Search, ChevronsUpDown, Trash2, GripVertical, Settings, Video, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { SupportContact, FAQItem, BenefitsStep1Data, BenefitsStep3Data } from "@/lib/benefits-wizard-store";
@@ -21,6 +21,7 @@ import { Switch } from "@/components/ui/switch";
 import { v4 as uuidv4 } from "uuid";
 import { BannerOverlaySettingsCard } from "@/components/wizard/new-client-steps/sections/components/banner-overlay-settings-card";
 import { HeroBackgroundCard, type HeroSegmentMode } from "@/components/wizard/new-client-steps/sections/components/hero-background-card";
+import { uploadFileToR2 } from "@/lib/upload-to-r2";
 
 const DEFAULT_HELP_CARDS: HelpCardData[] = [
     {
@@ -94,9 +95,13 @@ export function BenefitsEditorPanel({
     const sectionsRef = {
         branding: useRef<HTMLDivElement>(null),
         messaging: useRef<HTMLDivElement>(null),
+        planVideo: useRef<HTMLDivElement>(null),
         helpCards: useRef<HTMLDivElement>(null),
         insurance: useRef<HTMLDivElement>(null),
     };
+
+    const [videoUploading, setVideoUploading] = useState(false);
+    const [videoUploadProgress, setVideoUploadProgress] = useState(0);
 
     const [highlightedSection, setHighlightedSection] = React.useState<string | null>(null);
 
@@ -157,6 +162,60 @@ export function BenefitsEditorPanel({
                 ...step1Data.brandImages,
                 header: imageData
             }
+        });
+    };
+
+    // Plan Video upload handler
+    const handlePlanVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!file.type.startsWith("video/")) {
+            alert("Please select a valid video file.");
+            return;
+        }
+
+        setVideoUploading(true);
+        setVideoUploadProgress(0);
+
+        try {
+            const clientId = step1Data?.planId || undefined;
+            const key = await uploadFileToR2({
+                file,
+                purpose: "upload",
+                clientId,
+                fileName: file.name,
+                subPath: "plan-videos",
+                onProgress: (loaded, total) => {
+                    setVideoUploadProgress(Math.round((loaded / total) * 100));
+                },
+            });
+
+            if (key) {
+                const videoUrl = `/api/r2/object?key=${encodeURIComponent(key)}`;
+                saveStepData(1, {
+                    ...step1Data,
+                    planVideo: videoUrl,
+                    planVideoFileName: file.name,
+                });
+            } else {
+                alert("Failed to upload video. Please try again.");
+            }
+        } catch (err) {
+            console.error("Video upload error:", err);
+            alert("An error occurred while uploading the video.");
+        } finally {
+            setVideoUploading(false);
+            setVideoUploadProgress(0);
+            e.target.value = "";
+        }
+    };
+
+    const handleRemovePlanVideo = () => {
+        saveStepData(1, {
+            ...step1Data,
+            planVideo: undefined,
+            planVideoFileName: undefined,
         });
     };
 
@@ -515,6 +574,89 @@ export function BenefitsEditorPanel({
                     </div>
                 </div>
 
+                {/* Plan Video Section */}
+                <div
+                    ref={sectionsRef.planVideo}
+                    className={cn(
+                        "transition-all duration-500 rounded-xl",
+                        highlightedSection === "planVideo" ? "ring-2 ring-blue-500/50 scale-[1.01] shadow-lg p-4 -m-4 bg-white dark:bg-gray-800" : ""
+                    )}
+                >
+                    <SectionHeader number={3} title="Plan Video" />
+                    <p className="text-[13px] text-muted-foreground mb-6">
+                        Upload a video to replace the image in the right column of the Retirement Journey section.
+                        If no video is uploaded, the default category image will be shown instead.
+                    </p>
+                    <div className="space-y-4">
+                        {step1Data.planVideo ? (
+                            <Card className="border border-muted shadow-sm">
+                                <CardContent className="p-4 space-y-3">
+                                    <div className="flex items-center gap-3">
+                                        <Video className="w-5 h-5 text-blue-600" />
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium truncate">
+                                                {step1Data.planVideoFileName || "Uploaded Video"}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">Video uploaded successfully</p>
+                                        </div>
+                                    </div>
+                                    <div className="aspect-video overflow-hidden rounded-lg bg-black">
+                                        <video
+                                            src={step1Data.planVideo}
+                                            controls
+                                            className="h-full w-full object-contain"
+                                            playsInline
+                                            preload="metadata"
+                                        />
+                                    </div>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleRemovePlanVideo}
+                                        className="text-destructive hover:text-destructive"
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5 mr-2" />
+                                        Remove Video
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        ) : (
+                            <div className="space-y-3">
+                                <Label className="text-xs font-bold text-foreground">Upload Plan Video</Label>
+                                <div className="flex items-center gap-3">
+                                    <label
+                                        className={cn(
+                                            "inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors cursor-pointer dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700",
+                                            videoUploading && "opacity-50 pointer-events-none"
+                                        )}
+                                    >
+                                        <Upload className="w-4 h-4" />
+                                        {videoUploading ? `Uploading... ${videoUploadProgress}%` : "Choose Video File"}
+                                        <input
+                                            type="file"
+                                            accept="video/*"
+                                            onChange={handlePlanVideoUpload}
+                                            className="hidden"
+                                            disabled={videoUploading}
+                                        />
+                                    </label>
+                                </div>
+                                {videoUploading && (
+                                    <div className="w-full bg-gray-200 rounded-full h-2 dark:bg-gray-700">
+                                        <div
+                                            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                            style={{ width: `${videoUploadProgress}%` }}
+                                        />
+                                    </div>
+                                )}
+                                <p className="text-[11px] text-muted-foreground">
+                                    Accepted formats: MP4, WebM, OGG. The video will be displayed in the right column of the plan page.
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
                 {/* Help Cards Section */}
                 <div
                     ref={sectionsRef.helpCards}
@@ -523,7 +665,7 @@ export function BenefitsEditorPanel({
                         highlightedSection === "helpCards" ? "ring-2 ring-blue-500/50 scale-[1.01] shadow-lg p-4 -m-4 bg-white dark:bg-gray-800" : ""
                     )}
                 >
-                    <SectionHeader number={3} title="How Can We Help You Today?" />
+                    <SectionHeader number={4} title="How Can We Help You Today?" />
                     <p className="text-[13px] text-muted-foreground mb-6">
                         Customize the three cards that appear in the &ldquo;How Can We Help You Today?&rdquo; section.
                     </p>
@@ -630,7 +772,7 @@ export function BenefitsEditorPanel({
                         highlightedSection === "insurance" ? "ring-2 ring-blue-500/50 scale-[1.01] shadow-lg p-4 -m-4 bg-white dark:bg-gray-800" : ""
                     )}
                 >
-                    <SectionHeader number={4} title="Insurance Benefits Access & Materials" />
+                    <SectionHeader number={5} title="Insurance Benefits Access & Materials" />
                     <p className="text-[13px] text-muted-foreground mb-6">
                         Configure the plan ID and login button shown in the Insurance Benefits Access & Materials section.
                     </p>
