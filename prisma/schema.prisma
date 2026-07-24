@@ -569,6 +569,7 @@ model NewClientCompanyBasics {
   secondaryColor String  @default("#6B7280")
   brandImages    Json // Array of image URLs
   planType       String  @default("client") // "client" (active plan) or "prospect" (draft plan for demos)
+  portalUrl      String? // User-customized portal URL slug (max 20 chars, alphanumeric + hyphens)
 
   // Banner Overlay Settings
   heroOverlayOpacity              Float? // Overlay opacity (0-1)

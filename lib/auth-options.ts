@@ -26,8 +26,6 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        // Normalize: trim whitespace and lowercase email
-        // Prevents subtle mismatches from auto-fill, whitespace, or casing
         const email = String(credentials.email).trim().toLowerCase();
         const password = String(credentials.password);
 
@@ -48,7 +46,6 @@ export const authOptions: NextAuthOptions = {
             return null;
           }
 
-          // User exists but has no password set (e.g. Google OAuth-only account)
           if (!user.password) {
             console.error(
               `[authorize] User ${email} has no password set (Google OAuth-only account)`,
@@ -87,13 +84,9 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async session({ session, token }) {
       if (session.user) {
-        // Add id from the token to the session user object
         session.user.id = token.id as string;
       }
-
       (session as any).provider = token.provider;
-      (session as any).organizationName = token.organizationName;
-
       return session;
     },
     async jwt({ token, user, account }) {
@@ -101,33 +94,13 @@ export const authOptions: NextAuthOptions = {
         if (account?.provider === "google") {
           const dbUser = await prisma.user.findUnique({
             where: { email: user.email as string },
-            select: { id: true, organizationName: true },
+            select: { id: true },
           });
           token.id = dbUser?.id || user.id;
-          token.organizationName = dbUser?.organizationName || undefined;
         } else {
-          // Credentials provider — user is the full Prisma User object
           token.id = user.id;
-          // organizationName is available directly on the user object for credentials login
-          token.organizationName = (user as any).organizationName || undefined;
         }
       }
-
-      // On every JWT refresh, ensure organizationName is in the token
-      if (!token.organizationName) {
-        try {
-          const dbUser = await prisma.user.findUnique({
-            where: { id: token.id as string },
-            select: { organizationName: true },
-          });
-          if (dbUser?.organizationName) {
-            token.organizationName = dbUser.organizationName;
-          }
-        } catch {
-          // Silently ignore
-        }
-      }
-
       if (account) {
         token.provider = account.provider;
       }
@@ -142,7 +115,6 @@ export const authOptions: NextAuthOptions = {
       }
 
       try {
-        // Search by email only (not email + provider) to handle cross-provider sign-in
         const existUser = await prisma.user.findFirst({
           where: {
             email: user.email,
@@ -150,7 +122,6 @@ export const authOptions: NextAuthOptions = {
         });
 
         if (!existUser) {
-          // No existing user — create a new one (OAuth first-time sign-in)
           console.log(
             `[signIn callback] Creating new user for email: ${user.email} via ${account?.provider}`,
           );
@@ -163,8 +134,6 @@ export const authOptions: NextAuthOptions = {
             data: newUser,
           });
         } else if (existUser.provider !== (account?.provider as any)) {
-          // User exists with a different provider — update their provider
-          // This allows a user who signed up via email to also sign in with Google
           console.log(
             `[signIn callback] Updating provider for ${user.email}: ${existUser.provider} → ${account?.provider}`,
           );
@@ -180,9 +149,6 @@ export const authOptions: NextAuthOptions = {
         return true;
       } catch (err) {
         console.error("[signIn callback] Error during sign-in:", err);
-        // Do NOT return false for DB errors on an existing user;
-        // the user was already authenticated by the provider/authorize step.
-        // Only return false if the user truly doesn't exist and we can't create them.
         return false;
       }
     },

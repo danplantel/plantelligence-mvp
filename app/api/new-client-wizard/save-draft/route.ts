@@ -227,6 +227,7 @@ export async function POST(request: NextRequest) {
         ...(cb.secondaryColor !== undefined && { secondaryColor: cb.secondaryColor }),
         ...(cb.brandImages !== undefined && { brandImages: brandImagesToSave }),
         ...(cb.planType !== undefined && { planType: cb.planType }),
+        ...(cb.portalUrl !== undefined && { portalUrl: cb.portalUrl || null }),
         ...(cb.heroOverlayOpacity !== undefined && { heroOverlayOpacity: cb.heroOverlayOpacity }),
         ...(cb.heroBackgroundOpacity !== undefined && { heroBackgroundOpacity: cb.heroBackgroundOpacity }),
         ...(cb.heroContainerOpacity !== undefined && { heroContainerOpacity: cb.heroContainerOpacity }),

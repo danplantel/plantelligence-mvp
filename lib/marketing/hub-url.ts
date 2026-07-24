@@ -31,24 +31,11 @@ export function getBenefitsHubPathFromSlug(slug: string): string {
  *
  * Example: https://waypoint.plantel.pro/new/view/gloomis
  */
-export function getBenefitsHubAbsoluteUrl(
-  clientIdOrSlug: string,
-  userOrganizationName?: string,
-): string {
+/**
+ * Absolute URL used in flyer QR codes. Requires server env configuration.
+ */
+export function getBenefitsHubAbsoluteUrl(clientIdOrSlug: string): string {
   const path = getBenefitsHubPath(clientIdOrSlug);
-  const rootDomain = "plantelligence-mvp.vercel.app";
-
-  if (userOrganizationName) {
-    // Slugify the organization name for the subdomain
-    const subdomain = userOrganizationName
-      .toLowerCase()
-      .replace(/[^a-z0-9-]/g, "-")
-      .replace(/-+/g, "-")
-      .replace(/^-+|-+$/g, "");
-    return `https://${subdomain}.${rootDomain}${path}`;
-  }
-
-  // Fallback for local dev or when no subdomain is configured
   const base =
     process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
     process.env.NEXTAUTH_URL?.replace(/\/$/, "") ||

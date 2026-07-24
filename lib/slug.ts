@@ -46,18 +46,29 @@ export async function generateUniquePlanSlug(
   const baseSlug = generatePlanSlug(companyName);
   if (!baseSlug) return "plan";
 
+  return ensureUniqueSlug(baseSlug);
+}
+
+/**
+ * Ensure a pre-sanitized slug is unique by checking the database.
+ * If the given slug already exists, appends "-2", "-3", etc.
+ *
+ * @param rawSlug - A pre-sanitized slug (lowercase, alphanumeric + hyphens)
+ */
+export async function ensureUniqueSlug(rawSlug: string): Promise<string> {
+  if (!rawSlug) return "plan";
+
   // Check if the base slug is already taken
-  // Use (prisma.client as any) to avoid TS errors before Prisma client is regenerated
   const existing = await (prisma.client as any).findFirst({
-    where: { slug: baseSlug },
+    where: { slug: rawSlug },
     select: { id: true },
   });
 
-  if (!existing) return baseSlug;
+  if (!existing) return rawSlug;
 
   // Collision detected — append numeric suffix
   let suffix = 2;
-  let candidate = `${baseSlug}-${suffix}`;
+  let candidate = `${rawSlug}-${suffix}`;
 
   while (true) {
     const conflict = await (prisma.client as any).findFirst({
@@ -68,12 +79,10 @@ export async function generateUniquePlanSlug(
     if (!conflict) return candidate;
 
     suffix++;
-    candidate = `${baseSlug}-${suffix}`;
+    candidate = `${rawSlug}-${suffix}`;
 
-    // Safety valve: extremely unlikely to reach this
     if (suffix > 999) {
-      // Fall back to timestamp-based uniqueness
-      return `${baseSlug}-${Date.now().toString(36)}`;
+      return `${rawSlug}-${Date.now().toString(36)}`;
     }
   }
 }

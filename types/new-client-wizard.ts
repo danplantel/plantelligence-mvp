@@ -76,6 +76,8 @@ export interface CompanyBasicsData {
   brandImages: BrandImagesData;
   appointmentLink?: string;
   planType?: string;
+  /** Custom portal URL slug (max 20 chars, alphanumeric + hyphens). Falls back to auto-generated from companyName. */
+  portalUrl?: string;
   organizationType?: "Advisor Firm" | "Client" | "Recordkeeper" | "Partner/Custom";
   isPrimaryColorPickerOpen?: boolean;
   isSecondaryColorPickerOpen?: boolean;

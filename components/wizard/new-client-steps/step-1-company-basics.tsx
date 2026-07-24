@@ -54,6 +54,7 @@ const normalizeCompanyBasicsData = (
   },
   appointmentLink: data?.appointmentLink,
   planType: data?.planType || "",
+  portalUrl: data?.portalUrl || "",
   organizationType: data?.organizationType || "Advisor Firm",
   isPrimaryColorPickerOpen: data?.isPrimaryColorPickerOpen ?? false,
   isSecondaryColorPickerOpen: data?.isSecondaryColorPickerOpen ?? false,
@@ -680,6 +681,85 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                   )}
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Portal URL */}
+          <Card className="dark:bg-gray-800">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 dark:text-gray-100">
+                <Globe className="w-5 h-5 text-accent-blue" />
+                Portal URL
+              </CardTitle>
+              <p className="text-sm text-muted-foreground dark:text-gray-400">
+                Customize the URL where employees will access your benefits portal.
+                Leave blank to auto-generate from the company name.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground dark:text-gray-400 bg-muted/50 dark:bg-gray-900/50 rounded-lg px-3 py-2">
+                <span className="shrink-0">https://plantel.pro/new/view/</span>
+                <span className="font-medium text-foreground dark:text-gray-200">
+                  {companyData.portalUrl ||
+                    companyData.companyName
+                      .toLowerCase()
+                      .replace(/[^a-z0-9-]/g, "-")
+                      .replace(/-+/g, "-")
+                      .replace(/^-+|-+$/g, "") ||
+                    "your-plan"}
+                </span>
+              </div>
+              <div className="relative">
+                <Input
+                  id="portalUrl"
+                  name="portalUrl"
+                  data-field="portalUrl"
+                  value={companyData.portalUrl || ""}
+                  onChange={(e) => {
+                    const value = e.target.value
+                      .toLowerCase()
+                      .replace(/[^a-z0-9-]/g, "-")
+                      .replace(/-+/g, "-")
+                      .slice(0, 20);
+                    updateField("portalUrl", value);
+                  }}
+                  placeholder={companyData.companyName
+                    ? companyData.companyName
+                        .toLowerCase()
+                        .replace(/[^a-z0-9-]/g, "-")
+                        .replace(/-+/g, "-")
+                        .replace(/^-+|-+$/g, "")
+                        .slice(0, 20)
+                    : "your-plan"}
+                  maxLength={20}
+                />
+                <div
+                  className={`absolute -top-8 right-0 flex items-center gap-2 transition-all duration-500 ease-out ${(companyData.portalUrl || "").length >= 15
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 translate-y-2 pointer-events-none"
+                    }`}
+                >
+                  <span
+                    className={`text-xs transition-colors duration-300 ${(companyData.portalUrl || "").length >= 20
+                      ? "text-red-500 dark:text-red-400"
+                      : "text-muted-foreground dark:text-gray-400"
+                      }`}
+                  >
+                    {(companyData.portalUrl || "").length}/20 characters
+                  </span>
+                  {(companyData.portalUrl || "").length >= 20 && (
+                    <Badge
+                      variant="destructive"
+                      className="text-xs animate-in fade-in slide-in-from-right-2 duration-500"
+                    >
+                      Limit reached
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground dark:text-gray-400">
+                Only lowercase letters, numbers, and hyphens allowed. Max 20 characters.
+              </p>
             </CardContent>
           </Card>
 

@@ -647,19 +647,12 @@ export function ClientsListDashboardPage() {
                                       variant="ghost"
                                       size="icon"
                                       className="h-8 w-8"
-                                      onClick={() => {
-                                        // Build subdomain URL from the advisor's organizationName
-                                        const rootDomain = "plantelligence-mvp.vercel.app";
-                                        const orgName = (session?.user as any)?.organizationName;
-                                        const userSubdomain = orgName
-                                          ? orgName.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, "")
-                                          : undefined;
-                                        const path = `/new/view/${client.slug || client.id}`;
-                                        const url = userSubdomain
-                                          ? `https://${userSubdomain}.${rootDomain}${path}`
-                                          : path;
-                                        window.open(url, "_blank");
-                                      }}
+                                      onClick={() =>
+                                        window.open(
+                                          `/new/view/${client.slug || client.id}`,
+                                          "_blank",
+                                        )
+                                      }
                                     >
                                       <Globe className="h-4 w-4" />
                                     </Button>
