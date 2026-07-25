@@ -1166,7 +1166,7 @@ function SortableCard({
 function DocsGridSkeleton({ brandColor }: { brandColor: string }) {
   return (
     <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-      {Array.from({ length: 6 }).map((_, i) => (
+      {Array.from({ length: 3 }).map((_, i) => (
         <Card
           key={i}
           className="bg-white shadow-sm dark:bg-gray-800 dark:border-gray-700"
