@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams } from "next/navigation";
 import { useClientPortal } from "@/contexts/client-portal-context";
 import { VideoModal } from "@/components/video-modal";
@@ -18,6 +18,18 @@ import { PortalMaterialsHero } from "@/components/pages/client-portal/sections/p
 import { DocumentsSection } from "@/components/pages/client-portal/sections/documents-section";
 import { CompletenessAutoTrigger } from "@/components/pages/client-portal/sections/completeness-auto-trigger";
 import { getCategoryHeroBackgroundUrl } from "@/lib/portal-category-hero-background";
+import {
+  RetirementDocumentsAccordion,
+  RetirementDocumentItem,
+} from "@/components/pages/client-portal/sections/retirement-documents-accordion";
+import { mergePlanDocumentRows } from "@/lib/plan-client-documents-merge";
+import { fetchPlanDocumentsForClient } from "@/lib/fetch-plan-documents-client";
+import {
+  benefitCategoryToDocumentHubLabel,
+  mapMergedRowsToBenefitHubItems,
+} from "@/lib/map-plan-documents-for-benefit-hub";
+
+const HEALTH_DOCUMENT_HUB = benefitCategoryToDocumentHubLabel("Group Health");
 
 export default function HealthInsurancePage() {
   const { clientData } = useClientPortal();
@@ -27,6 +39,8 @@ export default function HealthInsurancePage() {
   const [dbVideos, setDbVideos] = useState<JourneyVideo[]>([]);
   const [dbFeaturedVideo, setDbFeaturedVideo] =
     useState<FeaturedJourneyVideo | null>(null);
+  const [healthDocs, setHealthDocs] = useState<RetirementDocumentItem[]>([]);
+  const [loadingDocs, setLoadingDocs] = useState(true);
 
   const brandColor = clientData?.brandColor || "#1F3A60";
   const secondaryColor = clientData?.secondaryColor || "#6B7280";
@@ -35,6 +49,67 @@ export default function HealthInsurancePage() {
     () => getCategoryHeroBackgroundUrl(clientData ?? null),
     [clientData],
   );
+
+  /** Re-merge documents when embedded list ids change — avoids re-fetching on every clientData reference churn. */
+  const documentsSig = useMemo(() => {
+    const d = clientData?.documents;
+    if (!Array.isArray(d)) return "";
+    return `${d.length}:${d
+      .map((x: { id?: string }) => String(x?.id ?? ""))
+      .sort()
+      .join(",")}`;
+  }, [clientData?.documents]);
+
+  const clientDataRef = useRef(clientData);
+  clientDataRef.current = clientData;
+
+  // Fetch health plan documents
+  useEffect(() => {
+    if (!clientId) {
+      setLoadingDocs(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        setLoadingDocs(true);
+        const apiRows = await fetchPlanDocumentsForClient(clientId);
+        if (cancelled) return;
+
+        const embeddedDocs = clientDataRef.current?.documents;
+        const embedded = Array.isArray(embeddedDocs) ? embeddedDocs : [];
+
+        const mergedRaw = mergePlanDocumentRows(
+          apiRows as unknown[],
+          embedded as unknown[],
+        );
+        setHealthDocs(
+          mapMergedRowsToBenefitHubItems(
+            mergedRaw as Record<string, unknown>[],
+            HEALTH_DOCUMENT_HUB,
+          ),
+        );
+      } catch (error) {
+        console.error("Error fetching health documents:", error);
+        const embeddedDocs = clientDataRef.current?.documents;
+        const embedded = Array.isArray(embeddedDocs) ? embeddedDocs : [];
+        setHealthDocs(
+          mapMergedRowsToBenefitHubItems(
+            mergePlanDocumentRows([], embedded as unknown[]),
+            HEALTH_DOCUMENT_HUB,
+          ),
+        );
+      } finally {
+        if (!cancelled) setLoadingDocs(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [clientId, documentsSig]);
 
   // Extract FAQs for this category from employeePortalPreview.benefits.
   const faqsForCategory = useMemo(() => {
@@ -250,12 +325,13 @@ export default function HealthInsurancePage() {
 
         <PortalMaterialsHero brandColor={brandColor} />
 
-        <DocumentsSection
+        <RetirementDocumentsAccordion
           brandColor={brandColor}
-          secondaryColor={secondaryColor}
-          clientId={clientId}
-          categoryPortalVisibility={(clientData as any)?.categoryPortalVisibility}
-          documentHubCategory="Group Health"
+          accentColor={secondaryColor}
+          retirementDocs={healthDocs}
+          title="Health Plan Documents & Forms"
+          description="Access all your important health plan documents, forms, and notices in one convenient location."
+          accordionHeaderTitle="Health Plan Documents"
         />
 
         <HaveQuestions brandColor={brandColor} secondaryColor={secondaryColor} contacts={supportContactsForFAQ} />

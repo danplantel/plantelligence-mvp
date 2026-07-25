@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams } from "next/navigation";
 import { useClientPortal } from "@/contexts/client-portal-context";
 import { VideoModal } from "@/components/video-modal";
@@ -18,6 +18,18 @@ import {
   FeaturedJourneyVideo,
 } from "@/components/pages/client-portal/sections/retirement-journey-section";
 import { getCategoryHeroBackgroundUrl } from "@/lib/portal-category-hero-background";
+import {
+  RetirementDocumentsAccordion,
+  RetirementDocumentItem,
+} from "@/components/pages/client-portal/sections/retirement-documents-accordion";
+import { mergePlanDocumentRows } from "@/lib/plan-client-documents-merge";
+import { fetchPlanDocumentsForClient } from "@/lib/fetch-plan-documents-client";
+import {
+  benefitCategoryToDocumentHubLabel,
+  mapMergedRowsToBenefitHubItems,
+} from "@/lib/map-plan-documents-for-benefit-hub";
+
+const WELLNESS_DOCUMENT_HUB = benefitCategoryToDocumentHubLabel("Company / Plan Sponsor");
 
 export default function WellnessProgramsPage() {
   const { clientData } = useClientPortal();
@@ -27,6 +39,8 @@ export default function WellnessProgramsPage() {
   const [dbVideos, setDbVideos] = useState<JourneyVideo[]>([]);
   const [dbFeaturedVideo, setDbFeaturedVideo] =
     useState<FeaturedJourneyVideo | null>(null);
+  const [wellnessDocs, setWellnessDocs] = useState<RetirementDocumentItem[]>([]);
+  const [loadingDocs, setLoadingDocs] = useState(true);
 
   const brandColor = clientData?.brandColor || "#1F3A60";
   const secondaryColor = clientData?.secondaryColor || "#6B7280";
@@ -35,6 +49,67 @@ export default function WellnessProgramsPage() {
     () => getCategoryHeroBackgroundUrl(clientData ?? null),
     [clientData],
   );
+
+  /** Re-merge documents when embedded list ids change — avoids re-fetching on every clientData reference churn. */
+  const documentsSig = useMemo(() => {
+    const d = clientData?.documents;
+    if (!Array.isArray(d)) return "";
+    return `${d.length}:${d
+      .map((x: { id?: string }) => String(x?.id ?? ""))
+      .sort()
+      .join(",")}`;
+  }, [clientData?.documents]);
+
+  const clientDataRef = useRef(clientData);
+  clientDataRef.current = clientData;
+
+  // Fetch wellness program documents
+  useEffect(() => {
+    if (!clientId) {
+      setLoadingDocs(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        setLoadingDocs(true);
+        const apiRows = await fetchPlanDocumentsForClient(clientId);
+        if (cancelled) return;
+
+        const embeddedDocs = clientDataRef.current?.documents;
+        const embedded = Array.isArray(embeddedDocs) ? embeddedDocs : [];
+
+        const mergedRaw = mergePlanDocumentRows(
+          apiRows as unknown[],
+          embedded as unknown[],
+        );
+        setWellnessDocs(
+          mapMergedRowsToBenefitHubItems(
+            mergedRaw as Record<string, unknown>[],
+            WELLNESS_DOCUMENT_HUB,
+          ),
+        );
+      } catch (error) {
+        console.error("Error fetching wellness documents:", error);
+        const embeddedDocs = clientDataRef.current?.documents;
+        const embedded = Array.isArray(embeddedDocs) ? embeddedDocs : [];
+        setWellnessDocs(
+          mapMergedRowsToBenefitHubItems(
+            mergePlanDocumentRows([], embedded as unknown[]),
+            WELLNESS_DOCUMENT_HUB,
+          ),
+        );
+      } finally {
+        if (!cancelled) setLoadingDocs(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [clientId, documentsSig]);
 
   // Extract FAQs for this category from employeePortalPreview.benefits.
   const faqsForCategory = useMemo(() => {
@@ -247,12 +322,13 @@ export default function WellnessProgramsPage() {
 
         <PortalMaterialsHero brandColor={brandColor} />
 
-        <DocumentsSection
+        <RetirementDocumentsAccordion
           brandColor={brandColor}
-          secondaryColor={secondaryColor}
-          clientId={clientId}
-          categoryPortalVisibility={(clientData as any)?.categoryPortalVisibility}
-          documentHubCategory="Company / Plan Sponsor"
+          accentColor={secondaryColor}
+          retirementDocs={wellnessDocs}
+          title="Wellness Program Documents & Forms"
+          description="Access all your important wellness program documents, forms, and notices in one convenient location."
+          accordionHeaderTitle="Wellness Program Documents"
         />
 
         <HaveQuestions brandColor={brandColor} secondaryColor={secondaryColor} contacts={supportContactsForFAQ} />
