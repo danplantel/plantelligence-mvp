@@ -329,7 +329,7 @@ export default function LifeInsurancePage() {
 
         <FAQSection brandColor={brandColor} secondaryColor={secondaryColor} faqs={faqsForCategory} contacts={supportContactsForFAQ} />
 
-        <PortalMaterialsHero brandColor={brandColor} />
+        <PortalMaterialsHero brandColor={brandColor} cardHeading="Group Life Insurance Account Access" />
 
         <RetirementDocumentsAccordion
           brandColor={brandColor}

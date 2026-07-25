@@ -336,6 +336,13 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
                 <div className="relative">
                     <PortalMaterialsHero
                         brandColor={brandColor}
+                        cardHeading={
+                            category === "Retirement" ? "Retirement Plan Account Access" :
+                            category === "Group Health" ? "Group Health Insurance Account Access" :
+                            category === "Group Life" ? "Group Life Insurance Account Access" :
+                            category === "Company / Plan Sponsor" ? "Wellness Program Account Access" :
+                            "Insurance Benefits Account Access"
+                        }
                         backgroundImage={step1Data?.insuranceBackgroundImage || undefined}
                         containerBlockOpacity={step1Data?.insuranceContainerBlockOpacity ?? 0.8}
                         planIdLabel={step1Data?.insurancePlanId ? `PLAN ID: ${step1Data.insurancePlanId}` : "PLAN ID: [Not Set]"}
