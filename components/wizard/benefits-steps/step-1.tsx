@@ -2581,6 +2581,21 @@ export function BenefitsStep1() {
                           onDelete={(id, name) => {
                             const docs = (stepData.step4?.documents || []).filter((d: any) => d.id !== id);
                             saveStepData(4, { documents: docs });
+                            // Persist deletion to backend so the change reflects on Benefit Hub pages
+                            toast.promise(
+                              fetch(`/api/documents/${id}`, {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ archivedAt: new Date().toISOString() }),
+                              }).then((res) => {
+                                if (!res.ok) throw new Error(res.statusText);
+                              }),
+                              {
+                                loading: "Deleting document...",
+                                success: "Document deleted successfully.",
+                                error: "Failed to delete document.",
+                              },
+                            );
                           }}
                           onDownload={(id) => {
                             const doc = filteredDocs.find((d: any) => d.id === id);
