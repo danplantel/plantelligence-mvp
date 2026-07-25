@@ -940,21 +940,24 @@ export function BenefitsEditorPanel({
                             <Input
                                 value={step1Data.insurancePlanId || ""}
                                 onChange={(e) => {
-                                    // Count only non-dash characters for the limit
-                                    const nonDash = e.target.value.replace(/-/g, "");
-                                    if (nonDash.length <= 16) {
-                                        saveStepData(1, { ...step1Data, insurancePlanId: e.target.value });
+                                    // Auto-format to xxxx-xxxx-xxxx pattern
+                                    const raw = e.target.value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 12);
+                                    const groups = [];
+                                    for (let i = 0; i < raw.length; i += 4) {
+                                        groups.push(raw.slice(i, i + 4));
                                     }
+                                    const formatted = groups.join("-");
+                                    saveStepData(1, { ...step1Data, insurancePlanId: formatted });
                                 }}
-                                placeholder="e.g. AYR-401K-2024"
-                                className="h-11 shadow-sm border-muted"
+                                placeholder="xxxx-xxxx-xxxx"
+                                className="h-11 shadow-sm border-muted font-mono tracking-wider"
                             />
                             <div className="flex items-center justify-between">
                                 <p className="text-[11px] text-muted-foreground">
                                     This appears as &ldquo;PLAN ID: [value]&rdquo; on the Insurance Benefits card.
                                 </p>
                                 <span className="text-[11px] text-muted-foreground tabular-nums">
-                                    {(step1Data.insurancePlanId || "").replace(/-/g, "").length}/16
+                                    {(step1Data.insurancePlanId || "").replace(/-/g, "").length}/12
                                 </span>
                             </div>
                         </div>
