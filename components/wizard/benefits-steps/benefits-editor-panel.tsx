@@ -467,8 +467,13 @@ export function BenefitsEditorPanel({
                                 onChange={(e) => saveStepData(1, { ...step1Data, shortDescription: e.target.value })}
                                 placeholder="Provide a helpful overview for employees..."
                                 className="min-h-[120px] shadow-sm border-muted leading-relaxed"
-                                maxLength={120}
+                                maxLength={450}
                             />
+                            <div className="flex justify-end">
+                                <span className="text-[11px] text-muted-foreground tabular-nums">
+                                    {(step1Data.shortDescription || "").length}/450
+                                </span>
+                            </div>
                         </div>
 
                         {/* Closing & Signature */}
