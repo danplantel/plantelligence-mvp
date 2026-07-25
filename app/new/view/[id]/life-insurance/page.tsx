@@ -244,7 +244,7 @@ export default function LifeInsurancePage() {
           secondCarouselTitle="Beneficiaries & Estate Planning"
           backgroundImage={categoryHeroBg}
           backgroundImageAlt="Life insurance and financial planning"
-          planVideoUrl={(benefitData as any)?.planVideo || (clientData as any)?.employeePortalPreview?.planVideo}
+          planVideoUrl={(benefitData as any)?.planVideo}
         />
 
         <HowCanWeHelpSection

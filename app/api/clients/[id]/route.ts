@@ -152,29 +152,23 @@ export async function GET(
 
       const ep = (dataPayload as any).employeePortalPreview;
       if (ep?.benefits && Array.isArray(ep.benefits)) {
+        console.log("[planVideo] benefits count:", ep.benefits.length);
         const benefitsWithUrls = await Promise.all(
           ep.benefits.map(async (b: any) => {
+            console.log("[planVideo] category=" + b.category + " hasPlanVideo=" + !!b.planVideo + " planVideo=" + b.planVideo);
             const rawKey = b.planVideo ? extractKey(String(b.planVideo)) : null;
+            console.log("[planVideo] rawKey=" + rawKey);
             if (rawKey) {
               try {
                 const url = await getPresignedReadUrl({ key: rawKey });
+                console.log("[planVideo] presigned=" + (url ? "YES" : "NO"));
                 if (url) return { ...b, planVideo: url };
-              } catch { /* keep original if signing fails */ }
+              } catch (e) { console.error("[planVideo] presigned error:", e); }
             }
             return b;
           })
         );
         (dataPayload as any).employeePortalPreview = { ...ep, benefits: benefitsWithUrls };
-      }
-      // Also handle top-level planVideo fallback
-      if (ep?.planVideo) {
-        const rawKey = extractKey(String(ep.planVideo));
-        if (rawKey) {
-          try {
-            const url = await getPresignedReadUrl({ key: rawKey });
-            if (url) (dataPayload as any).employeePortalPreview.planVideo = url;
-          } catch { /* keep original if signing fails */ }
-        }
       }
     }
 

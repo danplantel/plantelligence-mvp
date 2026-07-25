@@ -198,10 +198,11 @@ export function BenefitsEditorPanel({
                     planVideo: key,
                     planVideoFileName: file.name,
                 });
-                // Backup: also save to dedicated localStorage (zustand store may lose it during navigation)
+                // Backup: also save to dedicated per-category localStorage (zustand store may lose it during navigation)
                 try {
-                    localStorage.setItem("benefits-plan-video-key", key);
-                    localStorage.setItem("benefits-plan-video-filename", file.name);
+                    const cat = step1Data?.benefitCategory || "Retirement";
+                    localStorage.setItem("benefits-plan-video-key-" + cat, key);
+                    localStorage.setItem("benefits-plan-video-filename-" + cat, file.name);
                 } catch { /* ignore */ }
             } else {
                 alert("Failed to upload video. Please try again.");
@@ -223,8 +224,9 @@ export function BenefitsEditorPanel({
             planVideoFileName: undefined,
         });
         try {
-            localStorage.removeItem("benefits-plan-video-key");
-            localStorage.removeItem("benefits-plan-video-filename");
+            const cat = step1Data?.benefitCategory || "Retirement";
+            localStorage.removeItem("benefits-plan-video-key-" + cat);
+            localStorage.removeItem("benefits-plan-video-filename-" + cat);
         } catch { /* ignore */ }
     };
 

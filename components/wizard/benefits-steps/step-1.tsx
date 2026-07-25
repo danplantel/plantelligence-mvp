@@ -1260,6 +1260,9 @@ export function BenefitsStep1() {
       contactId: existingBenefit?.contactId || "",
       benefitTitle: existingBenefit?.title || benefitCategory,
       shortDescription: existingBenefit?.shortDescription || "",
+      // Load per-category plan video (DB first, then localStorage fallback)
+      planVideo: (existingBenefit as any)?.planVideo || (typeof window !== "undefined" ? localStorage.getItem("benefits-plan-video-key-" + benefitCategory) : null) || undefined,
+      planVideoFileName: (existingBenefit as any)?.planVideoFileName || (typeof window !== "undefined" ? localStorage.getItem("benefits-plan-video-filename-" + benefitCategory) : null) || undefined,
       // Reset or load images for the new category
       companyLogo: existingBenefit?.partnerLogo
         ? ({

@@ -92,7 +92,7 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
     // ── Plan Video: persisted first, then wizard-in-progress, then localStorage fallback ──
     // R2 keys are stored raw; preview uses the admin-authenticated /api/r2/object endpoint
     const planVideoUrl = useMemo(() => {
-        const lsKey = typeof window !== "undefined" ? localStorage.getItem("benefits-plan-video-key") : null;
+        const lsKey = typeof window !== "undefined" ? localStorage.getItem("benefits-plan-video-key-" + category) : null;
         const rawValue = categoryBenefit?.planVideo || step1Data?.planVideo || lsKey;
         if (!rawValue) return undefined;
         // If it's already a full URL (e.g. presigned), use directly
@@ -194,12 +194,22 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
     ]);
 
 
-    // Mock videos for retirement preview
+    // Default thumbnail per category (matches live page featuredVideo.thumbnail images)
+    const categoryDefaultThumbnail = useMemo(() => {
+        const map: Record<string, string> = {
+            Retirement: "https://images.unsplash.com/photo-1454496522488-7a8e488e8606?w=800&q=80",
+            "Group Health": "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800&q=80",
+            "Group Life": "https://images.unsplash.com/photo-1511895426328-dc8714191300?w=800&q=80",
+            "Company / Plan Sponsor": "https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=1600&q=80",
+        };
+        return map[category] || map["Retirement"];
+    }, [category]);
+
     const featuredVideo: FeaturedJourneyVideo = {
         id: "preview-featured",
-        title: "Your Retirement Journey Starts Here",
-        description: "Preview of the featured retirement video.",
-        thumbnail: "https://images.unsplash.com/photo-1454496522488-7a8e488e8606?w=800&q=80",
+        title: step1Data?.benefitTitle || `Your ${category} Benefits`,
+        description: step1Data?.shortDescription || "Preview of the featured video.",
+        thumbnail: categoryDefaultThumbnail,
         duration: "8:30",
         rating: "4.9",
         category: "Getting Started",
@@ -301,6 +311,9 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
                         planningVideos={mockVideos}
                         onVideoClick={() => { }}
                         onFeaturedVideoClick={() => { }}
+                        mainTitle={step1Data?.benefitTitle || (category === "Custom" ? `Welcome to your benefits!` : `Your ${category} Benefits`)}
+                        subtitle="Explore your comprehensive benefits package."
+                        description={step1Data?.shortDescription || ""}
                         backgroundImage={categoryHeroBg}
                         planVideoUrl={planVideoUrl}
                     />

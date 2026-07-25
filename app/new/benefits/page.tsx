@@ -184,9 +184,10 @@ function BenefitsPageInner() {
     const step5Data = store.stepData.step5;
     const planId = step1Data?.planId;
 
-    // Fallback: read plan video from dedicated localStorage (zustand store may lose it during nav)
-    const planVideo = step1Data?.planVideo || (typeof window !== "undefined" ? localStorage.getItem("benefits-plan-video-key") : null) || undefined;
-    const planVideoFileName = step1Data?.planVideoFileName || (typeof window !== "undefined" ? localStorage.getItem("benefits-plan-video-filename") : null) || undefined;
+    // Fallback: read plan video from dedicated per-category localStorage (zustand store may lose it during nav)
+    const cat = step1Data?.benefitCategory || "Retirement";
+    const planVideo = step1Data?.planVideo || (typeof window !== "undefined" ? localStorage.getItem("benefits-plan-video-key-" + cat) : null) || undefined;
+    const planVideoFileName = step1Data?.planVideoFileName || (typeof window !== "undefined" ? localStorage.getItem("benefits-plan-video-filename-" + cat) : null) || undefined;
 
     if (!planId) {
       toast.error("Plan ID missing. Cannot complete setup.");
@@ -443,8 +444,6 @@ function BenefitsPageInner() {
           heroContainerInverted: step1Data?.heroContainerInverted ?? false,
           heroBackgroundInverted: step1Data?.heroBackgroundInverted ?? false,
           heroUseGradient: step1Data?.heroUseGradient ?? false,
-          // Persist plan video at top level as a fallback (also stored per-category in benefits[])
-          ...(planVideo ? { planVideo, planVideoFileName } : {}),
         },
         categoryPortalVisibility: categoryPortalVisibilityForComplete,
         ...(step5Disclaimers ? { disclaimers: { disclaimers: step5Disclaimers } } : {}),
@@ -484,9 +483,11 @@ function BenefitsPageInner() {
         }
       };
 
-      if (process.env.NODE_ENV === 'development') {
-        // console.log("[Benefits Wizard] Final PUT Payload:", JSON.stringify(updatePayload, null, 2));
-      }
+      // Diagnostic: verify planVideo is in the payload
+      const firstBenefit = updatePayload.employeePortalPreview?.benefits?.[0];
+      console.log("[BenefitsSave] PUT payload benefits[0] keys:", firstBenefit ? Object.keys(firstBenefit) : "none");
+      console.log("[BenefitsSave] PUT payload benefits[0].planVideo:", firstBenefit?.planVideo);
+      console.log("[BenefitsSave] PUT payload employeePortalPreview keys:", Object.keys(updatePayload.employeePortalPreview || {}));
 
       const updateResponse = await fetch(`/api/clients/${planId}`, {
         method: "PUT",
