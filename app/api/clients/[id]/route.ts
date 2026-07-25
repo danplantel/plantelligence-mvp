@@ -406,14 +406,17 @@ export async function PUT(
         const basePreview = employeePortalPreview
           ? (employeePortalPreview as any)
           : (existingClient as any).employeePortalPreview;
-        if ((body as any).categoryPortalVisibility !== undefined && basePreview?.benefits) {
+        // Merge with existing data: preserve benefits, disclaimers, etc. when patch doesn't include them
+        const existingEp = (existingClient as any).employeePortalPreview || {};
+        const merged = { ...existingEp, ...basePreview };
+        if ((body as any).categoryPortalVisibility !== undefined && merged?.benefits) {
           const visibility = getCategoryPortalVisibility((body as any).categoryPortalVisibility);
           return {
-            ...basePreview,
-            benefits: syncBenefitsWithCategoryVisibility(basePreview.benefits, visibility),
+            ...merged,
+            benefits: syncBenefitsWithCategoryVisibility(merged.benefits, visibility),
           };
         }
-        return basePreview;
+        return merged;
       })(),
       // Category Display (Show/Hide): always persist when sent by Edit Client so Hide state is not lost
       categoryPortalVisibility:

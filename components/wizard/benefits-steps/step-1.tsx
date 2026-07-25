@@ -490,9 +490,9 @@ export function BenefitsStep1() {
           Other: visibility["Custom"] !== false,
         };
 
-        // Merge insurance fields into employeePortalPreview for persistence
-        const employeePortalPreviewWithInsurance = {
-          ...getMergedClientData.employeePortalPreview,
+        // Only send insurance fields + visibility — do NOT overwrite benefits
+        // (the wizard completion save may have just set planVideo, faqs, etc.)
+        const employeePortalPreviewPatch = {
           insurancePlanId: currentStepData.insurancePlanId || "",
           insuranceLoginUrl: currentStepData.insuranceLoginUrl || "",
           insuranceBackgroundImage: currentStepData.insuranceBackgroundImage || "",
@@ -503,7 +503,7 @@ export function BenefitsStep1() {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            employeePortalPreview: employeePortalPreviewWithInsurance,
+            employeePortalPreview: employeePortalPreviewPatch,
             categoryPortalVisibility,
           }),
         });

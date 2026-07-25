@@ -496,6 +496,7 @@ function BenefitsPageInner() {
       });
 
       const updateResult = await updateResponse.json();
+      console.log("[BenefitsSave] PUT response status:", updateResponse.status, "success:", updateResult.success);
       if (!updateResult.success) throw new Error(updateResult.error || "Failed to update client");
 
       // Notify any open portal views that benefits have changed (triggers re-fetch in ClientPortalProvider)
