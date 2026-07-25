@@ -936,7 +936,7 @@ export function BenefitsEditorPanel({
                         </div>
 
                         <div className="space-y-2">
-                            <Label className="text-xs font-bold text-foreground">Plan ID #</Label>
+                            <Label className="text-xs font-bold text-foreground">Plan ID # <span className="text-red-500">*</span></Label>
                             <Input
                                 value={step1Data.insurancePlanId || ""}
                                 onChange={(e) => {
@@ -959,7 +959,7 @@ export function BenefitsEditorPanel({
                             </div>
                         </div>
                         <div className="space-y-2">
-                            <Label className="text-xs font-bold text-foreground">Register or Login Here Button URL</Label>
+                            <Label className="text-xs font-bold text-foreground">Register or Login Here Button URL <span className="text-red-500">*</span></Label>
                             <Input
                                 value={step1Data.insuranceLoginUrl || ""}
                                 onChange={(e) => saveStepData(1, { ...step1Data, insuranceLoginUrl: e.target.value })}

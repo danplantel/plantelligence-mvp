@@ -150,6 +150,28 @@ function BenefitsPageInner() {
       return;
     }
 
+    if (currentStep === 2) {
+      const step1Data = useBenefitsWizardStore.getState().stepData.step1;
+
+      // Validate Insurance fields: Plan ID and Login URL are required
+      if (
+        !step1Data?.insurancePlanId?.trim()
+      ) {
+        toast.error("Plan ID is required", {
+          description: "Please enter a Plan ID in Section 5 (Insurance Benefits Access & Materials).",
+        });
+        return;
+      }
+      if (
+        !step1Data?.insuranceLoginUrl?.trim()
+      ) {
+        toast.error("Login URL is required", {
+          description: "Please enter a Register or Login Here Button URL in Section 5.",
+        });
+        return;
+      }
+    }
+
     if (currentStep === 3) {
       const step3Data = useBenefitsWizardStore.getState().stepData.step3;
 
