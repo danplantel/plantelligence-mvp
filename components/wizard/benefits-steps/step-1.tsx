@@ -2711,9 +2711,12 @@ export function BenefitsStep1() {
                           seen.add(key);
                           return true;
                         });
+                        const prevCount = (stepData.step4?.documents || []).length;
                         saveStepData(4, { documents: deduped });
-                        // Switch to list view so the user sees the newly uploaded documents
-                        setActiveDocTab("list");
+                        // Switch to list view only when documents are actually added (count increases)
+                        if (deduped.length > prevCount) {
+                          setActiveDocTab("list");
+                        }
                         if (!resolvedPlanId) return;
                         void (async () => {
                           const id = resolvedPlanId;
