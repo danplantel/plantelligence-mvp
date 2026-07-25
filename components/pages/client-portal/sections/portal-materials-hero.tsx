@@ -11,9 +11,9 @@ import { isR2BrandingKey } from "@/lib/branding-image-url";
 /** Per-category default background images for the Insurance Benefits Access & Materials section (distinct from welcome banner defaults). */
 const INSURANCE_DEFAULT_BGS: Record<string, string> = {
   Retirement: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=1920&q=80",
-  "Group Health": "https://images.unsplash.com/photo-1551190822-f3f355555630?w=1920&q=80",
-  "Group Life": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=1920&q=80",
-  "Company / Plan Sponsor": "https://images.unsplash.com/photo-1497366811353-6870744d04b2?w=1920&q=80",
+  "Group Health": "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=1920&q=80",
+  "Group Life": "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=1920&q=80",
+  "Company / Plan Sponsor": "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=1920&q=80",
 };
 
 interface PortalMaterialsHeroProps {
