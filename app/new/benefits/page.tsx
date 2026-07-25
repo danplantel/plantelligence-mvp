@@ -185,11 +185,8 @@ function BenefitsPageInner() {
     const planId = step1Data?.planId;
 
     // Fallback: read plan video from dedicated localStorage (zustand store may lose it during nav)
-    const lsPlanVideo = typeof window !== "undefined" ? localStorage.getItem("benefits-plan-video-key") : null;
-    const lsPlanVideoFileName = typeof window !== "undefined" ? localStorage.getItem("benefits-plan-video-filename") : null;
-    alert("[DEBUG] step1Data.planVideo=" + step1Data?.planVideo + " lsPlanVideo=" + lsPlanVideo);
-    const planVideo = step1Data?.planVideo || lsPlanVideo || undefined;
-    const planVideoFileName = step1Data?.planVideoFileName || lsPlanVideoFileName || undefined;
+    const planVideo = step1Data?.planVideo || (typeof window !== "undefined" ? localStorage.getItem("benefits-plan-video-key") : null) || undefined;
+    const planVideoFileName = step1Data?.planVideoFileName || (typeof window !== "undefined" ? localStorage.getItem("benefits-plan-video-filename") : null) || undefined;
 
     if (!planId) {
       toast.error("Plan ID missing. Cannot complete setup.");
