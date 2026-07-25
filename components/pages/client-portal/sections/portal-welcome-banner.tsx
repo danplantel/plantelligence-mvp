@@ -225,19 +225,27 @@ export function PortalWelcomeBanner({
     ? description
     : [description];
 
+  // Resolve overlay settings: persisted API values (employeePortalPreview) take precedence over props
+  const epPreview = clientData?.employeePortalPreview as any;
+  const effectiveBackgroundOpacity = epPreview?.heroBackgroundOpacity ?? backgroundOpacity;
+  const effectiveContainerBlockOpacity = epPreview?.heroContainerBlockOpacity ?? containerBlockOpacity;
+  const effectiveContainerInverted = epPreview?.heroContainerInverted ?? containerInverted;
+  const effectiveBackgroundInverted = epPreview?.heroBackgroundInverted ?? backgroundInverted;
+  const effectiveUseGradient = epPreview?.heroUseGradient ?? useGradient;
+
   // Compute dynamic overlay styles
-  const backgroundOverlayStyle = backgroundInverted
-    ? { backgroundColor: `rgba(255, 255, 255, ${1 - backgroundOpacity})` }
-    : { backgroundColor: `rgba(0, 0, 0, ${1 - backgroundOpacity})` };
+  const backgroundOverlayStyle = effectiveBackgroundInverted
+    ? { backgroundColor: `rgba(255, 255, 255, ${1 - effectiveBackgroundOpacity})` }
+    : { backgroundColor: `rgba(0, 0, 0, ${1 - effectiveBackgroundOpacity})` };
 
   // Container background: solid backgroundColor when gradient is off, backgroundImage gradient when on
-  const containerBgStyle = containerInverted
-    ? useGradient
-      ? { backgroundImage: `linear-gradient(to bottom, rgba(255, 255, 255, ${containerBlockOpacity}), rgba(255, 255, 255, ${containerBlockOpacity * 0.3}))` }
-      : { backgroundColor: `rgba(255, 255, 255, ${containerBlockOpacity})` }
-    : useGradient
-      ? { backgroundImage: `linear-gradient(to bottom, rgba(0, 0, 0, ${containerBlockOpacity}), rgba(0, 0, 0, ${containerBlockOpacity * 0.3}))` }
-      : { backgroundColor: `rgba(0, 0, 0, ${containerBlockOpacity})` };
+  const containerBgStyle = effectiveContainerInverted
+    ? effectiveUseGradient
+      ? { backgroundImage: `linear-gradient(to bottom, rgba(255, 255, 255, ${effectiveContainerBlockOpacity}), rgba(255, 255, 255, ${effectiveContainerBlockOpacity * 0.3}))` }
+      : { backgroundColor: `rgba(255, 255, 255, ${effectiveContainerBlockOpacity})` }
+    : effectiveUseGradient
+      ? { backgroundImage: `linear-gradient(to bottom, rgba(0, 0, 0, ${effectiveContainerBlockOpacity}), rgba(0, 0, 0, ${effectiveContainerBlockOpacity * 0.3}))` }
+      : { backgroundColor: `rgba(0, 0, 0, ${effectiveContainerBlockOpacity})` };
 
   const [hoveredField, setHoveredField] = useState<string | null>(null);
 
@@ -258,7 +266,7 @@ export function PortalWelcomeBanner({
     <section
       id="portal-welcome-banner"
       className={`relative isolate overflow-hidden min-h-[50vh] lg:min-h-screen w-full ${
-        containerInverted ? "text-gray-900" : "text-white"
+        effectiveContainerInverted ? "text-gray-900" : "text-white"
       }`}
       style={{ backgroundColor: "#0F172A" }}
     >
@@ -313,7 +321,7 @@ export function PortalWelcomeBanner({
       >
         <div
           className={`overflow-hidden backdrop-blur-sm ${
-            containerInverted
+            effectiveContainerInverted
               ? "border border-gray-300"
               : "border border-white/15"
           }`}
@@ -343,7 +351,7 @@ export function PortalWelcomeBanner({
                 }
                 return (
                   <p className={`mb-6 text-xs font-semibold tracking-[0.4em] hidden lg:block ${
-                    containerInverted ? "text-gray-400" : "text-white/70"
+                    effectiveContainerInverted ? "text-gray-400" : "text-white/70"
                   }`}>
                     LOGO HERE
                   </p>
@@ -359,7 +367,7 @@ export function PortalWelcomeBanner({
               >
                 {onTitleClick && hoveredField === "title" && <EditPencil />}
                 <h1 className={`font-unna font-dm-serif text-3xl leading-tight sm:text-4xl lg:text-5xl ${
-                  containerInverted ? "text-gray-900" : "text-white"
+                  effectiveContainerInverted ? "text-gray-900" : "text-white"
                 }`}>
                   {headline}
                 </h1>
@@ -385,12 +393,12 @@ export function PortalWelcomeBanner({
                 <p className={`text-lg font-red-hat ${customClosingBold ? "font-bold" : "font-normal"} ${customClosingItalic ? "italic" : ""}`}>{closing}</p>
                 <div className="mt-2 space-y-1">
                   <p className={`text-base font-red-hat font-normal ${
-                    containerInverted ? "text-gray-900" : "text-white"
+                    effectiveContainerInverted ? "text-gray-900" : "text-white"
                   } ${customSignatureNameBold ? "font-bold" : ""} ${customSignatureNameItalic ? "italic" : ""}`}>
                     {signatureName}
                   </p>
                   <p className={`text-xs uppercase tracking-[0.2em] font-red-hat font-normal ${
-                    containerInverted ? "text-gray-500" : "text-white/90"
+                    effectiveContainerInverted ? "text-gray-500" : "text-white/90"
                   } ${customSignatureCompanyBold ? "font-bold" : ""} ${customSignatureCompanyItalic ? "italic" : ""}`}>
                     {signatureCompany}
                   </p>
@@ -417,7 +425,7 @@ export function PortalWelcomeBanner({
               ) : (
                 <div className="relative flex min-h-[200px] w-full items-center justify-center">
                   <span className={`text-sm font-semibold tracking-wider ${
-                    containerInverted ? "text-gray-400" : "text-white/50"
+                    effectiveContainerInverted ? "text-gray-400" : "text-white/50"
                   }`}>
                     BENEFITS LOGO
                   </span>

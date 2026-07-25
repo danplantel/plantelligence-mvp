@@ -172,5 +172,11 @@ export function mergeUserBenefitWithHubDefaults(
     ...(p.planVideoFileName ? { planVideoFileName: p.planVideoFileName } : {}),
     // Preserve inner header image from wizard Step 2 Section 1 Branding
     ...(userInnerHeaderImage ? { innerHeaderImage: userInnerHeaderImage } : {}),
+    // Preserve hero overlay settings from wizard Step 2 Section 1 Branding
+    ...(p.heroBackgroundOpacity !== undefined ? { heroBackgroundOpacity: p.heroBackgroundOpacity } : {}),
+    ...(p.heroContainerBlockOpacity !== undefined ? { heroContainerBlockOpacity: p.heroContainerBlockOpacity } : {}),
+    ...(p.heroContainerInverted !== undefined ? { heroContainerInverted: p.heroContainerInverted } : {}),
+    ...(p.heroBackgroundInverted !== undefined ? { heroBackgroundInverted: p.heroBackgroundInverted } : {}),
+    ...(p.heroUseGradient !== undefined ? { heroUseGradient: p.heroUseGradient } : {}),
   };
 }
