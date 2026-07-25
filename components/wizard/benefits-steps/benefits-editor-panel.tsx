@@ -419,6 +419,9 @@ export function BenefitsEditorPanel({
                                 hideButtons={true}
                                 useUniversalModal={true}
                                 universalModalType="normalizer"
+                                universalModalCustomConfig={{
+                                    outlinePadding: 0,
+                                }}
                             />
                         </div>
 

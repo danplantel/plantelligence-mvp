@@ -31,6 +31,7 @@ interface BrandImageUploadProps {
   hideButtons?: boolean; // Hide Replace, Edit, Remove buttons
   useUniversalModal?: boolean; // Use UniversalImageEditorModal instead of onFileSelect
   universalModalType?: "headshot" | "logo" | "normalizer" | "custom"; // Type for UniversalImageEditorModal
+  universalModalCustomConfig?: Partial<import("@/components/ui/universal-image-editor-modal").ImageEditorConfig>; // Custom config overrides
   maxFileSize?: number; // Max file size in MB (default: 15)
   editableDescription?: boolean; // Allow editing description
   onDescriptionChange?: (description: string) => void; // Callback when description changes
@@ -67,6 +68,7 @@ export function BrandImageUpload({
   renderModalOutside = false,
   onModalStateChange,
   isHighlighted = false,
+  universalModalCustomConfig = {},
 }: BrandImageUploadProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -479,6 +481,7 @@ export function BrandImageUpload({
       {useUniversalModal && pendingImageData && !renderModalOutside && (
         <UniversalImageEditorModal
           type={universalModalType}
+          customConfig={universalModalCustomConfig}
           value={pendingImageData.url || ""}
           originalValue={pendingImageData.originalUrl}
           fileName={pendingImageData.fileName || ""}

@@ -67,6 +67,8 @@ export interface ImageEditorConfig {
   // Custom padding for guidelines
   safeZonePadding?: number; // Custom padding for solid line (default: 10% of canvas)
   innerPadding?: number; // Custom padding for dotted line (default: 50% of safeZonePadding)
+  // Crop settings
+  outlinePadding?: number; // Padding around the image in the crop output (default: 0.1 = 10%)
 }
 
 // Default configurations for different use cases
@@ -1614,7 +1616,7 @@ export function UniversalImageEditorModal({
     const photoHeight = currentRect.height;
     const ar = photoWidth / photoHeight;
 
-    const outlinePct = 0.1;
+    const outlinePct = config.outlinePadding ?? 0.1;
 
     let cropX = 0,
       cropY = 0,
