@@ -59,5 +59,19 @@ export function mergePlanDocumentRows(
     })
     .map((c) => ({ ...(c as Record<string, unknown>) }));
 
-  return [...mergedFromApi, ...onlyEmbedded];
+  const result = [...mergedFromApi, ...onlyEmbedded];
+
+  // Deduplicate by (name + category) to handle cases where the same document
+  // exists with different IDs (e.g. temporary doc- prefix vs persisted MongoDB ID).
+  const seen = new Set<string>();
+  return result.filter((doc) => {
+    const nameKey = String(
+      doc.title || doc.name || doc.fileName || doc.id || "",
+    ).toLowerCase();
+    const categoryKey = String(doc.category || "").toLowerCase();
+    const dedupKey = `${nameKey}::${categoryKey}`;
+    if (seen.has(dedupKey)) return false;
+    seen.add(dedupKey);
+    return true;
+  });
 }
