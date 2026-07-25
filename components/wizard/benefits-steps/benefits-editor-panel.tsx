@@ -192,12 +192,17 @@ export function BenefitsEditorPanel({
             });
 
             if (key) {
-                const videoUrl = `/api/r2/object?key=${encodeURIComponent(key)}`;
+                // Store the raw R2 key — the GET handler will generate a presigned URL for portal viewers
                 saveStepData(1, {
                     ...step1Data,
-                    planVideo: videoUrl,
+                    planVideo: key,
                     planVideoFileName: file.name,
                 });
+                // Backup: also save to dedicated localStorage (zustand store may lose it during navigation)
+                try {
+                    localStorage.setItem("benefits-plan-video-key", key);
+                    localStorage.setItem("benefits-plan-video-filename", file.name);
+                } catch { /* ignore */ }
             } else {
                 alert("Failed to upload video. Please try again.");
             }
@@ -217,6 +222,10 @@ export function BenefitsEditorPanel({
             planVideo: undefined,
             planVideoFileName: undefined,
         });
+        try {
+            localStorage.removeItem("benefits-plan-video-key");
+            localStorage.removeItem("benefits-plan-video-filename");
+        } catch { /* ignore */ }
     };
 
     // Hero overlay settings handler
@@ -602,7 +611,9 @@ export function BenefitsEditorPanel({
                                     </div>
                                     <div className="aspect-video overflow-hidden rounded-lg bg-black">
                                         <video
-                                            src={step1Data.planVideo}
+                                            src={step1Data.planVideo?.startsWith("http") || step1Data.planVideo?.startsWith("/api/")
+                                                ? step1Data.planVideo
+                                                : `/api/r2/object?key=${encodeURIComponent(step1Data.planVideo || "")}`}
                                             controls
                                             className="h-full w-full object-contain"
                                             playsInline

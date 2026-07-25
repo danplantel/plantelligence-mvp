@@ -234,6 +234,7 @@ export default function WellnessProgramsPage() {
           firstCarouselTitle="Wellness Programs"
           secondCarouselTitle="Mindfulness & Well-being"
           backgroundImage={categoryHeroBg}
+          planVideoUrl={(benefitData as any)?.planVideo || (clientData as any)?.employeePortalPreview?.planVideo}
         />
 
         <HowCanWeHelpSection

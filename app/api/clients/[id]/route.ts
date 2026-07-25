@@ -16,6 +16,7 @@ import {
 } from "@/lib/portal-category-visibility";
 import { resolvePersistedDocumentCategory } from "@/lib/document-category";
 import { normalizeClientBrandingKeysForResponse } from "@/lib/branding-image-url";
+import { getPresignedReadUrl, isR2Configured } from "@/lib/r2";
 
 export async function GET(
   request: NextRequest,
@@ -135,6 +136,47 @@ export async function GET(
       session.user.id,
       clientId,
     );
+
+    // Generate presigned URLs for plan videos so portal viewers (employees) can play them
+    if (forPortal && isR2Configured()) {
+      // Helper: extract raw R2 key from old /api/r2/object?key=... URLs or use as-is
+      const extractKey = (v: string): string | null => {
+        if (!v || v.startsWith("http")) return null; // already a presigned URL
+        try {
+          const u = new URL(v, "http://localhost");
+          const k = u.searchParams.get("key");
+          if (k) return k;
+        } catch { /* not a URL, treat as raw key */ }
+        return v;
+      };
+
+      const ep = (dataPayload as any).employeePortalPreview;
+      if (ep?.benefits && Array.isArray(ep.benefits)) {
+        const benefitsWithUrls = await Promise.all(
+          ep.benefits.map(async (b: any) => {
+            const rawKey = b.planVideo ? extractKey(String(b.planVideo)) : null;
+            if (rawKey) {
+              try {
+                const url = await getPresignedReadUrl({ key: rawKey });
+                if (url) return { ...b, planVideo: url };
+              } catch { /* keep original if signing fails */ }
+            }
+            return b;
+          })
+        );
+        (dataPayload as any).employeePortalPreview = { ...ep, benefits: benefitsWithUrls };
+      }
+      // Also handle top-level planVideo fallback
+      if (ep?.planVideo) {
+        const rawKey = extractKey(String(ep.planVideo));
+        if (rawKey) {
+          try {
+            const url = await getPresignedReadUrl({ key: rawKey });
+            if (url) (dataPayload as any).employeePortalPreview.planVideo = url;
+          } catch { /* keep original if signing fails */ }
+        }
+      }
+    }
 
     return NextResponse.json({
       success: true,

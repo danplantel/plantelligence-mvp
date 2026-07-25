@@ -164,5 +164,8 @@ export function mergeUserBenefitWithHubDefaults(
     // Preserve wizard step 3 data when present (faqs, supportContacts)
     ...(p.faqs ? { faqs: p.faqs } : {}),
     ...(p.supportContacts ? { supportContacts: p.supportContacts } : {}),
+    // Preserve plan video from wizard Step 2 Section 3
+    ...(p.planVideo ? { planVideo: p.planVideo } : {}),
+    ...(p.planVideoFileName ? { planVideoFileName: p.planVideoFileName } : {}),
   };
 }

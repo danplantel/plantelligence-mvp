@@ -81,15 +81,31 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
         || step1Data?.selectedPlan?.brandColors?.secondary
         || "#6B7280";
 
+    // ── Resolve per-category benefit from persisted data (used for FAQs, planVideo, etc.) ──
+    const categoryBenefit = useMemo(() => {
+        const benefits = (step1Data?.selectedPlan as any)?.employeePortalPreview?.benefits ?? [];
+        return benefits.find((b: any) =>
+            (b.category || "").toLowerCase() === category.toLowerCase(),
+        );
+    }, [step1Data?.selectedPlan, category]);
+
+    // ── Plan Video: persisted first, then wizard-in-progress, then localStorage fallback ──
+    // R2 keys are stored raw; preview uses the admin-authenticated /api/r2/object endpoint
+    const planVideoUrl = useMemo(() => {
+        const lsKey = typeof window !== "undefined" ? localStorage.getItem("benefits-plan-video-key") : null;
+        const rawValue = categoryBenefit?.planVideo || step1Data?.planVideo || lsKey;
+        if (!rawValue) return undefined;
+        // If it's already a full URL (e.g. presigned), use directly
+        if (rawValue.startsWith("http") || rawValue.startsWith("/api/")) return rawValue;
+        // Raw R2 key — construct admin URL (preview user is authenticated)
+        return `/api/r2/object?key=${encodeURIComponent(rawValue)}`;
+    }, [categoryBenefit, step1Data?.planVideo]);
+
     // ── FAQ extraction: matches retirement/page.tsx logic ──
     // 1. Check employeePortalPreview.benefits[].faqs (persisted from wizard Step 3)
     // 2. Fall back to step3Data.faqs (wizard-in-progress, not yet persisted)
     // 3. Fall back to DEFAULT_FAQS[category]
     const faqsForCategory = useMemo(() => {
-        const benefits = (step1Data?.selectedPlan as any)?.employeePortalPreview?.benefits ?? [];
-        const categoryBenefit = benefits.find((b: any) =>
-            (b.category || "").toLowerCase() === category.toLowerCase(),
-        );
         const persistedFaqs = categoryBenefit?.faqs;
         if (persistedFaqs && Array.isArray(persistedFaqs)) {
             const enabled = persistedFaqs.filter((f: any) => f.enabled !== false) as DynamicFAQItem[];
@@ -110,17 +126,13 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
         const defaults = DEFAULT_FAQS[category];
         if (defaults && defaults.length > 0) return defaults as DynamicFAQItem[];
         return undefined;
-    }, [step1Data?.selectedPlan, category, step3Data?.faqs]);
+    }, [categoryBenefit, step3Data?.faqs, category]);
 
     // ── Support contacts extraction: matches retirement/page.tsx logic ──
     const faqContacts = useMemo(() => {
         const rawContacts = Array.isArray(step1Data?.selectedPlan?.keyContacts)
             ? step1Data?.selectedPlan?.keyContacts
             : (step1Data?.selectedPlan as any)?.keyContacts?.contacts || [];
-        const benefits = (step1Data?.selectedPlan as any)?.employeePortalPreview?.benefits ?? [];
-        const categoryBenefit = benefits.find((b: any) =>
-            (b.category || "").toLowerCase() === category.toLowerCase(),
-        );
         const rawSupportContacts = categoryBenefit?.supportContacts;
         if (!Array.isArray(rawSupportContacts)) return undefined;
         const enabled = rawSupportContacts.filter((sc: any) => sc.enabled !== false);
@@ -137,7 +149,7 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
                 headshot: matched?.headshot || undefined,
             } as FAQContact;
         });
-    }, [step1Data?.selectedPlan, category]);
+    }, [step1Data?.selectedPlan, categoryBenefit]);
 
     // Map documents: Step 4 (wizard) or, when empty, `selectedPlan.documents` from the plan API
     const documents = useMemo(() => {
@@ -290,7 +302,7 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
                         onVideoClick={() => { }}
                         onFeaturedVideoClick={() => { }}
                         backgroundImage={categoryHeroBg}
-                        planVideoUrl={step1Data?.planVideo}
+                        planVideoUrl={planVideoUrl}
                     />
                 </div>
 

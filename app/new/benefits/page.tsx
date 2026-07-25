@@ -184,6 +184,13 @@ function BenefitsPageInner() {
     const step5Data = store.stepData.step5;
     const planId = step1Data?.planId;
 
+    // Fallback: read plan video from dedicated localStorage (zustand store may lose it during nav)
+    const lsPlanVideo = typeof window !== "undefined" ? localStorage.getItem("benefits-plan-video-key") : null;
+    const lsPlanVideoFileName = typeof window !== "undefined" ? localStorage.getItem("benefits-plan-video-filename") : null;
+    alert("[DEBUG] step1Data.planVideo=" + step1Data?.planVideo + " lsPlanVideo=" + lsPlanVideo);
+    const planVideo = step1Data?.planVideo || lsPlanVideo || undefined;
+    const planVideoFileName = step1Data?.planVideoFileName || lsPlanVideoFileName || undefined;
+
     if (!planId) {
       toast.error("Plan ID missing. Cannot complete setup.");
       return;
@@ -209,6 +216,8 @@ function BenefitsPageInner() {
           partnerLogo: step1Data?.companyLogo?.url,
           contactId: step1Data?.contactId,
           category: step1Data?.benefitCategory,
+          planVideo,
+          planVideoFileName,
         },
         step1Data?.benefitCategory,
         { saveMode: true },
@@ -222,6 +231,12 @@ function BenefitsPageInner() {
       }
       if (step3Data?.supportContacts) {
         newBenefit.supportContacts = step3Data.supportContacts;
+      }
+
+      // Include Plan Video from Step 2 for this benefit category
+      if (planVideo) {
+        newBenefit.planVideo = planVideo;
+        newBenefit.planVideoFileName = step1Data.planVideoFileName;
       }
 
       // 3. Always preserve all 4 categories: merge existing + default placeholders, then set the one we edited
@@ -431,6 +446,8 @@ function BenefitsPageInner() {
           heroContainerInverted: step1Data?.heroContainerInverted ?? false,
           heroBackgroundInverted: step1Data?.heroBackgroundInverted ?? false,
           heroUseGradient: step1Data?.heroUseGradient ?? false,
+          // Persist plan video at top level as a fallback (also stored per-category in benefits[])
+          ...(planVideo ? { planVideo, planVideoFileName } : {}),
         },
         categoryPortalVisibility: categoryPortalVisibilityForComplete,
         ...(step5Disclaimers ? { disclaimers: { disclaimers: step5Disclaimers } } : {}),

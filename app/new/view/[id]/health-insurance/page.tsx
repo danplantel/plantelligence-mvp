@@ -237,6 +237,7 @@ export default function HealthInsurancePage() {
           subtitle="Navigate your coverage with confidence."
           description={benefitData?.shortDescription || "Your health and well-being are our priority. Explore our health insurance resources to understand your coverage options, maximize your benefits, and make informed decisions about your medical, dental, and vision care for you and your family."}
           backgroundImage={categoryHeroBg}
+          planVideoUrl={(benefitData as any)?.planVideo || (clientData as any)?.employeePortalPreview?.planVideo}
         />
 
         <HowCanWeHelpSection
