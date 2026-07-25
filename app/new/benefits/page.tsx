@@ -217,6 +217,7 @@ function BenefitsPageInner() {
           shortDescription: step1Data?.shortDescription,
           image: step1Data?.brandImages?.header?.url,
           partnerLogo: step1Data?.companyLogo?.url,
+          innerHeaderImage: step1Data?.innerHeaderImage?.url,
           contactId: step1Data?.contactId,
           category: step1Data?.benefitCategory,
           planVideo,

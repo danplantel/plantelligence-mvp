@@ -129,6 +129,9 @@ export function mergeUserBenefitWithHubDefaults(
   const userPartner = nonEmptyString(
     p.partnerLogo ?? p.companyLogo ?? (p as any).companyLogo?.url,
   );
+  const userInnerHeaderImage = nonEmptyString(
+    (p as any).innerHeaderImage?.url ?? (p as any).innerHeaderImage,
+  );
   const userBody = nonEmptyString(
     p.shortDescription ?? p.description,
   );
@@ -167,5 +170,7 @@ export function mergeUserBenefitWithHubDefaults(
     // Preserve plan video from wizard Step 2 Section 3
     ...(p.planVideo ? { planVideo: p.planVideo } : {}),
     ...(p.planVideoFileName ? { planVideoFileName: p.planVideoFileName } : {}),
+    // Preserve inner header image from wizard Step 2 Section 1 Branding
+    ...(userInnerHeaderImage ? { innerHeaderImage: userInnerHeaderImage } : {}),
   };
 }
