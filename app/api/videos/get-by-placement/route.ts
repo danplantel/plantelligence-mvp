@@ -57,9 +57,10 @@ export async function GET(request: NextRequest) {
       } as any,
     });
 
-    // If not found by clientId, try by planId (legacy — uses the original
-    // param because plan slugs don't shadow Mongo ObjectIDs)
-    if (allVideos.length === 0) {
+    // If not found by clientId, try by planId (legacy).
+    // Only attempt when the param looks like a valid ObjectID — a slug
+    // such as "g-loomis" can never match a planId and would throw P2023.
+    if (allVideos.length === 0 && isObjectId(clientIdParam)) {
       allVideos = await prisma.video.findMany({
         where: {
           pagePlacement: pagePlacement,
