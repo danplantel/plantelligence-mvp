@@ -2655,6 +2655,15 @@ export function BenefitsStep1() {
                             retirementDocs={previewItems}
                             title={`${category || "Plan"} Documents & Forms`}
                             description={`Access all your important ${(category || "plan").toLowerCase()} plan documents and forms.`}
+                            accordionHeaderTitle={
+                              category === "Group Health"
+                                ? "Health Plan Documents"
+                                : category === "Group Life"
+                                  ? "Life Insurance Documents"
+                                  : category === "Company / Plan Sponsor"
+                                    ? "Wellness Program Documents"
+                                    : "Retirement Plan Documents"
+                            }
                           />
                         </div>
                       );

@@ -418,6 +418,15 @@ export function BenefitsStep4() {
                         retirementDocs={previewDocs}
                         title={`${benefitCategory || "Plan"} Documents & Forms`}
                         description={`Access all your important ${(benefitCategory || "plan").toLowerCase()} plan documents, forms, and notices in one convenient location.`}
+                        accordionHeaderTitle={
+                            benefitCategory === "Group Health"
+                                ? "Health Plan Documents"
+                                : benefitCategory === "Group Life"
+                                    ? "Life Insurance Documents"
+                                    : benefitCategory === "Company / Plan Sponsor"
+                                        ? "Wellness Program Documents"
+                                        : "Retirement Plan Documents"
+                        }
                     />
                 </TabsContent>
 
