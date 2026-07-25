@@ -646,15 +646,24 @@ export function DocumentsUploadSection({
           }
         }
 
-        const existingNames = new Set(
-          documents.map((d) => (d.originalFileName || d.name || "").toLowerCase()),
+        // Build dedup keys: when fixedCategory is set, include category so the same
+        // file can exist in different categories without being flagged as a duplicate.
+        const existingKeys = new Set(
+          documents.map((d) => {
+            const name = (d.originalFileName || d.name || "").toLowerCase();
+            return fixedCategory ? `${name}::${d.category || ''}` : name;
+          }),
         );
-        const toAdd = newDocuments.filter(
-          (d) => !existingNames.has((d.originalFileName || d.name || "").toLowerCase()),
-        );
-        toAdd.forEach((d) =>
-          existingNames.add((d.originalFileName || d.name || "").toLowerCase()),
-        );
+        const toAdd = newDocuments.filter((d) => {
+          const name = (d.originalFileName || d.name || "").toLowerCase();
+          const key = fixedCategory ? `${name}::${d.category || ''}` : name;
+          return !existingKeys.has(key);
+        });
+        toAdd.forEach((d) => {
+          const name = (d.originalFileName || d.name || "").toLowerCase();
+          const key = fixedCategory ? `${name}::${d.category || ''}` : name;
+          existingKeys.add(key);
+        });
         if (toAdd.length < newDocuments.length) {
           toast.info("Some files were skipped as duplicates.");
         }

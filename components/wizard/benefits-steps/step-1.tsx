@@ -638,7 +638,15 @@ export function BenefitsStep1() {
               ),
             );
           }
-          saveStepData(4, { documents: convertedDocs });
+          // Deduplicate by (id || name) + category to allow the same document in different categories
+          // while preventing duplicates within the same category.
+          const dedupedInitialDocs = convertedDocs.filter((doc: any, i: number, arr: any[]) =>
+            arr.findIndex((d: any) =>
+              (d.id || d.name) === (doc.id || doc.name) &&
+              (d.category || '') === (doc.category || '')
+            ) === i
+          );
+          saveStepData(4, { documents: dedupedInitialDocs });
 
           const planBackground =
             fullPlan.brandImages?.secondaryBanner ||
@@ -1097,9 +1105,13 @@ export function BenefitsStep1() {
           );
         }
         // Always update step 4 to ensure we clear documents if the new plan has none
-        // Deduplicate by ID to prevent duplicates from race conditions
+        // Deduplicate by (id || name) + category to allow the same document in different categories
+        // while preventing duplicates within the same category.
         const dedupedDocs = convertedDocs.filter((doc: any, i: number, arr: any[]) =>
-          arr.findIndex((d: any) => (d.id || d.name) === (doc.id || doc.name)) === i
+          arr.findIndex((d: any) =>
+            (d.id || d.name) === (doc.id || doc.name) &&
+            (d.category || '') === (doc.category || '')
+          ) === i
         );
         saveStepData(4, { documents: dedupedDocs });
 
