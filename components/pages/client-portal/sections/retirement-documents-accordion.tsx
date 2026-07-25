@@ -66,6 +66,22 @@ import { CSS } from "@dnd-kit/utilities";
 import { QRCodeSVG } from "qrcode.react";
 import { normalizePortalDocumentLanguage } from "@/lib/portal-document-language";
 
+/**
+ * Derive a user-facing accordion header title from a benefit category.
+ */
+function deriveAccordionHeaderTitle(category?: string): string {
+  switch (category) {
+    case "Group Health":
+      return "Health Plan Documents";
+    case "Group Life":
+      return "Life Insurance Documents";
+    case "Company / Plan Sponsor":
+      return "Wellness Program Documents";
+    default:
+      return "Retirement Plan Documents";
+  }
+}
+
 function isPersistedMongoDocumentId(id: string): boolean {
   if (typeof id !== "string" || id.length !== 24) return false;
   if (!/^[0-9a-fA-F]{24}$/.test(id)) return false;
@@ -135,6 +151,8 @@ interface RetirementDocumentsAccordionProps {
   // Language selection (controlled from parent)
   language?: RetirementDocumentLanguage;
   onLanguageChange?: (language: RetirementDocumentLanguage) => void;
+  /** Custom title for the accordion toggle header (defaults to "Retirement Plan Documents") */
+  accordionHeaderTitle?: string;
 }
 
 const defaultRetirementDocs: RetirementDocumentItem[] = [
@@ -221,10 +239,32 @@ export function RetirementDocumentsAccordion({
   onCancelEdit,
   language: controlledLanguage,
   onLanguageChange,
+  accordionHeaderTitle: explicitAccordionTitle,
 }: RetirementDocumentsAccordionProps) {
   // Use provided retirementDocs or default, but prefer provided (even if empty)
   const actualRetirementDocs =
     retirementDocs !== undefined ? retirementDocs : defaultRetirementDocs;
+
+  // Derive accordion header title from the documents' category when not explicitly provided.
+  // This ensures the accordion header matches the Benefit Hub page without callers needing
+  // to manually map categories to titles.
+  const accordionHeaderTitle = useMemo(() => {
+    if (explicitAccordionTitle !== undefined) return explicitAccordionTitle;
+
+    // Collect unique categories from the documents (skip undefined)
+    const categories = new Set(
+      actualRetirementDocs
+        .map((d) => d.category)
+        .filter((c): c is BenefitsCategory => !!c),
+    );
+
+    // If all documents share a single category, derive the title from it
+    if (categories.size === 1) {
+      return deriveAccordionHeaderTitle(categories.values().next().value);
+    }
+
+    return "Retirement Plan Documents";
+  }, [explicitAccordionTitle, actualRetirementDocs]);
 
   // Use controlled language if provided, otherwise fallback to internal state
   const [internalLanguage, setInternalLanguage] =
@@ -473,7 +513,7 @@ export function RetirementDocumentsAccordion({
                     e.currentTarget.style.color = brandColor;
                   }}
                 >
-                  Retirement Plan Documents
+                  {accordionHeaderTitle}
                 </span>
                 {openRetirement ? (
                   <Minus className="h-4 w-4" style={{ color: brandColor }} />
