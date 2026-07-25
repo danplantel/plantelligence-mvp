@@ -178,5 +178,9 @@ export function mergeUserBenefitWithHubDefaults(
     ...(p.heroContainerInverted !== undefined ? { heroContainerInverted: p.heroContainerInverted } : {}),
     ...(p.heroBackgroundInverted !== undefined ? { heroBackgroundInverted: p.heroBackgroundInverted } : {}),
     ...(p.heroUseGradient !== undefined ? { heroUseGradient: p.heroUseGradient } : {}),
+    // Preserve journey section text overrides from wizard Step 2 Section 3 Plan Video
+    ...(p.journeyHeader ? { journeyHeader: p.journeyHeader } : {}),
+    ...(p.journeySubtitle ? { journeySubtitle: p.journeySubtitle } : {}),
+    ...(p.journeyBodyText ? { journeyBodyText: p.journeyBodyText } : {}),
   };
 }

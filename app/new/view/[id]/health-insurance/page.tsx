@@ -308,9 +308,9 @@ export default function HealthInsurancePage() {
           onFeaturedVideoClick={handleFeaturedVideoClick}
           dbVideos={dbVideos}
           dbFeaturedVideo={dbFeaturedVideo || undefined}
-          mainTitle={benefitData?.title || "Understanding Your Health Benefits"}
-          subtitle="Navigate your coverage with confidence."
-          description={benefitData?.shortDescription || "Your health and well-being are our priority. Explore our health insurance resources to understand your coverage options, maximize your benefits, and make informed decisions about your medical, dental, and vision care for you and your family."}
+          mainTitle={benefitData?.journeyHeader || benefitData?.title || "Understanding Your Health Benefits"}
+          subtitle={benefitData?.journeySubtitle || "Navigate your coverage with confidence."}
+          description={benefitData?.journeyBodyText || benefitData?.shortDescription || "Your health and well-being are our priority. Explore our health insurance resources to understand your coverage options, maximize your benefits, and make informed decisions about your medical, dental, and vision care for you and your family."}
           backgroundImage={categoryHeroBg}
           planVideoUrl={(benefitData as any)?.planVideo}
         />

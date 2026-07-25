@@ -651,6 +651,44 @@ export function BenefitsEditorPanel({
                         Upload a video to replace the image in the right column of the Retirement Journey section.
                         If no video is uploaded, the default category image will be shown instead.
                     </p>
+
+                    {/* Journey Section Text Overrides */}
+                    <div className="space-y-4 mb-6 p-4 border border-muted rounded-lg bg-white dark:bg-gray-800">
+                        <Label className="text-xs font-bold text-foreground">Journey Section Text</Label>
+                        <p className="text-[11px] text-muted-foreground -mt-2">
+                            Customize the header, subtitle, and body text shown in the Retirement Journey section below the welcome banner.
+                        </p>
+                        <div className="space-y-3">
+                            <div className="space-y-1.5">
+                                <Label className="text-[11px] font-medium text-muted-foreground">Header</Label>
+                                <Input
+                                    value={step1Data.journeyHeader || ""}
+                                    onChange={(e) => saveStepData(1, { ...step1Data, journeyHeader: e.target.value })}
+                                    placeholder="Section Header"
+                                    className="h-9 shadow-sm border-muted text-sm"
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-[11px] font-medium text-muted-foreground">Subtitle</Label>
+                                <Input
+                                    value={step1Data.journeySubtitle || ""}
+                                    onChange={(e) => saveStepData(1, { ...step1Data, journeySubtitle: e.target.value })}
+                                    placeholder="e.g. Build your future with confidence."
+                                    className="h-9 shadow-sm border-muted text-sm"
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-[11px] font-medium text-muted-foreground">Body Text</Label>
+                                <Textarea
+                                    value={step1Data.journeyBodyText || ""}
+                                    onChange={(e) => saveStepData(1, { ...step1Data, journeyBodyText: e.target.value })}
+                                    placeholder="Preview of the featured video."
+                                    className="min-h-[80px] shadow-sm border-muted text-sm leading-relaxed"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
                     <div className="space-y-4">
                         {step1Data.planVideo ? (
                             <Card className="border border-muted shadow-sm">

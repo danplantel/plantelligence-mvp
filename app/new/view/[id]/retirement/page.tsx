@@ -325,9 +325,9 @@ export default function RetirementPage() {
           onFeaturedVideoClick={handleFeaturedVideoClick}
           dbVideos={dbVideos}
           dbFeaturedVideo={dbFeaturedVideo || undefined}
-          mainTitle={benefitData?.title || "Your Retirement Journey Starts Here"}
-          subtitle="Build your future with confidence."
-          description={benefitData?.shortDescription || "Take control of your financial future with our comprehensive retirement planning resources. Whether you're just starting your career or preparing for the next chapter, we provide the tools and guidance you need to build a secure retirement."}
+          mainTitle={benefitData?.journeyHeader || benefitData?.title || "Your Retirement Journey Starts Here"}
+          subtitle={benefitData?.journeySubtitle || "Build your future with confidence."}
+          description={benefitData?.journeyBodyText || benefitData?.shortDescription || "Take control of your financial future with our comprehensive retirement planning resources. Whether you're just starting your career or preparing for the next chapter, we provide the tools and guidance you need to build a secure retirement."}
           backgroundImage={categoryHeroBg}
           planVideoUrl={(benefitData as any)?.planVideo}
         />

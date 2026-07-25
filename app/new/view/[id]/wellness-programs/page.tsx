@@ -303,9 +303,9 @@ export default function WellnessProgramsPage() {
           onFeaturedVideoClick={handleFeaturedVideoClick}
           dbVideos={dbVideos}
           dbFeaturedVideo={dbFeaturedVideo || undefined}
-          mainTitle={benefitData?.title || "Whole-Person Wellness Programs"}
-          subtitle="Supporting your health, mind, and financial well-being."
-          description={benefitData?.shortDescription || "Your well-being goes beyond traditional benefits. Discover programs designed to support your physical, mental, and financial health—from fitness stipends and nutrition coaching to mental health resources and financial wellness tools. Thrive at work and at home."}
+          mainTitle={benefitData?.journeyHeader || benefitData?.title || "Whole-Person Wellness Programs"}
+          subtitle={benefitData?.journeySubtitle || "Supporting your health, mind, and financial well-being."}
+          description={benefitData?.journeyBodyText || benefitData?.shortDescription || "Your well-being goes beyond traditional benefits. Discover programs designed to support your physical, mental, and financial health—from fitness stipends and nutrition coaching to mental health resources and financial wellness tools. Thrive at work and at home."}
           firstCarouselTitle="Wellness Programs"
           secondCarouselTitle="Mindfulness & Well-being"
           backgroundImage={categoryHeroBg}

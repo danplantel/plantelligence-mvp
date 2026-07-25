@@ -315,9 +315,9 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
                         planningVideos={mockVideos}
                         onVideoClick={() => { }}
                         onFeaturedVideoClick={() => { }}
-                        mainTitle={step1Data?.benefitTitle || (category === "Custom" ? `Welcome to your benefits!` : `Your ${category} Benefits`)}
-                        subtitle="Explore your comprehensive benefits package."
-                        description={step1Data?.shortDescription || ""}
+                        mainTitle={step1Data?.journeyHeader || step1Data?.benefitTitle || (category === "Custom" ? `Welcome to your benefits!` : `Your ${category} Benefits`)}
+                        subtitle={step1Data?.journeySubtitle || "Explore your comprehensive benefits package."}
+                        description={step1Data?.journeyBodyText || step1Data?.shortDescription || ""}
                         backgroundImage={categoryHeroBg}
                         planVideoUrl={planVideoUrl}
                     />

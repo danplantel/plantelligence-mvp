@@ -311,9 +311,9 @@ export default function LifeInsurancePage() {
           onFeaturedVideoClick={handleFeaturedVideoClick}
           dbVideos={dbVideos}
           dbFeaturedVideo={dbFeaturedVideo || undefined}
-          mainTitle={benefitData?.title || "Life Insurance: Protecting What Matters Most"}
-          subtitle="Secure your family's financial future with the right coverage."
-          description={benefitData?.shortDescription || "Protect what matters most. Our life insurance resources help you understand your coverage options and ensure your loved ones are financially secure, no matter what life brings. Explore term life, whole life, and supplemental coverage tailored to your needs."}
+          mainTitle={benefitData?.journeyHeader || benefitData?.title || "Life Insurance: Protecting What Matters Most"}
+          subtitle={benefitData?.journeySubtitle || "Secure your family's financial future with the right coverage."}
+          description={benefitData?.journeyBodyText || benefitData?.shortDescription || "Protect what matters most. Our life insurance resources help you understand your coverage options and ensure your loved ones are financially secure, no matter what life brings. Explore term life, whole life, and supplemental coverage tailored to your needs."}
           firstCarouselTitle="Life Insurance Essentials"
           secondCarouselTitle="Beneficiaries & Estate Planning"
           backgroundImage={categoryHeroBg}

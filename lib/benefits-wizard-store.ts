@@ -76,6 +76,12 @@ export interface BenefitsStep1Data {
     planVideo?: string;
     /** Original file name of the uploaded plan video */
     planVideoFileName?: string;
+    /** Journey section main header override */
+    journeyHeader?: string;
+    /** Journey section subtitle override */
+    journeySubtitle?: string;
+    /** Journey section body text override */
+    journeyBodyText?: string;
 }
 
 export interface FAQItem {
