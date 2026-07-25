@@ -488,12 +488,6 @@ function BenefitsPageInner() {
         }
       };
 
-      // Diagnostic: verify planVideo is in the payload
-      const firstBenefit = updatePayload.employeePortalPreview?.benefits?.[0];
-      console.log("[BenefitsSave] PUT payload benefits[0] keys:", firstBenefit ? Object.keys(firstBenefit) : "none");
-      console.log("[BenefitsSave] PUT payload benefits[0].planVideo:", firstBenefit?.planVideo);
-      console.log("[BenefitsSave] PUT payload employeePortalPreview keys:", Object.keys(updatePayload.employeePortalPreview || {}));
-
       const updateResponse = await fetch(`/api/clients/${planId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -501,7 +495,6 @@ function BenefitsPageInner() {
       });
 
       const updateResult = await updateResponse.json();
-      console.log("[BenefitsSave] PUT response status:", updateResponse.status, "success:", updateResult.success);
       if (!updateResult.success) throw new Error(updateResult.error || "Failed to update client");
 
       // Notify any open portal views that benefits have changed (triggers re-fetch in ClientPortalProvider)

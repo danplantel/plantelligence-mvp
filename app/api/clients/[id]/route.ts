@@ -152,18 +152,14 @@ export async function GET(
 
       const ep = (dataPayload as any).employeePortalPreview;
       if (ep?.benefits && Array.isArray(ep.benefits)) {
-        console.log("[planVideo] benefits count:", ep.benefits.length);
         const benefitsWithUrls = await Promise.all(
           ep.benefits.map(async (b: any) => {
-            console.log("[planVideo] category=" + b.category + " hasPlanVideo=" + !!b.planVideo + " planVideo=" + b.planVideo);
             const rawKey = b.planVideo ? extractKey(String(b.planVideo)) : null;
-            console.log("[planVideo] rawKey=" + rawKey);
             if (rawKey) {
               try {
                 const url = await getPresignedReadUrl({ key: rawKey });
-                console.log("[planVideo] presigned=" + (url ? "YES" : "NO"));
                 if (url) return { ...b, planVideo: url };
-              } catch (e) { console.error("[planVideo] presigned error:", e); }
+              } catch { /* keep original if signing fails */ }
             }
             return b;
           })
@@ -409,11 +405,6 @@ export async function PUT(
         // Merge with existing data: preserve benefits, disclaimers, etc. when patch doesn't include them
         const existingEp = (existingClient as any).employeePortalPreview || {};
         const merged = { ...existingEp, ...basePreview };
-        if (merged?.benefits && Array.isArray(merged.benefits)) {
-          merged.benefits.forEach((b: any, i: number) => {
-            console.log("[PUT planVideo] benefit[" + i + "] category=" + b.category + " planVideo=" + b.planVideo);
-          });
-        }
         if ((body as any).categoryPortalVisibility !== undefined && merged?.benefits) {
           const visibility = getCategoryPortalVisibility((body as any).categoryPortalVisibility);
           return {
