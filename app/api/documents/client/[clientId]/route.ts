@@ -4,6 +4,11 @@ import { authOptions } from "@/lib/auth-options";
 import { prisma } from "@/lib/prisma";
 import { compareDocumentCategoriesHubOrder } from "@/lib/document-category";
 
+/** Returns true when the string looks like a MongoDB ObjectID (24 hex chars). */
+function isObjectId(v: string): boolean {
+  return /^[0-9a-fA-F]{24}$/.test(v);
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { clientId: string } }
@@ -14,7 +19,24 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const clientId = params.clientId;
+    const clientIdParam = params.clientId;
+
+    // Resolve clientId — it may be a slug (e.g. "g-loomis") rather than a MongoDB ObjectID.
+    let clientId = clientIdParam;
+    if (!isObjectId(clientIdParam)) {
+      const slugMatch = await prisma.client.findFirst({
+        where: { slug: clientIdParam },
+        select: { id: true, userId: true },
+      });
+      if (!slugMatch) {
+        return NextResponse.json({ error: "Client not found" }, { status: 404 });
+      }
+      // Verify client belongs to user (slug resolution path)
+      if (slugMatch.userId !== session.user.id) {
+        return NextResponse.json({ error: "Client not found" }, { status: 404 });
+      }
+      clientId = slugMatch.id;
+    }
 
     // Verify client belongs to user
     const client = await prisma.client.findFirst({

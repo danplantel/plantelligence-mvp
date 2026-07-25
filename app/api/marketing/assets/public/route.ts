@@ -4,14 +4,32 @@ import prisma from "@/lib/prisma";
 // ── GET /api/marketing/assets/public?clientId=xxx[&type=xxx] ──
 // Public endpoint — no auth required. Returns Published assets (portal-notice, pop-up, news-post).
 
+/** Returns true when the string looks like a MongoDB ObjectID (24 hex chars). */
+function isObjectId(v: string): boolean {
+  return /^[0-9a-fA-F]{24}$/.test(v);
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const clientId = searchParams.get("clientId");
+    const clientIdParam = searchParams.get("clientId");
     const type = searchParams.get("type"); // optional: "portal-notice" | "pop-up" | "news-post"
 
-    if (!clientId) {
+    if (!clientIdParam) {
       return NextResponse.json({ error: "clientId is required" }, { status: 400 });
+    }
+
+    // Resolve clientId — it may be a slug (e.g. "g-loomis") rather than a MongoDB ObjectID.
+    let clientId = clientIdParam;
+    if (!isObjectId(clientIdParam)) {
+      const client = await prisma.client.findFirst({
+        where: { slug: clientIdParam },
+        select: { id: true },
+      });
+      if (!client) {
+        return NextResponse.json({ success: true, data: [] });
+      }
+      clientId = client.id;
     }
 
     const where: Record<string, unknown> = {
