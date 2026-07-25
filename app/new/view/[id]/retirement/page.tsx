@@ -340,7 +340,7 @@ export default function RetirementPage() {
 
         <FAQSection brandColor={brandColor} secondaryColor={secondaryColor} faqs={faqsForCategory} contacts={supportContactsForFAQ} />
 
-        <PortalMaterialsHero brandColor={brandColor} cardHeading="Retirement Plan Account Access" />
+        <PortalMaterialsHero brandColor={brandColor} cardHeading="Retirement Plan Account Access" category="Retirement" />
 
         <RetirementDocumentsAccordion
           brandColor={brandColor}

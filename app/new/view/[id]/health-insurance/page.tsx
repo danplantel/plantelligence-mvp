@@ -323,7 +323,7 @@ export default function HealthInsurancePage() {
 
         <FAQSection brandColor={brandColor} secondaryColor={secondaryColor} faqs={faqsForCategory} contacts={supportContactsForFAQ} />
 
-        <PortalMaterialsHero brandColor={brandColor} cardHeading="Group Health Insurance Account Access" />
+        <PortalMaterialsHero brandColor={brandColor} cardHeading="Group Health Insurance Account Access" category="Group Health" />
 
         <RetirementDocumentsAccordion
           brandColor={brandColor}

@@ -320,7 +320,7 @@ export default function WellnessProgramsPage() {
 
         <FAQSection brandColor={brandColor} secondaryColor={secondaryColor} faqs={faqsForCategory} contacts={supportContactsForFAQ} />
 
-        <PortalMaterialsHero brandColor={brandColor} cardHeading="Wellness Program Account Access" />
+        <PortalMaterialsHero brandColor={brandColor} cardHeading="Wellness Program Account Access" category="Company / Plan Sponsor" />
 
         <RetirementDocumentsAccordion
           brandColor={brandColor}

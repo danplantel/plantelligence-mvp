@@ -336,6 +336,7 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
                 <div className="relative">
                     <PortalMaterialsHero
                         brandColor={brandColor}
+                        category={category}
                         cardHeading={
                             category === "Retirement" ? "Retirement Plan Account Access" :
                             category === "Group Health" ? "Group Health Insurance Account Access" :

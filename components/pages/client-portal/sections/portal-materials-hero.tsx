@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useClientPortal } from "@/contexts/client-portal-context";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { isR2BrandingKey } from "@/lib/branding-image-url";
+import { CATEGORY_DEFAULT_BGS } from "@/lib/portal-category-hero-background";
 
 interface PortalMaterialsHeroProps {
   brandColor?: string;
@@ -20,6 +21,8 @@ interface PortalMaterialsHeroProps {
   featureBullets?: string[];
   onButtonClick?: () => void;
   onPlanIdClick?: () => void;
+  /** Category for default background image fallback */
+  category?: string;
 }
 
 export function PortalMaterialsHero({
@@ -38,6 +41,7 @@ export function PortalMaterialsHero({
   ],
   onButtonClick: onButtonClickProp,
   onPlanIdClick,
+  category,
 }: PortalMaterialsHeroProps) {
   // Resolve insurance fields from client portal context (persisted inside employeePortalPreview)
   const { clientData } = useClientPortal();
@@ -50,12 +54,15 @@ export function PortalMaterialsHero({
   const insuranceLoginUrl = epp?.insuranceLoginUrl as string | undefined;
   const resolvedOnButtonClick = onButtonClickProp ?? (insuranceLoginUrl ? () => window.open(insuranceLoginUrl, "_blank", "noopener,noreferrer") : undefined);
 
-  // Background image: prop override → context → default
+  // Background image: prop override → context → per-category default
   const contextBg = (epp?.insuranceBackgroundImage as string) || "";
   const rawBg = backgroundImageProp || contextBg;
   const isR2 = isR2BrandingKey(rawBg);
   const { url: resolvedR2Bg } = useBrandingImageUrl(isR2 ? rawBg : null);
-  const resolvedBackgroundImage = isR2 ? (resolvedR2Bg || rawBg) : (rawBg || undefined);
+  const defaultBg = category
+    ? CATEGORY_DEFAULT_BGS[category] || CATEGORY_DEFAULT_BGS["Retirement"]
+    : CATEGORY_DEFAULT_BGS["Retirement"];
+  const resolvedBackgroundImage = isR2 ? (resolvedR2Bg || rawBg) : (rawBg || defaultBg);
 
   const [hoveredField, setHoveredField] = useState<string | null>(null);
 

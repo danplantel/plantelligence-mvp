@@ -893,6 +893,7 @@ export function BenefitsEditorPanel({
                                     required: false,
                                     previewAspectRatio: 2.75,
                                     previewLabel: "Insurance Background Preview",
+                                    defaultPhoteButton: true,
                                 }}
                                 currentImage={step1Data.insuranceBackgroundImage ? {
                                     url: step1Data.insuranceBackgroundImage,
@@ -906,6 +907,16 @@ export function BenefitsEditorPanel({
                                 } as BrandImageData : undefined}
                                 onImageChange={(imageData) => saveStepData(1, { ...step1Data, insuranceBackgroundImage: imageData.url })}
                                 onImageRemove={() => saveStepData(1, { ...step1Data, insuranceBackgroundImage: undefined })}
+                                onDefaultPhotoClick={() => {
+                                    const defaultBgs: Record<string, string> = {
+                                        "Retirement": "https://images.unsplash.com/photo-1454496522488-7a8e488e8606?w=1920&q=80",
+                                        "Group Health": "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=1920&q=80",
+                                        "Group Life": "https://images.unsplash.com/photo-1511895426328-dc8714191300?w=1920&q=80",
+                                        "Company / Plan Sponsor": "https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=1920&q=80",
+                                    };
+                                    const defaultBg = defaultBgs[step1Data?.benefitCategory || "Retirement"];
+                                    saveStepData(1, { ...step1Data, insuranceBackgroundImage: defaultBg });
+                                }}
                                 hideButtons={true}
                                 useUniversalModal={true}
                                 universalModalType="normalizer"
