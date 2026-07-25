@@ -18,6 +18,7 @@ interface EditClientHeaderProps {
   hasClient: boolean;
   isFormValid: boolean;
   clientId?: string;
+  slug?: string;
 }
 
 export function EditClientHeader({
@@ -27,10 +28,14 @@ export function EditClientHeader({
   hasClient,
   isFormValid,
   clientId,
+  slug,
 }: EditClientHeaderProps) {
   const handleOpenPortal = () => {
     if (clientId) {
-      window.open(`/new/view/${clientId}`, "_blank", "noopener,noreferrer");
+      window.open(
+        `/new/view/${slug || clientId}`,
+        "_blank",
+      );
     }
   };
 

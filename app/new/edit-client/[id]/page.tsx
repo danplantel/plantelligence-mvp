@@ -831,6 +831,7 @@ export default function EditClientPage() {
             hasClient={!!client}
             isFormValid={isFormValid()}
             clientId={clientId}
+            slug={(client as any)?.slug}
           />
         )}
 

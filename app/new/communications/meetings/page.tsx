@@ -327,7 +327,13 @@ function PlanSearchBar({ plans, value, onChange, disabled }: { plans: Client[]; 
           <Button
             variant="outline"
             size="sm"
-            onClick={() => window.open(`/new/view/${value}`, "_blank")}
+            onClick={() => {
+              const slug = (selectedPlan as any)?.slug;
+              window.open(
+                `/new/view/${slug || value}`,
+                "_blank",
+              );
+            }}
             className="gap-1.5 shrink-0 bg-accent-blue text-white hover:bg-accent-blue/90"
           >
             <ExternalLink className="h-4 w-4" />

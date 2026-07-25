@@ -217,7 +217,13 @@ function PlanSearchBar({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => window.open(`/new/view/${value}`, "_blank")}
+            onClick={() => {
+              const slug = (selectedPlan as any)?.slug;
+              window.open(
+                `/new/view/${slug || value}`,
+                "_blank",
+              );
+            }}
             className="gap-1.5 shrink-0 text-white bg-accent-blue hover:bg-accent-blue/80"
           >
             <ExternalLink className="h-4 w-4" />

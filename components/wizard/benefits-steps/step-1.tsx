@@ -1525,7 +1525,14 @@ export function BenefitsStep1() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => window.open(`/new/view/${resolvedPlanId}`, "_blank")}
+                onClick={() => {
+                  const plan = plans.find((p: any) => p.id === resolvedPlanId);
+                  const slug = (plan as any)?.slug;
+                  window.open(
+                    `/new/view/${slug || resolvedPlanId}`,
+                    "_blank",
+                  );
+                }}
                 className="gap-1.5 shrink-0 bg-accent-blue text-white hover:bg-accent-blue/90"
               >
                 <ExternalLink className="h-4 w-4" />
