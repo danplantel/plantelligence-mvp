@@ -345,7 +345,7 @@ export function PortalWelcomeBanner({
                     <BrandingImage
                       src={resolvedLogo}
                       alt={`${clientData?.companyName || "Company"} logo`}
-                      className="mb-6 h-10 w-auto hidden lg:block"
+                      className="mb-6 h-16 w-auto hidden lg:block"
                     />
                   );
                 }
