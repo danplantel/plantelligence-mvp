@@ -269,10 +269,11 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
                         useGradient={step1Data?.heroUseGradient ?? false}
                         clientData={{
                             companyName: step1Data?.selectedPlan?.companyName || "Your Company",
-                            // Top-left: use the plan-level Company Logo (not the Step 1 Benefits Logo)
-                            companyLogo: typeof step1Data?.selectedPlan?.companyLogo === 'object'
-                                ? (step1Data?.selectedPlan?.companyLogo as any)?.url
-                                : step1Data?.selectedPlan?.companyLogo,
+                            // Top-left: use the Provider Logo from the editor panel (Step 2), fall back to plan-level
+                            companyLogo: step1Data?.companyLogo?.url
+                                || (typeof step1Data?.selectedPlan?.companyLogo === 'object'
+                                    ? (step1Data?.selectedPlan?.companyLogo as any)?.url
+                                    : step1Data?.selectedPlan?.companyLogo),
                             // Priority: Editor Panel upload → plan-level hero background → plan-level backgroundImg → default
                             backgroundImg: step1Data?.brandImages?.header?.url
                                 || (step1Data as any)?.heroBackgroundImage
