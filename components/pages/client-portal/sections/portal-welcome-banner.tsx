@@ -308,8 +308,8 @@ export function PortalWelcomeBanner({
 
       {/* Benefit Hub Header (for all Categories) */}
       <div
-        className="relative z-10 flex flex-col justify-center mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-20"
-        style={{ maxWidth: "80rem" }}
+        className="relative z-10 flex flex-col justify-center mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-12 lg:py-20"
+        style={{ maxWidth: "72rem" }}
       >
         <div
           className={`overflow-hidden backdrop-blur-sm ${
@@ -323,7 +323,7 @@ export function PortalWelcomeBanner({
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: "easeOut" }}
-            className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]"
+            className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] min-h-[28rem] lg:min-h-[30rem]"
           >
             {/* LEFT: Text content */}
             <div className="order-2 lg:order-1 px-8 py-10 sm:px-12 lg:py-12">
