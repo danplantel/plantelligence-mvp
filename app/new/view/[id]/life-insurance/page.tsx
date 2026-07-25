@@ -338,6 +338,7 @@ export default function LifeInsurancePage() {
           title="Life Insurance Documents & Forms"
           description="Access all your important life insurance plan documents, forms, and notices in one convenient location."
           accordionHeaderTitle="Life Insurance Documents"
+          loading={loadingDocs}
         />
 
         <HaveQuestions brandColor={brandColor} secondaryColor={secondaryColor} contacts={supportContactsForFAQ} />

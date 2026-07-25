@@ -348,6 +348,7 @@ export default function RetirementPage() {
           retirementDocs={retirementDocs}
           title="Retirement Plan Documents & Forms"
           description="Access all your important retirement plan documents, forms, and notices in one convenient location."
+          loading={loadingDocs}
         />
 
         <HaveQuestions brandColor={brandColor} secondaryColor={secondaryColor} contacts={supportContactsForFAQ} />

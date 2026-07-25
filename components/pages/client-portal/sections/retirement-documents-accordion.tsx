@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Download,
   FileText,
@@ -153,6 +154,8 @@ interface RetirementDocumentsAccordionProps {
   onLanguageChange?: (language: RetirementDocumentLanguage) => void;
   /** Custom title for the accordion toggle header (defaults to "Retirement Plan Documents") */
   accordionHeaderTitle?: string;
+  /** When true, shows skeleton placeholders while documents are being fetched */
+  loading?: boolean;
 }
 
 const defaultRetirementDocs: RetirementDocumentItem[] = [
@@ -240,6 +243,7 @@ export function RetirementDocumentsAccordion({
   language: controlledLanguage,
   onLanguageChange,
   accordionHeaderTitle: explicitAccordionTitle,
+  loading = false,
 }: RetirementDocumentsAccordionProps) {
   // Use provided retirementDocs or default, but prefer provided (even if empty)
   const actualRetirementDocs =
@@ -470,7 +474,9 @@ export function RetirementDocumentsAccordion({
       )}
       <section className={outerClasses}>
         <div className={containerClasses}>
-          {hideHeader ? (
+          {loading ? (
+            <DocsGridSkeleton brandColor={brandColor} />
+          ) : hideHeader ? (
             // Simple grid view without accordion wrapper
             <DocsGrid
               docs={filteredRetirementDocs}
@@ -553,23 +559,27 @@ export function RetirementDocumentsAccordion({
                     </div>
                   )}
 
-                  <DocsGrid
-                    docs={filteredRetirementDocs}
-                    brandColor={brandColor}
-                    accentColor={accentColor}
-                    onPreview={(doc) => {
-                      setPreviewDoc(doc);
-                      setIsPreviewOpen(true);
-                    }}
-                    onEdit={onEdit}
-                    isDraggable={isEditable}
-                    onSortChange={isEditable ? handleSortChange : undefined}
-                    showMetadata={showMetadata}
-                    editingDocId={editingDocId}
-                    onStartEdit={onStartEdit}
-                    onSaveEdit={onSaveEdit}
-                    onCancelEdit={onCancelEdit}
-                  />
+                  {loading ? (
+                    <DocsGridSkeleton brandColor={brandColor} />
+                  ) : (
+                    <DocsGrid
+                      docs={filteredRetirementDocs}
+                      brandColor={brandColor}
+                      accentColor={accentColor}
+                      onPreview={(doc) => {
+                        setPreviewDoc(doc);
+                        setIsPreviewOpen(true);
+                      }}
+                      onEdit={onEdit}
+                      isDraggable={isEditable}
+                      onSortChange={isEditable ? handleSortChange : undefined}
+                      showMetadata={showMetadata}
+                      editingDocId={editingDocId}
+                      onStartEdit={onStartEdit}
+                      onSaveEdit={onSaveEdit}
+                      onCancelEdit={onCancelEdit}
+                    />
+                  )}
                 </div>
               </div>
 
@@ -1149,6 +1159,30 @@ function SortableCard({
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function DocsGridSkeleton({ brandColor }: { brandColor: string }) {
+  return (
+    <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <Card
+          key={i}
+          className="bg-white shadow-sm dark:bg-gray-800 dark:border-gray-700"
+          style={{
+            borderColor: `${brandColor}26`,
+            borderWidth: 1,
+          }}
+        >
+          <CardContent className="flex min-h-[320px] h-full flex-col items-center px-6 py-8 text-center relative overflow-hidden">
+            <Skeleton className="mb-4 h-12 w-12 rounded-md" />
+            <Skeleton className="mb-2 h-5 w-3/4" />
+            <Skeleton className="mb-6 h-4 w-full" />
+            <Skeleton className="mt-auto h-9 w-full rounded-md" />
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 }

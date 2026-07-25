@@ -2716,6 +2716,10 @@ export function BenefitsStep1() {
                         // Switch to list view only when documents are actually added (count increases)
                         if (deduped.length > prevCount) {
                           setActiveDocTab("list");
+                          const addedCount = deduped.length - prevCount;
+                          toast.success(
+                            `${addedCount} document${addedCount === 1 ? "" : "s"} added successfully.`,
+                          );
                         }
                         if (!resolvedPlanId) return;
                         void (async () => {

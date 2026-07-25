@@ -332,6 +332,7 @@ export default function HealthInsurancePage() {
           title="Health Plan Documents & Forms"
           description="Access all your important health plan documents, forms, and notices in one convenient location."
           accordionHeaderTitle="Health Plan Documents"
+          loading={loadingDocs}
         />
 
         <HaveQuestions brandColor={brandColor} secondaryColor={secondaryColor} contacts={supportContactsForFAQ} />

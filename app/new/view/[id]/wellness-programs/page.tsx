@@ -329,6 +329,7 @@ export default function WellnessProgramsPage() {
           title="Wellness Program Documents & Forms"
           description="Access all your important wellness program documents, forms, and notices in one convenient location."
           accordionHeaderTitle="Wellness Program Documents"
+          loading={loadingDocs}
         />
 
         <HaveQuestions brandColor={brandColor} secondaryColor={secondaryColor} contacts={supportContactsForFAQ} />
