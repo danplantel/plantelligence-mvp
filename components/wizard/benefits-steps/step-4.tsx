@@ -348,9 +348,9 @@ export function BenefitsStep4() {
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full mx-auto pb-20">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="upload">Upload</TabsTrigger>
                     <TabsTrigger value="list">List</TabsTrigger>
                     <TabsTrigger value="preview">Preview</TabsTrigger>
-                    <TabsTrigger value="upload">Upload</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="list" className="mt-6">
