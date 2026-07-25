@@ -317,20 +317,28 @@ export function PortalWelcomeBanner({
           >
             {/* LEFT: Text content */}
             <div className="order-2 lg:order-1 px-8 py-10 sm:px-12 lg:py-12">
-              {/* Company Logo (top-left) — hidden on mobile */}
-              {clientData?.companyLogo ? (
-                <BrandingImage
-                  src={clientData.companyLogo}
-                  alt={`${clientData.companyName || "Company"} logo`}
-                  className="mb-6 h-10 w-auto hidden lg:block"
-                />
-              ) : (
-                <p className={`mb-6 text-xs font-semibold tracking-[0.4em] hidden lg:block ${
-                  containerInverted ? "text-gray-400" : "text-white/70"
-                }`}>
-                  LOGO HERE
-                </p>
-              )}
+              {/* Company Logo (top-left) — hidden on mobile.
+                  Priority: per-category partnerLogo (set via wizard Provider Logo upload)
+                  → plan-level companyLogo → fallback "LOGO HERE" placeholder */}
+              {(() => {
+                const resolvedLogo = categoryBenefit?.partnerLogo || clientData?.companyLogo;
+                if (resolvedLogo) {
+                  return (
+                    <BrandingImage
+                      src={resolvedLogo}
+                      alt={`${clientData?.companyName || "Company"} logo`}
+                      className="mb-6 h-10 w-auto hidden lg:block"
+                    />
+                  );
+                }
+                return (
+                  <p className={`mb-6 text-xs font-semibold tracking-[0.4em] hidden lg:block ${
+                    containerInverted ? "text-gray-400" : "text-white/70"
+                  }`}>
+                    LOGO HERE
+                  </p>
+                );
+              })()}
 
               {/* Title */}
               <div
