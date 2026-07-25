@@ -129,7 +129,7 @@ export function BenefitsStep1() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [activeAccordions, setActiveAccordions] = useState<string[]>([]);
   const [togglingCategories, setTogglingCategories] = useState<Record<string, boolean>>({});
-  const [activeDocTab, setActiveDocTab] = useState("list");
+  const [activeDocTab, setActiveDocTab] = useState("upload");
   const [docSortColumn, setDocSortColumn] = useState<SortColumn>("uploadedAt");
   const [docSortDirection, setDocSortDirection] = useState<SortDirection>("desc");
   const [docPreviewLang, setDocPreviewLang] = useState<"EN" | "ES">("EN");
@@ -2514,9 +2514,9 @@ export function BenefitsStep1() {
               <AccordionContent className="p-6">
                 <Tabs value={activeDocTab} onValueChange={setActiveDocTab}>
                   <TabsList className="grid w-full grid-cols-3 mb-6">
+                    <TabsTrigger value="upload">Upload</TabsTrigger>
                     <TabsTrigger value="list">List</TabsTrigger>
                     <TabsTrigger value="preview">Preview</TabsTrigger>
-                    <TabsTrigger value="upload">Upload</TabsTrigger>
                   </TabsList>
 
                   {/* ── List Tab ── */}
@@ -2697,6 +2697,8 @@ export function BenefitsStep1() {
                           return true;
                         });
                         saveStepData(4, { documents: deduped });
+                        // Switch to list view so the user sees the newly uploaded documents
+                        setActiveDocTab("list");
                         if (!resolvedPlanId) return;
                         void (async () => {
                           const id = resolvedPlanId;
