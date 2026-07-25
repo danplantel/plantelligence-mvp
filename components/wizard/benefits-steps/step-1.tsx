@@ -1242,11 +1242,13 @@ export function BenefitsStep1() {
   };
 
   const handleCategoryChange = (benefitCategory: string) => {
+    // Normalize "Custom" → "Company / Plan Sponsor" so it matches DB and portal
+    const normalizedCategory = benefitCategory === "Custom" ? "Company / Plan Sponsor" : benefitCategory;
     const selectedPlan =
       currentStepData.selectedPlan ||
       plans.find((p) => p.id === currentStepData.planId);
     const benefits = selectedPlan?.employeePortalPreview?.benefits || [];
-    const catKey = normalizeBenefitsCategoryForCompleteness(benefitCategory);
+    const catKey = normalizeBenefitsCategoryForCompleteness(normalizedCategory);
     const existingBenefit = benefits.find((b: any) => {
       const bKey = normalizeBenefitsCategoryForCompleteness(
         String(b?.category ?? ""),
@@ -1256,7 +1258,7 @@ export function BenefitsStep1() {
 
     let newData: BenefitsStep1Data = {
       ...currentStepData,
-      benefitCategory,
+      benefitCategory: normalizedCategory,
       contactId: existingBenefit?.contactId || "",
       benefitTitle: existingBenefit?.title || benefitCategory,
       shortDescription: existingBenefit?.shortDescription || "",

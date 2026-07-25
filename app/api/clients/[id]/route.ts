@@ -409,6 +409,11 @@ export async function PUT(
         // Merge with existing data: preserve benefits, disclaimers, etc. when patch doesn't include them
         const existingEp = (existingClient as any).employeePortalPreview || {};
         const merged = { ...existingEp, ...basePreview };
+        if (merged?.benefits && Array.isArray(merged.benefits)) {
+          merged.benefits.forEach((b: any, i: number) => {
+            console.log("[PUT planVideo] benefit[" + i + "] category=" + b.category + " planVideo=" + b.planVideo);
+          });
+        }
         if ((body as any).categoryPortalVisibility !== undefined && merged?.benefits) {
           const visibility = getCategoryPortalVisibility((body as any).categoryPortalVisibility);
           return {

@@ -186,8 +186,13 @@ function BenefitsPageInner() {
 
     // Fallback: read plan video from dedicated per-category localStorage (zustand store may lose it during nav)
     const cat = step1Data?.benefitCategory || "Retirement";
-    const planVideo = step1Data?.planVideo || (typeof window !== "undefined" ? localStorage.getItem("benefits-plan-video-key-" + cat) : null) || undefined;
-    const planVideoFileName = step1Data?.planVideoFileName || (typeof window !== "undefined" ? localStorage.getItem("benefits-plan-video-filename-" + cat) : null) || undefined;
+    const lsKey1 = typeof window !== "undefined" ? localStorage.getItem("benefits-plan-video-key-" + cat) : null;
+    // Also check old "Custom" key (renamed to "Company / Plan Sponsor")
+    const lsKey2 = cat === "Company / Plan Sponsor" && typeof window !== "undefined" ? localStorage.getItem("benefits-plan-video-key-Custom") : null;
+    const planVideo = step1Data?.planVideo || lsKey1 || lsKey2 || undefined;
+    const lsFn1 = typeof window !== "undefined" ? localStorage.getItem("benefits-plan-video-filename-" + cat) : null;
+    const lsFn2 = cat === "Company / Plan Sponsor" && typeof window !== "undefined" ? localStorage.getItem("benefits-plan-video-filename-Custom") : null;
+    const planVideoFileName = step1Data?.planVideoFileName || lsFn1 || lsFn2 || undefined;
 
     if (!planId) {
       toast.error("Plan ID missing. Cannot complete setup.");
