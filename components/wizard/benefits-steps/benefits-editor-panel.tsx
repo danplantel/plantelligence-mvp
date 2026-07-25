@@ -155,6 +155,21 @@ export function BenefitsEditorPanel({
         });
     };
 
+    const handleInnerHeaderImageChange = (imageData: BrandImageData) => {
+        saveStepData(1, {
+            ...step1Data,
+            innerHeaderImage: {
+                url: imageData.url,
+                fileName: imageData.fileName,
+                fileSize: imageData.fileSize,
+                width: imageData.width,
+                height: imageData.height,
+                hasTransparency: false,
+                warnings: [],
+            } as CompanyLogoData
+        });
+    };
+
     const handleBackgroundImageChange = (imageData: BrandImageData) => {
         saveStepData(1, {
             ...step1Data,
@@ -374,6 +389,36 @@ export function BenefitsEditorPanel({
                                 onMobilePositionChange={(pos) => {
                                     saveStepData(1, { ...step1Data, mobileHeroBackgroundPosition: pos } as any);
                                 }}
+                            />
+                        </div>
+                        <div className="space-y-4">
+                            <Label className="text-xs font-bold text-foreground">Inner Header Image</Label>
+                            <BrandImageUpload
+                                slotKey="innerHeaderImage"
+                                slot={{
+                                    title: "",
+                                    description: "Full-height image displayed in the right column of the hero section. Replaces the Benefits Logo when set.",
+                                    recommendedSize: "1200×1600 px",
+                                    accept: ".png,.jpg,.jpeg",
+                                    required: false,
+                                    previewAspectRatio: 0.75,
+                                    previewLabel: "Inner Header Preview",
+                                }}
+                                currentImage={step1Data.innerHeaderImage ? {
+                                    url: step1Data.innerHeaderImage.url,
+                                    fileName: step1Data.innerHeaderImage.fileName,
+                                    fileSize: step1Data.innerHeaderImage.fileSize || 0,
+                                    width: step1Data.innerHeaderImage.width || 0,
+                                    height: step1Data.innerHeaderImage.height || 0,
+                                    recommendedSize: "1200x1600",
+                                    status: "ok",
+                                    warnings: [],
+                                } as BrandImageData : undefined}
+                                onImageChange={handleInnerHeaderImageChange}
+                                onImageRemove={() => saveStepData(1, { ...step1Data, innerHeaderImage: null })}
+                                hideButtons={true}
+                                useUniversalModal={true}
+                                universalModalType="normalizer"
                             />
                         </div>
 

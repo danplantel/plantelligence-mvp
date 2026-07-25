@@ -25,6 +25,8 @@ export interface BenefitsStep1Data {
     benefitTitle: string;
     shortDescription?: string;
     companyLogo?: CompanyLogoData | null;
+    /** Right column image displayed full-height in the hero section (Inner Header Image) */
+    innerHeaderImage?: CompanyLogoData | null;
     brandImages?: BrandImagesData;
     // Temporary storage for contact details if changed
     contactName?: string;

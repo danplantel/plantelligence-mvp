@@ -49,6 +49,8 @@ interface PortalWelcomeBannerProps {
   customSignatureCompany?: string;
   customImage?: string; // Override right-side Benefits Logo
   customImageAlt?: string;
+  /** Inner Header Image — full-height image for the right column of the hero section */
+  customInnerHeaderImage?: string;
   // Hero overlay settings
   backgroundOpacity?: number;
   containerBlockOpacity?: number;
@@ -81,6 +83,7 @@ export function PortalWelcomeBanner({
   customSignatureCompany,
   customImage,
   customImageAlt,
+  customInnerHeaderImage,
   category,
   backgroundOpacity = 1.0,
   containerBlockOpacity = 0.67,
@@ -192,6 +195,13 @@ export function PortalWelcomeBanner({
   const benefitsLogoAlt =
     customImageAlt ||
     `${clientData?.companyName || "Company"} Benefits Logo`;
+
+  // Inner Header Image (right column, full height):
+  // customInnerHeaderImage override → categoryBenefit.innerHeaderImage (per-category) → null
+  const innerHeaderImageUrl =
+    customInnerHeaderImage ||
+    categoryBenefit?.innerHeaderImage ||
+    null;
 
   // Background image: prioritize the wizard Editor Panel upload (Step 2) over
   // the API's backgroundImg. Falls back to DEFAULT_WELCOME_BG when no custom
@@ -388,14 +398,22 @@ export function PortalWelcomeBanner({
               </div>
             </div>
 
-            {/* RIGHT: Benefits Logo */}
-            <div className="order-1 lg:order-2 relative flex items-center justify-center">
-              {benefitsLogoUrl ? (
-                <BrandingImage
-                  src={benefitsLogoUrl}
-                  alt={benefitsLogoAlt}
-                  className="h-auto max-h-40 w-auto max-w-full object-contain border-0 outline-0"
+            {/* RIGHT: Inner Header Image */}
+            <div className="order-1 lg:order-2 relative">
+              {innerHeaderImageUrl ? (
+                <img
+                  src={innerHeaderImageUrl}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-cover"
                 />
+              ) : benefitsLogoUrl ? (
+                <div className="relative flex items-center justify-center h-full min-h-[200px]">
+                  <BrandingImage
+                    src={benefitsLogoUrl}
+                    alt={benefitsLogoAlt}
+                    className="h-auto max-h-40 w-auto max-w-full object-contain border-0 outline-0"
+                  />
+                </div>
               ) : (
                 <div className="relative flex min-h-[200px] w-full items-center justify-center">
                   <span className={`text-sm font-semibold tracking-wider ${

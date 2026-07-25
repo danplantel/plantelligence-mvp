@@ -262,6 +262,7 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
                         customHeadline={step1Data?.benefitTitle || `Welcome to your ${category} benefits!`}
                         customDescription={step1Data?.shortDescription || "Explore your comprehensive benefits package."}
                         customImage={step1Data?.companyLogo?.url}
+                        customInnerHeaderImage={step1Data?.innerHeaderImage?.url}
                         backgroundOpacity={step1Data?.heroBackgroundOpacity ?? 1.0}
                         containerBlockOpacity={step1Data?.heroContainerBlockOpacity ?? 0.67}
                         containerInverted={step1Data?.heroContainerInverted ?? false}
