@@ -937,59 +937,6 @@ export default function MarketingAssetModal({
         </div>
       )}
 
-      {/* Flyer image upload */}
-      {resolvedType === "flyer" && flyerStep >= 3 && (
-        <div className="space-y-1.5">
-          <Label htmlFor="flyer-image">
-            Flyer image (optional)
-            <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">(recommended: 1200×630px or similar landscape)</span>
-          </Label>
-          <div className="flex items-center gap-3">
-            <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
-              {flyerImage ? "Change Image" : "Upload Image"}
-            </Button>
-            {flyerImage && (
-              <Button type="button" variant="ghost" size="sm" className="text-red-500 hover:text-red-700" onClick={() => setFlyerImage("")}>
-                Remove
-              </Button>
-            )}
-          </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) {
-                setFlyerImageLoading(true);
-                const reader = new FileReader();
-                reader.onload = (ev) => {
-                  setFlyerImage(ev.target?.result as string);
-                  setFlyerImageLoading(false);
-                };
-                reader.onerror = () => setFlyerImageLoading(false);
-                reader.readAsDataURL(file);
-              }
-            }}
-          />
-          {(flyerImage || flyerImageLoading) && (
-            <div className="mt-1 rounded-lg overflow-hidden border w-32 h-20 relative">
-              {flyerImageLoading ? (
-                <div className="flex items-center justify-center w-full h-full bg-muted">
-                  <svg className="animate-spin h-5 w-5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                </div>
-              ) : (
-                <img src={flyerImage} alt="Flyer preview" className="w-full h-full object-cover" />
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Flyer: QR code */}
       {resolvedType === "flyer" && flyerStep >= 3 && (
         <div className="space-y-1.5">
