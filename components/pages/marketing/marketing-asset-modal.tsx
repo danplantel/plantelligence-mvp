@@ -162,9 +162,18 @@ export default function MarketingAssetModal({
     jsonFetcher,
     { dedupingInterval: 60_000, revalidateOnFocus: false },
   );
+  const { data: profileData } = useSWR(
+    "/api/profile",
+    jsonFetcher,
+    { dedupingInterval: 60_000, revalidateOnFocus: false },
+  );
   const planLogo: string | undefined = useMemo(
     () => (planData?.data as { companyLogo?: string })?.companyLogo,
     [planData],
+  );
+  const organizationLogo: string | undefined = useMemo(
+    () => (profileData as { advisorLogoUrl?: string })?.advisorLogoUrl,
+    [profileData],
   );
   const planBrandColor: string | undefined = useMemo(
     () => (planData?.data as { brandColor?: string })?.brandColor,
@@ -1535,6 +1544,7 @@ export default function MarketingAssetModal({
                         endDate={endDate}
                         planName={planName}
                         planLogo={planLogo}
+                        organizationLogo={organizationLogo}
                         flyerImage={flyerImage}
                         flyerQrUrl={flyerQrUrl}
                         flyerQrDataUrl={flyerQrDataUrl}
@@ -1570,6 +1580,7 @@ export default function MarketingAssetModal({
                   endDate={endDate}
                   planName={planName}
                   planLogo={planLogo}
+                  organizationLogo={organizationLogo}
                   flyerImage={flyerImage}
                   flyerQrUrl={flyerQrUrl}
                   flyerQrDataUrl={flyerQrDataUrl}
@@ -2006,6 +2017,7 @@ function PreviewPane({
   endDate,
   planName,
   planLogo,
+  organizationLogo,
   flyerImage,
   flyerQrUrl,
   flyerQrDataUrl,
@@ -2032,6 +2044,7 @@ function PreviewPane({
   endDate: string;
   planName: string;
   planLogo?: string;
+  organizationLogo?: string;
   flyerImage?: string;
   flyerQrUrl?: string;
   flyerQrDataUrl?: string;
@@ -2089,6 +2102,7 @@ function PreviewPane({
           startDate={startDate}
           planName={planName}
           planLogo={planLogo}
+          organizationLogo={organizationLogo}
           flyerImage={flyerImage}
           flyerQrUrl={flyerQrUrl}
           flyerQrDataUrl={flyerQrDataUrl}

@@ -12,6 +12,7 @@ export interface FlyerPreviewProps {
   startDate: string;
   planName: string;
   planLogo?: string;
+  organizationLogo?: string;
   flyerImage?: string;
   flyerQrUrl?: string;
   flyerQrDataUrl?: string;
@@ -260,9 +261,9 @@ function DarkFooter({
       {/* Dark footer background — use bgColor prop with fallback */}
       <rect x="0" y={footerY} width="612" height={footerH} fill={bgColor || "#111111"} />
 
-      {/* Plan logo — bottom left */}
+      {/* Organization logo — below the text, bottom left */}
       {resolvedPlanLogo && (
-        <g transform={`translate(40, ${footerY + 16})`}>
+        <g transform={`translate(20, ${footerY + footerH - 56})`}>
           <image href={resolvedPlanLogo} x="0" y="0" width="120" height="40" preserveAspectRatio="xMidYMid contain" />
         </g>
       )}
@@ -437,7 +438,7 @@ export function FlyerPreview(props: FlyerPreviewProps) {
 function MeetingTemplate1({
   headline, body, bgColor, startDate, planName, planLogo,
   flyerImage, flyerQrUrl, flyerQrDataUrl, meetingTime, meetingLocation,
-  flyerSubtitle,
+  flyerSubtitle, organizationLogo,
 }: FlyerPreviewProps) {
   const { wrapText } = useFlyerHelpers(startDate, meetingTime);
   const bodyLines = body ? wrapText(body, 72) : [];
@@ -502,7 +503,7 @@ function MeetingTemplate1({
       <DarkFooter
         footerY={footerY}
         totalHeight={792}
-        planLogo={planLogo}
+        planLogo={organizationLogo || planLogo}
         planName={planName}
         flyerQrUrl={flyerQrUrl}
         flyerQrDataUrl={flyerQrDataUrl}
