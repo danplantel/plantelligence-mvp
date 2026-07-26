@@ -257,8 +257,8 @@ function DarkFooter({
 
   return (
     <>
-      {/* Dark footer background */}
-      <rect x="0" y={footerY} width="612" height={footerH} fill="#111111" />
+      {/* Dark footer background — use bgColor prop with fallback */}
+      <rect x="0" y={footerY} width="612" height={footerH} fill={bgColor || "#111111"} />
 
       {/* Plan logo — bottom left */}
       {resolvedPlanLogo && (

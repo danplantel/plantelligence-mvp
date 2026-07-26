@@ -977,19 +977,34 @@ export default function MarketingAssetModal({
         </div>
       )}
 
-      {/* Flyer: Accent color */}
+      {/* Flyer: Footer Color */}
       {resolvedType === "flyer" && flyerStep >= 3 && (
         <div className="space-y-1.5">
-          <Label htmlFor="bgColor">Accent color</Label>
-          <div className="flex items-center gap-3">
-            <Input
-              id="bgColor"
-              type="color"
-              className="w-12 h-9 p-1 cursor-pointer"
-              value={bgColor}
-              onChange={(e) => setBgColor(e.target.value)}
-            />
-            <span className="text-xs text-muted-foreground font-mono">{bgColor}</span>
+          <Label>Footer color</Label>
+          <div className="flex gap-2">
+            {[
+              { label: "Black", value: "#111111" },
+              { label: "Dark Gray", value: "#333333" },
+              { label: "Light Gray", value: "#666666" },
+            ].map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setBgColor(option.value)}
+                className={cn(
+                  "flex-1 rounded-lg border-2 px-3 py-2 text-sm font-medium transition-all",
+                  bgColor === option.value
+                    ? "border-gray-900 ring-2 ring-gray-900/20 dark:border-white dark:ring-white/30"
+                    : "border-gray-200 hover:border-gray-400 dark:border-gray-700 dark:hover:border-gray-500"
+                )}
+              >
+                <span
+                  className="block h-5 w-full rounded mb-1"
+                  style={{ background: option.value }}
+                />
+                <span className="text-xs">{option.label}</span>
+              </button>
+            ))}
           </div>
         </div>
       )}
