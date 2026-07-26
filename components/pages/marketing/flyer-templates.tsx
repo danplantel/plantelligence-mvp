@@ -13,6 +13,7 @@ export interface FlyerPreviewProps {
   planName: string;
   planLogo?: string;
   organizationLogo?: string;
+  disclaimerText?: string;
   flyerImage?: string;
   flyerQrUrl?: string;
   flyerQrDataUrl?: string;
@@ -233,6 +234,7 @@ function DarkFooter({
   scanLabelHighlight,
   urlLabel,
   urlLabelPrefix,
+  disclaimerText,
 }: {
   footerY: number;
   totalHeight: number;
@@ -246,6 +248,7 @@ function DarkFooter({
   scanLabelHighlight?: string;
   urlLabel?: string;
   urlLabelPrefix?: string;
+  disclaimerText?: string;
 }) {
   const { url: resolvedPlanLogo } = useBrandingImageUrl(planLogo);
   const footerH = totalHeight - footerY;
@@ -327,7 +330,7 @@ function DarkFooter({
 
       {/* Disclaimer line */}
       <text x="306" y={totalHeight - 8} textAnchor="middle" fill="#666" fontSize="9">
-        Securities and advisory services offered through LPL Financial, a registered investment advisor, Member FINRA/SIPC.
+        {disclaimerText || "Securities and advisory services offered through LPL Financial, a registered investment advisor, Member FINRA/SIPC."}
       </text>
     </>
   );
@@ -438,7 +441,7 @@ export function FlyerPreview(props: FlyerPreviewProps) {
 function MeetingTemplate1({
   headline, body, bgColor, startDate, planName, planLogo,
   flyerImage, flyerQrUrl, flyerQrDataUrl, meetingTime, meetingLocation,
-  flyerSubtitle, organizationLogo,
+  flyerSubtitle, organizationLogo, disclaimerText,
 }: FlyerPreviewProps) {
   const { wrapText } = useFlyerHelpers(startDate, meetingTime);
   const bodyLines = body ? wrapText(body, 72) : [];
@@ -513,6 +516,7 @@ function MeetingTemplate1({
         scanLabel2="and schedule a consultation."
         urlLabelPrefix="or visit: "
         urlLabel={flyerQrUrl ? truncateText(flyerQrUrl, 45) : undefined}
+        disclaimerText={disclaimerText}
       />
 
       {/* Body text below images — supports user-typed bullets (-, *, •) */}

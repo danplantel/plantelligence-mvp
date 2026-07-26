@@ -65,6 +65,7 @@ export interface FlyerSaveData {
   flyerSubtitle?: string;
   flyerImage?: string;
   flyerQrUrl?: string;
+  disclaimerText?: string;
   meetingTime?: string;
   meetingLocation?: string;
   status: MarketingAssetStatus;
@@ -213,6 +214,8 @@ export default function MarketingAssetModal({
   const [assetStatus, setAssetStatus] = useState<MarketingAssetStatus>("Draft");
   const [flyerCategory, setFlyerCategory] = useState("");
   const [flyerTemplate, setFlyerTemplate] = useState<string>("MeetingTemplate1");
+  const DEFAULT_DISCLAIMER = "Securities and advisory services offered through LPL Financial, a registered investment advisor, Member FINRA/SIPC.";
+  const [disclaimerText, setDisclaimerText] = useState(DEFAULT_DISCLAIMER);
 
   // Portal-notice specific
   const [portalElement, setPortalElement] = useState<PortalNoticeElement | null>(null);
@@ -359,6 +362,7 @@ export default function MarketingAssetModal({
         setFlyerImage((editingAsset.flyerImage as string) || (d.flyerImage as string) || "");
         setFlyerQrUrl((d.flyerQrUrl as string) || "");
         setFlyerQrDataUrl((d.flyerQrDataUrl as string) || "");
+        setDisclaimerText((d.disclaimerText as string) || DEFAULT_DISCLAIMER);
       }
     } else {
       // ── Create mode: reset all fields ──
@@ -382,6 +386,7 @@ export default function MarketingAssetModal({
       setQrResult(null);
       setFlyerCategory("");
       setFlyerTemplate("MeetingTemplate1");
+      setDisclaimerText(DEFAULT_DISCLAIMER);
       setShowEveryVisit(false);
       setPopupPages(["all"]);
       setPopupCtaUrl("");
@@ -598,6 +603,7 @@ export default function MarketingAssetModal({
       data.flyerQrIoId = resolvedQrResult?.qrIoId || null;
       data.flyerCategory = flyerCategory || null;
       data.flyerTemplate = flyerTemplate;
+      data.disclaimerText = disclaimerText || null;
     }
     if (resolvedType === "portal-notice") {
       data.noticeType = noticeType;
@@ -1015,6 +1021,21 @@ export default function MarketingAssetModal({
               </button>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Flyer: Disclaimer text */}
+      {resolvedType === "flyer" && flyerStep >= 3 && (
+        <div className="space-y-1.5">
+          <Label htmlFor="disclaimer">Disclaimer text</Label>
+          <Textarea
+            id="disclaimer"
+            rows={2}
+            value={disclaimerText}
+            onChange={(e) => setDisclaimerText(e.target.value)}
+            className="dark:bg-gray-800"
+          />
+          <p className="text-[11px] text-muted-foreground">Leave empty for default disclaimer</p>
         </div>
       )}
 
@@ -1545,6 +1566,7 @@ export default function MarketingAssetModal({
                         planName={planName}
                         planLogo={planLogo}
                         organizationLogo={organizationLogo}
+                        disclaimerText={disclaimerText}
                         flyerImage={flyerImage}
                         flyerQrUrl={flyerQrUrl}
                         flyerQrDataUrl={flyerQrDataUrl}
@@ -1581,6 +1603,7 @@ export default function MarketingAssetModal({
                   planName={planName}
                   planLogo={planLogo}
                   organizationLogo={organizationLogo}
+                  disclaimerText={disclaimerText}
                   flyerImage={flyerImage}
                   flyerQrUrl={flyerQrUrl}
                   flyerQrDataUrl={flyerQrDataUrl}
@@ -2018,6 +2041,7 @@ function PreviewPane({
   planName,
   planLogo,
   organizationLogo,
+  disclaimerText,
   flyerImage,
   flyerQrUrl,
   flyerQrDataUrl,
@@ -2045,6 +2069,7 @@ function PreviewPane({
   planName: string;
   planLogo?: string;
   organizationLogo?: string;
+  disclaimerText?: string;
   flyerImage?: string;
   flyerQrUrl?: string;
   flyerQrDataUrl?: string;
@@ -2103,6 +2128,7 @@ function PreviewPane({
           planName={planName}
           planLogo={planLogo}
           organizationLogo={organizationLogo}
+          disclaimerText={disclaimerText}
           flyerImage={flyerImage}
           flyerQrUrl={flyerQrUrl}
           flyerQrDataUrl={flyerQrDataUrl}
