@@ -6,12 +6,6 @@ import useSWR from "swr";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogClose,
-} from "@/components/ui/dialog";
-import {
   Accordion,
   AccordionItem,
   AccordionTrigger,
@@ -20,7 +14,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Clock, ChevronDown, Loader2, Trash2, Eye, ExternalLink } from "lucide-react";
+import { Search, Clock, Loader2, Trash2, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
