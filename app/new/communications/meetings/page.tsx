@@ -1050,6 +1050,13 @@ export default function MeetingsPage() {
               )}
             </div>
 
+            {/* RSVP Link */}
+            <div className="space-y-2">
+              <Label>Meeting Link <span className="text-red-500">*</span></Label>
+              <Input value={formData.meetingLink} onChange={(e) => handleInputChange("meetingLink", e.target.value)}
+                placeholder="https://" className={errors.meetingLink ? "border-red-500" : ""} />
+            </div>
+
             {/* Description */}
             <div className="space-y-2">
               <Label>Description</Label>
@@ -1067,13 +1074,6 @@ export default function MeetingsPage() {
                   {formData.description.length}/{MAX_DESCRIPTION_LENGTH}
                 </span>
               </div>
-            </div>
-
-            {/* RSVP Link */}
-            <div className="space-y-2">
-              <Label>Meeting Link <span className="text-red-500">*</span></Label>
-              <Input value={formData.meetingLink} onChange={(e) => handleInputChange("meetingLink", e.target.value)}
-                placeholder="https://" className={errors.meetingLink ? "border-red-500" : ""} />
             </div>
 
             {/* Max Attendees */}
