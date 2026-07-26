@@ -57,18 +57,22 @@ function useFlyerHelpers(startDate: string, meetingTime?: string) {
     } catch { return t; }
   };
   const wrapText = (text: string, maxChars: number): string[] => {
-    const words = text.split(" ");
+    // Split by explicit newlines first (from Textarea Enter key), then word-wrap each paragraph
+    const paragraphs = text.split("\n");
     const lines: string[] = [];
-    let current = "";
-    for (const word of words) {
-      if ((current + " " + word).trim().length > maxChars) {
-        lines.push(current.trim());
-        current = word;
-      } else {
-        current += " " + word;
+    for (const paragraph of paragraphs) {
+      const words = paragraph.split(" ");
+      let current = "";
+      for (const word of words) {
+        if ((current + " " + word).trim().length > maxChars) {
+          lines.push(current.trim());
+          current = word;
+        } else {
+          current += " " + word;
+        }
       }
+      if (current.trim()) lines.push(current.trim());
     }
-    if (current.trim()) lines.push(current.trim());
     return lines.length ? lines : [text];
   };
   return {
@@ -123,6 +127,19 @@ export function wrapSingleLine(text: string, maxChars: number): string[] {
   return lines.length ? lines : [text];
 }
 
+/** Parse **bold** markers and render as SVG tspan elements */
+export function renderFormattedText(line: string): React.ReactNode[] {
+  if (!line.includes("**")) return [line];
+  const parts = line.split(/(\*\*[^*]+\*\*)/g);
+  return parts.filter(Boolean).map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <tspan key={i} fontWeight="bold">{part.slice(2, -2)}</tspan>;
+    }
+    // Plain text — inherits fontWeight from parent <text>
+    return part;
+  });
+}
+
 /**
  * Render parsed body parts as SVG elements.
  * - `bullet` parts get a filled circle + text
@@ -170,7 +187,7 @@ export function renderBodyParts(
             <g key={`p${partIndex}`}>
               <circle cx={x + 6} cy={y - 5} r="4" fill={bulletColor} />
               <text x={x + 18} y={y} fill={color} fontSize={fontSize} fontWeight={fontWeight} textAnchor={textAnchor}>
-                {wrapped[i]}
+                {renderFormattedText(wrapped[i])}
               </text>
             </g>,
           );
@@ -178,7 +195,7 @@ export function renderBodyParts(
           // Continuation lines: indented text only (no bullet)
           elements.push(
             <text key={`p${partIndex}`} x={x + 18} y={y} fill={color} fontSize={fontSize} fontWeight={fontWeight} textAnchor={textAnchor}>
-              {wrapped[i]}
+              {renderFormattedText(wrapped[i])}
             </text>,
           );
         }
@@ -190,7 +207,7 @@ export function renderBodyParts(
         const y = startY + lineIndex * lineHeight;
         elements.push(
           <text key={`p${partIndex}`} x={x} y={y} fill={color} fontSize={fontSize} fontWeight={fontWeight} textAnchor={textAnchor}>
-            {wrapped[i]}
+            {renderFormattedText(wrapped[i])}
           </text>,
         );
       }
@@ -484,7 +501,7 @@ function MeetingTemplate1({
         })
       ) : bodyLines.length > 0 ? (
         bodyLines.slice(0, 6).map((line, i) => (
-          <text key={i} x="306" y={510 + i * 24} textAnchor="middle" fill="#333" fontSize="14">{line}</text>
+          <text key={i} x="306" y={510 + i * 24} textAnchor="middle" fill="#333" fontSize="14" fontWeight="400">{renderFormattedText(line)}</text>
         ))
       ) : (
         <>
@@ -551,7 +568,7 @@ function MeetingTemplate2({
         })
       ) : bodyLines.length > 0 ? (
         bodyLines.slice(0, 6).map((line, i) => (
-          <text key={i} x="80" y={430 + i * 28 + 11} fill="#333" fontSize="14">{line}</text>
+          <text key={i} x="80" y={430 + i * 28 + 11} fill="#333" fontSize="14" fontWeight="400">{renderFormattedText(line)}</text>
         ))
       ) : (
         <>
@@ -638,7 +655,7 @@ function MeetingTemplate3({
         })
       ) : bodyLines.length > 0 ? (
         bodyLines.slice(0, 9).map((line, i) => (
-          <text key={i} x="48" y={400 + i * 22} fill="#333" fontSize="13">{line}</text>
+          <text key={i} x="48" y={400 + i * 22} fill="#333" fontSize="13" fontWeight="400">{renderFormattedText(line)}</text>
         ))
       ) : (
         <>
@@ -737,7 +754,7 @@ function MeetingTemplate4({
           })
         ) : (
           bodyLines.slice(0, 3).map((line, i) => (
-            <text key={i} x="50" y={46 + i * 18} fill="#333" fontSize="12">{line}</text>
+            <text key={i} x="50" y={46 + i * 18} fill="#333" fontSize="12" fontWeight="400">{renderFormattedText(line)}</text>
           ))
         )}
       </g>
@@ -811,8 +828,8 @@ function TopicalTemplate1({
           color: "#333", fontSize: 14, bulletColor: bgColor, maxLines: 6,
         })
       ) : (
-        <text x="306" y="450" textAnchor="middle" fill="#555" fontSize="15">
-          {body ? truncateText(body, 100) : "Learn more about this topic."}
+        <text x="306" y="450" textAnchor="middle" fill="#555" fontSize="15" fontWeight="400">
+          {body ? renderFormattedText(truncateText(body, 100)) : "Learn more about this topic."}
         </text>
       )}
       <DarkFooter
