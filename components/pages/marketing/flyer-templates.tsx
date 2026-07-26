@@ -228,7 +228,10 @@ function DarkFooter({
   flyerQrDataUrl,
   bgColor,
   scanLabel = "Scan this QR code to learn more",
+  scanLabel2,
+  scanLabelHighlight,
   urlLabel,
+  urlLabelPrefix,
 }: {
   footerY: number;
   totalHeight: number;
@@ -238,7 +241,10 @@ function DarkFooter({
   flyerQrDataUrl?: string;
   bgColor: string;
   scanLabel?: string;
+  scanLabel2?: string;
+  scanLabelHighlight?: string;
   urlLabel?: string;
+  urlLabelPrefix?: string;
 }) {
   const { url: resolvedPlanLogo } = useBrandingImageUrl(planLogo);
   const footerH = totalHeight - footerY;
@@ -261,13 +267,26 @@ function DarkFooter({
         </g>
       )}
 
-      {/* Yellow scan text — constrained width to prevent arrow overlap */}
-      <text x="36" y={arrowMidY - 18} fill={yellow} fontSize="14" fontWeight="700" textLength="260" lengthAdjust="spacing">
-        {scanLabel}
+      {/* Footer text — natural letter spacing, mixed colors */}
+      <text x="36" y={arrowMidY - (scanLabel2 ? 24 : 18)} fontSize="14" fontWeight="700" fill="#ccc">
+        {scanLabelHighlight ? (
+          <>
+            <tspan fill={yellow}>{scanLabelHighlight}</tspan>
+            <tspan fill="#ccc">{scanLabel.slice(scanLabelHighlight.length)}</tspan>
+          </>
+        ) : (
+          scanLabel
+        )}
       </text>
+      {scanLabel2 && (
+        <text x="36" y={arrowMidY - 4} fill="#ccc" fontSize="14" fontWeight="700">
+          {scanLabel2}
+        </text>
+      )}
       {urlLabel && (
-        <text x="36" y={arrowMidY} fill={yellow} fontSize="12" fontWeight="400" textLength="270" lengthAdjust="spacing">
-          {urlLabel}
+        <text x="36" y={arrowMidY + (scanLabel2 ? 16 : 0)} fontSize="12" fontWeight="400" fill="#ccc">
+          {urlLabelPrefix && <tspan fill="#ccc">{urlLabelPrefix}</tspan>}
+          <tspan fill={yellow}>{urlLabel}</tspan>
         </text>
       )}
 
@@ -488,8 +507,11 @@ function MeetingTemplate1({
         flyerQrUrl={flyerQrUrl}
         flyerQrDataUrl={flyerQrDataUrl}
         bgColor={bgColor}
-        scanLabel="Scan QR to explore your options"
-        urlLabel={flyerQrUrl ? `or visit: ${truncateText(flyerQrUrl, 45)}` : undefined}
+        scanLabel="Scan this QR code to explore your options"
+        scanLabelHighlight="Scan this QR code"
+        scanLabel2="and schedule a consultation."
+        urlLabelPrefix="or visit: "
+        urlLabel={flyerQrUrl ? truncateText(flyerQrUrl, 45) : undefined}
       />
 
       {/* Body text below images — supports user-typed bullets (-, *, •) */}
