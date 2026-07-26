@@ -124,7 +124,7 @@ interface FlyerTemplateDefaults {
 }
 
 const MEETING_TEMPLATE_DEFAULTS: Record<string, FlyerTemplateDefaults> = {
-  "MeetingTemplate1": { headline: "MISSING", subtitle: "Your Benefits Overview", body: "Join us to learn more about the benefits available to you." },
+  "MeetingTemplate1": { headline: "MISSING", subtitle: "Retirement Savings From Your Former Employer", body: "Whether you've moved to a new job or are between opportunities, how you manage your savings now will shape your future retirement." },
   "MeetingTemplate2": { headline: "MISSING", subtitle: "Important Update",     body: "We have important information to share about your benefits." },
   "MeetingTemplate3": { headline: "MISSING", subtitle: "Benefits Summary",     body: "Here is a summary of the key benefits and what they mean for you." },
   "MeetingTemplate4": { headline: "MISSING", subtitle: "Save the Date",        body: "Mark your calendar for this upcoming benefits event." },

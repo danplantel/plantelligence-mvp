@@ -401,11 +401,18 @@ export function FlyerPreview(props: FlyerPreviewProps) {
 function MeetingTemplate1({
   headline, body, bgColor, startDate, planName, planLogo,
   flyerImage, flyerQrUrl, flyerQrDataUrl, meetingTime, meetingLocation,
+  flyerSubtitle,
 }: FlyerPreviewProps) {
   const { wrapText } = useFlyerHelpers(startDate, meetingTime);
   const bodyLines = body ? wrapText(body, 72) : [];
   const parts = body ? parseBodySegments(body) : [];
   const userBullets = hasUserBullets(body);
+  const { url: resolvedPlanLogo } = useBrandingImageUrl(planLogo);
+  const piggyBankUrl = "/create-flyer-images/meeting/template_01/piggy_bank.png";
+  // Word-wrap subtitle (flyerSubtitle prop) instead of body lines
+  const subtitleWrapped: string[] = flyerSubtitle
+    ? wrapText(flyerSubtitle.toUpperCase(), 36)
+    : [];
   const footerY = 640;
 
   return (
@@ -430,31 +437,30 @@ function MeetingTemplate1({
         {truncateText(headline.toUpperCase(), 10)}
       </text>
 
-      {/* Subtitle / body first line — bold black */}
-      {bodyLines.length > 0 && (
-        <text x="306" y="136" textAnchor="middle" fill="#111" fontSize="22" fontWeight="800" letterSpacing="1">
-          {truncateText(bodyLines[0].toUpperCase(), 40)}
+      {/* Subtitle lines — word-wrapped (no truncation) */}
+      {subtitleWrapped.slice(0, 3).map((line, i) => (
+        <text key={`sl-${i}`} x="306" y={136 + i * 26} textAnchor="middle" fill="#111" fontSize="22" fontWeight="800" letterSpacing="1">
+          {line}
         </text>
-      )}
-      {bodyLines.length > 1 && (
-        <text x="306" y="162" textAnchor="middle" fill="#111" fontSize="22" fontWeight="800" letterSpacing="1">
-          {truncateText(bodyLines[1].toUpperCase(), 40)}
-        </text>
-      )}
+      ))}
 
-      {/* Center image — large, prominent */}
-      {flyerImage ? (
-        <>
-          <defs>
-            <clipPath id="cl1-img"><rect x="80" y="185" width="452" height="300" rx="4" /></clipPath>
-          </defs>
-          <g clipPath="url(#cl1-img)">
-            <image href={flyerImage} x="80" y="185" width="452" height="300" preserveAspectRatio="xMidYMid slice" />
-          </g>
-        </>
-      ) : (
-        <rect x="80" y="185" width="452" height="300" rx="4" fill="#f0f0f0" />
-      )}
+      {/* Two images — horizontally aligned */}
+      <defs>
+        <clipPath id="cl1-left"><rect x="80" y="185" width="157" height="300" rx="4" /></clipPath>
+        <clipPath id="cl1-right"><rect x="257" y="185" width="275" height="300" rx="4" /></clipPath>
+      </defs>
+      {/* Left: Company Logo (20% smaller) */}
+      <g clipPath="url(#cl1-left)">
+        {resolvedPlanLogo ? (
+          <image href={resolvedPlanLogo} x="80" y="185" width="157" height="300" preserveAspectRatio="xMidYMid meet" />
+        ) : (
+          <rect x="80" y="185" width="157" height="300" rx="4" fill="#f0f0f0" />
+        )}
+      </g>
+      {/* Right: Piggy Bank (40% bigger) */}
+      <g clipPath="url(#cl1-right)">
+        <image href={piggyBankUrl} x="257" y="185" width="275" height="300" preserveAspectRatio="xMidYMid meet" />
+      </g>
 
       {/* Plan logo — left side, vertically centered with image */}
       <DarkFooter
@@ -469,24 +475,24 @@ function MeetingTemplate1({
         urlLabel={flyerQrUrl ? `or visit: ${truncateText(flyerQrUrl, 45)}` : undefined}
       />
 
-      {/* Body text below image — supports user-typed bullets (-, *, •) */}
+      {/* Body text below images — supports user-typed bullets (-, *, •) */}
       {userBullets ? (
         renderBodyParts(parts, {
           x: 80, startY: 510, lineHeight: 24, maxChars: 68,
           color: "#333", fontSize: 14, bulletColor: "#cc0000", maxLines: 6,
           textAnchor: "start",
         })
-      ) : bodyLines.slice(2).length > 0 ? (
-        bodyLines.slice(2, 8).map((line, i) => (
+      ) : bodyLines.length > 0 ? (
+        bodyLines.slice(0, 6).map((line, i) => (
           <text key={i} x="306" y={510 + i * 24} textAnchor="middle" fill="#333" fontSize="14">{line}</text>
         ))
       ) : (
         <>
           <text x="306" y="510" textAnchor="middle" fill="#333" fontSize="15" fontWeight="600">
-            {meetingLocation ? `📍 ${meetingLocation}` : "Contact us to learn more"}
+            Retirement Savings
           </text>
-          <text x="306" y="540" textAnchor="middle" fill="#111" fontSize="18" fontWeight="800">
-            PLEASE CONTACT US TO GET STARTED
+          <text x="306" y="534" textAnchor="middle" fill="#333" fontSize="15" fontWeight="600">
+            From Your Former Employer
           </text>
         </>
       )}
