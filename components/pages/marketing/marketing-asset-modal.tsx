@@ -788,11 +788,14 @@ export default function MarketingAssetModal({
               </div>
               <Select value={selectedMeetingId} onValueChange={(v) => { handleMeetingSelect(v); }}>
                 <SelectTrigger id="meeting-select" className="w-full">
-                  <SelectValue placeholder="Select a meeting…" />
+                  <SelectValue placeholder="Select Meeting" />
                 </SelectTrigger>
                 <SelectContent>
                   {meetings.length === 0 && (
                     <div className="px-3 py-4 text-center text-sm text-muted-foreground">No meetings found for this plan.</div>
+                  )}
+                  {meetings.length > 0 && (
+                    <SelectItem value="">Select Meeting</SelectItem>
                   )}
                   {meetings.map((m) => (
                     <SelectItem key={m.id} value={m.id}>
