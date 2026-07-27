@@ -589,7 +589,7 @@ function MeetingTemplate1({
         <clipPath id="cl1-left"><rect x="80" y="185" width="157" height="300" rx="4" /></clipPath>
         <clipPath id="cl1-right"><rect x="257" y="185" width="275" height="300" rx="4" /></clipPath>
       </defs>
-      {/* Left: Company Logo (20% smaller) */}fontWeight="700" letterSpacing="1" fontFamily="'Montserrat', sans-serif"
+      {/* Left: Company Logo (20% smaller) */}
       <g clipPath="url(#cl1-left)">
         {resolvedPlanLogo ? (
           <image href={resolvedPlanLogo} x="80" y="185" width="157" height="300" preserveAspectRatio="xMidYMid meet" />
