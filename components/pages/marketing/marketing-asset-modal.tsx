@@ -137,7 +137,7 @@ const TOPICAL_TEMPLATE_DEFAULTS: Record<string, FlyerTemplateDefaults> = {
 
 const MEETING_TEMPLATE_DEFAULTS_ES: Record<string, FlyerTemplateDefaults> = {
   "MeetingTemplate1": { headline: "FALTANTE", subtitle: "Ahorros para la Jubilación de Su ex Empleador", body: "Ya sea que haya cambiado de trabajo o se encuentre entre oportunidades, la manera en que administre sus ahorros hoy definira su jubilación futura. /n **POR FAVOR, CONTÁCTENOS PARA RECUPERAR SU DINERO**" },
-  "MeetingTemplate2": { headline: "FALTANTE", subtitle: "Actualización Importante",     body: "Tenemos información importante que compartir sobre sus beneficios." },
+  "MeetingTemplate2": { headline: "No Dejes Esto Sin Terminar.", subtitle: "¿Tiene un beneficiario designado para su cuenta de jubilación?",     body: "Las personas a menudo olvidan:/n* Agregar un beneficiario/n* Actualizar uno existente/n* Revisar después de eventos importantes de la vida" },
   "MeetingTemplate3": { headline: "FALTANTE", subtitle: "Resumen de Beneficios",     body: "Aquí hay un resumen de los beneficios clave y lo que significan para usted." },
   "MeetingTemplate4": { headline: "FALTANTE", subtitle: "Guarde la Fecha",        body: "Marque su calendario para este próximo evento de beneficios." },
 };
