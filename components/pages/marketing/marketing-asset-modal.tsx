@@ -481,6 +481,35 @@ export default function MarketingAssetModal({
   const handleSave = async () => {
     if (isSaving) return;
 
+    // Validate Flyer required fields
+    if (resolvedType === "flyer") {
+      if (!headline.trim()) {
+        toast({ title: "Validation error", description: "Headline is required.", variant: "destructive", className: "z-[9999]" });
+        setIsSaving(false);
+        return;
+      }
+      if (!flyerSubtitle.trim()) {
+        toast({ title: "Validation error", description: "Subtitle is required.", variant: "destructive", className: "z-[9999]" });
+        setIsSaving(false);
+        return;
+      }
+      if (!body.trim()) {
+        toast({ title: "Validation error", description: "Body text is required.", variant: "destructive", className: "z-[9999]" });
+        setIsSaving(false);
+        return;
+      }
+      if (!flyerQrUrl.trim()) {
+        toast({ title: "Validation error", description: "QR code link is required.", variant: "destructive", className: "z-[9999]" });
+        setIsSaving(false);
+        return;
+      }
+      if (!disclaimerText.trim()) {
+        toast({ title: "Validation error", description: "Disclaimer text is required.", variant: "destructive", className: "z-[9999]" });
+        setIsSaving(false);
+        return;
+      }
+    }
+
     // Validate Top Banner required fields
     if (resolvedType === "portal-notice") {
       if (!headline.trim()) {
@@ -913,7 +942,10 @@ export default function MarketingAssetModal({
       {resolvedType === "flyer" && (
         flyerStep < 3 ? null : (
           <div className="space-y-1.5">
-            <Label htmlFor="headline">Headline</Label>
+            <Label htmlFor="headline">
+              Headline
+              <span className="text-red-500 ml-0.5">*</span>
+            </Label>
             <Input id="headline" placeholder="Enter a headline…" value={headline} onChange={(e) => setHeadline(e.target.value)} />
           </div>
         )
@@ -922,7 +954,10 @@ export default function MarketingAssetModal({
       {/* Flyer subtitle */}
       {resolvedType === "flyer" && flyerStep >= 3 && (
         <div className="space-y-1.5">
-          <Label htmlFor="subtitle">Subtitle</Label>
+          <Label htmlFor="subtitle">
+            Subtitle
+            <span className="text-red-500 ml-0.5">*</span>
+          </Label>
           <Input id="subtitle" placeholder="A short promotional tagline…" value={flyerSubtitle} onChange={(e) => setFlyerSubtitle(e.target.value)} />
         </div>
       )}
@@ -931,7 +966,10 @@ export default function MarketingAssetModal({
       {resolvedType === "flyer" && flyerStep >= 3 && (
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <Label htmlFor="body">Body text</Label>
+            <Label htmlFor="body">
+              Body text
+              <span className="text-red-500 ml-0.5">*</span>
+            </Label>
             <span className="text-[11px] text-muted-foreground tabular-nums">{body.length}/680</span>
           </div>
           <Textarea
@@ -957,6 +995,7 @@ export default function MarketingAssetModal({
         <div className="space-y-1.5">
           <Label htmlFor="flyerQrUrl">
             QR code link
+            <span className="text-red-500 ml-0.5">*</span>
             <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">(scannable link for the flyer)</span>
           </Label>
           <div className="flex items-center gap-2">
@@ -1016,7 +1055,10 @@ export default function MarketingAssetModal({
       {resolvedType === "flyer" && flyerStep >= 3 && (
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <Label htmlFor="disclaimer">Disclaimer text</Label>
+            <Label htmlFor="disclaimer">
+              Disclaimer text
+              <span className="text-red-500 ml-0.5">*</span>
+            </Label>
             <span className="text-[11px] text-muted-foreground tabular-nums">{disclaimerText.length}/120</span>
           </div>
           <Textarea
