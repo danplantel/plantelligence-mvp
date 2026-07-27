@@ -743,7 +743,7 @@ function MeetingTemplate3({
   flyerImage, flyerQrUrl, flyerQrDataUrl, meetingTime, flyerSubtitle,
 }: FlyerPreviewProps) {
   const { wrapText } = useFlyerHelpers(startDate, meetingTime);
-  const bodyLines = body ? wrapText(body, 72) : [];
+  const bodyLines = body ? wrapText(body, 82) : [];
   const parts = body ? parseBodySegments(body) : [];
   const userBullets = hasUserBullets(body);
   const footerY = 630;
@@ -795,12 +795,12 @@ function MeetingTemplate3({
       {/* Body paragraphs — supports user-typed bullets (-, *, •) */}
       {userBullets ? (
         renderBodyParts(parts, {
-          x: 48, startY: 400, lineHeight: 22, maxChars: 68,
-          color: "#333", fontSize: 13, bulletColor: bgColor, maxLines: 9,
+          x: 48, startY: 400, lineHeight: 18, maxChars: 92,
+          color: "#333", fontSize: 13, bulletColor: bgColor, maxLines: 16,
         })
       ) : bodyLines.length > 0 ? (
-        bodyLines.slice(0, 9).map((line, i) => (
-          <text key={i} x="48" y={400 + i * 22} fill="#333" fontSize="13" fontWeight="400">{renderFormattedText(line)}</text>
+        bodyLines.slice(0, 16).map((line, i) => (
+          <text key={i} x="48" y={400 + i * 18} fill="#333" fontSize="13" fontWeight="400">{renderFormattedText(line)}</text>
         ))
       ) : (
         <>

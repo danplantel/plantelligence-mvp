@@ -127,7 +127,7 @@ interface FlyerTemplateDefaults {
 const MEETING_TEMPLATE_DEFAULTS: Record<string, FlyerTemplateDefaults> = {
   "MeetingTemplate1": { headline: "MISSING", subtitle: "Retirement Savings From Former Employer", body: "Whether you've moved to a new job or are between opportunities, how you manage your savings now will shape your future retirement. /n **PLEASE CONTACT US TO BE RE-UNITED WITH YOUR MONEY**" },
   "MeetingTemplate2": { headline: "Don't Leave This Unfinished.", subtitle: "Do you have a beneficiary listed for your retirement account?",     body: "People often forget to:/n* Add a beneficiary/n* Update an existing one/n* Review after major life events" },
-  "MeetingTemplate3": { headline: "Invest in Yourself: /n Start Your Retirement Journey Today!", subtitle: "Whether you're just starting your journey or looking to enhance your existing retirement strategy, every contribution counts.",     body: "* It's Easy & Convenient. Your contribution is automatically deducted from your pay and deposited into your account./n* Employer Matching Contributions. Take advantage of potential employer matching contributions\u2014it's like getting free money to boost your retirement savings even further.*/n* Tax-Deferred Savings. Money is put into your retirement account before federal (and most state) taxes. That means you don't pay taxes on it until you take the money out./n* You're in Control. Decide your contribution amount and investment strategy. Not sure how to invest? Our team at Waypoint Financial Advisors is here for you./nIf you have any questions regarding your retirement future or how to get started in the plan, visit us by scanning the QR code below or call us at 877-757-3263. Para ayuda en español acerca del plan 401k, por favor llame al 877-757-3263" },
+  "MeetingTemplate3": { headline: "Invest in Yourself: /n Start Your Retirement Journey Today!", subtitle: "Whether you're just starting your journey or looking to enhance your existing retirement strategy, every contribution counts.",     body: "- **It's Easy & Convenient**. Your contribution is automatically deducted from your pay and deposited into your account./n- **Employer Matching Contributions.** Take advantage of potential employer matching contributions\u2014it's like getting free money to boost your retirement savings even further.*/n- **Tax-Deferred Savings.** Money is put into your retirement account before federal (and most state) taxes. That means you don't pay taxes on it until you take the money out./n- **You're in Control.** Decide your contribution amount and investment strategy. Not sure how to invest? Our team at Waypoint Financial Advisors is here for you./n /n If you have any questions regarding your retirement future or how to get started in the plan, visit us by scanning the QR code below or call us at 877-757-3263. Para ayuda en español acerca del plan 401k, por favor llame al 877-757-3263" },
   "MeetingTemplate4": { headline: "Transform Your Tomorrow: {#ffcb0a}Unlock the Full Potential of your 401(k)!{/}", subtitle: "Join Our Retirement Plan Advisory Team To Discover How To Maximize Your Retirement Benefits",        body: "Mark your calendar for this upcoming benefits event." },
 };
 
@@ -1073,7 +1073,7 @@ export default function MarketingAssetModal({
               Body text
               <span className="text-red-500 ml-0.5">*</span>
             </Label>
-            <span className="text-[11px] text-muted-foreground tabular-nums">{body.length}/680</span>
+            <span className="text-[11px] text-muted-foreground tabular-nums">{body.length}/1200</span>
           </div>
           <Textarea
             id="body"
@@ -1081,7 +1081,7 @@ export default function MarketingAssetModal({
             placeholder="Write your message…"
             value={body}
             onChange={(e) => setBody(e.target.value)}
-            maxLength={680}
+            maxLength={1200}
             className="dark:bg-gray-800"
           />
           <p className="text-[11px] text-muted-foreground">
