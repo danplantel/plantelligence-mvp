@@ -562,78 +562,97 @@ function MeetingTemplate1({
 function MeetingTemplate2({
   headline, body, bgColor, startDate, planName, planLogo,
   flyerImage, flyerQrUrl, flyerQrDataUrl, meetingTime, flyerSubtitle,
+  organizationLogo, disclaimerText,
 }: FlyerPreviewProps) {
   const { wrapText } = useFlyerHelpers(startDate, meetingTime);
   const bodyLines = body ? wrapText(body, 68) : [];
   const parts = body ? parseBodySegments(body) : [];
   const userBullets = hasUserBullets(body);
   const footerY = 640;
+  const parentOutlineUrl = "/create-flyer-images/meeting/template_02/parent_outline.png";
+  const subtitleWrapped: string[] = flyerSubtitle
+    ? wrapText(flyerSubtitle, 66)
+    : [];
+  const defaultBodyText = `People often forget to:
+* Add a beneficiary
+* Update an existing one
+* Review after major life events`;
+  const defaultBodyParts = parseBodySegments(defaultBodyText);
 
   return (
     <svg
-      viewBox="0 0 612 792"
+      viewBox="0 0 612 848"
       xmlns="http://www.w3.org/2000/svg"
       className="w-full h-auto max-w-[420px] rounded-xl shadow-sm border"
       style={{ fontFamily: "system-ui, -apple-system, sans-serif" }}
     >
       <defs>
-        <clipPath id="b2-photoClip"><rect width="612" height="320" rx="8" /></clipPath>
+        <clipPath id="b2-photoClip"><rect width="612" height="400" rx="8" /></clipPath>
       </defs>
 
       {/* White background */}
-      <rect width="612" height="792" fill="white" rx="8" />
+      <rect width="612" height="820" fill="white" rx="8" />
 
-      {/* Large photo — top half */}
+      {/* Hero image — parent_outline.png */}
       <g clipPath="url(#b2-photoClip)">
-        {flyerImage ? (
-          <image href={flyerImage} width="612" height="320" preserveAspectRatio="xMidYMid slice" />
-        ) : (
-          <rect width="612" height="320" fill="#d0d0d0" />
-        )}
+        <image href={parentOutlineUrl} width="612" height="400" preserveAspectRatio="xMidYMid slice" />
       </g>
 
       {/* Bold headline — below photo */}
-      <text x="306" y="368" textAnchor="middle" fill="#111" fontSize="30" fontWeight="900" letterSpacing="-0.5">
+      <text x="306" y="468" textAnchor="middle" fill="#111" fontSize="30" fontWeight="900" letterSpacing="-0.5">
         {truncateText(headline, 32)}
       </text>
-      {flyerSubtitle && (
-        <text x="306" y="400" textAnchor="middle" fill="#444" fontSize="17" fontWeight="500">
-          {truncateText(flyerSubtitle, 52)}
+      {subtitleWrapped.slice(0, 3).map((line, i) => (
+        <text key={`sl-${i}`} x="306" y={500 + i * 26} textAnchor="middle" fill="#444" fontSize="17" fontWeight="500">
+          {line}
         </text>
-      )}
+      ))}
 
       {/* Body — respects user-typed bullet markers (-, *, •) */}
       {userBullets ? (
         renderBodyParts(parts, {
-          x: 80, startY: 430, lineHeight: 28, maxChars: 66,
+          x: 80, startY: 530, lineHeight: 28, maxChars: 66,
           color: "#333", fontSize: 14, bulletColor: bgColor, maxLines: 6,
         })
       ) : bodyLines.length > 0 ? (
         bodyLines.slice(0, 6).map((line, i) => (
-          <text key={i} x="80" y={430 + i * 28 + 11} fill="#333" fontSize="14" fontWeight="400">{renderFormattedText(line)}</text>
+          <text key={i} x="80" y={530 + i * 28 + 11} fill="#333" fontSize="14" fontWeight="400">{renderFormattedText(line)}</text>
         ))
       ) : (
-        <>
-          <text x="80" y="430" fill="#555" fontSize="14">Add a beneficiary</text>
-          <text x="80" y="458" fill="#555" fontSize="14">Update an existing one</text>
-          <text x="80" y="486" fill="#555" fontSize="14">Review after major life events</text>
-        </>
+        renderBodyParts(defaultBodyParts, {
+          x: 80, startY: 530, lineHeight: 28, maxChars: 66,
+          color: "#333", fontSize: 14, bulletColor: bgColor, maxLines: 6,
+        })
       )}
 
-      {/* Two logos side by side */}
-      <LogoRow planLogo={planLogo} planName={planName} y={570} bgColor={bgColor} />
+      {/* Centered advisor logo */}
+      <LogoRow planLogo={planLogo} planName={planName} y={395} bgColor={bgColor} />
 
       <DarkFooter
         footerY={footerY}
         totalHeight={792}
-        planLogo={undefined}
+        planLogo={organizationLogo || planLogo}
         planName={planName}
         flyerQrUrl={flyerQrUrl}
         flyerQrDataUrl={flyerQrDataUrl}
         bgColor={bgColor}
-        scanLabel="Scan this QR Code or visit:"
-        urlLabel={flyerQrUrl ? truncateText(flyerQrUrl, 48) : undefined}
+        scanLabel="Scan this QR code to explore your options"
+        scanLabelHighlight="Scan this QR code"
+        scanLabel2="and schedule a consultation."
+        urlLabelPrefix="or visit: "
+        urlLabel={flyerQrUrl ? truncateText(flyerQrUrl, 45) : undefined}
       />
+
+      {/* Disclaimer section below footer */}
+      <rect x="0" y="792" width="612" height="28" fill="#f8f8f8" />
+      <text x="306" y={808} textAnchor="middle" fill="#111" fontSize="9" fontWeight="700">
+        {disclaimerText || "Securities and advisory services offered through LPL Financial, a registered investment advisor, Member FINRA/SIPC."}
+      </text>
+
+      {/* Powered by PLANtelligence */}
+      <text x="306" y={834} textAnchor="middle" fill="#c1c1c1" fontSize="10" fontWeight="400" letterSpacing="1">
+        powered by PLANtelligence
+      </text>
     </svg>
   );
 }
@@ -932,15 +951,12 @@ function LogoRow({
   const { url: resolvedPlanLogo } = useBrandingImageUrl(planLogo);
   return (
     <g transform={`translate(0, ${y})`}>
-      {/* Left logo (advisor) */}
+      {/* Centered advisor logo */}
       {resolvedPlanLogo ? (
-        <image href={resolvedPlanLogo} x="80" y="0" width="160" height="50" preserveAspectRatio="xMidYMid contain" />
+        <image href={resolvedPlanLogo} x="226" y="0" width="160" height="50" preserveAspectRatio="xMidYMid contain" />
       ) : (
-        <text x="160" y="30" textAnchor="middle" fill="#555" fontSize="14" fontWeight="700">{truncateText(planName, 20)}</text>
+        <text x="306" y="30" textAnchor="middle" fill="#555" fontSize="14" fontWeight="700">{truncateText(planName, 28)}</text>
       )}
-      {/* Right logo placeholder (client logo) */}
-      <rect x="372" y="5" width="160" height="40" rx="4" fill={bgColor} opacity="0.08" />
-      <text x="452" y="30" textAnchor="middle" fill={bgColor} fontSize="13" opacity="0.5">{truncateText(planName, 16)}</text>
     </g>
   );
 }
