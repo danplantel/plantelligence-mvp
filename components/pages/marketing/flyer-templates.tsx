@@ -246,7 +246,7 @@ export function renderBodyParts(
           // First line: bullet dot + text
           elements.push(
             <g key={`p${partIndex}`}>
-              <circle cx={x + 6} cy={y - 5} r="4" fill={bulletColor} />
+              <polygon points={`${x + 2},${y - 9} ${x + 2},${y - 1} ${x + 10},${y - 5}`} fill={bulletColor} />
               <text x={x + 18} y={y} fill={color} fontSize={fontSize} fontWeight={fontWeight} textAnchor={textAnchor}>
                 {renderFormattedText(wrapped[i])}
               </text>
@@ -749,6 +749,9 @@ function MeetingTemplate3({
   const footerY = 630;
   const holdingCompassUrl = "/create-flyer-images/meeting/template_03/holding_a_compass.png";
   const headlineWrapped: string[] = wrapText(headline, 22);
+  const subtitleWrapped: string[] = flyerSubtitle
+    ? wrapText(flyerSubtitle, 70)
+    : [];
 
   return (
     <svg
@@ -779,8 +782,15 @@ function MeetingTemplate3({
         ))}
       </g>
 
-      {/* Centered plan logo — headline and subtitle appear below the image to avoid overlap/duplication */}
+      {/* Centered plan logo */}
       <CenteredLogo planLogo={planLogo} planName={planName} y={260} />
+
+      {/* Subtitle — right below the logo */}
+      {subtitleWrapped.slice(0, 3).map((line, i) => (
+        <text key={`sl-${i}`} x="306" y={350 + i * 24} textAnchor="middle" fill="#444" fontSize="17" fontWeight="600">
+          {renderFormattedText(line)}
+        </text>
+      ))}
 
       {/* Body paragraphs — supports user-typed bullets (-, *, •) */}
       {userBullets ? (
@@ -798,9 +808,6 @@ function MeetingTemplate3({
           <text x="48" y="422" fill="#333" fontSize="13">Details will be shared with registered attendees.</text>
         </>
       )}
-
-      {/* Divider */}
-      <line x1="48" y1={footerY - 20} x2="564" y2={footerY - 20} stroke="#e0e0e0" strokeWidth="1" />
 
       {/* Footer: logo left, QR text center, QR right */}
       <DarkFooter
