@@ -234,7 +234,6 @@ function DarkFooter({
   scanLabelHighlight,
   urlLabel,
   urlLabelPrefix,
-  disclaimerText,
 }: {
   footerY: number;
   totalHeight: number;
@@ -248,7 +247,6 @@ function DarkFooter({
   scanLabelHighlight?: string;
   urlLabel?: string;
   urlLabelPrefix?: string;
-  disclaimerText?: string;
 }) {
   const { url: resolvedPlanLogo } = useBrandingImageUrl(planLogo);
   const footerH = totalHeight - footerY;
@@ -328,10 +326,6 @@ function DarkFooter({
         <rect x={qrX + 10} y={qrY + 10} width={qrSize - 20} height={qrSize - 20} rx="2" fill="none" stroke="#ccc" strokeWidth="1" strokeDasharray="4,4" />
       )}
 
-      {/* Disclaimer line */}
-      <text x="306" y={totalHeight - 8} textAnchor="middle" fill="#666" fontSize="9">
-        {disclaimerText || "Securities and advisory services offered through LPL Financial, a registered investment advisor, Member FINRA/SIPC."}
-      </text>
     </>
   );
 }
@@ -457,13 +451,13 @@ function MeetingTemplate1({
 
   return (
     <svg
-      viewBox="0 0 612 792"
+      viewBox="0 0 612 820"
       xmlns="http://www.w3.org/2000/svg"
       className="w-full h-auto max-w-[420px] rounded-xl shadow-sm border"
       style={{ fontFamily: "system-ui, -apple-system, sans-serif" }}
     >
       {/* White background */}
-      <rect width="612" height="792" fill="white" rx="8" />
+      <rect width="612" height="820" fill="white" rx="8" />
 
       {/* Large bold headline — top center */}
       <text
@@ -516,8 +510,13 @@ function MeetingTemplate1({
         scanLabel2="and schedule a consultation."
         urlLabelPrefix="or visit: "
         urlLabel={flyerQrUrl ? truncateText(flyerQrUrl, 45) : undefined}
-        disclaimerText={disclaimerText}
       />
+
+      {/* Disclaimer section below footer */}
+      <rect x="0" y="792" width="612" height="28" fill="white" />
+      <text x="306" y={808} textAnchor="middle" fill="#111" fontSize="9" fontWeight="700">
+        {disclaimerText || "Securities and advisory services offered through LPL Financial, a registered investment advisor, Member FINRA/SIPC."}
+      </text>
 
       {/* Body text below images — supports user-typed bullets (-, *, •) */}
       {userBullets ? (
@@ -528,7 +527,7 @@ function MeetingTemplate1({
         })
       ) : bodyLines.length > 0 ? (
         bodyLines.slice(0, 6).map((line, i) => (
-          <text key={i} x="306" y={510 + i * 24} textAnchor="middle" fill="#333" fontSize="14" fontWeight="400">{renderFormattedText(line)}</text>
+          <text key={i} x="306" y={510 + i * 24} textAnchor="middle" fill="#333" fontSize="16" fontWeight="400">{renderFormattedText(line)}</text>
         ))
       ) : (
         <>

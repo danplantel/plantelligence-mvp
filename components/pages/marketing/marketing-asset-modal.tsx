@@ -956,7 +956,7 @@ export default function MarketingAssetModal({
       {resolvedType === "flyer" && flyerStep >= 3 && (
         <div className="space-y-1.5">
           <Label htmlFor="flyerQrUrl">
-            QR code link (optional)
+            QR code link
             <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">(scannable link for the flyer)</span>
           </Label>
           <div className="flex items-center gap-2">
@@ -971,17 +971,6 @@ export default function MarketingAssetModal({
               }}
               className="flex-1"
             />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={!flyerQrUrl.trim() || qrGenerating}
-              onClick={handleGenerateQr}
-              className="gap-1.5 shrink-0"
-            >
-              {qrGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <QrCode className="h-3.5 w-3.5" />}
-              {qrGenerating ? "Generating…" : "Generate QR"}
-            </Button>
           </div>
           {qrResult && (
             <p className="text-[11px] text-muted-foreground">
@@ -1027,12 +1016,16 @@ export default function MarketingAssetModal({
       {/* Flyer: Disclaimer text */}
       {resolvedType === "flyer" && flyerStep >= 3 && (
         <div className="space-y-1.5">
-          <Label htmlFor="disclaimer">Disclaimer text</Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="disclaimer">Disclaimer text</Label>
+            <span className="text-[11px] text-muted-foreground tabular-nums">{disclaimerText.length}/120</span>
+          </div>
           <Textarea
             id="disclaimer"
             rows={2}
             value={disclaimerText}
             onChange={(e) => setDisclaimerText(e.target.value)}
+            maxLength={120}
             className="dark:bg-gray-800"
           />
           <p className="text-[11px] text-muted-foreground">Leave empty for default disclaimer</p>
