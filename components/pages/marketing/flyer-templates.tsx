@@ -913,8 +913,8 @@ function MeetingTemplate4({
 
       {/* Location icon + text */}
       <g transform="translate(60, 425)">
-        <circle cx="18" cy="18" r="18" fill={bgColor} opacity="0.15" />
-        <text x="18" y="24" textAnchor="middle" fill={bgColor} fontSize="20">📍</text>
+        <circle cx="18" cy="18" r="18" fill="#111" opacity="0.1" />
+        <text x="18" y="24" textAnchor="middle" fill="#111" fontSize="20">📍</text>
         <text x="50" y="14" fill="#111" fontSize="16" fontWeight="700">Where:</text>
         <text x="50" y="30" fill="#333" fontSize="16">{truncateText(meetingLocation || "Virtual via Zoom", 36)}</text>
       </g>
@@ -922,11 +922,15 @@ function MeetingTemplate4({
       {/* Calendar icon + meeting details */}
       <g transform="translate(60, 475)">
         {/* Calendar icon */}
-        <rect width="36" height="36" rx="4" fill={bgColor} opacity="0.15" />
-        <rect x="4" y="10" width="28" height="22" rx="2" fill="none" stroke={bgColor} strokeWidth="1.5" />
-        <line x1="4" y1="16" x2="32" y2="16" stroke={bgColor} strokeWidth="1.5" />
-        <rect x="10" y="4" width="4" height="8" rx="2" fill={bgColor} />
-        <rect x="22" y="4" width="4" height="8" rx="2" fill={bgColor} />
+        <rect width="36" height="36" rx="4" fill="#111" opacity="0.1" />
+        <rect x="4" y="10" width="28" height="22" rx="2" fill="none" stroke="#111" strokeWidth="1.5" />
+        <line x1="4" y1="16" x2="32" y2="16" stroke="#111" strokeWidth="1.5" />
+        <line x1="13.3" y1="16" x2="13.3" y2="32" stroke="#111" strokeWidth="0.8" opacity="0.4" />
+        <line x1="22.6" y1="16" x2="22.6" y2="32" stroke="#111" strokeWidth="0.8" opacity="0.4" />
+        <line x1="4" y1="22" x2="32" y2="22" stroke="#111" strokeWidth="0.8" opacity="0.4" />
+        <line x1="4" y1="27" x2="32" y2="27" stroke="#111" strokeWidth="0.8" opacity="0.4" />
+        <rect x="10" y="4" width="4" height="8" rx="2" fill="#111" />
+        <rect x="22" y="4" width="4" height="8" rx="2" fill="#111" />
         <text x="50" y="14" fill="#111" fontSize="16" fontWeight="700">Group Sessions:</text>
         <text x="50" y="30" fill="#333" fontSize="16">
           {formattedDate ? `${formattedDate}${formattedTime ? ` at ${formattedTime}` : ""}` : "Date & time TBD"}
