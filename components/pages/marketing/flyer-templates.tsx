@@ -757,6 +757,7 @@ function MeetingTemplate2({
 function MeetingTemplate3({
   headline, body, bgColor, startDate, planName, planLogo,
   flyerImage, flyerQrUrl, flyerQrDataUrl, meetingTime, flyerSubtitle,
+  organizationLogo, disclaimerText, flyerLanguage,
 }: FlyerPreviewProps) {
   const { wrapText } = useFlyerHelpers(startDate, meetingTime);
   const bodyLines = body ? wrapText(body, 82) : [];
@@ -771,7 +772,7 @@ function MeetingTemplate3({
 
   return (
     <svg
-      viewBox="0 0 612 792"
+      viewBox="0 0 612 848"
       xmlns="http://www.w3.org/2000/svg"
       className="w-full h-auto max-w-[420px] rounded-xl shadow-sm border"
       style={{ fontFamily: "system-ui, -apple-system, sans-serif" }}
@@ -785,7 +786,7 @@ function MeetingTemplate3({
       </defs>
 
       {/* White background */}
-      <rect width="612" height="792" fill="white" rx="8" />
+      <rect width="612" height="820" fill="white" rx="8" />
 
       {/* Hero image — holding_a_compass.png with overlay and headline */}
       <g clipPath="url(#c3-photoClip)">
@@ -825,18 +826,32 @@ function MeetingTemplate3({
         </>
       )}
 
-      {/* Footer: logo left, QR text center, QR right */}
       <DarkFooter
         footerY={footerY}
         totalHeight={792}
-        planLogo={planLogo}
+        planLogo={organizationLogo || planLogo}
         planName={planName}
         flyerQrUrl={flyerQrUrl}
         flyerQrDataUrl={flyerQrDataUrl}
         bgColor={bgColor}
-        scanLabel="Scan QR to visit your participant website"
-        urlLabel={flyerQrUrl ? `or visit: ${truncateText(flyerQrUrl, 42)}` : undefined}
+        scanLabel="Scan this QR code to explore your options"
+        scanLabelHighlight="Scan this QR code"
+        scanLabel2="and schedule a consultation."
+        urlLabelPrefix="or visit: "
+        urlLabel={flyerQrUrl ? truncateText(flyerQrUrl, 45) : undefined}
+        flyerLanguage={flyerLanguage}
       />
+
+      {/* Disclaimer section below footer */}
+      <rect x="0" y="792" width="612" height="28" fill="#f8f8f8" />
+      <text x="306" y={808} textAnchor="middle" fill="#111" fontSize="9" fontWeight="700">
+        {disclaimerText || "Securities and advisory services offered through LPL Financial, a registered investment advisor, Member FINRA/SIPC."}
+      </text>
+
+      {/* Powered by PLANtelligence */}
+      <text x="306" y={834} textAnchor="middle" fill="#c1c1c1" fontSize="10" fontWeight="400" letterSpacing="1">
+        powered by PLANtelligence
+      </text>
     </svg>
   );
 }
