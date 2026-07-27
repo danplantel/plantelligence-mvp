@@ -127,7 +127,7 @@ interface FlyerTemplateDefaults {
 const MEETING_TEMPLATE_DEFAULTS: Record<string, FlyerTemplateDefaults> = {
   "MeetingTemplate1": { headline: "MISSING", subtitle: "Retirement Savings From Former Employer", body: "Whether you've moved to a new job or are between opportunities, how you manage your savings now will shape your future retirement. /n **PLEASE CONTACT US TO BE RE-UNITED WITH YOUR MONEY**" },
   "MeetingTemplate2": { headline: "Don't Leave This Unfinished.", subtitle: "Do you have a beneficiary listed for your retirement account?",     body: "People often forget to:/n* Add a beneficiary/n* Update an existing one/n* Review after major life events" },
-  "MeetingTemplate3": { headline: "MISSING", subtitle: "Benefits Summary",     body: "Here is a summary of the key benefits and what they mean for you." },
+  "MeetingTemplate3": { headline: "Invest in Yourself: /n Start Your Retirement Journey Today!", subtitle: "Benefits Summary",     body: "Here is a summary of the key benefits and what they mean for you." },
   "MeetingTemplate4": { headline: "Transform Your Tomorrow: {#ffcb0a}Unlock the Full Potential of your 401(k)!{/}", subtitle: "Join Our Retirement Plan Advisory Team To Discover How To Maximize Your Retirement Benefits",        body: "Mark your calendar for this upcoming benefits event." },
 };
 
@@ -319,10 +319,11 @@ export default function MarketingAssetModal({
       : (flyerMode === "meeting" ? MEETING_TEMPLATE_DEFAULTS : TOPICAL_TEMPLATE_DEFAULTS);
     const defaults = dict[flyerTemplate];
     if (!defaults) return;
-    setHeadline(defaults.headline);
-    setFlyerSubtitle(defaults.subtitle);
-    // Convert /n to actual newlines so defaults can define line breaks
-    setBody(defaults.body.replace(/\/n/g, "\n"));
+    // Convert /n to actual newlines for all fields so defaults can define line breaks
+    const processText = (text: string) => text.replace(/\/n/g, "\n");
+    setHeadline(processText(defaults.headline));
+    setFlyerSubtitle(processText(defaults.subtitle));
+    setBody(processText(defaults.body));
   }, [flyerTemplate, flyerStep, flyerMode, resolvedType, flyerLanguage]);
 
   useEffect(() => {

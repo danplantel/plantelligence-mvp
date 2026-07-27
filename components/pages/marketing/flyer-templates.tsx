@@ -558,13 +558,13 @@ function MeetingTemplate1({
         letterSpacing="8"
         fontFamily="'Bebas Neue', sans-serif"
       >
-        {truncateText(headline.toUpperCase(), 10)}
+        {renderFormattedText(truncateText(headline.toUpperCase(), 10))}
       </text>
 
       {/* Subtitle lines — word-wrapped (no truncation, Montserrat Light) */}
       {subtitleWrapped.slice(0, 3).map((line, i) => (
         <text key={`sl-${i}`} x="306" y={156 + i * 26} textAnchor="middle" fill="#111" fontSize="24" >
-          {line}
+          {renderFormattedText(line)}
         </text>
       ))}
 
@@ -680,11 +680,11 @@ function MeetingTemplate2({
 
       {/* Bold headline — below photo */}
       <text x="306" y="468" textAnchor="middle" fill="#111" fontSize="30" fontWeight="900" letterSpacing="-0.5">
-        {truncateText(headline, 32)}
+        {renderFormattedText(truncateText(headline, 32))}
       </text>
       {subtitleWrapped.slice(0, 3).map((line, i) => (
         <text key={`sl-${i}`} x="306" y={500 + i * 26} textAnchor="middle" fill="#444" fontSize="17" fontWeight="500">
-          {line}
+          {renderFormattedText(line)}
         </text>
       ))}
 
@@ -747,6 +747,8 @@ function MeetingTemplate3({
   const parts = body ? parseBodySegments(body) : [];
   const userBullets = hasUserBullets(body);
   const footerY = 630;
+  const holdingCompassUrl = "/create-flyer-images/meeting/template_03/holding_a_compass.png";
+  const headlineWrapped: string[] = wrapText(headline, 22);
 
   return (
     <svg
@@ -766,28 +768,19 @@ function MeetingTemplate3({
       {/* White background */}
       <rect width="612" height="792" fill="white" rx="8" />
 
-      {/* Full-width photo header */}
+      {/* Hero image — holding_a_compass.png with overlay and headline */}
       <g clipPath="url(#c3-photoClip)">
-        {flyerImage ? (
-          <image href={flyerImage} width="612" height="240" preserveAspectRatio="xMidYMid slice" />
-        ) : (
-          <rect width="612" height="240" fill="#4a6080" />
-        )}
+        <image href={holdingCompassUrl} width="696" height="240" preserveAspectRatio="xMidYMid slice" />
         <rect width="612" height="240" fill="url(#c3-overlay)" />
+        {headlineWrapped.slice(0, 4).map((line, i) => (
+          <text key={`hl-${i}`} x="40" y={90 + i * 32} textAnchor="start" fill="white" fontSize="22" fontWeight="800" letterSpacing="-0.5">
+            {renderFormattedText(line)}
+          </text>
+        ))}
       </g>
 
       {/* Centered plan logo — headline and subtitle appear below the image to avoid overlap/duplication */}
       <CenteredLogo planLogo={planLogo} planName={planName} y={260} />
-
-      {/* Centered bold headline */}
-      <text x="306" y="348" textAnchor="middle" fill="#111" fontSize="18" fontWeight="800">
-        {truncateText(headline, 52)}
-      </text>
-      {headline.length > 52 && (
-        <text x="306" y="372" textAnchor="middle" fill="#111" fontSize="18" fontWeight="800">
-          {truncateText(headline.slice(52), 52)}
-        </text>
-      )}
 
       {/* Body paragraphs — supports user-typed bullets (-, *, •) */}
       {userBullets ? (
@@ -876,7 +869,7 @@ function MeetingTemplate4({
       {/* Bold centered subheadline — word-wrapped */}
       {subtitleWrapped.slice(0, 3).map((line, i) => (
         <text key={`sl-${i}`} x="306" y={360 + i * 24} textAnchor="middle" fill="#111" fontSize="20" fontWeight="600">
-          {line}
+          {renderFormattedText(line)}
         </text>
       ))}
 
@@ -962,11 +955,11 @@ function TopicalTemplate1({
       <rect width="612" height="792" fill="white" rx="8" />
       <rect x="0" y="0" width="612" height="160" fill={bgColor} opacity="0.1" rx="8" />
       <text x="306" y="70" textAnchor="middle" fill={bgColor} fontSize="36" fontWeight="900" letterSpacing="-1">
-        {truncateText(headline, 20)}
+        {renderFormattedText(truncateText(headline, 20))}
       </text>
       {flyerSubtitle && (
         <text x="306" y="110" textAnchor="middle" fill="#444" fontSize="18" fontWeight="600">
-          {truncateText(flyerSubtitle, 48)}
+          {renderFormattedText(truncateText(flyerSubtitle, 48))}
         </text>
       )}
       {flyerImage ? (
