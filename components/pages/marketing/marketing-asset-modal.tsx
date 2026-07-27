@@ -988,7 +988,6 @@ export default function MarketingAssetModal({
           <div className="flex gap-2">
             {[
               { label: "Black", value: "#111111" },
-              { label: "Light Gray", value: "#888888" },
               { label: "Light", value: "#f3f3f3" },
             ].map((option) => (
               <button
