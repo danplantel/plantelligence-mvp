@@ -263,18 +263,18 @@ function DarkFooter({
   // Resolve Spanish labels — used when props are the defaults from MeetingTemplate1/2
   const resolvedScanLabel = isSpanish
     ? (scanLabel === "Scan this QR code to explore your options"
-        ? "Escanea este código QR para explorar tus opciones"
+        ? "Escanea este c\u00f3digo QR para explorar tus opciones"
         : scanLabel === "Scan this QR code to learn more"
-          ? "Escanea este código QR para obtener más información"
+          ? "Escanea este c\u00f3digo QR para obtener m\u00e1s informaci\u00f3n"
           : scanLabel === "Scan this QR Code or visit:"
-            ? "Escanea este código QR o visita:"
+            ? "Escanea este c\u00f3digo QR o visita:"
             : es_scanLabel)
     : scanLabel;
   const resolvedScanLabel2 = isSpanish && scanLabel2 === "and schedule a consultation."
     ? "y programe una consulta."
     : scanLabel2;
   const resolvedScanLabelHighlight = isSpanish && scanLabelHighlight === "Scan this QR code"
-    ? "Escanea este código QR"
+    ? "Escanea este c\u00f3digo QR"
     : scanLabelHighlight;
   const resolvedUrlLabelPrefix = isSpanish && urlLabelPrefix === "or visit: "
     ? "o visite: "
@@ -775,6 +775,7 @@ function MeetingTemplate3({
 function MeetingTemplate4({
   headline, body, bgColor, startDate, planName, planLogo,
   flyerImage, flyerQrUrl, flyerQrDataUrl, meetingTime, meetingLocation, flyerSubtitle,
+  organizationLogo, disclaimerText, flyerLanguage,
 }: FlyerPreviewProps) {
   const { formattedDate, formattedTime, wrapText } = useFlyerHelpers(startDate, meetingTime);
   const bodyLines = body ? wrapText(body, 68) : [];
@@ -785,7 +786,7 @@ function MeetingTemplate4({
 
   return (
     <svg
-      viewBox="0 0 612 792"
+      viewBox="0 0 612 848"
       xmlns="http://www.w3.org/2000/svg"
       className="w-full h-auto max-w-[420px] rounded-xl shadow-sm border"
       style={{ fontFamily: "system-ui, -apple-system, sans-serif" }}
@@ -799,7 +800,7 @@ function MeetingTemplate4({
       </defs>
 
       {/* White background */}
-      <rect width="612" height="792" fill="white" rx="8" />
+      <rect width="612" height="820" fill="white" rx="8" />
 
       {/* Dark photo header */}
       <g clipPath="url(#e4-photoClip)">
@@ -862,14 +863,29 @@ function MeetingTemplate4({
       <DarkFooter
         footerY={footerY}
         totalHeight={792}
-        planLogo={undefined}
+        planLogo={organizationLogo || planLogo}
         planName={planName}
         flyerQrUrl={flyerQrUrl}
         flyerQrDataUrl={flyerQrDataUrl}
         bgColor={bgColor}
-        scanLabel="Scan QR to reserve your spot &amp; learn more!"
-        urlLabel={flyerQrUrl ? `or visit: ${truncateText(flyerQrUrl, 44)}` : undefined}
+        scanLabel="Scan this QR code to explore your options"
+        scanLabelHighlight="Scan this QR code"
+        scanLabel2="and schedule a consultation."
+        urlLabelPrefix="or visit: "
+        urlLabel={flyerQrUrl ? truncateText(flyerQrUrl, 45) : undefined}
+        flyerLanguage={flyerLanguage}
       />
+
+      {/* Disclaimer section below footer */}
+      <rect x="0" y="792" width="612" height="28" fill="#f8f8f8" />
+      <text x="306" y={808} textAnchor="middle" fill="#111" fontSize="9" fontWeight="700">
+        {disclaimerText || "Securities and advisory services offered through LPL Financial, a registered investment advisor, Member FINRA/SIPC."}
+      </text>
+
+      {/* Powered by PLANtelligence */}
+      <text x="306" y={834} textAnchor="middle" fill="#c1c1c1" fontSize="10" fontWeight="400" letterSpacing="1">
+        powered by PLANtelligence
+      </text>
     </svg>
   );
 }
