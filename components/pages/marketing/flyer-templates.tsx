@@ -447,7 +447,7 @@ function MeetingTemplate1({
   const piggyBankUrl = "/create-flyer-images/meeting/template_01/piggy_bank.png";
   // Word-wrap subtitle (flyerSubtitle prop) instead of body lines
   const subtitleWrapped: string[] = flyerSubtitle
-    ? wrapText(flyerSubtitle.toUpperCase(), 36)
+    ? wrapText(flyerSubtitle.toUpperCase(), 26)
     : [];
   const footerY = 640;
 

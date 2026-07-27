@@ -987,7 +987,7 @@ export default function MarketingAssetModal({
           <Label>Footer color</Label>
           <div className="flex gap-2">
             {[
-              { label: "Black", value: "#111111" },
+              { label: "Dark", value: "#111111" },
               { label: "Light", value: "#f3f3f3" },
             ].map((option) => (
               <button
