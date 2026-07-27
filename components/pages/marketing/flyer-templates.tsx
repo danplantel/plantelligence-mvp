@@ -43,8 +43,18 @@ function useFlyerHelpers(startDate: string, meetingTime?: string) {
   const formatDate = (d: string) => {
     if (!d) return "";
     try {
+      // If the date includes a time component, parse as full ISO date
+      // so timezone offsets (e.g. "Z" suffix) are handled correctly
+      if (d.includes("T")) {
+        const parsed = new Date(d);
+        if (!isNaN(parsed.getTime())) {
+          return parsed.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+        }
+      }
+      // Plain date string (e.g. "2026-07-29") — use local parts constructor
       const clean = d.split("T")[0].split(" ")[0];
-      const parsed = new Date(clean + "T12:00:00");
+      const [y, m, day] = clean.split("-").map(Number);
+      const parsed = new Date(y, m - 1, day);
       if (isNaN(parsed.getTime())) return d;
       return parsed.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
     } catch { return d; }
@@ -60,28 +70,67 @@ function useFlyerHelpers(startDate: string, meetingTime?: string) {
     } catch { return t; }
   };
   const wrapText = (text: string, maxChars: number): string[] => {
-    // Split by explicit newlines first (from Textarea Enter key), then word-wrap each paragraph
-    const paragraphs = text.split("\n");
-    const lines: string[] = [];
-    for (const paragraph of paragraphs) {
-      if (paragraph === "") {
-        // Preserve blank lines from consecutive newlines
-        lines.push("");
-        continue;
+    // ── 1. Extract color spans and strip markers to get plain text ──
+    const spans: Array<{ start: number; end: number; hex: string }> = [];
+    let plainText = "";
+    let rawIdx = 0;
+    let colorStack: Array<{ hex: string; plainStart: number }> = [];
+    while (rawIdx < text.length) {
+      // Check for bold marker (ignore for wrapping — just copy through)
+      const colStart = text.slice(rawIdx).match(/^\{#([0-9a-fA-F]{6})\}/);
+      const colEndMatch = rawIdx > 0 ? text.slice(rawIdx).match(/^\{\/\}/) : null;
+      if (colStart) {
+        colorStack.push({ hex: colStart[1], plainStart: plainText.length });
+        rawIdx += colStart[0].length;
+      } else if (colEndMatch && colorStack.length > 0) {
+        const span = colorStack.pop()!;
+        spans.push({ start: span.plainStart, end: plainText.length, hex: span.hex });
+        rawIdx += colEndMatch[0].length;
+      } else {
+        plainText += text[rawIdx];
+        rawIdx++;
       }
+    }
+    // ── 2. Wrap the clean plain text ──
+    const paragraphs = plainText.split("\n");
+    const plainLines: string[] = [];
+    for (const paragraph of paragraphs) {
+      if (paragraph === "") { plainLines.push(""); continue; }
       const words = paragraph.split(" ");
       let current = "";
       for (const word of words) {
-        if ((current + " " + word).trim().length > maxChars) {
-          lines.push(current.trim());
+        const test = (current + " " + word).trim();
+        if (test.length > maxChars) {
+          plainLines.push(current.trim());
           current = word;
         } else {
-          current += " " + word;
+          current = test;
         }
       }
-      if (current.trim()) lines.push(current.trim());
+      if (current.trim()) plainLines.push(current.trim());
     }
-    return lines.length ? lines : [text];
+    if (plainLines.length === 0) return [text];
+    // ── 3. Map spans back into wrapped lines ──
+    let charOffset = 0;
+    return plainLines.map((line, li) => {
+      const lineStart = charOffset;
+      const lineEnd = charOffset + line.length;
+      charOffset += line.length + 1; // +1 for the space/line separator
+      let result = "";
+      let cursor = 0;
+      for (const span of spans) {
+        const s = Math.max(span.start, lineStart);
+        const e = Math.min(span.end, lineEnd);
+        if (s < e) {
+          // Copy text before this span
+          result += line.slice(cursor, s - lineStart);
+          result += `{#${span.hex}}${line.slice(s - lineStart, e - lineStart)}{/}`;
+          cursor = e - lineStart;
+        }
+      }
+      result += line.slice(cursor);
+      return result;
+    });
   };
   return {
     formattedDate: formatDate(startDate),
@@ -137,13 +186,17 @@ export function wrapSingleLine(text: string, maxChars: number): string[] {
 
 /** Parse **bold** markers and render as SVG tspan elements */
 export function renderFormattedText(line: string): React.ReactNode[] {
-  if (!line.includes("**")) return [line];
-  const parts = line.split(/(\*\*[^*]+\*\*)/g);
+  if (!line.includes("**") && !line.includes("{#")) return [line];
+  const parts = line.split(/(\*\*[^*]+\*\*|\{[^}]+\}[^{]*\{\/\})/g);
   return parts.filter(Boolean).map((part, i) => {
     if (part.startsWith("**") && part.endsWith("**")) {
       return <tspan key={i} fontWeight="bold">{part.slice(2, -2)}</tspan>;
     }
-    // Plain text — inherits fontWeight from parent <text>
+    const colorMatch = part.match(/^\{#([0-9a-fA-F]{6})\}(.*)\{\/\}$/);
+    if (colorMatch) {
+      return <tspan key={i} fill={`#${colorMatch[1]}`}>{colorMatch[2]}</tspan>;
+    }
+    // Plain text — inherits fontWeight and fill from parent <text>
     return part;
   });
 }
@@ -781,8 +834,12 @@ function MeetingTemplate4({
   const bodyLines = body ? wrapText(body, 68) : [];
   const parts = body ? parseBodySegments(body) : [];
   const userBullets = hasUserBullets(body);
-  const yellow = "#f5c518";
   const footerY = 640;
+  const countingMoneyUrl = "/create-flyer-images/meeting/template_04/counting_money.jpg";
+  const headlineWrapped: string[] = wrapText(headline, 30);
+  const subtitleWrapped: string[] = flyerSubtitle
+    ? wrapText(flyerSubtitle, 56)
+    : headline ? wrapText(headline, 56) : [];
 
   return (
     <svg
@@ -802,59 +859,57 @@ function MeetingTemplate4({
       {/* White background */}
       <rect width="612" height="820" fill="white" rx="8" />
 
-      {/* Dark photo header */}
+      {/* Hero image — counting_money.jpg with overlay and headline */}
       <g clipPath="url(#e4-photoClip)">
-        {flyerImage ? (
-          <image href={flyerImage} width="612" height="260" preserveAspectRatio="xMidYMid slice" />
-        ) : (
-          <rect width="612" height="260" fill="#1a2535" />
-        )}
+        <image href={countingMoneyUrl} width="612" height="260" preserveAspectRatio="xMidYMid slice" />
         <rect width="612" height="260" fill="url(#e4-overlay)" />
+        {headlineWrapped.slice(0, 4).map((line, i) => (
+          <text key={`hl-${i}`} x="306" y={95 + i * 40} textAnchor="middle" fill="white" fontSize="32" fontWeight="800" letterSpacing="-0.5">
+            {renderFormattedText(line)}
+          </text>
+        ))}
       </g>
 
       {/* Centered plan logo below header — headline and subtitle appear below the image to avoid overlap/duplication */}
       <CenteredLogo planLogo={planLogo} planName={planName} y={276} />
 
-      {/* Bold centered subheadline */}
-      <text x="306" y="360" textAnchor="middle" fill="#111" fontSize="17" fontWeight="800">
-        {truncateText(flyerSubtitle || headline, 44)}
-      </text>
-      {(flyerSubtitle || headline).length > 44 && (
-        <text x="306" y="382" textAnchor="middle" fill="#111" fontSize="17" fontWeight="800">
-          {truncateText((flyerSubtitle || headline).slice(44), 44)}
+      {/* Bold centered subheadline — word-wrapped */}
+      {subtitleWrapped.slice(0, 3).map((line, i) => (
+        <text key={`sl-${i}`} x="306" y={360 + i * 24} textAnchor="middle" fill="#111" fontSize="20" fontWeight="600">
+          {line}
         </text>
-      )}
+      ))}
+
+      {/* Location icon + text */}
+      <g transform="translate(60, 425)">
+        <circle cx="18" cy="18" r="18" fill={bgColor} opacity="0.15" />
+        <text x="18" y="24" textAnchor="middle" fill={bgColor} fontSize="20">📍</text>
+        <text x="50" y="14" fill="#111" fontSize="16" fontWeight="700">Where:</text>
+        <text x="50" y="30" fill="#333" fontSize="16">{truncateText(meetingLocation || "Virtual via Zoom", 36)}</text>
+      </g>
 
       {/* Calendar icon + meeting details */}
-      <g transform="translate(60, 408)">
+      <g transform="translate(60, 475)">
         {/* Calendar icon */}
         <rect width="36" height="36" rx="4" fill={bgColor} opacity="0.15" />
         <rect x="4" y="10" width="28" height="22" rx="2" fill="none" stroke={bgColor} strokeWidth="1.5" />
         <line x1="4" y1="16" x2="32" y2="16" stroke={bgColor} strokeWidth="1.5" />
         <rect x="10" y="4" width="4" height="8" rx="2" fill={bgColor} />
         <rect x="22" y="4" width="4" height="8" rx="2" fill={bgColor} />
-        <text x="50" y="14" fill="#111" fontSize="13" fontWeight="700">Group Sessions:</text>
-        <text x="50" y="30" fill="#333" fontSize="12">
+        <text x="50" y="14" fill="#111" fontSize="16" fontWeight="700">Group Sessions:</text>
+        <text x="50" y="30" fill="#333" fontSize="16">
           {formattedDate ? `${formattedDate}${formattedTime ? ` at ${formattedTime}` : ""}` : "Date & time TBD"}
         </text>
         {userBullets ? (
           renderBodyParts(parts, {
             x: 50, startY: 46, lineHeight: 18, maxChars: 66,
-            color: "#333", fontSize: 12, bulletColor: bgColor, maxLines: 3,
+            color: "#333", fontSize: 16, bulletColor: bgColor, maxLines: 3,
           })
         ) : (
           bodyLines.slice(0, 3).map((line, i) => (
-            <text key={i} x="50" y={46 + i * 18} fill="#333" fontSize="12" fontWeight="400">{renderFormattedText(line)}</text>
+            <text key={i} x="50" y={46 + i * 18} fill="#333" fontSize="16" fontWeight="400">{renderFormattedText(line)}</text>
           ))
         )}
-      </g>
-
-      {/* Location icon + text */}
-      <g transform="translate(60, 510)">
-        <circle cx="14" cy="14" r="14" fill={bgColor} opacity="0.15" />
-        <text x="14" y="19" textAnchor="middle" fill={bgColor} fontSize="16">📍</text>
-        <text x="40" y="14" fill="#111" fontSize="13" fontWeight="700">Where:</text>
-        <text x="40" y="30" fill="#333" fontSize="13">{truncateText(meetingLocation || "Virtual via Zoom", 36)}</text>
       </g>
 
       <DarkFooter

@@ -128,7 +128,7 @@ const MEETING_TEMPLATE_DEFAULTS: Record<string, FlyerTemplateDefaults> = {
   "MeetingTemplate1": { headline: "MISSING", subtitle: "Retirement Savings From Former Employer", body: "Whether you've moved to a new job or are between opportunities, how you manage your savings now will shape your future retirement. /n **PLEASE CONTACT US TO BE RE-UNITED WITH YOUR MONEY**" },
   "MeetingTemplate2": { headline: "Don't Leave This Unfinished.", subtitle: "Do you have a beneficiary listed for your retirement account?",     body: "People often forget to:/n* Add a beneficiary/n* Update an existing one/n* Review after major life events" },
   "MeetingTemplate3": { headline: "MISSING", subtitle: "Benefits Summary",     body: "Here is a summary of the key benefits and what they mean for you." },
-  "MeetingTemplate4": { headline: "MISSING", subtitle: "Save the Date",        body: "Mark your calendar for this upcoming benefits event." },
+  "MeetingTemplate4": { headline: "Transform Your Tomorrow: {#ffcb0a}Unlock the Full Potential of your 401(k)!{/}", subtitle: "Join Our Retirement Plan Advisory Team To Discover How To Maximize Your Retirement Benefits",        body: "Mark your calendar for this upcoming benefits event." },
 };
 
 const TOPICAL_TEMPLATE_DEFAULTS: Record<string, FlyerTemplateDefaults> = {
@@ -139,7 +139,7 @@ const MEETING_TEMPLATE_DEFAULTS_ES: Record<string, FlyerTemplateDefaults> = {
   "MeetingTemplate1": { headline: "FALTANTE", subtitle: "Ahorros para la Jubilación de Su ex Empleador", body: "Ya sea que haya cambiado de trabajo o se encuentre entre oportunidades, la manera en que administre sus ahorros hoy definira su jubilación futura. /n **POR FAVOR, CONTÁCTENOS PARA RECUPERAR SU DINERO**" },
   "MeetingTemplate2": { headline: "No Dejes Esto Sin Terminar.", subtitle: "¿Tiene un beneficiario designado para su cuenta de jubilación?",     body: "Las personas a menudo olvidan:/n* Agregar un beneficiario/n* Actualizar uno existente/n* Revisar después de eventos importantes de la vida" },
   "MeetingTemplate3": { headline: "FALTANTE", subtitle: "Resumen de Beneficios",     body: "Aquí hay un resumen de los beneficios clave y lo que significan para usted." },
-  "MeetingTemplate4": { headline: "FALTANTE", subtitle: "Guarde la Fecha",        body: "Marque su calendario para este próximo evento de beneficios." },
+  "MeetingTemplate4": { headline: "Transforme Su Mañana: {#ffcb0a}Descubra Cómo Maximizar Sus Beneficios de Jubilación!{/}", subtitle: "Únase a Nuestro Equipo de Asesoría de Planes de Jubilación para Descubrir Cómo Maximizar Sus Beneficios de Jubilación",        body: "Marque su calendario para este próximo evento de beneficios." },
 };
 
 const TOPICAL_TEMPLATE_DEFAULTS_ES: Record<string, FlyerTemplateDefaults> = {
@@ -932,7 +932,20 @@ export default function MarketingAssetModal({
               <select
                 className="flex h-9 w-full rounded-md border border-input bg-white dark:bg-gray-800 px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 value={flyerTemplate}
-                onChange={(e) => setFlyerTemplate(e.target.value)}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setFlyerTemplate(next);
+                  // Also apply template defaults immediately so the form inputs update
+                  const dict = flyerLanguage === "es"
+                    ? (flyerMode === "meeting" ? MEETING_TEMPLATE_DEFAULTS_ES : TOPICAL_TEMPLATE_DEFAULTS_ES)
+                    : (flyerMode === "meeting" ? MEETING_TEMPLATE_DEFAULTS : TOPICAL_TEMPLATE_DEFAULTS);
+                  const defaults = dict[next];
+                  if (defaults) {
+                    setHeadline(defaults.headline);
+                    setFlyerSubtitle(defaults.subtitle);
+                    setBody(defaults.body.replace(/\/n/g, "\n"));
+                  }
+                }}
               >
                 {(flyerMode === "meeting"
                   ? Object.keys(MEETING_TEMPLATE_DEFAULTS)
@@ -943,6 +956,49 @@ export default function MarketingAssetModal({
                   </option>
                 ))}
               </select>
+
+              {/* Meeting info or Topic summary — shown below template selector */}
+              {flyerMode === "meeting" && selectedMeeting && (
+                <div className="rounded-lg border bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground space-y-1.5">
+                  <div className="flex items-center gap-1.5 font-medium text-foreground">
+                    <Calendar className="h-3.5 w-3.5" />
+                    {selectedMeeting.meeting}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="h-3 w-3" />
+                    {formatUsDate(selectedMeeting.date)}
+                  </div>
+                  {meetingTime && (
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="h-3 w-3" />
+                      {(() => {
+                        const [h, m] = meetingTime.split(":").map(Number);
+                        if (!isNaN(h) && !isNaN(m)) {
+                          const ampm = h >= 12 ? "PM" : "AM";
+                          const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+                          return `${h12}:${m.toString().padStart(2, "0")} ${ampm}`;
+                        }
+                        return meetingTime;
+                      })()}
+                    </div>
+                  )}
+                  {meetingLocation && (
+                    <div className="flex items-center gap-1.5">
+                      <MapPin className="h-3 w-3" />
+                      {meetingLocation}
+                    </div>
+                  )}
+                </div>
+              )}
+              {flyerMode === "topical" && flyerTopic && (
+                <div className="rounded-lg border bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground space-y-1">
+                  <div className="flex items-center gap-1.5 font-medium text-foreground">
+                    <span className="text-[10px]">📝</span>
+                    Topic: {flyerTopic}
+                  </div>
+                </div>
+              )}
+
               <div className="flex items-center gap-2 pt-2">
                 <Button type="button" variant="outline" size="sm" onClick={() => setFlyerStep(2)}>Back</Button>
               </div>
