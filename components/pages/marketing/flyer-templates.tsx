@@ -63,6 +63,11 @@ function useFlyerHelpers(startDate: string, meetingTime?: string) {
     const paragraphs = text.split("\n");
     const lines: string[] = [];
     for (const paragraph of paragraphs) {
+      if (paragraph === "") {
+        // Preserve blank lines from consecutive newlines
+        lines.push("");
+        continue;
+      }
       const words = paragraph.split(" ");
       let current = "";
       for (const word of words) {
@@ -479,7 +484,7 @@ function MeetingTemplate1({
 
       {/* Subtitle lines — word-wrapped (no truncation, Montserrat Light) */}
       {subtitleWrapped.slice(0, 3).map((line, i) => (
-        <text key={`sl-${i}`} x="306" y={156 + i * 26} textAnchor="middle" fill="#111" fontSize="24" fontWeight="700" letterSpacing="1" fontFamily="'Montserrat', sans-serif">
+        <text key={`sl-${i}`} x="306" y={156 + i * 26} textAnchor="middle" fill="#111" fontSize="24" >
           {line}
         </text>
       ))}
@@ -489,7 +494,7 @@ function MeetingTemplate1({
         <clipPath id="cl1-left"><rect x="80" y="185" width="157" height="300" rx="4" /></clipPath>
         <clipPath id="cl1-right"><rect x="257" y="185" width="275" height="300" rx="4" /></clipPath>
       </defs>
-      {/* Left: Company Logo (20% smaller) */}
+      {/* Left: Company Logo (20% smaller) */}fontWeight="700" letterSpacing="1" fontFamily="'Montserrat', sans-serif"
       <g clipPath="url(#cl1-left)">
         {resolvedPlanLogo ? (
           <image href={resolvedPlanLogo} x="80" y="185" width="157" height="300" preserveAspectRatio="xMidYMid meet" />
@@ -533,7 +538,7 @@ function MeetingTemplate1({
         })
       ) : bodyLines.length > 0 ? (
         bodyLines.slice(0, 6).map((line, i) => (
-          <text key={i} x="306" y={510 + i * 24} textAnchor="middle" fill="#333" fontSize="16" fontWeight="400">{renderFormattedText(line)}</text>
+          <text key={i} x="306" y={510 + i * 24} textAnchor="middle" fill="#333" fontSize="15" fontWeight="400" fontFamily="'Montserrat', sans-serif">{renderFormattedText(line)}</text>
         ))
       ) : (
         <>
