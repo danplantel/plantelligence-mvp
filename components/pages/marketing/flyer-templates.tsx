@@ -458,7 +458,7 @@ function MeetingTemplate1({
 
   return (
     <svg
-      viewBox="0 0 612 820"
+      viewBox="0 0 612 848"
       xmlns="http://www.w3.org/2000/svg"
       className="w-full h-auto max-w-[420px] rounded-xl shadow-sm border"
       style={{ fontFamily: "system-ui, -apple-system, sans-serif" }}
@@ -527,6 +527,11 @@ function MeetingTemplate1({
       <rect x="0" y="792" width="612" height="28" fill="#f8f8f8" />
       <text x="306" y={808} textAnchor="middle" fill="#111" fontSize="9" fontWeight="700">
         {disclaimerText || "Securities and advisory services offered through LPL Financial, a registered investment advisor, Member FINRA/SIPC."}
+      </text>
+
+      {/* Powered by PLANtelligence */}
+      <text x="306" y={834} textAnchor="middle" fill="#c1c1c1" fontSize="10" fontWeight="400" letterSpacing="1">
+        powered by PLANtelligence
       </text>
 
       {/* Body text below images — supports user-typed bullets (-, *, •) */}
