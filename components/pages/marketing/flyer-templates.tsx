@@ -458,24 +458,28 @@ function MeetingTemplate1({
       className="w-full h-auto max-w-[420px] rounded-xl shadow-sm border"
       style={{ fontFamily: "system-ui, -apple-system, sans-serif" }}
     >
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');
+               @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;700;900&display=swap');`}</style>
+
       {/* White background */}
       <rect width="612" height="820" fill="white" rx="8" />
 
-      {/* Large bold headline — top center */}
+      {/* Large bold headline — top center (Bebas Neue font) */}
       <text
-        x="306" y="90"
+        x="306" y="120"
         textAnchor="middle"
-        fill="#cc0000"
-        fontSize="72"
-        fontWeight="900"
-        letterSpacing="-2"
+        fill="#ED1C24"
+        fontSize="130"
+        fontWeight="100"
+        letterSpacing="8"
+        fontFamily="'Bebas Neue', sans-serif"
       >
         {truncateText(headline.toUpperCase(), 10)}
       </text>
 
-      {/* Subtitle lines — word-wrapped (no truncation) */}
+      {/* Subtitle lines — word-wrapped (no truncation, Montserrat Light) */}
       {subtitleWrapped.slice(0, 3).map((line, i) => (
-        <text key={`sl-${i}`} x="306" y={136 + i * 26} textAnchor="middle" fill="#111" fontSize="22" fontWeight="800" letterSpacing="1">
+        <text key={`sl-${i}`} x="306" y={156 + i * 26} textAnchor="middle" fill="#111" fontSize="24" fontWeight="700" letterSpacing="1" fontFamily="'Montserrat', sans-serif">
           {line}
         </text>
       ))}
