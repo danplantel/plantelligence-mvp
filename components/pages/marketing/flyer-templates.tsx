@@ -466,8 +466,8 @@ function MeetingTemplate1({
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');
                @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;700;900&display=swap');`}</style>
 
-      {/* White background */}
-      <rect width="612" height="820" fill="white" rx="8" />
+      {/* Light gray background */}
+      <rect width="612" height="820" fill="#f8f8f8" rx="8" />
 
       {/* Large bold headline — top center (Bebas Neue font) */}
       <text
@@ -524,7 +524,7 @@ function MeetingTemplate1({
       />
 
       {/* Disclaimer section below footer */}
-      <rect x="0" y="792" width="612" height="28" fill="white" />
+      <rect x="0" y="792" width="612" height="28" fill="#f8f8f8" />
       <text x="306" y={808} textAnchor="middle" fill="#111" fontSize="9" fontWeight="700">
         {disclaimerText || "Securities and advisory services offered through LPL Financial, a registered investment advisor, Member FINRA/SIPC."}
       </text>
