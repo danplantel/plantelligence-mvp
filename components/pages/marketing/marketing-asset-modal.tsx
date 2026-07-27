@@ -1654,6 +1654,7 @@ export default function MarketingAssetModal({
                         meetingLocation={meetingLocation}
                         flyerSubtitle={flyerSubtitle}
                         flyerTemplate={flyerTemplate}
+                        flyerLanguage={flyerLanguage}
                         noticeType={noticeType}
                         countdownTarget={countdownTarget}
                         portalCtaUrl={portalCtaUrl}
@@ -1691,6 +1692,7 @@ export default function MarketingAssetModal({
                   meetingLocation={meetingLocation}
                   flyerSubtitle={flyerSubtitle}
                   flyerTemplate={flyerTemplate}
+                  flyerLanguage={flyerLanguage}
                   noticeType={noticeType}
                   countdownTarget={countdownTarget}
                   portalCtaUrl={portalCtaUrl}
@@ -2129,6 +2131,7 @@ function PreviewPane({
   meetingLocation,
   flyerSubtitle,
   flyerTemplate,
+  flyerLanguage,
   noticeType,
   countdownTarget,
   portalCtaUrl,
@@ -2157,6 +2160,7 @@ function PreviewPane({
   meetingLocation?: string;
   flyerSubtitle?: string;
   flyerTemplate?: string;
+  flyerLanguage?: "en" | "es";
   noticeType?: "text" | "countdown";
   countdownTarget?: string;
   portalCtaUrl?: string;
@@ -2275,6 +2279,7 @@ function PreviewPane({
           meetingLocation={meetingLocation}
           flyerSubtitle={flyerSubtitle}
           flyerTemplate={flyerTemplate as FlyerTemplateId}
+          flyerLanguage={flyerLanguage}
         />
       );
     case "portal-notice":

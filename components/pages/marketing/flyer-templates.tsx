@@ -21,6 +21,7 @@ export interface FlyerPreviewProps {
   meetingLocation?: string;
   flyerSubtitle?: string;
   flyerTemplate: FlyerTemplateId;
+  flyerLanguage?: "en" | "es";
 }
 
 // ── Shared helpers ────────────────────────────────────────────
@@ -239,6 +240,7 @@ function DarkFooter({
   scanLabelHighlight,
   urlLabel,
   urlLabelPrefix,
+  flyerLanguage = "en",
 }: {
   footerY: number;
   totalHeight: number;
@@ -252,7 +254,31 @@ function DarkFooter({
   scanLabelHighlight?: string;
   urlLabel?: string;
   urlLabelPrefix?: string;
+  flyerLanguage?: "en" | "es";
 }) {
+  const isSpanish = flyerLanguage === "es";
+  const es_scanLabel = scanLabelHighlight
+    ? `${scanLabelHighlight}${scanLabel.slice(scanLabelHighlight.length)}`
+    : scanLabel;
+  // Resolve Spanish labels — used when props are the defaults from MeetingTemplate1/2
+  const resolvedScanLabel = isSpanish
+    ? (scanLabel === "Scan this QR code to explore your options"
+        ? "Escanea este código QR para explorar tus opciones"
+        : scanLabel === "Scan this QR code to learn more"
+          ? "Escanea este código QR para obtener más información"
+          : scanLabel === "Scan this QR Code or visit:"
+            ? "Escanea este código QR o visita:"
+            : es_scanLabel)
+    : scanLabel;
+  const resolvedScanLabel2 = isSpanish && scanLabel2 === "and schedule a consultation."
+    ? "y programe una consulta."
+    : scanLabel2;
+  const resolvedScanLabelHighlight = isSpanish && scanLabelHighlight === "Scan this QR code"
+    ? "Escanea este código QR"
+    : scanLabelHighlight;
+  const resolvedUrlLabelPrefix = isSpanish && urlLabelPrefix === "or visit: "
+    ? "o visite: "
+    : urlLabelPrefix;
   const { url: resolvedPlanLogo } = useBrandingImageUrl(planLogo);
   const footerH = totalHeight - footerY;
   // Use blue accent on light backgrounds for readability, yellow otherwise
@@ -278,30 +304,30 @@ function DarkFooter({
       )}
 
       {/* Footer text — natural letter spacing, mixed colors */}
-      <text x="36" y={arrowMidY - (scanLabel2 ? 24 : 18)} fontSize="14" fontWeight="700" fill={textColor}>
-        {scanLabelHighlight ? (
+      <text x="36" y={arrowMidY - (resolvedScanLabel2 ? 24 : 18)} fontSize="14" fontWeight="700" fill={textColor}>
+        {resolvedScanLabelHighlight ? (
           <>
-            <tspan fill={accentColor}>{scanLabelHighlight}</tspan>
-            <tspan fill={textColor}>{scanLabel.slice(scanLabelHighlight.length)}</tspan>
+            <tspan fill={accentColor}>{resolvedScanLabelHighlight}</tspan>
+            <tspan fill={textColor}>{resolvedScanLabel.slice(resolvedScanLabelHighlight.length)}</tspan>
           </>
         ) : (
-          scanLabel
+          resolvedScanLabel
         )}
       </text>
-      {scanLabel2 && (
+      {resolvedScanLabel2 && (
         <text x="36" y={arrowMidY - 4} fill={textColor} fontSize="14" fontWeight="700">
-          {scanLabel2}
+          {resolvedScanLabel2}
         </text>
       )}
       {urlLabel && (
-        <text x="36" y={arrowMidY + (scanLabel2 ? 16 : 0)} fontSize="12" fontWeight="400" fill={textColor}>
-          {urlLabelPrefix && <tspan fill={textColor}>{urlLabelPrefix}</tspan>}
+        <text x="36" y={arrowMidY + (resolvedScanLabel2 ? 16 : 0)} fontSize="12" fontWeight="400" fill={textColor}>
+          {resolvedUrlLabelPrefix && <tspan fill={textColor}>{resolvedUrlLabelPrefix}</tspan>}
           <tspan fill={accentColor}>{urlLabel}</tspan>
         </text>
       )}
 
       {/* Exact curved arrow SVG — all paths use accentColor */}
-      <g transform={`translate(${arrowEndX - 140}, ${arrowMidY - 36}) scale(1.09)`}>
+      <g transform={`translate(${arrowEndX - 140}, ${arrowMidY - 20}) scale(1.09)`}>
         <path d="M0 0 C4.54412889 1.47027815 9.05427938 2.9912716 13.5078125 4.71875 C29.9979476 11.10624713 45.85447946 14.21485226 63.5625 14.0625 C64.57119141 14.05798828 65.57988281 14.05347656 66.61914062 14.04882812 C69.07949147 14.03716769 71.53971239 14.02080378 74 14 C74 11.69 74 9.38 74 7 C79.48055344 9.02542192 83.85222466 11.84443202 88.5703125 15.28125 C90.98170332 16.98705701 93.44986368 18.51166421 96 20 C94.60606911 27.85828541 86.88512756 33.1488173 80.91796875 37.75 C79 39 79 39 77 39 C77 36.69 77 34.38 77 32 C76.42894531 31.95101562 75.85789062 31.90203125 75.26953125 31.8515625 C72.50933639 31.59704533 69.75529965 31.30297603 67 31 C65.55173828 30.85111328 65.55173828 30.85111328 64.07421875 30.69921875 C42.06204178 27.93021555 16.1307125 17.42937717 0 2 C0 1.34 0 0.68 0 0 Z" fill={accentColor} transform="translate(8,8)" />
         <path d="M0 0 C4.54412889 1.47027815 9.05427938 2.9912716 13.5078125 4.71875 C29.9979476 11.10624713 45.85447946 14.21485226 63.5625 14.0625 C64.57119141 14.05798828 65.57988281 14.05347656 66.61914062 14.04882812 C69.07949147 14.03716769 71.53971239 14.02080378 74 14 C74 11.69 74 9.38 74 7 C79.48055344 9.02542192 83.85222466 11.84443202 88.5703125 15.28125 C90.98170332 16.98705701 93.44986368 18.51166421 96 20 C94.60606911 27.85828541 86.88512756 33.1488173 80.91796875 37.75 C79 39 79 39 77 39 C77 37.02 77 35.04 77 33 C78.485 33.99 78.485 33.99 80 35 C80 34.34 80 33.68 80 33 C81.32 33 82.64 33 84 33 C84 32.01 84 31.02 84 30 C84.66 30 85.32 30 86 30 C86.99 28.515 86.99 28.515 88 27 C88.66 27.33 89.32 27.66 90 28 C90 26.35 90 24.7 90 23 C90.66 23 91.32 23 92 23 C91.505 22.38125 91.01 21.7625 90.5 21.125 C89 19 89 19 89 17 C87.35 16.67 85.7 16.34 84 16 C84 15.34 84 14.68 84 14 C81.69 13.67 79.38 13.34 77 13 C76.67 13.99 76.34 14.98 76 16 C64.12 16 52.24 16 40 16 C40 15.67 40 15.34 40 15 C35.545 15.495 35.545 15.495 31 16 C31 17.32 31 18.64 31 20 C25.59155737 18.44236852 20.94822424 15.97465286 16.0625 13.25 C14.90331055 12.62351562 14.90331055 12.62351562 13.72070312 11.984375 C8.73856121 9.22166571 3.88091775 6.23486495 0 2 C0 1.34 0 0.68 0 0 Z" fill={accentColor} transform="translate(8,8)" />
         <path d="M0 0 C7.18357193 2.33944021 14.26080759 4.91855606 21.33398438 7.5703125 C22.13771484 7.869375 22.94144531 8.1684375 23.76953125 8.4765625 C24.84618042 8.8799585 24.84618042 8.8799585 25.94458008 9.29150391 C27.9461479 9.98143737 29.93917022 10.51936197 32 11 C32 11.99 32 12.98 32 14 C32.99 14.33 33.98 14.66 35 15 C33.02 15.99 33.02 15.99 31 17 C31 17.99 31 18.98 31 20 C25.59155737 18.44236852 20.94822424 15.97465286 16.0625 13.25 C14.90331055 12.62351562 14.90331055 12.62351562 13.72070312 11.984375 C8.73856121 9.22166571 3.88091775 6.23486495 0 2 C0 1.34 0 0.68 0 0 Z" fill={accentColor} transform="translate(8,8)" />
@@ -442,7 +468,7 @@ export function FlyerPreview(props: FlyerPreviewProps) {
 function MeetingTemplate1({
   headline, body, bgColor, startDate, planName, planLogo,
   flyerImage, flyerQrUrl, flyerQrDataUrl, meetingTime, meetingLocation,
-  flyerSubtitle, organizationLogo, disclaimerText,
+  flyerSubtitle, organizationLogo, disclaimerText, flyerLanguage,
 }: FlyerPreviewProps) {
   const { wrapText } = useFlyerHelpers(startDate, meetingTime);
   const bodyLines = body ? wrapText(body, 76) : [];
@@ -521,6 +547,7 @@ function MeetingTemplate1({
         scanLabel2="and schedule a consultation."
         urlLabelPrefix="or visit: "
         urlLabel={flyerQrUrl ? truncateText(flyerQrUrl, 45) : undefined}
+        flyerLanguage={flyerLanguage}
       />
 
       {/* Disclaimer section below footer */}
@@ -562,7 +589,7 @@ function MeetingTemplate1({
 function MeetingTemplate2({
   headline, body, bgColor, startDate, planName, planLogo,
   flyerImage, flyerQrUrl, flyerQrDataUrl, meetingTime, flyerSubtitle,
-  organizationLogo, disclaimerText,
+  organizationLogo, disclaimerText, flyerLanguage,
 }: FlyerPreviewProps) {
   const { wrapText } = useFlyerHelpers(startDate, meetingTime);
   const bodyLines = body ? wrapText(body, 68) : [];
@@ -641,6 +668,7 @@ function MeetingTemplate2({
         scanLabel2="and schedule a consultation."
         urlLabelPrefix="or visit: "
         urlLabel={flyerQrUrl ? truncateText(flyerQrUrl, 45) : undefined}
+        flyerLanguage={flyerLanguage}
       />
 
       {/* Disclaimer section below footer */}
