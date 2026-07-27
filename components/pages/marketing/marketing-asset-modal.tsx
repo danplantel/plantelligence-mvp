@@ -2127,6 +2127,59 @@ function PreviewPane({
         ? "portal-notice"
         : portalElement;
 
+  // ── Flyer preview loading skeleton ──
+  const [flyerPreviewLoading, setFlyerPreviewLoading] = useState(true);
+  const prevFlyerStep = useRef(flyerStep);
+  useEffect(() => {
+    if (effectiveType === "flyer" && flyerStep !== undefined && flyerStep >= 3) {
+      // When entering step 3 (or logos change), show skeleton briefly for images to load
+      if (prevFlyerStep.current !== flyerStep) {
+        setFlyerPreviewLoading(true);
+      }
+      prevFlyerStep.current = flyerStep;
+      const timer = setTimeout(() => setFlyerPreviewLoading(false), 600);
+      return () => clearTimeout(timer);
+    } else {
+      setFlyerPreviewLoading(false);
+    }
+  }, [effectiveType, flyerStep, flyerImage, planLogo, organizationLogo]);
+
+  // ── Flyer skeleton matching MeetingTemplate1 layout ──
+  const flyerSkeleton = (
+    <div className="w-full max-w-[420px] rounded-xl shadow-sm border bg-white dark:bg-gray-800 overflow-hidden animate-pulse">
+      {/* Headline area */}
+      <div className="h-24 bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+        <div className="h-10 w-48 rounded bg-gray-200 dark:bg-gray-600" />
+      </div>
+      {/* Subtitle area */}
+      <div className="px-8 py-2 space-y-2">
+        <div className="h-4 w-36 rounded bg-gray-200 dark:bg-gray-600 mx-auto" />
+        <div className="h-4 w-28 rounded bg-gray-200 dark:bg-gray-600 mx-auto" />
+      </div>
+      {/* Images area */}
+      <div className="flex gap-2 px-8 py-4">
+        <div className="h-40 w-24 rounded bg-gray-200 dark:bg-gray-600" />
+        <div className="h-40 flex-1 rounded bg-gray-200 dark:bg-gray-600" />
+      </div>
+      {/* Body lines */}
+      <div className="px-8 space-y-2 pb-4">
+        <div className="h-3 w-full rounded bg-gray-200 dark:bg-gray-600" />
+        <div className="h-3 w-5/6 rounded bg-gray-200 dark:bg-gray-600" />
+        <div className="h-3 w-4/6 rounded bg-gray-200 dark:bg-gray-600" />
+      </div>
+      {/* Footer */}
+      <div className="h-20 bg-gray-300 dark:bg-gray-600 flex items-center px-4 gap-2">
+        <div className="h-8 w-20 rounded bg-gray-400 dark:bg-gray-500" />
+        <div className="flex-1" />
+        <div className="h-10 w-10 rounded bg-gray-400 dark:bg-gray-500" />
+      </div>
+      {/* Disclaimer */}
+      <div className="h-6 bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+        <div className="h-2 w-64 rounded bg-gray-200 dark:bg-gray-600" />
+      </div>
+    </div>
+  );
+
   switch (effectiveType) {
     case "flyer":
       // Show placeholder flyer before template is selected (step 3)
@@ -2152,6 +2205,12 @@ function PreviewPane({
           </div>
         );
       }
+
+      // Show skeleton while flyer images are loading
+      if (flyerPreviewLoading) {
+        return flyerSkeleton;
+      }
+
       return (
         <FlyerPreview
           headline={headline}
