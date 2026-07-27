@@ -857,9 +857,6 @@ function MeetingTemplate4({
         <text x="40" y="30" fill="#333" fontSize="13">{truncateText(meetingLocation || "Virtual via Zoom", 36)}</text>
       </g>
 
-      {/* Centered logo again (advisor logo) */}
-      <CenteredLogo planLogo={planLogo} planName={planName} y={560} small />
-
       <DarkFooter
         footerY={footerY}
         totalHeight={792}
