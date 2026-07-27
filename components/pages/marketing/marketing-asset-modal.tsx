@@ -135,6 +135,17 @@ const TOPICAL_TEMPLATE_DEFAULTS: Record<string, FlyerTemplateDefaults> = {
   "TopicalTemplate1": { headline: "MISSING", subtitle: "Learn more about this topic", body: "Explore this topic to understand how it fits into your overall benefits strategy." },
 };
 
+const MEETING_TEMPLATE_DEFAULTS_ES: Record<string, FlyerTemplateDefaults> = {
+  "MeetingTemplate1": { headline: "FALTANTE", subtitle: "Ahorros para la Jubilación de Su ex Empleador", body: "Ya sea que haya cambiado de trabajo o se encuentre entre oportunidades, la manera en que administre sus ahorros hoy definira su jubilación futura. /n **POR FAVOR, CONTÁCTENOS PARA RECUPERAR SU DINERO**" },
+  "MeetingTemplate2": { headline: "FALTANTE", subtitle: "Actualización Importante",     body: "Tenemos información importante que compartir sobre sus beneficios." },
+  "MeetingTemplate3": { headline: "FALTANTE", subtitle: "Resumen de Beneficios",     body: "Aquí hay un resumen de los beneficios clave y lo que significan para usted." },
+  "MeetingTemplate4": { headline: "FALTANTE", subtitle: "Guarde la Fecha",        body: "Marque su calendario para este próximo evento de beneficios." },
+};
+
+const TOPICAL_TEMPLATE_DEFAULTS_ES: Record<string, FlyerTemplateDefaults> = {
+  "TopicalTemplate1": { headline: "FALTANTE", subtitle: "Obtenga más información sobre este tema", body: "Explore este tema para comprender cómo encaja en su estrategia general de beneficios." },
+};
+
 export default function MarketingAssetModal({
   open,
   onOpenChange,
@@ -214,6 +225,7 @@ export default function MarketingAssetModal({
   const [assetStatus, setAssetStatus] = useState<MarketingAssetStatus>("Draft");
   const [flyerCategory, setFlyerCategory] = useState("");
   const [flyerTemplate, setFlyerTemplate] = useState<string>("MeetingTemplate1");
+  const [flyerLanguage, setFlyerLanguage] = useState<"en" | "es">("en");
   const DEFAULT_DISCLAIMER = "Securities and advisory services offered through LPL Financial, a registered investment advisor, Member FINRA/SIPC.";
   const [disclaimerText, setDisclaimerText] = useState(DEFAULT_DISCLAIMER);
 
@@ -299,18 +311,19 @@ export default function MarketingAssetModal({
     }
   }, [flyerMode, flyerStep, resolvedType, flyerTemplate]);
 
-  // Apply template defaults whenever user enters step 3 (template) or changes template
+  // Apply template defaults whenever user enters step 3 (template) or changes template/language
   useEffect(() => {
     if (resolvedType !== "flyer" || flyerStep < 3) return;
-    const defaults = flyerMode === "meeting"
-      ? MEETING_TEMPLATE_DEFAULTS[flyerTemplate]
-      : TOPICAL_TEMPLATE_DEFAULTS[flyerTemplate];
+    const dict = flyerLanguage === "es"
+      ? (flyerMode === "meeting" ? MEETING_TEMPLATE_DEFAULTS_ES : TOPICAL_TEMPLATE_DEFAULTS_ES)
+      : (flyerMode === "meeting" ? MEETING_TEMPLATE_DEFAULTS : TOPICAL_TEMPLATE_DEFAULTS);
+    const defaults = dict[flyerTemplate];
     if (!defaults) return;
     setHeadline(defaults.headline);
     setFlyerSubtitle(defaults.subtitle);
     // Convert /n to actual newlines so defaults can define line breaks
     setBody(defaults.body.replace(/\/n/g, "\n"));
-  }, [flyerTemplate, flyerStep, flyerMode, resolvedType]);
+  }, [flyerTemplate, flyerStep, flyerMode, resolvedType, flyerLanguage]);
 
   useEffect(() => {
     if (editingAsset) {
@@ -760,7 +773,7 @@ export default function MarketingAssetModal({
             <div className="space-y-4">
               <div>
                 <Label className="text-base font-semibold">What kind of flyer?</Label>
-                <p className="text-xs text-muted-foreground mt-1">Choose how you&rsquo;d like to create your flyer.</p>
+                <p className="text-xs text-muted-foreground mt-1">Choose how you'd like to create your flyer.</p>
               </div>
               <div className="grid grid-cols-1 gap-3">
                 <button
@@ -935,6 +948,39 @@ export default function MarketingAssetModal({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Flyer: Language toggle */}
+      {resolvedType === "flyer" && flyerStep >= 3 && (
+        <div className="flex items-center justify-end gap-2">
+          <span className="text-xs text-muted-foreground font-medium">Language:</span>
+          <div className="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setFlyerLanguage("en")}
+              className={cn(
+                "px-3 py-1.5 text-xs font-medium transition-colors",
+                flyerLanguage === "en"
+                  ? "bg-gray-900 text-white dark:bg-accent-blue"
+                  : "bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+              )}
+            >
+              English
+            </button>
+            <button
+              type="button"
+              onClick={() => setFlyerLanguage("es")}
+              className={cn(
+                "px-3 py-1.5 text-xs font-medium transition-colors",
+                flyerLanguage === "es"
+                  ? "bg-gray-900 text-white dark:bg-accent-blue"
+                  : "bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+              )}
+            >
+              Español
+            </button>
+          </div>
         </div>
       )}
 

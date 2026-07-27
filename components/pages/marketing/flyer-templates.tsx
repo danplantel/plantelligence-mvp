@@ -445,7 +445,7 @@ function MeetingTemplate1({
   flyerSubtitle, organizationLogo, disclaimerText,
 }: FlyerPreviewProps) {
   const { wrapText } = useFlyerHelpers(startDate, meetingTime);
-  const bodyLines = body ? wrapText(body, 72) : [];
+  const bodyLines = body ? wrapText(body, 76) : [];
   const parts = body ? parseBodySegments(body) : [];
   const userBullets = hasUserBullets(body);
   const { url: resolvedPlanLogo } = useBrandingImageUrl(planLogo);
@@ -538,7 +538,7 @@ function MeetingTemplate1({
         })
       ) : bodyLines.length > 0 ? (
         bodyLines.slice(0, 6).map((line, i) => (
-          <text key={i} x="306" y={510 + i * 24} textAnchor="middle" fill="#333" fontSize="15" fontWeight="400" fontFamily="'Montserrat', sans-serif">{renderFormattedText(line)}</text>
+          <text key={i} x="306" y={510 + i * 24} textAnchor="middle" fill="#333" fontSize="14" fontWeight="400" fontFamily="'Montserrat', sans-serif" letterSpacing="-0.3">{renderFormattedText(line)}</text>
         ))
       ) : (
         <>
