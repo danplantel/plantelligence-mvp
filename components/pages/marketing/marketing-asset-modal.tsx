@@ -320,7 +320,7 @@ export default function MarketingAssetModal({
       setBody((editingAsset.body as string) || "");
       setStartDate((editingAsset.startDate as string) || "");
       setEndDate((editingAsset.endDate as string) || "");
-      setBgColor((editingAsset.bgColor as string) || "#23919c");
+      setBgColor((editingAsset.bgColor as string) || (assetType === "flyer" ? "#111111" : "#23919c"));
       setCtaText((editingAsset.ctaText as string) || (d.ctaText as string) || "");
       setAssetStatus((editingAsset.status as MarketingAssetStatus) || "Draft");
 
@@ -370,7 +370,7 @@ export default function MarketingAssetModal({
       setBody("");
       setStartDate("");
       setEndDate("");
-      setBgColor(planBrandColor || "#23919c");
+      setBgColor(assetType === "flyer" ? "#111111" : (planBrandColor || "#23919c"));
       setFlyerStep(0);
       setFlyerMode(null);
       setFlyerTopic("");
