@@ -146,7 +146,7 @@ export type BodyPart = { kind: "text"; text: string } | { kind: "bullet"; text: 
 /** Check if body text contains explicit bullet markers (`- `, `* `, `• `) */
 export function hasUserBullets(body: string): boolean {
   if (!body) return false;
-  return body.split("\n").some((line) => /^\s*[-*•]\s/.test(line));
+  return body.split("\n").some((line) => /^\s*-\s/.test(line));
 }
 
 /** Parse body text into segments, preserving bullet-point structure */
@@ -156,8 +156,12 @@ export function parseBodySegments(body: string): BodyPart[] {
   const parts: BodyPart[] = [];
   for (const raw of lines) {
     const trimmed = raw.trim();
-    if (!trimmed) continue;
-    const match = trimmed.match(/^[-*•]\s+(.+)/);
+    if (!trimmed) {
+      // Preserve empty lines (from /n/n double newlines) as blank text parts
+      parts.push({ kind: "text", text: "" });
+      continue;
+    }
+    const match = trimmed.match(/^-\s+(.+)/);
     if (match) {
       parts.push({ kind: "bullet", text: match[1] });
     } else {
@@ -260,6 +264,18 @@ export function renderBodyParts(
             </text>,
           );
         }
+      }
+    } else if (part.text === "") {
+      // Empty line (from /n/n double newline) — render a blank line with spacing
+      if (lineIndex < maxLines) {
+        lineIndex++;
+        // Push a transparent space to occupy the line height
+        elements.push(
+          <text key={`p${partIndex}`} x={x} y={startY + (lineIndex - 1) * lineHeight} fill="transparent" fontSize={1}>
+            {""}
+          </text>,
+        );
+        partIndex++;
       }
     } else {
       // Plain text — wrap normally

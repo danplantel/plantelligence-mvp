@@ -118,6 +118,12 @@ const ASSET_META: Record<AssetType, { label: string; icon: string }> = {
   "news-post": { label: "News & Events Post", icon: "📰" },
 };
 
+// ── Text modifiers available in MEETING_TEMPLATE_DEFAULTS (and _ES) ──
+//   /n       → newline (line break)
+//   /n/n     → double newline (paragraph break)
+//   **text** → bold text
+//   {#hex}text{/} → colored text (e.g. {#ffcb0a}gold{/})
+//   - at line start → bullet point (triangle ▸, uses brand color)
 interface FlyerTemplateDefaults {
   headline: string;
   subtitle: string;
@@ -126,8 +132,8 @@ interface FlyerTemplateDefaults {
 
 const MEETING_TEMPLATE_DEFAULTS: Record<string, FlyerTemplateDefaults> = {
   "MeetingTemplate1": { headline: "MISSING", subtitle: "Retirement Savings From Former Employer", body: "Whether you've moved to a new job or are between opportunities, how you manage your savings now will shape your future retirement. /n **PLEASE CONTACT US TO BE RE-UNITED WITH YOUR MONEY**" },
-  "MeetingTemplate2": { headline: "Don't Leave This Unfinished.", subtitle: "Do you have a beneficiary listed for your retirement account?",     body: "People often forget to:/n* Add a beneficiary/n* Update an existing one/n* Review after major life events" },
-  "MeetingTemplate3": { headline: "Invest in Yourself: /n Start Your Retirement Journey Today!", subtitle: "Whether you're just starting your journey or looking to enhance your existing retirement strategy, every contribution counts.",     body: "- **It's Easy & Convenient**. Your contribution is automatically deducted from your pay and deposited into your account./n- **Employer Matching Contributions.** Take advantage of potential employer matching contributions\u2014it's like getting free money to boost your retirement savings even further.*/n- **Tax-Deferred Savings.** Money is put into your retirement account before federal (and most state) taxes. That means you don't pay taxes on it until you take the money out./n- **You're in Control.** Decide your contribution amount and investment strategy. Not sure how to invest? Our team at Waypoint Financial Advisors is here for you./n /n If you have any questions regarding your retirement future or how to get started in the plan, visit us by scanning the QR code below or call us at 877-757-3263. Para ayuda en español acerca del plan 401k, por favor llame al 877-757-3263" },
+  "MeetingTemplate2": { headline: "Don't Leave This Unfinished.", subtitle: "Do you have a beneficiary listed for your retirement account?",     body: "People often forget to:/n- Add a beneficiary/n- Update an existing one/n- Review after major life events" },
+  "MeetingTemplate3": { headline: "Invest in Yourself: /n Start Your Retirement Journey Today!", subtitle: "Whether you're just starting your journey or looking to enhance your existing retirement strategy, every contribution counts.",     body: "- **It's Easy & Convenient**. Your contribution is automatically deducted from your pay and deposited into your account./n- **Employer Matching Contributions.** Take advantage of potential employer matching contributions\u2014it's like getting free money to boost your retirement savings even further.*/n- **Tax-Deferred Savings.** Money is put into your retirement account before federal (and most state) taxes. That means you don't pay taxes on it until you take the money out./n- **You're in Control.** Decide your contribution amount and investment strategy. Not sure how to invest? Our team at Waypoint Financial Advisors is here for you./n/n If you have any questions regarding your retirement future or how to get started in the plan, visit us by scanning the QR code below or call us at 877-757-3263. Para ayuda en español acerca del plan 401k, por favor llame al 877-757-3263" },
   "MeetingTemplate4": { headline: "Transform Your Tomorrow: {#ffcb0a}Unlock the Full Potential of your 401(k)!{/}", subtitle: "Join Our Retirement Plan Advisory Team To Discover How To Maximize Your Retirement Benefits",        body: "Mark your calendar for this upcoming benefits event." },
 };
 
@@ -137,8 +143,8 @@ const TOPICAL_TEMPLATE_DEFAULTS: Record<string, FlyerTemplateDefaults> = {
 
 const MEETING_TEMPLATE_DEFAULTS_ES: Record<string, FlyerTemplateDefaults> = {
   "MeetingTemplate1": { headline: "FALTANTE", subtitle: "Ahorros para la Jubilación de Su ex Empleador", body: "Ya sea que haya cambiado de trabajo o se encuentre entre oportunidades, la manera en que administre sus ahorros hoy definira su jubilación futura. /n **POR FAVOR, CONTÁCTENOS PARA RECUPERAR SU DINERO**" },
-  "MeetingTemplate2": { headline: "No Dejes Esto Sin Terminar.", subtitle: "¿Tiene un beneficiario designado para su cuenta de jubilación?",     body: "Las personas a menudo olvidan:/n* Agregar un beneficiario/n* Actualizar uno existente/n* Revisar después de eventos importantes de la vida" },
-  "MeetingTemplate3": { headline: "Invierta en Usted Mismo: /n ¡Comience Hoy Su Viaje de Jubilación!", subtitle: "Ya sea que recién esté comenzando su viaje o buscando mejorar su estrategia de jubilación existente, cada contribución cuenta.",     body: "* Es Fácil y Conveniente. Su contribución se deduce automáticamente de su pago y se deposita en su cuenta./n* Contribuciones de Igualación del Empleador. Aproveche las posibles contribuciones de igualación del empleador\u2014es como obtener dinero gratis para impulsar aún más sus ahorros de jubilación.*/n* Ahorros con Impuestos Diferidos. El dinero se coloca en su cuenta de jubilación antes de los impuestos federales (y la mayoría estatales). Eso significa que no paga impuestos hasta que retire el dinero./n* Usted Tiene el Control. Decida su monto de contribución y estrategia de inversión. ¿No sabe cómo invertir? Nuestro equipo en Waypoint Financial Advisors está aquí para usted./nSi tiene alguna pregunta sobre su futuro de jubilación o cómo comenzar en el plan, visítenos escaneando el código QR a continuación o llámenos al 877-757-3263." },
+  "MeetingTemplate2": { headline: "No Dejes Esto Sin Terminar.", subtitle: "¿Tiene un beneficiario designado para su cuenta de jubilación?",     body: "Las personas a menudo olvidan:/n- Agregar un beneficiario/n- Actualizar uno existente/n- Revisar después de eventos importantes de la vida" },
+  "MeetingTemplate3": { headline: "Invierta en Usted Mismo: /n ¡Comience Hoy Su Viaje de Jubilación!", subtitle: "Ya sea que recién esté comenzando su viaje o buscando mejorar su estrategia de jubilación existente, cada contribución cuenta.",     body: "- Es Fácil y Conveniente. Su contribución se deduce automáticamente de su pago y se deposita en su cuenta./n- Contribuciones de Igualación del Empleador. Aproveche las posibles contribuciones de igualación del empleador\u2014es como obtener dinero gratis para impulsar aún más sus ahorros de jubilación.*/n- Ahorros con Impuestos Diferidos. El dinero se coloca en su cuenta de jubilación antes de los impuestos federales (y la mayoría estatales). Eso significa que no paga impuestos hasta que retire el dinero./n- Usted Tiene el Control. Decida su monto de contribución y estrategia de inversión. ¿No sabe cómo invertir? Nuestro equipo en Waypoint Financial Advisors está aquí para usted./nSi tiene alguna pregunta sobre su futuro de jubilación o cómo comenzar en el plan, visítenos escaneando el código QR a continuación o llámenos al 877-757-3263." },
   "MeetingTemplate4": { headline: "Transforme Su Mañana: {#ffcb0a}Descubra Cómo Maximizar Sus Beneficios de Jubilación!{/}", subtitle: "Únase a Nuestro Equipo de Asesoría de Planes de Jubilación para Descubrir Cómo Maximizar Sus Beneficios de Jubilación",        body: "Marque su calendario para este próximo evento de beneficios." },
 };
 
@@ -320,7 +326,7 @@ export default function MarketingAssetModal({
     const defaults = dict[flyerTemplate];
     if (!defaults) return;
     // Convert /n to actual newlines for all fields so defaults can define line breaks
-    const processText = (text: string) => text.replace(/\/n/g, "\n");
+    const processText = (text: string) => text.replace(/\/n\/n/g, "\n\n").replace(/\/n/g, "\n");
     setHeadline(processText(defaults.headline));
     setFlyerSubtitle(processText(defaults.subtitle));
     setBody(processText(defaults.body));
@@ -944,7 +950,7 @@ export default function MarketingAssetModal({
                   if (defaults) {
                     setHeadline(defaults.headline);
                     setFlyerSubtitle(defaults.subtitle);
-                    setBody(defaults.body.replace(/\/n/g, "\n"));
+                    setBody(defaults.body.replace(/\/n\/n/g, "\n\n").replace(/\/n/g, "\n"));
                   }
                 }}
               >
@@ -1085,7 +1091,7 @@ export default function MarketingAssetModal({
             className="dark:bg-gray-800"
           />
           <p className="text-[11px] text-muted-foreground">
-            Tip: start a line with <kbd className="rounded border bg-muted px-1 font-mono text-[10px]">-</kbd> or <kbd className="rounded border bg-muted px-1 font-mono text-[10px]">*</kbd> to create a bullet point
+            Tip: start a line with <kbd className="rounded border bg-muted px-1 font-mono text-[10px]">-</kbd> to create a bullet point
           </p>
           <p className="text-[11px] text-muted-foreground">
             Tip: wrap text with <kbd className="rounded border bg-muted px-1 font-mono text-[10px]">**</kbd> to make it <strong>bold</strong>
