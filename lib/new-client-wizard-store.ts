@@ -1116,30 +1116,30 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
           }
         }
 
+        let anySaveSucceeded = false;
+
         try {
-          // ── 1. Persist ALL data via save-draft (most reliable, atomic path) ──
+          // ── 1. Best-effort: persist ALL data via save-draft ──
           // The complete-v2 endpoint reads from wizard session records
           // (newClientCompanyBasics, etc.), which save-draft writes to.
-          // This single call covers every step and avoids individual endpoint
-          // fragility (large payloads, image processing timeouts, network blips).
+          // If this fails (e.g. 413 Payload Too Large for bundled data),
+          // the individual step saves below become the fallback.
           try {
             await get().saveAsDraft({ showDuplicatePlanDialog: false });
+            anySaveSucceeded = true;
             console.log("✅ completeWizard: saveAsDraft succeeded before publishing");
           } catch (draftError) {
-            console.error(
-              "❌ completeWizard: saveAsDraft failed:",
+            console.warn(
+              "⚠️ completeWizard: saveAsDraft failed (non-blocking) — falling back to individual step saves:",
               draftError instanceof Error ? draftError.message : String(draftError),
-            );
-            // If saveAsDraft itself fails, individual saves won't help — surface the error.
-            throw new Error(
-              `Failed to save wizard data before publishing: ${draftError instanceof Error ? draftError.message : "Unknown error"}`,
             );
           }
 
-          // ── 2. Best-effort individual saves (non-blocking) ──
-          // These are a safety net; saveAsDraft above already persisted everything.
-          // If any fail we log but do NOT abort — the complete-v2 endpoint can
-          // still read the data that save-draft wrote to the wizard session records.
+          // ── 2. Individual step saves (fallback if saveAsDraft failed) ──
+          // Each request has a much smaller payload than the bundled save-draft,
+          // so even if save-draft hit a body-size limit, these are more likely
+          // to succeed. With retry logic in saveStepDataToServer, transient
+          // failures are also handled.
           const stepSaveOrder: Array<keyof typeof stepData> = [
             "companyBasics",
             "welcomeStatement",
@@ -1166,17 +1166,23 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
               stepType,
               data,
             );
-            if (!saved) {
-              // Non-fatal: saveAsDraft already persisted the data to wizard
-              // session records, so complete-v2 can still read it. Log a warning
-              // for diagnostics but continue.
+            if (saved) {
+              anySaveSucceeded = true;
+            } else {
               console.warn(
-                `⚠️ completeWizard: saveStepDataToServer("${String(stepType)}") returned false — data was already saved via saveAsDraft, proceeding anyway`,
+                `⚠️ completeWizard: saveStepDataToServer("${String(stepType)}") returned false — proceeding anyway`,
               );
             }
           }
 
-          // ── 3. Call the publish endpoint ──
+          // ── 3. Fail only if NO save method succeeded ──
+          if (!anySaveSucceeded) {
+            throw new Error(
+              "Failed to persist wizard data before publishing: neither saveAsDraft nor individual step saves succeeded. Check network connectivity and try again.",
+            );
+          }
+
+          // ── 4. Call the publish endpoint ──
           const response = await fetch("/api/new-client-wizard/complete-v2", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
