@@ -60,7 +60,7 @@ export function ResumeOrNewPlanDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
 
-        <AlertDialogFooter className="flex-col items-stretch gap-2 sm:flex-col sm:items-stretch">
+        <AlertDialogFooter className="flex-col items-stretch gap-2 sm:flex-col sm:items-stretch sm:space-x-0">
           <Button
             type="button"
             variant="default"
