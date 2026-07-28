@@ -1117,6 +1117,29 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
         }
 
         try {
+          // ── 1. Persist ALL data via save-draft (most reliable, atomic path) ──
+          // The complete-v2 endpoint reads from wizard session records
+          // (newClientCompanyBasics, etc.), which save-draft writes to.
+          // This single call covers every step and avoids individual endpoint
+          // fragility (large payloads, image processing timeouts, network blips).
+          try {
+            await get().saveAsDraft({ showDuplicatePlanDialog: false });
+            console.log("✅ completeWizard: saveAsDraft succeeded before publishing");
+          } catch (draftError) {
+            console.error(
+              "❌ completeWizard: saveAsDraft failed:",
+              draftError instanceof Error ? draftError.message : String(draftError),
+            );
+            // If saveAsDraft itself fails, individual saves won't help — surface the error.
+            throw new Error(
+              `Failed to save wizard data before publishing: ${draftError instanceof Error ? draftError.message : "Unknown error"}`,
+            );
+          }
+
+          // ── 2. Best-effort individual saves (non-blocking) ──
+          // These are a safety net; saveAsDraft above already persisted everything.
+          // If any fail we log but do NOT abort — the complete-v2 endpoint can
+          // still read the data that save-draft wrote to the wizard session records.
           const stepSaveOrder: Array<keyof typeof stepData> = [
             "companyBasics",
             "welcomeStatement",
@@ -1144,12 +1167,16 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
               data,
             );
             if (!saved) {
-              throw new Error(
-                `Failed to save latest ${String(stepType)} data before publishing`,
+              // Non-fatal: saveAsDraft already persisted the data to wizard
+              // session records, so complete-v2 can still read it. Log a warning
+              // for diagnostics but continue.
+              console.warn(
+                `⚠️ completeWizard: saveStepDataToServer("${String(stepType)}") returned false — data was already saved via saveAsDraft, proceeding anyway`,
               );
             }
           }
 
+          // ── 3. Call the publish endpoint ──
           const response = await fetch("/api/new-client-wizard/complete-v2", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -1555,85 +1582,110 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
       },
 
       saveStepDataToServer: async (stepType: string, data: any) => {
-        try {
-          // Convert camelCase to kebab-case for API endpoints
-          const apiEndpoint = stepType.replace(/([A-Z])/g, "-$1").toLowerCase();
+        // ── Retry helper: up to 3 attempts with exponential backoff ──
+        const MAX_RETRIES = 3;
+        const RETRY_DELAY_MS = 800; // base delay, doubles each retry
 
-          // Create a sanitized version of data for logging (truncate base64 images)
-          // Use deep clone to avoid modifying original data
-          const sanitizeForLogging = (obj: any): any => {
-            if (!obj) return null;
-            if (typeof obj === "string" && obj.startsWith("data:image")) {
-              return `[BASE64_IMAGE: ${obj.length} chars]`;
-            }
-            if (Array.isArray(obj)) {
-              return obj.map((item) => sanitizeForLogging(item));
-            }
-            if (typeof obj === "object" && obj !== null) {
-              const sanitized: any = {};
-              Object.keys(obj).forEach((key) => {
-                const value = obj[key];
-                if (
-                  typeof value === "string" &&
-                  value.startsWith("data:image")
-                ) {
-                  sanitized[key] = `[BASE64_IMAGE: ${value.length} chars]`;
-                } else if (typeof value === "object" && value !== null) {
+        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+          try {
+            // Convert camelCase to kebab-case for API endpoints
+            const apiEndpoint = stepType
+              .replace(/([A-Z])/g, "-$1")
+              .toLowerCase();
+
+            // Create a sanitized version of data for logging (truncate base64 images)
+            // Use deep clone to avoid modifying original data
+            const sanitizeForLogging = (obj: any): any => {
+              if (!obj) return null;
+              if (typeof obj === "string" && obj.startsWith("data:image")) {
+                return `[BASE64_IMAGE: ${obj.length} chars]`;
+              }
+              if (Array.isArray(obj)) {
+                return obj.map((item) => sanitizeForLogging(item));
+              }
+              if (typeof obj === "object" && obj !== null) {
+                const sanitized: any = {};
+                Object.keys(obj).forEach((key) => {
+                  const value = obj[key];
                   if (
-                    value.url &&
-                    typeof value.url === "string" &&
-                    value.url.startsWith("data:image")
+                    typeof value === "string" &&
+                    value.startsWith("data:image")
                   ) {
-                    sanitized[key] = {
-                      ...value,
-                      url: `[BASE64_IMAGE: ${value.url.length} chars]`,
-                    };
+                    sanitized[key] = `[BASE64_IMAGE: ${value.length} chars]`;
+                  } else if (typeof value === "object" && value !== null) {
+                    if (
+                      value.url &&
+                      typeof value.url === "string" &&
+                      value.url.startsWith("data:image")
+                    ) {
+                      sanitized[key] = {
+                        ...value,
+                        url: `[BASE64_IMAGE: ${value.url.length} chars]`,
+                      };
+                    } else {
+                      sanitized[key] = sanitizeForLogging(value);
+                    }
                   } else {
-                    sanitized[key] = sanitizeForLogging(value);
+                    sanitized[key] = value;
                   }
-                } else {
-                  sanitized[key] = value;
-                }
-              });
-              return sanitized;
-            }
-            return obj;
-          };
-          const sanitizedData = sanitizeForLogging(data);
-
-          // Log overlay settings specifically for companyBasics
-          if (stepType === "companyBasics" && data) {
-            const overlaySettings = {
-              heroContainerOpacity: (data as any)?.heroContainerOpacity,
-              heroInverted: (data as any)?.heroInverted,
-              heroUseGradient: (data as any)?.heroUseGradient,
-              heroOverlayOpacity: (data as any)?.heroOverlayOpacity,
-              heroBackgroundOpacity: (data as any)?.heroBackgroundOpacity,
-              heroCompanyNameColor: (data as any)?.heroCompanyNameColor,
+                });
+                return sanitized;
+              }
+              return obj;
             };
-          }
+            const sanitizedData = sanitizeForLogging(data);
 
-          const response = await fetch(
-            `/api/new-client-wizard/${apiEndpoint}`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
+            const response = await fetch(
+              `/api/new-client-wizard/${apiEndpoint}`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify(data),
               },
-              body: JSON.stringify(data),
-            },
-          );
+            );
 
-          if (response.ok) {
-            const responseData = await response.json().catch(() => ({}));
-            return true;
-          } else {
-            const errorText = await response.text();
-            return false;
+            if (response.ok) {
+              const responseData = await response.json().catch(() => ({}));
+              return true;
+            }
+
+            // Non-OK response — log and retry if attempts remain
+            const status = response.status;
+            const errorText = await response.text().catch(() => "");
+            console.warn(
+              `⚠️ saveStepDataToServer "${stepType}" attempt ${attempt}/${MAX_RETRIES}: HTTP ${status} — ${errorText.slice(0, 200)}`,
+            );
+
+            // Don't retry client errors (4xx except 408/429) — they won't succeed on retry
+            if (
+              status >= 400 &&
+              status < 500 &&
+              status !== 408 &&
+              status !== 429
+            ) {
+              return false;
+            }
+          } catch (error) {
+            console.warn(
+              `⚠️ saveStepDataToServer "${stepType}" attempt ${attempt}/${MAX_RETRIES}: network error — ${error instanceof Error ? error.message : String(error)}`,
+            );
           }
-        } catch (error) {
-          return false;
+
+          // Wait before retrying (exponential backoff)
+          if (attempt < MAX_RETRIES) {
+            await new Promise((resolve) =>
+              setTimeout(resolve, RETRY_DELAY_MS * Math.pow(2, attempt - 1)),
+            );
+          }
         }
+
+        // All retries exhausted
+        console.error(
+          `❌ saveStepDataToServer "${stepType}" FAILED after ${MAX_RETRIES} attempts`,
+        );
+        return false;
       },
 
       loadStepData: async (stepType: string, force: boolean = false) => {
