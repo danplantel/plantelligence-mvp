@@ -74,9 +74,22 @@ export const validateCompanyBasics = (data: CompanyBasicsData) => {
 
   // Company website is optional in new structure
   if (data.companyWebsite && data.companyWebsite.trim() !== "") {
-    // Basic URL validation
-    const urlPattern = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/;
-    if (!urlPattern.test(data.companyWebsite)) {
+    const trimmed = data.companyWebsite.trim();
+    // Validate using built-in URL parser for better accuracy.
+    // Accept: example.com, sub.example.com, https://example.com/path?query,
+    //         calendly.com/username (with @ in path internally encoded).
+    let valid = false;
+    try {
+      // Try as full URL first
+      const url = trimmed.startsWith("http://") || trimmed.startsWith("https://")
+        ? new URL(trimmed)
+        : new URL(`https://${trimmed}`);
+      // Must have at least a hostname with a dot (basic domain check)
+      valid = url.hostname.includes(".");
+    } catch {
+      valid = false;
+    }
+    if (!valid) {
       errors.push({ field: "companyWebsite", message: "Please enter a valid website URL" });
     }
   }
@@ -232,12 +245,7 @@ export const validateNewClientCurrentStepV2 = async (step: number, stepData: any
           step1Errors.push("companyName");
         }
 
-        if (
-          !stepData.companyBasics?.companyWebsite ||
-          stepData.companyBasics.companyWebsite.trim() === ""
-        ) {
-          step1Errors.push("companyWebsite");
-        }
+        // companyWebsite is optional — only validate format if provided (handled in validateCompanyBasics below)
 
         if (
           !stepData.companyBasics?.planType ||
