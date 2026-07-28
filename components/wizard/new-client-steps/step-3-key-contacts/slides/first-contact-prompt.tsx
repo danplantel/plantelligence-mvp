@@ -63,8 +63,8 @@ export function FirstContactPrompt({ onContinue, onSomeoneElseSelect }: FirstCon
       <div className="space-y-2 max-w-xl">
         <h2 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-gray-100 leading-tight">
           Who{'\''}s the main point of contact for{" "}
-          <span className="text-accent-blue">{displayName}</span>
-          {'\''}s benefits plan?
+          <span className="text-accent-blue">{displayName}</span>{" "}
+          benefits plan?
         </h2>
         <p className="py-4 text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto">
           Start by selecting who manages the benefits plan. Choose <strong>Company / Plan Sponsor</strong> for an internal contact like an HR manager, or choose <strong>Someone Else</strong> for a third-party administrator, advisor, or external benefits contact.
