@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useState } from "react";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -34,44 +35,83 @@ export function NavigateAwayWarningDialog({
   onDialogOpenChange,
   onDiscardPointerDownCapture,
 }: NavigateAwayWarningDialogProps) {
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false);
   const isLoading = isSaving || isDiscarding;
 
+  const handleDiscardClick = useCallback(() => {
+    if (confirmingDiscard) {
+      setConfirmingDiscard(false);
+      onDiscardWithoutSaving();
+    } else {
+      setConfirmingDiscard(true);
+    }
+  }, [confirmingDiscard, onDiscardWithoutSaving]);
+
+  const handleStay = useCallback(() => {
+    setConfirmingDiscard(false);
+    onStay();
+  }, [onStay]);
+
+  const handleSaveAndExit = useCallback(() => {
+    setConfirmingDiscard(false);
+    onSaveAndExit();
+  }, [onSaveAndExit]);
+
+  const handleDialogOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      if (!nextOpen) {
+        setConfirmingDiscard(false);
+      }
+      onDialogOpenChange(nextOpen);
+    },
+    [onDialogOpenChange],
+  );
+
   return (
-    <AlertDialog open={open} onOpenChange={onDialogOpenChange}>
+    <AlertDialog open={open} onOpenChange={handleDialogOpenChange}>
       <AlertDialogContent className="sm:max-w-[460px]">
         <AlertDialogHeader>
-          <AlertDialogTitle>Leave this setup?</AlertDialogTitle>
+          <AlertDialogTitle>
+            {confirmingDiscard
+              ? "Are you sure you want to discard?"
+              : "Leave this setup?"}
+          </AlertDialogTitle>
           <AlertDialogDescription>
-            You have unsaved changes. If you leave now, your updates may be
-            lost.
+            {confirmingDiscard
+              ? "This action cannot be undone. All unsaved changes will be lost."
+              : "You have unsaved changes. If you leave now, your updates may be lost."}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="flex-col items-stretch gap-2 sm:flex-col sm:items-stretch sm:space-x-0">
-          <Button
-            type="button"
-            variant="default"
-            onClick={onSaveAndExit}
-            disabled={isLoading}
-            className="w-full"
-          >
-            {isSaving ? (
-              <span className="flex items-center justify-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Saving...
-              </span>
-            ) : (
-              "Save and exit"
-            )}
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={onStay}
-            disabled={isLoading}
-            className="w-full"
-          >
-            Stay and keep editing
-          </Button>
+          {!confirmingDiscard && (
+            <>
+              <Button
+                type="button"
+                variant="default"
+                onClick={handleSaveAndExit}
+                disabled={isLoading}
+                className="w-full"
+              >
+                {isSaving ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Saving...
+                  </span>
+                ) : (
+                  "Save and exit"
+                )}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleStay}
+                disabled={isLoading}
+                className="w-full"
+              >
+                Stay and keep editing
+              </Button>
+            </>
+          )}
           <Button
             type="button"
             variant="destructive"
@@ -80,7 +120,7 @@ export function NavigateAwayWarningDialog({
                 ? () => onDiscardPointerDownCapture()
                 : undefined
             }
-            onClick={onDiscardWithoutSaving}
+            onClick={handleDiscardClick}
             disabled={isLoading}
             className="w-full"
           >
@@ -89,10 +129,22 @@ export function NavigateAwayWarningDialog({
                 <Loader2 className="w-4 h-4 animate-spin" />
                 Discarding...
               </span>
+            ) : confirmingDiscard ? (
+              "Click again to confirm"
             ) : (
               "Discard without saving"
             )}
           </Button>
+          {confirmingDiscard && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setConfirmingDiscard(false)}
+              className="w-full"
+            >
+              Cancel
+            </Button>
+          )}
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
