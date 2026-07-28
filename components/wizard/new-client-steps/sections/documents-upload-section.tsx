@@ -626,14 +626,15 @@ export function DocumentsUploadSection({
               currentFile: "AI naming in progress...",
               fileStatuses: prev.fileStatuses.map((s) => ({ ...s, status: "ready" as const })),
             } : null);
-            const suggestedNames = await suggestDocumentNamesBatch(geminiInputs);
-            if (suggestedNames.length === newDocuments.length) {
+            const suggestedResults = await suggestDocumentNamesBatch(geminiInputs);
+            if (suggestedResults.length === newDocuments.length) {
               let applied = 0;
               for (let i = 0; i < newDocuments.length; i++) {
-                if (suggestedNames[i] && suggestedNames[i].trim()) {
+                const title = suggestedResults[i]?.display_title?.trim();
+                if (title) {
                   newDocuments[i] = {
                     ...newDocuments[i],
-                    name: suggestedNames[i].trim(),
+                    name: title,
                   };
                   applied++;
                 }
