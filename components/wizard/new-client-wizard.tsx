@@ -69,11 +69,9 @@ export function NewClientWizard({
     (stepData as any)?.step3SubStep?.step3SubStep ||
     (stepData as any)?.step3SubStep;
 
-  // The Next button should only be enabled on Step 3 when the user reaches
-  // the preview/layout slide (step3d).  The Category Explorer (step3c) has its
-  // own internal "Continue" button — the bottom-bar Next must not interfere.
-  const isStep3OnPreviewSlide = currentStep === 3 && step3SubStep === "step3d";
-  const isNextEnabled = currentStep === 3 ? isStep3OnPreviewSlide : hasStep3Contact;
+  // Next is enabled for all Step 3 slides — navigation is delegated to the
+  // bottom bar (Previous/Next). Each slide's own buttons have been removed.
+  const isNextEnabled = currentStep === 3 ? true : hasStep3Contact;
 
   // Check if user needs to scroll to see all content
   const checkIfScrollNeeded = () => {

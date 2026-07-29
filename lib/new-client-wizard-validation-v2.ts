@@ -5,6 +5,7 @@ import {
   ComplianceDocumentsData
 } from "@/types/new-client-wizard";
 import { KeyContact } from "@/types/new-client-wizard";
+import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import {
   resolveStoredWelcomeBody,
   resolveStoredWelcomeHeadline,
@@ -386,7 +387,8 @@ export const validateNewClientCurrentStepV2 = async (step: number, stepData: any
 
         // Validate step3a - always validate if we're on step3a
         // Only validate category selection, not contact fields (those are validated in step3b)
-        if (step3SubStep === "step3a") {
+        // Skip when using slides (first-contact-prompt doesn't select categories)
+        if (step3SubStep === "step3a" && typeof useNewClientWizardStore.getState().step3SlideIndex !== "number") {
           const step3aData = stepData.step3a || {};
 
           // Validate only category selection
@@ -425,7 +427,8 @@ export const validateNewClientCurrentStepV2 = async (step: number, stepData: any
         }
 
         // Validate step3c - require benefits category selection (same as step3a)
-        if (step3SubStep === "step3c") {
+        // Skip when using slide-based routing (the Category Explorer doesn't select categories)
+        if (step3SubStep === "step3c" && typeof useNewClientWizardStore.getState().step3SlideIndex !== "number") {
           const step3cData = stepData.step3c || {};
           if (!step3cData.benefitsCategory) {
             throw new Error(
@@ -498,7 +501,7 @@ export const validateNewClientCurrentStepV2 = async (step: number, stepData: any
 
           // When creating new contact, validate step3b form as the current contact (no contact in list yet)
           let contactsToValidate: any[] = contactsForValidation;
-          if (contactsForValidation.length === 0 && isCreatingNew && step3bData) {
+          if (contactsForValidation.length === 0 && step3bData) {
             contactsToValidate = [{
               id: "new",
               contactType: step3bData.contactType || "individual",

@@ -896,6 +896,21 @@ export function ContactFormSlide({
     ],
   );
 
+  // Listen for save request from bottom bar Next button
+  useEffect(() => {
+    const handler = () => {
+      const contactId = saveContact();
+      window.dispatchEvent(
+        new CustomEvent("step3SaveContactResponse", {
+          detail: { success: !!contactId },
+        }),
+      );
+    };
+    window.addEventListener("step3SaveContactRequest", handler);
+    return () =>
+      window.removeEventListener("step3SaveContactRequest", handler);
+  }, [saveContact]);
+
   // Validate form
   const validate = useCallback((): boolean => {
     const errors: string[] = [];
@@ -1602,27 +1617,8 @@ export function ContactFormSlide({
         </StickyPreviewContainer>
       </div>
 
-      {/* Navigation Buttons — extra top margin prevents the sticky preview
-          card from overlapping the buttons at zoomed-in resolutions */}
-      <div className="flex items-center justify-center gap-4 w-full max-w-md mt-8">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onBack}
-          className="flex items-center gap-2"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back
-        </Button>
-        <Button
-          type="button"
-          onClick={handleContinue}
-          className="flex items-center gap-2 bg-accent-blue dark:bg-accent-blue hover:bg-accent-blue/90 text-white"
-        >
-          {isGuided ? "Save & Continue" : "Save Contact"}
-          <ArrowRight className="w-4 h-4" />
-        </Button>
-      </div>
+      {/* Navigation is handled by the bottom bar (Previous/Next buttons) */}
+
     </div>
   );
 }

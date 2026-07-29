@@ -413,10 +413,12 @@ async function handleStep3NextBySlide(
   switch (step3SlideIndex) {
     case 0: {
       // Slide 0 (First Contact Prompt) → Slide 1 (Contact Form)
+      // Default to Company/Plan Sponsor so validation passes
       set({
         step3SlideIndex: 1,
         stepData: {
           ...stepData,
+          step3a: { benefitsCategory: "Company / Plan Sponsor" },
           step3SubStep: { step3SubStep: "step3b" },
         },
       } as any);
@@ -426,12 +428,39 @@ async function handleStep3NextBySlide(
     case 1: {
       // Slide 1 (Contact Form) → Slide 2 (Category Explorer)
       // Validation is handled by validateNewClientCurrentStepV2
-      if (contacts.length >= 5) {
+      // Request the contact form to save its data before we advance
+      const saved = await new Promise<boolean>((resolve) => {
+        const handler = (e: CustomEvent<{ success: boolean }>) => {
+          resolve(e.detail.success);
+        };
+        const timeout = setTimeout(() => {
+          window.removeEventListener("step3SaveContactResponse", handler as EventListener);
+          resolve(false);
+        }, 5000);
+        const cleanup = () => {
+          clearTimeout(timeout);
+          window.removeEventListener("step3SaveContactResponse", handler as EventListener);
+        };
+        window.addEventListener("step3SaveContactResponse", ((e: CustomEvent<{ success: boolean }>) => {
+          cleanup();
+          resolve(e.detail.success);
+        }) as EventListener, { once: true });
+        window.dispatchEvent(new CustomEvent("step3SaveContactRequest"));
+      });
+
+      if (!saved) {
+        return { isValid: false, errors: [{ field: "contactForm", message: "Failed to save contact" }] };
+      }
+
+      // Re-read contacts after save
+      const updatedContacts = get().stepData.keyContacts?.contacts || [];
+
+      if (updatedContacts.length >= 5) {
         // Jump to preview if 5+ valid contacts
         set({
           step3SlideIndex: 3,
           stepData: {
-            ...stepData,
+            ...get().stepData,
             step3SubStep: { step3SubStep: "step3d" },
           },
         } as any);
@@ -439,7 +468,8 @@ async function handleStep3NextBySlide(
         set({
           step3SlideIndex: 2,
           stepData: {
-            ...stepData,
+            ...get().stepData,
+            step3c: { benefitsCategory: "Company / Plan Sponsor" },
             step3SubStep: { step3SubStep: "step3c" },
           },
         } as any);
@@ -453,6 +483,7 @@ async function handleStep3NextBySlide(
         step3SlideIndex: 3,
         stepData: {
           ...stepData,
+          step3c: { benefitsCategory: "Company / Plan Sponsor" },
           step3SubStep: { step3SubStep: "step3d" },
         },
       } as any);
@@ -865,6 +896,35 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
         const { currentStep, stepData } = get();
 
         if (currentStep === 3) {
+          const step3SlideIndex = get().step3SlideIndex;
+
+          // Slide-based backward routing (takes priority over legacy step3SubStep)
+          if (typeof step3SlideIndex === "number" && step3SlideIndex > 0) {
+            const prevIndex = step3SlideIndex - 1;
+            const legacyMap: Record<number, string> = {
+              0: "step3a",
+              1: "step3b",
+              2: "step3c",
+              3: "step3d",
+            };
+            set((state) => ({
+              step3SlideIndex: prevIndex,
+              stepData: {
+                ...state.stepData,
+                step3SubStep: { step3SubStep: legacyMap[prevIndex] || "step3a" },
+              },
+            } as any));
+            return;
+          }
+
+          // If on slide 0, go to previous main step
+          if (typeof step3SlideIndex === "number" && step3SlideIndex === 0) {
+            if (currentStep > 1) {
+              set({ currentStep: currentStep - 1, errorFields: [] });
+            }
+            return;
+          }
+
           const step3SubStep =
             (stepData as any)?.step3SubStep?.step3SubStep ||
             (stepData as any)?.step3SubStep;

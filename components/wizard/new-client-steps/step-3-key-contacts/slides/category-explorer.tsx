@@ -825,27 +825,8 @@ export function CategoryExplorer({
 
       </div>
 
-      {/* Navigation */}
-      <div className="flex items-center justify-center gap-4 w-full max-w-md pt-4">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onBack}
-          className="flex items-center gap-2"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back
-        </Button>
-        <Button
-          type="button"
-          onClick={onContinue}
-          className="flex items-center gap-2 bg-accent-blue dark:bg-accent-blue hover:bg-accent-blue/90 text-white"
-          disabled={!hasMinimumContacts}
-        >
-          {allCategoriesCovered ? "Review Team" : "Continue to Preview"}
-          <ArrowRight className="w-4 h-4" />
-        </Button>
-      </div>
+      {/* Navigation is handled by the bottom bar (Previous/Next buttons) */}
+
     </div>
   );
 }

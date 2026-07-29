@@ -1566,6 +1566,7 @@ export function NewClientStep3d({
                     </Button>
                   </div>
                 )}
+
               </div>
             </div>
           ) : (
