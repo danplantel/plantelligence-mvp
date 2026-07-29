@@ -7,7 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, ArrowRight, Mail, Phone, BadgeCheck, Calendar, Globe, PiggyBank, Shield, Heart, Puzzle, Users, Briefcase } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { ArrowLeft, ArrowRight, Mail, Phone, BadgeCheck, Calendar, Globe, PiggyBank, Shield, Heart, Puzzle, Users, Briefcase, Info } from "lucide-react";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { Headshot } from "@/components/ui/headshot";
@@ -1339,12 +1344,42 @@ export function ContactFormSlide({
                       <Label className="dark:text-gray-300 text-xs font-medium">
                         Scheduling URL
                       </Label>
-                      <Input
-                        value={schedulingUrl}
-                        onChange={(e) => setSchedulingUrl(e.target.value)}
-                        placeholder="https://calendly.com/..."
-                        className="h-8 text-sm"
-                      />
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={schedulingUrl}
+                          onChange={(e) => setSchedulingUrl(e.target.value)}
+                          placeholder="https://calendly.com/..."
+                          className="h-8 text-sm flex-1"
+                        />
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button
+                              type="button"
+                              className="flex-shrink-0 w-5 h-5 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                              aria-label="Info about CTA button types"
+                            >
+                              <Info className="w-3 h-3 text-gray-400" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-72 p-3 text-xs" side="left" align="center">
+                            <p className="font-medium mb-1 text-gray-900 dark:text-gray-100">
+                              Schedule Appt (Appointment)
+                            </p>
+                            <p className="text-gray-500 dark:text-gray-400 mb-3">
+                              When an employee clicks this button, they can book a meeting
+                              directly using the scheduling link you provide (e.g., Calendly,
+                              Microsoft Bookings).
+                            </p>
+                            <p className="font-medium mb-1 text-gray-900 dark:text-gray-100">
+                              Contact Form
+                            </p>
+                            <p className="text-gray-500 dark:text-gray-400">
+                              This opens a contact form or external page where the employee
+                              can send a message or submit an inquiry.
+                            </p>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
                     </div>
                   )}
 
@@ -1353,12 +1388,42 @@ export function ContactFormSlide({
                       <Label className="dark:text-gray-300 text-xs font-medium">
                         Contact Form URL
                       </Label>
-                      <Input
-                        value={websiteUrl}
-                        onChange={(e) => setWebsiteUrl(e.target.value)}
-                        placeholder="https://forms.company.com/..."
-                        className="h-8 text-sm"
-                      />
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={websiteUrl}
+                          onChange={(e) => setWebsiteUrl(e.target.value)}
+                          placeholder="https://forms.company.com/..."
+                          className="h-8 text-sm flex-1"
+                        />
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button
+                              type="button"
+                              className="flex-shrink-0 w-5 h-5 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                              aria-label="Info about CTA button types"
+                            >
+                              <Info className="w-3 h-3 text-gray-400" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-72 p-3 text-xs" side="left" align="center">
+                            <p className="font-medium mb-1 text-gray-900 dark:text-gray-100">
+                              Schedule Appt (Appointment)
+                            </p>
+                            <p className="text-gray-500 dark:text-gray-400 mb-3">
+                              When an employee clicks this button, they can book a meeting
+                              directly using the scheduling link you provide (e.g., Calendly,
+                              Microsoft Bookings).
+                            </p>
+                            <p className="font-medium mb-1 text-gray-900 dark:text-gray-100">
+                              Contact Form
+                            </p>
+                            <p className="text-gray-500 dark:text-gray-400">
+                              This opens a contact form or external page where the employee
+                              can send a message or submit an inquiry.
+                            </p>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
                     </div>
                   )}
 
