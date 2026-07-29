@@ -504,7 +504,11 @@ export function CategoryExplorer({
               const email = contact.email || "";
               const phone = contact.phone || "";
               const formattedPhone = phone
-                ? `(${phone.slice(0, 3)}) ${phone.slice(3, 6)}-${phone.slice(6, 10)}`
+                ? (() => {
+                    const digits = phone.replace(/\D/g, "");
+                    const national = digits.length > 10 ? digits.slice(1) : digits;
+                    return `(${national.slice(0, 3)}) ${national.slice(3, 6)}-${national.slice(6, 10)}`;
+                  })()
                 : "";
 
               return (
@@ -701,7 +705,11 @@ export function CategoryExplorer({
                       const email = contact.email || "";
                       const phone = contact.phone || "";
                       const formattedPhone = phone
-                        ? `(${phone.slice(0, 3)}) ${phone.slice(3, 6)}-${phone.slice(6, 10)}`
+                        ? (() => {
+                            const digits = phone.replace(/\D/g, "");
+                            const national = digits.length > 10 ? digits.slice(1) : digits;
+                            return `(${national.slice(0, 3)}) ${national.slice(3, 6)}-${national.slice(6, 10)}`;
+                          })()
                         : "";
 
                       return (

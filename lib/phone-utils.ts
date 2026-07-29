@@ -1,6 +1,7 @@
 /**
  * Formats a phone number for display with an optional extension.
- * Format: +1 (555) 555-5555 Ext. 123
+ * Strips the leading country code for US/CA numbers so the format is
+ * (555) 555-5555 Ext. 123 (no +1 prefix).
  */
 export function formatPhoneWithExtension(phone: string, extension?: string | null): string {
     if (!phone) return "";
@@ -11,10 +12,12 @@ export function formatPhoneWithExtension(phone: string, extension?: string | nul
     if (cleaned.length === 10) {
         formatted = `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
     } else if (cleaned.length === 11 && cleaned.startsWith("1")) {
-        formatted = `+1 (${cleaned.slice(1, 4)}) ${cleaned.slice(4, 7)}-${cleaned.slice(7)}`;
+        // Strip country code, display as national number
+        formatted = `(${cleaned.slice(1, 4)}) ${cleaned.slice(4, 7)}-${cleaned.slice(7)}`;
     } else if (cleaned.length > 10) {
-        // Very basic fallback for longer numbers
-        formatted = `+${cleaned.slice(0, cleaned.length - 10)} (${cleaned.slice(-10, -7)}) ${cleaned.slice(-7, -4)}-${cleaned.slice(-4)}`;
+        // Strip leading country code digits, display last 10 as national number
+        const national = cleaned.slice(-10);
+        formatted = `(${national.slice(0, 3)}) ${national.slice(3, 6)}-${national.slice(6)}`;
     }
 
     if (extension && extension.trim()) {

@@ -53,7 +53,9 @@ const formatPhoneNumber = (value: string): string => {
     return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3)}`;
   if (phoneNumber.length <= 10)
     return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6)}`;
-  return `+${phoneNumber.slice(0, 1)} (${phoneNumber.slice(1, 4)}) ${phoneNumber.slice(4, 7)}-${phoneNumber.slice(7, 11)}`;
+  // 11+ digits: strip leading country code and display as national number
+  const national = phoneNumber.slice(1);
+  return `(${national.slice(0, 3)}) ${national.slice(3, 6)}-${national.slice(6, 10)}`;
 };
 
 /** Compute a two-letter monogram from a contact name */
