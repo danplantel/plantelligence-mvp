@@ -237,13 +237,6 @@ export function PrimaryContactCard({
               : contact.title || contact.customRole}
           </p>
 
-          {/* COMPANY NAME */}
-          {(contact.companyName || companyName) && (
-            <p className="text-sm sm:text-base font-red-hat opacity-80 mb-1" style={{ color: textColor }}>
-              {contact.companyName || companyName}
-            </p>
-          )}
-
           {/* EMAIL (clickable) */}
           {contact.email && contact.displayEmail !== false && (
             <a

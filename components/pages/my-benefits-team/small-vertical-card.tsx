@@ -471,14 +471,6 @@ export function SmallVerticalCard({
             ? contact.departmentLabel || contact.customRole
             : contact.title || contact.customRole}
         </p>
-
-        {/* COMPANY NAME */}
-        <p
-          className="text-xs sm:text-sm font-semibold mb-2 sm:mb-4 font-red-hat text-center flex-shrink-0"
-          style={{ color: textColor || effectiveBrandColor }}
-        >
-          {contact.companyName}
-        </p>
       </div>
       {/* CONTACT INFO */}
       <div

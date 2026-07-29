@@ -186,13 +186,6 @@ function ContactCardPreview({
           {resolvedTitle}
         </p>
 
-        {/* Company name */}
-        {companyName && (
-          <p className="text-[10px] text-gray-400 text-center -mt-1">
-            {companyName}
-          </p>
-        )}
-
         {/* Divider */}
         <div className="w-full border-t border-gray-100 pt-2 space-y-1.5">
           {/* Email — controlled by displayEmail toggle */}
