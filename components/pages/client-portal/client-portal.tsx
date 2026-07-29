@@ -93,11 +93,10 @@ export function ClientPortal({
   const companyData = data?.companyData;
   const keyContacts = data?.keyContacts || [];
 
-  // Normalize hero background: use backgroundImg, fallback to header, then thumbnail
+  // Normalize hero background: use backgroundImg, fallback to header
   const heroBackgroundImg =
     companyData?.backgroundImg ||
     (companyData as any)?.brandImages?.header?.url ||
-    (companyData as any)?.brandImages?.thumbnail?.url ||
     "";
 
   // Dynamic brand colors

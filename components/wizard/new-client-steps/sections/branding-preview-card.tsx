@@ -43,7 +43,7 @@ export function BrandingPreviewCard({
 
   const headerUrl = stepData.companyBasics?.brandImages?.header?.url;
   const thumbnailUrl = stepData.companyBasics?.brandImages?.thumbnail?.url;
-  const backgroundValue = headerUrl ?? thumbnailUrl;
+  const backgroundValue = headerUrl;
   const { url: backgroundResolved } = useBrandingImageUrl(backgroundValue ?? null);
   const { url: thumbnailResolved } = useBrandingImageUrl(thumbnailUrl ?? null);
 

@@ -51,7 +51,7 @@ export function HeroBackgroundCard({
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground dark:text-gray-400">
-        This image displays in the header background of your Employee Benefits Hub. Upload a wide hero image for best results. If not uploading a picture, the Square Thumbnail will be used.
+        This image displays in the header background of your Employee Benefits Hub. Upload a wide hero image for best results.
       </p>
 
       {/* ── Desktop / Edit / Mobile segment toggle ── */}

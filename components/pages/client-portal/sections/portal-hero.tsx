@@ -99,7 +99,6 @@ export function PortalHero({
   const backgroundImgRaw =
     companyData?.backgroundImg ||
     (companyData as any)?.brandImages?.header?.url ||
-    (companyData as any)?.brandImages?.thumbnail?.url ||
     "";
   const { url: backgroundImg, loading: backgroundImgLoading } =
     useBrandingImageUrl(backgroundImgRaw || null);

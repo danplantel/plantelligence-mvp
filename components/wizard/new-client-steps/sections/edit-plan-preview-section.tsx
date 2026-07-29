@@ -526,7 +526,7 @@ export function EditPlanPreviewSection({
   );
 
   const heroImageData =
-    companyData?.brandImages?.header || companyData?.brandImages?.thumbnail || null;
+    companyData?.brandImages?.header || null;
 
   const welcomeCardData: WelcomeStatementData = {
     headline:

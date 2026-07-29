@@ -198,8 +198,8 @@ export function BannerPreviewSection({
     stepData.companyBasics,
   );
 
-  // Derived values: hero uses header, fallback to thumbnail when header empty
-  const heroImageData = companyData?.brandImages?.header || companyData?.brandImages?.thumbnail || null;
+  // Derived values: hero uses header only (no thumbnail fallback)
+  const heroImageData = companyData?.brandImages?.header || null;
   const heroBackgroundUrl = heroImageData?.url || "";
   const companyName = companyData?.companyName || "Company Name";
 
@@ -507,7 +507,7 @@ export function BannerPreviewSection({
   };
 
   const handleHeroBackgroundEditClick = () => {
-    const currentImage = companyData?.brandImages?.header || companyData?.brandImages?.thumbnail;
+    const currentImage = companyData?.brandImages?.header;
     if (currentImage) {
       setPendingHeroImageData(currentImage);
       setIsHeroModalOpen(true);
