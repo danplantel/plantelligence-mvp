@@ -531,7 +531,7 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                         <p className="text-sm font-medium">Client</p>
                       </Label>
                       <div className="text-xs text-muted-foreground dark:text-gray-400">
-                        Active plan for real clients
+                        Create a live Benefits Hub for an existing client
                       </div>
                     </div>
                   </div>
@@ -553,7 +553,7 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                         <p className="text-sm font-medium">Prospect</p>
                       </Label>
                       <div className="text-xs text-muted-foreground dark:text-gray-400">
-                        Draft plan for demos & presentations
+                        Create a demo Benefits Hub for a prospective client
                       </div>
                     </div>
                   </div>
