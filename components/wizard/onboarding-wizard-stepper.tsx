@@ -117,7 +117,7 @@ export function OnboardingWizardStepper({
              className="w-[20px]"
              alt="PlanTelligence"
            />
-           <CardTitle className="text-xl">{currentStepTitle}</CardTitle>
+           <CardTitle className="text-md">{currentStepTitle}</CardTitle>
          </div>
 
          {/* Step Indicators */}
@@ -137,7 +137,7 @@ export function OnboardingWizardStepper({
               <button
                 onClick={() => handleStepClick(step.id)}
                 disabled={!isClickable}
-                className={`size-8 rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0 ${
+                className={`size-5 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 ${
                   isCurrent
                     ? "bg-[#2ba8b5] text-white transition-none"
                     : isPast
@@ -160,10 +160,10 @@ export function OnboardingWizardStepper({
                 }
               >
                 {isPast ? (
-                  <Check className="w-5 h-5" />
+                  <Check className="w-2 h-2" />
                 ) : (
                   <p
-                    className="text-sm"
+                    className="text-xs"
                     style={isCurrent ? {
                       animationName: "wizard-text-pulse",
                       animationDuration: "5s",
@@ -178,7 +178,7 @@ export function OnboardingWizardStepper({
 
               {!isLastVisible && (
                 <div
-                  className={`h-1.5 flex-1 transition-all duration-200 ${
+                  className={`h-0.5 flex-1 mx-0.25 transition-all duration-200 ${
                     step.id < currentStep
                       ? "bg-accent-blue"
                       : isDarkMode ? "" : "bg-[#23919C]/10"

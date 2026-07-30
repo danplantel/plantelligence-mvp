@@ -581,8 +581,8 @@ export function OnboardingWizard({
         <>
           {/* Fixed header with stepper */}
           <div className="fixed top-0 left-0 right-0 bg-background border-b shadow-md z-40">
-            <div className="flex justify-center">
-              <div className="w-full max-w-6xl">
+              <div className="flex justify-center">
+                <div className="w-full max-w-6xl">
                 <OnboardingWizardStepper
                   currentStepTitle={currentStepTitle}
                   steps={steps}
