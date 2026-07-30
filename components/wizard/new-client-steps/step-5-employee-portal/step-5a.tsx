@@ -245,7 +245,7 @@ export function NewClientStep5a({
     draftClientId,
   } = useNewClientWizardStore();
 
-  const { stepData: onboardingStepData, loadAllWizardData } =
+  const { stepData: onboardingStepData, loadAllWizardData, loadStepData: loadOnboardingStepData } =
     useOnboardingWizardStore();
 
   // ── Resolve organisation & company name ──
@@ -253,6 +253,25 @@ export function NewClientStep5a({
     onboardingStepData.branding?.organizationName || "[Organization Name]";
   const companyName =
     newClientStepData.companyBasics?.companyName || "[Company Name]";
+
+  // ── Fetch the onboarding disclaimer text to use as default for new plans ──
+  const getOnboardingDisclaimerText = useCallback(async (): Promise<string | null> => {
+    try {
+      // Try in-memory store first
+      const onboardingDisclaimers = onboardingStepData.disclaimers?.disclaimers;
+      if (onboardingDisclaimers && onboardingDisclaimers.length > 0) {
+        return onboardingDisclaimers[0].text;
+      }
+      // Fall back to server
+      const data = await loadOnboardingStepData("disclaimers");
+      if (data?.disclaimers?.length > 0) {
+        return data.disclaimers[0].text;
+      }
+    } catch {
+      // Silently fail
+    }
+    return null;
+  }, [onboardingStepData.disclaimers, loadOnboardingStepData]);
 
   // ── Derive brand colours ──
   const primaryColor =
@@ -323,11 +342,52 @@ export function NewClientStep5a({
           return;
         }
 
+        // Try to inherit from Onboarding disclaimers before showing the prompt
+        const onboardingText = await getOnboardingDisclaimerText();
+        if (onboardingText) {
+          const inheritedDisclaimer: Disclaimer = {
+            id: Date.now().toString(),
+            text: onboardingText
+              .replace(/\[Organization Name\]/g, organizationName)
+              .replace(/\[Company Name\]/g, companyName),
+            locations: ["Home Page"],
+            customLocation: "",
+            scope: "plan",
+            apply_all_benefits_categories: false,
+          };
+          setDisclaimer(inheritedDisclaimer);
+          saveStepDataLocally("disclaimers", { disclaimers: [inheritedDisclaimer] });
+          setHasInitialized(true);
+          return;
+        }
+
         // No disclaimer found yet — show the prompt
         setHasInitialized(true);
         setShowInitialPrompt(true);
       } catch (error) {
         console.error("❌ Error initializing disclaimers:", error);
+        // Try onboarding fallback even on error
+        try {
+          const onboardingText = await getOnboardingDisclaimerText();
+          if (onboardingText) {
+            const inheritedDisclaimer: Disclaimer = {
+              id: Date.now().toString(),
+              text: onboardingText
+                .replace(/\[Organization Name\]/g, organizationName)
+                .replace(/\[Company Name\]/g, companyName),
+              locations: ["Home Page"],
+              customLocation: "",
+              scope: "plan",
+              apply_all_benefits_categories: false,
+            };
+            setDisclaimer(inheritedDisclaimer);
+            saveStepDataLocally("disclaimers", { disclaimers: [inheritedDisclaimer] });
+            setHasInitialized(true);
+            return;
+          }
+        } catch {
+          // fall through
+        }
         setHasInitialized(true);
         setShowInitialPrompt(true);
       }
@@ -402,12 +462,19 @@ export function NewClientStep5a({
   // ── Build disclosure text for the preview ──
   const buildDisclosureText = useCallback((): string => {
     if (!disclaimer) {
+      // Try to use onboarding disclaimer as preview fallback
+      const onboardingDisclaimers = onboardingStepData.disclaimers?.disclaimers;
+      if (onboardingDisclaimers && onboardingDisclaimers.length > 0) {
+        return onboardingDisclaimers[0].text
+          .replace(/\[Organization Name\]/g, organizationName)
+          .replace(/\[Company Name\]/g, companyName);
+      }
       return DEFAULT_DISCLOSURES_TEXT
         .replace("[Organization Name]", organizationName)
         .replace("[Company Name]", companyName);
     }
     return disclaimer.text;
-  }, [disclaimer, organizationName, companyName]);
+  }, [disclaimer, organizationName, companyName, onboardingStepData.disclaimers]);
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-20">

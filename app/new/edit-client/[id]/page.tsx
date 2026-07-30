@@ -63,6 +63,7 @@ import { EditPlanPreviewSection } from "@/components/wizard/new-client-steps/sec
 import { CardSelectionModal } from "@/components/wizard/new-client-steps/card-selection-modal";
 import { PortalDisclaimers } from "@/components/pages/client-portal/sections/portal-disclaimers";
 import { uploadBrandingToR2 } from "@/lib/branding-r2";
+import { DEFAULT_DISCLOSURES_TEXT } from "@/lib/disclaimer-constants";
 
 // ============================================================================
 // Helper Components
@@ -1445,7 +1446,9 @@ export default function EditClientPage() {
                               .join("\n\n");
                           if (raw.text) return raw.text;
                         }
-                        return "";
+                        return DEFAULT_DISCLOSURES_TEXT
+                          .replace("[Organization Name]", companyData.companyName || "[Organization Name]")
+                          .replace("[Company Name]", companyData.companyName || "[Company Name]");
                       })()}
                       onChange={(e) => setDisclaimers(e.target.value)}
                       placeholder="Enter legal disclaimers to display in the portal footer..."

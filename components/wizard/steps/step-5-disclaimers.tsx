@@ -6,6 +6,7 @@ import {
   useOnboardingWizardStore,
 } from "@/lib/onboarding-wizard-store";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
+import { DEFAULT_DISCLOSURES_TEXT } from "@/lib/disclaimer-constants";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -194,18 +195,16 @@ export function Step5Disclaimers({
       const year = new Date().getFullYear();
       const defaultDisclaimer: Disclaimer = {
         id: Date.now().toString(),
-        text: `
-        The information and resources provided on this website are for educational and informational purposes only and are not intended as ERISA, tax, legal, investment, insurance, medical, or other professional advice. Each plan, employer, and participant situation is unique. Plan sponsors, employers, and participants should consult their qualified legal, tax, investment, insurance, medical, or other licensed professionals regarding their specific circumstances.
-        Nothing on this website should be construed as a solicitation, recommendation, or endorsement to buy, sell, or maintain any security, insurance product, or investment strategy. PlanTelligence does not provide investment advice, does not act as an ERISA fiduciary, and does not determine plan design, benefit eligibility, or coverage.
-        PlanTelligence is an independent technology platform and is not affiliated with any broker-dealer, registered investment advisor, insurance carrier, recordkeeper, or third-party administrator.
-        Links to external websites are provided for informational purposes only and do not constitute an endorsement or approval by PlanTelligence or any associated firms.
-        PlanTelligence, ${organizationName ||
-          (useNewClientStore
-            ? (stepData as any).companyBasics?.companyName
-            : (stepData as any).branding?.organizationName) ||
-          "[Organization Name]"
-          }, and ${companyName || "[Company Name]"} are separate and unaffiliated entities.
-        © 2026 PlanTelligence. All rights reserved.`,
+        text: DEFAULT_DISCLOSURES_TEXT
+          .replace(
+            "[Organization Name]",
+            organizationName ||
+              (useNewClientStore
+                ? (stepData as any).companyBasics?.companyName
+                : (stepData as any).branding?.organizationName) ||
+              "[Organization Name]",
+          )
+          .replace("[Company Name]", companyName || "[Company Name]"),
         locations: ["Global"],
         customLocation: "",
       };

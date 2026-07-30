@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
+import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
 import { Disclaimer } from "@/types/new-client-wizard";
 import { DEFAULT_DISCLOSURES_TEXT } from "@/lib/disclaimer-constants";
 import { Footer } from "@/components/footer";
@@ -56,6 +57,39 @@ function buildDefaultDisclaimerText(
     .replace("[Company Name]", compName);
 }
 
+// Resolve inherited disclaimer text from plan or onboarding data
+function resolveInheritedDisclaimerText(
+  selectedPlan: any,
+  onboardingDisclaimers?: any,
+  orgName?: string,
+  compName?: string,
+): string {
+  // 1. Try plan's existing disclaimer
+  const raw = selectedPlan?.disclaimers;
+  if (raw) {
+    try {
+      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+      const arr: any[] = Array.isArray(parsed.disclaimers)
+        ? parsed.disclaimers
+        : Array.isArray(parsed)
+          ? parsed
+          : [];
+      if (arr.length > 0 && arr[0]?.text) {
+        return arr[0].text;
+      }
+    } catch { /* ignore */ }
+  }
+
+  // 2. Try onboarding disclaimer as fallback
+  const onboardingArr = onboardingDisclaimers?.disclaimers;
+  if (onboardingArr && onboardingArr.length > 0 && onboardingArr[0]?.text) {
+    return onboardingArr[0].text;
+  }
+
+  // 3. Fall back to hardcoded default
+  return buildDefaultDisclaimerText(orgName || "[Organization Name]", compName || "[Company Name]");
+}
+
 // ── Location options ──
 const LOCATION_OPTIONS = [
   { value: "Retirement Plan", label: "Retirement Plan page" },
@@ -77,6 +111,7 @@ interface DisclaimerModalProps {
   companyName: string;
   organizationName: string;
   benefitCategory: string;
+  inheritedText?: string;
   onSave: (data: Omit<Disclaimer, "id">) => Promise<void>;
   onClose: () => void;
 }
@@ -87,6 +122,7 @@ function DisclaimerModal({
   companyName,
   organizationName,
   benefitCategory,
+  inheritedText,
   onSave,
   onClose,
 }: DisclaimerModalProps) {
@@ -95,6 +131,7 @@ function DisclaimerModal({
 
   const [text, setText] = useState(
     disclaimer?.text ||
+      inheritedText ||
       buildDefaultDisclaimerText(organizationName, companyName),
   );
   const [locations, setLocations] = useState<string[]>(
@@ -261,6 +298,7 @@ function DisclaimerModal({
 
 export function BenefitsStep5() {
   const { stepData, saveStepData } = useBenefitsWizardStore();
+  const { stepData: onboardingStepData } = useOnboardingWizardStore();
 
   const planId = stepData.step1?.planId;
   const benefitCategory = stepData.step1?.benefitCategory || "";
@@ -419,13 +457,21 @@ export function BenefitsStep5() {
   const portalCategory =
     CATEGORY_PORTAL_LABELS[benefitCategory] || benefitCategory || "this benefit";
 
+  // ── Compute inherited text for new disclaimers ──
+  const inheritedText = resolveInheritedDisclaimerText(
+    selectedPlan,
+    onboardingStepData.disclaimers,
+    organizationName,
+    companyName,
+  );
+
   // ── Build disclosure text ──
   const buildDisclosureText = useCallback((): string => {
     if (!disclaimer) {
-      return buildDefaultDisclaimerText(organizationName, companyName);
+      return inheritedText;
     }
     return disclaimer.text;
-  }, [disclaimer, organizationName, companyName]);
+  }, [disclaimer, inheritedText]);
 
   // ── Brand colour from the selected plan ──
   const brandColor =
@@ -574,6 +620,7 @@ export function BenefitsStep5() {
           companyName={companyName}
           organizationName={organizationName}
           benefitCategory={benefitCategory}
+          inheritedText={inheritedText}
           onSave={handleSaveDisclaimer}
           onClose={() => {
             setIsModalOpen(false);
