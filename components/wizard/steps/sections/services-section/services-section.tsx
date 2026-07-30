@@ -57,7 +57,6 @@ export function ServicesSection({
         selectedValues={selectedCategories}
         onSelectionChange={handleCategoriesChange}
         placeholder="Select service categories..."
-        helperText="Select 1–4 categories. Same categories as in Settings."
         maxSelections={4}
       />
 

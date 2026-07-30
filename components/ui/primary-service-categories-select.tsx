@@ -15,7 +15,6 @@ interface PrimaryServiceCategoriesSelectProps {
   /** Optional label above the dropdown */
   label?: React.ReactNode;
   /** Optional helper text below */
-  helperText?: string;
 }
 
 /**
@@ -31,7 +30,6 @@ export function PrimaryServiceCategoriesSelect({
   disabled = false,
   maxSelections = 4,
   label,
-  helperText,
 }: PrimaryServiceCategoriesSelectProps) {
   const options = [...PRIMARY_SERVICE_CATEGORY_OPTIONS];
 
@@ -83,9 +81,6 @@ export function PrimaryServiceCategoriesSelect({
           );
         })}
       </div>
-      {helperText != null && (
-        <p className="mt-1 text-muted-foreground text-xs">{helperText}</p>
-      )}
     </div>
   );
 }
