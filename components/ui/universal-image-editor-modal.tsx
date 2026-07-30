@@ -150,7 +150,7 @@ export const IMAGE_EDITOR_CONFIGS: Record<ImageEditorType, ImageEditorConfig> =
     canvasHeight: 500,
     previewFormats: ["rectangular"],
     previewSizes: {
-      rectangular: { width: 300, height: 200 },
+      rectangular: { width: 1920, height: 1080 },
     },
     allowFlipping: true,
     allowScaling: true,
@@ -322,11 +322,11 @@ export function UniversalImageEditorModal({
     ...baseConfig,
     previewSizes: {
       ...baseConfig.previewSizes,
-      rectangular: { width: 300, height: 250 }, // Normal mode: 200x100 (landscape)
+      rectangular: baseConfig.previewSizes?.rectangular ?? { width: 300, height: 250 },
       custom:
         canvasMode === "compact"
           ? { width: 500, height: 80 } // Compact mode: 150x100 (landscape)
-          : { width: 300, height: 250 }, // Normal mode: 200x100 (landscape)
+          : baseConfig.previewSizes?.custom ?? { width: 300, height: 250 },
     },
   };
 

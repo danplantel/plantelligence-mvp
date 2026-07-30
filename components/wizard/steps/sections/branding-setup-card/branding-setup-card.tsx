@@ -100,6 +100,7 @@ export function BrandingSetupCard({
  }: BrandingSetupCardProps) {
    const [websiteError, setWebsiteError] = useState<string>("");
    const fileInputRef = useRef<HTMLInputElement>(null);
+   const subdomainManuallyEditedRef = useRef(false);
    const [infoDialogOpen, setInfoDialogOpen] = useState(false);
    const [infoDialogConfig, setInfoDialogConfig] = useState({ title: "", description: "" });
 
@@ -142,6 +143,7 @@ export function BrandingSetupCard({
 
   // Sanitize subdomain input — only lowercase, numbers, hyphens
   const handleSubdomainChange = (value: string) => {
+    subdomainManuallyEditedRef.current = true;
     const sanitized = value
       .toLowerCase()
       .replace(/[^a-z0-9-]/g, "-")
@@ -197,6 +199,13 @@ export function BrandingSetupCard({
           value={organizationName}
           onChange={async (e) => {
             onDataChange("organizationName", e.target.value);
+            // Auto-fill subdomain from org name until the user manually edits the subdomain field
+            if (!subdomainManuallyEditedRef.current) {
+              const slug = generateSubdomainSlug(e.target.value);
+              if (slug) {
+                onDataChange("subdomain", slug);
+              }
+            }
           }}
           placeholder="Enter organization name"
           required
