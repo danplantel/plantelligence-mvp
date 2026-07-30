@@ -229,7 +229,9 @@ export function BrandingSetupCard({
             </PopoverTrigger>
             <PopoverContent side="bottom" align="center" className="w-80 text-sm">
               <p>
-                Customize the subdomain where employees will access your benefits portal. This will be the unique URL for your organization's portal (e.g., <strong>your-organization.plantel.pro</strong>). Only lowercase letters, numbers, and hyphens are allowed.
+                {'Customize the subdomain where employees will access your benefits portal. This will be the unique URL for your organization\u2019s portal (e.g., '}
+                <strong>your-organization.plantel.pro</strong>
+                {'). Only lowercase letters, numbers, and hyphens are allowed.'}
               </p>
             </PopoverContent>
           </Popover>

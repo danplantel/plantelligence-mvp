@@ -59,11 +59,25 @@ export function UserNav() {
     setShowLogoutConfirm(false);
   };
 
-  // Load only user-related data (branding and userSetup) - only once on mount
+  // Fetch fresh user data on mount (skip stale zustand cache)
+  const [profileHeadshot, setProfileHeadshot] = useState<string>("");
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
-      await Promise.all([loadStepData("branding"), loadStepData("userSetup")]);
+      await Promise.all([
+        loadStepData("branding"),
+        loadStepData("userSetup"),
+      ]);
+      // Also fetch profile for headshot fallback
+      try {
+        const res = await fetch("/api/profile");
+        if (res.ok) {
+          const profile = await res.json();
+          setProfileHeadshot(profile.headshot || "");
+        }
+      } catch {
+        // Silently fail
+      }
       setIsLoading(false);
     };
     loadData();
@@ -73,10 +87,9 @@ export function UserNav() {
   // R2 keys are stored as "org/…"; raw <img src> on /new/… pages resolves to /new/org/… → 404.
   const rawUserImage =
     stepData.branding?.aiAvatar ||
-    stepData.userSetup?.headshotData?.avatar?.["64"] ||
-    stepData.userSetup?.headshotData?.circle?.["400"] ||
-    stepData.userSetup?.headshotData?.square?.["400"] ||
     stepData.userSetup?.headshot ||
+    (stepData.userSetup?.headshotData as any)?.previewDataUrl ||
+    profileHeadshot ||
     session?.user?.image ||
     "";
 

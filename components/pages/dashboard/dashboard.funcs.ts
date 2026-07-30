@@ -87,5 +87,6 @@ export const userInfo = {
   name: "Alicia",
   title: "Senior Financial Advisor",
   avatar: "",
+  rawAvatar: "",
   logo: "/logo-2.png",
 };

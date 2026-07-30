@@ -5,7 +5,7 @@ import { QuickActions } from "@/components/ui/quick-actions";
 import { DashboardPanels } from "@/components/ui/dashboard-panels";
 import { ResetOnboardingButton } from "@/components/ui/reset-onboarding-button";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Headshot } from "@/components/ui/headshot";
 import { BrandingImage } from "@/components/ui/branding-image";
 import useSWR from "swr";
@@ -14,6 +14,7 @@ import {
   quickActions,
   userInfo as defaultUserInfo,
 } from "./dashboard.funcs";
+import { resolveBrandingImageUrl } from "@/lib/branding-image-url";
 
 const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -49,20 +50,29 @@ export function Dashboard() {
     const wizardSession = profileData.wizardSessions?.[0];
     const userSetup = wizardSession?.userSetup;
     const branding = wizardSession?.branding;
+    const rawAvatar =
+      branding?.aiAvatar ||
+      profileData.headshot ||
+      userSetup?.headshot ||
+      (userSetup?.headshotData as any)?.previewDataUrl ||
+      "";
     return {
       name: userSetup?.name || profileData.name || "User",
       title: userSetup?.title || profileData.title || "Advisor",
       logo: branding?.logo || profileData.advisorLogoUrl || "/logo-2.png",
-      avatar:
-        branding?.aiAvatar ||
-        userSetup?.headshotData?.avatar?.["64"] ||
-        userSetup?.headshotData?.circle?.["400"] ||
-        userSetup?.headshotData?.square?.["400"] ||
-        userSetup?.headshot ||
-        profileData.headshot ||
-        "",
+      rawAvatar,
     };
   }, [profileData]);
+
+  // Pre-resolve R2 keys so the Headshot component receives a displayable URL
+  const [resolvedAvatar, setResolvedAvatar] = useState<string>("");
+  useEffect(() => {
+    let cancelled = false;
+    resolveBrandingImageUrl(userInfo.rawAvatar || null).then((url) => {
+      if (!cancelled) setResolvedAvatar(url ?? userInfo.rawAvatar ?? "");
+    });
+    return () => { cancelled = true; };
+  }, [userInfo.rawAvatar]);
 
   const demoStats = useMemo(() => {
     const stats = statsData?.data;
@@ -121,7 +131,7 @@ export function Dashboard() {
                 <section className="flex gap-4 items-center">
                   <div className="size-16 rounded-full overflow-hidden flex-shrink-0 border border-border dark:border-gray-600">
                     <Headshot
-                      src={userInfo.avatar || undefined}
+                      src={resolvedAvatar || userInfo.rawAvatar || undefined}
                       monogramName={userInfo.name}
                       alt="Avatar"
                     />
