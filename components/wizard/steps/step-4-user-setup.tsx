@@ -34,8 +34,8 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
     saveStepDataToServer,
     stepData,
     loadStepData,
-    validateCurrentStepFields,
     setErrorFields,
+    clearErrorFields,
   } = useOnboardingWizardStore();
 
   // Track if user is actively editing to prevent overwrites
@@ -91,6 +91,11 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
 
   // Debounce the form data for saving
   const debouncedFormData = useDebounce(watchedData, 2000);
+
+  // Clear any stale error fields on mount so fields start in normal state
+  useEffect(() => {
+    clearErrorFields();
+  }, [clearErrorFields]);
 
   // Load data when component mounts or when session changes
   useEffect(() => {
