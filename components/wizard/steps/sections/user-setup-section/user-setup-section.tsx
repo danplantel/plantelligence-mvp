@@ -272,7 +272,7 @@ export function UserSetupSection({
               value={field.value ? formatPhoneNumber(field.value) : ""}
               onChange={(e) => {
                 const normalized = normalizePhoneNumber(e.target.value);
-                if (normalized.length > 11) return;
+                if (normalized.length > 10) return;
                 field.onChange(normalized);
               }}
               onBlur={async (e) => {

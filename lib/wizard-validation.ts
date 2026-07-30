@@ -228,11 +228,11 @@ export const userSetupSchema = z.object({
     .refine((phone) => {
       // Remove all non-digit characters
       const digits = phone.replace(/\D/g, '');
-      // Accept 7-11 digits (flexible for different formats)
-      const isValid = digits.length >= 7 && digits.length <= 11;
+      // Accept 7-10 digits (US number, no country code)
+      const isValid = digits.length >= 7 && digits.length <= 10;
       return isValid;
     }, {
-      message: "Please enter a valid phone number (7-11 digits)"
+      message: "Please enter a valid phone number (7-10 digits)"
     }),
   title: z.string().min(1, "Title is required"),
   designations: z.array(z.string()).optional(),

@@ -242,16 +242,13 @@ export const formatPhoneNumber = (value: string): string => {
   if (phoneNumber.length === 0) return '';
   if (phoneNumber.length < 3) return phoneNumber;
 
-  // Format based on length
+  // Format based on length — no country code prefix
   if (phoneNumber.length <= 3) {
     return `(${phoneNumber}`;
   } else if (phoneNumber.length <= 6) {
     return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3)}`;
-  } else if (phoneNumber.length <= 10) {
-    return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6)}`;
   } else {
-    // Handle 11 digits (with country code)
-    return `+${phoneNumber.slice(0, 1)} (${phoneNumber.slice(1, 4)}) ${phoneNumber.slice(4, 7)}-${phoneNumber.slice(7, 11)}`;
+    return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
   }
 };
 
