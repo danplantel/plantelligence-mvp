@@ -232,7 +232,7 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
 
         if (currentStep < totalSteps) {
           const next = currentStep + 1;
-          set({ currentStep: next });
+          set({ currentStep: next, errorFields: [] });
           persistCurrentStep(next);
           // Reset showNextSteps when moving away from step 5
           if (currentStep === 5) {
@@ -252,7 +252,7 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
 
         if (currentStep > 1) {
           const prev = currentStep - 1;
-          set({ currentStep: prev });
+          set({ currentStep: prev, errorFields: [] });
           persistCurrentStep(prev);
         }
       },
@@ -260,7 +260,7 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
       goToStep: (step: number) => {
         const { totalSteps, persistCurrentStep } = get();
         if (step >= 1 && step <= totalSteps) {
-          set({ currentStep: step });
+          set({ currentStep: step, errorFields: [] });
           persistCurrentStep(step);
         }
       },
@@ -719,6 +719,7 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
       skipHydration: true,
       partialize: (state) => ({
         ...state,
+        errorFields: [],
         stepData: removeBase64Data(state.stepData),
       }),
     }

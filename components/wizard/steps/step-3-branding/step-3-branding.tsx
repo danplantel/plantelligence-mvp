@@ -74,7 +74,7 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
        website: stepData.branding?.website || "",
        missionStatement: stepData.branding?.missionStatement || "",
        brandColor: stepData.branding?.brandColor || "#1F3A60",
-       subdomain: stepData.branding?.subdomain || "benefits.acme.com",
+       subdomain: stepData.branding?.subdomain || "",
      },
      mode: "onSubmit",
    });
@@ -122,7 +122,7 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
     stepData.branding?.secondaryColor || "#4A90E2",
   );
   const [subdomain, setSubdomain] = useState(
-    stepData.branding?.subdomain || "benefits.acme.com",
+    stepData.branding?.subdomain || "",
   );
 
   // Refs to store the latest color values to avoid stale closures in saveData
@@ -279,7 +279,7 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
       setValue("logo", stepData.branding.logo || "");
       setValue("missionStatement", stepData.branding.missionStatement || "");
       setValue("brandColor", stepData.branding.brandColor || "#1F3A60");
-      setValue("subdomain", stepData.branding.subdomain || "benefits.acme.com");
+      setValue("subdomain", stepData.branding.subdomain || "");
 
       // Restore local state for primaryColor and secondaryColor from store
       // so color pickers show correct values when navigating back to Step 3
@@ -492,7 +492,6 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
                 await saveStepDataLocally("clientProfile", clientProfileData);
               }
 
-              setTimeout(() => validateCurrentStepFields(), 100);
             }}
             onFileUpload={async (
               field: "logo" | "backgroundImage",

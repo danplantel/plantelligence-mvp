@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { Label } from "@/components/ui/label";
@@ -18,7 +19,6 @@ import {
    Info,
  } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
-import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
 import { deleteFromR2 } from "@/lib/upload-to-r2";
 import { extractColorsFromImage } from "@/lib/extract-colors-from-image";
 
@@ -93,7 +93,6 @@ export function BrandingSetupCard({
    onLogoPreview,
    hideCard = false,
  }: BrandingSetupCardProps) {
-   const { validateCurrentStepFields } = useOnboardingWizardStore();
    const [websiteError, setWebsiteError] = useState<string>("");
    const fileInputRef = useRef<HTMLInputElement>(null);
    const [infoDialogOpen, setInfoDialogOpen] = useState(false);
@@ -123,9 +122,36 @@ export function BrandingSetupCard({
      isSecondaryColorPickerOpen,
      isGenerating,
      useDefaultWelcomeStatement = true,
+     subdomain,
    } = data;
 
-   // Validate website on change
+  // Generate a URL-safe subdomain slug from a string (e.g., organization name)
+  const generateSubdomainSlug = (name: string) => {
+    return name
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 20);
+  };
+
+  // Sanitize subdomain input — only lowercase, numbers, hyphens
+  const handleSubdomainChange = (value: string) => {
+    const sanitized = value
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, "-")
+      .replace(/-+/g, "-")
+      .slice(0, 20);
+    onDataChange("subdomain", sanitized);
+  };
+
+  // Compute the preview subdomain slug: use the entered value, auto-generate from org name, or fallback
+  const previewSubdomainSlug =
+    subdomain ||
+    generateSubdomainSlug(organizationName || "") ||
+    "your-organization";
+
+  // Validate website on change
    const handleWebsiteChange = (value: string) => {
      onDataChange("website", value);
      
@@ -134,9 +160,6 @@ export function BrandingSetupCard({
      } else {
        setWebsiteError("");
      }
-     
-     // Validate fields in real-time
-     setTimeout(() => validateCurrentStepFields(), 100);
    };
 
   // Update mission statement when organization name changes and using default
@@ -169,14 +192,66 @@ export function BrandingSetupCard({
           value={organizationName}
           onChange={async (e) => {
             onDataChange("organizationName", e.target.value);
-            // Validate fields in real-time
-            setTimeout(() => validateCurrentStepFields(), 100);
           }}
           placeholder="Enter organization name"
           required
           destructive={errorFields.includes("organizationName")}
           data-field="organizationName"
         />
+      </div>
+
+      {/* Portal Subdomain */}
+      <div>
+        <label className="block text-sm font-medium mb-1">
+          Portal Subdomain <span className="text-red-500">*</span>
+        </label>
+        <p className="text-sm text-muted-foreground dark:text-gray-400 mb-3">
+          Customize the subdomain where employees will access your benefits portal.
+        </p>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground dark:text-gray-400 bg-muted/50 dark:bg-gray-900/50 rounded-lg px-3 py-2 mb-3">
+          <span className="font-medium text-foreground dark:text-gray-200">
+            {previewSubdomainSlug}
+          </span>
+          <span className="shrink-0">.plantel.pro</span>
+        </div>
+        <div className="relative">
+          <Input
+            icon={<Link className="h-4 w-4" />}
+            value={subdomain}
+            onChange={(e) => handleSubdomainChange(e.target.value)}
+            placeholder={generateSubdomainSlug(organizationName || "") || "your-organization"}
+            required
+            destructive={errorFields.includes("subdomain")}
+            data-field="subdomain"
+            maxLength={20}
+          />
+          <div
+            className={`absolute -top-8 right-0 flex items-center gap-2 transition-all duration-500 ease-out ${subdomain.length >= 15
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-2 pointer-events-none"
+              }`}
+          >
+            <span
+              className={`text-xs transition-colors duration-300 ${subdomain.length >= 20
+                ? "text-red-500 dark:text-red-400"
+                : "text-muted-foreground dark:text-gray-400"
+                }`}
+            >
+              {subdomain.length}/20 characters
+            </span>
+            {subdomain.length >= 20 && (
+              <Badge
+                variant="destructive"
+                className="text-xs animate-in fade-in slide-in-from-right-2 duration-500"
+              >
+                Limit reached
+              </Badge>
+            )}
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground dark:text-gray-400 mt-2">
+          Only lowercase letters, numbers, and hyphens allowed. Max 20 characters.
+        </p>
       </div>
 
       {/* Organization Website */}
