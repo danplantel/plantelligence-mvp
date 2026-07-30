@@ -18,6 +18,11 @@ import {
    Image as ImageIcon,
    Info,
  } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { useEffect, useState, useRef } from "react";
 import { deleteFromR2 } from "@/lib/upload-to-r2";
 import { extractColorsFromImage } from "@/lib/extract-colors-from-image";
@@ -202,8 +207,23 @@ export function BrandingSetupCard({
 
       {/* Portal Subdomain */}
       <div>
-        <label className="block text-sm font-medium mb-1">
+        <label className="block text-sm font-medium mb-1 flex items-center gap-1">
           Portal Subdomain <span className="text-red-500">*</span>
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex items-center justify-center text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+              >
+                <Info className="h-3.5 w-3.5" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent side="bottom" align="center" className="w-80 text-sm">
+              <p>
+                Customize the subdomain where employees will access your benefits portal. This will be the unique URL for your organization's portal (e.g., <strong>your-organization.plantel.pro</strong>). Only lowercase letters, numbers, and hyphens are allowed.
+              </p>
+            </PopoverContent>
+          </Popover>
         </label>
         <p className="text-sm text-muted-foreground dark:text-gray-400 mb-3">
           Customize the subdomain where employees will access your benefits portal.
