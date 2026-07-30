@@ -51,11 +51,7 @@ const formatPhoneNumber = (value: string): string => {
   if (phoneNumber.length <= 3) return phoneNumber;
   if (phoneNumber.length <= 6)
     return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3)}`;
-  if (phoneNumber.length <= 10)
-    return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6)}`;
-  // 11+ digits: strip leading country code and display as national number
-  const national = phoneNumber.slice(1);
-  return `(${national.slice(0, 3)}) ${national.slice(3, 6)}-${national.slice(6, 10)}`;
+  return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
 };
 
 /** Compute a two-letter monogram from a contact name */
@@ -1263,7 +1259,7 @@ export function ContactFormSlide({
                     value={phone ? formatPhoneNumber(phone) : ""}
                     onChange={(e) => {
                       const digits = e.target.value.replace(/\D/g, "");
-                      if (digits.length <= 11) setPhone(digits);
+                      if (digits.length <= 10) setPhone(digits);
                     }}
                     placeholder="(555) 123-4567"
                     className={cn(

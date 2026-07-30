@@ -15,6 +15,7 @@ interface PrimaryServiceCategoriesSelectProps {
   /** Optional label above the dropdown */
   label?: React.ReactNode;
   /** Optional helper text below */
+  helperText?: React.ReactNode;
 }
 
 /**
@@ -30,6 +31,7 @@ export function PrimaryServiceCategoriesSelect({
   disabled = false,
   maxSelections = 4,
   label,
+  helperText,
 }: PrimaryServiceCategoriesSelectProps) {
   const options = [...PRIMARY_SERVICE_CATEGORY_OPTIONS];
 
@@ -54,6 +56,9 @@ export function PrimaryServiceCategoriesSelect({
     <div className={`space-y-3 ${className || ""}`}>
       {label != null && (
         <label className="block font-medium text-sm">{label}</label>
+      )}
+      {helperText != null && (
+        <p className="text-sm text-muted-foreground">{helperText}</p>
       )}
       <div className="space-y-2">
         {options.map((option) => {

@@ -36,7 +36,7 @@ import { SummaryEditModal } from "./sections/summary-edit-modals/summary-edit-mo
 import { AddTeamMembersSection } from "./sections/add-team-members-section/add-team-members-section";
 import { Step5Disclaimers } from "./step-5-disclaimers";
 
-// Format phone number for display
+// Format phone number for display (no country code)
 const formatPhoneNumber = (phone: string): string => {
   if (!phone) return "Not specified";
 
@@ -46,23 +46,15 @@ const formatPhoneNumber = (phone: string): string => {
   // Format based on length
   if (digits.length === 10) {
     return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
-  } else if (digits.length === 11 && digits[0] === "1") {
-    return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(
-      7,
-    )}`;
-  } else if (digits.length >= 7 && digits.length <= 11) {
-    // For other lengths, just add some formatting
-    if (digits.length === 7) {
-      return `${digits.slice(0, 3)}-${digits.slice(3)}`;
-    } else if (digits.length === 8) {
-      return `${digits.slice(0, 4)}-${digits.slice(4)}`;
-    } else if (digits.length === 9) {
-      return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
-    } else {
-      return phone; // Return as is for other lengths
-    }
+  } else if (digits.length === 7) {
+    return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  } else if (digits.length === 8) {
+    return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+  } else if (digits.length === 9) {
+    return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
   }
 
+  // Return as is for other lengths
   return phone;
 };
 
