@@ -362,14 +362,14 @@ export function BrandingSetupCard({
               <>
                 <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
                 <span className="text-xs text-green-600 dark:text-green-400">
-                  "{checkedSubdomain}" is available
+                  &ldquo;{checkedSubdomain}&rdquo; is available
                 </span>
               </>
             ) : availabilityStatus === "taken" ? (
               <>
                 <XCircle className="h-3.5 w-3.5 text-red-500" />
                 <span className="text-xs text-red-600 dark:text-red-400">
-                  "{checkedSubdomain}" is already taken
+                  &ldquo;{checkedSubdomain}&rdquo; is already taken
                 </span>
               </>
             ) : null}

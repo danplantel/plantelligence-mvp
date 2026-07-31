@@ -985,14 +985,14 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                       <>
                         <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
                         <span className="text-xs text-green-600 dark:text-green-400">
-                          "{checkedPortalUrl}" is available
+                          &ldquo;{checkedPortalUrl}&rdquo; is available
                         </span>
                       </>
                     ) : portalUrlAvailability === "taken" ? (
                       <>
                         <XCircle className="h-3.5 w-3.5 text-red-500" />
                         <span className="text-xs text-red-600 dark:text-red-400">
-                          "{checkedPortalUrl}" is already taken
+                          &ldquo;{checkedPortalUrl}&rdquo; is already taken
                         </span>
                       </>
                     ) : null}

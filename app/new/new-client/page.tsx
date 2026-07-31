@@ -548,6 +548,7 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
                     onClick={() => {
                       window.open(successPortalUrl, "_blank", "noopener,noreferrer");
                       setShowSuccessDialog(false);
+                      // window.location.href = "/new/clients";
                     }}
                     className="w-full py-3 px-4 rounded-xl bg-accent-blue text-white font-semibold hover:bg-accent-blue/90 transition-colors"
                   >
