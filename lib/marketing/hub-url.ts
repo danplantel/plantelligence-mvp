@@ -24,18 +24,33 @@ export function getBenefitsHubPathFromSlug(slug: string): string {
 }
 
 /**
- * Absolute URL used in flyer QR codes. Requires server env configuration.
+ * Absolute URL used in flyer QR codes, email links, and anywhere an
+ * external-facing portal link is needed.
  *
  * When a subdomain is provided (the advisor's User.subdomain), the URL is built
  * as: https://{subdomain}.{rootDomain}/new/view/{slug}
  *
  * Example: https://waypoint.plantel.pro/new/view/gloomis
+ *
+ * When no subdomain is provided (local dev or advisor hasn't set one), falls
+ * back to NEXT_PUBLIC_APP_URL or NEXTAUTH_URL.
  */
-/**
- * Absolute URL used in flyer QR codes. Requires server env configuration.
- */
-export function getBenefitsHubAbsoluteUrl(clientIdOrSlug: string): string {
+export function getBenefitsHubAbsoluteUrl(
+  clientIdOrSlug: string,
+  userSubdomain?: string,
+): string {
   const path = getBenefitsHubPath(clientIdOrSlug);
+  const rootDomain =
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN ||
+    process.env.ROOT_DOMAIN ||
+    "plantel.pro";
+
+  if (userSubdomain) {
+    // Production: https://waypoint.plantel.pro/new/view/gloomis
+    return `https://${userSubdomain}.${rootDomain}${path}`;
+  }
+
+  // Fallback for local dev or when no subdomain is configured
   const base =
     process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
     process.env.NEXTAUTH_URL?.replace(/\/$/, "") ||
