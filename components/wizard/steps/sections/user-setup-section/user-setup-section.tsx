@@ -67,7 +67,7 @@ export function UserSetupSection({
     control,
     watch,
     setValue,
-    formState: { errors },
+    formState: { errors, touchedFields },
   } = useFormContext<UserSetupData>();
 
   const watchedTitle = watch("title");
@@ -283,7 +283,9 @@ export function UserSetupSection({
               placeholder="(555) 123-4567"
               required
               data-field="phone"
-              destructive={errorFields.includes("phone")}
+              // Only show the red validation border after the user has actually
+              // touched the phone field — prevents a premature error on load.
+              destructive={errorFields.includes("phone") && !!touchedFields.phone}
             />
           )}
         />

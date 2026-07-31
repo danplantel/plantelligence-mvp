@@ -56,6 +56,11 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
   );
   const suppressNextDebouncedSaveRef = useRef(false);
 
+  // Guard: block validation-driven errorFields while the step is mounting/loading,
+  // so fields like phone start in their normal (non-error) state until the user
+  // actually interacts with the form or validation is explicitly triggered.
+  const isReadyRef = useRef(false);
+
   // Modal states for editing
   const [showHeadshotModal, setShowHeadshotModal] = useState(false);
 
@@ -92,9 +97,15 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
   // Debounce the form data for saving
   const debouncedFormData = useDebounce(watchedData, 2000);
 
-  // Clear any stale error fields on mount so fields start in normal state
+  // Clear any stale error fields on mount so fields start in normal state,
+  // and mark the component ready after the current tick so no validation runs
+  // during the initial data-loading phase.
   useEffect(() => {
     clearErrorFields();
+    const t = setTimeout(() => {
+      isReadyRef.current = true;
+    }, 0);
+    return () => clearTimeout(t);
   }, [clearErrorFields]);
 
   // Load data when component mounts or when session changes
@@ -304,6 +315,10 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
       setValue(field as any, value);
     }
 
+    // Skip validation-driven errorFields until the component has finished mounting.
+    // This prevents premature red borders (e.g. phone) before the user interacts.
+    const ready = isReadyRef.current;
+
     // Clear existing timeout
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
@@ -330,23 +345,25 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
         } catch (error) {
           console.error("❌ Step4 - Headshot batch save failed:", error);
         }
-        try {
-          const { validateCurrentStep } = await import(
-            "@/lib/wizard-validation"
-          );
-          const currentFormData = methods.getValues();
-          const currentStepData = { ...stepData, userSetup: currentFormData };
-          const validationResult = await validateCurrentStep(
-            4,
-            currentStepData,
-          );
-          if (!validationResult.isValid && validationResult.errorFields) {
-            setErrorFields(validationResult.errorFields);
-          } else {
-            setErrorFields([]);
+        if (ready) {
+          try {
+            const { validateCurrentStep } = await import(
+              "@/lib/wizard-validation"
+            );
+            const currentFormData = methods.getValues();
+            const currentStepData = { ...stepData, userSetup: currentFormData };
+            const validationResult = await validateCurrentStep(
+              4,
+              currentStepData,
+            );
+            if (!validationResult.isValid && validationResult.errorFields) {
+              setErrorFields(validationResult.errorFields);
+            } else {
+              setErrorFields([]);
+            }
+          } catch (validationError) {
+            console.error("Error validating current step:", validationError);
           }
-        } catch (validationError) {
-          console.error("Error validating current step:", validationError);
         }
       }, 0);
       return;
@@ -383,47 +400,51 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
 
       // Validate after successful save using current form values (not stale store)
       setTimeout(async () => {
-        try {
-          const { validateCurrentStep } = await import(
-            "@/lib/wizard-validation"
-          );
-          const currentFormData = methods.getValues();
-          const currentStepData = { ...stepData, userSetup: currentFormData };
+        if (ready) {
+          try {
+            const { validateCurrentStep } = await import(
+              "@/lib/wizard-validation"
+            );
+            const currentFormData = methods.getValues();
+            const currentStepData = { ...stepData, userSetup: currentFormData };
 
-          const validationResult = await validateCurrentStep(
-            4,
-            currentStepData,
-          );
+            const validationResult = await validateCurrentStep(
+              4,
+              currentStepData,
+            );
 
-          if (!validationResult.isValid && validationResult.errorFields) {
-            setErrorFields(validationResult.errorFields);
-          } else {
-            setErrorFields([]);
+            if (!validationResult.isValid && validationResult.errorFields) {
+              setErrorFields(validationResult.errorFields);
+            } else {
+              setErrorFields([]);
+            }
+          } catch (validationError) {
+            console.error("Error validating current step:", validationError);
           }
-        } catch (validationError) {
-          console.error("Error validating current step:", validationError);
         }
       }, 200);
     } else {
       // For fields that don't require server save, validate immediately using current form values
       setTimeout(async () => {
-        try {
-          const { validateCurrentStep } = await import(
-            "@/lib/wizard-validation"
-          );
-          const currentFormData = methods.getValues();
-          const currentStepData = { ...stepData, userSetup: currentFormData };
-          const validationResult = await validateCurrentStep(
-            4,
-            currentStepData,
-          );
-          if (!validationResult.isValid && validationResult.errorFields) {
-            setErrorFields(validationResult.errorFields);
-          } else {
-            setErrorFields([]);
+        if (ready) {
+          try {
+            const { validateCurrentStep } = await import(
+              "@/lib/wizard-validation"
+            );
+            const currentFormData = methods.getValues();
+            const currentStepData = { ...stepData, userSetup: currentFormData };
+            const validationResult = await validateCurrentStep(
+              4,
+              currentStepData,
+            );
+            if (!validationResult.isValid && validationResult.errorFields) {
+              setErrorFields(validationResult.errorFields);
+            } else {
+              setErrorFields([]);
+            }
+          } catch (validationError) {
+            console.error("Error validating current step:", validationError);
           }
-        } catch (validationError) {
-          console.error("Error validating current step:", validationError);
         }
       }, 100);
     }
