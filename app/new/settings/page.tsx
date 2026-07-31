@@ -944,16 +944,16 @@ export default function SettingsPage() {
                 Delete Your Profile?
               </AlertDialogTitle>
             </div>
-            <AlertDialogDescription className="text-gray-600 dark:text-gray-400 space-y-3">
+            <AlertDialogDescription className="text-left text-gray-600 dark:text-gray-400 space-y-3">
               <p>
                 Are you sure you want to delete your profile? This will
                 permanently remove:
               </p>
-              <ul className="list-disc pl-5 text-sm space-y-1">
-                <li>Your account and login credentials</li>
-                <li>All wizard sessions and onboarding data</li>
-                <li>All plans, clients, and documents</li>
-                <li>All branding and settings</li>
+              <ul className="list-disc pl-5 text-left text-sm space-y-1">
+                <li className="text-left">Your account and login credentials</li>
+                <li className="text-left">All wizard sessions and onboarding data</li>
+                <li className="text-left">All plans, clients, and documents</li>
+                <li className="text-left">All branding and settings</li>
               </ul>
               <p className="font-semibold text-red-600 dark:text-red-400">
                 This action cannot be undone.
