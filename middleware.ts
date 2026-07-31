@@ -5,15 +5,16 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
-import prisma from "@/lib/prisma";
 
 /**
- * Extract the subdomain from a host header.
+ * Extract the tenant subdomain from a host header.
  *
  * Examples:
- *   "waypoint.plantel.pro" → "waypoint"
- *   "plantel.pro"          → null (no subdomain)
- *   "localhost:3000"       → null (local dev)
+ *   "waypoint.plantel.pro"        → "waypoint"
+ *   "www.waypoint.plantel.pro"    → "waypoint"  (www is stripped)
+ *   "www.plantel.pro"             → null (www alone is treated as apex)
+ *   "plantel.pro"                 → null (apex)
+ *   "localhost:3000"              → null (local dev)
  */
 function extractSubdomain(host: string, rootDomain: string): string | null {
   if (!host) return null;
@@ -21,10 +22,6 @@ function extractSubdomain(host: string, rootDomain: string): string | null {
   const base = host.replace(`.${rootDomain}`, "");
   const parts = base.split(".");
   // Take the rightmost subdomain part (closest to the root domain).
-  // This correctly handles both:
-  //   "waypoint.plantel.pro"        → "waypoint"
-  //   "www.waypoint.plantel.pro"    → "waypoint"  (www is just a prefix)
-  //   "www.plantel.pro"             → "www" → rejected (treated as apex)
   const candidate = parts[parts.length - 1];
   if (!candidate || candidate.includes(":") || candidate === "www") return null;
   return candidate;
@@ -41,22 +38,21 @@ export default async function middleware(req: NextRequest) {
 
   // ── Subdomain portal routing ──────────────────────────────────────────
   // Subdomains are ONLY valid for public portal paths (/new/view/*).
-  // Non-portal paths and invalid subdomains get a 404 — we never redirect
-  // to the apex from a subdomain because Vercel may chain an additional
-  // www redirect, causing a confusing redirect loop.
+  // The subdomain→advisor lookup is delegated to /api/resolve-subdomain
+  // (Node.js runtime) because Prisma cannot run in Edge middleware.
   if (subdomain) {
     if (pathname.startsWith("/new/view/")) {
       try {
-        const user = await prisma.user.findFirst({
-          where: { subdomain },
-          select: { id: true },
-        });
+        const resolveUrl = new URL("/api/resolve-subdomain", req.url);
+        resolveUrl.searchParams.set("subdomain", subdomain);
+        const resolveRes = await fetch(resolveUrl.toString());
 
-        if (!user) {
+        if (!resolveRes.ok) {
           return new NextResponse("Portal not found", { status: 404 });
         }
 
-        response.headers.set("x-advisor-id", user.id);
+        const { userId } = await resolveRes.json();
+        response.headers.set("x-advisor-id", userId);
         response.headers.set("x-root-domain", rootDomain);
 
         // Public portal — no auth required
@@ -67,7 +63,7 @@ export default async function middleware(req: NextRequest) {
       }
     }
 
-    // Subdomain request to a non-portal path — 404 (not a redirect)
+    // Subdomain request to a non-portal path — 404
     return new NextResponse("Not Found", { status: 404 });
   }
 
@@ -89,24 +85,6 @@ export default async function middleware(req: NextRequest) {
     const signInUrl = new URL("/signin", req.url);
     signInUrl.searchParams.set("callbackUrl", req.url);
     return NextResponse.redirect(signInUrl);
-  }
-
-  // Onboarding completion guard
-  if (pathname.startsWith("/new/onboarding") && token.id) {
-    try {
-      const hasCompleted = await prisma.wizardSession.findFirst({
-        where: {
-          userId: token.id as string,
-          completed: true,
-        },
-      });
-
-      if (hasCompleted) {
-        return NextResponse.redirect(new URL("/new/dashboard", req.url));
-      }
-    } catch (error) {
-      console.error("Error checking onboarding status:", error);
-    }
   }
 
   return response;
