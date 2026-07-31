@@ -201,22 +201,67 @@ export default function SettingsPage() {
           setInitialUserSetup(JSON.parse(JSON.stringify(profileData)));
           break;
         }
-        case "branding":
-          await loadAllWizardData();
-          if (cachedProfile) {
-            setUserProfile(cachedProfile);
-          } else {
+        case "branding": {
+          const loadedData = await loadAllWizardData(true);
+          const branding = loadedData?.branding ?? useOnboardingWizardStore.getState().stepData?.branding ?? {};
+
+          // Fetch profile from /api/profile if SWR hasn't loaded it yet
+          let profileFallback: any = cachedProfile ?? userProfile;
+          if (!profileFallback) {
             try {
-              const profileResponse = await fetch("/api/profile");
-              if (profileResponse.ok) {
-                const profile = await profileResponse.json();
-                setUserProfile(profile);
+              const profileRes = await fetch("/api/profile");
+              if (profileRes.ok) {
+                profileFallback = await profileRes.json();
+                setUserProfile(profileFallback);
               }
-            } catch (err) {
-              console.error("Failed to load user profile:", err);
-            }
+            } catch { /* ignore */ }
           }
+          const completedBranding = profileFallback?.wizardSessions?.[0]?.branding;
+
+          const brandingData = {
+            organizationName:
+              branding.organizationName ||
+              completedBranding?.organizationName ||
+              profileFallback?.organizationName ||
+              profileFallback?.company ||
+              "",
+            website:
+              branding.website || completedBranding?.website || profileFallback?.website || "",
+            logo:
+              branding.logo || completedBranding?.logo || profileFallback?.advisorLogo || "",
+            logoFileName:
+              branding.logoFileName || completedBranding?.logoFileName || "",
+            brandColor:
+              branding.brandColor || completedBranding?.brandColor || profileFallback?.brandColor || "#1F3A60",
+            primaryColor:
+              branding.primaryColor || completedBranding?.primaryColor || profileFallback?.primaryColor || "",
+            secondaryColor:
+              branding.secondaryColor || completedBranding?.secondaryColor || profileFallback?.secondaryColor || "",
+            missionStatement:
+              branding.missionStatement || completedBranding?.missionStatement || "",
+            backgroundImage:
+              branding.backgroundImage ||
+              completedBranding?.backgroundImage ||
+              profileFallback?.advisorBackgroundImage ||
+              profileFallback?.backgroundImage ||
+              "",
+            backgroundFileName:
+              branding.backgroundFileName || completedBranding?.backgroundFileName || "",
+            aiAvatar: branding.aiAvatar || completedBranding?.aiAvatar || "",
+            avatarFileName:
+              branding.avatarFileName || completedBranding?.avatarFileName || "",
+            subdomain:
+              branding.subdomain || completedBranding?.subdomain || profileFallback?.subdomain || "",
+            isColorPickerOpen: false,
+            isGenerating: false,
+          };
+          brandingForm.reset(brandingData, { keepDirtyValues: false });
+          setInitialBranding(JSON.parse(JSON.stringify(brandingData)));
+          setFormKey((prev) => prev + 1);
+
+          if (profileFallback) setUserProfile(profileFallback);
           break;
+        }
         case "organization":
           await loadAllWizardData();
           if (cachedProfile) {
@@ -301,7 +346,11 @@ export default function SettingsPage() {
 
     const brandingData = {
       organizationName:
-        branding.organizationName || completedBranding?.organizationName || "",
+        branding.organizationName ||
+        completedBranding?.organizationName ||
+        userProfile?.organizationName ||
+        userProfile?.company ||
+        "",
       website:
         branding.website ||
         completedBranding?.website ||
@@ -332,7 +381,11 @@ export default function SettingsPage() {
       missionStatement:
         branding.missionStatement || completedBranding?.missionStatement || "",
       backgroundImage:
-        branding.backgroundImage || completedBranding?.backgroundImage || "",
+        branding.backgroundImage ||
+        completedBranding?.backgroundImage ||
+        userProfile?.advisorBackgroundImage ||
+        userProfile?.backgroundImage ||
+        "",
       backgroundFileName:
         branding.backgroundFileName ||
         completedBranding?.backgroundFileName ||
