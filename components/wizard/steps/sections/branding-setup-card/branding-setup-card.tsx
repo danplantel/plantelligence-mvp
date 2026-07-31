@@ -240,6 +240,9 @@ export function BrandingSetupCard({
           Customize the subdomain where employees will access your benefits portal.
         </p>
         <div className="flex items-center gap-2 text-sm text-muted-foreground dark:text-gray-400 bg-muted/50 dark:bg-gray-900/50 rounded-lg px-3 py-2 mb-3">
+          <span className="shrink-0 font-medium text-foreground dark:text-gray-200">
+            https://
+          </span>
           <span className="font-medium text-foreground dark:text-gray-200">
             {previewSubdomainSlug}
           </span>
