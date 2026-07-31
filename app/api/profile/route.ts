@@ -65,8 +65,8 @@ export async function GET(request: Request) {
       phone: userSetup?.phone || profile.phone,
       phoneExtension: userSetup?.phoneExtension ?? profile.phoneExtension ?? null,
       title: userSetup?.title || profile.title,
-      headshot: userSetup?.headshot || null,
-      headshotData: userSetup?.headshotData || null,
+      headshot: userSetup?.headshot || (profile as any).headshot || null,
+      headshotData: userSetup?.headshotData || (profile as any).headshotData || null,
       saveAsContact: userSetup?.saveAsContact ?? true,
       primaryServiceCategories,
       wizardSessions: profile.wizardSessions.map((s) => ({
