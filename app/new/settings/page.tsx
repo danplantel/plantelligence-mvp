@@ -37,6 +37,8 @@ import {
   Circle,
   Trash2,
   ShieldAlert,
+  Loader2,
+  CheckCircle2,
 } from "lucide-react";
 
 export default function SettingsPage() {
@@ -54,6 +56,7 @@ export default function SettingsPage() {
     useState(false);
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deletionSuccess, setDeletionSuccess] = useState(false);
 
   // Store initial values for comparison
   const [initialUserSetup, setInitialUserSetup] = useState<any>(null);
@@ -847,7 +850,10 @@ export default function SettingsPage() {
                     </div>
                     <Button
                       variant="destructive"
-                      onClick={() => setShowDeleteConfirmDialog(true)}
+                      onClick={() => {
+                        setDeletionSuccess(false);
+                        setShowDeleteConfirmDialog(true);
+                      }}
                       className="bg-red-600 hover:bg-red-700 text-white"
                     >
                       <Trash2 className="w-4 h-4 mr-2" />
@@ -932,70 +938,97 @@ export default function SettingsPage() {
       {/* Delete Confirmation Dialog */}
       <AlertDialog
         open={showDeleteConfirmDialog}
-        onOpenChange={setShowDeleteConfirmDialog}
+        onOpenChange={(open) => {
+          setShowDeleteConfirmDialog(open);
+          if (!open) {
+            setDeletionSuccess(false);
+            setIsDeleting(false);
+          }
+        }}
       >
         <AlertDialogContent className="sm:max-w-[480px]">
-          <AlertDialogHeader>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center">
-                <ShieldAlert className="w-5 h-5 text-red-600 dark:text-red-400" />
+          {deletionSuccess ? (
+            /* ── Success state (visible for 3 seconds) ── */
+            <div className="flex flex-col items-center justify-center text-center py-8 space-y-4">
+              <div className="w-20 h-20 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center">
+                <CheckCircle2 className="w-10 h-10 text-green-600 dark:text-green-400" />
               </div>
-              <AlertDialogTitle className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                Delete Your Profile?
+              <AlertDialogTitle className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                Successfully Deleted Profile
               </AlertDialogTitle>
+              <AlertDialogDescription className="text-sm text-gray-600 dark:text-gray-400">
+                Your profile and all associated data have been permanently deleted.
+              </AlertDialogDescription>
             </div>
-            <AlertDialogDescription className="text-left text-gray-600 dark:text-gray-400 space-y-3">
-              <p>
-                Are you sure you want to delete your profile? This will
-                permanently remove:
-              </p>
-              <ul className="list-disc pl-5 text-left text-sm space-y-1">
-                <li className="text-left">Your account and login credentials</li>
-                <li className="text-left">All wizard sessions and onboarding data</li>
-                <li className="text-left">All plans, clients, and documents</li>
-                <li className="text-left">All branding and settings</li>
-              </ul>
-              <p className="font-semibold text-red-600 dark:text-red-400">
-                This action cannot be undone.
-              </p>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="flex flex-row items-center gap-2 sm:gap-2 mt-4">
-            <AlertDialogCancel
-              disabled={isDeleting}
-              className="flex-1 m-0 border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
-            >
-              Cancel
-            </AlertDialogCancel>
-            <Button
-              onClick={async () => {
-                setIsDeleting(true);
-                try {
-                  const res = await fetch("/api/profile/delete", {
-                    method: "DELETE",
-                  });
-                  if (res.ok) {
-                    toast.success("Profile deleted successfully");
-                    window.location.href = "/signin";
-                  } else {
-                    const body = await res.json().catch(() => ({}));
-                    const msg = body?.error || "Please try again.";
-                    toast.error("Failed to delete profile. " + msg);
-                    setIsDeleting(false);
-                  }
-                } catch (err) {
-                  const msg = err instanceof Error ? err.message : "Please try again.";
-                  toast.error("Failed to delete profile. " + msg);
-                  setIsDeleting(false);
-                }
-              }}
-              disabled={isDeleting}
-              variant="destructive"
-              className="flex-1 bg-red-600 text-white hover:bg-red-700"
-            >
-              {isDeleting ? "Deleting..." : "Yes, Delete My Profile"}
-            </Button>
-          </AlertDialogFooter>
+          ) : (
+            <>
+              <AlertDialogHeader>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center">
+                    <ShieldAlert className="w-5 h-5 text-red-600 dark:text-red-400" />
+                  </div>
+                  <AlertDialogTitle className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    Delete Your Profile?
+                  </AlertDialogTitle>
+                </div>
+                <AlertDialogDescription className="text-left text-gray-600 dark:text-gray-400 space-y-3">
+                  <p>
+                    Are you sure you want to delete your profile? This will
+                    permanently remove:
+                  </p>
+                  <ul className="list-disc pl-5 text-left text-sm space-y-1">
+                    <li className="text-left">Your account and login credentials</li>
+                    <li className="text-left">All wizard sessions and onboarding data</li>
+                    <li className="text-left">All plans, clients, and documents</li>
+                    <li className="text-left">All branding and settings</li>
+                  </ul>
+                  <p className="font-semibold text-red-600 dark:text-red-400">
+                    This action cannot be undone.
+                  </p>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter className="flex flex-row items-center gap-2 sm:gap-2 mt-4">
+                <AlertDialogCancel
+                  disabled={isDeleting}
+                  className="flex-1 m-0 border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                  Cancel
+                </AlertDialogCancel>
+                <Button
+                  onClick={async () => {
+                    setIsDeleting(true);
+                    try {
+                      const res = await fetch("/api/profile/delete", {
+                        method: "DELETE",
+                      });
+                      if (res.ok) {
+                        setDeletionSuccess(true);
+                        // Show success state for 3 seconds, then redirect to sign-in
+                        setTimeout(() => {
+                          window.location.href = "/signin";
+                        }, 3000);
+                      } else {
+                        const body = await res.json().catch(() => ({}));
+                        const msg = body?.error || "Please try again.";
+                        toast.error("Failed to delete profile. " + msg);
+                        setIsDeleting(false);
+                      }
+                    } catch (err) {
+                      const msg = err instanceof Error ? err.message : "Please try again.";
+                      toast.error("Failed to delete profile. " + msg);
+                      setIsDeleting(false);
+                    }
+                  }}
+                  disabled={isDeleting}
+                  variant="destructive"
+                  className="flex-1 bg-red-600 text-white hover:bg-red-700"
+                >
+                  {isDeleting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  {isDeleting ? "Deleting..." : "Yes, Delete My Profile"}
+                </Button>
+              </AlertDialogFooter>
+            </>
+          )}
         </AlertDialogContent>
       </AlertDialog>
 
