@@ -230,6 +230,7 @@ export function NewClientWizard({
             phone: "Phone",
             role: "Role",
             benefitsCategories: "Benefits Categories",
+            contactActions: "Contact Action",
             primaryContact: "Primary contact required for category",
             hubDocumentsCategory: "Benefits Hub documents",
           };

@@ -20,6 +20,7 @@ import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
 import { Disclaimer } from "@/types/new-client-wizard";
 import { DEFAULT_DISCLOSURES_TEXT } from "@/lib/disclaimer-constants";
 import { PortalDisclaimers } from "@/components/pages/client-portal/sections/portal-disclaimers";
+import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle, Eye, FileText, Edit2, X } from "lucide-react";
 
 /**
@@ -273,6 +274,52 @@ export function NewClientStep5a({
     return null;
   }, [onboardingStepData.disclaimers, loadOnboardingStepData]);
 
+  // ── Fetch the User's disclaimer (same source as Settings > Team & Disclaimers) ──
+  // The disclaimer text the advisor saved on their profile. Returns the first
+  // disclaimer as a Disclaimer object so it can be used directly on the Home
+  // Page footer.
+  const getUserProfileDisclaimer = useCallback(async (): Promise<Disclaimer | null> => {
+    try {
+      const res = await fetch("/api/profile");
+      if (!res.ok) return null;
+      const profile = await res.json();
+      const raw = profile?.disclaimer;
+      if (!raw) return null;
+
+      // User.disclaimer may be a JSON string (array of disclaimers) or an array.
+      let arr: any[] = [];
+      if (Array.isArray(raw)) {
+        arr = raw;
+      } else if (typeof raw === "string") {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            arr = parsed;
+          }
+        } catch {
+          // Not JSON — treat as plain text
+          arr = [{ id: "profile", locations: ["Home Page"], text: raw }];
+        }
+      }
+
+      const first = arr[0];
+      if (!first || !first.text) return null;
+
+      return {
+        id: first.id || "profile",
+        text: first.text,
+        locations: Array.isArray(first.locations) && first.locations.length > 0
+          ? first.locations
+          : ["Home Page"],
+        customLocation: first.customLocation || "",
+        scope: "plan",
+        apply_all_benefits_categories: first.apply_all_benefits_categories ?? false,
+      };
+    } catch {
+      return null;
+    }
+  }, []);
+
   // ── Derive brand colours ──
   const primaryColor =
     newClientStepData.companyBasics?.primaryColor ||
@@ -342,6 +389,24 @@ export function NewClientStep5a({
           return;
         }
 
+        // Prefer the User's profile disclaimer (Settings > Team & Disclaimers),
+        // which is what should appear on the Home Page footer.
+        const userProfileDisclaimer = await getUserProfileDisclaimer();
+        if (userProfileDisclaimer) {
+          const d: Disclaimer = {
+            ...userProfileDisclaimer,
+            text: userProfileDisclaimer.text
+              .replace(/\[Organization Name\]/g, organizationName)
+              .replace(/\[Company Name\]/g, companyName),
+            locations: ["Home Page"],
+            customLocation: "",
+          };
+          setDisclaimer(d);
+          saveStepDataLocally("disclaimers", { disclaimers: [d] });
+          setHasInitialized(true);
+          return;
+        }
+
         // Try to inherit from Onboarding disclaimers before showing the prompt
         const onboardingText = await getOnboardingDisclaimerText();
         if (onboardingText) {
@@ -366,6 +431,26 @@ export function NewClientStep5a({
         setShowInitialPrompt(true);
       } catch (error) {
         console.error("❌ Error initializing disclaimers:", error);
+        // Prefer the User's profile disclaimer even on error
+        try {
+          const userProfileDisclaimer = await getUserProfileDisclaimer();
+          if (userProfileDisclaimer) {
+            const d: Disclaimer = {
+              ...userProfileDisclaimer,
+              text: userProfileDisclaimer.text
+                .replace(/\[Organization Name\]/g, organizationName)
+                .replace(/\[Company Name\]/g, companyName),
+              locations: ["Home Page"],
+              customLocation: "",
+            };
+            setDisclaimer(d);
+            saveStepDataLocally("disclaimers", { disclaimers: [d] });
+            setHasInitialized(true);
+            return;
+          }
+        } catch {
+          // fall through
+        }
         // Try onboarding fallback even on error
         try {
           const onboardingText = await getOnboardingDisclaimerText();
@@ -592,8 +677,33 @@ export function NewClientStep5a({
         </CardContent>
       </Card>
 
+      {/* ── Disclaimer loading skeleton ── */}
+      {!hasInitialized && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-6 w-32" />
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-9 w-32" />
+              <Skeleton className="h-9 w-20" />
+            </div>
+          </div>
+          <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-5 w-24 rounded-full" />
+            </div>
+            <div className="space-y-2 border-t border-gray-100 dark:border-gray-700 pt-3">
+              <Skeleton className="h-3 w-full" />
+              <Skeleton className="h-3 w-11/12" />
+              <Skeleton className="h-3 w-4/5" />
+              <Skeleton className="h-3 w-3/4" />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Disclaimer content ── */}
-      {!disclaimer && showInitialPrompt && (
+      {hasInitialized && !disclaimer && showInitialPrompt && (
         /* ── Initial prompt (no disclaimer yet) ── */
         <div className="space-y-6 py-4">
           <div className="text-center space-y-2">
@@ -628,7 +738,7 @@ export function NewClientStep5a({
         </div>
       )}
 
-      {disclaimer && (
+      {hasInitialized && disclaimer && (
         /* ── Single disclaimer summary ── */
         <div className="space-y-4">
           <div className="flex items-center justify-between">

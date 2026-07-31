@@ -529,6 +529,12 @@ export const validateNewClientCurrentStepV2 = async (step: number, stepData: any
               name: step3bData.contactType === "individual"
                 ? `${step3bData.firstName || ""} ${step3bData.lastName || ""}`.trim()
                 : step3bData.displayName,
+              // Carry over the action-visibility flags so the "Contact Action
+              // Buttons" validation doesn't falsely fail a fully-filled form.
+              displayEmail: step3bData.displayEmail ?? true,
+              displayPhone: step3bData.displayPhone ?? true,
+              displayScheduleAppointment: step3bData.displayScheduleAppointment,
+              displayUrl: step3bData.displayUrl,
             }];
           } else if (contactsForValidation.length >= 1 && step3bData) {
             // Merge step3b form into the current (selected) contact so auto-filled values are validated
@@ -545,6 +551,12 @@ export const validateNewClientCurrentStepV2 = async (step: number, stepData: any
                 name: step3bData.contactType === "individual"
                   ? `${step3bData.firstName || ""} ${step3bData.lastName || ""}`.trim() || c.name
                   : step3bData.displayName ?? c.name,
+                // Merge display flags from the form so editing doesn't wipe them
+                displayEmail: step3bData.displayEmail ?? c.displayEmail ?? true,
+                displayPhone: step3bData.displayPhone ?? c.displayPhone ?? true,
+                displayScheduleAppointment:
+                  step3bData.displayScheduleAppointment ?? c.displayScheduleAppointment,
+                displayUrl: step3bData.displayUrl ?? c.displayUrl,
               };
             });
           }
