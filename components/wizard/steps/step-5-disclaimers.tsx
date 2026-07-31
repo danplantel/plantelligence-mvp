@@ -211,7 +211,7 @@ export function Step5Disclaimers({
       const updated = [...disclaimers, defaultDisclaimer];
       setDisclaimers(updated);
       saveStepDataLocally("disclaimers", { disclaimers: updated });
-      saveStepDataToServer("disclaimers", { disclaimers: updated });
+      await saveStepDataToServer("disclaimers", { disclaimers: updated });
       // Save to draft
       if (saveAsDraft) {
         try {
@@ -240,9 +240,13 @@ export function Step5Disclaimers({
       setAddTiming("now");
     }
 
-    // Always save locally (to client draft)
+    // Always save locally and to server
     saveStepDataLocally("disclaimers", { disclaimers: updatedDisclaimers });
-    saveStepDataToServer("disclaimers", { disclaimers: updatedDisclaimers });
+    const serverSaved = await saveStepDataToServer("disclaimers", { disclaimers: updatedDisclaimers });
+    if (!serverSaved) {
+      toast.error("Failed to save disclaimer to server. Please try again.");
+      return;
+    }
     // Save to draft
     if (saveAsDraft) {
       try {
@@ -269,9 +273,13 @@ export function Step5Disclaimers({
     );
     setDisclaimers(updatedDisclaimers);
 
-    // Always save locally (to client draft)
+    // Always save locally and to server
     saveStepDataLocally("disclaimers", { disclaimers: updatedDisclaimers });
-    saveStepDataToServer("disclaimers", { disclaimers: updatedDisclaimers });
+    const serverSaved = await saveStepDataToServer("disclaimers", { disclaimers: updatedDisclaimers });
+    if (!serverSaved) {
+      toast.error("Failed to save disclaimer to server. Please try again.");
+      return;
+    }
     // Save to draft
     if (saveAsDraft) {
       try {
@@ -301,9 +309,9 @@ export function Step5Disclaimers({
       );
       setDisclaimers(updatedDisclaimers);
 
-      // Always save locally
+      // Always save locally and to server
       saveStepDataLocally("disclaimers", { disclaimers: updatedDisclaimers });
-      saveStepDataToServer("disclaimers", { disclaimers: updatedDisclaimers });
+      await saveStepDataToServer("disclaimers", { disclaimers: updatedDisclaimers });
       // Save to draft
       if (saveAsDraft) {
         try {

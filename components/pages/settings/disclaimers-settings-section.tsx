@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -94,15 +94,62 @@ export function DisclaimersSettingsSection() {
   const [disclaimerText, setDisclaimerText] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Load data when component mounts
-  useEffect(() => {
-    loadStepData("disclaimers");
-  }, [loadStepData]);
+  // Track whether we've already pre-filled the form with the Onboarding disclaimer,
+  // so we don't overwrite the user's own edits.
+  const prefillDoneRef = useRef(false);
 
-  // Update state when stepData changes
+  // Load data when component mounts — use a direct fetch to /api/profile
+  // which includes wizardSessions[0].disclaimers, bypassing the zustand
+  // store cache which may hold stale empty data from a previous page load.
+  useEffect(() => {
+    const loadFromProfile = async () => {
+      try {
+        const res = await fetch("/api/profile");
+        if (!res.ok) return;
+        const profile = await res.json();
+        const raw = profile?.wizardSessions?.[0]?.disclaimers;
+        if (!raw) return;
+
+        // The disclaimers field may come as a WizardDisclaimers record
+        // ({ disclaimers: [...] }) or directly as an array.
+        const arr: Disclaimer[] = Array.isArray(raw.disclaimers)
+          ? raw.disclaimers
+          : Array.isArray(raw)
+            ? raw
+            : [];
+
+        if (arr.length > 0) {
+          setDisclaimers(arr);
+
+          // Pre-fill the form with the first disclaimer
+          if (!prefillDoneRef.current && !editingDisclaimer && !disclaimerText) {
+            const first = arr[0];
+            if (first?.text) {
+              const locs: string[] = (first.locations || []).map((location: string) => {
+                const option = LOCATION_OPTIONS.find((opt) => opt.label === location);
+                return option ? option.id : "other";
+              });
+              setSelectedLocations(locs);
+              setCustomLocation(first.customLocation || "");
+              setDisclaimerText(first.text);
+              setErrors({});
+              prefillDoneRef.current = true;
+            }
+          }
+        }
+      } catch {
+        // Silent — profile fetch is best-effort for pre-fill
+      }
+    };
+    loadFromProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run only once on mount
+
+  // Also sync from stepData when the store is updated (e.g. after editing in same session)
   useEffect(() => {
     if (stepData.disclaimers?.disclaimers) {
-      setDisclaimers(stepData.disclaimers.disclaimers);
+      const arr = stepData.disclaimers.disclaimers;
+      setDisclaimers(arr);
     }
   }, [stepData.disclaimers]);
 

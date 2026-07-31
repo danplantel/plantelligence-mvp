@@ -17,13 +17,16 @@ import {
    Palette,
    Image as ImageIcon,
    Info,
+   Loader2,
+   CheckCircle2,
+   XCircle,
  } from "lucide-react";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { deleteFromR2 } from "@/lib/upload-to-r2";
 import { extractColorsFromImage } from "@/lib/extract-colors-from-image";
 
@@ -104,19 +107,7 @@ export function BrandingSetupCard({
    const [infoDialogOpen, setInfoDialogOpen] = useState(false);
    const [infoDialogConfig, setInfoDialogConfig] = useState({ title: "", description: "" });
 
-   // Handle file input change to capture preview immediately
-   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-     const file = e.target.files?.[0];
-     if (file && onLogoPreview) {
-       const reader = new FileReader();
-       reader.onload = (event) => {
-         const dataUrl = event.target?.result as string;
-         onLogoPreview(dataUrl);
-       };
-       reader.readAsDataURL(file);
-     }
-   };
-
+   // Destructure data early so subdomain is available for the availability check
    const {
      organizationName,
      logo,
@@ -130,6 +121,82 @@ export function BrandingSetupCard({
      useDefaultWelcomeStatement = true,
      subdomain,
    } = data;
+
+   // Subdomain availability check state
+   type AvailabilityStatus = "idle" | "checking" | "available" | "taken";
+   const [availabilityStatus, setAvailabilityStatus] = useState<AvailabilityStatus>("idle");
+   const [checkedSubdomain, setCheckedSubdomain] = useState<string>("");
+   const availabilityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+   const lastCheckedRef = useRef<string>("");
+
+   const checkSubdomainAvailability = useCallback(async (slug: string) => {
+     if (!slug || slug.length < 2) {
+       setAvailabilityStatus("idle");
+       setCheckedSubdomain("");
+       return;
+     }
+
+     // Don't re-check the same value
+     if (slug === lastCheckedRef.current && availabilityStatus !== "idle") {
+       return;
+     }
+
+     lastCheckedRef.current = slug;
+     setAvailabilityStatus("checking");
+     setCheckedSubdomain(slug);
+
+     try {
+       const res = await fetch(`/api/check-subdomain?subdomain=${encodeURIComponent(slug)}`);
+       if (!res.ok) {
+         // If the API fails, default to "available" to not block the user
+         setAvailabilityStatus("available");
+         return;
+       }
+       const data = await res.json();
+       setAvailabilityStatus(data.available ? "available" : "taken");
+     } catch {
+       // Network error – assume available to not block the user
+       setAvailabilityStatus("available");
+     }
+   }, [availabilityStatus]);
+
+   // Debounced subdomain availability check
+   useEffect(() => {
+     if (availabilityTimerRef.current) {
+       clearTimeout(availabilityTimerRef.current);
+     }
+
+     const slug = subdomain?.trim();
+     if (!slug || slug.length < 2) {
+       setAvailabilityStatus("idle");
+       setCheckedSubdomain("");
+       lastCheckedRef.current = "";
+       return;
+     }
+
+     availabilityTimerRef.current = setTimeout(() => {
+       checkSubdomainAvailability(slug);
+     }, 600);
+
+     return () => {
+       if (availabilityTimerRef.current) {
+         clearTimeout(availabilityTimerRef.current);
+       }
+     };
+   }, [subdomain, checkSubdomainAvailability]);
+
+   // Handle file input change to capture preview immediately
+   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+     const file = e.target.files?.[0];
+     if (file && onLogoPreview) {
+       const reader = new FileReader();
+       reader.onload = (event) => {
+         const dataUrl = event.target?.result as string;
+         onLogoPreview(dataUrl);
+       };
+       reader.readAsDataURL(file);
+     }
+   };
 
   // Generate a URL-safe subdomain slug from a string (e.g., organization name)
   const generateSubdomainSlug = (name: string) => {
@@ -283,6 +350,31 @@ export function BrandingSetupCard({
             )}
           </div>
         </div>
+        {/* Subdomain availability indicator */}
+        {availabilityStatus !== "idle" && subdomain?.trim() && subdomain.trim().length >= 2 && (
+          <div className="flex items-center gap-1.5 mt-1.5">
+            {availabilityStatus === "checking" ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">Checking availability...</span>
+              </>
+            ) : availabilityStatus === "available" ? (
+              <>
+                <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                <span className="text-xs text-green-600 dark:text-green-400">
+                  "{checkedSubdomain}" is available
+                </span>
+              </>
+            ) : availabilityStatus === "taken" ? (
+              <>
+                <XCircle className="h-3.5 w-3.5 text-red-500" />
+                <span className="text-xs text-red-600 dark:text-red-400">
+                  "{checkedSubdomain}" is already taken
+                </span>
+              </>
+            ) : null}
+          </div>
+        )}
         <p className="text-xs text-muted-foreground dark:text-gray-400 mt-2">
           Only lowercase letters, numbers, and hyphens allowed. Max 20 characters.
         </p>
