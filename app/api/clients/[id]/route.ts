@@ -23,13 +23,27 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     let clientId = params.id;
     const forPortal = request.nextUrl.searchParams.get("forPortal") === "1";
+
+    // Subdomain-portal: the middleware attaches x-advisor-id when the request
+    // arrives via {subdomain}.plantel.pro. Use it to scope the slug lookup and
+    // skip the session auth check (portals are public).
+    const portalAdvisorId =
+      forPortal ? (request.headers.get("x-advisor-id") || undefined) : undefined;
+
+    // Require auth unless this is a verified subdomain-portal request
+    if (!portalAdvisorId) {
+      const session = await getServerSession(authOptions);
+      if (!session?.user?.id) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      // Use session user for ownership checks below
+      (request as any).__userId = session.user.id;
+    }
+
+    const sessionUserId: string | undefined =
+      portalAdvisorId || (request as any).__userId;
 
     // Dual lookup: try ObjectId first, then slug
     const isObjectId = ObjectId.isValid(clientId);
@@ -42,13 +56,20 @@ export async function GET(
     }
 
     if (!client) {
-      if (forPortal) {
+      if (forPortal && portalAdvisorId) {
+        // Subdomain-portal: scope the slug lookup to the advisor identified
+        // by the subdomain so waypoint.plantel.pro only shows that advisor's plans.
         client = await prisma.client.findFirst({
-          where: { slug: clientId },
+          where: { slug: clientId, userId: portalAdvisorId },
+        });
+      } else if (forPortal) {
+        // Legacy portal (no subdomain): use session user
+        client = await prisma.client.findFirst({
+          where: { slug: clientId, userId: sessionUserId },
         });
       } else {
         client = await prisma.client.findFirst({
-          where: { slug: clientId, userId: session.user.id },
+          where: { slug: clientId, userId: sessionUserId },
         });
       }
     }
@@ -57,8 +78,9 @@ export async function GET(
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
 
-    // Check if user owns this client (skip for portal requests)
-    if (!forPortal && client.userId !== session.user.id) {
+    // Check ownership: subdomain-portal already scoped above; for other paths
+    // verify the session user owns this client.
+    if (!portalAdvisorId && client.userId !== sessionUserId) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -133,7 +155,7 @@ export async function GET(
         categoryPortalVisibility, // always set so portal filter works
         keyContacts: keyContactsToReturn,
       },
-      session.user.id,
+      client.userId, // advisor ID (from session or subdomain-derived)
       clientId,
     );
 

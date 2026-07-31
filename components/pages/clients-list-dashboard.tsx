@@ -76,6 +76,7 @@ import {
 import { toast } from "sonner";
 import { storePendingDraftSelection } from "@/lib/draft-utils";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
+import { getBenefitsHubAbsoluteUrl } from "@/lib/marketing/hub-url";
 
 interface Client {
   id: string;
@@ -146,6 +147,14 @@ export function ClientsListDashboardPage() {
 
   const { data: session } = useSession();
   const router = useRouter();
+
+  // Fetch the advisor's subdomain for building portal URLs
+  const { data: profileData } = useSWR(
+    "/api/profile",
+    jsonFetcher,
+    { keepPreviousData: true, dedupingInterval: 60_000, revalidateOnFocus: false },
+  );
+  const userSubdomain: string | undefined = profileData?.subdomain || undefined;
 
   // Format date as mm/dd/yy
   const formatDate = (dateString: string) => {
@@ -647,12 +656,14 @@ export function ClientsListDashboardPage() {
                                       variant="ghost"
                                       size="icon"
                                       className="h-8 w-8"
-                                      onClick={() =>
-                                        window.open(
-                                          `/new/view/${client.slug || client.id}`,
-                                          "_blank",
-                                        )
-                                      }
+                                      onClick={() => {
+                                        const slug = client.slug || client.id;
+                                        const url = getBenefitsHubAbsoluteUrl(
+                                          slug,
+                                          userSubdomain,
+                                        );
+                                        window.open(url, "_blank");
+                                      }}
                                     >
                                       <Globe className="h-4 w-4" />
                                     </Button>

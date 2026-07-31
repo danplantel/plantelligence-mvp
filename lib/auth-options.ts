@@ -81,6 +81,25 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
     maxAge: 8 * 60 * 60, // 8 hours — persistent across browser restarts
   },
+  cookies: {
+    sessionToken: {
+      name: `__Secure-next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: true,
+        // In production, set the domain to .plantel.pro so the session cookie
+        // is shared across the apex domain and all subdomains (waypoint.plantel.pro, etc.).
+        // On localhost, leave domain undefined — browsers reject dot-prefixed domains
+        // on localhost.
+        domain:
+          process.env.NODE_ENV === "production"
+            ? ".plantel.pro"
+            : undefined,
+      },
+    },
+  },
   callbacks: {
     async session({ session, token }) {
       if (session.user) {

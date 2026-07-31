@@ -2,55 +2,103 @@
 // https://next-auth.js.org/configuration/nextjs#middleware
 // https://nextjs.org/docs/app/building-your-application/routing/middleware
 
-import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
 import prisma from "@/lib/prisma";
 
-export default withAuth(
-  async function middleware(req) {
-    const { pathname } = req.nextUrl;
-    
-    // Add pathname to headers for layout detection
-    const response = NextResponse.next();
-    response.headers.set("x-pathname", pathname);
-    
-    // Check if user is trying to access onboarding after completion
-    if (pathname.startsWith('/new/onboarding') && req.nextauth?.token?.id) {
-      try {
-        // Check if user has completed onboarding
-        const hasCompleted = await prisma.wizardSession.findFirst({
-          where: {
-            userId: req.nextauth.token.id as string,
-            completed: true,
-          }
-        });
+/**
+ * Extract the subdomain from a host header.
+ *
+ * Examples:
+ *   "waypoint.plantel.pro" → "waypoint"
+ *   "plantel.pro"          → null (no subdomain)
+ *   "localhost:3000"       → null (local dev)
+ */
+function extractSubdomain(host: string, rootDomain: string): string | null {
+  if (!host) return null;
+  if (host === rootDomain || host.startsWith("localhost")) return null;
+  const base = host.replace(`.${rootDomain}`, "");
+  const parts = base.split(".");
+  const candidate = parts[0];
+  // Reject empty strings or ports (e.g., "localhost:3000")
+  if (!candidate || candidate.includes(":")) return null;
+  return candidate;
+}
 
-        if (hasCompleted) {
-          // Redirect to dashboard if onboarding is already completed
-          return NextResponse.redirect(new URL('/new/dashboard', req.url));
-        }
-      } catch (error) {
-        console.error('Error checking onboarding status:', error);
-        // Continue to onboarding if there's an error
+export default async function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+  const host = req.headers.get("host") || "";
+  const rootDomain = process.env.ROOT_DOMAIN || "plantel.pro";
+  const subdomain = extractSubdomain(host, rootDomain);
+
+  const response = NextResponse.next();
+  response.headers.set("x-pathname", pathname);
+
+  // ── Subdomain portal routing ──────────────────────────────────────────
+  // When a request arrives at {subdomain}.plantel.pro/new/view/{slug},
+  // identify the advisor by subdomain and attach x-advisor-id so the
+  // downstream API scopes the slug lookup to that advisor's clients.
+  if (subdomain && pathname.startsWith("/new/view/")) {
+    try {
+      const user = await prisma.user.findFirst({
+        where: { subdomain },
+        select: { id: true },
+      });
+
+      if (!user) {
+        // Invalid subdomain — redirect to the root domain
+        return NextResponse.redirect(new URL("/", `https://${rootDomain}`));
       }
-    }
-    
-    return response;
-  },
-  {
-    callbacks: {
-      authorized: ({ token }) => {
-        // Require auth for all protected routes
-        return !!token;
-      },
-    },
-  }
-);
 
-export const config = { 
+      response.headers.set("x-advisor-id", user.id);
+      response.headers.set("x-root-domain", rootDomain);
+
+      // Public portal — no auth required
+      return response;
+    } catch (err) {
+      console.error("[middleware] subdomain lookup error:", err);
+      // Fall through to auth check below as a safety net
+    }
+  }
+
+  // ── Auth check for all other matched routes ────────────────────────────
+  const token = await getToken({
+    req,
+    secret: process.env.NEXTAUTH_SECRET,
+  });
+
+  if (!token) {
+    const signInUrl = new URL("/signin", req.url);
+    signInUrl.searchParams.set("callbackUrl", req.url);
+    return NextResponse.redirect(signInUrl);
+  }
+
+  // Onboarding completion guard
+  if (pathname.startsWith("/new/onboarding") && token.id) {
+    try {
+      const hasCompleted = await prisma.wizardSession.findFirst({
+        where: {
+          userId: token.id as string,
+          completed: true,
+        },
+      });
+
+      if (hasCompleted) {
+        return NextResponse.redirect(new URL("/new/dashboard", req.url));
+      }
+    } catch (error) {
+      console.error("Error checking onboarding status:", error);
+    }
+  }
+
+  return response;
+}
+
+export const config = {
   matcher: [
     "/dashboard/:path*",
     "/new/:path*",
-    "/onboarding/:path*"
-  ] 
+    "/onboarding/:path*",
+  ],
 };
