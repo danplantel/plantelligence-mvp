@@ -78,10 +78,9 @@ export const IMAGE_EDITOR_CONFIGS: Record<ImageEditorType, ImageEditorConfig> =
   headshot: {
     canvasWidth: 500,
     canvasHeight: 500,
-    previewFormats: ["circle", "square"],
+    previewFormats: ["circle"],
     previewSizes: {
       circle: { width: 200, height: 200 },
-      square: { width: 200, height: 200 },
     },
     allowFlipping: false,
     allowScaling: true,
