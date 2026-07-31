@@ -20,10 +20,12 @@ function extractSubdomain(host: string, rootDomain: string): string | null {
   if (host === rootDomain || host.startsWith("localhost")) return null;
   const base = host.replace(`.${rootDomain}`, "");
   const parts = base.split(".");
-  const candidate = parts[0];
-  // Reject empty strings, ports (e.g., "localhost:3000"), and "www"
-  // ("www" is treated as the apex, not a tenant subdomain; redirecting it
-  //  would fight Vercel's built-in www↔apex redirection and cause a loop)
+  // Take the rightmost subdomain part (closest to the root domain).
+  // This correctly handles both:
+  //   "waypoint.plantel.pro"        → "waypoint"
+  //   "www.waypoint.plantel.pro"    → "waypoint"  (www is just a prefix)
+  //   "www.plantel.pro"             → "www" → rejected (treated as apex)
+  const candidate = parts[parts.length - 1];
   if (!candidate || candidate.includes(":") || candidate === "www") return null;
   return candidate;
 }
