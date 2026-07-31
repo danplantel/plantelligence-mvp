@@ -36,30 +36,40 @@ export default async function middleware(req: NextRequest) {
   response.headers.set("x-pathname", pathname);
 
   // ── Subdomain portal routing ──────────────────────────────────────────
-  // When a request arrives at {subdomain}.plantel.pro/new/view/{slug},
-  // identify the advisor by subdomain and attach x-advisor-id so the
-  // downstream API scopes the slug lookup to that advisor's clients.
-  if (subdomain && pathname.startsWith("/new/view/")) {
-    try {
-      const user = await prisma.user.findFirst({
-        where: { subdomain },
-        select: { id: true },
-      });
+  // Subdomains are ONLY valid for public portal paths (/new/view/*).
+  // Everything else (dashboard, client creation, settings, etc.) redirects
+  // to the apex domain — those features are admin-only and must be accessed
+  // via plantel.pro, not {subdomain}.plantel.pro.
+  if (subdomain) {
+    if (pathname.startsWith("/new/view/")) {
+      try {
+        const user = await prisma.user.findFirst({
+          where: { subdomain },
+          select: { id: true },
+        });
 
-      if (!user) {
-        // Invalid subdomain — redirect to the root domain
-        return NextResponse.redirect(new URL("/", `https://${rootDomain}`));
+        if (!user) {
+          // Invalid subdomain — redirect to the root domain
+          return NextResponse.redirect(new URL("/", `https://${rootDomain}`));
+        }
+
+        response.headers.set("x-advisor-id", user.id);
+        response.headers.set("x-root-domain", rootDomain);
+
+        // Public portal — no auth required
+        return response;
+      } catch (err) {
+        console.error("[middleware] subdomain lookup error:", err);
+        // Fall through to auth check below as a safety net
       }
-
-      response.headers.set("x-advisor-id", user.id);
-      response.headers.set("x-root-domain", rootDomain);
-
-      // Public portal — no auth required
-      return response;
-    } catch (err) {
-      console.error("[middleware] subdomain lookup error:", err);
-      // Fall through to auth check below as a safety net
     }
+
+    // Subdomain request to a non-portal path — redirect to apex
+    const apexUrl = new URL(pathname, `https://${rootDomain}`);
+    req.nextUrl.searchParams.forEach((value, key) => {
+      apexUrl.searchParams.set(key, value);
+    });
+    return NextResponse.redirect(apexUrl);
   }
 
   // ── Auth check for all other matched routes ────────────────────────────
