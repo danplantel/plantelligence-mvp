@@ -21,8 +21,10 @@ function extractSubdomain(host: string, rootDomain: string): string | null {
   const base = host.replace(`.${rootDomain}`, "");
   const parts = base.split(".");
   const candidate = parts[0];
-  // Reject empty strings or ports (e.g., "localhost:3000")
-  if (!candidate || candidate.includes(":")) return null;
+  // Reject empty strings, ports (e.g., "localhost:3000"), and "www"
+  // ("www" is treated as the apex, not a tenant subdomain; redirecting it
+  //  would fight Vercel's built-in www↔apex redirection and cause a loop)
+  if (!candidate || candidate.includes(":") || candidate === "www") return null;
   return candidate;
 }
 
