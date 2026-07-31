@@ -9,8 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Disclaimer } from "@/types/wizard";
-import { Plus, Edit2, Trash2, X } from "lucide-react";
-import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 
 const LOCATION_OPTIONS = [
   { id: "benefits_hub", label: "Benefits Hub / Client Website" },
@@ -18,61 +16,6 @@ const LOCATION_OPTIONS = [
   { id: "marketing_materials", label: "Marketing Materials" },
   { id: "other", label: "Other (please specify)" },
 ];
-
-interface DisclaimerCardProps {
-  disclaimer: Disclaimer;
-  onEdit: () => void;
-  onDelete: () => void;
-}
-
-function DisclaimerCard({ disclaimer, onEdit, onDelete }: DisclaimerCardProps) {
-  const truncatedText = (() => {
-    if (disclaimer.text.length <= 150) {
-      return disclaimer.text;
-    }
-    const text = disclaimer.text.substring(0, 150);
-    const lastSpaceIndex = text.lastIndexOf(" ");
-    const cutIndex = lastSpaceIndex > 120 ? lastSpaceIndex : 150;
-    return text.substring(0, cutIndex) + "...";
-  })();
-
-  return (
-    <div className="border border-gray-200 rounded p-4 bg-white relative">
-      <div className="flex justify-between items-start mb-3">
-        <div className="flex-1 pr-2">
-          <span className="text-xs font-semibold text-gray-700">
-            {[
-              ...disclaimer.locations,
-              ...(disclaimer.customLocation ? [disclaimer.customLocation] : []),
-            ].join(", ")}
-          </span>
-        </div>
-        <div className="flex gap-2 items-center">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onEdit}
-            className="h-8 px-2 text-gray-600 hover:text-accent-blue text-xs font-medium"
-          >
-            <Edit2 className="h-3 w-3 mr-1" />
-            Edit
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onDelete}
-            className="h-8 w-8 p-0 text-gray-500 hover:text-destructive"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-      <div className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap break-words">
-        {truncatedText}
-      </div>
-    </div>
-  );
-}
 
 export function DisclaimersSettingsSection() {
   const { stepData, saveStepDataLocally, loadStepData, saveStepData } =
@@ -84,9 +27,6 @@ export function DisclaimersSettingsSection() {
   const [editingDisclaimer, setEditingDisclaimer] = useState<Disclaimer | null>(
     null,
   );
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [disclaimerToDelete, setDisclaimerToDelete] =
-    useState<Disclaimer | null>(null);
 
   // Form state
   const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
@@ -319,32 +259,6 @@ export function DisclaimersSettingsSection() {
     toast.success("Disclaimer updated successfully");
   };
 
-  const handleDeleteDisclaimer = (disclaimer: Disclaimer) => {
-    setDisclaimerToDelete(disclaimer);
-    setDeleteConfirmOpen(true);
-  };
-
-  const confirmDelete = async () => {
-    if (disclaimerToDelete) {
-      const updatedDisclaimers = disclaimers.filter(
-        (d) => d.id !== disclaimerToDelete.id,
-      );
-      setDisclaimers(updatedDisclaimers);
-      await saveStepDataLocally("disclaimers", {
-        disclaimers: updatedDisclaimers,
-      });
-      await saveStepData(
-        "disclaimers",
-        { disclaimers: updatedDisclaimers },
-        true,
-      );
-
-      toast.success("Disclaimer deleted successfully");
-    }
-    setDeleteConfirmOpen(false);
-    setDisclaimerToDelete(null);
-  };
-
   const isSaveDisabled =
     selectedLocations.length === 0 ||
     disclaimerText.trim().length < 10 ||
@@ -467,27 +381,6 @@ export function DisclaimersSettingsSection() {
           </Button>
         </div>
       </div>
-
-      {/* Delete Confirmation Dialog */}
-      <ConfirmationDialog
-        isOpen={deleteConfirmOpen}
-        onClose={() => {
-          setDeleteConfirmOpen(false);
-          setDisclaimerToDelete(null);
-        }}
-        onConfirm={confirmDelete}
-        title="Delete Disclaimer?"
-        description={
-          disclaimerToDelete
-            ? `This will remove the disclaimer for ${disclaimerToDelete.locations.join(
-                ", ",
-              )}. This action cannot be undone.`
-            : ""
-        }
-        confirmText="Delete"
-        cancelText="Cancel"
-        variant="destructive"
-      />
     </div>
   );
 }
