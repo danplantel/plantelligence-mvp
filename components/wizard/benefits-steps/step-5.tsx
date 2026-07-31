@@ -20,6 +20,7 @@ import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
 import { Disclaimer } from "@/types/new-client-wizard";
 import { DEFAULT_DISCLOSURES_TEXT } from "@/lib/disclaimer-constants";
 import { Footer } from "@/components/footer";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertCircle,
   Eye,
@@ -311,6 +312,52 @@ export function BenefitsStep5() {
     "[Organization Name]";
   const companyName = selectedPlan?.companyName || "[Company Name]";
 
+  // ── Fetch the User's disclaimer (same source as Settings > Team & Disclaimers) ──
+  // The advisor's profile disclaimer is used as the default for new benefit
+  // disclaimers. Returns a Disclaimer object (or null if none is saved).
+  const getUserProfileDisclaimer = useCallback(async (): Promise<Disclaimer | null> => {
+    try {
+      const res = await fetch("/api/profile");
+      if (!res.ok) return null;
+      const profile = await res.json();
+      const raw = profile?.disclaimer;
+      if (!raw) return null;
+
+      // User.disclaimer may be a JSON string (array of disclaimers) or an array.
+      let arr: any[] = [];
+      if (Array.isArray(raw)) {
+        arr = raw;
+      } else if (typeof raw === "string") {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            arr = parsed;
+          }
+        } catch {
+          // Not JSON — treat as plain text
+          arr = [{ id: "profile", locations: [], text: raw }];
+        }
+      }
+
+      const first = arr[0];
+      if (!first || !first.text) return null;
+
+      return {
+        id: first.id || "profile",
+        text: first.text,
+        locations:
+          Array.isArray(first.locations) && first.locations.length > 0
+            ? first.locations
+            : [CATEGORY_PORTAL_LABELS[benefitCategory] || "Global"],
+        customLocation: first.customLocation || "",
+        scope: "plan",
+        apply_all_benefits_categories: first.apply_all_benefits_categories ?? false,
+      };
+    } catch {
+      return null;
+    }
+  }, [benefitCategory]);
+
   // ── State: single disclaimer (null = not yet created) ──
   const [disclaimer, setDisclaimer] = useState<Disclaimer | null>(() => {
     const arr = stepData.step5?.disclaimers;
@@ -383,16 +430,48 @@ export function BenefitsStep5() {
           }
         } catch (err) {
           console.error("Failed to load disclaimer from plan:", err);
-        } finally {
-          setHasInitialized(true);
-          setShowInitialPrompt(true);
         }
+
+        // Prefer the User's profile disclaimer (Settings > Team & Disclaimers)
+        // as the default when the plan has no disclaimer of its own.
+        const userProfileDisclaimer = await getUserProfileDisclaimer();
+        if (userProfileDisclaimer) {
+          const d: Disclaimer = {
+            ...userProfileDisclaimer,
+            text: userProfileDisclaimer.text
+              .replace(/\[Organization Name\]/g, organizationName)
+              .replace(/\[Company Name\]/g, companyName),
+          };
+          setDisclaimer(d);
+          saveStepData(5, { disclaimers: [d] });
+          setHasInitialized(true);
+          return;
+        }
+
+        setHasInitialized(true);
+        setShowInitialPrompt(true);
       })();
     } else {
-      setHasInitialized(true);
-      setShowInitialPrompt(true);
+      // Prefer the User's profile disclaimer even without a plan
+      (async () => {
+        const userProfileDisclaimer = await getUserProfileDisclaimer();
+        if (userProfileDisclaimer) {
+          const d: Disclaimer = {
+            ...userProfileDisclaimer,
+            text: userProfileDisclaimer.text
+              .replace(/\[Organization Name\]/g, organizationName)
+              .replace(/\[Company Name\]/g, companyName),
+          };
+          setDisclaimer(d);
+          saveStepData(5, { disclaimers: [d] });
+          setHasInitialized(true);
+          return;
+        }
+        setHasInitialized(true);
+        setShowInitialPrompt(true);
+      })();
     }
-  }, [hasInitialized, planId, selectedPlan, disclaimer, saveStepData]);
+  }, [hasInitialized, planId, selectedPlan, disclaimer, saveStepData, getUserProfileDisclaimer, organizationName, companyName]);
 
   // ── If no disclaimer exists after initialisation, auto-show prompt ──
   useEffect(() => {
@@ -513,8 +592,33 @@ export function BenefitsStep5() {
       </CardContent>
     </Card>
 
+      {/* ── Disclaimer loading skeleton ── */}
+      {!hasInitialized && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-6 w-32" />
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-9 w-32" />
+              <Skeleton className="h-9 w-20" />
+            </div>
+          </div>
+          <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-5 w-24 rounded-full" />
+            </div>
+            <div className="space-y-2 border-t border-gray-100 dark:border-gray-700 pt-3">
+              <Skeleton className="h-3 w-full" />
+              <Skeleton className="h-3 w-11/12" />
+              <Skeleton className="h-3 w-4/5" />
+              <Skeleton className="h-3 w-3/4" />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Disclaimer content (no wrapper card — same width as header) ── */}
-      {!disclaimer && showInitialPrompt && (
+      {hasInitialized && !disclaimer && showInitialPrompt && (
         /* ── Initial prompt (no disclaimer yet) ── */
         <div className="space-y-6 py-4">
           <div className="text-center space-y-2">
@@ -549,7 +653,7 @@ export function BenefitsStep5() {
         </div>
       )}
 
-      {disclaimer && (
+      {hasInitialized && disclaimer && (
         /* ── Single disclaimer summary ── */
         <div className="space-y-4">
           <div className="flex items-center justify-between">
