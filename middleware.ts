@@ -41,9 +41,9 @@ export default async function middleware(req: NextRequest) {
 
   // ── Subdomain portal routing ──────────────────────────────────────────
   // Subdomains are ONLY valid for public portal paths (/new/view/*).
-  // Everything else (dashboard, client creation, settings, etc.) redirects
-  // to the apex domain — those features are admin-only and must be accessed
-  // via plantel.pro, not {subdomain}.plantel.pro.
+  // Non-portal paths and invalid subdomains get a 404 — we never redirect
+  // to the apex from a subdomain because Vercel may chain an additional
+  // www redirect, causing a confusing redirect loop.
   if (subdomain) {
     if (pathname.startsWith("/new/view/")) {
       try {
@@ -53,8 +53,7 @@ export default async function middleware(req: NextRequest) {
         });
 
         if (!user) {
-          // Invalid subdomain — redirect to the root domain
-          return NextResponse.redirect(new URL("/", `https://${rootDomain}`));
+          return new NextResponse("Portal not found", { status: 404 });
         }
 
         response.headers.set("x-advisor-id", user.id);
@@ -64,16 +63,12 @@ export default async function middleware(req: NextRequest) {
         return response;
       } catch (err) {
         console.error("[middleware] subdomain lookup error:", err);
-        // Fall through to auth check below as a safety net
+        return new NextResponse("Internal server error", { status: 500 });
       }
     }
 
-    // Subdomain request to a non-portal path — redirect to apex
-    const apexUrl = new URL(pathname, `https://${rootDomain}`);
-    req.nextUrl.searchParams.forEach((value, key) => {
-      apexUrl.searchParams.set(key, value);
-    });
-    return NextResponse.redirect(apexUrl);
+    // Subdomain request to a non-portal path — 404 (not a redirect)
+    return new NextResponse("Not Found", { status: 404 });
   }
 
   // ── Block portal paths on the apex domain ─────────────────────────────
