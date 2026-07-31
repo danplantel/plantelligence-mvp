@@ -134,6 +134,28 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
   const [logoPreviewDataUrl, setLogoPreviewDataUrl] = useState<string | undefined>(undefined);
   const [isLogoModalOpen, setIsLogoModalOpen] = useState(false);
 
+  // Advisor's portal subdomain (User.subdomain) — used in the Portal URL preview
+  const [userSubdomain, setUserSubdomain] = useState<string>("");
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/profile");
+        if (!res.ok) return;
+        const profile = await res.json();
+        if (!cancelled && profile?.subdomain) {
+          setUserSubdomain(profile.subdomain);
+        }
+      } catch {
+        // Non-critical — the subdomain is just for the preview
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Field-level validation state
   const [fieldErrors, setFieldErrors] = useState<Record<string, string | null>>({});
   const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
@@ -698,7 +720,11 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-center gap-2 text-sm text-muted-foreground dark:text-gray-400 bg-muted/50 dark:bg-gray-900/50 rounded-lg px-3 py-2">
-                <span className="shrink-0">https://plantel.pro/new/view/</span>
+                <span className="shrink-0">https://</span>
+                <span className="font-medium text-foreground dark:text-gray-200">
+                  {userSubdomain || "your-org"}
+                </span>
+                <span className="shrink-0">.plantel.pro/new/view/</span>
                 <span className="font-medium text-foreground dark:text-gray-200">
                   {companyData.portalUrl ||
                     companyData.companyName
