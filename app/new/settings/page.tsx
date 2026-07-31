@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { useForm } from "react-hook-form";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
@@ -34,6 +35,8 @@ import {
   Users as UsersIcon,
   AlertTriangle,
   Circle,
+  Trash2,
+  ShieldAlert,
 } from "lucide-react";
 
 export default function SettingsPage() {
@@ -41,6 +44,7 @@ export default function SettingsPage() {
   const { stepData, loadAllWizardData } =
     useOnboardingWizardStore();
   const [isSaving, setIsSaving] = useState(false);
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(
     () => !useOnboardingWizardStore.getState().stepData?.userSetup,
   );
@@ -48,6 +52,8 @@ export default function SettingsPage() {
   const [pendingTab, setPendingTab] = useState<string | null>(null);
   const [showUnsavedChangesDialog, setShowUnsavedChangesDialog] =
     useState(false);
+  const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Store initial values for comparison
   const [initialUserSetup, setInitialUserSetup] = useState<any>(null);
@@ -153,30 +159,39 @@ export default function SettingsPage() {
         case "profile": {
           const loadedData = await loadAllWizardData(true);
           const userSetup = loadedData?.userSetup ?? useOnboardingWizardStore.getState().stepData?.userSetup ?? {};
+
+          // Fetch profile from /api/profile if SWR hasn't loaded it yet
+          let profileFallback: any = cachedProfile ?? userProfile;
+          if (!profileFallback) {
+            try {
+              const profileRes = await fetch("/api/profile");
+              if (profileRes.ok) {
+                profileFallback = await profileRes.json();
+                setUserProfile(profileFallback);
+              }
+            } catch { /* ignore */ }
+          }
+
           let primaryServiceCategories: string[] = Array.isArray(userSetup.primaryServiceCategories)
             ? [...userSetup.primaryServiceCategories]
             : [];
-          // Fallback to User-level primaryServiceCategories from /api/profile
-          if (primaryServiceCategories.length === 0 && cachedProfile?.primaryServiceCategories?.length > 0) {
-            primaryServiceCategories = [...cachedProfile.primaryServiceCategories];
-          }
-          // Also check userProfile state (may be set from cachedProfile if SWR resolved before loadTabData)
-          if (primaryServiceCategories.length === 0 && userProfile?.primaryServiceCategories?.length > 0) {
-            primaryServiceCategories = [...userProfile.primaryServiceCategories];
+          if (primaryServiceCategories.length === 0 && profileFallback?.primaryServiceCategories?.length > 0) {
+            primaryServiceCategories = [...profileFallback.primaryServiceCategories];
           }
           const servicesArray = loadedData?.services?.services ?? useOnboardingWizardStore.getState().stepData?.services?.services ?? [];
           if (primaryServiceCategories.length === 0 && Array.isArray(servicesArray) && servicesArray.length > 0) {
             primaryServiceCategories = step2ServicesToCategories(servicesArray);
           }
+
           const profileData = {
-            name: userSetup.name || "",
-            email: userSetup.email || "",
-            phone: userSetup.phone || "",
-            title: userSetup.title || "",
-            designations: userSetup.designations || [],
-            headshot: userSetup.headshot || "",
+            name: userSetup.name || profileFallback?.name || "",
+            email: userSetup.email || profileFallback?.email || "",
+            phone: userSetup.phone || profileFallback?.phone || "",
+            title: userSetup.title || profileFallback?.title || "",
+            designations: userSetup.designations || profileFallback?.designations || [],
+            headshot: userSetup.headshot || profileFallback?.headshot || "",
             headshotFileName: userSetup.headshotFileName || "",
-            headshotData: userSetup.headshotData || null,
+            headshotData: userSetup.headshotData || profileFallback?.headshotData || null,
             backgroundImage: userSetup.backgroundImage || "",
             backgroundFileName: userSetup.backgroundFileName || "",
             primaryServiceCategories,
@@ -252,25 +267,27 @@ export default function SettingsPage() {
     if (isLoading) return;
 
     const userSetup = stepData.userSetup || ({} as any);
+    const profile = userProfile || ({} as any);
+
     let primaryServiceCategories: string[] = Array.isArray(userSetup.primaryServiceCategories)
       ? [...userSetup.primaryServiceCategories]
       : [];
     // Fallback to User-level primaryServiceCategories from /api/profile
-    if (primaryServiceCategories.length === 0 && userProfile?.primaryServiceCategories?.length > 0) {
-      primaryServiceCategories = [...userProfile.primaryServiceCategories];
+    if (primaryServiceCategories.length === 0 && profile.primaryServiceCategories?.length > 0) {
+      primaryServiceCategories = [...profile.primaryServiceCategories];
     }
     if (primaryServiceCategories.length === 0 && stepData.services?.services?.length) {
       primaryServiceCategories = step2ServicesToCategories(stepData.services.services);
     }
     const userData = {
-      name: userSetup.name || "",
-      email: userSetup.email || "",
-      phone: userSetup.phone || "",
-      title: userSetup.title || "",
-      designations: userSetup.designations || [],
-      headshot: userSetup.headshot || "",
+      name: userSetup.name || profile.name || "",
+      email: userSetup.email || profile.email || "",
+      phone: userSetup.phone || profile.phone || "",
+      title: userSetup.title || profile.title || "",
+      designations: userSetup.designations || profile.designations || [],
+      headshot: userSetup.headshot || profile.headshot || "",
       headshotFileName: userSetup.headshotFileName || "",
-      headshotData: userSetup.headshotData || null,
+      headshotData: userSetup.headshotData || profile.headshotData || null,
       backgroundImage: userSetup.backgroundImage || "",
       backgroundFileName: userSetup.backgroundFileName || "",
       primaryServiceCategories,
@@ -756,6 +773,37 @@ export default function SettingsPage() {
               userSetupForm={userSetupForm}
               onSave={noopSave}
             />
+
+            {/* ── Delete Profile Section ── */}
+            <Card className="border-2 border-red-500/50 dark:border-red-500/40 bg-red-50/30 dark:bg-red-950/20">
+              <CardContent className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className="p-2.5 rounded-full bg-red-100 dark:bg-red-900/40 shrink-0">
+                    <ShieldAlert className="w-5 h-5 text-red-600 dark:text-red-400" />
+                  </div>
+                  <div className="flex-1 space-y-3">
+                    <div>
+                      <h3 className="text-lg font-semibold text-red-700 dark:text-red-400">
+                        Delete Profile
+                      </h3>
+                      <p className="text-sm text-red-600/80 dark:text-red-400/70 mt-1">
+                        Permanently delete your profile and all associated data.
+                        This includes your wizard sessions, branding, plans,
+                        clients, and documents. This action cannot be undone.
+                      </p>
+                    </div>
+                    <Button
+                      variant="destructive"
+                      onClick={() => setShowDeleteConfirmDialog(true)}
+                      className="bg-red-600 hover:bg-red-700 text-white"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete My Profile
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Branding Tab */}
@@ -827,6 +875,76 @@ export default function SettingsPage() {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        open={showDeleteConfirmDialog}
+        onOpenChange={setShowDeleteConfirmDialog}
+      >
+        <AlertDialogContent className="sm:max-w-[480px]">
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center">
+                <ShieldAlert className="w-5 h-5 text-red-600 dark:text-red-400" />
+              </div>
+              <AlertDialogTitle className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                Delete Your Profile?
+              </AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="text-gray-600 dark:text-gray-400 space-y-3">
+              <p>
+                Are you sure you want to delete your profile? This will
+                permanently remove:
+              </p>
+              <ul className="list-disc pl-5 text-sm space-y-1">
+                <li>Your account and login credentials</li>
+                <li>All wizard sessions and onboarding data</li>
+                <li>All plans, clients, and documents</li>
+                <li>All branding and settings</li>
+              </ul>
+              <p className="font-semibold text-red-600 dark:text-red-400">
+                This action cannot be undone.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex flex-row items-center gap-2 sm:gap-2 mt-4">
+            <AlertDialogCancel
+              disabled={isDeleting}
+              className="flex-1 m-0 border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <Button
+              onClick={async () => {
+                setIsDeleting(true);
+                try {
+                  const res = await fetch("/api/profile/delete", {
+                    method: "DELETE",
+                  });
+                  if (res.ok) {
+                    toast.success("Profile deleted successfully");
+                    window.location.href = "/signin";
+                  } else {
+                    const body = await res.json().catch(() => ({}));
+                    const msg = body?.error || "Please try again.";
+                    toast.error("Failed to delete profile. " + msg);
+                    setIsDeleting(false);
+                  }
+                } catch (err) {
+                  const msg = err instanceof Error ? err.message : "Please try again.";
+                  toast.error("Failed to delete profile. " + msg);
+                  setIsDeleting(false);
+                }
+              }}
+              disabled={isDeleting}
+              variant="destructive"
+              className="flex-1 bg-red-600 text-white hover:bg-red-700"
+            >
+              {isDeleting ? "Deleting..." : "Yes, Delete My Profile"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Unsaved Changes Dialog */}
       <AlertDialog
