@@ -180,6 +180,16 @@ export async function completeWizardOnboarding({ userId, wizardSessionId }: Wiza
       }
     }
     
+    // Disclaimers data (Step 5) — persist as JSON string on User.disclaimer
+    // so Settings > Team & Disclaimers can load them after wizard cleanup
+    if (wizardSession.disclaimers?.disclaimers) {
+      const disclaimersArr = wizardSession.disclaimers.disclaimers;
+      if (Array.isArray(disclaimersArr) && disclaimersArr.length > 0) {
+        updateData.disclaimer = JSON.stringify(disclaimersArr);
+        console.log("📋 Persisting disclaimers to User.disclaimer:", disclaimersArr.length, "entries");
+      }
+    }
+
     // Note: The following wizard data is NOT stored in User model but remains in wizard tables:
     // - WizardTeamSize (teamSize) - stored in WizardTeamSize table
     // - WizardInsuranceLicensing (offersInsurance, licenseTypes, statesLicensed) - stored in WizardInsuranceLicensing table

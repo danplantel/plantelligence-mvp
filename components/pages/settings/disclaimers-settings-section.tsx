@@ -107,16 +107,45 @@ export function DisclaimersSettingsSection() {
         const res = await fetch("/api/profile");
         if (!res.ok) return;
         const profile = await res.json();
-        const raw = profile?.wizardSessions?.[0]?.disclaimers;
-        if (!raw) return;
+
+        // Primary source: wizardSessions[0].disclaimers (WizardDisclaimers record)
+        let raw = profile?.wizardSessions?.[0]?.disclaimers;
 
         // The disclaimers field may come as a WizardDisclaimers record
         // ({ disclaimers: [...] }) or directly as an array.
-        const arr: Disclaimer[] = Array.isArray(raw.disclaimers)
-          ? raw.disclaimers
-          : Array.isArray(raw)
-            ? raw
-            : [];
+        let arr: Disclaimer[] = [];
+        if (raw) {
+          arr = Array.isArray(raw.disclaimers)
+            ? raw.disclaimers
+            : Array.isArray(raw)
+              ? raw
+              : [];
+        }
+
+        // Fallback: after wizard completion, WizardDisclaimers is deleted
+        // and the data is persisted as a JSON string on User.disclaimer
+        if (arr.length === 0 && profile?.disclaimer) {
+          if (Array.isArray(profile.disclaimer)) {
+            // Some flows may save the array directly
+            if (profile.disclaimer.length > 0) {
+              arr = profile.disclaimer;
+            }
+          } else if (typeof profile.disclaimer === "string") {
+            try {
+              const parsed = JSON.parse(profile.disclaimer);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                arr = parsed;
+              }
+            } catch {
+              // If parsing fails, treat as raw text
+              arr = [{
+                id: "legacy",
+                locations: ["Global"],
+                text: profile.disclaimer,
+              }];
+            }
+          }
+        }
 
         if (arr.length > 0) {
           setDisclaimers(arr);
@@ -415,8 +444,8 @@ export function DisclaimersSettingsSection() {
               value={disclaimerText}
               onChange={(e) => handleDisclaimerTextChange(e.target.value)}
               placeholder="Enter or paste your disclaimer text here..."
-              rows={6}
-              className="resize-none pr-20"
+              rows={25}
+              className="pr-20"
               maxLength={2500}
             />
             <div className="absolute bottom-2 right-2">
@@ -438,25 +467,6 @@ export function DisclaimersSettingsSection() {
           </Button>
         </div>
       </div>
-
-      {/* Disclaimer List */}
-      {disclaimers.length > 0 && (
-        <div className="space-y-3 pt-4 border-t">
-          <p className="text-sm font-medium text-gray-700">
-            Added Disclaimers ({disclaimers.length})
-          </p>
-          {disclaimers.map((disclaimer) => (
-            <DisclaimerCard
-              key={disclaimer.id}
-              disclaimer={disclaimer}
-              onEdit={() => {
-                setEditingDisclaimer(disclaimer);
-              }}
-              onDelete={() => handleDeleteDisclaimer(disclaimer)}
-            />
-          ))}
-        </div>
-      )}
 
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog

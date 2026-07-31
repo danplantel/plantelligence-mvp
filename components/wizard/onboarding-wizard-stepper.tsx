@@ -107,7 +107,7 @@ export function OnboardingWizardStepper({
       <div className="flex items-center justify-between mb-4">
          
          {/* Logo and Step Title */}
-         <div className="flex items-center gap-4">
+         <div className="flex items-center gap-4 flex-shrink-0">
            <img
              src={
                themeMode === "dark" || themeMode === "system"
@@ -117,7 +117,11 @@ export function OnboardingWizardStepper({
              className="w-[20px]"
              alt="PlanTelligence"
            />
-           <CardTitle className="text-md">{currentStepTitle}</CardTitle>
+           {/* Fixed width title so the stepper doesn't shift between steps.
+               Longest title is "Organization Branding Setup". */}
+           <CardTitle className="text-md whitespace-nowrap w-[280px] truncate">
+             {currentStepTitle}
+           </CardTitle>
          </div>
 
          {/* Step Indicators */}

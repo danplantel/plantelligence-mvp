@@ -138,6 +138,21 @@ export function Step5Disclaimers({
     }
   };
 
+  // Persist disclaimers directly to User.disclaimer so Settings can load them
+  // even if the wizard completion flow hasn't run yet or fails to transfer them.
+  const persistDisclaimersToUserProfile = async (disclaimersArr: Disclaimer[]) => {
+    try {
+      const json = JSON.stringify(disclaimersArr);
+      await fetch("/api/profile/update-disclaimer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ disclaimer: json }),
+      });
+    } catch {
+      // Non-critical — the wizard completion will also persist them
+    }
+  };
+
   // Load data when component mounts
   useEffect(() => {
     if (typeof loadStepData === "function") {
@@ -212,6 +227,8 @@ export function Step5Disclaimers({
       setDisclaimers(updated);
       saveStepDataLocally("disclaimers", { disclaimers: updated });
       await saveStepDataToServer("disclaimers", { disclaimers: updated });
+      // Persist directly to User.disclaimer for Settings > Team & Disclaimers
+      await persistDisclaimersToUserProfile(updated);
       // Save to draft
       if (saveAsDraft) {
         try {
@@ -261,6 +278,9 @@ export function Step5Disclaimers({
       await saveToUniversalDisclaimer(updatedDisclaimers);
     }
 
+    // Persist directly to User.disclaimer for Settings > Team & Disclaimers
+    await persistDisclaimersToUserProfile(updatedDisclaimers);
+
     toast.success("Disclaimer added successfully");
   };
 
@@ -293,6 +313,9 @@ export function Step5Disclaimers({
     if (updatedDisclaimer.scope === "universal" || forceUniversalScope) {
       await saveToUniversalDisclaimer(updatedDisclaimers);
     }
+
+    // Persist directly to User.disclaimer for Settings > Team & Disclaimers
+    await persistDisclaimersToUserProfile(updatedDisclaimers);
 
     toast.success("Disclaimer updated successfully");
   };
@@ -328,6 +351,9 @@ export function Step5Disclaimers({
       if (disclaimerToDelete.scope === "universal" || forceUniversalScope) {
         await saveToUniversalDisclaimer(updatedDisclaimers);
       }
+
+      // Persist directly to User.disclaimer for Settings > Team & Disclaimers
+      await persistDisclaimersToUserProfile(updatedDisclaimers);
 
       // If last disclaimer deleted, reset to initial view
       if (updatedDisclaimers.length === 0) {

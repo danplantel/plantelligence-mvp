@@ -59,6 +59,7 @@ export async function GET(request: Request) {
 
     const response = {
       ...profile,
+      disclaimer: (profile as any).disclaimer ?? null,
       advisorBackgroundImage:
         (userSetup?.backgroundImage && String(userSetup.backgroundImage).trim()) ||
         null,
