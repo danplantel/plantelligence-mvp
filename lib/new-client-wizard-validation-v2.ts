@@ -105,6 +105,11 @@ export const validateCompanyBasics = (data: CompanyBasicsData) => {
   // Company logo is optional in new structure
   // Brand colors have defaults, so no validation needed
 
+  // Portal URL is required
+  if (!data.portalUrl || data.portalUrl.trim() === "") {
+    errors.push({ field: "portalUrl", message: "Portal URL is required" });
+  }
+
   if (errors.length > 0) {
     throw new Error(JSON.stringify(errors));
   }
@@ -253,6 +258,14 @@ export const validateNewClientCurrentStepV2 = async (step: number, stepData: any
           stepData.companyBasics.planType.trim() === ""
         ) {
           step1Errors.push("planType");
+        }
+
+        // Portal URL is required
+        if (
+          !stepData.companyBasics?.portalUrl ||
+          stepData.companyBasics.portalUrl.trim() === ""
+        ) {
+          step1Errors.push("portalUrl");
         }
 
         if (step1Errors.length > 0) {

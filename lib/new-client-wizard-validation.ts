@@ -18,6 +18,11 @@ export const validateCompanyBasics = (data: CompanyBasicsData) => {
     }
   }
 
+  // Portal URL is required
+  if (!data.portalUrl || data.portalUrl.trim() === "") {
+    errors.push({ field: "portalUrl", message: "Portal URL is required" });
+  }
+
   if (!data.companyLogo) {
     errors.push({ field: "companyLogo", message: "Company logo is required" });
   } else {

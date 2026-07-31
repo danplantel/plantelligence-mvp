@@ -10,10 +10,11 @@ import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
-import { Building2, Palette, Globe, Image as ImageIcon, CheckCircle2, AlertCircle, Sparkles, Upload, Plus, X, AlertTriangle, ArrowLeftRight } from "lucide-react";
+import { Building2, Palette, Globe, Image as ImageIcon, CheckCircle2, AlertCircle, Sparkles, Upload, Plus, X, AlertTriangle, ArrowLeftRight, Loader2, XCircle } from "lucide-react";
 import { isValidDomain, normalizeCleanDomain } from "@/lib/url-utils";
 import { extractColorsFromImage } from "@/lib/extract-colors-from-image";
 import { deleteFromR2 } from "@/lib/upload-to-r2";
+import { Skeleton } from "@/components/ui/skeleton";
 import { BrandImagesSection } from "./sections/brand-images-section";
 import {
   CompanyBasicsData,
@@ -137,18 +138,87 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
   // Advisor's portal subdomain (User.subdomain) — used in the Portal URL preview
   const [userSubdomain, setUserSubdomain] = useState<string>("");
 
+  // Loading state — keep showing the skeleton until the subdomain (and other
+  // profile-derived data) has been fetched.
+  const [isDataLoading, setIsDataLoading] = useState(true);
+
+  // Track whether the user has manually edited the Portal URL, so we stop
+  // auto-populating it from the company name once they take control.
+  const portalUrlManuallyEditedRef = useRef(false);
+
+  // Portal URL availability check
+  type PortalUrlAvailability = "idle" | "checking" | "available" | "taken";
+  const [portalUrlAvailability, setPortalUrlAvailability] =
+    useState<PortalUrlAvailability>("idle");
+  const [checkedPortalUrl, setCheckedPortalUrl] = useState<string>("");
+  const portalUrlTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastPortalUrlCheckedRef = useRef<string>("");
+
+  useEffect(() => {
+    const slug = (companyData.portalUrl || "").trim();
+
+    if (portalUrlTimerRef.current) {
+      clearTimeout(portalUrlTimerRef.current);
+    }
+
+    if (!slug || slug.length < 2) {
+      setPortalUrlAvailability("idle");
+      setCheckedPortalUrl("");
+      lastPortalUrlCheckedRef.current = "";
+      return;
+    }
+
+    if (slug === lastPortalUrlCheckedRef.current) {
+      return;
+    }
+
+    portalUrlTimerRef.current = setTimeout(async () => {
+      lastPortalUrlCheckedRef.current = slug;
+      setPortalUrlAvailability("checking");
+      setCheckedPortalUrl(slug);
+      try {
+        const params = new URLSearchParams({ slug });
+        if (draftClientId) {
+          params.set("clientId", draftClientId);
+        }
+        const res = await fetch(`/api/check-portal-url?${params.toString()}`);
+        if (!res.ok) {
+          setPortalUrlAvailability("available");
+          return;
+        }
+        const data = await res.json();
+        setPortalUrlAvailability(data.available ? "available" : "taken");
+      } catch {
+        setPortalUrlAvailability("available");
+      }
+    }, 600);
+
+    return () => {
+      if (portalUrlTimerRef.current) {
+        clearTimeout(portalUrlTimerRef.current);
+      }
+    };
+  }, [companyData.portalUrl, draftClientId]);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const res = await fetch("/api/profile");
-        if (!res.ok) return;
-        const profile = await res.json();
-        if (!cancelled && profile?.subdomain) {
-          setUserSubdomain(profile.subdomain);
+        if (res.ok) {
+          const profile = await res.json();
+          if (!cancelled && profile?.subdomain) {
+            setUserSubdomain(profile.subdomain);
+          }
         }
       } catch {
         // Non-critical — the subdomain is just for the preview
+      } finally {
+        // Always flip off the skeleton once the fetch resolves, so the form
+        // renders even if the subdomain is missing (e.g. localhost dev).
+        if (!cancelled) {
+          setIsDataLoading(false);
+        }
       }
     })();
     return () => {
@@ -184,6 +254,13 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
     const trimmed = value.trim();
     if (!trimmed) return null; // optional
     if (!isValidDomain(trimmed)) return "Please enter a valid domain (e.g., example.com)";
+    return null;
+  };
+
+  const validatePortalUrl = (value: string): string | null => {
+    const trimmed = value.trim();
+    if (!trimmed) return "Portal URL is required";
+    if (trimmed.length < 2) return "Portal URL must be at least 2 characters";
     return null;
   };
 
@@ -515,6 +592,80 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
     updateWelcomeField("bodyText", value);
   };
 
+  if (isDataLoading) {
+    return (
+      <div className="space-y-6 max-w-4xl mx-auto">
+        {/* Plan Type Skeleton */}
+        <Card className="dark:bg-gray-800">
+          <CardHeader>
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-4 w-64" />
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-16 w-full" />
+          </CardContent>
+        </Card>
+
+        {/* Company Information Skeleton */}
+        <Card className="dark:bg-gray-800">
+          <CardHeader>
+            <Skeleton className="h-5 w-44" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Portal URL Skeleton */}
+        <Card className="dark:bg-gray-800">
+          <CardHeader>
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-4 w-72" />
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Skeleton className="h-9 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </CardContent>
+        </Card>
+
+        {/* Logo Skeleton */}
+        <Card className="dark:bg-gray-800">
+          <CardHeader>
+            <Skeleton className="h-5 w-36" />
+            <Skeleton className="h-4 w-80" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-24 w-full" />
+          </CardContent>
+        </Card>
+
+        {/* Brand Colors Skeleton */}
+        <Card className="dark:bg-gray-800">
+          <CardHeader>
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-4 w-80" />
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       {currentSubStep === "branding" && (
@@ -612,6 +763,18 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                           setFieldError("companyName", validateCompanyName(value));
                         }
                         updateField("companyName", value);
+                        // Auto-populate Portal URL from company name until the user manually edits it
+                        if (!portalUrlManuallyEditedRef.current) {
+                          const slug = value
+                            .toLowerCase()
+                            .replace(/[^a-z0-9-]/g, "-")
+                            .replace(/-+/g, "-")
+                            .replace(/^-+|-+$/g, "")
+                            .slice(0, 20);
+                          if (slug) {
+                            updateField("portalUrl", slug);
+                          }
+                        }
                       }}
                       onBlur={() => {
                         markTouched("companyName");
@@ -711,11 +874,10 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 dark:text-gray-100">
                 <Globe className="w-5 h-5 text-accent-blue" />
-                Portal URL
+                Portal URL <span className="text-red-500">*</span>
               </CardTitle>
               <p className="text-sm text-muted-foreground dark:text-gray-400">
                 Customize the URL where employees will access your benefits portal.
-                Leave blank to auto-generate from the company name.
               </p>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -742,12 +904,24 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                   data-field="portalUrl"
                   value={companyData.portalUrl || ""}
                   onChange={(e) => {
+                    // Once the user types here, stop auto-populating from company name
+                    portalUrlManuallyEditedRef.current = true;
                     const value = e.target.value
                       .toLowerCase()
                       .replace(/[^a-z0-9-]/g, "-")
                       .replace(/-+/g, "-")
                       .slice(0, 20);
                     updateField("portalUrl", value);
+                    if (touchedFields["portalUrl"]) {
+                      setFieldError("portalUrl", validatePortalUrl(value));
+                    }
+                  }}
+                  onBlur={() => {
+                    markTouched("portalUrl");
+                    setFieldError(
+                      "portalUrl",
+                      validatePortalUrl(companyData.portalUrl || ""),
+                    );
                   }}
                   placeholder={companyData.companyName
                     ? companyData.companyName
@@ -758,7 +932,14 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                         .slice(0, 20)
                     : "your-plan"}
                   maxLength={20}
+                  required
+                  destructive={isFieldInvalid("portalUrl")}
                 />
+                {touchedFields["portalUrl"] &&
+                  companyData.portalUrl?.trim() &&
+                  !fieldErrors["portalUrl"] && (
+                    <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500 dark:text-green-400 pointer-events-none" />
+                  )}
                 <div
                   className={`absolute -top-8 right-0 flex items-center gap-2 transition-all duration-500 ease-out ${(companyData.portalUrl || "").length >= 15
                     ? "opacity-100 translate-y-0"
@@ -783,6 +964,40 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                   )}
                 </div>
               </div>
+              {touchedFields["portalUrl"] && fieldErrors["portalUrl"] && (
+                <p className="text-xs text-red-500 dark:text-red-400 flex items-center gap-1 mt-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {fieldErrors["portalUrl"]}
+                </p>
+              )}
+              {/* Portal URL availability indicator */}
+              {portalUrlAvailability !== "idle" &&
+                (companyData.portalUrl || "").trim().length >= 2 && (
+                  <div className="flex items-center gap-1.5 mt-1.5">
+                    {portalUrlAvailability === "checking" ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">
+                          Checking availability...
+                        </span>
+                      </>
+                    ) : portalUrlAvailability === "available" ? (
+                      <>
+                        <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                        <span className="text-xs text-green-600 dark:text-green-400">
+                          "{checkedPortalUrl}" is available
+                        </span>
+                      </>
+                    ) : portalUrlAvailability === "taken" ? (
+                      <>
+                        <XCircle className="h-3.5 w-3.5 text-red-500" />
+                        <span className="text-xs text-red-600 dark:text-red-400">
+                          "{checkedPortalUrl}" is already taken
+                        </span>
+                      </>
+                    ) : null}
+                  </div>
+                )}
               <p className="text-xs text-muted-foreground dark:text-gray-400">
                 Only lowercase letters, numbers, and hyphens allowed. Max 20 characters.
               </p>
