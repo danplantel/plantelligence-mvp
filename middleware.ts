@@ -76,6 +76,14 @@ export default async function middleware(req: NextRequest) {
     return NextResponse.redirect(apexUrl);
   }
 
+  // ── Block portal paths on the apex domain ─────────────────────────────
+  // /new/view/* pages are employee-facing portals and must only be accessed
+  // via a subdomain (e.g. waypoint.plantel.pro/new/view/gloomis). Visiting
+  // them directly on plantel.pro redirects to the dashboard.
+  if (pathname.startsWith("/new/view/")) {
+    return NextResponse.redirect(new URL("/new/dashboard", req.url));
+  }
+
   // ── Auth check for all other matched routes ────────────────────────────
   const token = await getToken({
     req,
