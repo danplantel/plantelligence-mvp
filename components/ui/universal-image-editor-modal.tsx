@@ -67,8 +67,9 @@ export interface ImageEditorConfig {
   // Custom padding for guidelines
   safeZonePadding?: number; // Custom padding for solid line (default: 10% of canvas)
   innerPadding?: number; // Custom padding for dotted line (default: 50% of safeZonePadding)
-  // Crop settings
   outlinePadding?: number; // Padding around the image in the crop output (default: 0.1 = 10%)
+  // Separate recommended display size (e.g. for background images: 1920×1080)
+  recommendedDisplaySize?: { width: number; height: number };
 }
 
 // Default configurations for different use cases
@@ -150,8 +151,9 @@ export const IMAGE_EDITOR_CONFIGS: Record<ImageEditorType, ImageEditorConfig> =
     canvasHeight: 500,
     previewFormats: ["rectangular"],
     previewSizes: {
-      rectangular: { width: 1920, height: 1080 },
+      rectangular: { width: 300, height: 200 },
     },
+    recommendedDisplaySize: { width: 1920, height: 1080 },
     allowFlipping: true,
     allowScaling: true,
     minResolution: 200,
@@ -322,11 +324,11 @@ export function UniversalImageEditorModal({
     ...baseConfig,
     previewSizes: {
       ...baseConfig.previewSizes,
-      rectangular: baseConfig.previewSizes?.rectangular ?? { width: 300, height: 250 },
+      rectangular: { width: 300, height: 250 },
       custom:
         canvasMode === "compact"
-          ? { width: 500, height: 80 } // Compact mode: 150x100 (landscape)
-          : baseConfig.previewSizes?.custom ?? { width: 300, height: 250 },
+          ? { width: 500, height: 80 }
+          : { width: 300, height: 250 },
     },
   };
 
@@ -2438,7 +2440,7 @@ export function UniversalImageEditorModal({
             <div>
               <p className="text-sm text-gray-600">No file selected</p>
               <p className="text-xs text-gray-500">
-                Recommended: {config.previewSizes.rectangular?.width || 300}×{config.previewSizes.rectangular?.height || 250} • Accepted: {config.acceptedTypes.join(", ").toUpperCase().replace("JPG", "JPG")} • Max 15 MB
+                Recommended: {(config as any).recommendedDisplaySize?.width ?? config.previewSizes.rectangular?.width ?? 300}×{(config as any).recommendedDisplaySize?.height ?? config.previewSizes.rectangular?.height ?? 250} • Accepted: {config.acceptedTypes.join(", ").toUpperCase().replace("JPG", "JPG")} • Max 15 MB
               </p>
             </div>
             <button
@@ -2541,6 +2543,75 @@ export function UniversalImageEditorModal({
                           </ul>
                         </div>
                       ))}
+
+                    {/* Background Image Guidelines */}
+                    {type === "custom" && (
+                      <div className="p-2 sm:p-2.5 md:p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md space-y-1 sm:space-y-1.5">
+                        <h4 className="text-[10px] sm:text-xs md:text-sm font-semibold text-blue-900 dark:text-blue-300">
+                          Background Image Guidelines
+                        </h4>
+                        <ul className="space-y-1 sm:space-y-1.5 text-[9px] sm:text-[10px] md:text-xs text-blue-800 dark:text-blue-200">
+                          <li className="flex items-start gap-2">
+                            <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
+                            <span>
+                              Recommended size:{" "}
+                              <strong>
+                                {(config as any).recommendedDisplaySize?.width ?? 1920}×{(config as any).recommendedDisplaySize?.height ?? 1080}
+                              </strong>{" "}
+                              for best results.
+                            </span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
+                            <span>
+                              Resize the image so it fills the preview and covers
+                              the entire background.
+                            </span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
+                            <span>
+                              The solid border line marks the safe zone – anything
+                              beyond it may be cropped or hidden.
+                            </span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
+                            <span>
+                              Accepted formats:{" "}
+                              {config.acceptedTypes.join(", ").toUpperCase()}.
+                            </span>
+                          </li>
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Background Image Perfect Indicator - GREEN (after Auto Size) */}
+                    {type === "custom" &&
+                      !hidePerfectMessage &&
+                      isNearDottedLine &&
+                      !isOutsideSafeZone &&
+                      !isOutsideDottedLine && (
+                        <div className="flex items-start space-x-1.5 sm:space-x-2 p-2 sm:p-2.5 md:p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-md">
+                          <svg
+                            className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M5 13l4 4L19 7"
+                            />
+                          </svg>
+                          <p className="text-[9px] sm:text-[10px] md:text-xs text-green-600 dark:text-green-400">
+                            Perfect! Background image is properly scaled to fill
+                            the preview.
+                          </p>
+                        </div>
+                      )}
 
                     {type === "headshot" && (
                       <div className="p-2 sm:p-2.5 md:p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md space-y-1 sm:space-y-1.5">
