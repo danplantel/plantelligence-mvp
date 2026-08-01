@@ -76,7 +76,10 @@ import {
 import { toast } from "sonner";
 import { storePendingDraftSelection } from "@/lib/draft-utils";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
-import { getBenefitsHubAbsoluteUrl } from "@/lib/marketing/hub-url";
+import {
+  getBenefitsHubAbsoluteUrl,
+  getBenefitsHubPath,
+} from "@/lib/marketing/hub-url";
 
 interface Client {
   id: string;
@@ -658,10 +661,16 @@ export function ClientsListDashboardPage() {
                                       className="h-8 w-8"
                                       onClick={() => {
                                         const slug = client.slug || client.id;
-                                        const url = getBenefitsHubAbsoluteUrl(
-                                          slug,
-                                          userSubdomain,
-                                        );
+                                        // In development, route to the localhost
+                                        // version instead of the production subdomain
+                                        // URL (e.g. https://waypoint.plantel.pro/new/view/...).
+                                        const url =
+                                          process.env.NODE_ENV === "development"
+                                            ? `${window.location.origin}${getBenefitsHubPath(slug)}`
+                                            : getBenefitsHubAbsoluteUrl(
+                                                slug,
+                                                userSubdomain,
+                                              );
                                         window.open(url, "_blank");
                                       }}
                                     >

@@ -73,6 +73,12 @@ export default async function middleware(req: NextRequest) {
   // via a subdomain (e.g. waypoint.plantel.pro/new/view/gloomis). Visiting
   // them directly on plantel.pro redirects to the dashboard.
   if (pathname.startsWith("/new/view/")) {
+    // Development exception: allow /new/view/* on localhost so the portal
+    // can be previewed locally (mirrors the public subdomain behavior).
+    // All production routing rules remain unchanged.
+    if (process.env.NODE_ENV === "development") {
+      return response;
+    }
     return NextResponse.redirect(new URL("/new/dashboard", req.url));
   }
 
