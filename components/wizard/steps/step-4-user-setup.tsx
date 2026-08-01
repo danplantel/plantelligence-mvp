@@ -56,6 +56,11 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
   );
   const suppressNextDebouncedSaveRef = useRef(false);
 
+  // Tracks whether the user has made at least one edit on this mount. Used by the
+  // unmount cleanup below to flush changes that weren't yet persisted by the 2s
+  // debounce (e.g. designations) when the user navigates away from Step 4.
+  const hasEditsRef = useRef(false);
+
   // Guard: block validation-driven errorFields while the step is mounting/loading,
   // so fields like phone start in their normal (non-error) state until the user
   // actually interacts with the form or validation is explicitly triggered.
@@ -107,6 +112,18 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
     }, 0);
     return () => clearTimeout(t);
   }, [clearErrorFields]);
+
+  // Flush any unsaved form changes to the store/server when the component unmounts
+  // (e.g. navigating to Step 5 or back to Step 3). Non-critical fields like
+  // designations are only persisted through the 2s debounce; if the user leaves
+  // before the debounce fires, those values would otherwise be lost and the step
+  // would appear blank when they navigate back.
+  useEffect(() => {
+    return () => {
+      if (!hasEditsRef.current) return;
+      saveStepData("userSetup", methods.getValues(), true);
+    };
+  }, [methods, saveStepData]);
 
   // Load data when component mounts or when session changes
   useEffect(() => {
@@ -309,6 +326,9 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
 
   const onDataChange = async (field: string, value: any) => {
     setIsEditing(true);
+    // Mark that the user edited the form so the unmount cleanup flushes any
+    // unsaved values (e.g. designations) when navigating away.
+    hasEditsRef.current = true;
     // Only call setValue if the value actually changed to avoid unnecessary re-renders
     const currentValue = methods.getValues(field as any);
     if (currentValue !== value) {
