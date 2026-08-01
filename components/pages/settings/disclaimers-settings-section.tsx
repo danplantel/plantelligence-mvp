@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Disclaimer } from "@/types/wizard";
+import { resolveOrgOnlyDisclaimerText } from "@/lib/disclaimer-constants";
 
 const LOCATION_OPTIONS = [
   { id: "benefits_hub", label: "Benefits Hub / Client Website" },
@@ -37,6 +38,12 @@ export function DisclaimersSettingsSection() {
   // Track whether we've already pre-filled the form with the Onboarding disclaimer,
   // so we don't overwrite the user's own edits.
   const prefillDoneRef = useRef(false);
+
+  // Organization name for normalizing stored disclaimer text to the org-only
+  // format (Settings disclaimers do not use a [Company Name]).
+  const resolvedOrgName = stepData.branding?.organizationName || "";
+  const normalizeDisclaimerText = (text: string): string =>
+    resolveOrgOnlyDisclaimerText(text, resolvedOrgName);
 
   // Load data when component mounts — use a direct fetch to /api/profile
   // which includes wizardSessions[0].disclaimers, bypassing the zustand
@@ -100,7 +107,7 @@ export function DisclaimersSettingsSection() {
               });
               setSelectedLocations(locs);
               setCustomLocation(first.customLocation || "");
-              setDisclaimerText(first.text);
+              setDisclaimerText(normalizeDisclaimerText(first.text));
               setErrors({});
               prefillDoneRef.current = true;
             }
@@ -131,7 +138,7 @@ export function DisclaimersSettingsSection() {
       });
       setSelectedLocations(locations);
       setCustomLocation(editingDisclaimer.customLocation || "");
-      setDisclaimerText(editingDisclaimer.text);
+      setDisclaimerText(normalizeDisclaimerText(editingDisclaimer.text));
       setErrors({});
     }
   }, [editingDisclaimer]);
@@ -219,6 +226,21 @@ export function DisclaimersSettingsSection() {
     setErrors({});
   };
 
+  // Keep User.disclaimer (Prisma User record) in sync so the portal footer and
+  // the settings section always reflect the current disclaimers.
+  const persistToUserProfile = async (disclaimersArr: Disclaimer[]) => {
+    try {
+      const json = JSON.stringify(disclaimersArr);
+      await fetch("/api/profile/update-disclaimer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ disclaimer: json }),
+      });
+    } catch {
+      // Non-critical — the wizard completion also persists these.
+    }
+  };
+
   const handleAddDisclaimer = async (disclaimer: Omit<Disclaimer, "id">) => {
     const newDisclaimer: Disclaimer = {
       ...disclaimer,
@@ -235,6 +257,9 @@ export function DisclaimersSettingsSection() {
       { disclaimers: updatedDisclaimers },
       true,
     );
+
+    // Keep User.disclaimer in sync
+    await persistToUserProfile(updatedDisclaimers);
 
     toast.success("Disclaimer added successfully");
   };
@@ -255,6 +280,9 @@ export function DisclaimersSettingsSection() {
       { disclaimers: updatedDisclaimers },
       true,
     );
+
+    // Keep User.disclaimer in sync
+    await persistToUserProfile(updatedDisclaimers);
 
     toast.success("Disclaimer updated successfully");
   };
