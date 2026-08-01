@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Disclaimer } from "@/types/wizard";
-import { resolveOrgOnlyDisclaimerText } from "@/lib/disclaimer-constants";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const LOCATION_OPTIONS = [
@@ -43,12 +42,6 @@ export function DisclaimersSettingsSection() {
   // Internal loading state — shows a skeleton until the disclaimer data (from
   // /api/profile or the wizard store) has populated the textarea.
   const [isLoading, setIsLoading] = useState(true);
-
-  // Organization name for normalizing stored disclaimer text to the org-only
-  // format (Settings disclaimers do not use a [Company Name]).
-  const resolvedOrgName = stepData.branding?.organizationName || "";
-  const normalizeDisclaimerText = (text: string): string =>
-    resolveOrgOnlyDisclaimerText(text, resolvedOrgName);
 
   // Load data when component mounts — use a direct fetch to /api/profile
   // which includes wizardSessions[0].disclaimers, bypassing the zustand
@@ -100,30 +93,10 @@ export function DisclaimersSettingsSection() {
         }
 
         if (arr.length > 0) {
-          // Normalize with the current org name (may have changed since the
-          // disclaimer was last saved, e.g. via Settings > Branding)
-          let needsPersist = false;
-          const org = stepData.branding?.organizationName || "";
-          if (org) {
-            arr = arr.map((d: Disclaimer) => {
-              const n = resolveOrgOnlyDisclaimerText(d.text, org);
-              if (n !== d.text) { needsPersist = true; return { ...d, text: n }; }
-              return d;
-            });
-          }
           setDisclaimers(arr);
 
-          // Re-persist to User.disclaimer if the org name changed
-          if (needsPersist) {
-            const json = JSON.stringify(arr);
-            fetch("/api/profile/update-disclaimer", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ disclaimer: json }),
-            }).catch(() => {});
-          }
-
-          // Pre-fill the form with the first disclaimer
+          // Pre-fill the form with the first disclaimer — use the exact text
+          // the user created at onboarding (no org-only normalization).
           if (!prefillDoneRef.current && !editingDisclaimer && !disclaimerText) {
             const first = arr[0];
             if (first?.text) {
@@ -133,7 +106,7 @@ export function DisclaimersSettingsSection() {
               });
               setSelectedLocations(locs);
               setCustomLocation(first.customLocation || "");
-              setDisclaimerText(normalizeDisclaimerText(first.text));
+              setDisclaimerText(first.text);
               setErrors({});
               prefillDoneRef.current = true;
             }
@@ -167,7 +140,7 @@ export function DisclaimersSettingsSection() {
       });
       setSelectedLocations(locations);
       setCustomLocation(editingDisclaimer.customLocation || "");
-      setDisclaimerText(normalizeDisclaimerText(editingDisclaimer.text));
+      setDisclaimerText(editingDisclaimer.text);
       setErrors({});
     }
   }, [editingDisclaimer]);
