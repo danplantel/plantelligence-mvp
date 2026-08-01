@@ -697,7 +697,7 @@ model Client {
 
   brandImagesCropData    Json?
 
-  disclaimers Json? // DisclaimersData object: { disclaimers: [], disclosuresText: string, useDefaultDisclosures: boolean }
+  disclaimers Json? // DisclaimersData object: { disclaimers: [], byCategory: { Retirement?: Disclaimer, "Group Life"?: Disclaimer, "Group Health"?: Disclaimer, Other?: Disclaimer }, disclosuresText: string, useDefaultDisclosures: boolean } — each portal category can have its own footer disclaimer (see types/new-client-wizard.ts)
 
   // Key Contacts
   keyContacts Json // [{name, role, customRole, email, phone, headshot, headshotFileName, bio, displayEmail, displayPhone, contactButton, contactButtonType, contactUrl}]

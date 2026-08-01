@@ -92,24 +92,18 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
     return "Benefits Hub / Client Website"; // Default to hub for main page or other plan pages
   };
 
+  // Map a portal page label → canonical per-category disclaimer key
+  const getCurrentCategoryKey = () => {
+    const category = getCurrentCategory();
+    if (category === "Retirement Plan") return "Retirement";
+    if (category === "Group Health / Dental / Vision") return "Group Health";
+    if (category === "Group Life / Disability") return "Group Life";
+    if (category === "Wellness Programs") return "Other";
+    return null; // Benefits Hub main page is not a per-category disclaimer
+  };
+
   // Parse and filter disclaimers based on priority
   const getDisclosuresText = () => {
-    // The footer disclosures come from the advisor's profile (User.disclaimer)
-    // when available. This is resolved server-side in GET /api/clients/[id] and
-    // attached as advisorDisclaimer, so it works for both the logged-in dashboard
-    // flow and the public subdomain portal. Falls back to the client's disclaimers
-    // below when the advisor hasn't set one.
-    const advisorDisclaimer = (clientData as any)?.advisorDisclaimer;
-    if (advisorDisclaimer) {
-      // Normalize any literal backslash-n / Windows line endings defensively
-      // so newlines always render in the footer even if the text arrived
-      // double-encoded.
-      return advisorDisclaimer
-        .replace(/\\n/g, "\n")
-        .replace(/\r\n/g, "\n")
-        .replace(/\r/g, "\n");
-    }
-
     // Note: clientData might not have 'branding' sub-object in this context
     const orgName = (clientData as any)?.branding?.organizationName || clientData?.companyName || "[Organization Name]";
     const compName = clientData?.companyName || "[Company Name]";
@@ -119,11 +113,23 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
       .replace(/[<\\[]Organization Name[>\\]]/g, orgName)
       .replace(/[<\\[]Company Name[>\\]]/g, compName);
 
-    if (!clientData?.disclaimers) return universalText;
+    if (!clientData?.disclaimers) {
+      // No client disclaimers → fall back to the advisor's profile disclaimer,
+      // then to the universal text.
+      const advisorFallback = (clientData as any)?.advisorDisclaimer;
+      if (advisorFallback) {
+        return advisorFallback
+          .replace(/\\n/g, "\n")
+          .replace(/\r\n/g, "\n")
+          .replace(/\r/g, "\n");
+      }
+      return universalText;
+    }
 
     let disclaimersArray: any[] = [];
     let savedDisclosuresText: string | null = null;
     let useDefaultDisclosures = false;
+    let byCategory: Record<string, any> | null = null;
 
     try {
       const parsed = typeof clientData.disclaimers === "string"
@@ -134,6 +140,10 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
         disclaimersArray = Array.isArray(parsed.disclaimers) ? parsed.disclaimers : [];
         savedDisclosuresText = parsed.disclosuresText || null;
         useDefaultDisclosures = !!parsed.useDefaultDisclosures;
+        byCategory =
+          parsed.byCategory && typeof parsed.byCategory === "object"
+            ? parsed.byCategory
+            : null;
       }
     } catch (e) {
       console.warn("Failed to parse disclaimers:", e);
@@ -145,6 +155,45 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
     }
 
     const currentCategory = getCurrentCategory();
+    const currentCategoryKey = getCurrentCategoryKey();
+
+    // 0. Per-category disclaimer (byCategory) — highest priority on category pages.
+    // Each benefit category (Retirement, Group Life, Group Health, Other) can have
+    // its own disclaimer configured in the Create Benefit Flow (BenefitsStep5),
+    // mapped to that category's portal hub page:
+    //   Retirement   → /retirement
+    //   Group Life   → /life-insurance
+    //   Group Health → /health-insurance
+    //   Other        → /wellness-programs
+    const perCategoryDisclaimer = currentCategoryKey
+      ? byCategory?.[currentCategoryKey]
+      : null;
+    if (perCategoryDisclaimer?.text) {
+      // Normalize any literal backslash-n / Windows line endings defensively
+      // so newlines always render in the footer even if the text arrived
+      // double-encoded.
+      return perCategoryDisclaimer.text
+        .replace(/\\n/g, "\n")
+        .replace(/\r\n/g, "\n")
+        .replace(/\r/g, "\n");
+    }
+
+    // The footer disclosures come from the advisor's profile (User.disclaimer)
+    // when available. This is resolved server-side in GET /api/clients/[id] and
+    // attached as advisorDisclaimer, so it works for both the logged-in dashboard
+    // flow and the public subdomain portal. On the Benefits Hub main page (no
+    // per-category disclaimer) and as a fallback for category pages without a
+    // per-category disclaimer, the advisor's disclosures remain the source.
+    const advisorDisclaimer = (clientData as any)?.advisorDisclaimer;
+    if (advisorDisclaimer) {
+      // Normalize any literal backslash-n / Windows line endings defensively
+      // so newlines always render in the footer even if the text arrived
+      // double-encoded.
+      return advisorDisclaimer
+        .replace(/\\n/g, "\n")
+        .replace(/\r\n/g, "\n")
+        .replace(/\r/g, "\n");
+    }
 
     // 1. Category-specific disclaimers (apply_all = false, matches category)
     // Note: If user selected "Benefits Hub" and apply_all = false, it only shows on the Hub main page ("benefits_hub").
@@ -153,15 +202,16 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
     );
 
     // 2. All-categories disclaimers (apply_all = true)
-    // These appear across all categories regardless of the specific category selected in locations, 
+    // These appear across all categories regardless of the specific category selected in locations,
     // as long as they are targeted at the Hub/Portal components.
     const allCategories = disclaimersArray.filter((d: any) =>
       d.apply_all_benefits_categories === true
     );
 
-    // Combine following priority: Category-specific > All-categories > Universal
+    // Combine following priority: Per-category > Category-specific > All-categories > Universal
     // (We include universal if useDefaultDisclosures is true OR if it's the final fallback)
     const prioritizedTexts = [
+      ...(perCategoryDisclaimer?.text ? [perCategoryDisclaimer.text] : []),
       ...categorySpecific.map(d => d.text),
       ...allCategories.map(d => d.text)
     ];

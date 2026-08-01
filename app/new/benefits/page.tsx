@@ -457,10 +457,17 @@ function BenefitsPageInner() {
         Other: visibilityForComplete["Custom"] !== false,
       };
 
-      // Include Step 5 disclaimers in the payload
+      // Include Step 5 disclaimers in the payload. Step 5 now stores per-category
+      // disclaimers: `disclaimers` (flattened array) + `byCategory` (one per category).
       const step5Disclaimers =
         Array.isArray(step5Data?.disclaimers) && step5Data.disclaimers.length > 0
           ? step5Data.disclaimers
+          : undefined;
+      const step5ByCategory =
+        step5Data?.byCategory &&
+        typeof step5Data.byCategory === "object" &&
+        Object.keys(step5Data.byCategory).length > 0
+          ? step5Data.byCategory
           : undefined;
 
       const updatePayload = {
@@ -482,7 +489,14 @@ function BenefitsPageInner() {
           heroUseGradient: step1Data?.heroUseGradient ?? false,
         },
         categoryPortalVisibility: categoryPortalVisibilityForComplete,
-        ...(step5Disclaimers ? { disclaimers: { disclaimers: step5Disclaimers } } : {}),
+        ...(step5Disclaimers || step5ByCategory
+          ? {
+              disclaimers: {
+                ...(step5Disclaimers ? { disclaimers: step5Disclaimers } : {}),
+                ...(step5ByCategory ? { byCategory: step5ByCategory } : {}),
+              },
+            }
+          : {}),
       };
 
       // Only include documentsData if documents actually changed in the wizard.

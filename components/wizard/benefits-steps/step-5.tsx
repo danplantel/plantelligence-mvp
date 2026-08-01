@@ -16,13 +16,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
-import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
-import { Disclaimer } from "@/types/new-client-wizard";
+import {
+  Disclaimer,
+  DisclaimersData,
+  PortalDisclaimerCategory,
+  PORTAL_DISCLAIMER_CATEGORIES,
+} from "@/types/new-client-wizard";
 import { DEFAULT_DISCLOSURES_TEXT } from "@/lib/disclaimer-constants";
 import { Footer } from "@/components/footer";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  AlertCircle,
   Eye,
   FileText,
   Edit2,
@@ -30,14 +33,17 @@ import {
 } from "lucide-react";
 
 /**
- * Benefits Step 5 – Single Disclaimer Section
+ * Benefits Step 5 – Per-Category Disclaimers
  *
- * The user creates exactly ONE disclaimer that appears in the Footer of the
- * benefit-category portal page selected in Step 1a. This is a required step.
+ * Each benefit category (Retirement, Group Life, Group Health, Other) can have
+ * its own disclaimer that appears in the Footer of that category's portal page.
+ * The disclaimer being edited is implied by the category selected in Step 1,
+ * and each category retains its own disclaimer in the plan record.
  *
- * Persisted to the plan/client record via `PUT /api/clients/[id]` so the
- * portal layout at `app/new/view/[id]/layout.tsx` can read, filter by
- * category, and render inside `<Footer disclosuresText={…} />`.
+ * Persisted to the plan/client record via `PUT /api/clients/[id]` as a
+ * `DisclaimersData` object: `{ disclaimers: [], byCategory: { ... } }`.
+ * The portal layout at `app/new/view/[id]/layout.tsx` reads `byCategory`,
+ * matches the current category, and renders inside `<Footer disclosuresText={…} />`.
  */
 
 // ── Map benefit-category labels to the portal page location strings ──
@@ -46,7 +52,27 @@ const CATEGORY_PORTAL_LABELS: Record<string, string> = {
   "Group Health": "Group Health / Dental / Vision",
   "Group Life": "Group Life / Disability",
   Custom: "Wellness Programs",
+  Other: "Wellness Programs",
 };
+
+// Map a canonical category key to its portal page location string
+function categoryKeyToPortalLabel(key: string): string {
+  return CATEGORY_PORTAL_LABELS[key] || "Global";
+}
+
+// Map a canonical category key to its Hub page name (e.g. "Retirement Hub")
+function categoryKeyToHubLabel(key: string): string {
+  return `${key} Hub`;
+}
+
+// Map a benefit-category label (Step 1 selection) to a canonical disclaimer key
+function benefitCategoryToKey(category: string): PortalDisclaimerCategory {
+  const c = (category || "").trim().toLowerCase();
+  if (c.includes("retirement")) return "Retirement";
+  if (c.includes("health")) return "Group Health";
+  if (c.includes("life")) return "Group Life";
+  return "Other";
+}
 
 // ── Default disclaimer text with placeholders ──
 function buildDefaultDisclaimerText(
@@ -56,39 +82,6 @@ function buildDefaultDisclaimerText(
   return DEFAULT_DISCLOSURES_TEXT
     .replace("[Organization Name]", orgName)
     .replace("[Company Name]", compName);
-}
-
-// Resolve inherited disclaimer text from plan or onboarding data
-function resolveInheritedDisclaimerText(
-  selectedPlan: any,
-  onboardingDisclaimers?: any,
-  orgName?: string,
-  compName?: string,
-): string {
-  // 1. Try plan's existing disclaimer
-  const raw = selectedPlan?.disclaimers;
-  if (raw) {
-    try {
-      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-      const arr: any[] = Array.isArray(parsed.disclaimers)
-        ? parsed.disclaimers
-        : Array.isArray(parsed)
-          ? parsed
-          : [];
-      if (arr.length > 0 && arr[0]?.text) {
-        return arr[0].text;
-      }
-    } catch { /* ignore */ }
-  }
-
-  // 2. Try onboarding disclaimer as fallback
-  const onboardingArr = onboardingDisclaimers?.disclaimers;
-  if (onboardingArr && onboardingArr.length > 0 && onboardingArr[0]?.text) {
-    return onboardingArr[0].text;
-  }
-
-  // 3. Fall back to hardcoded default
-  return buildDefaultDisclaimerText(orgName || "[Organization Name]", compName || "[Company Name]");
 }
 
 // ── Location options ──
@@ -103,7 +96,7 @@ const LOCATION_OPTIONS = [
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  Single Disclaimer Modal
+//  Disclaimer Modal
 // ═══════════════════════════════════════════════════════════════════════════
 
 interface DisclaimerModalProps {
@@ -294,15 +287,17 @@ function DisclaimerModal({
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  BenefitsStep5 — Single Mandatory Disclaimer
+//  BenefitsStep5 — Per-Category Mandatory Disclaimers
 // ═══════════════════════════════════════════════════════════════════════════
 
 export function BenefitsStep5() {
   const { stepData, saveStepData } = useBenefitsWizardStore();
-  const { stepData: onboardingStepData } = useOnboardingWizardStore();
 
   const planId = stepData.step1?.planId;
   const benefitCategory = stepData.step1?.benefitCategory || "";
+
+  // Canonical category for the benefit currently being created in Step 1a
+  const currentCategoryKey = benefitCategoryToKey(benefitCategory);
 
   // Resolve organisation & company name from the selected plan
   const selectedPlan = stepData.step1?.selectedPlan;
@@ -348,7 +343,7 @@ export function BenefitsStep5() {
         locations:
           Array.isArray(first.locations) && first.locations.length > 0
             ? first.locations
-            : [CATEGORY_PORTAL_LABELS[benefitCategory] || "Global"],
+            : [categoryKeyToPortalLabel(currentCategoryKey)],
         customLocation: first.customLocation || "",
         scope: "plan",
         apply_all_benefits_categories: first.apply_all_benefits_categories ?? false,
@@ -356,84 +351,115 @@ export function BenefitsStep5() {
     } catch {
       return null;
     }
-  }, [benefitCategory]);
+  }, [currentCategoryKey]);
 
-  // ── State: single disclaimer (null = not yet created) ──
-  const [disclaimer, setDisclaimer] = useState<Disclaimer | null>(() => {
-    const arr = stepData.step5?.disclaimers;
-    return Array.isArray(arr) && arr.length > 0 ? arr[0] : null;
+  // ── State: one disclaimer per canonical category ──
+  const [disclaimersByCategory, setDisclaimersByCategory] = useState<
+    Partial<Record<PortalDisclaimerCategory, Disclaimer | null>>
+  >(() => {
+    const step5 = stepData.step5 as any;
+    const map: Partial<Record<PortalDisclaimerCategory, Disclaimer | null>> = {};
+
+    // Seed from persisted byCategory (per-category format)
+    const byCat = step5?.byCategory || {};
+    for (const key of PORTAL_DISCLAIMER_CATEGORIES) {
+      if (byCat[key]) map[key] = byCat[key];
+    }
+
+    // Legacy: OLD-format clients store a flat disclaimers array (no byCategory).
+    // Only fall back to it when there is no per-category data at all, so a
+    // previously-configured category's disclaimer never leaks into another one.
+    const hasByCategory = Object.keys(byCat).length > 0;
+    if (!hasByCategory) {
+      const arr = Array.isArray(step5?.disclaimers) ? step5.disclaimers : [];
+      if (arr.length > 0 && !map[currentCategoryKey]) {
+        map[currentCategoryKey] = arr[0];
+      }
+    }
+
+    return map;
   });
+
+  // The disclaimer is implied by the category selected in Step 1
+  const disclaimer = disclaimersByCategory[currentCategoryKey] || null;
 
   const [hasInitialized, setHasInitialized] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [showInitialPrompt, setShowInitialPrompt] = useState(false);
   const [previewFooterOpen, setPreviewFooterOpen] = useState(false);
 
-  // ── Load disclaimer from the plan record on first mount ──
+  // The User's profile disclaimer text (Settings > Team & Disclaimers) — the
+  // default inheritance source for every category.
+  const [profileDisclaimerText, setProfileDisclaimerText] = useState<string | null>(null);
+
+  // ── Load disclaimers from the plan record on first mount ──
   useEffect(() => {
     if (hasInitialized) return;
-    if (disclaimer) {
+    if (Object.values(disclaimersByCategory).some(Boolean)) {
       setHasInitialized(true);
       return;
     }
 
-    // If we have a selectedPlan with embedded disclaimers, use the first one
-    const raw = (selectedPlan as any)?.disclaimers;
-    if (raw) {
+    // Seed the map from a raw DisclaimersData value (plan record or API)
+    const seedFromRaw = (raw: any): boolean => {
+      if (!raw) return false;
       try {
         const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-        const arr: Disclaimer[] = Array.isArray(parsed.disclaimers)
-          ? parsed.disclaimers
-          : Array.isArray(parsed)
-            ? parsed
-            : [];
-        if (arr.length > 0) {
-          const d = arr[0];
-          setDisclaimer(d);
-          saveStepData(5, { disclaimers: [d] });
-          setHasInitialized(true);
-          return;
+        const byCat = parsed?.byCategory || {};
+        const next = { ...disclaimersByCategory };
+        let seeded = false;
+        for (const key of PORTAL_DISCLAIMER_CATEGORIES) {
+          if (byCat[key]) {
+            next[key] = byCat[key];
+            seeded = true;
+          }
         }
+        // Legacy: only seed the current category from a flat disclaimers array
+        // when there is no per-category data (old format), never from another
+        // category's disclaimer.
+        if (Object.keys(byCat).length === 0) {
+          const arr: Disclaimer[] = Array.isArray(parsed?.disclaimers)
+            ? parsed.disclaimers
+            : Array.isArray(parsed)
+              ? parsed
+              : [];
+          if (arr.length > 0 && !next[currentCategoryKey]) {
+            next[currentCategoryKey] = arr[0];
+            seeded = true;
+          }
+        }
+        if (seeded) {
+          setDisclaimersByCategory(next);
+        }
+        return seeded;
       } catch {
-        // Not valid JSON – ignore
+        return false;
       }
+    };
+
+    // 1. If we have a selectedPlan with embedded disclaimers, use them
+    if (seedFromRaw((selectedPlan as any)?.disclaimers)) {
+      setHasInitialized(true);
+      return;
     }
 
-    // Fetch from API as fallback
+    // 2. Fetch from API as fallback
     if (planId) {
       (async () => {
         try {
           const res = await fetch(`/api/clients/${planId}`);
           const result = await res.json();
           if (result.success && result.data) {
-            const rawData = result.data.disclaimers;
-            if (rawData) {
-              try {
-                const parsed =
-                  typeof rawData === "string" ? JSON.parse(rawData) : rawData;
-                const arr: Disclaimer[] = Array.isArray(parsed.disclaimers)
-                  ? parsed.disclaimers
-                  : Array.isArray(parsed)
-                    ? parsed
-                    : [];
-                if (arr.length > 0) {
-                  const d = arr[0];
-                  setDisclaimer(d);
-                  saveStepData(5, { disclaimers: [d] });
-                  setHasInitialized(true);
-                  return;
-                }
-              } catch {
-                // ignore parse errors
-              }
+            if (seedFromRaw(result.data.disclaimers)) {
+              setHasInitialized(true);
+              return;
             }
           }
         } catch (err) {
           console.error("Failed to load disclaimer from plan:", err);
         }
 
-        // Prefer the User's profile disclaimer (Settings > Team & Disclaimers)
-        // as the default when the plan has no disclaimer of its own.
+        // 3. Prefer the User's profile disclaimer (Settings > Team & Disclaimers)
+        //    as the default for the current category when the plan has none.
         const userProfileDisclaimer = await getUserProfileDisclaimer();
         if (userProfileDisclaimer) {
           const d: Disclaimer = {
@@ -442,14 +468,15 @@ export function BenefitsStep5() {
               .replace(/\[Organization Name\]/g, organizationName)
               .replace(/\[Company Name\]/g, companyName),
           };
-          setDisclaimer(d);
-          saveStepData(5, { disclaimers: [d] });
+          setDisclaimersByCategory((prev) => ({
+            ...prev,
+            [currentCategoryKey]: d,
+          }));
           setHasInitialized(true);
           return;
         }
 
         setHasInitialized(true);
-        setShowInitialPrompt(true);
       })();
     } else {
       // Prefer the User's profile disclaimer even without a plan
@@ -462,33 +489,54 @@ export function BenefitsStep5() {
               .replace(/\[Organization Name\]/g, organizationName)
               .replace(/\[Company Name\]/g, companyName),
           };
-          setDisclaimer(d);
-          saveStepData(5, { disclaimers: [d] });
+          setDisclaimersByCategory((prev) => ({
+            ...prev,
+            [currentCategoryKey]: d,
+          }));
           setHasInitialized(true);
           return;
         }
         setHasInitialized(true);
-        setShowInitialPrompt(true);
       })();
     }
-  }, [hasInitialized, planId, selectedPlan, disclaimer, saveStepData, getUserProfileDisclaimer, organizationName, companyName]);
+  }, [hasInitialized, planId, selectedPlan, disclaimersByCategory, saveStepData, getUserProfileDisclaimer, organizationName, companyName, currentCategoryKey]);
 
-  // ── If no disclaimer exists after initialisation, auto-show prompt ──
+  // ── Fetch the User's profile disclaimer text for the inherited default ──
   useEffect(() => {
-    if (
-      hasInitialized &&
-      !disclaimer &&
-      !isModalOpen &&
-      !showInitialPrompt
-    ) {
-      setShowInitialPrompt(true);
-    }
-  }, [hasInitialized, disclaimer, isModalOpen, showInitialPrompt]);
+    let cancelled = false;
+    (async () => {
+      const d = await getUserProfileDisclaimer();
+      if (!cancelled && d?.text) {
+        setProfileDisclaimerText(
+          d.text
+            .replace(/\[Organization Name\]/g, organizationName)
+            .replace(/\[Company Name\]/g, companyName),
+        );
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [getUserProfileDisclaimer, organizationName, companyName]);
 
-  // ── Persist single disclaimer to plan/client record ──
+  // ── Persist per-category disclaimers to plan/client record ──
   const persistToPlan = useCallback(
-    async (d: Disclaimer) => {
+    async (next: Partial<Record<PortalDisclaimerCategory, Disclaimer | null>>) => {
       if (!planId) return;
+      const all = Object.values(next).filter(Boolean) as Disclaimer[];
+      // Strip null entries so byCategory only holds real disclaimers
+      const cleanByCategory = Object.entries(next).reduce<
+        Partial<Record<PortalDisclaimerCategory, Disclaimer>>
+      >((acc, [key, value]) => {
+        if (value) {
+          (acc as Record<string, Disclaimer>)[key] = value;
+        }
+        return acc;
+      }, {});
+      const disclaimersData: DisclaimersData = {
+        disclaimers: all,
+        byCategory: cleanByCategory,
+      };
       // Include Step 1 branding data so the uploaded header background image is persisted
       const step1Data = stepData.step1;
       const brandImages = step1Data?.brandImages;
@@ -497,9 +545,7 @@ export function BenefitsStep5() {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            disclaimers: {
-              disclaimers: [d],
-            },
+            disclaimers: disclaimersData,
             // Persist brand images so the header background (uploaded in Step 2 Editor Panel)
             // appears on the live Benefit Hub pages
             ...(brandImages ? { brandImages } : {}),
@@ -520,37 +566,36 @@ export function BenefitsStep5() {
     [planId, stepData.step1],
   );
 
-  // ── Create / Update handler ──
+  // ── Create / Update handler for the current category ──
   const handleSaveDisclaimer = async (data: Omit<Disclaimer, "id">) => {
     const d: Disclaimer = {
       ...data,
       id: disclaimer?.id || Date.now().toString(),
     };
-    setDisclaimer(d);
-    saveStepData(5, { disclaimers: [d] });
-    await persistToPlan(d);
+    const next = { ...disclaimersByCategory, [currentCategoryKey]: d };
+    setDisclaimersByCategory(next);
+    saveStepData(5, {
+      disclaimers: Object.values(next).filter(Boolean),
+      byCategory: next,
+    });
+    await persistToPlan(next);
     setIsModalOpen(false);
   };
 
-  // ── Derive the current benefit category label ──
-  const portalCategory =
-    CATEGORY_PORTAL_LABELS[benefitCategory] || benefitCategory || "this benefit";
+  // ── Inherited text for new disclaimers: every category inherits individually
+  //    from the User's profile disclaimer (Settings > Team & Disclaimers) rather
+  //    than from whichever category was configured first. ──
+  const inheritedText =
+    profileDisclaimerText || buildDefaultDisclaimerText(organizationName, companyName);
 
-  // ── Compute inherited text for new disclaimers ──
-  const inheritedText = resolveInheritedDisclaimerText(
-    selectedPlan,
-    onboardingStepData.disclaimers,
-    organizationName,
-    companyName,
-  );
-
-  // ── Build disclosure text ──
+  // ── Build disclosure text for the current category ──
   const buildDisclosureText = useCallback((): string => {
-    if (!disclaimer) {
+    const d = disclaimersByCategory[currentCategoryKey];
+    if (!d) {
       return inheritedText;
     }
-    return disclaimer.text;
-  }, [disclaimer, inheritedText]);
+    return d.text;
+  }, [disclaimersByCategory, currentCategoryKey, inheritedText]);
 
   // ── Brand colour from the selected plan ──
   const brandColor =
@@ -570,22 +615,19 @@ export function BenefitsStep5() {
           <div className="space-y-2 flex-1 min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
               <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                Footer Disclaimer
+                Footer Disclaimers
               </h2>
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-[#23919C]/10 text-[#23919C] text-xs font-medium">
                 <FileText className="w-3 h-3" />
-                {portalCategory}
+                Per benefit category
               </span>
             </div>
             <p className="text-sm text-muted-foreground">
-              Create a disclaimer that will appear in the{" "}
+              Create a disclaimer for the benefit category you selected in
+              Step 1. It will appear in the{" "}
               <strong className="text-gray-700 dark:text-gray-200">Footer</strong>{" "}
-              of the{" "}
-              <strong className="text-gray-700 dark:text-gray-200">
-                {portalCategory}
-              </strong>{" "}
-              employee portal page — visible to all employees who access the
-              portal. This is a <strong>required</strong> step.
+              of that category employee portal page — visible to all employees
+              who access the portal. This is a <strong>required</strong> step.
             </p>
           </div>
         </div>
@@ -617,103 +659,56 @@ export function BenefitsStep5() {
         </div>
       )}
 
-      {/* ── Disclaimer content (no wrapper card — same width as header) ── */}
-      {hasInitialized && !disclaimer && showInitialPrompt && (
-        /* ── Initial prompt (no disclaimer yet) ── */
-        <div className="space-y-6 py-4">
-          <div className="text-center space-y-2">
-            <div className="flex justify-center">
-              <div className="p-3 rounded-full bg-red-50 dark:bg-red-900/20">
-                <AlertCircle className="w-6 h-6 text-red-500" />
+      {hasInitialized && (
+        <>
+          {/* ── Disclaimer summary — always shown. Uses the inherited disclaimer
+               (User's profile disclaimer) when no disclaimer is saved for the
+               current category yet. ── */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Applies to:
+                </span>
+                {disclaimer?.apply_all_benefits_categories ? (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] font-semibold">
+                    All Categories
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#23919C]/10 text-[#23919C] text-[10px] font-semibold">
+                    {categoryKeyToHubLabel(currentCategoryKey)}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={() => setPreviewFooterOpen(true)}
+                  size="sm"
+                  variant="outline"
+                  className="border-gray-300 dark:border-gray-600"
+                >
+                  <Eye className="w-4 h-4 mr-1" />
+                  Preview Footer
+                </Button>
+                <Button
+                  onClick={() => setIsModalOpen(true)}
+                  size="sm"
+                  className="bg-[#23919C] hover:bg-[#1b727a] text-white"
+                >
+                  <Edit2 className="w-4 h-4 mr-1" />
+                  Edit
+                </Button>
               </div>
             </div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-              Disclaimer Required
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              You must create a disclaimer before proceeding. This legal
-              notice will appear in the footer of your{" "}
-              <strong className="text-gray-700 dark:text-gray-200">
-                {portalCategory}
-              </strong>{" "}
-              portal page.
-            </p>
-          </div>
 
-          <Button
-            onClick={() => {
-              setShowInitialPrompt(false);
-              setIsModalOpen(true);
-            }}
-            className="w-full h-12 text-base font-bold bg-[#23919C] hover:bg-[#1b727a] text-white rounded-xl shadow-lg shadow-[#23919C]/20"
-          >
-            <FileText className="w-5 h-5 mr-2" />
-            Create Disclaimer for {portalCategory}
-          </Button>
-        </div>
-      )}
-
-      {hasInitialized && disclaimer && (
-        /* ── Single disclaimer summary ── */
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">
-                Disclaimer
-              </h2>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={() => setPreviewFooterOpen(true)}
-                size="sm"
-                variant="outline"
-                className="border-gray-300 dark:border-gray-600"
-              >
-                <Eye className="w-4 h-4 mr-1" />
-                Preview Footer
-              </Button>
-              <Button
-                onClick={() => setIsModalOpen(true)}
-                size="sm"
-                className="bg-[#23919C] hover:bg-[#1b727a] text-white"
-              >
-                <Edit2 className="w-4 h-4 mr-1" />
-                Edit
-              </Button>
+            {/* Disclaimer card */}
+            <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-card dark:bg-gray-800/50">
+              <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap break-words">
+                {disclaimer?.text || inheritedText}
+              </div>
             </div>
           </div>
-
-          {/* Single disclaimer card */}
-          <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-card dark:bg-gray-800/50">
-            <div className="flex items-center gap-2 flex-wrap mb-3">
-              <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Applies to:
-              </span>
-              {disclaimer.apply_all_benefits_categories ? (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] font-semibold">
-                  All Categories
-                </span>
-              ) : (
-                [
-                  ...disclaimer.locations,
-                  ...(disclaimer.customLocation
-                    ? [disclaimer.customLocation]
-                    : []),
-                ].map((loc) => (
-                  <span
-                    key={loc}
-                    className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#23919C]/10 text-[#23919C] text-[10px] font-semibold"
-                  >
-                    {loc}
-                  </span>
-                ))
-              )}
-            </div>
-            <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap break-words border-t border-gray-100 dark:border-gray-700 pt-3">
-              {disclaimer.text}
-            </div>
-          </div>
-        </div>
+        </>
       )}
 
       {/* ── Create / Edit Disclaimer Modal ── */}
@@ -723,7 +718,7 @@ export function BenefitsStep5() {
           disclaimer={disclaimer}
           companyName={companyName}
           organizationName={organizationName}
-          benefitCategory={benefitCategory}
+          benefitCategory={currentCategoryKey}
           inheritedText={inheritedText}
           onSave={handleSaveDisclaimer}
           onClose={() => {
@@ -745,7 +740,7 @@ export function BenefitsStep5() {
                 <p className="text-sm text-muted-foreground">
                   How the disclaimer will appear on the{" "}
                   <strong className="text-gray-600 dark:text-gray-300">
-                    {portalCategory}
+                    {categoryKeyToPortalLabel(currentCategoryKey)}
                   </strong>{" "}
                   page
                 </p>
@@ -769,14 +764,14 @@ export function BenefitsStep5() {
                     <div className="w-3 h-3 rounded-full bg-green-500" />
                   </div>
                   <div className="ml-4 text-xs text-gray-400 font-mono">
-                    {portalCategory} — Employee Portal
+                    {categoryKeyToPortalLabel(currentCategoryKey)} — Employee Portal
                   </div>
                 </div>
 
                 {/* Benefit page content mock */}
                 <div className="px-8 py-12 text-center">
                   <h2 className="text-2xl font-bold text-white mb-2">
-                    {portalCategory}
+                    {categoryKeyToPortalLabel(currentCategoryKey)}
                   </h2>
                   <p className="text-gray-400 text-sm max-w-xl mx-auto">
                     This is where the benefit content would appear. Scroll down

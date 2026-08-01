@@ -346,8 +346,23 @@ export interface Disclaimer {
   apply_all_benefits_categories?: boolean;
 }
 
+/** Canonical portal category keys used for per-category disclaimers.
+ *  Must match `categoryPortalVisibility` keys (Retirement, Group Life, Group Health, Other). */
+export const PORTAL_DISCLAIMER_CATEGORIES = [
+  "Retirement",
+  "Group Life",
+  "Group Health",
+  "Other",
+] as const;
+
+export type PortalDisclaimerCategory = (typeof PORTAL_DISCLAIMER_CATEGORIES)[number];
+
 export interface DisclaimersData {
   disclaimers: Disclaimer[];
+  /** Per-category disclaimers keyed by canonical category
+   *  (Retirement, Group Life, Group Health, Other). Each category can have its own
+   *  disclaimer that renders on that category's portal page footer. */
+  byCategory?: Partial<Record<PortalDisclaimerCategory, Disclaimer>>;
   disclosuresText?: string;
   useDefaultDisclosures?: boolean;
 }
