@@ -251,8 +251,10 @@ export function NewClientStep5a({
     useOnboardingWizardStore();
 
   // ── Resolve organisation & company name ──
+  // [Organization Name] in the disclaimer text is populated with the Plan's
+  // company name set in Step 1 (Company Basics).
   const organizationName =
-    onboardingStepData.branding?.organizationName || "[Organization Name]";
+    newClientStepData.companyBasics?.companyName || "[Organization Name]";
   const companyName =
     newClientStepData.companyBasics?.companyName || "[Company Name]";
 
