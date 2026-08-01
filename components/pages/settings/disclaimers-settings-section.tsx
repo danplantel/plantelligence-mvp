@@ -100,7 +100,28 @@ export function DisclaimersSettingsSection() {
         }
 
         if (arr.length > 0) {
+          // Normalize with the current org name (may have changed since the
+          // disclaimer was last saved, e.g. via Settings > Branding)
+          let needsPersist = false;
+          const org = stepData.branding?.organizationName || "";
+          if (org) {
+            arr = arr.map((d: Disclaimer) => {
+              const n = resolveOrgOnlyDisclaimerText(d.text, org);
+              if (n !== d.text) { needsPersist = true; return { ...d, text: n }; }
+              return d;
+            });
+          }
           setDisclaimers(arr);
+
+          // Re-persist to User.disclaimer if the org name changed
+          if (needsPersist) {
+            const json = JSON.stringify(arr);
+            fetch("/api/profile/update-disclaimer", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ disclaimer: json }),
+            }).catch(() => {});
+          }
 
           // Pre-fill the form with the first disclaimer
           if (!prefillDoneRef.current && !editingDisclaimer && !disclaimerText) {
@@ -317,7 +338,6 @@ export function DisclaimersSettingsSection() {
             <Skeleton className="h-4 w-32" />
             <Skeleton className="h-48 w-full" />
           </div>
-          <Skeleton className="h-10 w-32" />
         </div>
       ) : (
         <div className="space-y-4">
@@ -421,14 +441,14 @@ export function DisclaimersSettingsSection() {
           {errors.text && <p className="text-sm text-red-500">{errors.text}</p>}
         </div>
 
-        {/* Action Button */}
-        <div className="flex justify-end">
-          <Button onClick={handleSaveForm} disabled={isSaveDisabled}>
-            {editingDisclaimer ? "Update Disclaimer" : "Add Disclaimer"}
-          </Button>
-        </div>
         </div>
       )}
+      {/* Action Button — always visible, disabled while loading */}
+      <div className="flex justify-end">
+        <Button onClick={handleSaveForm} disabled={isSaveDisabled || isLoading}>
+          {editingDisclaimer ? "Update Disclaimer" : "Add Disclaimer"}
+        </Button>
+      </div>
     </div>
   );
 }

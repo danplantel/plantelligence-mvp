@@ -57,6 +57,11 @@ export function resolveOrgOnlyDisclaimerText(
       /PlanTelligence,\s*(.+?),\s*and\s*\[Company Name\]/g,
       `PlanTelligence and ${org}`,
     )
+    // Replace an already-normalized org-only entities line: "PlanTelligence and OldOrg are..."
+    .replace(
+      /PlanTelligence\s+and\s+.+?\s+are\s+separate\s+and\s+unaffiliated\s+entities\./g,
+      `PlanTelligence and ${org} are separate and unaffiliated entities.`,
+    )
     .replace(/\[Organization Name\]/g, org)
     .replace(/,\s*and\s*\[Company Name\]/g, "")
     .replace(/\[Company Name\]/g, "");
