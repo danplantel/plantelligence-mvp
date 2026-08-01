@@ -971,7 +971,7 @@ export default function SettingsPage() {
                     Delete Your Profile?
                   </AlertDialogTitle>
                 </div>
-                <AlertDialogDescription className="text-left text-gray-600 dark:text-gray-400 space-y-3">
+                <AlertDialogDescription className="text-left text-gray-600 text-muted-foreground space-y-3">
                   <p>
                     Are you sure you want to delete your profile? This will
                     permanently remove:
