@@ -457,12 +457,9 @@ function BenefitsPageInner() {
         Other: visibilityForComplete["Custom"] !== false,
       };
 
-      // Include Step 5 disclaimers in the payload. Step 5 now stores per-category
-      // disclaimers: `disclaimers` (flattened array) + `byCategory` (one per category).
-      const step5Disclaimers =
-        Array.isArray(step5Data?.disclaimers) && step5Data.disclaimers.length > 0
-          ? step5Data.disclaimers
-          : undefined;
+      // Include Step 5 disclaimers in the payload. Step 5 stores per-category
+      // disclaimers via `byCategory` (one per category). The flat `disclaimers`
+      // array is no longer written to avoid duplicating the same disclaimers.
       const step5ByCategory =
         step5Data?.byCategory &&
         typeof step5Data.byCategory === "object" &&
@@ -489,11 +486,10 @@ function BenefitsPageInner() {
           heroUseGradient: step1Data?.heroUseGradient ?? false,
         },
         categoryPortalVisibility: categoryPortalVisibilityForComplete,
-        ...(step5Disclaimers || step5ByCategory
+        ...(step5ByCategory
           ? {
               disclaimers: {
-                ...(step5Disclaimers ? { disclaimers: step5Disclaimers } : {}),
-                ...(step5ByCategory ? { byCategory: step5ByCategory } : {}),
+                byCategory: step5ByCategory,
               },
             }
           : {}),

@@ -358,7 +358,9 @@ export const PORTAL_DISCLAIMER_CATEGORIES = [
 export type PortalDisclaimerCategory = (typeof PORTAL_DISCLAIMER_CATEGORIES)[number];
 
 export interface DisclaimersData {
-  disclaimers: Disclaimer[];
+  /** Legacy flattened disclaimer list. New records use `byCategory` only —
+   *  kept optional for backward compatibility with older data. */
+  disclaimers?: Disclaimer[];
   /** Per-category disclaimers keyed by canonical category
    *  (Retirement, Group Life, Group Health, Other). Each category can have its own
    *  disclaimer that renders on that category's portal page footer. */

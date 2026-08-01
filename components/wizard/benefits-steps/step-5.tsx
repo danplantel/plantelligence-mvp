@@ -41,7 +41,7 @@ import {
  * and each category retains its own disclaimer in the plan record.
  *
  * Persisted to the plan/client record via `PUT /api/clients/[id]` as a
- * `DisclaimersData` object: `{ disclaimers: [], byCategory: { ... } }`.
+ * `DisclaimersData` object: `{ byCategory: { ... } }`.
  * The portal layout at `app/new/view/[id]/layout.tsx` reads `byCategory`,
  * matches the current category, and renders inside `<Footer disclosuresText={…} />`.
  */
@@ -523,7 +523,6 @@ export function BenefitsStep5() {
   const persistToPlan = useCallback(
     async (next: Partial<Record<PortalDisclaimerCategory, Disclaimer | null>>) => {
       if (!planId) return;
-      const all = Object.values(next).filter(Boolean) as Disclaimer[];
       // Strip null entries so byCategory only holds real disclaimers
       const cleanByCategory = Object.entries(next).reduce<
         Partial<Record<PortalDisclaimerCategory, Disclaimer>>
@@ -533,8 +532,9 @@ export function BenefitsStep5() {
         }
         return acc;
       }, {});
+      // Only persist `byCategory` — each category keeps its own disclaimer and no
+      // flattened `disclaimers` array is written (avoids duplicating the data).
       const disclaimersData: DisclaimersData = {
-        disclaimers: all,
         byCategory: cleanByCategory,
       };
       // Include Step 1 branding data so the uploaded header background image is persisted
@@ -575,7 +575,6 @@ export function BenefitsStep5() {
     const next = { ...disclaimersByCategory, [currentCategoryKey]: d };
     setDisclaimersByCategory(next);
     saveStepData(5, {
-      disclaimers: Object.values(next).filter(Boolean),
       byCategory: next,
     });
     await persistToPlan(next);
