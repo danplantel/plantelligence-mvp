@@ -24,7 +24,14 @@ export default function NotFound() {
           Go back
         </Button>
         <Button
-          onClick={() => router.push("/dashboard")}
+          onClick={() => {
+            // Always navigate to the apex domain's dashboard, never to a
+            // subdomain (subdomains only serve public portal /new/view/* paths;
+            // /new/dashboard is an admin route restricted to the apex).
+            const rootDomain =
+              process.env.NEXT_PUBLIC_ROOT_DOMAIN || "plantel.pro";
+            window.location.href = `https://${rootDomain}/new/dashboard`;
+          }}
           variant="ghost"
           size="lg"
         >

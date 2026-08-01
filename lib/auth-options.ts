@@ -83,12 +83,18 @@ export const authOptions: NextAuthOptions = {
   },
   cookies: {
     sessionToken: {
-      name: `__Secure-next-auth.session-token`,
+      // __Secure- prefix + secure: true = HTTPS only. On localhost (HTTP),
+      // the browser rejects the cookie, causing a sign-in redirect loop.
+      // Use un-prefixed + secure: false in development.
+      name:
+        process.env.NODE_ENV === "production"
+          ? "__Secure-next-auth.session-token"
+          : "next-auth.session-token",
       options: {
         httpOnly: true,
         sameSite: "lax",
         path: "/",
-        secure: true,
+        secure: process.env.NODE_ENV === "production",
         // In production, set the domain to .plantel.pro so the session cookie
         // is shared across the apex domain and all subdomains (waypoint.plantel.pro, etc.).
         // On localhost, leave domain undefined — browsers reject dot-prefixed domains
