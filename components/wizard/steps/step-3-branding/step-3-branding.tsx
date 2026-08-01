@@ -16,8 +16,12 @@ import { toR2BrandingKey } from "@/lib/branding-image-url";
 const previewDataUrlCache = new Map<string, string>();
 
 function cachePreviewDataUrl(r2Key: string | null | undefined, dataUrl: string): void {
-  if (r2Key && dataUrl.startsWith("data:")) {
-    previewDataUrlCache.set(r2Key, dataUrl);
+  // Store under the canonical R2 key so lookups via getCachedPreviewDataUrl()
+  // (which normalizes with toR2BrandingKey) always hit, regardless of whether the
+  // stored value has a leading slash/BOM or is a full URL.
+  const canonical = toR2BrandingKey(r2Key);
+  if (canonical && dataUrl.startsWith("data:")) {
+    previewDataUrlCache.set(canonical, dataUrl);
   }
 }
 

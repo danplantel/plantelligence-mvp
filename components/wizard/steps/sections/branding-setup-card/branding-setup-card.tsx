@@ -564,15 +564,20 @@ export function BrandingSetupCard({
           fileName={data.backgroundFileName || ""}
           previewDataUrl={data.backgroundPreviewDataUrl}
           onChange={(value, fileName, headshotData) => {
-            onDataChange("backgroundImage", value);
-            onDataChange("backgroundFileName", fileName);
             // Use the DataURL preview passed back from the modal so preview works with R2 key
             const previewDataUrl: string | undefined =
               (headshotData as any)?.previewDataUrl;
             const previewSrc = previewDataUrl || (value?.startsWith("data:") ? value : undefined);
+            // Dispatch the preview BEFORE backgroundImage so the module-level
+            // previewDataUrlCache (keyed by R2 key) gets populated — mirroring the
+            // logo path. If backgroundImage were dispatched first, the preview ref
+            // would still be stale when the cache-write runs, so the background
+            // preview would not survive navigating away from Step 3 and back.
             if (previewSrc) {
               onDataChange("backgroundPreviewDataUrl", previewSrc);
             }
+            onDataChange("backgroundImage", value);
+            onDataChange("backgroundFileName", fileName);
           }}
           onRemove={async () => {
             if (data.backgroundImage) {
