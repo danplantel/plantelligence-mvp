@@ -224,13 +224,9 @@ export function Step5Disclaimers({
       const year = new Date().getFullYear();
       const defaultDisclaimer: Disclaimer = {
         id: Date.now().toString(),
-        text: resolveDefaultDisclosuresText(
-          organizationName ||
-            (useNewClientStore
-              ? (stepData as any).companyBasics?.companyName
-              : (stepData as any).branding?.organizationName) ||
-            "",
-        ),
+        // Use the [Company Name] placeholder so the Create Plan / Create Benefit
+        // flows can substitute the actual plan company name downstream.
+        text: resolveDefaultDisclosuresText("[Company Name]"),
         locations: ["Global"],
         customLocation: "",
       };
@@ -463,7 +459,9 @@ export function Step5Disclaimers({
                 }}
                 onDelete={() => handleDeleteDisclaimer(disclaimer)}
                 onRender={(text) =>
-                  resolveOrgOnlyDisclaimerText(text, resolvedOrgName)
+                  text.includes("[Organization Name]")
+                    ? resolveOrgOnlyDisclaimerText(text, resolvedOrgName)
+                    : text
                 }
               />
             ))}

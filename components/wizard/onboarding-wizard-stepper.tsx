@@ -1,9 +1,12 @@
 "use client";
 
 import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
+import { signOut } from "next-auth/react";
+import { toast } from "sonner";
 import { Check, Edit3, X, Moon, Sun } from "lucide-react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useState, useEffect } from "react";
 
 export interface WizardStep {
@@ -32,6 +35,8 @@ export function OnboardingWizardStepper({
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [themeMode, setThemeMode] = useState<"light" | "dark" | "system">("system");
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   // Initialize dark mode from localStorage and document
   useEffect(() => {
@@ -71,6 +76,42 @@ export function OnboardingWizardStepper({
     }
   };
 
+  // Cancel the signup — permanently deletes the account and all data in the DB.
+  const handleCancelSignup = async () => {
+    try {
+      setIsCancelling(true);
+      const response = await fetch("/api/profile/delete", {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete account");
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        // Clear the client-side onboarding store + persisted localStorage.
+        useOnboardingWizardStore.getState().resetWizard();
+        try {
+          localStorage.removeItem("onboarding-wizard-store");
+        } catch {
+          // Ignore storage errors — session cleanup below still applies.
+        }
+        setCancelDialogOpen(false);
+        toast.success("Account deleted successfully");
+        await signOut({ callbackUrl: "/signin" });
+      } else {
+        throw new Error(result.error || "Failed to delete account");
+      }
+    } catch (err) {
+      console.error("Error canceling signup:", err);
+      toast.error("Failed to cancel signup. Please try again.");
+      setCancelDialogOpen(false);
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
   // Calculate which steps to show (max 5 visible)
   const getVisibleSteps = () => {
     const maxVisible = 5;
@@ -103,7 +144,8 @@ export function OnboardingWizardStepper({
   };
 
   return (
-    <Card className="w-full shadow-none mt-2 rounded-none border-none">
+    <>
+      <Card className="w-full shadow-none mt-2 rounded-none border-none">
       <div className="flex items-center justify-between mb-4">
          
          {/* Logo and Step Title */}
@@ -197,7 +239,7 @@ export function OnboardingWizardStepper({
         })}
         </div>
 
-        {/* Theme Toggle */}
+        {/* Theme Toggle + Cancel */}
         <div className="flex items-center gap-2">
           <Button
             size="sm"
@@ -212,6 +254,20 @@ export function OnboardingWizardStepper({
               <Moon className="w-4 h-4" />
             )}
           </Button>
+
+          {/* Cancel Signup */}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setCancelDialogOpen(true)}
+            disabled={isCancelling}
+            className="h-9 px-3 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40 dark:hover:text-red-300"
+            title="Cancel signup and delete all data"
+          >
+            <X className="w-4 h-4 mr-1" />
+            Cancel
+          </Button>
+
           {shouldShowEditorButton && (
             <Button
               size="sm"
@@ -234,6 +290,20 @@ export function OnboardingWizardStepper({
           )}
         </div>
       </div>
-    </Card>
+      </Card>
+
+      {/* Cancel Signup Confirmation */}
+      <ConfirmDialog
+        open={cancelDialogOpen}
+        onOpenChange={setCancelDialogOpen}
+        onConfirm={handleCancelSignup}
+        title="Cancel Signup?"
+        description="Are you sure you want to cancel your signup? This will permanently delete your account and all associated data from the database. This action cannot be undone."
+        confirmText="Delete Account"
+        cancelText="Keep Editing"
+        variant="destructive"
+        isLoading={isCancelling}
+      />
+    </>
   );
 }

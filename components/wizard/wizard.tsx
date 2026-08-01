@@ -612,7 +612,7 @@ export function OnboardingWizard({
                       size="lg"
                       onClick={handlePreviousClick}
                       disabled={isFirstStep}
-                      className="flex items-center space-x-2 border-accent-blue text-accent-blue dark:text-gray-300 dark:border-gray-600 transition-colors duration-300 hover:bg-accent-blue hover:text-white dark:hover:bg-gray-600 disabled:border-gray-300 disabled:text-gray-300 disabled:cursor-not-allowed"
+                      className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
                     >
                       <ChevronLeft className="size-5" />
                       <span>Previous</span>
