@@ -1,5 +1,7 @@
 "use client";
 
+import { Fragment } from "react";
+
 interface PortalDisclaimersProps {
   companyData?: {
     companyName?: string;
@@ -113,8 +115,23 @@ export function PortalDisclaimers({
               <strong>Disclosures:</strong>
 
               {companyData?.disclaimers ? (
-                <div className="whitespace-pre-line">
-                  {companyData.disclaimers}
+                <div className="space-y-2">
+                  {/* Render newlines explicitly (paragraphs on \n\n, line
+                      breaks on \n) so breaks are preserved regardless of CSS. */}
+                  {String(companyData.disclaimers)
+                    .replace(/\r\n/g, "\n")
+                    .replace(/\r/g, "\n")
+                    .split("\n\n")
+                    .map((paragraph, i) => (
+                      <p key={i}>
+                        {paragraph.split("\n").map((line, j) => (
+                          <Fragment key={j}>
+                            {j > 0 && <br />}
+                            {line}
+                          </Fragment>
+                        ))}
+                      </p>
+                    ))}
                 </div>
               ) : (
                 <>

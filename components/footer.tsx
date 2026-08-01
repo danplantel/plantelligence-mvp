@@ -1,3 +1,5 @@
+import { Fragment } from "react";
+
 interface FooterProps {
   brandColor?: string;
   disclosuresText?: string | null;
@@ -82,14 +84,27 @@ export function Footer({
                 <strong>Disclosures:</strong>
               </p>
               {disclosuresText ? (
-                <div
-                  dangerouslySetInnerHTML={{
-                    __html: disclosuresText
-                      .split("\n\n")
-                      .map((p) => `<p>${p.replace(/\n/g, "<br/>")}</p>`)
-                      .join(""),
-                  }}
-                />
+                <div className="space-y-2">
+                  {/* Render newlines explicitly as React elements
+                      (\n\n → paragraph, \n → <br/>) after normalizing
+                      \r\n, \r, and literal backslash-n (\n). */}
+                  {disclosuresText
+                    .replace(/\\n/g, "\n")
+                    .replace(/\r\n/g, "\n")
+                    .replace(/\r/g, "\n")
+                    .split("\n\n")
+                    .filter(Boolean)
+                    .map((paragraph, i) => (
+                      <p key={i}>
+                        {paragraph.split("\n").map((line, j) => (
+                          <Fragment key={j}>
+                            {j > 0 && <br />}
+                            {line}
+                          </Fragment>
+                        ))}
+                      </p>
+                    ))}
+                </div>
               ) : (
                 <>
                   <p>

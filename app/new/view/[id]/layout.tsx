@@ -94,6 +94,22 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
 
   // Parse and filter disclaimers based on priority
   const getDisclosuresText = () => {
+    // The footer disclosures come from the advisor's profile (User.disclaimer)
+    // when available. This is resolved server-side in GET /api/clients/[id] and
+    // attached as advisorDisclaimer, so it works for both the logged-in dashboard
+    // flow and the public subdomain portal. Falls back to the client's disclaimers
+    // below when the advisor hasn't set one.
+    const advisorDisclaimer = (clientData as any)?.advisorDisclaimer;
+    if (advisorDisclaimer) {
+      // Normalize any literal backslash-n / Windows line endings defensively
+      // so newlines always render in the footer even if the text arrived
+      // double-encoded.
+      return advisorDisclaimer
+        .replace(/\\n/g, "\n")
+        .replace(/\r\n/g, "\n")
+        .replace(/\r/g, "\n");
+    }
+
     // Note: clientData might not have 'branding' sub-object in this context
     const orgName = (clientData as any)?.branding?.organizationName || clientData?.companyName || "[Organization Name]";
     const compName = clientData?.companyName || "[Company Name]";

@@ -18,6 +18,44 @@ import { resolvePersistedDocumentCategory } from "@/lib/document-category";
 import { normalizeClientBrandingKeysForResponse } from "@/lib/branding-image-url";
 import { getPresignedReadUrl, isR2Configured } from "@/lib/r2";
 
+/**
+ * Convert the advisor's User.disclaimer into a single display string for the
+ * portal footer. The field may be plain text, an array of Disclaimer objects
+ * ({ id, text, locations, ... }), or a JSON-stringified array of those objects.
+ */
+function normalizeUserDisclaimerToText(raw: unknown): string {
+  if (!raw) return "";
+  // Normalize to \n so newlines are preserved consistently in the portal footer:
+  // - \r\n / \r (Windows/mixed line endings) → \n
+  // - literal backslash-n (double-encoded text) → real newline
+  const normalizeBreaks = (s: string) =>
+    s.replace(/\\n/g, "\n").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const toString = (d: any): string => {
+    if (typeof d === "string") return normalizeBreaks(d);
+    return d && typeof d.text === "string" ? normalizeBreaks(d.text) : "";
+  };
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        const texts = parsed.map(toString).filter(Boolean);
+        if (texts.length > 0) return texts.join("\n\n");
+      } else if (typeof parsed === "string") {
+        // JSON-wrapped string (e.g. "\"line1\\nline2\"") — unescape and use it
+        return normalizeBreaks(parsed);
+      }
+    } catch {
+      // Not JSON — treat as plain text below
+    }
+    return normalizeBreaks(raw);
+  }
+  if (Array.isArray(raw)) {
+    const texts = raw.map(toString).filter(Boolean);
+    if (texts.length > 0) return texts.join("\n\n");
+  }
+  return "";
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -88,6 +126,23 @@ export async function GET(
     // DB queries (Prisma requires valid ObjectIds for relation fields like clientId)
     clientId = client.id;
 
+    // Attach the advisor's (User's) disclaimer from their profile so the portal
+    // footer renders the advisor's disclosures instead of the client's. Resolved
+    // server-side so it works for both the logged-in dashboard flow (dev) and the
+    // public subdomain portal (production).
+    let advisorDisclaimer = "";
+    try {
+      const advisorUser = await prisma.user.findUnique({
+        where: { id: client.userId },
+        select: { disclaimer: true },
+      });
+      advisorDisclaimer = normalizeUserDisclaimerToText(
+        (advisorUser as any)?.disclaimer,
+      );
+    } catch (err) {
+      console.error("Error fetching advisor disclaimer:", err);
+    }
+
     // Portal requests must exclude soft-archived docs (`archivedAt` set). Do not use
     // `where: { archivedAt: null }` in Prisma MongoDB: it omits rows where the field is
     // missing on the BSON document (common for older rows), so `forPortal=1` returned [] while
@@ -154,6 +209,7 @@ export async function GET(
         documents,
         categoryPortalVisibility, // always set so portal filter works
         keyContacts: keyContactsToReturn,
+        advisorDisclaimer,
       },
       client.userId, // advisor ID (from session or subdomain-derived)
       clientId,

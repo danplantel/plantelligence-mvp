@@ -116,7 +116,12 @@ export default function ViewClientPage() {
             backgroundImgName: clientData.backgroundImgName || "",
             thumbnailImg: (clientData as any).thumbnailImg || "",
             thumbnailImgName: (clientData as any).thumbnailImgName || "",
-            disclaimers: clientData.disclaimers || "",
+            // Footer disclaimer: use the advisor's profile disclaimer
+            // (User.disclaimer) when available, falling back to the client's.
+            disclaimers:
+              (clientData as { advisorDisclaimer?: string }).advisorDisclaimer ||
+              clientData.disclaimers ||
+              "",
             heroTitle,
             heroDescription,
             // Banner Overlay Settings
