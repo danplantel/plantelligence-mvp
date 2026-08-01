@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from "react";
 import {
-  OnboardingWizardState,
   useOnboardingWizardStore,
 } from "@/lib/onboarding-wizard-store";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
-import { DEFAULT_DISCLOSURES_TEXT } from "@/lib/disclaimer-constants";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  resolveDefaultDisclosuresText,
+  resolveOrgOnlyDisclaimerText,
+} from "@/lib/disclaimer-constants";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
@@ -15,16 +17,16 @@ import { AddDisclaimerModal } from "./sections/add-disclaimer-modal/add-disclaim
 import { toast } from "sonner";
 import { Disclaimer } from "@/types/wizard";
 import { Plus, Edit2, Trash2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 
 interface DisclaimerCardProps {
   disclaimer: Disclaimer;
   onEdit: () => void;
   onDelete: () => void;
+  onRender?: (text: string) => string;
 }
 
-function DisclaimerCard({ disclaimer, onEdit, onDelete }: DisclaimerCardProps) {
+function DisclaimerCard({ disclaimer, onEdit, onDelete, onRender }: DisclaimerCardProps) {
   return (
     <div className="border border-gray-200 rounded p-3 bg-card relative dark:bg-gray-800 dark:border-gray-700">
       <div className="flex justify-between items-start mb-2">
@@ -60,7 +62,9 @@ function DisclaimerCard({ disclaimer, onEdit, onDelete }: DisclaimerCardProps) {
       </div>
 
       <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap break-words">
-        {disclaimer.text}
+        {onRender
+          ? onRender(disclaimer.text)
+          : disclaimer.text}
       </div>
     </div>
   );
@@ -108,6 +112,16 @@ export function Step5Disclaimers({
   const [disclaimerToDelete, setDisclaimerToDelete] =
     useState<Disclaimer | null>(null);
   const [validationError, setValidationError] = useState<string>("");
+
+  // Best-effort organization name for normalizing stored disclaimer text
+  // at render time (resolves any leftover [Organization Name] / [Company Name]
+  // from older disclaimers that were saved before the org-only template).
+  const resolvedOrgName =
+    organizationName ||
+    (useNewClientStore
+      ? (stepData as any).companyBasics?.companyName
+      : (stepData as any).branding?.organizationName) ||
+    "";
 
   // Helper function to save disclaimer to universal template (onboarding-wizard)
   const saveToUniversalDisclaimer = async (disclaimers: Disclaimer[]) => {
@@ -210,16 +224,13 @@ export function Step5Disclaimers({
       const year = new Date().getFullYear();
       const defaultDisclaimer: Disclaimer = {
         id: Date.now().toString(),
-        text: DEFAULT_DISCLOSURES_TEXT
-          .replace(
-            "[Organization Name]",
-            organizationName ||
-              (useNewClientStore
-                ? (stepData as any).companyBasics?.companyName
-                : (stepData as any).branding?.organizationName) ||
-              "[Organization Name]",
-          )
-          .replace("[Company Name]", companyName || "[Company Name]"),
+        text: resolveDefaultDisclosuresText(
+          organizationName ||
+            (useNewClientStore
+              ? (stepData as any).companyBasics?.companyName
+              : (stepData as any).branding?.organizationName) ||
+            "",
+        ),
         locations: ["Global"],
         customLocation: "",
       };
@@ -451,6 +462,9 @@ export function Step5Disclaimers({
                   setIsModalOpen(true);
                 }}
                 onDelete={() => handleDeleteDisclaimer(disclaimer)}
+                onRender={(text) =>
+                  resolveOrgOnlyDisclaimerText(text, resolvedOrgName)
+                }
               />
             ))}
           </div>
@@ -494,14 +508,14 @@ export function Step5Disclaimers({
           (useNewClientStore
             ? (stepData as any).companyBasics?.companyName
             : (stepData as any).branding?.organizationName) ||
-          "[Company Name]"
+          ""
         }
         organizationName={
           organizationName ||
           (useNewClientStore
             ? (stepData as any).companyBasics?.companyName
             : (stepData as any).branding?.organizationName) ||
-          "[Organization Name]"
+          ""
         }
         disclaimerScopeFlag={disclaimerScopeFlag ? disclaimerScopeFlag : false}
         forceUniversalScope={forceUniversalScope}

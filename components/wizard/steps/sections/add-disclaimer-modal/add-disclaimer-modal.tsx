@@ -15,6 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Disclaimer } from "@/types/wizard";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { resolveDefaultDisclosuresText } from "@/lib/disclaimer-constants";
 
 interface AddDisclaimerModalProps {
   isOpen: boolean;
@@ -27,18 +28,6 @@ interface AddDisclaimerModalProps {
   disclaimerScopeFlag?: boolean;
   forceUniversalScope?: boolean;
 }
-
-const DEFAULT_DISCLAIMER_TEXT = `The information and resources provided on this website are for educational and informational purposes only and are not intended as ERISA, tax, legal, investment, insurance, medical, or other professional advice. Each plan, employer, and participant situation is unique. Plan sponsors, employers, and participants should consult their qualified legal, tax, investment, insurance, medical, or other licensed professionals regarding their specific circumstances.
-
-Nothing on this website should be construed as a solicitation, recommendation, or endorsement to buy, sell, or maintain any security, insurance product, or investment strategy. PlanTelligence does not provide investment advice, does not act as an ERISA fiduciary, and does not determine plan design, benefit eligibility, or coverage.
-
-PlanTelligence is an independent technology platform and is not affiliated with any broker-dealer, registered investment advisor, insurance carrier, recordkeeper, or third-party administrator.
-
-Links to external websites are provided for informational purposes only and do not constitute an endorsement or approval by PlanTelligence or any associated firms.
-
-PlanTelligence, <Organization Name>, and <Company Name> are separate and unaffiliated entities.
-
-© 2026 PlanTelligence. All rights reserved.`;
 
 const LOCATION_OPTIONS = [
   { id: "benefits_hub", label: "Benefits Hub / Client Website" },
@@ -57,7 +46,6 @@ export function AddDisclaimerModal({
   onSave,
   initialData,
   isBlocking = false,
-  companyName = "[Company Name]",
   organizationName = "[Organization Name]",
   disclaimerScopeFlag = false,
   forceUniversalScope = false,
@@ -179,11 +167,8 @@ export function AddDisclaimerModal({
   const handleUseDefaultChange = (checked: boolean) => {
     setUseDefault(checked);
     if (checked) {
-      const year = new Date().getFullYear();
-      const text = DEFAULT_DISCLAIMER_TEXT
-        .replace(/[<\[]Organization Name[>\]]/g, organizationName)
-        .replace(/[<\[]Company Name[>\]]/g, companyName);
-      setDisclaimerText(text);
+      // Settings default — organization name only (no [Company Name]).
+      setDisclaimerText(resolveDefaultDisclosuresText(organizationName));
       setErrors((prev) => ({ ...prev, text: "" }));
     }
   };

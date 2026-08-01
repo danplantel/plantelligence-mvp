@@ -79,6 +79,9 @@ export function Step5Summary({
      setShowStep5ConfirmModal,
      goToStep,
    } = useOnboardingWizardStore();
+
+ // Organization name for the disclaimer default — Onboarding is org-only (no [Company Name]).
+ const organizationName = stepData.branding?.organizationName || "";
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingSection, setEditingSection] = useState<string | null>(null);
   // Initialize as true since disclaimers are optional
@@ -446,6 +449,7 @@ export function Step5Summary({
                 <Step5Disclaimers
                   onValidationChange={handleDisclaimersValidation}
                   errorFields={errorFields}
+                  organizationName={organizationName}
                   forceUniversalScope={true}
                 />
               </CardContent>

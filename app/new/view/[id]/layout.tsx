@@ -12,7 +12,10 @@ import { Button } from "@/components/ui/button";
 import { PortalPlanHeader } from "@/components/pages/client-portal/sections/portal-plan-header";
 import { PortalPopUpOverlay } from "@/components/pages/client-portal/sections/portal-popup-overlay";
 import { AnimatePresence, motion } from "framer-motion";
-import { DEFAULT_DISCLOSURES_TEXT } from "@/lib/disclaimer-constants";
+import {
+  resolveDefaultDisclosuresText,
+  resolveOrgOnlyDisclaimerText,
+} from "@/lib/disclaimer-constants";
 
 interface BannerAsset {
   id: string;
@@ -108,17 +111,27 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
     const orgName = (clientData as any)?.branding?.organizationName || clientData?.companyName || "[Organization Name]";
     const compName = clientData?.companyName || "[Company Name]";
 
-    // Universal disclaimer text with replaced placeholders
-    const universalText = DEFAULT_DISCLOSURES_TEXT
-      .replace(/[<\\[]Organization Name[>\\]]/g, orgName)
-      .replace(/[<\\[]Company Name[>\\]]/g, compName);
+    // Universal disclaimer text with placeholders resolved. Only the Benefits Hub
+    // pages (Retirement, Group Life, Group Health, Other) include a [Company Name];
+    // the Landing Page, News and Events, etc. use the organization name only.
+    const isCategoryHub = !!getCurrentCategoryKey();
+    const universalText = resolveDefaultDisclosuresText(
+      orgName,
+      compName,
+      isCategoryHub,
+    );
 
     if (!clientData?.disclaimers) {
       // No client disclaimers → fall back to the advisor's profile disclaimer,
       // then to the universal text.
       const advisorFallback = (clientData as any)?.advisorDisclaimer;
       if (advisorFallback) {
-        return advisorFallback
+        const resolved = isCategoryHub
+          ? advisorFallback
+              .replace(/\[Organization Name\]/g, orgName)
+              .replace(/\[Company Name\]/g, compName)
+          : resolveOrgOnlyDisclaimerText(advisorFallback, orgName);
+        return resolved
           .replace(/\\n/g, "\n")
           .replace(/\r\n/g, "\n")
           .replace(/\r/g, "\n");
@@ -171,11 +184,14 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
     if (perCategoryDisclaimer?.text) {
       // Normalize any literal backslash-n / Windows line endings defensively
       // so newlines always render in the footer even if the text arrived
-      // double-encoded.
+      // double-encoded, and resolve any leftover placeholders so a stored
+      // [Organization Name] / [Company Name] never renders literally.
       return perCategoryDisclaimer.text
         .replace(/\\n/g, "\n")
         .replace(/\r\n/g, "\n")
-        .replace(/\r/g, "\n");
+        .replace(/\r/g, "\n")
+        .replace(/\[Organization Name\]/g, orgName)
+        .replace(/\[Company Name\]/g, compName);
     }
 
     // The footer disclosures come from the advisor's profile (User.disclaimer)
@@ -186,10 +202,15 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
     // per-category disclaimer, the advisor's disclosures remain the source.
     const advisorDisclaimer = (clientData as any)?.advisorDisclaimer;
     if (advisorDisclaimer) {
-      // Normalize any literal backslash-n / Windows line endings defensively
-      // so newlines always render in the footer even if the text arrived
-      // double-encoded.
-      return advisorDisclaimer
+      // Resolve any leftover placeholders (hub pages include the company name;
+      // the Landing Page / News and Events use the organization name only) and
+      // normalize newlines defensively.
+      const resolved = isCategoryHub
+        ? advisorDisclaimer
+            .replace(/\[Organization Name\]/g, orgName)
+            .replace(/\[Company Name\]/g, compName)
+        : resolveOrgOnlyDisclaimerText(advisorDisclaimer, orgName);
+      return resolved
         .replace(/\\n/g, "\n")
         .replace(/\r\n/g, "\n")
         .replace(/\r/g, "\n");

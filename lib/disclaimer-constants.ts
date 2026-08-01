@@ -9,3 +9,55 @@ Links to external websites are provided for informational purposes only and do n
 PlanTelligence, [Organization Name], and [Company Name] are separate and unaffiliated entities.
 
 © 2026 PlanTelligence. All rights reserved.`;
+
+/**
+ * Builds the default disclosures text with `[Organization Name]` resolved.
+ *
+ * `[Organization Name]` is always replaced with `orgName`. `[Company Name]` is only
+ * included for the Benefits Hub pages (Retirement, Group Life, Group Health, Other) —
+ * pass `includeCompanyName: true` along with a `compName`. For the Landing Page,
+ * Settings, and News and Events pages, omit it and the "and [Company Name]" clause
+ * is removed entirely (with correct grammar).
+ */
+export function resolveDefaultDisclosuresText(
+  orgName: string,
+  compName?: string,
+  includeCompanyName = false,
+): string {
+  const org = (orgName || "").trim() || "[Organization Name]";
+  const hasComp = includeCompanyName && !!(compName || "").trim();
+  const entitiesLine = hasComp
+    ? `PlanTelligence, ${org}, and ${compName!.trim()} are separate and unaffiliated entities.`
+    : `PlanTelligence and ${org} are separate and unaffiliated entities.`;
+
+  return DEFAULT_DISCLOSURES_TEXT.replace(
+    /PlanTelligence,\s*\[Organization Name\],\s*and\s*\[Company Name\]\s*are separate and unaffiliated entities\./,
+    entitiesLine,
+  );
+}
+
+/**
+ * Resolves `[Organization Name]` in arbitrary disclaimer text and removes any
+ * `[Company Name]` mention (with correct grammar). Used for the Landing Page,
+ * Settings, and News and Events — pages that only use the organization name.
+ */
+export function resolveOrgOnlyDisclaimerText(
+  text: string,
+  orgName: string,
+): string {
+  const org = (orgName || "").trim() || "[Organization Name]";
+  return text
+    // Replace the DEFAULT template entities line: "PlanTelligence, [Organization Name], and [Company Name]"
+    .replace(
+      /PlanTelligence,\s*\[Organization Name\],\s*and\s*\[Company Name\]/g,
+      `PlanTelligence and ${org}`,
+    )
+    // Replace an already-substituted entities line: "PlanTelligence, OldOrg, and [Company Name]"
+    .replace(
+      /PlanTelligence,\s*(.+?),\s*and\s*\[Company Name\]/g,
+      `PlanTelligence and ${org}`,
+    )
+    .replace(/\[Organization Name\]/g, org)
+    .replace(/,\s*and\s*\[Company Name\]/g, "")
+    .replace(/\[Company Name\]/g, "");
+}

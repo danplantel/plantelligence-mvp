@@ -18,7 +18,10 @@ import {
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
 import { Disclaimer } from "@/types/new-client-wizard";
-import { DEFAULT_DISCLOSURES_TEXT } from "@/lib/disclaimer-constants";
+import {
+  resolveDefaultDisclosuresText,
+  resolveOrgOnlyDisclaimerText,
+} from "@/lib/disclaimer-constants";
 import { PortalDisclaimers } from "@/components/pages/client-portal/sections/portal-disclaimers";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle, Eye, FileText, Edit2, X } from "lucide-react";
@@ -65,9 +68,7 @@ function DisclaimerModal({
   onClose,
 }: DisclaimerModalProps) {
   const [text, setText] = useState(
-    disclaimer?.text ||
-      DEFAULT_DISCLOSURES_TEXT.replace("[Organization Name]", organizationName)
-        .replace("[Company Name]", companyName),
+    disclaimer?.text || resolveDefaultDisclosuresText(organizationName),
   );
   const [locations, setLocations] = useState<string[]>(
     disclaimer?.locations || ["Home Page"],
@@ -395,9 +396,10 @@ export function NewClientStep5a({
         if (userProfileDisclaimer) {
           const d: Disclaimer = {
             ...userProfileDisclaimer,
-            text: userProfileDisclaimer.text
-              .replace(/\[Organization Name\]/g, organizationName)
-              .replace(/\[Company Name\]/g, companyName),
+            text: resolveOrgOnlyDisclaimerText(
+              userProfileDisclaimer.text,
+              organizationName,
+            ),
             locations: ["Home Page"],
             customLocation: "",
           };
@@ -412,9 +414,7 @@ export function NewClientStep5a({
         if (onboardingText) {
           const inheritedDisclaimer: Disclaimer = {
             id: Date.now().toString(),
-            text: onboardingText
-              .replace(/\[Organization Name\]/g, organizationName)
-              .replace(/\[Company Name\]/g, companyName),
+            text: resolveOrgOnlyDisclaimerText(onboardingText, organizationName),
             locations: ["Home Page"],
             customLocation: "",
             scope: "plan",
@@ -437,9 +437,10 @@ export function NewClientStep5a({
           if (userProfileDisclaimer) {
             const d: Disclaimer = {
               ...userProfileDisclaimer,
-              text: userProfileDisclaimer.text
-                .replace(/\[Organization Name\]/g, organizationName)
-                .replace(/\[Company Name\]/g, companyName),
+              text: resolveOrgOnlyDisclaimerText(
+                userProfileDisclaimer.text,
+                organizationName,
+              ),
               locations: ["Home Page"],
               customLocation: "",
             };
@@ -457,9 +458,7 @@ export function NewClientStep5a({
           if (onboardingText) {
             const inheritedDisclaimer: Disclaimer = {
               id: Date.now().toString(),
-              text: onboardingText
-                .replace(/\[Organization Name\]/g, organizationName)
-                .replace(/\[Company Name\]/g, companyName),
+              text: resolveOrgOnlyDisclaimerText(onboardingText, organizationName),
               locations: ["Home Page"],
               customLocation: "",
               scope: "plan",
@@ -550,13 +549,12 @@ export function NewClientStep5a({
       // Try to use onboarding disclaimer as preview fallback
       const onboardingDisclaimers = onboardingStepData.disclaimers?.disclaimers;
       if (onboardingDisclaimers && onboardingDisclaimers.length > 0) {
-        return onboardingDisclaimers[0].text
-          .replace(/\[Organization Name\]/g, organizationName)
-          .replace(/\[Company Name\]/g, companyName);
+        return resolveOrgOnlyDisclaimerText(
+          onboardingDisclaimers[0].text,
+          organizationName,
+        );
       }
-      return DEFAULT_DISCLOSURES_TEXT
-        .replace("[Organization Name]", organizationName)
-        .replace("[Company Name]", companyName);
+      return resolveDefaultDisclosuresText(organizationName);
     }
     return disclaimer.text;
   }, [disclaimer, organizationName, companyName, onboardingStepData.disclaimers]);

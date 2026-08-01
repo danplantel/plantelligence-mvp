@@ -22,7 +22,7 @@ import {
   PortalDisclaimerCategory,
   PORTAL_DISCLAIMER_CATEGORIES,
 } from "@/types/new-client-wizard";
-import { DEFAULT_DISCLOSURES_TEXT } from "@/lib/disclaimer-constants";
+import { resolveDefaultDisclosuresText } from "@/lib/disclaimer-constants";
 import { Footer } from "@/components/footer";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -75,13 +75,12 @@ function benefitCategoryToKey(category: string): PortalDisclaimerCategory {
 }
 
 // ── Default disclaimer text with placeholders ──
+// Benefits Hub pages include both [Organization Name] and [Company Name].
 function buildDefaultDisclaimerText(
   orgName: string,
   compName: string,
 ): string {
-  return DEFAULT_DISCLOSURES_TEXT
-    .replace("[Organization Name]", orgName)
-    .replace("[Company Name]", compName);
+  return resolveDefaultDisclosuresText(orgName, compName, true);
 }
 
 // ── Location options ──
