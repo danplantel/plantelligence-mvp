@@ -63,6 +63,7 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
      saveStepDataToServer,
      stepData,
      validateCurrentStepFields,
+     clearErrorFields,
    } = useOnboardingWizardStore();
 
    // Initialize form with validation
@@ -151,6 +152,15 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
   useEffect(() => {
     secondaryColorRef.current = secondaryColor;
   }, [secondaryColor]);
+
+  // Clear any stale errorFields on mount so the required branding fields start in
+  // their normal (non-error) state. errorFields is global store state that can
+  // survive navigation (e.g. from a delayed validation of a prior step or a
+  // previous failed submit), and those errors must not paint red borders on
+  // untouched fields the user hasn't entered anything into yet.
+  useEffect(() => {
+    clearErrorFields();
+  }, [clearErrorFields]);
 
   // Set default welcome statement when useDefaultWelcomeStatement is true
   useEffect(() => {

@@ -59,7 +59,7 @@ export interface OnboardingWizardState {
   resetWizard: () => void;
   setErrorFields: (fields: string[]) => void;
   clearErrorFields: () => void;
-  validateCurrentStepFields: () => Promise<void>;
+  validateCurrentStepFields: (step?: number) => Promise<void>;
   saveSummaryData: (summaryData: any) => Promise<any>;
 
   autosaveToServer?: boolean;
@@ -622,11 +622,19 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
         set({ errorFields: [] });
       },
 
-      validateCurrentStepFields: async () => {
+      validateCurrentStepFields: async (step?: number) => {
         const { currentStep, stepData } = get();
+
+        // Validate an explicit step when provided (callers pass the step they
+        // belong to). This prevents a delayed `setTimeout(...)` validation from
+        // a previous step (e.g. Step 2) from running after the user has already
+        // navigated to the next step — which would otherwise validate the NEW
+        // step against empty data and stamp red borders on untouched fields
+        // (e.g. Step 3 branding fields on initial navigation).
+        const stepToValidate = step ?? currentStep;
         try {
           const { validateCurrentStep } = await import("./wizard-validation");
-          const validationResult = await validateCurrentStep(currentStep, stepData);
+          const validationResult = await validateCurrentStep(stepToValidate, stepData);
 
           if (!validationResult.isValid && validationResult.errorFields) {
             set({ errorFields: validationResult.errorFields });

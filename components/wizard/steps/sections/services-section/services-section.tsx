@@ -71,7 +71,7 @@ export function ServicesSection({
             value={customService}
             onChange={async (e) => {
               onCustomServiceChange(e.target.value);
-              setTimeout(() => validateCurrentStepFields(), 100);
+              setTimeout(() => validateCurrentStepFields(2), 100);
             }}
             placeholder="Enter custom benefits..."
             maxLength={50}

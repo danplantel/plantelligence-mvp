@@ -72,7 +72,7 @@ export function Step2Services({ errorFields = [] }: Step2ServicesProps) {
       console.error("Failed to save services:", error);
     }
     updateInsuranceLicensing(newServices);
-    setTimeout(() => validateCurrentStepFields(), 100);
+    setTimeout(() => validateCurrentStepFields(2), 100);
   };
 
   const onServicesChange = async (newServices: ServiceType[]) => {
@@ -95,7 +95,7 @@ export function Step2Services({ errorFields = [] }: Step2ServicesProps) {
       console.error("Failed to save services:", error);
     }
     // Validate fields in real-time
-    setTimeout(() => validateCurrentStepFields(), 100);
+    setTimeout(() => validateCurrentStepFields(2), 100);
   };
 
   // Helper function to update insurance licensing

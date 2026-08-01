@@ -60,7 +60,7 @@ export function UserProfileSection({
         console.error("Failed to save client profile:", error);
       }
       // Validate fields in real-time
-      setTimeout(() => validateCurrentStepFields(), 100);
+      setTimeout(() => validateCurrentStepFields(1), 100);
     }
   };
 
@@ -84,7 +84,7 @@ export function UserProfileSection({
           console.error("Failed to save client profile:", error);
         }
         // Validate fields in real-time
-        setTimeout(() => validateCurrentStepFields(), 100);
+        setTimeout(() => validateCurrentStepFields(1), 100);
       }
     }
   };

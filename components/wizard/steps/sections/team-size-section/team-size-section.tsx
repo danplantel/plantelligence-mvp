@@ -75,7 +75,7 @@ export function TeamSizeSection({
         console.error("Failed to save team size:", error);
       }
       // Validate fields in real-time
-      setTimeout(() => validateCurrentStepFields(), 100);
+      setTimeout(() => validateCurrentStepFields(1), 100);
     }
   };
 
