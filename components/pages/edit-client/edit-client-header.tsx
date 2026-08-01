@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -9,7 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { toast } from "sonner";
+import { ArrowLeft, ExternalLink, Trash2 } from "lucide-react";
 
 interface EditClientHeaderProps {
   clientStatus: string;
@@ -30,12 +34,44 @@ export function EditClientHeader({
   clientId,
   slug,
 }: EditClientHeaderProps) {
+  const router = useRouter();
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const handleOpenPortal = () => {
     if (clientId) {
       window.open(
         `/new/view/${slug || clientId}`,
         "_blank",
       );
+    }
+  };
+
+  const handleDeleteClient = async () => {
+    if (!clientId) return;
+    try {
+      setIsDeleting(true);
+      const response = await fetch(`/api/clients/${clientId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete client");
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        toast.success("Client deleted successfully");
+        setDeleteDialogOpen(false);
+        router.push("/new/clients");
+      } else {
+        throw new Error(result.error || "Failed to delete client");
+      }
+    } catch (err) {
+      console.error("Error deleting client:", err);
+      toast.error("Failed to delete client");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -91,7 +127,30 @@ export function EditClientHeader({
           <ExternalLink className="mr-2 h-4 w-4" />
           Open Portal
         </Button>
+
+        <Button
+          variant="outline"
+          onClick={() => setDeleteDialogOpen(true)}
+          disabled={!hasClient || !clientId || isDeleting}
+          className="font-medium px-6 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40 dark:hover:text-red-300"
+        >
+          <Trash2 className="mr-2 h-4 w-4" />
+          Delete
+        </Button>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleDeleteClient}
+        title="Delete Client?"
+        description="Are you sure you want to delete this client? This action cannot be undone and will also delete all associated documents, meetings, and other data."
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

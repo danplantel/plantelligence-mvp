@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import {
   AlertDialog,
@@ -39,13 +39,18 @@ export function ConfirmDialog({
   isLoading = false,
 }: ConfirmDialogProps) {
   const [isProcessing, setIsProcessing] = useState(false);
+  // Synchronous mirror of the busy state so we can block the dialog from
+  // closing the instant the confirm button is clicked (before React re-renders).
+  const busyRef = useRef(false);
   const busy = isLoading || isProcessing;
 
   const handleConfirm = async () => {
+    busyRef.current = true;
     setIsProcessing(true);
     try {
       await onConfirm();
     } finally {
+      busyRef.current = false;
       setIsProcessing(false);
       onOpenChange(false);
     }
@@ -91,26 +96,24 @@ export function ConfirmDialog({
       open={open}
       onOpenChange={(next) => {
         // Prevent closing while deletion is in progress
-        if (!next && busy) return;
+        if (!next && (busy || busyRef.current)) return;
         onOpenChange(next);
       }}
     >
-      <AlertDialogContent className="max-w-md">
-        <AlertDialogHeader>
-          <div className="flex items-start gap-4">
+      <AlertDialogContent className="max-w-md text-left">
+        <AlertDialogHeader className="text-left">
+          <div className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2">
             <div
               className={`flex-shrink-0 p-3 rounded-full ${variantStyles.iconBg}`}
             >
               {variantStyles.icon}
             </div>
-            <div className="flex-1 pt-1">
-              <AlertDialogTitle className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                {title}
-              </AlertDialogTitle>
-              <AlertDialogDescription className="mt-2 text-sm text-gray-600 dark:text-gray-400 text-muted-foreground">
-                {description}
-              </AlertDialogDescription>
-            </div>
+            <AlertDialogTitle className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              {title}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="col-span-2 text-sm text-gray-600 dark:text-gray-400 text-muted-foreground">
+              {description}
+            </AlertDialogDescription>
           </div>
         </AlertDialogHeader>
         <AlertDialogFooter className="flex-row gap-2 sm:gap-2">
