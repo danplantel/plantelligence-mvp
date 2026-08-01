@@ -1,6 +1,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Users as UsersIcon, FileText } from "lucide-react";
 import { AddTeamMembersSection } from "@/components/wizard/steps/sections/add-team-members-section/add-team-members-section";
 import { DisclaimersSettingsSection } from "@/components/pages/settings/disclaimers-settings-section";
@@ -33,8 +34,8 @@ export function TeamAndDisclaimersSection({
             <div className="space-y-4">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="space-y-2">
-                  <div className="h-4 bg-gray-300 rounded w-32" />
-                  <div className="h-10 bg-gray-200 rounded animate-pulse" />
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-10 w-full" />
                 </div>
               ))}
             </div>
@@ -63,8 +64,8 @@ export function TeamAndDisclaimersSection({
             <div className="space-y-4">
               {[1, 2].map((i) => (
                 <div key={i} className="space-y-2">
-                  <div className="h-4 bg-gray-300 rounded w-24" />
-                  <div className="h-20 bg-gray-200 rounded animate-pulse" />
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-20 w-full" />
                 </div>
               ))}
             </div>

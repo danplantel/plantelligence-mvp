@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Disclaimer } from "@/types/wizard";
 import { resolveOrgOnlyDisclaimerText } from "@/lib/disclaimer-constants";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const LOCATION_OPTIONS = [
   { id: "benefits_hub", label: "Benefits Hub / Client Website" },
@@ -38,6 +39,10 @@ export function DisclaimersSettingsSection() {
   // Track whether we've already pre-filled the form with the Onboarding disclaimer,
   // so we don't overwrite the user's own edits.
   const prefillDoneRef = useRef(false);
+
+  // Internal loading state — shows a skeleton until the disclaimer data (from
+  // /api/profile or the wizard store) has populated the textarea.
+  const [isLoading, setIsLoading] = useState(true);
 
   // Organization name for normalizing stored disclaimer text to the org-only
   // format (Settings disclaimers do not use a [Company Name]).
@@ -115,6 +120,8 @@ export function DisclaimersSettingsSection() {
         }
       } catch {
         // Silent — profile fetch is best-effort for pre-fill
+      } finally {
+        setIsLoading(false);
       }
     };
     loadFromProfile();
@@ -126,6 +133,7 @@ export function DisclaimersSettingsSection() {
     if (stepData.disclaimers?.disclaimers) {
       const arr = stepData.disclaimers.disclaimers;
       setDisclaimers(arr);
+      setIsLoading(false);
     }
   }, [stepData.disclaimers]);
 
@@ -300,8 +308,19 @@ export function DisclaimersSettingsSection() {
 
   return (
     <div className="space-y-6">
-      {/* Form - Always visible */}
-      <div className="space-y-4">
+      {isLoading ? (
+        <div className="space-y-4">
+          {/* Disclaimer form skeleton while data loads */}
+          <Skeleton className="h-4 w-44" />
+          <Skeleton className="h-4 w-64" />
+          <div className="space-y-2 pt-2">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-48 w-full" />
+          </div>
+          <Skeleton className="h-10 w-32" />
+        </div>
+      ) : (
+        <div className="space-y-4">
         {editingDisclaimer && (
           <div className="flex items-center justify-between mb-2">
             <p className="text-sm text-muted-foreground">Editing disclaimer</p>
@@ -408,7 +427,8 @@ export function DisclaimersSettingsSection() {
             {editingDisclaimer ? "Update Disclaimer" : "Add Disclaimer"}
           </Button>
         </div>
-      </div>
+        </div>
+      )}
     </div>
   );
 }
