@@ -382,8 +382,12 @@ export function UniversalImageEditorModal({
   // the async R2 URL resolution — which can cause a visible flash/delay.
   const { url: displayUrl } = useBrandingImageUrl(value);
   const isStoredR2Key = toR2BrandingKey(value) != null;
+  // Use `||` (not `??`) for previewDataUrl so an empty string falls through to
+  // the R2 proxy / value resolution. An empty previewDataUrl would otherwise
+  // produce src="" and a broken image when the caller has no cached preview
+  // (e.g. returning to Step 3 before the preview cache is populated).
   const previewSrc =
-    previewDataUrl ??
+    previewDataUrl ||
     (isStoredR2Key ? (displayUrl ?? undefined) : (displayUrl ?? value ?? undefined));
 
   // Check if headshot image is cropped (for headshot type only)

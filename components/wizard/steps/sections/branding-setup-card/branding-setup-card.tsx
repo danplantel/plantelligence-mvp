@@ -436,10 +436,19 @@ export function BrandingSetupCard({
               onDataChange("logoPreviewDataUrl", previewSrc);
             }
 
+            // Save the logo value (and cache its preview DataURL against the R2
+            // key) IMMEDIATELY, BEFORE the slow color-extraction/onLogoPreview
+            // awaits below.  Otherwise, if the user navigates away from Step 3
+            // during those ~10s of async work, the preview cache isn't populated
+            // yet and the logo appears broken when they navigate back.
+            onDataChange("logo", value);
+            onDataChange("logoFileName", fileName);
+
             if (previewSrc) {
               // Extract colors directly from the logo data URL.  This runs
-              // after we've already queued logoPreviewDataUrl, so the trigger
-              // preview updates without waiting for colour extraction.
+              // after we've already queued logoPreviewDataUrl + the logo value,
+              // so the trigger preview and cache update without waiting for
+              // colour extraction.
               try {
                 const colors = await extractColorsFromImage(previewSrc);
                 onDataChange("primaryColor", colors.primary);
@@ -451,9 +460,6 @@ export function BrandingSetupCard({
                 await onLogoPreview(previewSrc);
               }
             }
-            // Now save the logo/data – the extracted colors are already in the store
-            onDataChange("logo", value);
-            onDataChange("logoFileName", fileName);
           }}
           onRemove={async () => {
             await deleteFromR2(logo);
