@@ -48,7 +48,8 @@ export default async function middleware(req: NextRequest) {
         const resolveRes = await fetch(resolveUrl.toString());
 
         if (!resolveRes.ok) {
-          return new NextResponse("Portal not found", { status: 404 });
+          // Invalid subdomain — show the app's not-found page
+          return NextResponse.rewrite(new URL("/not-found", req.url));
         }
 
         const { userId } = await resolveRes.json();
@@ -59,12 +60,12 @@ export default async function middleware(req: NextRequest) {
         return response;
       } catch (err) {
         console.error("[middleware] subdomain lookup error:", err);
-        return new NextResponse("Internal server error", { status: 500 });
+        return NextResponse.rewrite(new URL("/not-found", req.url));
       }
     }
 
-    // Subdomain request to a non-portal path — 404
-    return new NextResponse("Not Found", { status: 404 });
+    // Subdomain request to a non-portal path — show not-found page
+    return NextResponse.rewrite(new URL("/not-found", req.url));
   }
 
   // ── Block portal paths on the apex domain ─────────────────────────────
