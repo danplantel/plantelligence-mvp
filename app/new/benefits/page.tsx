@@ -19,6 +19,7 @@ import { mergeUserBenefitWithHubDefaults } from "@/lib/hub-benefit-defaults";
 import { hasUnsavedBenefitsWork } from "@/lib/benefits-wizard-dirty";
 import { useNavigateAwayGuard } from "@/hooks/use-navigate-away-guard";
 import { NavigateAwayWarningDialog } from "@/components/ui/navigate-away-warning-dialog";
+import { PublishingAttestationDialog } from "@/components/wizard/benefits-steps/publishing-attestation-dialog";
 
 /** Default benefit entries used when the plan has no benefits list yet (so finish-setup doesn't wipe other categories). */
 const DEFAULT_BENEFIT_CATEGORIES: { id: string; title: string; category: BenefitsCategory; href: string; buttonText: string }[] = [
@@ -49,6 +50,7 @@ function isR2DocumentRow(doc: {
 function BenefitsPageInner() {
   const { setTitle } = usePageTitleContext();
   const [isLoading, setIsLoading] = useState(false);
+  const [isAttestationOpen, setIsAttestationOpen] = useState(false);
   const searchParams = useSearchParams();
   const planIdParam = searchParams.get("planId");
   const categoryRaw = searchParams.get("category");
@@ -198,7 +200,7 @@ function BenefitsPageInner() {
     previousStep();
   };
 
-  const onComplete = async () => {
+  const submitBenefits = async () => {
     const store = useBenefitsWizardStore.getState();
     const step1Data = store.stepData.step1;
     const step3Data = store.stepData.step3;
@@ -565,6 +567,21 @@ function BenefitsPageInner() {
     }
   };
 
+  /**
+   * Intercept the submit attempt on Step 5 (the wizard's "Complete" button is
+   * only shown on the last step). Instead of publishing immediately, show the
+   * Publishing Attestation dialog so the user must confirm both attestations
+   * before the Benefit is submitted.
+   */
+  const onComplete = () => {
+    setIsAttestationOpen(true);
+  };
+
+  const handleConfirmPublish = async () => {
+    setIsAttestationOpen(false);
+    await submitBenefits();
+  };
+
   const isFirstStep = currentStep === 1;
   const isLastStep = currentStep === totalSteps;
 
@@ -609,6 +626,12 @@ function BenefitsPageInner() {
         onDiscardWithoutSaving={leaveGuard.discardWithoutSaving}
         onDialogOpenChange={leaveGuard.dialogOnOpenChange}
         onDiscardPointerDownCapture={leaveGuard.suppressStayOnNextClose}
+      />
+      <PublishingAttestationDialog
+        open={isAttestationOpen}
+        onOpenChange={setIsAttestationOpen}
+        onConfirm={handleConfirmPublish}
+        submitting={isLoading}
       />
     </>
   );

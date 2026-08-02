@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -123,7 +123,7 @@ function DisclaimerModal({
     CATEGORY_PORTAL_LABELS[benefitCategory] || "Global";
 
   const [text, setText] = useState(
-    disclaimer?.text ||
+    (disclaimer?.text || "").replace(/\[Organization Name\]/g, organizationName) ||
       inheritedText ||
       buildDefaultDisclaimerText(organizationName, companyName),
   );
@@ -306,6 +306,17 @@ export function BenefitsStep5() {
     "[Organization Name]";
   const companyName = selectedPlan?.companyName || "[Company Name]";
 
+  // The logged-in user's organization name (User.organizationName), fetched from
+  // `/api/profile`. It populates the `[Organization Name]` placeholder in the
+  // disclaimer text, falling back to the plan's branding org name while the
+  // profile loads or when the profile value is unavailable. `userOrgNameRef`
+  // holds the value synchronously so it can be used inside async effect bodies
+  // without waiting for a re-render.
+  const [userOrganizationName, setUserOrganizationName] = useState<string | null>(null);
+  const userOrgNameRef = useRef<string>("");
+  const disclaimerOrganizationName =
+    userOrganizationName || userOrgNameRef.current || organizationName;
+
   // ── Fetch the User's disclaimer (same source as Settings > Team & Disclaimers) ──
   // The advisor's profile disclaimer is used as the default for new benefit
   // disclaimers. Returns a Disclaimer object (or null if none is saved).
@@ -314,6 +325,12 @@ export function BenefitsStep5() {
       const res = await fetch("/api/profile");
       if (!res.ok) return null;
       const profile = await res.json();
+      // Capture User.organizationName for the `[Organization Name]` placeholder.
+      const orgName = (profile?.organizationName || "").trim();
+      if (orgName) {
+        userOrgNameRef.current = orgName;
+        setUserOrganizationName(orgName);
+      }
       const raw = profile?.disclaimer;
       if (!raw) return null;
 
@@ -464,7 +481,7 @@ export function BenefitsStep5() {
           const d: Disclaimer = {
             ...userProfileDisclaimer,
             text: userProfileDisclaimer.text
-              .replace(/\[Organization Name\]/g, organizationName)
+              .replace(/\[Organization Name\]/g, userOrgNameRef.current || organizationName)
               .replace(/\[Company Name\]/g, companyName),
           };
           setDisclaimersByCategory((prev) => ({
@@ -485,7 +502,7 @@ export function BenefitsStep5() {
           const d: Disclaimer = {
             ...userProfileDisclaimer,
             text: userProfileDisclaimer.text
-              .replace(/\[Organization Name\]/g, organizationName)
+              .replace(/\[Organization Name\]/g, userOrgNameRef.current || organizationName)
               .replace(/\[Company Name\]/g, companyName),
           };
           setDisclaimersByCategory((prev) => ({
@@ -508,7 +525,7 @@ export function BenefitsStep5() {
       if (!cancelled && d?.text) {
         setProfileDisclaimerText(
           d.text
-            .replace(/\[Organization Name\]/g, organizationName)
+            .replace(/\[Organization Name\]/g, userOrgNameRef.current || organizationName)
             .replace(/\[Company Name\]/g, companyName),
         );
       }
@@ -584,16 +601,18 @@ export function BenefitsStep5() {
   //    from the User's profile disclaimer (Settings > Team & Disclaimers) rather
   //    than from whichever category was configured first. ──
   const inheritedText =
-    profileDisclaimerText || buildDefaultDisclaimerText(organizationName, companyName);
+    profileDisclaimerText || buildDefaultDisclaimerText(disclaimerOrganizationName, companyName);
 
   // ── Build disclosure text for the current category ──
+  // Resolves any remaining `[Organization Name]` placeholders in stored
+  // disclaimer text so the Footer Preview always shows the user org name.
   const buildDisclosureText = useCallback((): string => {
     const d = disclaimersByCategory[currentCategoryKey];
     if (!d) {
       return inheritedText;
     }
-    return d.text;
-  }, [disclaimersByCategory, currentCategoryKey, inheritedText]);
+    return (d.text || "").replace(/\[Organization Name\]/g, disclaimerOrganizationName);
+  }, [disclaimersByCategory, currentCategoryKey, inheritedText, disclaimerOrganizationName]);
 
   // ── Brand colour from the selected plan ──
   const brandColor =
@@ -701,9 +720,11 @@ export function BenefitsStep5() {
 
             {/* Disclaimer card */}
             <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-card dark:bg-gray-800/50">
-              <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap break-words">
-                {disclaimer?.text || inheritedText}
-              </div>
+             <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap break-words">
+               {disclaimer?.text
+                 ? disclaimer.text.replace(/\[Organization Name\]/g, disclaimerOrganizationName)
+                 : inheritedText}
+             </div>
             </div>
           </div>
         </>
@@ -715,7 +736,7 @@ export function BenefitsStep5() {
           isOpen={isModalOpen}
           disclaimer={disclaimer}
           companyName={companyName}
-          organizationName={organizationName}
+          organizationName={disclaimerOrganizationName}
           benefitCategory={currentCategoryKey}
           inheritedText={inheritedText}
           onSave={handleSaveDisclaimer}
