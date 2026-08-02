@@ -169,6 +169,49 @@ export function buildFlyerSvgFromData(
   return svg;
 }
 
+// ── Font embedding ───────────────────────────────────────────────────────────
+
+/**
+ * Font families used by the flyer templates. Browsers block external resources
+ * (including Google Fonts `@import`) when an SVG is loaded as `<img>` for PDF
+ * rasterisation, so we fetch the Google Fonts CSS and rewrite every font file
+ * URL to a base64 data URL. The resulting `@font-face` rules are self-contained
+ * and render correctly when the SVG is painted to the canvas.
+ */
+const FLYER_FONT_CSS_URL =
+  "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400..900&display=swap";
+
+async function fetchEmbeddedFlyerFontCss(): Promise<string> {
+  try {
+    const res = await fetch(FLYER_FONT_CSS_URL);
+    if (!res.ok) return "";
+    const css = await res.text();
+    const urlMatches = Array.from(css.matchAll(/url\((https:\/\/[^)]+)\)/g));
+    const replacements: Array<{ from: string; to: string }> = [];
+    for (const m of urlMatches) {
+      try {
+        const fontRes = await fetch(m[1]);
+        if (!fontRes.ok) continue;
+        const blob = await fontRes.blob();
+        const dataUrl = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = () => resolve("");
+          reader.readAsDataURL(blob);
+        });
+        if (dataUrl) replacements.push({ from: m[0], to: `url(${dataUrl})` });
+      } catch {
+        // skip a failed font — the flyer will fall back to system-ui
+      }
+    }
+    let result = css;
+    for (const r of replacements) result = result.replace(r.from, r.to);
+    return result;
+  } catch {
+    return "";
+  }
+}
+
 // ── SVG serialisation ────────────────────────────────────────────────────────
 
 /**
@@ -222,6 +265,24 @@ export async function svgElementToDataUrl(svgEl: SVGSVGElement): Promise<string>
       }
     }),
   );
+
+  // ── Embed flyer fonts as base64 @font-face ──
+  // The on-screen templates load Bebas Neue / Montserrat via a Google Fonts
+  // `@import`, which is blocked when the SVG is loaded as <img>. Injecting a
+  // `<defs><style>` with data-URL @font-face keeps the template fonts in the PDF.
+  const fontCss = await fetchEmbeddedFlyerFontCss();
+  if (fontCss) {
+    const S = "http://www.w3.org/2000/svg";
+    let defs = clone.querySelector("defs");
+    if (!defs) {
+      defs = document.createElementNS(S, "defs");
+      clone.insertBefore(defs, clone.firstChild);
+    }
+    const styleEl = document.createElementNS(S, "style");
+    styleEl.setAttribute("type", "text/css");
+    styleEl.textContent = fontCss;
+    defs.appendChild(styleEl);
+  }
 
   const serializer = new XMLSerializer();
   const svgString = serializer.serializeToString(clone);
