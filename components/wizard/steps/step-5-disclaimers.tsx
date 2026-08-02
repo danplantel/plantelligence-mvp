@@ -5,10 +5,7 @@ import {
   useOnboardingWizardStore,
 } from "@/lib/onboarding-wizard-store";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
-import {
-  resolveDefaultDisclosuresText,
-  resolveOrgOnlyDisclaimerText,
-} from "@/lib/disclaimer-constants";
+import { DEFAULT_DISCLOSURES_TEXT } from "@/lib/disclaimer-constants";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -224,9 +221,11 @@ export function Step5Disclaimers({
       const year = new Date().getFullYear();
       const defaultDisclaimer: Disclaimer = {
         id: Date.now().toString(),
-        // Use the [Company Name] placeholder so the Create Plan / Create Benefit
-        // flows can substitute the actual plan company name downstream.
-        text: resolveDefaultDisclosuresText("[Company Name]"),
+        // Default disclaimer keeps BOTH the [Organization Name] and [Company Name]
+        // placeholders. [Organization Name] is resolved from the advisor's
+        // organization during onboarding, while [Company Name] is only populated
+        // once a plan is created (Create Plan / Create Benefit flows).
+        text: DEFAULT_DISCLOSURES_TEXT,
         locations: ["Global"],
         customLocation: "",
       };
@@ -459,9 +458,10 @@ export function Step5Disclaimers({
                 }}
                 onDelete={() => handleDeleteDisclaimer(disclaimer)}
                 onRender={(text) =>
-                  text.includes("[Organization Name]")
-                    ? resolveOrgOnlyDisclaimerText(text, resolvedOrgName)
-                    : text
+                  text.replace(
+                    /\[Organization Name\]/g,
+                    resolvedOrgName || "[Organization Name]",
+                  )
                 }
               />
             ))}

@@ -43,6 +43,20 @@ export function DisclaimersSettingsSection() {
   // /api/profile or the wizard store) has populated the textarea.
   const [isLoading, setIsLoading] = useState(true);
 
+  // Organization name for resolving the [Organization Name] placeholder in the
+  // stored disclaimer text at render time. [Company Name] is intentionally left
+  // as a literal placeholder — it's only populated once a plan is created.
+  // Derived from the wizard store and/or the user profile so it's available even
+  // before the store's branding step has been hydrated.
+  const orgNameRef = useRef<string>(
+    stepData.branding?.organizationName || "",
+  );
+  const normalizeDisclaimerText = (text: string): string =>
+    text.replace(
+      /\[Organization Name\]/g,
+      orgNameRef.current || "[Organization Name]",
+    );
+
   // Load data when component mounts — use a direct fetch to /api/profile
   // which includes wizardSessions[0].disclaimers, bypassing the zustand
   // store cache which may hold stale empty data from a previous page load.
@@ -52,6 +66,20 @@ export function DisclaimersSettingsSection() {
         const res = await fetch("/api/profile");
         if (!res.ok) return;
         const profile = await res.json();
+
+        // Resolve the organization name from the profile (User record or
+        // completed wizard branding) as a fallback for the store value, so the
+        // [Organization Name] placeholder is populated even if the wizard
+        // store's branding step hasn't been loaded on this page.
+        const profileOrgName =
+          profile?.organizationName ||
+          profile?.wizardSessions?.[0]?.branding?.organizationName ||
+          profile?.company ||
+          stepData.branding?.organizationName ||
+          "";
+        if (profileOrgName) {
+          orgNameRef.current = profileOrgName;
+        }
 
         // Primary source: wizardSessions[0].disclaimers (WizardDisclaimers record)
         let raw = profile?.wizardSessions?.[0]?.disclaimers;
@@ -95,8 +123,8 @@ export function DisclaimersSettingsSection() {
         if (arr.length > 0) {
           setDisclaimers(arr);
 
-          // Pre-fill the form with the first disclaimer — use the exact text
-          // the user created at onboarding (no org-only normalization).
+          // Pre-fill the form with the first disclaimer — resolve only the
+          // [Organization Name] placeholder so it matches the onboarding view.
           if (!prefillDoneRef.current && !editingDisclaimer && !disclaimerText) {
             const first = arr[0];
             if (first?.text) {
@@ -106,7 +134,7 @@ export function DisclaimersSettingsSection() {
               });
               setSelectedLocations(locs);
               setCustomLocation(first.customLocation || "");
-              setDisclaimerText(first.text);
+              setDisclaimerText(normalizeDisclaimerText(first.text));
               setErrors({});
               prefillDoneRef.current = true;
             }
@@ -140,7 +168,7 @@ export function DisclaimersSettingsSection() {
       });
       setSelectedLocations(locations);
       setCustomLocation(editingDisclaimer.customLocation || "");
-      setDisclaimerText(editingDisclaimer.text);
+      setDisclaimerText(normalizeDisclaimerText(editingDisclaimer.text));
       setErrors({});
     }
   }, [editingDisclaimer]);

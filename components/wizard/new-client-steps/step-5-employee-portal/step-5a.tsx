@@ -18,10 +18,7 @@ import {
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
 import { Disclaimer } from "@/types/new-client-wizard";
-import {
-  resolveDefaultDisclosuresText,
-  resolveOrgOnlyDisclaimerText,
-} from "@/lib/disclaimer-constants";
+import { resolveDefaultDisclosuresText } from "@/lib/disclaimer-constants";
 import { PortalDisclaimers } from "@/components/pages/client-portal/sections/portal-disclaimers";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle, Eye, FileText, Edit2, X } from "lucide-react";
@@ -68,7 +65,8 @@ function DisclaimerModal({
   onClose,
 }: DisclaimerModalProps) {
   const [text, setText] = useState(
-    disclaimer?.text || resolveDefaultDisclosuresText(organizationName),
+    disclaimer?.text ||
+      resolveDefaultDisclosuresText(organizationName, companyName, true),
   );
   const [locations, setLocations] = useState<string[]>(
     disclaimer?.locations || ["Home Page"],
@@ -251,12 +249,22 @@ export function NewClientStep5a({
     useOnboardingWizardStore();
 
   // ── Resolve organisation & company name ──
-  // [Organization Name] in the disclaimer text is populated with the Plan's
-  // company name set in Step 1 (Company Basics).
+  // [Organization Name] is resolved from the advisor's organization (onboarding),
+  // while [Company Name] is populated with the Plan's company name from Step 1
+  // (Company Basics).
   const organizationName =
-    newClientStepData.companyBasics?.companyName || "[Organization Name]";
+    onboardingStepData.branding?.organizationName || "[Organization Name]";
   const companyName =
     newClientStepData.companyBasics?.companyName || "[Company Name]";
+
+  // Resolve both placeholders in the disclaimer text.
+  const resolveDisclaimerText = useCallback(
+    (text: string): string =>
+      text
+        .replace(/\[Organization Name\]/g, organizationName)
+        .replace(/\[Company Name\]/g, companyName),
+    [organizationName, companyName],
+  );
 
   // ── Fetch the onboarding disclaimer text to use as default for new plans ──
   const getOnboardingDisclaimerText = useCallback(async (): Promise<string | null> => {
@@ -398,10 +406,7 @@ export function NewClientStep5a({
         if (userProfileDisclaimer) {
           const d: Disclaimer = {
             ...userProfileDisclaimer,
-            text: resolveOrgOnlyDisclaimerText(
-              userProfileDisclaimer.text,
-              organizationName,
-            ),
+            text: resolveDisclaimerText(userProfileDisclaimer.text),
             locations: ["Home Page"],
             customLocation: "",
           };
@@ -416,7 +421,7 @@ export function NewClientStep5a({
         if (onboardingText) {
           const inheritedDisclaimer: Disclaimer = {
             id: Date.now().toString(),
-            text: resolveOrgOnlyDisclaimerText(onboardingText, organizationName),
+            text: resolveDisclaimerText(onboardingText),
             locations: ["Home Page"],
             customLocation: "",
             scope: "plan",
@@ -439,10 +444,7 @@ export function NewClientStep5a({
           if (userProfileDisclaimer) {
             const d: Disclaimer = {
               ...userProfileDisclaimer,
-              text: resolveOrgOnlyDisclaimerText(
-                userProfileDisclaimer.text,
-                organizationName,
-              ),
+              text: resolveDisclaimerText(userProfileDisclaimer.text),
               locations: ["Home Page"],
               customLocation: "",
             };
@@ -460,7 +462,7 @@ export function NewClientStep5a({
           if (onboardingText) {
             const inheritedDisclaimer: Disclaimer = {
               id: Date.now().toString(),
-              text: resolveOrgOnlyDisclaimerText(onboardingText, organizationName),
+              text: resolveDisclaimerText(onboardingText),
               locations: ["Home Page"],
               customLocation: "",
               scope: "plan",
@@ -551,15 +553,18 @@ export function NewClientStep5a({
       // Try to use onboarding disclaimer as preview fallback
       const onboardingDisclaimers = onboardingStepData.disclaimers?.disclaimers;
       if (onboardingDisclaimers && onboardingDisclaimers.length > 0) {
-        return resolveOrgOnlyDisclaimerText(
-          onboardingDisclaimers[0].text,
-          organizationName,
-        );
+        return resolveDisclaimerText(onboardingDisclaimers[0].text);
       }
-      return resolveDefaultDisclosuresText(organizationName);
+      return resolveDefaultDisclosuresText(organizationName, companyName, true);
     }
     return disclaimer.text;
-  }, [disclaimer, organizationName, companyName, onboardingStepData.disclaimers]);
+  }, [
+    disclaimer,
+    organizationName,
+    companyName,
+    onboardingStepData.disclaimers,
+    resolveDisclaimerText,
+  ]);
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-20">
