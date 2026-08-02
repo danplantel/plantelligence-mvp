@@ -293,8 +293,13 @@ function RenderCardBySlot({
 }
 
 export function NewClientStep5d({ errorFields = [] }: NewClientStep5dProps) {
-  const { stepData, saveStepDataLocally, saveStepDataToServer, draftClientId } =
-    useNewClientWizardStore();
+  const {
+    stepData,
+    saveStepDataLocally,
+    saveStepDataToServer,
+    draftClientId,
+    advisorProfile,
+  } = useNewClientWizardStore();
   const modalStates = useModalStates();
 
   // Refs
@@ -1538,7 +1543,15 @@ export function NewClientStep5d({ errorFields = [] }: NewClientStep5dProps) {
       </div>
 
       {/* Footer */}
-      <Footer brandColor={brandColor} />
+      <Footer
+        brandColor={brandColor}
+        organizationName={
+          (advisorProfile as any)?.organizationName ||
+          stepData?.companyBasics?.companyName ||
+          ""
+        }
+        companyName={stepData?.companyBasics?.companyName || ""}
+      />
 
       {/* Side editor panel */}
       <EditorPanelWrapper

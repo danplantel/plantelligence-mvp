@@ -3,12 +3,31 @@ import { Fragment } from "react";
 interface FooterProps {
   brandColor?: string;
   disclosuresText?: string | null;
+  /** Organization name to populate [Organization Name] in the disclosures, and
+   *  used in the fallback disclaimer when no disclosuresText is provided. */
+  organizationName?: string;
+  /** Company name to populate [Company Name] in the disclosures. */
+  companyName?: string;
 }
 
 export function Footer({
   brandColor = "#1F3A60",
   disclosuresText,
+  organizationName,
+  companyName,
 }: FooterProps) {
+  // Resolve the organization/company names for the disclaimer.
+  const resolvedOrg = (organizationName || "").trim() || "Lighthouse Financial Advisors";
+  const resolvedCompany = (companyName || "").trim() || "[Company Name]";
+
+  // Resolve any leftover [Organization Name] / [Company Name] placeholders in
+  // the provided disclosure text so they never render literally.
+  const resolvedDisclosuresText = disclosuresText
+    ? disclosuresText
+        .replace(/\[Organization Name\]/g, resolvedOrg)
+        .replace(/\[Company Name\]/g, resolvedCompany)
+    : null;
+
   return (
     <footer
       className="text-white py-12 font-red-hat"
@@ -83,12 +102,12 @@ export function Footer({
               <p>
                 <strong>Disclosures:</strong>
               </p>
-              {disclosuresText ? (
+              {resolvedDisclosuresText ? (
                 <div className="space-y-2">
                   {/* Render newlines explicitly as React elements
                       (\n\n → paragraph, \n → <br/>) after normalizing
                       \r\n, \r, and literal backslash-n (\n). */}
-                  {disclosuresText
+                  {resolvedDisclosuresText
                     .replace(/\\n/g, "\n")
                     .replace(/\r\n/g, "\n")
                     .replace(/\r/g, "\n")
@@ -117,8 +136,8 @@ export function Footer({
                   <p>
                     Securities and financial planning services offered through
                     LPL Financial, a registered investment advisor, Member FINRA
-                    / SIPC. Lighthouse Financial Advisors is a separate entity
-                    from LPL Financial.
+                    / SIPC. {resolvedOrg} is a separate entity from LPL
+                    Financial.
                   </p>
                   <p>
                     Sarah Johnson | Key West, FL | 123 Lighthouse Way, Key West,
@@ -146,7 +165,7 @@ export function Footer({
                     and should not be considered a solicitation for the purchase
                     or sale of any security.
                   </p>
-                  <p>®Lighthouse Financial Advisors</p>
+                  <p>®{resolvedOrg}</p>
                 </>
               )}
             </div>
@@ -154,7 +173,7 @@ export function Footer({
             {/* Copyright */}
             <div className="text-center">
               <p className="text-xs text-gray-400">
-                © 2024 Lighthouse Financial Advisors. All rights reserved. |
+                © 2024 {resolvedOrg}. All rights reserved. |
                 <a href="#" className="hover:text-white ml-1">
                   Privacy Policy
                 </a>{" "}

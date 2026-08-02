@@ -1,6 +1,7 @@
 "use client";
 
 import { useParams, usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { PortalHeader } from "@/components/pages/client-portal/sections/portal-header";
 import { Footer } from "@/components/footer";
 import {
@@ -29,6 +30,10 @@ interface BannerAsset {
 
 function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
   const { clientData } = useClientPortal();
+  // Logged-in user's organization name — used as a fallback when the
+  // advisor's onboarding branding org name is empty, so the footer's
+  // [Organization Name] doesn't collapse to the plan's company name.
+  const { data: session } = useSession();
   const params = useParams();
   const clientId = params.id as string;
   const pathname = usePathname();
@@ -56,6 +61,11 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
   }, []);
   const brandColor = clientData?.brandColor || "#1F3A60";
   const secondaryColor = clientData?.secondaryColor || "#6B7280";
+  const organizationName =
+    (clientData as any)?.branding?.organizationName ||
+    session?.user?.organizationName ||
+    clientData?.companyName ||
+    "";
   const basePath = clientId ? `/new/view/${clientId}` : "";
 
   const planRoutes = basePath
@@ -108,7 +118,10 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
   // Parse and filter disclaimers based on priority
   const getDisclosuresText = () => {
     // Note: clientData might not have 'branding' sub-object in this context
-    const orgName = (clientData as any)?.branding?.organizationName || clientData?.companyName || "[Organization Name]";
+    const orgName = (clientData as any)?.branding?.organizationName
+      || session?.user?.organizationName
+      || clientData?.companyName
+      || "[Organization Name]";
     const compName = clientData?.companyName || "[Company Name]";
 
     // Universal disclaimer text with placeholders resolved. Only the Benefits Hub
@@ -194,6 +207,30 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
         .replace(/\[Company Name\]/g, compName);
     }
 
+    // ── Home Page footer disclaimer (created in Step 5a) ──
+    // On the Benefits Hub main page (no category selected) the footer must use
+    // the dedicated "Home Page" footer disclaimer. Prefer a disclaimer whose
+    // location is "Home Page" or "Global" (or one marked apply-all), and
+    // resolve [Organization Name] / [Company Name] so the placeholder never
+    // renders literally.
+    if (!currentCategoryKey) {
+      const homePageDisclaimers = disclaimersArray.filter((d: any) =>
+        d?.text &&
+        (d.locations?.includes("Home Page") ||
+          d.locations?.includes("Global") ||
+          d.apply_all_benefits_categories === true)
+      );
+      if (homePageDisclaimers.length > 0) {
+        const homeText = homePageDisclaimers[0].text;
+        return homeText
+          .replace(/\\n/g, "\n")
+          .replace(/\r\n/g, "\n")
+          .replace(/\r/g, "\n")
+          .replace(/\[Organization Name\]/g, orgName)
+          .replace(/\[Company Name\]/g, compName);
+      }
+    }
+
     // The footer disclosures come from the advisor's profile (User.disclaimer)
     // when available. This is resolved server-side in GET /api/clients/[id] and
     // attached as advisorDisclaimer, so it works for both the logged-in dashboard
@@ -219,7 +256,10 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
     // 1. Category-specific disclaimers (apply_all = false, matches category)
     // Note: If user selected "Benefits Hub" and apply_all = false, it only shows on the Hub main page ("benefits_hub").
     const categorySpecific = disclaimersArray.filter((d: any) =>
-      !d.apply_all_benefits_categories && (d.locations?.includes(currentCategory) || d.locations?.includes("global"))
+      !d.apply_all_benefits_categories &&
+      (d.locations?.includes(currentCategory) ||
+        d.locations?.includes("global") ||
+        (!currentCategory && d.locations?.includes("Home Page")))
     );
 
     // 2. All-categories disclaimers (apply_all = true)
@@ -229,12 +269,22 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
       d.apply_all_benefits_categories === true
     );
 
+    // Resolve any leftover [Organization Name] / [Company Name] placeholders in
+    // a disclaimer text so a stored template never renders literally.
+    const resolvePlaceholders = (t: string): string =>
+      t
+        .replace(/\\n/g, "\n")
+        .replace(/\r\n/g, "\n")
+        .replace(/\r/g, "\n")
+        .replace(/\[Organization Name\]/g, orgName)
+        .replace(/\[Company Name\]/g, compName);
+
     // Combine following priority: Per-category > Category-specific > All-categories > Universal
     // (We include universal if useDefaultDisclosures is true OR if it's the final fallback)
     const prioritizedTexts = [
-      ...(perCategoryDisclaimer?.text ? [perCategoryDisclaimer.text] : []),
-      ...categorySpecific.map(d => d.text),
-      ...allCategories.map(d => d.text)
+      ...(perCategoryDisclaimer?.text ? [resolvePlaceholders(perCategoryDisclaimer.text)] : []),
+      ...categorySpecific.map(d => resolvePlaceholders(d.text)),
+      ...allCategories.map(d => resolvePlaceholders(d.text))
     ];
 
     // Add universal disclaimer if enabled or as final priority
@@ -444,7 +494,12 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
         companyLogo={clientData?.companyLogo}
       />
 
-      <Footer brandColor={brandColor} disclosuresText={disclosuresText} />
+      <Footer
+        brandColor={brandColor}
+        disclosuresText={disclosuresText}
+        organizationName={organizationName}
+        companyName={clientData?.companyName || ""}
+      />
     </div>
   );
 }

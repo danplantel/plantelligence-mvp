@@ -243,19 +243,33 @@ export function NewClientStep5a({
     saveAsDraft,
     loadStepData,
     draftClientId,
+    advisorProfile,
   } = useNewClientWizardStore();
 
   const { stepData: onboardingStepData, loadAllWizardData, loadStepData: loadOnboardingStepData } =
     useOnboardingWizardStore();
 
   // ── Resolve organisation & company name ──
-  // [Organization Name] is resolved from the advisor's organization (onboarding),
-  // while [Company Name] is populated with the Plan's company name from Step 1
-  // (Company Basics).
+  // [Organization Name] is resolved from the advisor's organization (onboarding
+  // branding, falling back to the user's profile organization name, and finally
+  // the plan's company name), while [Company Name] is populated with the Plan's
+  // company name from Step 1 (Company Basics).
   const organizationName =
-    onboardingStepData.branding?.organizationName || "[Organization Name]";
+    onboardingStepData.branding?.organizationName ||
+    (advisorProfile as any)?.organizationName ||
+    newClientStepData.companyBasics?.companyName ||
+    "[Organization Name]";
   const companyName =
     newClientStepData.companyBasics?.companyName || "[Company Name]";
+
+  // DEBUG: confirm what [Organization Name] resolves to.
+  console.log("[step5a] org/company resolve:", JSON.stringify({
+    onboardingBrandingOrg: onboardingStepData.branding?.organizationName ?? null,
+    advisorProfileOrg: (advisorProfile as any)?.organizationName ?? null,
+    planCompany: newClientStepData.companyBasics?.companyName ?? null,
+    resolvedOrganizationName: organizationName,
+    resolvedCompanyName: companyName,
+  }));
 
   // Resolve both placeholders in the disclaimer text.
   const resolveDisclaimerText = useCallback(
@@ -383,19 +397,26 @@ export function NewClientStep5a({
       }
 
       try {
-        // If it's a draft with existing disclaimers, use them
+        // If it's a draft with existing disclaimers, use them — but resolve any
+        // leftover [Organization Name] / [Company Name] placeholders first.
         if (draftClientId && existingDisclaimers.length > 0) {
-          setDisclaimer(existingDisclaimers[0]);
+          const resolved = {
+            ...existingDisclaimers[0],
+            text: resolveDisclaimerText(existingDisclaimers[0].text),
+          };
+          setDisclaimer(resolved);
           setHasInitialized(true);
           return;
         }
 
-        // Try to load from the New Client Wizard API (session/draft)
+        // Try to load from the New Client Wizard API (session/draft) — resolve
+        // placeholders so a previously-persisted template gets populated too.
         const data = await loadStepData("disclaimers");
         if (data?.disclaimers?.length > 0) {
           const d = data.disclaimers[0];
-          setDisclaimer(d);
-          saveStepDataLocally("disclaimers", { disclaimers: [d] });
+          const resolved = { ...d, text: resolveDisclaimerText(d.text) };
+          setDisclaimer(resolved);
+          saveStepDataLocally("disclaimers", { disclaimers: [resolved] });
           setHasInitialized(true);
           return;
         }
@@ -484,6 +505,25 @@ export function NewClientStep5a({
     initializeDisclaimers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run only once on mount
+
+  // ── Re-resolve placeholders when the org/company name becomes available ──
+  // If the disclaimer was loaded/inherited while [Organization Name] was still
+  // unresolved (e.g. the org name loaded asynchronously), patch the text so the
+  // placeholder is populated. Only touches text that still contains placeholders.
+  useEffect(() => {
+    if (!disclaimer) return;
+    const hasPlaceholders =
+      disclaimer.text.includes("[Organization Name]") ||
+      disclaimer.text.includes("[Company Name]");
+    if (!hasPlaceholders) return;
+    const resolvedText = resolveDisclaimerText(disclaimer.text);
+    // Guard against a no-op resolve (e.g. org name still unresolved) to avoid
+    // an infinite re-render loop.
+    if (resolvedText === disclaimer.text) return;
+    setDisclaimer((prev) =>
+      prev ? { ...prev, text: resolvedText } : prev,
+    );
+  }, [organizationName, companyName, resolveDisclaimerText, disclaimer]);
 
   // ── Notify parent about validation status ──
   useEffect(() => {

@@ -781,6 +781,8 @@ export function BenefitsStep5() {
                 <Footer
                   brandColor={brandColor}
                   disclosuresText={buildDisclosureText()}
+                  organizationName={organizationName}
+                  companyName={companyName}
                 />
               </div>
             </div>
