@@ -27,7 +27,11 @@ import { X, Eye, Calendar, Clock, MapPin, QrCode, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { formatUsDate } from "@/lib/date";
 import { cn } from "@/lib/utils";
-import { FlyerPreview, type FlyerTemplateId } from "./flyer-templates";
+import {
+  FlyerPreview,
+  FLYER_TEMPLATE_BENEFITS_CATEGORY,
+  type FlyerTemplateId,
+} from "./flyer-templates";
 
 export type AssetType = "flyer" | "portal-notice" | "pop-up" | "news-post";
 
@@ -150,9 +154,6 @@ const TOPICAL_TEMPLATE_DEFAULTS_ES: Record<string, FlyerTemplateDefaults> = {
   "TopicalTemplate2": { headline: "No Dejes Esto Sin Terminar.", subtitle: "¿Tiene un beneficiario designado para su cuenta de jubilación?",     body: "Las personas a menudo olvidan:/n- Agregar un beneficiario/n- Actualizar uno existente/n- Revisar después de eventos importantes de la vida" },
   "TopicalTemplate3": { headline: "Invierta en Usted Mismo: /n ¡Comience Hoy Su Viaje de Jubilación!", subtitle: "Ya sea que recién esté comenzando su viaje o buscando mejorar su estrategia de jubilación existente, cada contribución cuenta.",     body: "- Es Fácil y Conveniente. Su contribución se deduce automáticamente de su pago y se deposita en su cuenta./n- Contribuciones de Igualación del Empleador. Aproveche las posibles contribuciones de igualación del empleador\u2014es como obtener dinero gratis para impulsar aún más sus ahorros de jubilación.*/n- Ahorros con Impuestos Diferidos. El dinero se coloca en su cuenta de jubilación antes de los impuestos federales (y la mayoría estatales). Eso significa que no paga impuestos hasta que retire el dinero./n- Usted Tiene el Control. Decida su monto de contribución y estrategia de inversión. ¿No sabe cómo invertir? Nuestro equipo en Waypoint Financial Advisors está aquí para usted./nSi tiene alguna pregunta sobre su futuro de jubilación o cómo comenzar en el plan, visítenos escaneando el código QR a continuación o llámenos al 877-757-3263." },
 };
-
-/** All topical flyer template IDs — used to keep the selected template valid for the current mode. */
-const TOPICAL_TEMPLATE_IDS = ["TopicalTemplate1", "TopicalTemplate2", "TopicalTemplate3"];
 
 export default function MarketingAssetModal({
   open,
@@ -312,16 +313,33 @@ export default function MarketingAssetModal({
     [meetings, selectedMeetingId],
   );
 
-  // Keep the selected template valid for the current flyer mode.
-  // Topical mode accepts any topical template; meeting mode has a single MeetingTemplate1.
+  /** Template IDs available for the current flyer mode, filtered by the selected benefit category. */
+  const availableFlyerTemplates: string[] = useMemo(() => {
+    if (resolvedType !== "flyer") return [];
+    const modeTemplates =
+      flyerMode === "meeting"
+        ? Object.keys(MEETING_TEMPLATE_DEFAULTS)
+        : Object.keys(TOPICAL_TEMPLATE_DEFAULTS);
+    return modeTemplates.filter(
+      (id) =>
+        !flyerCategory ||
+        FLYER_TEMPLATE_BENEFITS_CATEGORY[id as FlyerTemplateId] === flyerCategory,
+    );
+  }, [resolvedType, flyerMode, flyerCategory]);
+
+  /** True when on the template step but no templates match the selected benefit category. */
+  const noFlyerTemplates =
+    resolvedType === "flyer" && flyerStep === 3 && availableFlyerTemplates.length === 0;
+
+  // Keep the selected template valid for the current flyer mode and benefit category.
   useEffect(() => {
     if (resolvedType !== "flyer" || flyerStep < 3) return;
-    if (flyerMode === "topical" && !TOPICAL_TEMPLATE_IDS.includes(flyerTemplate)) {
-      setFlyerTemplate("TopicalTemplate1");
-    } else if (flyerMode === "meeting" && flyerTemplate !== "MeetingTemplate1") {
-      setFlyerTemplate("MeetingTemplate1");
+    if (availableFlyerTemplates.length > 0 && !availableFlyerTemplates.includes(flyerTemplate)) {
+      setFlyerTemplate(availableFlyerTemplates[0]);
+    } else if (availableFlyerTemplates.length === 0) {
+      setFlyerTemplate("");
     }
-  }, [flyerMode, flyerStep, resolvedType, flyerTemplate]);
+  }, [flyerMode, flyerStep, resolvedType, flyerTemplate, flyerCategory, availableFlyerTemplates]);
 
   // Apply template defaults whenever user enters step 3 (template) or changes template/language
   useEffect(() => {
@@ -976,36 +994,44 @@ export default function MarketingAssetModal({
                 <Label className="text-base font-semibold">Choose a template</Label>
                 <p className="text-xs text-muted-foreground mt-1">Select the design for your flyer.</p>
               </div>
-              <select
-                className="flex h-9 w-full rounded-md border border-input bg-white dark:bg-gray-800 px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                value={flyerTemplate}
-                onChange={(e) => {
-                  const next = e.target.value;
-                  setFlyerTemplate(next);
-                  // Also apply template defaults immediately so the form inputs update
-                  const dict = flyerLanguage === "es"
-                    ? (flyerMode === "meeting" ? MEETING_TEMPLATE_DEFAULTS_ES : TOPICAL_TEMPLATE_DEFAULTS_ES)
-                    : (flyerMode === "meeting" ? MEETING_TEMPLATE_DEFAULTS : TOPICAL_TEMPLATE_DEFAULTS);
-                  const defaults = dict[next];
-                  if (defaults) {
-                    setHeadline(defaults.headline);
-                    setFlyerSubtitle(defaults.subtitle);
-                    setBody(defaults.body.replace(/\/n\/n/g, "\n\n").replace(/\/n/g, "\n"));
-                  }
-                }}
-              >
-                {(flyerMode === "meeting"
-                  ? Object.keys(MEETING_TEMPLATE_DEFAULTS)
-                  : Object.keys(TOPICAL_TEMPLATE_DEFAULTS)
-                ).map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </select>
+              {availableFlyerTemplates.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 px-4 py-5 text-center space-y-2">
+                  <p className="text-sm font-medium text-foreground">
+                    No templates available for this benefit category
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    There are no flyer templates matching "{flyerCategory || "All Benefits"}". Go back and choose a different benefit category.
+                  </p>
+                </div>
+              ) : (
+                <select
+                  className="flex h-9 w-full rounded-md border border-input bg-white dark:bg-gray-800 px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={flyerTemplate}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setFlyerTemplate(next);
+                    // Also apply template defaults immediately so the form inputs update
+                    const dict = flyerLanguage === "es"
+                      ? (flyerMode === "meeting" ? MEETING_TEMPLATE_DEFAULTS_ES : TOPICAL_TEMPLATE_DEFAULTS_ES)
+                      : (flyerMode === "meeting" ? MEETING_TEMPLATE_DEFAULTS : TOPICAL_TEMPLATE_DEFAULTS);
+                    const defaults = dict[next];
+                    if (defaults) {
+                      setHeadline(defaults.headline);
+                      setFlyerSubtitle(defaults.subtitle);
+                      setBody(defaults.body.replace(/\/n\/n/g, "\n\n").replace(/\/n/g, "\n"));
+                    }
+                  }}
+                >
+                  {availableFlyerTemplates.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              )}
 
               {/* Meeting info or Topic summary — shown below template selector */}
-              {flyerMode === "meeting" && selectedMeeting && (
+              {!noFlyerTemplates && flyerMode === "meeting" && selectedMeeting && (
                 <div className="rounded-lg border bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground space-y-1.5">
                   <div className="flex items-center gap-1.5 font-medium text-foreground">
                     <Calendar className="h-3.5 w-3.5" />
@@ -1037,7 +1063,7 @@ export default function MarketingAssetModal({
                   )}
                 </div>
               )}
-              {flyerMode === "topical" && flyerTopic && (
+              {!noFlyerTemplates && flyerMode === "topical" && flyerTopic && (
                 <div className="rounded-lg border bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground space-y-1">
                   <div className="flex items-center gap-1.5 font-medium text-foreground">
                     <span className="text-[10px]">📝</span>
@@ -1047,7 +1073,14 @@ export default function MarketingAssetModal({
               )}
 
               <div className="flex items-center gap-2 pt-2">
-                <Button type="button" variant="outline" size="sm" onClick={() => setFlyerStep(2)}>Back</Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setFlyerStep(noFlyerTemplates ? 1 : 2)}
+                >
+                  Back
+                </Button>
               </div>
             </div>
           )}
@@ -1055,7 +1088,7 @@ export default function MarketingAssetModal({
       )}
 
       {/* Flyer: Language toggle */}
-      {resolvedType === "flyer" && flyerStep >= 3 && (
+      {resolvedType === "flyer" && flyerStep >= 3 && !noFlyerTemplates && (
         <div className="flex items-center justify-end gap-2">
           <span className="text-xs text-muted-foreground font-medium">Language:</span>
           <div className="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
@@ -1089,7 +1122,7 @@ export default function MarketingAssetModal({
 
       {/* Flyer: Headline (auto-populated from meeting/topic) */}
       {resolvedType === "flyer" && (
-        flyerStep < 3 ? null : (
+        flyerStep < 3 || noFlyerTemplates ? null : (
           <div className="space-y-1.5">
             <Label htmlFor="headline">
               Headline
@@ -1101,7 +1134,7 @@ export default function MarketingAssetModal({
       )}
 
       {/* Flyer subtitle */}
-      {resolvedType === "flyer" && flyerStep >= 3 && (
+      {resolvedType === "flyer" && flyerStep >= 3 && !noFlyerTemplates && (
         <div className="space-y-1.5">
           <Label htmlFor="subtitle">
             Subtitle
@@ -1112,7 +1145,7 @@ export default function MarketingAssetModal({
       )}
 
       {/* Flyer body */}
-      {resolvedType === "flyer" && flyerStep >= 3 && (
+      {resolvedType === "flyer" && flyerStep >= 3 && !noFlyerTemplates && (
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <Label htmlFor="body">
@@ -1140,7 +1173,7 @@ export default function MarketingAssetModal({
       )}
 
       {/* Flyer: QR code */}
-      {resolvedType === "flyer" && flyerStep >= 3 && (
+      {resolvedType === "flyer" && flyerStep >= 3 && !noFlyerTemplates && (
         <div className="space-y-1.5">
           <Label htmlFor="flyerQrUrl">
             QR code link
@@ -1170,7 +1203,7 @@ export default function MarketingAssetModal({
       )}
 
       {/* Flyer: Footer Color */}
-      {resolvedType === "flyer" && flyerStep >= 3 && (
+      {resolvedType === "flyer" && flyerStep >= 3 && !noFlyerTemplates && (
         <div className="space-y-1.5">
           <Label>Footer color</Label>
           <div className="flex gap-2">
@@ -1201,7 +1234,7 @@ export default function MarketingAssetModal({
       )}
 
       {/* Flyer: Disclaimer text */}
-      {resolvedType === "flyer" && flyerStep >= 3 && (
+      {resolvedType === "flyer" && flyerStep >= 3 && !noFlyerTemplates && (
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <Label htmlFor="disclaimer">
@@ -1224,7 +1257,7 @@ export default function MarketingAssetModal({
 
       {/* Flyer: Step 4 Back button — pinned to the bottom of the details form so the
           advisor can always return to the meeting/topic selection without scrolling back up */}
-      {resolvedType === "flyer" && flyerStep === 3 && (
+      {resolvedType === "flyer" && flyerStep === 3 && !noFlyerTemplates && (
         <div className="flex items-center gap-2 pt-2">
           <Button type="button" variant="outline" size="sm" onClick={() => setFlyerStep(2)}>
             Back
@@ -1718,7 +1751,11 @@ export default function MarketingAssetModal({
               )}
             </div>
             <div ref={flyerPreviewRef} className={cn("flex-1 overflow-y-auto p-6 flex items-start justify-center", previewMode === "mobile" && "bg-gray-100 dark:bg-gray-900")}>
-              {previewMode === "mobile" && resolvedType !== "flyer" ? (
+              {noFlyerTemplates ? (
+                <div className="flex items-center justify-center h-full w-full text-sm text-muted-foreground">
+                  No flyer to preview for this benefit category.
+                </div>
+              ) : previewMode === "mobile" && resolvedType !== "flyer" ? (
                 <div className="relative shrink-0 transform scale-[0.65] origin-top">
                   {/* Phone body */}
                   <div className="w-[375px] h-[720px] rounded-[3rem] border-[3px] border-gray-800 dark:border-gray-600 bg-white dark:bg-gray-900 shadow-2xl overflow-hidden relative flex flex-col">
