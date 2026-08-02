@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { X, Eye, Calendar, Clock, MapPin, QrCode, Loader2 } from "lucide-react";
+import { X, Eye, Calendar, Clock, MapPin, QrCode, Loader2, Image as ImageIcon } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { formatUsDate } from "@/lib/date";
 import { cn } from "@/lib/utils";
@@ -31,7 +31,9 @@ import {
   FlyerPreview,
   FLYER_TEMPLATE_BENEFITS_CATEGORY,
   type FlyerTemplateId,
+  type FlyerImagePosition,
 } from "./flyer-templates";
+import { FlyerImagePositionEditor } from "./flyer-image-position-editor";
 
 export type AssetType = "flyer" | "portal-notice" | "pop-up" | "news-post";
 
@@ -139,20 +141,30 @@ const MEETING_TEMPLATE_DEFAULTS: Record<string, FlyerTemplateDefaults> = {
   "MeetingTemplate1": { headline: "Transform Your Tomorrow: {#ffcb0a}Unlock the Full Potential of your 401(k)!{/}", subtitle: "Join Our Retirement Plan Advisory Team To Discover How To Maximize Your Retirement Benefits",        body: "Mark your calendar for this upcoming benefits event." },
 };
 
+const MEETING_TEMPLATE_DEFAULTS_ES: Record<string, FlyerTemplateDefaults> = {
+  "MeetingTemplate1": { headline: "Transforme Su Mañana: {#ffcb0a}Descubra Cómo Maximizar Sus Beneficios de Jubilación!{/}", subtitle: "Únase a Nuestro Equipo de Asesoría de Planes de Jubilación para Descubrir Cómo Maximizar Sus Beneficios de Jubilación",        body: "Marque su calendario para este próximo evento de beneficios." },
+};
+
 const TOPICAL_TEMPLATE_DEFAULTS: Record<string, FlyerTemplateDefaults> = {
   "TopicalTemplate1": { headline: "MISSING", subtitle: "Retirement Savings From Former Employer", body: "Whether you've moved to a new job or are between opportunities, how you manage your savings now will shape your future retirement. /n **PLEASE CONTACT US TO BE RE-UNITED WITH YOUR MONEY**" },
   "TopicalTemplate2": { headline: "Don't Leave This Unfinished.", subtitle: "Do you have a beneficiary listed for your retirement account?",     body: "People often forget to:/n- Add a beneficiary/n- Update an existing one/n- Review after major life events" },
   "TopicalTemplate3": { headline: "Invest in Yourself: /n Start Your Retirement Journey Today!", subtitle: "Whether you're just starting your journey or looking to enhance your existing retirement strategy, every contribution counts.",     body: "- **It's Easy & Convenient**. Your contribution is automatically deducted from your pay and deposited into your account./n- **Employer Matching Contributions.** Take advantage of potential employer matching contributions\u2014it's like getting free money to boost your retirement savings even further.*/n- **Tax-Deferred Savings.** Money is put into your retirement account before federal (and most state) taxes. That means you don't pay taxes on it until you take the money out./n- **You're in Control.** Decide your contribution amount and investment strategy. Not sure how to invest? Our team at Waypoint Financial Advisors is here for you./n/n If you have any questions regarding your retirement future or how to get started in the plan, visit us by scanning the QR code below or call us at 877-757-3263. Para ayuda en español acerca del plan 401k, por favor llame al 877-757-3263" },
 };
 
-const MEETING_TEMPLATE_DEFAULTS_ES: Record<string, FlyerTemplateDefaults> = {
-  "MeetingTemplate1": { headline: "Transforme Su Mañana: {#ffcb0a}Descubra Cómo Maximizar Sus Beneficios de Jubilación!{/}", subtitle: "Únase a Nuestro Equipo de Asesoría de Planes de Jubilación para Descubrir Cómo Maximizar Sus Beneficios de Jubilación",        body: "Marque su calendario para este próximo evento de beneficios." },
-};
-
 const TOPICAL_TEMPLATE_DEFAULTS_ES: Record<string, FlyerTemplateDefaults> = {
   "TopicalTemplate1": { headline: "FALTANTE", subtitle: "Ahorros para la Jubilación de Su ex Empleador", body: "Ya sea que haya cambiado de trabajo o se encuentre entre oportunidades, la manera en que administre sus ahorros hoy definira su jubilación futura. /n **POR FAVOR, CONTÁCTENOS PARA RECUPERAR SU DINERO**" },
   "TopicalTemplate2": { headline: "No Dejes Esto Sin Terminar.", subtitle: "¿Tiene un beneficiario designado para su cuenta de jubilación?",     body: "Las personas a menudo olvidan:/n- Agregar un beneficiario/n- Actualizar uno existente/n- Revisar después de eventos importantes de la vida" },
   "TopicalTemplate3": { headline: "Invierta en Usted Mismo: /n ¡Comience Hoy Su Viaje de Jubilación!", subtitle: "Ya sea que recién esté comenzando su viaje o buscando mejorar su estrategia de jubilación existente, cada contribución cuenta.",     body: "- Es Fácil y Conveniente. Su contribución se deduce automáticamente de su pago y se deposita en su cuenta./n- Contribuciones de Igualación del Empleador. Aproveche las posibles contribuciones de igualación del empleador\u2014es como obtener dinero gratis para impulsar aún más sus ahorros de jubilación.*/n- Ahorros con Impuestos Diferidos. El dinero se coloca en su cuenta de jubilación antes de los impuestos federales (y la mayoría estatales). Eso significa que no paga impuestos hasta que retire el dinero./n- Usted Tiene el Control. Decida su monto de contribución y estrategia de inversión. ¿No sabe cómo invertir? Nuestro equipo en Waypoint Financial Advisors está aquí para usted./nSi tiene alguna pregunta sobre su futuro de jubilación o cómo comenzar en el plan, visítenos escaneando el código QR a continuación o llámenos al 877-757-3263." },
+};
+
+/** Flyer templates that support an optional custom header image. */
+const CUSTOM_FLYER_IMAGE_TEMPLATES = ["TopicalTemplate1", "TopicalTemplate2", "TopicalTemplate3"];
+
+/** Destination image region (width × height) for each template's custom flyer image. */
+const FLYER_IMAGE_REGIONS: Record<string, { width: number; height: number }> = {
+  TopicalTemplate1: { width: 275, height: 300 },
+  TopicalTemplate2: { width: 612, height: 400 },
+  TopicalTemplate3: { width: 612, height: 240 },
 };
 
 export default function MarketingAssetModal({
@@ -225,6 +237,9 @@ export default function MarketingAssetModal({
   const [selectedMeetingId, setSelectedMeetingId] = useState("");
   const [flyerImage, setFlyerImage] = useState<string>("");
   const [flyerImageLoading, setFlyerImageLoading] = useState(false);
+  const [flyerImagePosition, setFlyerImagePosition] = useState<FlyerImagePosition>({ x: 50, y: 50 });
+  const [flyerImageWidth, setFlyerImageWidth] = useState<number | null>(null);
+  const [flyerImageHeight, setFlyerImageHeight] = useState<number | null>(null);
   const [flyerQrUrl, setFlyerQrUrl] = useState("");
   const [flyerQrDataUrl, setFlyerQrDataUrl] = useState<string>("");
   const [qrGenerating, setQrGenerating] = useState(false);
@@ -331,6 +346,19 @@ export default function MarketingAssetModal({
   const noFlyerTemplates =
     resolvedType === "flyer" && flyerStep === 3 && availableFlyerTemplates.length === 0;
 
+  /** Whether the current flyer template supports an optional custom header image. */
+  const showCustomImage =
+    resolvedType === "flyer" &&
+    flyerStep >= 3 &&
+    !noFlyerTemplates &&
+    CUSTOM_FLYER_IMAGE_TEMPLATES.includes(flyerTemplate);
+
+  /** Aspect ratio (width / height) of the destination flyer image region for the selected template. */
+  const flyerImageAspectRatio = useMemo(() => {
+    const region = FLYER_IMAGE_REGIONS[flyerTemplate];
+    return region ? region.width / region.height : undefined;
+  }, [flyerTemplate]);
+
   // Keep the selected template valid for the current flyer mode and benefit category.
   useEffect(() => {
     if (resolvedType !== "flyer" || flyerStep < 3) return;
@@ -404,6 +432,9 @@ export default function MarketingAssetModal({
         setMeetingTime((d.meetingTime as string) || "");
         setMeetingLocation((d.meetingLocation as string) || "");
         setFlyerImage((editingAsset.flyerImage as string) || (d.flyerImage as string) || "");
+        setFlyerImagePosition((d.flyerImagePosition as FlyerImagePosition) || { x: 50, y: 50 });
+        setFlyerImageWidth((d.flyerImageWidth as number) || null);
+        setFlyerImageHeight((d.flyerImageHeight as number) || null);
         setFlyerQrUrl((d.flyerQrUrl as string) || "");
         setFlyerQrDataUrl((d.flyerQrDataUrl as string) || "");
         setDisclaimerText((d.disclaimerText as string) || DEFAULT_DISCLAIMER);
@@ -424,6 +455,9 @@ export default function MarketingAssetModal({
       setMeetingLocation("");
       setSelectedMeetingId("");
       setFlyerImage("");
+      setFlyerImagePosition({ x: 50, y: 50 });
+      setFlyerImageWidth(null);
+      setFlyerImageHeight(null);
       setFlyerQrUrl("");
       setFlyerQrDataUrl("");
       setQrGenerating(false);
@@ -477,6 +511,39 @@ export default function MarketingAssetModal({
           : m.platform || m.format || "Virtual"
       );
     }
+  };
+
+  const handleFlyerImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFlyerImageLoading(true);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = typeof reader.result === "string" ? reader.result : "";
+      setFlyerImage(dataUrl);
+      // Capture the image's natural dimensions for accurate CSS-equivalent positioning.
+      const img = new Image();
+      img.onload = () => {
+        setFlyerImageWidth(img.naturalWidth);
+        setFlyerImageHeight(img.naturalHeight);
+        setFlyerImageLoading(false);
+      };
+      img.onerror = () => {
+        setFlyerImageWidth(null);
+        setFlyerImageHeight(null);
+        setFlyerImageLoading(false);
+      };
+      img.src = dataUrl;
+    };
+    reader.onerror = () => {
+      setFlyerImageLoading(false);
+      toast({
+        title: "Upload failed",
+        description: "Could not read the selected image.",
+        variant: "destructive",
+      });
+    };
+    reader.readAsDataURL(file);
   };
 
   const previewHeadline =
@@ -670,6 +737,9 @@ export default function MarketingAssetModal({
       data.meetingTime = meetingTime;
       data.meetingLocation = meetingLocation;
       data.flyerImage = flyerImage;
+      data.flyerImagePosition = flyerImagePosition;
+      data.flyerImageWidth = flyerImageWidth;
+      data.flyerImageHeight = flyerImageHeight;
       data.flyerQrUrl = flyerQrUrl;
       data.flyerQrDataUrl = resolvedQrDataUrl || null;
       data.flyerQrSource = resolvedQrResult?.source || null;
@@ -1082,6 +1152,73 @@ export default function MarketingAssetModal({
                   Back
                 </Button>
               </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Flyer: Custom header image (optional) — TopicalTemplate2 / TopicalTemplate3 */}
+      {showCustomImage && (
+        <div className="space-y-1.5">
+          <Label htmlFor="flyer-image">
+            Custom header image
+            <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">(optional)</span>
+          </Label>
+          <div className="flex items-center gap-3">
+            {flyerImage ? (
+              <img
+                src={flyerImage}
+                alt="Custom flyer header"
+                className="h-16 w-28 rounded-md border object-cover"
+              />
+            ) : (
+              <div className="flex h-16 w-28 items-center justify-center rounded-md border border-dashed bg-muted/40 text-[10px] text-muted-foreground">
+                No image
+              </div>
+            )}
+            <div className="flex flex-col gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                disabled={flyerImageLoading}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {flyerImageLoading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <ImageIcon className="h-3.5 w-3.5" />
+                )}
+                {flyerImage ? "Replace image" : "Upload image"}
+              </Button>
+              {flyerImage && (
+                <Button type="button" variant="ghost" size="sm" onClick={() => setFlyerImage("")}>
+                  Remove
+                </Button>
+              )}
+            </div>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Upload a custom background for the flyer header. Leave empty to use the template default.
+          </p>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleFlyerImageChange}
+          />
+
+          {/* Focal point positioning — single shared position (no mobile/desktop split) */}
+          {flyerImage && (
+            <div className="pt-1">
+              <FlyerImagePositionEditor
+                imageUrl={flyerImage}
+                position={flyerImagePosition}
+                onPositionChange={setFlyerImagePosition}
+                aspectRatio={flyerImageAspectRatio}
+              />
             </div>
           )}
         </div>
@@ -1798,6 +1935,9 @@ export default function MarketingAssetModal({
                         organizationLogo={organizationLogo}
                         disclaimerText={disclaimerText}
                         flyerImage={flyerImage}
+                        flyerImagePosition={flyerImagePosition}
+                        flyerImageWidth={flyerImageWidth}
+                        flyerImageHeight={flyerImageHeight}
                         flyerQrUrl={flyerQrUrl}
                         flyerQrDataUrl={flyerQrDataUrl}
                         meetingTime={meetingTime}
@@ -1836,6 +1976,7 @@ export default function MarketingAssetModal({
                   organizationLogo={organizationLogo}
                   disclaimerText={disclaimerText}
                   flyerImage={flyerImage}
+                  flyerImagePosition={flyerImagePosition}
                   flyerQrUrl={flyerQrUrl}
                   flyerQrDataUrl={flyerQrDataUrl}
                   meetingTime={meetingTime}
@@ -2275,6 +2416,9 @@ function PreviewPane({
   organizationLogo,
   disclaimerText,
   flyerImage,
+  flyerImagePosition,
+  flyerImageWidth,
+  flyerImageHeight,
   flyerQrUrl,
   flyerQrDataUrl,
   meetingTime,
@@ -2304,6 +2448,9 @@ function PreviewPane({
   organizationLogo?: string;
   disclaimerText?: string;
   flyerImage?: string;
+  flyerImagePosition?: FlyerImagePosition;
+  flyerImageWidth?: number | null;
+  flyerImageHeight?: number | null;
   flyerQrUrl?: string;
   flyerQrDataUrl?: string;
   meetingTime?: string;
@@ -2423,6 +2570,9 @@ function PreviewPane({
           organizationLogo={organizationLogo}
           disclaimerText={disclaimerText}
           flyerImage={flyerImage}
+          flyerImagePosition={flyerImagePosition}
+          flyerImageWidth={flyerImageWidth}
+          flyerImageHeight={flyerImageHeight}
           flyerQrUrl={flyerQrUrl}
           flyerQrDataUrl={flyerQrDataUrl}
           meetingTime={meetingTime}

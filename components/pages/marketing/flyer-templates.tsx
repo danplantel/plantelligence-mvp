@@ -4,6 +4,12 @@ import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 
 export type FlyerTemplateId = "TopicalTemplate1" | "TopicalTemplate2" | "TopicalTemplate3" | "MeetingTemplate1";
 
+/** Percentage-based focal point (0-100) for the custom flyer header image. */
+export interface FlyerImagePosition {
+  x: number;
+  y: number;
+}
+
 export interface FlyerPreviewProps {
   headline: string;
   body: string;
@@ -22,6 +28,12 @@ export interface FlyerPreviewProps {
   flyerSubtitle?: string;
   flyerTemplate: FlyerTemplateId;
   flyerLanguage?: "en" | "es";
+  /** Focal point (percentage) for the custom header image — centered by default. */
+  flyerImagePosition?: FlyerImagePosition;
+  /** Natural width of the custom flyer image (px). Required for accurate positioning. */
+  flyerImageWidth?: number | null;
+  /** Natural height of the custom flyer image (px). Required for accurate positioning. */
+  flyerImageHeight?: number | null;
   /** Benefits category this flyer template belongs to (e.g. "Retirement"). */
   benefitsCategory?: string;
 }
@@ -544,7 +556,7 @@ export function FlyerPreview(props: FlyerPreviewProps) {
 // ── Topical Template 1 ─────────────────────────────────────────
 function TopicalTemplate1({
   headline, body, bgColor, startDate, planName, planLogo,
-  flyerImage, flyerQrUrl, flyerQrDataUrl, meetingTime, meetingLocation,
+  flyerImage, flyerImagePosition, flyerImageWidth, flyerImageHeight, flyerQrUrl, flyerQrDataUrl, meetingTime, meetingLocation,
   flyerSubtitle, organizationLogo, disclaimerText, flyerLanguage,
   benefitsCategory,
 }: FlyerPreviewProps) {
@@ -556,6 +568,13 @@ function TopicalTemplate1({
   const userBullets = hasUserBullets(body);
   const { url: resolvedPlanLogo } = useBrandingImageUrl(planLogo);
   const piggyBankUrl = "/create-flyer-images/meeting/template_01/piggy_bank.png";
+  // Custom flyer image focal point (percentages, centered by default) — replaces the piggy bank image.
+  const piggyImgPosX = flyerImagePosition?.x ?? 50;
+  const piggyImgPosY = flyerImagePosition?.y ?? 50;
+  const piggyImgW = 412.5; // 275 * 1.5 — oversize so the image can be shifted within the clip
+  const piggyImgH = 450;   // 300 * 1.5
+  const piggyImgX = 257 - (piggyImgW - 275) * (piggyImgPosX / 100);
+  const piggyImgY = 185 - (piggyImgH - 300) * (piggyImgPosY / 100);
   // Word-wrap subtitle (flyerSubtitle prop) instead of body lines
   const subtitleWrapped: string[] = flyerSubtitle
     ? wrapText(flyerSubtitle.toUpperCase(), 26)
@@ -609,9 +628,21 @@ function TopicalTemplate1({
           <rect x="80" y="185" width="157" height="300" rx="4" fill="#f0f0f0" />
         )}
       </g>
-      {/* Right: Piggy Bank (40% bigger) */}
+      {/* Right: Piggy Bank (40% bigger) — overridable via a custom flyer image */}
       <g clipPath="url(#cl1-right)">
-        <image href={piggyBankUrl} x="257" y="185" width="275" height="300" preserveAspectRatio="xMidYMid meet" />
+        {flyerImage ? (
+            <image
+              href={flyerImage}
+              x={piggyImgX}
+              y={piggyImgY}
+              width={piggyImgW}
+              height={piggyImgH}
+              preserveAspectRatio="xMinYMin slice"
+            />
+        ) : (
+          // 10px top/bottom margin on the default piggy bank image
+          <image href={piggyBankUrl} x="257" y="195" width="235" height="240" preserveAspectRatio="xMidYMid meet" />
+        )}
       </g>
 
       {/* Plan logo — left side, vertically centered with image */}
@@ -669,7 +700,7 @@ function TopicalTemplate1({
 
 function TopicalTemplate2({
   headline, body, bgColor, startDate, planName, planLogo,
-  flyerImage, flyerQrUrl, flyerQrDataUrl, meetingTime, flyerSubtitle,
+  flyerImage, flyerImagePosition, flyerImageWidth, flyerImageHeight, flyerQrUrl, flyerQrDataUrl, meetingTime, flyerSubtitle,
   organizationLogo, disclaimerText, flyerLanguage,
   benefitsCategory,
 }: FlyerPreviewProps) {
@@ -681,6 +712,13 @@ function TopicalTemplate2({
   const userBullets = hasUserBullets(body);
   const footerY = 640;
   const parentOutlineUrl = "/create-flyer-images/meeting/template_02/parent_outline.png";
+  // Custom header image focal point (percentages, centered by default).
+  const heroImgPosX = flyerImagePosition?.x ?? 50;
+  const heroImgPosY = flyerImagePosition?.y ?? 50;
+  const heroImgW = 918; // 612 * 1.5 — oversize so the image can be shifted within the clip
+  const heroImgH = 600; // 400 * 1.5
+  const heroImgX = -(heroImgW - 612) * (heroImgPosX / 100);
+  const heroImgY = -(heroImgH - 400) * (heroImgPosY / 100);
   const subtitleWrapped: string[] = flyerSubtitle
     ? wrapText(flyerSubtitle, 66)
     : [];
@@ -705,9 +743,16 @@ function TopicalTemplate2({
       {/* White background */}
       <rect width="612" height="820" fill="white" rx="8" />
 
-      {/* Hero image — parent_outline.png */}
+      {/* Hero image — parent_outline.png (overridable via a custom header image) */}
       <g clipPath="url(#b2-photoClip)">
-        <image href={parentOutlineUrl} width="612" height="400" preserveAspectRatio="xMidYMid slice" />
+          <image
+            href={flyerImage || parentOutlineUrl}
+            x={heroImgX}
+            y={heroImgY}
+            width={heroImgW}
+            height={heroImgH}
+            preserveAspectRatio="xMinYMin slice"
+          />
       </g>
 
       {/* Bold headline — below photo */}
@@ -772,7 +817,7 @@ function TopicalTemplate2({
 
 function TopicalTemplate3({
   headline, body, bgColor, startDate, planName, planLogo,
-  flyerImage, flyerQrUrl, flyerQrDataUrl, meetingTime, flyerSubtitle,
+  flyerImage, flyerImagePosition, flyerImageWidth, flyerImageHeight, flyerQrUrl, flyerQrDataUrl, meetingTime, flyerSubtitle,
   organizationLogo, disclaimerText, flyerLanguage,
   benefitsCategory,
 }: FlyerPreviewProps) {
@@ -784,6 +829,13 @@ function TopicalTemplate3({
   const userBullets = hasUserBullets(body);
   const footerY = 630;
   const holdingCompassUrl = "/create-flyer-images/meeting/template_03/holding_a_compass.png";
+  // Custom header image focal point (percentages, centered by default).
+  const heroImgPosX = flyerImagePosition?.x ?? 50;
+  const heroImgPosY = flyerImagePosition?.y ?? 50;
+  const heroImgW = 918; // 612 * 1.5 — oversize so the image can be shifted within the clip
+  const heroImgH = 360; // 240 * 1.5
+  const heroImgX = -(heroImgW - 612) * (heroImgPosX / 100);
+  const heroImgY = -(heroImgH - 240) * (heroImgPosY / 100);
   const headlineWrapped: string[] = wrapText(headline, 22);
   const subtitleWrapped: string[] = flyerSubtitle
     ? wrapText(flyerSubtitle, 70)
@@ -808,9 +860,16 @@ function TopicalTemplate3({
       {/* White background */}
       <rect width="612" height="820" fill="white" rx="8" />
 
-      {/* Hero image — holding_a_compass.png with overlay and headline */}
+      {/* Hero image — holding_a_compass.png with overlay and headline (overridable via a custom header image) */}
       <g clipPath="url(#c3-photoClip)">
-        <image href={holdingCompassUrl} width="696" height="240" preserveAspectRatio="xMidYMid slice" />
+          <image
+            href={flyerImage || holdingCompassUrl}
+            x={heroImgX}
+            y={heroImgY}
+            width={heroImgW}
+            height={heroImgH}
+            preserveAspectRatio="xMinYMin slice"
+          />
         <rect width="612" height="240" fill="url(#c3-overlay)" />
         {headlineWrapped.slice(0, 4).map((line, i) => (
           <text key={`hl-${i}`} x="40" y={90 + i * 32} textAnchor="start" fill="white" fontSize="22" fontWeight="800" letterSpacing="-0.5">
