@@ -571,10 +571,10 @@ function TopicalTemplate1({
   // Custom flyer image focal point (percentages, centered by default) — replaces the piggy bank image.
   const piggyImgPosX = flyerImagePosition?.x ?? 50;
   const piggyImgPosY = flyerImagePosition?.y ?? 50;
-  const piggyImgW = 412.5; // 275 * 1.5 — oversize so the image can be shifted within the clip
-  const piggyImgH = 450;   // 300 * 1.5
-  const piggyImgX = 257 - (piggyImgW - 275) * (piggyImgPosX / 100);
-  const piggyImgY = 185 - (piggyImgH - 300) * (piggyImgPosY / 100);
+  const piggyImgW = 371.25; // 247.5 * 1.5 — oversize so the image can be shifted within the clip
+  const piggyImgH = 405;    // 270 * 1.5
+  const piggyImgX = 270.75 - (piggyImgW - 247.5) * (piggyImgPosX / 100);
+  const piggyImgY = 200 - (piggyImgH - 270) * (piggyImgPosY / 100);
   // Word-wrap subtitle (flyerSubtitle prop) instead of body lines
   const subtitleWrapped: string[] = flyerSubtitle
     ? wrapText(flyerSubtitle.toUpperCase(), 26)
@@ -618,7 +618,7 @@ function TopicalTemplate1({
       {/* Two images — horizontally aligned */}
       <defs>
         <clipPath id="cl1-left"><rect x="80" y="185" width="157" height="300" rx="4" /></clipPath>
-        <clipPath id="cl1-right"><rect x="257" y="185" width="275" height="300" rx="4" /></clipPath>
+        <clipPath id="cl1-right"><rect x="270.75" y="200" width="247.5" height="270" rx="4" /></clipPath>
       </defs>
       {/* Left: Company Logo (20% smaller) */}
       <g clipPath="url(#cl1-left)">
@@ -641,7 +641,7 @@ function TopicalTemplate1({
             />
         ) : (
           // 10px top/bottom margin on the default piggy bank image
-          <image href={piggyBankUrl} x="257" y="195" width="235" height="240" preserveAspectRatio="xMidYMid meet" />
+          <image href={piggyBankUrl} x="270.75" y="210" width="211.5" height="216" preserveAspectRatio="xMidYMid meet" />
         )}
       </g>
 
