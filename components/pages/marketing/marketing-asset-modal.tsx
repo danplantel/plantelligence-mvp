@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import useSWR from "swr";
+import { useRouter } from "next/navigation";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { downloadFlyerPdf } from "@/lib/marketing/flyer-pdf";
 import {
@@ -165,6 +166,7 @@ export default function MarketingAssetModal({
   previewOnly,
   onEditFromPreview,
 }: MarketingAssetModalProps) {
+  const router = useRouter();
   const { toast } = useToast();
   const meta = ASSET_META[assetType];
 
@@ -895,9 +897,10 @@ export default function MarketingAssetModal({
                     variant="outline"
                     className="gap-1.5"
                     onClick={() => {
-                      // Opens the meetings page pre-selected to this plan so the
-                      // advisor can schedule the event and then return to the flyer.
-                      window.open(`/new/communications/meetings?planId=${planId}`, "_blank");
+                      // Client-side navigation to the meetings page pre-selected to
+                      // this plan so the advisor can schedule the event without a
+                      // full page refresh.
+                      router.push(`/new/communications/meetings?planId=${planId}`);
                     }}
                   >
                     <Calendar className="h-3.5 w-3.5" />
