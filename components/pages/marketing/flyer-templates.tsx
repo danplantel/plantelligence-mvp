@@ -2,7 +2,7 @@
 
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 
-export type FlyerTemplateId = "MeetingTemplate1" | "MeetingTemplate2" | "MeetingTemplate3" | "MeetingTemplate4" | "TopicalTemplate1";
+export type FlyerTemplateId = "TopicalTemplate1" | "TopicalTemplate2" | "TopicalTemplate3" | "MeetingTemplate1";
 
 export interface FlyerPreviewProps {
   headline: string;
@@ -22,7 +22,17 @@ export interface FlyerPreviewProps {
   flyerSubtitle?: string;
   flyerTemplate: FlyerTemplateId;
   flyerLanguage?: "en" | "es";
+  /** Benefits category this flyer template belongs to (e.g. "Retirement"). */
+  benefitsCategory?: string;
 }
+
+/** Default benefits category for each flyer template. All current templates map to "Retirement". */
+export const FLYER_TEMPLATE_BENEFITS_CATEGORY: Record<FlyerTemplateId, string> = {
+  TopicalTemplate1: "Retirement",
+  TopicalTemplate2: "Retirement",
+  TopicalTemplate3: "Retirement",
+  MeetingTemplate1: "Retirement",
+};
 
 // ── Shared helpers ────────────────────────────────────────────
 
@@ -438,7 +448,6 @@ export function TemplateThumbnail({ id, bgColor }: { id: string; bgColor: string
   const c = bgColor || "#23919c";
   const thumbYellow = "#f5c518";
   switch (id) {
-    case "MeetingTemplate1":
     case "TopicalTemplate1":
       return (
         <svg viewBox="0 0 60 80" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
@@ -456,7 +465,7 @@ export function TemplateThumbnail({ id, bgColor }: { id: string; bgColor: string
           <rect x="5" y="75" width="20" height="2" rx="1" fill={thumbYellow} opacity="0.8" />
         </svg>
       );
-    case "MeetingTemplate2":
+    case "TopicalTemplate2":
       return (
         <svg viewBox="0 0 60 80" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
           <rect width="60" height="80" fill="white" />
@@ -476,7 +485,7 @@ export function TemplateThumbnail({ id, bgColor }: { id: string; bgColor: string
           <rect x="5" y="76" width="18" height="1.5" rx="0.75" fill={thumbYellow} opacity="0.8" />
         </svg>
       );
-    case "MeetingTemplate3":
+    case "TopicalTemplate3":
       return (
         <svg viewBox="0 0 60 80" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
           <rect width="60" height="80" fill="white" />
@@ -495,7 +504,7 @@ export function TemplateThumbnail({ id, bgColor }: { id: string; bgColor: string
           <rect y="75" width="60" height="5" fill="#111" />
         </svg>
       );
-    case "MeetingTemplate4":
+    case "MeetingTemplate1":
       return (
         <svg viewBox="0 0 60 80" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
           <rect width="60" height="80" fill="white" />
@@ -525,20 +534,22 @@ export function TemplateThumbnail({ id, bgColor }: { id: string; bgColor: string
 
 export function FlyerPreview(props: FlyerPreviewProps) {
   switch (props.flyerTemplate) {
-    case "MeetingTemplate2": return <MeetingTemplate2  {...props} />;
-    case "MeetingTemplate3": return <MeetingTemplate3 {...props} />;
-    case "MeetingTemplate4": return <MeetingTemplate4 {...props} />;
-    case "TopicalTemplate1": return <TopicalTemplate1 {...props} />;
-    default:                 return <MeetingTemplate1 {...props} />;
+    case "TopicalTemplate2": return <TopicalTemplate2 {...props} />;
+    case "TopicalTemplate3": return <TopicalTemplate3 {...props} />;
+    case "MeetingTemplate1": return <MeetingTemplate1 {...props} />;
+    default:                 return <TopicalTemplate1 {...props} />;
   }
 }
 
-// ── Meeting Template 1 ─────────────────────────────────────────
-function MeetingTemplate1({
+// ── Topical Template 1 ─────────────────────────────────────────
+function TopicalTemplate1({
   headline, body, bgColor, startDate, planName, planLogo,
   flyerImage, flyerQrUrl, flyerQrDataUrl, meetingTime, meetingLocation,
   flyerSubtitle, organizationLogo, disclaimerText, flyerLanguage,
+  benefitsCategory,
 }: FlyerPreviewProps) {
+  const templateBenefitsCategory =
+    benefitsCategory ?? FLYER_TEMPLATE_BENEFITS_CATEGORY.TopicalTemplate1;
   const { wrapText } = useFlyerHelpers(startDate, meetingTime);
   const bodyLines = body ? wrapText(body, 76) : [];
   const parts = body ? parseBodySegments(body) : [];
@@ -557,6 +568,7 @@ function MeetingTemplate1({
       xmlns="http://www.w3.org/2000/svg"
       className="w-full h-auto max-w-[420px] rounded-xl shadow-sm border"
       style={{ fontFamily: "system-ui, -apple-system, sans-serif" }}
+      data-benefits-category={templateBenefitsCategory}
     >
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');
                @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;700;900&display=swap');`}</style>
@@ -655,11 +667,14 @@ function MeetingTemplate1({
   );
 }
 
-function MeetingTemplate2({
+function TopicalTemplate2({
   headline, body, bgColor, startDate, planName, planLogo,
   flyerImage, flyerQrUrl, flyerQrDataUrl, meetingTime, flyerSubtitle,
   organizationLogo, disclaimerText, flyerLanguage,
+  benefitsCategory,
 }: FlyerPreviewProps) {
+  const templateBenefitsCategory =
+    benefitsCategory ?? FLYER_TEMPLATE_BENEFITS_CATEGORY.TopicalTemplate2;
   const { wrapText } = useFlyerHelpers(startDate, meetingTime);
   const bodyLines = body ? wrapText(body, 68) : [];
   const parts = body ? parseBodySegments(body) : [];
@@ -681,6 +696,7 @@ function MeetingTemplate2({
       xmlns="http://www.w3.org/2000/svg"
       className="w-full h-auto max-w-[420px] rounded-xl shadow-sm border"
       style={{ fontFamily: "system-ui, -apple-system, sans-serif" }}
+      data-benefits-category={templateBenefitsCategory}
     >
       <defs>
         <clipPath id="b2-photoClip"><rect width="612" height="400" rx="8" /></clipPath>
@@ -754,11 +770,14 @@ function MeetingTemplate2({
   );
 }
 
-function MeetingTemplate3({
+function TopicalTemplate3({
   headline, body, bgColor, startDate, planName, planLogo,
   flyerImage, flyerQrUrl, flyerQrDataUrl, meetingTime, flyerSubtitle,
   organizationLogo, disclaimerText, flyerLanguage,
+  benefitsCategory,
 }: FlyerPreviewProps) {
+  const templateBenefitsCategory =
+    benefitsCategory ?? FLYER_TEMPLATE_BENEFITS_CATEGORY.TopicalTemplate3;
   const { wrapText } = useFlyerHelpers(startDate, meetingTime);
   const bodyLines = body ? wrapText(body, 82) : [];
   const parts = body ? parseBodySegments(body) : [];
@@ -776,6 +795,7 @@ function MeetingTemplate3({
       xmlns="http://www.w3.org/2000/svg"
       className="w-full h-auto max-w-[420px] rounded-xl shadow-sm border"
       style={{ fontFamily: "system-ui, -apple-system, sans-serif" }}
+      data-benefits-category={templateBenefitsCategory}
     >
       <defs>
         <linearGradient id="c3-overlay" x1="0" y1="0" x2="0" y2="1">
@@ -856,11 +876,14 @@ function MeetingTemplate3({
   );
 }
 
-function MeetingTemplate4({
+function MeetingTemplate1({
   headline, body, bgColor, startDate, planName, planLogo,
   flyerImage, flyerQrUrl, flyerQrDataUrl, meetingTime, meetingLocation, flyerSubtitle,
   organizationLogo, disclaimerText, flyerLanguage,
+  benefitsCategory,
 }: FlyerPreviewProps) {
+  const templateBenefitsCategory =
+    benefitsCategory ?? FLYER_TEMPLATE_BENEFITS_CATEGORY.MeetingTemplate1;
   const { formattedDate, formattedTime, wrapText } = useFlyerHelpers(startDate, meetingTime);
   const bodyLines = body ? wrapText(body, 68) : [];
   const parts = body ? parseBodySegments(body) : [];
@@ -878,6 +901,7 @@ function MeetingTemplate4({
       xmlns="http://www.w3.org/2000/svg"
       className="w-full h-auto max-w-[420px] rounded-xl shadow-sm border"
       style={{ fontFamily: "system-ui, -apple-system, sans-serif" }}
+      data-benefits-category={templateBenefitsCategory}
     >
       <defs>
         <linearGradient id="e4-overlay" x1="0" y1="0" x2="0" y2="1">
@@ -977,67 +1001,6 @@ function MeetingTemplate4({
   );
 }
 
-// ── Topical Template 1 ─────────────────────────────────────────
-
-function TopicalTemplate1({
-  headline, body, bgColor, planName, planLogo,
-  flyerImage, flyerQrUrl, flyerQrDataUrl, flyerSubtitle,
-}: FlyerPreviewProps) {
-  const parts = body ? parseBodySegments(body) : [];
-  const userBullets = hasUserBullets(body);
-  const footerY = 640;
-
-  return (
-    <svg
-      viewBox="0 0 612 792"
-      xmlns="http://www.w3.org/2000/svg"
-      className="w-full h-auto max-w-[420px] rounded-xl shadow-sm border"
-      style={{ fontFamily: "system-ui, -apple-system, sans-serif" }}
-    >
-      <rect width="612" height="792" fill="white" rx="8" />
-      <rect x="0" y="0" width="612" height="160" fill={bgColor} opacity="0.1" rx="8" />
-      <text x="306" y="70" textAnchor="middle" fill={bgColor} fontSize="36" fontWeight="900" letterSpacing="-1">
-        {renderFormattedText(truncateText(headline, 20))}
-      </text>
-      {flyerSubtitle && (
-        <text x="306" y="110" textAnchor="middle" fill="#444" fontSize="18" fontWeight="600">
-          {renderFormattedText(truncateText(flyerSubtitle, 48))}
-        </text>
-      )}
-      {flyerImage ? (
-        <>
-          <defs><clipPath id="tt1-img"><rect x="60" y="180" width="492" height="240" rx="4" /></clipPath></defs>
-          <g clipPath="url(#tt1-img)">
-            <image href={flyerImage} x="60" y="180" width="492" height="240" preserveAspectRatio="xMidYMid slice" />
-          </g>
-        </>
-      ) : (
-        <rect x="60" y="180" width="492" height="240" rx="4" fill="#f4f4f4" />
-      )}
-      {userBullets ? (
-        renderBodyParts(parts, {
-          x: 60, startY: 450, lineHeight: 24, maxChars: 70,
-          color: "#333", fontSize: 14, bulletColor: bgColor, maxLines: 6,
-        })
-      ) : (
-        <text x="306" y="450" textAnchor="middle" fill="#555" fontSize="15" fontWeight="400">
-          {body ? renderFormattedText(truncateText(body, 100)) : "Learn more about this topic."}
-        </text>
-      )}
-      <DarkFooter
-        footerY={footerY}
-        totalHeight={792}
-        planLogo={planLogo}
-        planName={planName}
-        flyerQrUrl={flyerQrUrl}
-        flyerQrDataUrl={flyerQrDataUrl}
-        bgColor={bgColor}
-        scanLabel="Scan QR to learn more"
-        urlLabel={flyerQrUrl ? `or visit: ${truncateText(flyerQrUrl, 45)}` : undefined}
-      />
-    </svg>
-  );
-}
 
 // ── Shared sub-components ─────────────────────────────────────
 
