@@ -851,8 +851,12 @@ export default function MarketingAssetModal({
                 <Label className="text-base font-semibold">Select a meeting</Label>
                 <p className="text-xs text-muted-foreground mt-1">Choose the meeting to base your flyer on.</p>
               </div>
-              <Select value={selectedMeetingId} onValueChange={(v) => { handleMeetingSelect(v); }}>
-                <SelectTrigger id="meeting-select" className="w-full">
+              <Select
+                value={selectedMeetingId}
+                onValueChange={(v) => { handleMeetingSelect(v); }}
+                disabled={meetings.length === 0}
+              >
+                <SelectTrigger id="meeting-select" className="w-full" disabled={meetings.length === 0}>
                   <SelectValue placeholder="Select Meeting" />
                 </SelectTrigger>
                 <SelectContent>
@@ -872,6 +876,35 @@ export default function MarketingAssetModal({
                   ))}
                 </SelectContent>
               </Select>
+
+              {/* No meetings state — guide the advisor to create one */}
+              {meetings.length === 0 && (
+                <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 px-4 py-5 text-center space-y-3">
+                  <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+                    <Calendar className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">No meetings for this plan yet</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Create a meeting to auto-populate your flyer with the event details.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5"
+                    onClick={() => {
+                      // Opens the meetings page pre-selected to this plan so the
+                      // advisor can schedule the event and then return to the flyer.
+                      window.open(`/new/communications/meetings?planId=${planId}`, "_blank");
+                    }}
+                  >
+                    <Calendar className="h-3.5 w-3.5" />
+                    Create a Meeting
+                  </Button>
+                </div>
+              )}
               {selectedMeeting && (
                 <div className="rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground space-y-1">
                   <div className="flex items-center gap-1.5">
