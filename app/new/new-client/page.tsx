@@ -20,9 +20,22 @@ import { hasUnsavedWizardWork } from "@/lib/new-client-wizard-dirty";
 import { useNavigateAwayGuard } from "@/hooks/use-navigate-away-guard";
 import { NavigateAwayWarningDialog } from "@/components/ui/navigate-away-warning-dialog";
 import { ResumeOrNewPlanDialog } from "@/components/ui/resume-or-new-plan-dialog";
+import useSWR from "swr";
+import {
+  getBenefitsHubAbsoluteUrl,
+  getBenefitsHubPath,
+} from "@/lib/marketing/hub-url";
+
+const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
 
 export default function NewClientPage() {
   const { setTitle } = usePageTitleContext();
+  const { data: profileData } = useSWR("/api/profile", jsonFetcher, {
+    keepPreviousData: true,
+    dedupingInterval: 60_000,
+    revalidateOnFocus: false,
+  });
+  const userSubdomain: string | undefined = profileData?.subdomain || undefined;
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [showSavingDialog, setShowSavingDialog] = useState(false);
@@ -546,7 +559,15 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
                   <button
                     type="button"
                     onClick={() => {
-                      window.open(successPortalUrl, "_blank", "noopener,noreferrer");
+                      const resolvedUrl = successPortalUrl.startsWith("/new/view/")
+                        ? (() => {
+                            const slug = successPortalUrl.replace("/new/view/", "");
+                            return process.env.NODE_ENV === "development"
+                              ? `${window.location.origin}${getBenefitsHubPath(slug)}`
+                              : getBenefitsHubAbsoluteUrl(slug, userSubdomain);
+                          })()
+                        : successPortalUrl;
+                      window.open(resolvedUrl, "_blank", "noopener,noreferrer");
                       setShowSuccessDialog(false);
                       // window.location.href = "/new/clients";
                     }}

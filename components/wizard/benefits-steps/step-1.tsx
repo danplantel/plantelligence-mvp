@@ -2,6 +2,11 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
+import useSWR from "swr";
+import {
+  getBenefitsHubAbsoluteUrl,
+  getBenefitsHubPath,
+} from "@/lib/marketing/hub-url";
 import {
   BenefitsStep1Data,
   useBenefitsWizardStore,
@@ -111,8 +116,16 @@ const BENEFIT_SETUP_SECTION_ORDER = [
   { key: "documents" as const, label: "Documents" },
 ];
 
+const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
+
 export function BenefitsStep1() {
   const { stepData, saveStepData } = useBenefitsWizardStore();
+  const { data: profileData } = useSWR("/api/profile", jsonFetcher, {
+    keepPreviousData: true,
+    dedupingInterval: 60_000,
+    revalidateOnFocus: false,
+  });
+  const userSubdomain: string | undefined = profileData?.subdomain || undefined;
   const accordionRef = useRef<HTMLDivElement>(null);
   const [plans, setPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1529,10 +1542,12 @@ export function BenefitsStep1() {
                 onClick={() => {
                   const plan = plans.find((p: any) => p.id === resolvedPlanId);
                   const slug = (plan as any)?.slug;
-                  window.open(
-                    `/new/view/${slug || resolvedPlanId}`,
-                    "_blank",
-                  );
+                  const resolvedSlug = slug || resolvedPlanId;
+                  const url =
+                    process.env.NODE_ENV === "development"
+                      ? `${window.location.origin}${getBenefitsHubPath(resolvedSlug)}`
+                      : getBenefitsHubAbsoluteUrl(resolvedSlug, userSubdomain);
+                  window.open(url, "_blank");
                 }}
                 className="gap-1.5 shrink-0 bg-accent-blue text-white hover:bg-accent-blue/90"
               >

@@ -35,10 +35,15 @@ import {
   persistPlanSelection,
   resolveStickyPlanId,
 } from "@/lib/plan-selector-storage";
+import {
+  getBenefitsHubAbsoluteUrl,
+  getBenefitsHubPath,
+} from "@/lib/marketing/hub-url";
 
 interface Client {
   id: string;
   companyName: string;
+  slug?: string;
   status?: string;
 }
 
@@ -106,11 +111,13 @@ function PlanSearchBar({
   value,
   onChange,
   disabled,
+  userSubdomain,
 }: {
   plans: Client[];
   value: string;
   onChange: (planId: string) => void;
   disabled?: boolean;
+  userSubdomain?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -228,11 +235,14 @@ function PlanSearchBar({
             variant="outline"
             size="sm"
             onClick={() => {
-              const slug = (selectedPlan as any)?.slug;
-              window.open(
-                `/new/view/${slug || value}`,
-                "_blank",
-              );
+              const slug =
+                (selectedPlan as any)?.slug;
+              const resolvedSlug = slug || value;
+              const url =
+                process.env.NODE_ENV === "development"
+                  ? `${window.location.origin}${getBenefitsHubPath(resolvedSlug)}`
+                  : getBenefitsHubAbsoluteUrl(resolvedSlug, userSubdomain);
+              window.open(url, "_blank");
             }}
             className="gap-1.5 shrink-0 bg-accent-blue text-white hover:bg-accent-blue/90"
           >
@@ -505,6 +515,12 @@ const OPTIONS: MarketingOption[] = [
 export default function MarketingPage() {
   const { setTitle } = usePageTitleContext();
   const [selectedPlan, setSelectedPlan] = useState<string>("");
+  const { data: profileData } = useSWR("/api/profile", jsonFetcher, {
+    keepPreviousData: true,
+    dedupingInterval: 60_000,
+    revalidateOnFocus: false,
+  });
+  const userSubdomain: string | undefined = profileData?.subdomain || undefined;
   const [modalOpen, setModalOpen] = useState(false);
   const [activeAssetType, setActiveAssetType] = useState<AssetType>("flyer");
   const [editingFlyerStep, setEditingFlyerStep] = useState<number | undefined>(undefined);
@@ -655,6 +671,7 @@ export default function MarketingPage() {
                   value={selectedPlan}
                   onChange={handlePlanChange}
                   disabled={clients.length === 0}
+                  userSubdomain={userSubdomain}
                 />
               </>
             )}

@@ -45,6 +45,10 @@ import { useNavigateAwayGuard } from "@/hooks/use-navigate-away-guard";
 import { NavigateAwayWarningDialog } from "@/components/ui/navigate-away-warning-dialog";
 import { Button } from "@/components/ui/button";
 import {
+  getBenefitsHubAbsoluteUrl,
+  getBenefitsHubPath,
+} from "@/lib/marketing/hub-url";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -97,11 +101,13 @@ function PlanSearchBar({
   value,
   onChange,
   disabled,
+  userSubdomain,
 }: {
   plans: Client[];
   value: string;
   onChange: (planId: string) => void;
   disabled?: boolean;
+  userSubdomain?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -218,11 +224,14 @@ function PlanSearchBar({
             variant="outline"
             size="sm"
             onClick={() => {
-              const slug = (selectedPlan as any)?.slug;
-              window.open(
-                `/new/view/${slug || value}`,
-                "_blank",
-              );
+              const slug =
+                (selectedPlan as any)?.slug;
+              const resolvedSlug = slug || value;
+              const url =
+                process.env.NODE_ENV === "development"
+                  ? `${window.location.origin}${getBenefitsHubPath(resolvedSlug)}`
+                  : getBenefitsHubAbsoluteUrl(resolvedSlug, userSubdomain);
+              window.open(url, "_blank");
             }}
             className="gap-1.5 shrink-0 text-white bg-accent-blue hover:bg-accent-blue/80"
           >
@@ -432,6 +441,12 @@ export default function DocumentsPage() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
+  const { data: profileData } = useSWR("/api/profile", jsonFetcher, {
+    keepPreviousData: true,
+    dedupingInterval: 60_000,
+    revalidateOnFocus: false,
+  });
+  const userSubdomain: string | undefined = profileData?.subdomain || undefined;
   // Initialize from localStorage so the default category is available immediately
   // on page reload, avoiding a visible flip from "All Categories" to the real default.
   const [categoryFilter, setCategoryFilter] = useState<string>(() => {
@@ -870,7 +885,7 @@ export default function DocumentsPage() {
               </div>
             ) : (
               <>
-                <PlanSearchBar plans={clients} value={selectedPlan} onChange={handlePlanChange} disabled={clients.length === 0} />
+                <PlanSearchBar plans={clients} value={selectedPlan} onChange={handlePlanChange} disabled={clients.length === 0} userSubdomain={userSubdomain} />
               </>
             )}
           </CardContent>

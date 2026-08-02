@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import useSWR from "swr";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -14,6 +15,10 @@ import {
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 import { ArrowLeft, ExternalLink, Trash2 } from "lucide-react";
+import {
+  getBenefitsHubAbsoluteUrl,
+  getBenefitsHubPath,
+} from "@/lib/marketing/hub-url";
 
 interface EditClientHeaderProps {
   clientStatus: string;
@@ -38,12 +43,23 @@ export function EditClientHeader({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
+  const { data: profileData } = useSWR("/api/profile", jsonFetcher, {
+    keepPreviousData: true,
+    dedupingInterval: 60_000,
+    revalidateOnFocus: false,
+  });
+  const userSubdomain: string | undefined =
+    profileData?.subdomain || undefined;
+
   const handleOpenPortal = () => {
     if (clientId) {
-      window.open(
-        `/new/view/${slug || clientId}`,
-        "_blank",
-      );
+      const resolvedSlug = slug || clientId;
+      const url =
+        process.env.NODE_ENV === "development"
+          ? `${window.location.origin}${getBenefitsHubPath(resolvedSlug)}`
+          : getBenefitsHubAbsoluteUrl(resolvedSlug, userSubdomain);
+      window.open(url, "_blank");
     }
   };
 

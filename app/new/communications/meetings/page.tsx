@@ -93,6 +93,10 @@ import { NavigateAwayWarningDialog } from "@/components/ui/navigate-away-warning
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { WebinarsSection } from "@/components/pages/client-portal/sections/webinars-section";
 import { resolveRsvpUrl } from "@/lib/meetings/meeting-schedule-shared";
+import {
+  getBenefitsHubAbsoluteUrl,
+  getBenefitsHubPath,
+} from "@/lib/marketing/hub-url";
 
 interface Meeting {
   id: string;
@@ -125,6 +129,7 @@ interface Meeting {
 interface Client {
   id: string;
   companyName: string;
+  slug?: string;
   status?: string;
   brandColor?: string;
   secondaryColor?: string;
@@ -294,7 +299,7 @@ type SortColumn = "meeting" | "client" | "date" | "status";
 type SortDirection = "asc" | "desc";
 const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
 
-function PlanSearchBar({ plans, value, onChange, disabled }: { plans: Client[]; value: string; onChange: (planId: string) => void; disabled?: boolean; }) {
+function PlanSearchBar({ plans, value, onChange, disabled, userSubdomain }: { plans: Client[]; value: string; onChange: (planId: string) => void; disabled?: boolean; userSubdomain?: string; }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [highlight, setHighlight] = useState(0);
@@ -328,11 +333,14 @@ function PlanSearchBar({ plans, value, onChange, disabled }: { plans: Client[]; 
             variant="outline"
             size="sm"
             onClick={() => {
-              const slug = (selectedPlan as any)?.slug;
-              window.open(
-                `/new/view/${slug || value}`,
-                "_blank",
-              );
+              const slug =
+                (selectedPlan as any)?.slug;
+              const resolvedSlug = slug || value;
+              const url =
+                process.env.NODE_ENV === "development"
+                  ? `${window.location.origin}${getBenefitsHubPath(resolvedSlug)}`
+                  : getBenefitsHubAbsoluteUrl(resolvedSlug, userSubdomain);
+              window.open(url, "_blank");
             }}
             className="gap-1.5 shrink-0 bg-accent-blue text-white hover:bg-accent-blue/90"
           >
@@ -428,6 +436,12 @@ export default function MeetingsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const meetingFormRef = useRef<HTMLFormElement | null>(null);
   const isSubmittingRef = useRef(false);
+  const { data: profileData } = useSWR("/api/profile", jsonFetcher, {
+    keepPreviousData: true,
+    dedupingInterval: 60_000,
+    revalidateOnFocus: false,
+  });
+  const userSubdomain: string | undefined = profileData?.subdomain || undefined;
   const { data: clientsData, isLoading: isLoadingClients } = useSWR("/api/clients", jsonFetcher, { keepPreviousData: true, dedupingInterval: 60_000, revalidateOnFocus: false });
   const clients: Client[] = useMemo(() => (clientsData?.data ?? []).filter((c: Client) => c.status !== "Archived"), [clientsData]);
   const meetingsKey = useMemo(() => { const params = new URLSearchParams(); if (statusFilter !== "all") params.append("status", statusFilter); return `/api/meetings?${params.toString()}`; }, [statusFilter]);
@@ -745,7 +759,7 @@ export default function MeetingsPage() {
                 <div className="relative"><Skeleton className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 rounded" /><Skeleton className="h-9 w-full rounded-md" /></div>
               </div>
             ) : (
-              <><PlanSearchBar plans={clients} value={selectedPlan} onChange={handlePlanChange} disabled={clients.length === 0} /></>
+              <><PlanSearchBar plans={clients} value={selectedPlan} onChange={handlePlanChange} disabled={clients.length === 0} userSubdomain={userSubdomain} /></>
             )}
           </CardContent>
         </Card>

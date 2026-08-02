@@ -2,12 +2,17 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import useSWR from "swr";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import {
+  getBenefitsHubAbsoluteUrl,
+  getBenefitsHubPath,
+} from "@/lib/marketing/hub-url";
 import {
   Select,
   SelectContent,
@@ -107,9 +112,17 @@ function getEmbedUrl(url: string): string | null {
   return null;
 }
 
+const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
+
 export default function WebinarsPage() {
   const router = useRouter();
   const { setTitle } = usePageTitleContext();
+  const { data: profileData } = useSWR("/api/profile", jsonFetcher, {
+    keepPreviousData: true,
+    dedupingInterval: 60_000,
+    revalidateOnFocus: false,
+  });
+  const userSubdomain: string | undefined = profileData?.subdomain || undefined;
 
   // Set page title
   useEffect(() => {
@@ -473,10 +486,23 @@ export default function WebinarsPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => {
-                        const clientId = clients.find(
+                        const client = clients.find(
                           (c) => c.companyName === formData.client
-                        )?.id;
-                        if (clientId) window.open(`/new/view/${clientId}`, "_blank");
+                        );
+                        const clientId = client?.id;
+                        if (clientId) {
+                          const slug =
+                            (client as any)?.slug;
+                          const resolvedSlug = slug || clientId;
+                          const url =
+                            process.env.NODE_ENV === "development"
+                              ? `${window.location.origin}${getBenefitsHubPath(resolvedSlug)}`
+                              : getBenefitsHubAbsoluteUrl(
+                                  resolvedSlug,
+                                  userSubdomain,
+                                );
+                          window.open(url, "_blank");
+                        }
                       }}
                       className="gap-1.5 bg-accent-blue text-white hover:bg-accent-blue/90"
                     >
