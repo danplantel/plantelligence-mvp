@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { mutate } from "swr";
 import {
   CompanyBasicsData,
   WelcomeStatementData,
@@ -1279,6 +1280,16 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
                 ? `/new/view/${result.slug}`
                 : `/new/view/${result.clientId}`,
             });
+
+            // Invalidate the clients list SWR cache globally so any
+            // mounted ClientsListDashboardPage immediately reflects
+            // the newly published plan (even across browser tabs).
+            mutate(
+              (key) => typeof key === "string" && key.startsWith("/api/clients"),
+              undefined,
+              { revalidate: true },
+            );
+
             return;
           }
 

@@ -21,6 +21,7 @@ import { useNavigateAwayGuard } from "@/hooks/use-navigate-away-guard";
 import { NavigateAwayWarningDialog } from "@/components/ui/navigate-away-warning-dialog";
 import { ResumeOrNewPlanDialog } from "@/components/ui/resume-or-new-plan-dialog";
 import useSWR from "swr";
+import { useRouter } from "next/navigation";
 import {
   getBenefitsHubAbsoluteUrl,
   getBenefitsHubPath,
@@ -29,6 +30,7 @@ import {
 const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
 
 export default function NewClientPage() {
+  const router = useRouter();
   const { setTitle } = usePageTitleContext();
   const { data: profileData } = useSWR("/api/profile", jsonFetcher, {
     keepPreviousData: true,
@@ -579,7 +581,7 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
                     type="button"
                     onClick={() => {
                       setShowSuccessDialog(false);
-                      window.location.href = "/new/clients";
+                      router.push("/new/clients");
                     }}
                     className="w-full py-3 px-4 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                   >
