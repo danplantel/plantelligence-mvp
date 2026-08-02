@@ -259,6 +259,16 @@ export function SmallVerticalCard({
               ? contact.departmentLabel || contact.customRole
               : contact.title || contact.customRole}
           </p>
+
+          {/* COMPANY NAME */}
+          {(contact.companyName || companyName) && (
+            <p
+              className={`${subtitleSize} font-semibold ${gapCompany} text-center flex-shrink-0 font-dm-serif`}
+              style={{ color: textColor || effectiveBrandColor }}
+            >
+              {contact.companyName || companyName}
+            </p>
+          )}
         </div>
         {/* CONTACT INFO */}
         <div
@@ -463,6 +473,16 @@ export function SmallVerticalCard({
             ? contact.departmentLabel || contact.customRole
             : contact.title || contact.customRole}
         </p>
+
+        {/* COMPANY NAME */}
+        {(contact.companyName || companyName) && (
+          <p
+            className="text-sm sm:text-base font-semibold mb-2 sm:mb-3 text-center flex-shrink-0 font-dm-serif"
+            style={{ color: textColor || effectiveBrandColor }}
+          >
+            {contact.companyName || companyName}
+          </p>
+        )}
       </div>
       {/* CONTACT INFO */}
       <div

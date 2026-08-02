@@ -110,6 +110,8 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
+        (session.user as any).organizationName =
+          (token as any).organizationName || null;
       }
       (session as any).provider = token.provider;
       return session;
@@ -119,12 +121,30 @@ export const authOptions: NextAuthOptions = {
         if (account?.provider === "google") {
           const dbUser = await prisma.user.findUnique({
             where: { email: user.email as string },
-            select: { id: true },
+            select: { id: true, organizationName: true },
           });
           token.id = dbUser?.id || user.id;
+          token.organizationName = dbUser?.organizationName || null;
         } else {
           token.id = user.id;
+          token.organizationName = (user as any)?.organizationName || null;
         }
+        // Mark org name as loaded for this token.
+        (token as any).__orgNameLoaded = true;
+      }
+      // Backfill organizationName for sessions created before this field was
+      // added to the token (avoids requiring the user to log out/in again).
+      if (token.id && !(token as any).__orgNameLoaded) {
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: token.id as string },
+            select: { organizationName: true },
+          });
+          token.organizationName = dbUser?.organizationName || null;
+        } catch {
+          token.organizationName = null;
+        }
+        (token as any).__orgNameLoaded = true;
       }
       if (account) {
         token.provider = account.provider;

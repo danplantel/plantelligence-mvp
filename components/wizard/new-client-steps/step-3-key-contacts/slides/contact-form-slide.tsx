@@ -182,6 +182,13 @@ function ContactCardPreview({
           {resolvedTitle}
         </p>
 
+        {/* Company Name */}
+        {companyName?.trim() && (
+          <p className="text-[11px] font-semibold text-gray-700 text-center -mt-1">
+            {companyName}
+          </p>
+        )}
+
         {/* Divider */}
         <div className="w-full border-t border-gray-100 pt-2 space-y-1.5">
           {/* Email — controlled by displayEmail toggle */}
@@ -1755,7 +1762,7 @@ export function ContactFormSlide({
             phone={phone}
             phoneExtension={phoneExtension}
             headshot={headshot}
-            companyName={companyName}
+            companyName={companyName || defaultCompanyName}
             companyLogoSrc={
               category !== "Company / Plan Sponsor" && externalAdminLogo
                 ? externalAdminLogo

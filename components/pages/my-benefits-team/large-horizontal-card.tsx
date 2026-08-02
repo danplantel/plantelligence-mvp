@@ -236,12 +236,14 @@ export function LargeHorizontalCard({
         </p>
 
         {/* COMPANY NAME */}
-        {/* <p
-          className="text-base font-semibold m-0 font-dm-serif"
-          style={{ color: textColor || brandColor }}
-        >
-          {contact.companyName}
-        </p> */}
+        {(contact.companyName || companyName) && (
+          <p
+            className="text-base font-semibold m-0 font-dm-serif"
+            style={{ color: textColor || brandColor }}
+          >
+            {contact.companyName || companyName}
+          </p>
+        )}
 
         {/* CONTACT INFO */}
         <div

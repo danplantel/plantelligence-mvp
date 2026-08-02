@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useClientPortal } from "@/contexts/client-portal-context";
+import { resolveContactCompanyName } from "@/lib/resolve-contact-company-name";
 import {
   isContactVisibleInPortal,
   getCategoryPortalVisibility,
@@ -57,6 +59,12 @@ interface Contact {
  */
 export default function MyBenefitsTeamPage() {
   const { clientData, loading, refetch } = useClientPortal();
+
+  // Currently logged-in user — used to show the user's Organization Name on
+  // their own contact card instead of the plan/contact company name.
+  const { data: session } = useSession();
+  const currentUserEmail = session?.user?.email || null;
+  const currentUserOrgName = session?.user?.organizationName || null;
 
   useEffect(() => {
     refetch();
@@ -128,9 +136,16 @@ export default function MyBenefitsTeamPage() {
       normalized.cardBackgroundColor = contact.cardBackgroundColor;
       normalized.logoScale =
         contact.logoScale ?? globalLogoScale ?? 1;
+      // If this contact is the logged-in user, show their Organization Name
+      // as the company name on the card.
+      normalized.companyName = resolveContactCompanyName(
+        contact,
+        currentUserEmail,
+        currentUserOrgName,
+      );
       return normalized;
     });
-  }, [contacts, visibility, globalLogoScale]);
+  }, [contacts, visibility, globalLogoScale, currentUserEmail, currentUserOrgName]);
 
   const primaryContact = visibleContacts[0];
   const rest = visibleContacts.slice(1);

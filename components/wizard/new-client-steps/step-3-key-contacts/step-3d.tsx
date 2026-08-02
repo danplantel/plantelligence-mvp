@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
+import { resolveContactCompanyName } from "@/lib/resolve-contact-company-name";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -312,7 +314,33 @@ export function NewClientStep3d({
     saveStepDataToServer,
     saveAsDraft,
     currentStep,
+    advisorProfile,
   } = useNewClientWizardStore();
+
+  // Currently logged-in user — used to show the user's Organization Name on
+  // their own contact card instead of the plan/contact company name.
+  // The advisor profile (loaded into the wizard store) is a reliable fallback
+  // for the org name when the session hasn't been refreshed with it yet.
+  const { data: session } = useSession();
+  const currentUserEmail =
+    session?.user?.email || (advisorProfile as any)?.email || null;
+  const currentUserOrgName =
+    session?.user?.organizationName ||
+    (advisorProfile as any)?.organizationName ||
+    null;
+
+  // DEBUG: confirm identity resolution for the org-name-override feature.
+  console.log("[step3d] identity:", JSON.stringify({
+    sessionEmail: session?.user?.email ?? null,
+    sessionOrg: session?.user?.organizationName ?? null,
+    advisorEmail: (advisorProfile as any)?.email ?? null,
+    advisorOrg: (advisorProfile as any)?.organizationName ?? null,
+    resolvedEmail: currentUserEmail,
+    resolvedOrg: currentUserOrgName,
+    contactEmails: ((stepData as any)?.keyContacts?.contacts || []).map(
+      (c: any) => c.email,
+    ),
+  }));
 
   // Show skeleton when this step becomes active (step3SubStep === "step3d")
   const step3SubStep = (stepData as any)?.step3SubStep?.step3SubStep;
@@ -690,7 +718,11 @@ export function NewClientStep3d({
         benefitsCategory: mapBenefitsCategory(rawBenefitsCategory),
         benefitsCategoryOther: contact.benefitsCategoryOther,
         categoryLabel,
-        companyName: contact.companyName || "",
+        companyName: resolveContactCompanyName(
+          contact,
+          currentUserEmail,
+          currentUserOrgName,
+        ),
         contactType: contact.contactType,
         displayName: contact.displayName,
         teamImage: contact.teamImage,
@@ -713,7 +745,7 @@ export function NewClientStep3d({
         actionButtonOrder: contact.actionButtonOrder,
       };
     });
-  }, [previewContactsKey, companyName]);
+  }, [previewContactsKey, companyName, currentUserEmail, currentUserOrgName]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
