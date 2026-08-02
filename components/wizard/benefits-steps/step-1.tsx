@@ -1155,9 +1155,10 @@ export function BenefitsStep1() {
             // Existing benefits exist but this category not in them — mark as hidden
             visibilityFromPlan[cat] = false;
           } else {
-            // No existing benefits — use primaryServiceCategories as the default
-            const catLabel = cat === "Company / Plan Sponsor" ? "Retirement" : cat;
-            visibilityFromPlan[cat] = primaryServiceCategories.includes(catLabel);
+            // No existing benefits on a newly-created plan — start with
+            // everything hidden so the advisor explicitly chooses which
+            // benefits to publish.
+            visibilityFromPlan[cat] = false;
           }
         });
 
