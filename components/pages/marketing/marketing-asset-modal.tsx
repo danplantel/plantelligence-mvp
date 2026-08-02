@@ -158,13 +158,14 @@ const TOPICAL_TEMPLATE_DEFAULTS_ES: Record<string, FlyerTemplateDefaults> = {
 };
 
 /** Flyer templates that support an optional custom header image. */
-const CUSTOM_FLYER_IMAGE_TEMPLATES = ["TopicalTemplate1", "TopicalTemplate2", "TopicalTemplate3"];
+const CUSTOM_FLYER_IMAGE_TEMPLATES = ["TopicalTemplate1", "TopicalTemplate2", "TopicalTemplate3", "MeetingTemplate1"];
 
 /** Destination image region (width × height) for each template's custom flyer image. */
 const FLYER_IMAGE_REGIONS: Record<string, { width: number; height: number }> = {
   TopicalTemplate1: { width: 247.5, height: 270 },
   TopicalTemplate2: { width: 612, height: 400 },
   TopicalTemplate3: { width: 612, height: 240 },
+  MeetingTemplate1: { width: 612, height: 260 },
 };
 
 export default function MarketingAssetModal({

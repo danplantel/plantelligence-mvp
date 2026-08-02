@@ -937,7 +937,7 @@ function TopicalTemplate3({
 
 function MeetingTemplate1({
   headline, body, bgColor, startDate, planName, planLogo,
-  flyerImage, flyerQrUrl, flyerQrDataUrl, meetingTime, meetingLocation, flyerSubtitle,
+  flyerImage, flyerImagePosition, flyerImageWidth, flyerImageHeight, flyerQrUrl, flyerQrDataUrl, meetingTime, meetingLocation, flyerSubtitle,
   organizationLogo, disclaimerText, flyerLanguage,
   benefitsCategory,
 }: FlyerPreviewProps) {
@@ -949,6 +949,13 @@ function MeetingTemplate1({
   const userBullets = hasUserBullets(body);
   const footerY = 640;
   const countingMoneyUrl = "/create-flyer-images/meeting/template_04/counting_money.jpg";
+  // Custom header image focal point (percentages, centered by default).
+  const heroImgPosX = flyerImagePosition?.x ?? 50;
+  const heroImgPosY = flyerImagePosition?.y ?? 50;
+  const heroImgW = 918; // 612 * 1.5 — oversize so the image can be shifted within the clip
+  const heroImgH = 390; // 260 * 1.5
+  const heroImgX = -(heroImgW - 612) * (heroImgPosX / 100);
+  const heroImgY = -(heroImgH - 260) * (heroImgPosY / 100);
   const headlineWrapped: string[] = wrapText(headline, 30);
   const subtitleWrapped: string[] = flyerSubtitle
     ? wrapText(flyerSubtitle, 56)
@@ -973,9 +980,16 @@ function MeetingTemplate1({
       {/* White background */}
       <rect width="612" height="820" fill="white" rx="8" />
 
-      {/* Hero image — counting_money.jpg with overlay and headline */}
+      {/* Hero image — counting_money.jpg with overlay and headline (overridable via a custom flyer image) */}
       <g clipPath="url(#e4-photoClip)">
-        <image href={countingMoneyUrl} width="612" height="260" preserveAspectRatio="xMidYMid slice" />
+        <image
+          href={flyerImage || countingMoneyUrl}
+          x={heroImgX}
+          y={heroImgY}
+          width={heroImgW}
+          height={heroImgH}
+          preserveAspectRatio="xMinYMin slice"
+        />
         <rect width="612" height="260" fill="url(#e4-overlay)" />
         {headlineWrapped.slice(0, 4).map((line, i) => (
           <text key={`hl-${i}`} x="306" y={95 + i * 40} textAnchor="middle" fill="white" fontSize="32" fontWeight="800" letterSpacing="-0.5">
