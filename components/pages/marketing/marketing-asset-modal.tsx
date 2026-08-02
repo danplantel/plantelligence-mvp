@@ -1081,7 +1081,7 @@ export default function MarketingAssetModal({
                     No templates available for this benefit category
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    There are no flyer templates matching "{flyerCategory || "All Benefits"}". Go back and choose a different benefit category.
+                    There are no flyer templates matching &ldquo;{flyerCategory || "All Benefits"}&rdquo;. Go back and choose a different benefit category.
                   </p>
                 </div>
               ) : (
