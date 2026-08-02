@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { BrandingImage } from "@/components/ui/branding-image";
@@ -47,6 +47,8 @@ interface PortalWelcomeBannerProps {
   customClosing?: string;
   customSignature?: string;
   customSignatureCompany?: string;
+  /** User's professional designations (e.g. CFP, AIF) shown after the signature name. */
+  customDesignations?: string[];
   customImage?: string; // Override right-side Benefits Logo
   customImageAlt?: string;
   /** Inner Header Image — full-height image for the right column of the hero section */
@@ -81,6 +83,7 @@ export function PortalWelcomeBanner({
   customClosing,
   customSignature,
   customSignatureCompany,
+  customDesignations,
   customImage,
   customImageAlt,
   customInnerHeaderImage,
@@ -99,6 +102,29 @@ export function PortalWelcomeBanner({
   desktopHeroBackgroundPosition,
   mobileHeroBackgroundPosition,
 }: PortalWelcomeBannerProps) {
+  // Auto-fetch the logged-in user's designations from /api/profile when the
+  // caller doesn't pass them explicitly (e.g. live portal pages). The Step 2
+  // preview passes `customDesignations` directly, so this fetch is skipped.
+  const [autoDesignations, setAutoDesignations] = useState<string[]>([]);
+  useEffect(() => {
+    if (customDesignations !== undefined) return;
+    let cancelled = false;
+    fetch("/api/profile", { credentials: "same-origin" })
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        const arr = Array.isArray((data as any)?.designations)
+          ? (data as any).designations
+          : ((data as any)?.user?.designations || []);
+        setAutoDesignations(arr);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [customDesignations]);
+
+  const effectiveDesignations =
+    customDesignations !== undefined ? customDesignations : autoDesignations;
+
   // Look up per-category benefit data from employeePortalPreview (saved by Step 1)
   const categoryBenefit = useMemo(() => {
     if (!category || !clientData?.employeePortalPreview?.benefits) return null;
@@ -397,6 +423,13 @@ export function PortalWelcomeBanner({
                   } ${customSignatureNameBold ? "font-bold" : ""} ${customSignatureNameItalic ? "italic" : ""}`}>
                     {signatureName}
                   </p>
+                  {effectiveDesignations.length > 0 && (
+                    <p className={`text-sm font-red-hat font-normal ${
+                      effectiveContainerInverted ? "text-gray-700" : "text-white/70"
+                    }`}>
+                      {effectiveDesignations.join(", ")}
+                    </p>
+                  )}
                   <p className={`text-xs uppercase tracking-[0.2em] font-red-hat font-normal ${
                     effectiveContainerInverted ? "text-gray-500" : "text-white/90"
                   } ${customSignatureCompanyBold ? "font-bold" : ""} ${customSignatureCompanyItalic ? "italic" : ""}`}>

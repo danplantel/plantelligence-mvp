@@ -2478,6 +2478,25 @@ export function BenefitsStep1() {
                       />
                     </div>
                   )}
+
+                  {/* User's Designations */}
+                  {profileData?.designations && profileData.designations.length > 0 && (
+                    <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
+                      <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">
+                        Your Designations
+                      </Label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {profileData.designations.map((d: string, i: number) => (
+                          <span
+                            key={i}
+                            className="inline-flex items-center gap-1 rounded-full bg-[#23919C]/10 px-2.5 py-1 text-xs font-medium text-[#23919C] dark:bg-[#23919C]/20 dark:text-[#23919C]"
+                          >
+                            {d}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex justify-end pt-4 border-t border-gray-100 dark:border-gray-700">

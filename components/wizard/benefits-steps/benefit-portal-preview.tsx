@@ -48,11 +48,20 @@ import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
 export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
     const { stepData } = useBenefitsWizardStore();
     const [userName, setUserName] = useState<string | null>(null);
+    const [userDesignations, setUserDesignations] = useState<string[]>([]);
     useEffect(() => {
         let cancelled = false;
         fetch("/api/profile", { credentials: "same-origin" })
             .then(r => r.json())
-            .then(data => { if (!cancelled) setUserName((data as any)?.name || (data as any)?.user?.name || null); })
+            .then(data => {
+                if (cancelled) return;
+                setUserName((data as any)?.name || (data as any)?.user?.name || null);
+                setUserDesignations(
+                    Array.isArray((data as any)?.designations)
+                        ? (data as any).designations
+                        : ((data as any)?.user?.designations || []),
+                );
+            })
             .catch(() => {});
         return () => { cancelled = true; };
     }, []);
@@ -282,6 +291,7 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
                                 || DEFAULT_WELCOME_BG,
                             secondaryBannerImg: step1Data?.brandImages?.header?.url,
                         } as any}
+                        customDesignations={userDesignations}
                         customClosing={step1Data?.signatureMode === "custom" ? (step1Data.customClosing || "Custom closing message") : undefined}
                         customSignature={
                             step1Data?.signatureMode === "custom"
