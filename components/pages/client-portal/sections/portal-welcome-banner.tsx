@@ -102,12 +102,13 @@ export function PortalWelcomeBanner({
   desktopHeroBackgroundPosition,
   mobileHeroBackgroundPosition,
 }: PortalWelcomeBannerProps) {
-  // Auto-fetch the logged-in user's designations from /api/profile when the
+  // Auto-fetch the logged-in user's profile data from /api/profile when the
   // caller doesn't pass them explicitly (e.g. live portal pages). The Step 2
   // preview passes `customDesignations` directly, so this fetch is skipped.
   const [autoDesignations, setAutoDesignations] = useState<string[]>([]);
+  const [autoOrganizationName, setAutoOrganizationName] = useState<string>("");
+  const [autoEmail, setAutoEmail] = useState<string>("");
   useEffect(() => {
-    if (customDesignations !== undefined) return;
     let cancelled = false;
     fetch("/api/profile", { credentials: "same-origin" })
       .then((r) => r.json())
@@ -117,10 +118,20 @@ export function PortalWelcomeBanner({
           ? (data as any).designations
           : ((data as any)?.user?.designations || []);
         setAutoDesignations(arr);
+        setAutoOrganizationName(
+          (data as any)?.organizationName ||
+            (data as any)?.user?.organizationName ||
+            "",
+        );
+        setAutoEmail(
+          (data as any)?.email ||
+            (data as any)?.user?.email ||
+            "",
+        );
       })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [customDesignations]);
+  }, []);
 
   const effectiveDesignations =
     customDesignations !== undefined ? customDesignations : autoDesignations;
@@ -183,6 +194,15 @@ export function PortalWelcomeBanner({
     primaryContact = visibleContacts?.find((contact) => contact.isPrimary) || visibleContacts?.[0];
   }
 
+  // Determine whether the primary contact is the logged-in user (advisor).
+  // Compare by email — the key contact linked to the advisor account will
+  // have the same email as the profile.
+  const isPrimaryContactLoggedInUser = !!(
+    autoEmail &&
+    primaryContact &&
+    ((primaryContact as any).email?.toLowerCase() === autoEmail.toLowerCase())
+  );
+
   const companyName = clientData?.companyName?.trim() || "Waypoint";
 
   // Use custom content if provided, otherwise fall back to defaults
@@ -206,10 +226,18 @@ export function PortalWelcomeBanner({
       }`
       : "Ty G. Rogers Managing Partner");
 
+  // If the key contact is the logged-in user, use their organization name
+  // from the profile. Otherwise, use the contact's own company name.
   const signatureCompany =
     customSignatureCompany ||
-    primaryContact?.companyName ||
-    "Waypoint Financial Advisors";
+    // When customSignature is explicitly provided (Step 2 preview "user"
+    // mode) or the primary contact matches the logged-in user's email,
+    // use the user's organization name from their profile.
+    (customSignature || isPrimaryContactLoggedInUser
+      ? autoOrganizationName
+      : primaryContact?.companyName) ||
+    autoOrganizationName ||
+    "Company Name";
 
   // Right-side Benefits Logo: customImage override → categoryBenefit.partnerLogo (per-category, set in Step 1) → companyLogo (top-level) → null
   const benefitsLogoUrl =
