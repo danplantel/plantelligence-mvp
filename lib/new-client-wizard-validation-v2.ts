@@ -510,13 +510,25 @@ export const validateNewClientCurrentStepV2 = async (step: number, stepData: any
           const step3bData = (stepData as any).step3b;
           const step3SubStepData = (stepData as any).step3SubStep || {};
           const isCreatingNew = step3SubStepData.isCreatingNew === true;
-          const selectedContactId = step3bData?.selectedContactId;
+          // Slide flow uses `editingContactId`; legacy flow uses `selectedContactId`.
+          const editId = step3bData?.selectedContactId || step3bData?.editingContactId;
 
-          // When creating new contact, validate step3b form as the current contact (no contact in list yet)
+          // Build a virtual contact from the step3b form so the current (possibly
+          // unsaved) contact's fields — including the CTA scheduling/contact-form
+          // URLs — are always validated on Next.
+          const step3bHasFormData =
+            !!step3bData &&
+            (!!step3bData.firstName ||
+              !!step3bData.lastName ||
+              !!step3bData.displayName ||
+              !!step3bData.contactType ||
+              !!step3bData.email ||
+              !!step3bData.phone);
+
           let contactsToValidate: any[] = contactsForValidation;
-          if (contactsForValidation.length === 0 && step3bData) {
-            contactsToValidate = [{
-              id: "new",
+          if (step3bHasFormData) {
+            const formContact = {
+              id: editId || "new",
               contactType: step3bData.contactType || "individual",
               firstName: step3bData.firstName,
               lastName: step3bData.lastName,
@@ -535,30 +547,26 @@ export const validateNewClientCurrentStepV2 = async (step: number, stepData: any
               displayPhone: step3bData.displayPhone ?? true,
               displayScheduleAppointment: step3bData.displayScheduleAppointment,
               displayUrl: step3bData.displayUrl,
-            }];
-          } else if (contactsForValidation.length >= 1 && step3bData) {
-            // Merge step3b form into the current (selected) contact so auto-filled values are validated
-            contactsToValidate = contactsForValidation.map((c: any) => {
-              if (c.id !== selectedContactId) return c;
-              return {
-                ...c,
-                firstName: step3bData.firstName ?? c.firstName,
-                lastName: step3bData.lastName ?? c.lastName,
-                email: step3bData.email ?? c.email,
-                phone: step3bData.phone ?? c.phone,
-                title: step3bData.title ?? c.title,
-                displayName: step3bData.displayName ?? c.displayName,
-                name: step3bData.contactType === "individual"
-                  ? `${step3bData.firstName || ""} ${step3bData.lastName || ""}`.trim() || c.name
-                  : step3bData.displayName ?? c.name,
-                // Merge display flags from the form so editing doesn't wipe them
-                displayEmail: step3bData.displayEmail ?? c.displayEmail ?? true,
-                displayPhone: step3bData.displayPhone ?? c.displayPhone ?? true,
-                displayScheduleAppointment:
-                  step3bData.displayScheduleAppointment ?? c.displayScheduleAppointment,
-                displayUrl: step3bData.displayUrl ?? c.displayUrl,
-              };
-            });
+              // Carry over CTA fields so scheduling/contact-form URL validation works.
+              enableContactButton: step3bData.enableContactButton,
+              ctaType: step3bData.ctaType,
+              schedulingUrl: step3bData.schedulingUrl,
+              websiteUrl: step3bData.websiteUrl,
+            };
+
+            if (editId && contactsForValidation.some((c: any) => c.id === editId)) {
+              // Editing an existing contact — merge the form into it and
+              // validate ONLY the edited contact (not all contacts).
+              const merged = contactsForValidation.map((c: any) =>
+                c.id === editId ? { ...c, ...formContact, id: c.id } : c,
+              );
+              contactsToValidate = merged.filter((c: any) => c.id === editId);
+            } else {
+              // Creating a new contact — only validate the form fields,
+              // not all pre-existing contacts (which may have been saved
+              // before phone became required).
+              contactsToValidate = [formContact];
+            }
           }
 
           // Check if at least one contact exists (after virtual contact for isCreatingNew)
@@ -772,6 +780,44 @@ export const validateNewClientCurrentStepV2 = async (step: number, stepData: any
               });
             }
 
+            // Scheduling URL is required when the "Schedule Appt." CTA is enabled
+            const enableContactButton = contact.enableContactButton === true;
+            const contactCtaType = contact.ctaType;
+            if (
+              enableContactButton &&
+              contactCtaType === "schedule" &&
+              !(contact.schedulingUrl || "").trim()
+            ) {
+              step3Errors.push({
+                field: `schedulingUrl`,
+                contactId: contactId,
+                contactName: contactIdentifier,
+              });
+              step3Errors.push({
+                field: `contact_${contactId}_schedulingUrl`,
+                contactId: contactId,
+                contactName: contactIdentifier,
+              });
+            }
+
+            // Contact Form URL is required when the "Contact Form" CTA is enabled
+            if (
+              enableContactButton &&
+              contactCtaType === "contact" &&
+              !(contact.websiteUrl || "").trim()
+            ) {
+              step3Errors.push({
+                field: `websiteUrl`,
+                contactId: contactId,
+                contactName: contactIdentifier,
+              });
+              step3Errors.push({
+                field: `contact_${contactId}_websiteUrl`,
+                contactId: contactId,
+                contactName: contactIdentifier,
+              });
+            }
+
             // Contact Action Buttons validation
             if (
               !contact.displayEmail &&
@@ -944,6 +990,24 @@ export const validateNewClientCurrentStepV2 = async (step: number, stepData: any
                   field: "hubDocumentsCategory",
                   message:
                     "Assign a benefit category to every uploaded Benefits Hub document (Documents section below) before continuing.",
+                  contactName: contactName,
+                });
+              } else if (
+                baseField === "schedulingUrl" ||
+                field.includes("schedulingUrl")
+              ) {
+                errorMessages.push({
+                  field: "schedulingUrl",
+                  message: `"${contactName}": Please enter a scheduling URL for the Schedule Appt. button`,
+                  contactName: contactName,
+                });
+              } else if (
+                baseField === "websiteUrl" ||
+                field.includes("websiteUrl")
+              ) {
+                errorMessages.push({
+                  field: "websiteUrl",
+                  message: `"${contactName}": Please enter a contact form URL for the Contact Form button`,
                   contactName: contactName,
                 });
               }

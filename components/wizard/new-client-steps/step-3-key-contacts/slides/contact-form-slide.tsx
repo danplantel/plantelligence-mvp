@@ -440,10 +440,29 @@ export function ContactFormSlide({
   const emailRef = useRef<HTMLInputElement>(null);
   const phoneRef = useRef<HTMLInputElement>(null);
   const customBenefitsRef = useRef<HTMLInputElement>(null);
+  const schedulingUrlRef = useRef<HTMLInputElement>(null);
+  const websiteUrlRef = useRef<HTMLInputElement>(null);
   // Capture editingContactId on mount so auto-save preserves it without reactive deps
   const editingContactIdRef = useRef<string | null | undefined>(
     (stepData as any)?.step3b?.editingContactId,
   );
+
+  // Refs that always hold the latest form values, updated on every render.
+  // These are used by __step3bFlushFormToStore to avoid stale closure issues
+  // where the effect hasn't re-run yet but the wizard's validation already
+  // needs the latest data (e.g. phone typed right before clicking Next).
+  const phoneValueRef = useRef(phone);
+  const emailValueRef = useRef(email);
+  const firstNameValueRef = useRef(firstName);
+  const lastNameValueRef = useRef(lastName);
+  const titleValueRef = useRef(title);
+  const displayNameValueRef = useRef(displayName);
+  phoneValueRef.current = phone;
+  emailValueRef.current = email;
+  firstNameValueRef.current = firstName;
+  lastNameValueRef.current = lastName;
+  titleValueRef.current = title;
+  displayNameValueRef.current = displayName;
 
   // When the parent reuses this component instance (same category key) for a
   // different contact, the ref and all form state must be reset to match the
@@ -570,6 +589,73 @@ export function ContactFormSlide({
     externalAdminLogoFileName,
     useCustomLogo,
     companyName,
+    isPrimary,
+    displayEmail,
+    displayPhone,
+    enableCtaButton,
+    ctaType,
+    schedulingUrl,
+    websiteUrl,
+    saveStepDataLocally,
+  ]);
+
+  // Expose a flush callback for the wizard so the current form state is
+  // committed to the store BEFORE validation runs. This prevents intermittent
+  // false errors (e.g. "Phone is required" even when the field is filled) that
+  // occur when the wizard's store read races ahead of the auto-save effect.
+  useEffect(() => {
+    (window as any).__step3bFlushFormToStore = async () => {
+      // Use value refs for fields the user can type, so the flush always
+      // writes the absolute latest value even when the enclosing effect
+      // hasn't re-run yet (React 18 schedules effects after paint).
+      await saveStepDataLocally("step3b", {
+        editingContactId: editingContactIdRef.current || null,
+        contactType,
+        benefitsCategories: [category],
+        benefitsCategory: category,
+        firstName: firstNameValueRef.current,
+        lastName: lastNameValueRef.current,
+        title: titleValueRef.current,
+        displayName: displayNameValueRef.current,
+        email: emailValueRef.current,
+        phone: phoneValueRef.current,
+        phoneExtension,
+        headshot,
+        headshotFileName,
+        companyName,
+        benefitsCategoryOther: customBenefits,
+        externalAdminLogo,
+        externalAdminLogoFileName,
+        useCustomLogo,
+        isPrimaryOverall: isPrimary,
+        displayEmail,
+        displayPhone,
+        enableContactButton: enableCtaButton,
+        ctaType,
+        schedulingUrl,
+        websiteUrl,
+      });
+    };
+    return () => {
+      delete (window as any).__step3bFlushFormToStore;
+    };
+  }, [
+    contactType,
+    category,
+    firstName,
+    lastName,
+    title,
+    displayName,
+    email,
+    phone,
+    phoneExtension,
+    headshot,
+    headshotFileName,
+    companyName,
+    customBenefits,
+    externalAdminLogo,
+    externalAdminLogoFileName,
+    useCustomLogo,
     isPrimary,
     displayEmail,
     displayPhone,
@@ -892,10 +978,15 @@ export function ContactFormSlide({
     ],
   );
 
+  // Always point to the latest saveContact so the event listener below
+  // never suffers from a stale closure (same root cause as the flush).
+  const saveContactRef = useRef(saveContact);
+  saveContactRef.current = saveContact;
+
   // Listen for save request from bottom bar Next button
   useEffect(() => {
     const handler = () => {
-      const contactId = saveContact();
+      const contactId = saveContactRef.current();
       window.dispatchEvent(
         new CustomEvent("step3SaveContactResponse", {
           detail: { success: !!contactId },
@@ -905,7 +996,7 @@ export function ContactFormSlide({
     window.addEventListener("step3SaveContactRequest", handler);
     return () =>
       window.removeEventListener("step3SaveContactRequest", handler);
-  }, [saveContact]);
+  }, []); // Stable subscription — handler reads latest saveContact via ref
 
   // Validate form
   const validate = useCallback((): boolean => {
@@ -940,6 +1031,16 @@ export function ContactFormSlide({
 
     if (!phone.trim()) errors.push("phone");
 
+    // Scheduling URL is required when the "Schedule Appt." CTA is enabled
+    if (enableCtaButton && ctaType === "schedule" && !schedulingUrl.trim()) {
+      errors.push("schedulingUrl");
+    }
+
+    // Contact Form URL is required when the "Contact Form" CTA is enabled
+    if (enableCtaButton && ctaType === "contact" && !websiteUrl.trim()) {
+      errors.push("websiteUrl");
+    }
+
     setLocalErrors(errors);
     setValidationAttempted(true);
 
@@ -954,6 +1055,8 @@ export function ContactFormSlide({
         email: emailRef,
         phone: phoneRef,
         customBenefits: customBenefitsRef,
+        schedulingUrl: schedulingUrlRef,
+        websiteUrl: websiteUrlRef,
       };
       const targetRef = errorRefMap[firstError];
       if (targetRef?.current) {
@@ -967,7 +1070,21 @@ export function ContactFormSlide({
     }
 
     return errors.length === 0;
-  }, [contactType, firstName, lastName, title, displayName, email, phone, customBenefits, category]);
+  }, [
+    contactType,
+    firstName,
+    lastName,
+    title,
+    displayName,
+    email,
+    phone,
+    customBenefits,
+    category,
+    enableCtaButton,
+    ctaType,
+    schedulingUrl,
+    websiteUrl,
+  ]);
 
   // Handle Continue
   const handleContinue = useCallback(() => {
@@ -1259,7 +1376,30 @@ export function ContactFormSlide({
                     value={phone ? formatPhoneNumber(phone) : ""}
                     onChange={(e) => {
                       const digits = e.target.value.replace(/\D/g, "");
-                      if (digits.length <= 10) setPhone(digits);
+                      if (digits.length <= 10) {
+                        setPhone(digits);
+                        const store = useNewClientWizardStore.getState();
+                        // Persist the phone directly to the store on every
+                        // keystroke. This guarantees the wizard validation
+                        // always sees the latest phone value regardless of
+                        // React effect timing (useEffect runs after paint).
+                        const currentStep3b =
+                          (store.stepData as any)?.step3b || {};
+                        store.saveStepDataLocally("step3b", {
+                          ...currentStep3b,
+                          phone: digits,
+                        });
+                        // Clear phone validation error as soon as the user
+                        // starts typing, so the red border disappears immediately.
+                        if (digits.length > 0) {
+                          const filtered = store.errorFields.filter(
+                            (f) => f !== "phone" && !/_phone$/.test(f),
+                          );
+                          if (filtered.length !== store.errorFields.length) {
+                            store.setErrorFields(filtered);
+                          }
+                        }
+                      }
                     }}
                     placeholder="(555) 123-4567"
                     className={cn(
@@ -1271,6 +1411,7 @@ export function ContactFormSlide({
                 <div className="w-20">
                   <Input
                     type="text"
+                    maxLength={5}
                     value={phoneExtension}
                     onChange={(e) => {
                       const val = e.target.value.replace(/\D/g, "");
@@ -1346,16 +1487,20 @@ export function ContactFormSlide({
 
                   {/* Conditional input based on type */}
                   {ctaType === "schedule" && (
-                    <div className="space-y-1">
+                    <div className="space-y-1" data-field="schedulingUrl">
                       <Label className="dark:text-gray-300 text-xs font-medium">
-                        Scheduling URL
+                        Scheduling URL <span className="text-red-500">*</span>
                       </Label>
                       <div className="flex items-center gap-2">
                         <Input
+                          ref={schedulingUrlRef}
                           value={schedulingUrl}
                           onChange={(e) => setSchedulingUrl(e.target.value)}
                           placeholder="https://calendly.com/..."
-                          className="h-8 text-sm flex-1"
+                          className={cn(
+                            "h-8 text-sm flex-1",
+                            hasError("schedulingUrl") && "border-red-500",
+                          )}
                         />
                         <Popover>
                           <PopoverTrigger asChild>
@@ -1386,20 +1531,30 @@ export function ContactFormSlide({
                           </PopoverContent>
                         </Popover>
                       </div>
+                      {hasError("schedulingUrl") && (
+                        <p className="text-[10px] text-red-500">
+                          Scheduling URL is required when &ldquo;Schedule
+                          Appt.&rdquo; is enabled
+                        </p>
+                      )}
                     </div>
                   )}
 
                   {ctaType === "contact" && (
-                    <div className="space-y-1">
+                    <div className="space-y-1" data-field="websiteUrl">
                       <Label className="dark:text-gray-300 text-xs font-medium">
-                        Contact Form URL
+                        Contact Form URL <span className="text-red-500">*</span>
                       </Label>
                       <div className="flex items-center gap-2">
                         <Input
+                          ref={websiteUrlRef}
                           value={websiteUrl}
                           onChange={(e) => setWebsiteUrl(e.target.value)}
                           placeholder="https://forms.company.com/..."
-                          className="h-8 text-sm flex-1"
+                          className={cn(
+                            "h-8 text-sm flex-1",
+                            hasError("websiteUrl") && "border-red-500",
+                          )}
                         />
                         <Popover>
                           <PopoverTrigger asChild>
@@ -1430,6 +1585,12 @@ export function ContactFormSlide({
                           </PopoverContent>
                         </Popover>
                       </div>
+                      {hasError("websiteUrl") && (
+                        <p className="text-[10px] text-red-500">
+                          Contact Form URL is required when &ldquo;Contact
+                          Form&rdquo; is enabled
+                        </p>
+                      )}
                     </div>
                   )}
 

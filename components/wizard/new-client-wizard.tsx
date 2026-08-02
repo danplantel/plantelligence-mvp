@@ -157,12 +157,14 @@ export function NewClientWizard({
     setIsProcessing(true);
     try {
       // Flush step3b form to store before validation so auto-filled values are recognized (fixes intermittent validation errors)
-      const { currentStep: step, stepData: data } =
+      const { currentStep: step, stepData: data, step3SlideIndex: slideIdx } =
         useNewClientWizardStore.getState();
       const step3SubStepForFlush =
         (data as any)?.step3SubStep?.step3SubStep ||
         (data as any)?.step3SubStep;
-      if (step === 3 && step3SubStepForFlush === "step3b") {
+      const isStep3bForm =
+        step3SubStepForFlush === "step3b" || slideIdx === 1;
+      if (step === 3 && isStep3bForm) {
         await (window as any).__step3bFlushFormToStore?.();
       }
       const { stepData: dataAfterFlush } = useNewClientWizardStore.getState();
@@ -233,6 +235,8 @@ export function NewClientWizard({
             contactActions: "Contact Action",
             primaryContact: "Primary contact required for category",
             hubDocumentsCategory: "Benefits Hub documents",
+            schedulingUrl: "Scheduling URL",
+            websiteUrl: "Contact Form URL",
           };
 
           const fieldsByContact = new Map<string, Set<string>>();
