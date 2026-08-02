@@ -6,11 +6,21 @@ interface NewsEventsHeaderProps {
   backgroundImageAlt?: string;
 }
 
+/** R2 proxy URLs are already served at full resolution — letting Next.js
+ *  Image Optimization re-process them degrades quality (double compression).
+ *  Local public assets (e.g. /announcement-banner-3.webp) still benefit
+ *  from Next.js optimization. */
+function isR2ProxyUrl(src: string): boolean {
+  return src.startsWith("/api/r2/object");
+}
+
 export function NewsEventsHeader({
   title = "News & Events",
   backgroundImage = "/announcement-banner-3.webp",
   backgroundImageAlt = "Audience at event",
 }: NewsEventsHeaderProps) {
+  const unoptimized = isR2ProxyUrl(backgroundImage);
+
   return (
     <section className="relative h-[280px] sm:h-[350px] lg:h-[400px] w-full overflow-hidden">
       {/* Background Image */}
@@ -20,6 +30,9 @@ export function NewsEventsHeader({
         fill
         className="object-cover"
         priority
+        unoptimized={unoptimized}
+        quality={unoptimized ? undefined : 90}
+        sizes="100vw"
       />
 
       {/* Dark overlay */}

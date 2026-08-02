@@ -2,12 +2,15 @@
 
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Image as ImageIcon } from "lucide-react";
+import { Image as ImageIcon, Eye, Crop, CheckCircle } from "lucide-react";
 import { BrandImagesData, BrandImageData } from "@/types/new-client-wizard";
 import { SimpleImageEditorModal } from "@/components/ui/simple-image-editor-modal";
 import { ModalGallery } from "@/components/ui/modalGallery";
 import { BrandImageUpload } from "../../../ui/brand-image-upload";
 import { toR2BrandingKey, getR2ObjectProxyUrl } from "@/lib/branding-image-url";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
+import { Button } from "@/components/ui/button";
 
 interface BrandImagesSectionProps {
   brandImages: BrandImagesData;
@@ -45,8 +48,8 @@ const BRAND_IMAGE_SLOTS = [
   },
   {
     key: "secondaryBanner" as keyof BrandImagesData,
-    title: "Secondary Section",
-    description: "Used for secondary sections (like below Welcome Statement).",
+    title: "Secondary Banner",
+    description: "Used for the Header background image for the News & Events page.",
     recommendedSize: "1600×600 px",
     required: false,
     accept: ".png,.jpg,.jpeg,.webp",
@@ -72,6 +75,12 @@ export function BrandImagesSection({
     slotKey: keyof BrandImagesData;
     data: BrandImageData;
   } | null>(null);
+  const [newsEventsPreviewOpen, setNewsEventsPreviewOpen] = useState(false);
+
+  // Resolve the secondary banner image for the News & Events header preview
+  const { url: resolvedSecondaryBannerUrl } = useBrandingImageUrl(
+    brandImages?.secondaryBanner?.url ?? null,
+  );
 
   const handleImageChange = (
     slotKey: keyof BrandImagesData,
@@ -99,6 +108,22 @@ export function BrandImagesSection({
       [slotKey]: undefined,
     };
     onBrandImagesChange(updatedBrandImages);
+  };
+
+  const handleSecondaryBannerUpload = async (imageData: BrandImageData) => {
+    // Auto-crop the uploaded image (same logic as gallery flow), save it,
+    // then open the combined preview/editor dialog directly.
+    // Save the uploaded image directly — object-cover handles fitting
+    // to the 72:25 preview container, so auto-cropping is unnecessary
+    // and would create a mismatched aspect ratio that causes zooming.
+    const updatedBrandImages = {
+      ...brandImages,
+      secondaryBanner: imageData,
+    };
+    await onBrandImagesChange(updatedBrandImages);
+
+    // Open the combined preview dialog
+    setNewsEventsPreviewOpen(true);
   };
 
   const handleEditClick = (slotKey: keyof BrandImagesData) => {
@@ -210,6 +235,13 @@ export function BrandImagesSection({
           }
         }
         await Promise.all(preloads);
+
+        // When editing a secondary banner from the preview dialog,
+        // re-open the preview after saving so the user sees the
+        // adjusted image immediately.
+        if (pendingImageData.slotKey === "secondaryBanner") {
+          setNewsEventsPreviewOpen(true);
+        }
 
         resolve();
       };
@@ -385,25 +417,53 @@ export function BrandImagesSection({
           (slot) => !visibleSlots || visibleSlots.includes(slot.key),
         ).map((slot) => {
           const currentImage = brandImages?.[slot.key];
+          const isSecondaryBanner = slot.key === "secondaryBanner";
           return (
-            <BrandImageUpload
-              key={slot.key}
-              slotKey={slot.key}
-              slot={slot}
-              currentImage={currentImage || undefined}
-              onImageChange={(imageData) =>
-                handleImageChange(slot.key, imageData)
-              }
-              onImageRemove={() => handleImageRemove(slot.key)}
-              onDefaultPhotoClick={() => {
-                setActiveSlotKey(slot.key);
-                setGalleryOpen(true);
-              }}
-              onEditClick={() => handleEditClick(slot.key)}
-              onFileSelect={(imageData) =>
-                handleFileSelectForEdit(slot.key, imageData)
-              }
-            />
+            <div key={slot.key} className="space-y-3">
+              <BrandImageUpload
+                slotKey={slot.key}
+                slot={slot}
+                currentImage={currentImage || undefined}
+                onImageChange={(imageData) =>
+                  handleImageChange(slot.key, imageData)
+                }
+                onImageRemove={() => handleImageRemove(slot.key)}
+                onDefaultPhotoClick={() => {
+                  setActiveSlotKey(slot.key);
+                  setGalleryOpen(true);
+                }}
+                onEditClick={() => {
+                  if (isSecondaryBanner && currentImage) {
+                    // For secondary banner, edit opens the combined preview
+                    // where the user can crop/adjust while seeing the header
+                    setNewsEventsPreviewOpen(true);
+                  } else {
+                    handleEditClick(slot.key);
+                  }
+                }}
+                onFileSelect={(imageData) => {
+                  if (isSecondaryBanner) {
+                    // Skip the separate editor modal — auto-crop, save,
+                    // and open the combined preview dialog directly
+                    handleSecondaryBannerUpload(imageData);
+                  } else {
+                    handleFileSelectForEdit(slot.key, imageData);
+                  }
+                }}
+              />
+              {isSecondaryBanner && currentImage && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setNewsEventsPreviewOpen(true)}
+                  className="w-full"
+                >
+                  <Eye className="w-4 h-4 mr-2" />
+                  Preview in News & Events Header
+                </Button>
+              )}
+            </div>
           );
         })}
       </CardContent>
@@ -472,6 +532,13 @@ export function BrandImagesSection({
 
             onBrandImagesChange(updatedBrandImages);
             setGalleryOpen(false);
+
+            // Auto-open the News & Events header preview after selecting
+            // a default photo for the secondary banner
+            if (activeSlotKey === "secondaryBanner") {
+              setNewsEventsPreviewOpen(true);
+            }
+
             setActiveSlotKey(null);
           } catch (error) {
             console.error("Failed to auto-crop image:", error);
@@ -506,6 +573,11 @@ export function BrandImagesSection({
 
               onBrandImagesChange(updatedBrandImages);
               setGalleryOpen(false);
+
+              if (activeSlotKey === "secondaryBanner") {
+                setNewsEventsPreviewOpen(true);
+              }
+
               setActiveSlotKey(null);
             };
 
@@ -529,6 +601,11 @@ export function BrandImagesSection({
 
               onBrandImagesChange(updatedBrandImages);
               setGalleryOpen(false);
+
+              if (activeSlotKey === "secondaryBanner") {
+                setNewsEventsPreviewOpen(true);
+              }
+
               setActiveSlotKey(null);
             };
 
@@ -611,6 +688,127 @@ export function BrandImagesSection({
           guidelinePadding={20}
         />
       )}
+
+      {/* News & Events Header Preview Dialog */}
+      <Dialog open={newsEventsPreviewOpen} onOpenChange={setNewsEventsPreviewOpen}>
+        <DialogContent className="max-w-4xl p-0 overflow-hidden">
+          <DialogHeader className="sr-only">
+            <DialogTitle>News & Events Header Preview</DialogTitle>
+          </DialogHeader>
+
+          {/* Full-page mockup: non-interactive navbar + header at desktop proportions */}
+          <div className="flex flex-col bg-white">
+            {/* Mock Top Navbar — non-interactive visual copy */}
+            <div className="flex items-center h-14 px-6 border-b border-gray-200 bg-white shrink-0">
+              {/* Logo placeholder */}
+              <div className="flex items-center gap-2 mr-8">
+                <div className="h-7 w-7 rounded-full bg-gray-300" />
+                <span className="text-sm font-semibold text-gray-400">
+                  Company
+                </span>
+              </div>
+
+              {/* Nav links */}
+              <nav className="flex items-center gap-1 text-xs">
+                {[
+                  "Retirement",
+                  "Health Insurance",
+                  "Life Insurance",
+                  "Wellness Programs",
+                ].map((label) => (
+                  <span
+                    key={label}
+                    className="px-3 py-1.5 rounded-md text-gray-400"
+                  >
+                    {label}
+                  </span>
+                ))}
+                <span className="px-3 py-1.5 rounded-md text-gray-700 bg-gray-100 font-medium">
+                  News & Events
+                </span>
+              </nav>
+            </div>
+
+            {/* Header — matches the 1008×350 px ratio of the News & Events
+                 header section (1008/350 ≈ 2.88:1). */}
+            <div className="relative w-full aspect-[72/25] overflow-hidden">
+              {/* Background image */}
+              {resolvedSecondaryBannerUrl ? (
+                <img
+                  src={resolvedSecondaryBannerUrl}
+                  alt="Secondary banner preview"
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+              ) : (
+                <div className="absolute inset-0 bg-gray-200" />
+              )}
+
+              {/* Dark overlay — same as NewsEventsHeader */}
+              <div className="absolute inset-0 bg-black/40" />
+
+              {/* Centered "News & Events" block — same as NewsEventsHeader */}
+              <div className="absolute inset-0 flex items-center justify-center px-4 sm:px-6">
+                <div className="bg-black/60 backdrop-blur-sm rounded-xl w-full max-w-[90%] sm:max-w-[700px] px-6 py-6 sm:px-10 sm:py-8">
+                  <h1 className="font-dm-serif text-white text-3xl sm:text-[40px] text-center leading-tight">
+                    News & Events
+                  </h1>
+                </div>
+              </div>
+            </div>
+
+            {/* Edit controls bar */}
+            <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-gray-200 bg-gray-50 shrink-0">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const currentImage = brandImages?.secondaryBanner;
+                  if (currentImage) {
+                    // The image URL may be an R2 key (org/…/branding/…)
+                    // which <img> cannot load directly.  Resolve it
+                    // to a displayable proxy URL before handing it to
+                    // SimpleImageEditorModal.
+                    const resolveUrl = (raw: string | undefined): string => {
+                      if (!raw) return "";
+                      const r2Key = toR2BrandingKey(raw);
+                      if (r2Key) {
+                        const proxy = getR2ObjectProxyUrl(r2Key);
+                        if (proxy) return proxy;
+                      }
+                      return raw;
+                    };
+
+                    setPendingImageData({
+                      slotKey: "secondaryBanner",
+                      data: {
+                        ...currentImage,
+                        url: resolveUrl(currentImage.url),
+                        originalUrl:
+                          resolveUrl(currentImage.originalUrl) || undefined,
+                        previewUrl:
+                          resolveUrl(currentImage.previewUrl) || undefined,
+                      },
+                    });
+                    setIsModalOpen(true);
+                  }
+                }}
+              >
+                <Crop className="w-4 h-4 mr-2" />
+                Crop / Adjust Image
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setNewsEventsPreviewOpen(false)}
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Save Banner
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
