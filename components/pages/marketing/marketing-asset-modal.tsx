@@ -210,6 +210,10 @@ export default function MarketingAssetModal({
     () => (profileData as { advisorLogoUrl?: string })?.advisorLogoUrl,
     [profileData],
   );
+  const organizationName: string | undefined = useMemo(
+    () => (profileData as { organizationName?: string })?.organizationName,
+    [profileData],
+  );
   const planBrandColor: string | undefined = useMemo(
     () => (planData?.data as { brandColor?: string })?.brandColor,
     [planData],
@@ -252,7 +256,13 @@ export default function MarketingAssetModal({
   const [flyerCategory, setFlyerCategory] = useState("");
   const [flyerTemplate, setFlyerTemplate] = useState<string>("MeetingTemplate1");
   const [flyerLanguage, setFlyerLanguage] = useState<"en" | "es">("en");
-  const DEFAULT_DISCLAIMER = "Securities and advisory services offered through LPL Financial, a registered investment advisor, Member FINRA/SIPC.";
+  const DEFAULT_DISCLAIMER = useMemo(
+    () =>
+      organizationName
+        ? `Securities and advisory services offered through ${organizationName}, a registered investment advisor, Member FINRA/SIPC.`
+        : "Securities and advisory services offered through [Organization Name], a registered investment advisor, Member FINRA/SIPC.",
+    [organizationName],
+  );
   const [disclaimerText, setDisclaimerText] = useState(DEFAULT_DISCLAIMER);
 
   // Portal-notice specific
