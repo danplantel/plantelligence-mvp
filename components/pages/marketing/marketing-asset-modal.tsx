@@ -1218,6 +1218,16 @@ export default function MarketingAssetModal({
         </div>
       )}
 
+      {/* Flyer: Step 4 Back button — pinned to the bottom of the details form so the
+          advisor can always return to the meeting/topic selection without scrolling back up */}
+      {resolvedType === "flyer" && flyerStep === 3 && (
+        <div className="flex items-center gap-2 pt-2">
+          <Button type="button" variant="outline" size="sm" onClick={() => setFlyerStep(2)}>
+            Back
+          </Button>
+        </div>
+      )}
+
       {/* Portal-notice specific — Top Banner */}
       {resolvedType === "portal-notice" && (
         <div className="space-y-4">
