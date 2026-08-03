@@ -90,6 +90,12 @@ function BenefitsPageInner() {
     setTitle("Create Benefits");
   }, [setTitle]);
 
+  // Scroll to the top whenever the user navigates between steps so each step
+  // starts at its beginning (e.g. going back from Step 5 to Step 1).
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [currentStep]);
+
   /**
    * Portal deep link: `/new/benefits?planId=<clientId>&category=<BenefitsCategory>`
    * Do not blanket `resetWizard()` when these exist — it races zustand-persist rehydration and wipes URL init.
