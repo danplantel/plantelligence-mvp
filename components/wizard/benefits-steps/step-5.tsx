@@ -300,9 +300,12 @@ export function BenefitsStep5() {
 
   // Resolve organisation & company name from the selected plan
   const selectedPlan = stepData.step1?.selectedPlan;
+  // Only use the plan's explicit organization name — do NOT fall back to
+  // companyName, otherwise [Organization Name] and [Company Name] both
+  // resolve to the same value. The user's profile organizationName (from
+  // /api/profile) is used as the real fallback via disclaimerOrganizationName.
   const organizationName =
     (selectedPlan as any)?.branding?.organizationName ||
-    selectedPlan?.companyName ||
     "[Organization Name]";
   const companyName = selectedPlan?.companyName || "[Company Name]";
 
