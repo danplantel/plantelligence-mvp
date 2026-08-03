@@ -5,210 +5,25 @@ import Image from "next/image";
 import { motion, useInView } from "framer-motion";
 import { toNextImageSrc } from "@/lib/branding-image-url";
 
-export interface JourneyVideo {
-  id: string;
-  title: string;
-  thumbnail: string;
-  duration: string;
-  tag?: string;
-  description?: string;
-}
-
-export interface FeaturedJourneyVideo extends JourneyVideo {
-  rating: string | number;
-  category: string;
-  embedUrl?: string;
-}
-
-interface AutoCarouselVideoRowProps {
-  title: string;
-  videos: JourneyVideo[];
-  onVideoClick: (video: JourneyVideo) => void;
-  speed?: number;
-}
-
-function AutoCarouselVideoRow({
-  title,
-  videos,
-  onVideoClick,
-  speed = 30,
-}: AutoCarouselVideoRowProps) {
-  // Show only first 3 videos
-  const displayedVideos = videos.slice(0, 3);
-  const looped = useMemo(
-    () => [...displayedVideos, ...displayedVideos],
-    [displayedVideos],
-  );
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const pauseRef = useRef(false);
-
-  useEffect(() => {
-    const container = scrollRef.current;
-    if (!container) return;
-
-    const CARD_STEP = 416; // 400px width + 16px gap
-    const intervalMs = speed * 100;
-
-    const autoplay = () => {
-      const c = scrollRef.current;
-      if (!c || pauseRef.current) return;
-
-      const halfWidth = c.scrollWidth / 2;
-
-      if (c.scrollLeft >= halfWidth) {
-        c.scrollLeft -= halfWidth;
-      }
-
-      c.scrollBy({
-        left: CARD_STEP,
-        behavior: "smooth",
-      });
-    };
-
-    const id = window.setInterval(autoplay, intervalMs);
-
-    return () => window.clearInterval(id);
-  }, [looped, speed]);
-
-  const handleManualScroll = (direction: "left" | "right") => {
-    const container = scrollRef.current;
-    if (!container) return;
-
-    const CARD_STEP = 416; // 400px width + 16px gap
-    const halfWidth = container.scrollWidth / 2;
-
-    if (container.scrollLeft >= halfWidth) {
-      container.scrollLeft -= halfWidth;
-    }
-
-    const amount = direction === "right" ? CARD_STEP : -CARD_STEP;
-
-    container.scrollBy({
-      left: amount,
-      behavior: "smooth",
-    });
-  };
-
-  return (
-    <div className="space-y-4">
-      <h3 className="font-unna font-dm-serif text-[24px] text-white">
-        {title}
-      </h3>
-
-      <div className="relative overflow-hidden rounded-2xl bg-black/30 px-10 py-4">
-        <button
-          type="button"
-          onClick={() => handleManualScroll("left")}
-          className="absolute left-3 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur hover:bg-white/25 lg:flex"
-        >
-          ‹
-        </button>
-        <button
-          type="button"
-          onClick={() => handleManualScroll("right")}
-          className="absolute right-3 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur hover:bg-white/25 lg:flex"
-        >
-          ›
-        </button>
-
-        <div
-          className="overflow-hidden"
-          style={{ width: "calc(400px * 3 + 16px * 2)" }}
-        >
-          <div
-            ref={scrollRef}
-            className="flex gap-4 overflow-x-auto scroll-smooth scrollbar-hide"
-            onMouseEnter={() => {
-              pauseRef.current = true;
-            }}
-            onMouseLeave={() => {
-              pauseRef.current = false;
-            }}
-          >
-            {looped.map((video, index) => (
-              <button
-                key={`${video.id}-${index}`}
-                onClick={() => onVideoClick(video)}
-                className="group relative h-[256px] w-[400px] flex-shrink-0 overflow-hidden rounded-xl bg-[#0C111C] text-left shadow-lg transition hover:-translate-y-1"
-              >
-                <img
-                  src={video.thumbnail || "/placeholder.svg"}
-                  alt={video.title}
-                  className="h-full w-full object-cover contrast-110 saturate-110"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-70 transition group-hover:opacity-90" />
-                <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/90 via-black/40 to-transparent p-4 text-white">
-                  {video.tag && (
-                    <span className="mb-2 inline-flex items-center rounded-full bg-white/15 px-3 py-1 text-xs uppercase tracking-wide text-white/90">
-                      {video.tag}
-                    </span>
-                  )}
-                  <p className="text-sm font-semibold">{video.title}</p>
-                  <span className="mt-1 text-xs text-white/70">
-                    {video.duration}
-                  </span>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 interface RetirementJourneySectionProps {
   brandColor?: string;
-  featuredVideo: FeaturedJourneyVideo;
-  retirementVideos: JourneyVideo[];
-  planningVideos: JourneyVideo[];
-  onVideoClick: (video: JourneyVideo) => void;
-  onFeaturedVideoClick: () => void;
-  dbVideos?: JourneyVideo[];
-  dbFeaturedVideo?: FeaturedJourneyVideo;
   mainTitle?: string;
   subtitle?: string;
   description?: string;
-  firstCarouselTitle?: string;
-  secondCarouselTitle?: string;
-  backgroundImage?: string;
-  backgroundImageAlt?: string;
   /** When provided, a <video> element replaces the right-column featured image */
   planVideoUrl?: string;
+  /** Fallback image shown when no planVideoUrl is set. Expected to be a category-specific placeholder. */
+  planVideoFallbackImage?: string;
 }
 
 export function RetirementJourneySection({
   brandColor = "#0FB879",
-  featuredVideo: propFeaturedVideo,
-  retirementVideos: propRetirementVideos,
-  planningVideos: propPlanningVideos,
-  onVideoClick,
-  onFeaturedVideoClick,
-  dbVideos,
-  dbFeaturedVideo,
   mainTitle = "Your Retirement Journey Starts Here",
   subtitle = "Build your future with confidence.",
   description,
-  firstCarouselTitle = "Retirement Planning Essentials",
-  secondCarouselTitle = "Financial Planning & Strategy",
-  backgroundImage = "/Hiking-Couple-Looking.webp",
-  backgroundImageAlt = "Two hikers climbing mountain at sunset - retirement journey metaphor",
   planVideoUrl,
+  planVideoFallbackImage,
 }: RetirementJourneySectionProps) {
-  // Use database videos if provided, otherwise use static videos
-  const featuredVideo = dbFeaturedVideo || propFeaturedVideo;
-  const retirementVideos =
-    dbVideos && dbVideos.length > 0
-      ? dbVideos.slice(0, Math.ceil(dbVideos.length / 2))
-      : propRetirementVideos;
-  const planningVideos =
-    dbVideos && dbVideos.length > 0
-      ? dbVideos.slice(Math.ceil(dbVideos.length / 2))
-      : propPlanningVideos;
-  const heroImageSrc = toNextImageSrc(
-    backgroundImage,
-    "/Hiking-Couple-Looking.webp",
-  );
 
   const sectionRef = useRef(null);
   const isInView = useInView(sectionRef, { once: true, margin: "-80px" });
@@ -244,7 +59,7 @@ export function RetirementJourneySection({
               {subtitle}
             </h2>
             <p className="mb-6 sm:text-[19px] text-base leading-relaxed text-gray-800 font-red-hat">
-              {description || featuredVideo.description}
+              {description}
             </p>
           </motion.div>
 
@@ -266,8 +81,8 @@ export function RetirementJourneySection({
                 />
               ) : (
                 <Image
-                  src={featuredVideo.thumbnail || "/placeholder.svg"}
-                  alt={featuredVideo.title}
+                  src={planVideoFallbackImage || "/placeholder.svg"}
+                  alt={"Category placeholder image"}
                   fill
                   className="object-cover"
                   sizes="(max-width: 1024px) 100vw, 50vw"

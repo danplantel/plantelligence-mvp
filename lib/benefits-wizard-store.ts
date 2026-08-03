@@ -76,6 +76,8 @@ export interface BenefitsStep1Data {
     planVideo?: string;
     /** Original file name of the uploaded plan video */
     planVideoFileName?: string;
+    /** When true, the user explicitly removed the video — overrides persisted categoryBenefit.planVideo */
+    planVideoRemoved?: boolean;
     /** Journey section main header override */
     journeyHeader?: string;
     /** Journey section subtitle override */

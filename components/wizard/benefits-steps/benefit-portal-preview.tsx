@@ -31,8 +31,6 @@ import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
 import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
 import {
     RetirementJourneySection,
-    FeaturedJourneyVideo,
-    JourneyVideo
 } from "@/components/pages/client-portal/sections/retirement-journey-section";
 import { HowCanWeHelpSection } from "@/components/pages/client-portal/sections/how-can-we-help-section";
 import { PortalMaterialsHero } from "@/components/pages/client-portal/sections/portal-materials-hero";
@@ -98,19 +96,22 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
         );
     }, [step1Data?.selectedPlan, category]);
 
-    // ── Plan Video: persisted first, then wizard-in-progress, then localStorage fallback ──
+    // ── Plan Video: wizard-in-progress first, then persisted (unless explicitly removed), then localStorage fallback ──
     // R2 keys are stored raw; preview uses the admin-authenticated /api/r2/object endpoint
     const planVideoUrl = useMemo(() => {
         const lsKey1 = typeof window !== "undefined" ? localStorage.getItem("benefits-plan-video-key-" + category) : null;
         // Also check old "Custom" key (renamed to "Company / Plan Sponsor")
         const lsKey2 = category === "Company / Plan Sponsor" && typeof window !== "undefined" ? localStorage.getItem("benefits-plan-video-key-Custom") : null;
-        const rawValue = categoryBenefit?.planVideo || step1Data?.planVideo || lsKey1 || lsKey2;
+        // Wizard-in-progress takes priority; only fall back to persisted categoryBenefit.planVideo if not explicitly removed
+        const rawValue = step1Data?.planVideo
+            || (!step1Data?.planVideoRemoved && categoryBenefit?.planVideo)
+            || lsKey1 || lsKey2;
         if (!rawValue) return undefined;
         // If it's already a full URL (e.g. presigned), use directly
         if (rawValue.startsWith("http") || rawValue.startsWith("/api/")) return rawValue;
         // Raw R2 key — construct admin URL (preview user is authenticated)
         return `/api/r2/object?key=${encodeURIComponent(rawValue)}`;
-    }, [categoryBenefit, step1Data?.planVideo]);
+    }, [categoryBenefit, step1Data?.planVideo, step1Data?.planVideoRemoved]);
 
     // ── FAQ extraction: matches retirement/page.tsx logic ──
     // 1. Check employeePortalPreview.benefits[].faqs (persisted from wizard Step 3)
@@ -205,8 +206,8 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
     ]);
 
 
-    // Default thumbnail per category (matches live page featuredVideo.thumbnail images)
-    const categoryDefaultThumbnail = useMemo(() => {
+    // Per-category default image shown when no plan video is uploaded
+    const categoryDefaultImage = useMemo(() => {
         const map: Record<string, string> = {
             Retirement: "https://images.unsplash.com/photo-1454496522488-7a8e488e8606?w=800&q=80",
             "Group Health": "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800&q=80",
@@ -216,21 +217,6 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
         return map[category] || map["Retirement"];
     }, [category]);
 
-    const featuredVideo: FeaturedJourneyVideo = {
-        id: "preview-featured",
-        title: step1Data?.benefitTitle || `Your ${category} Benefits`,
-        description: step1Data?.shortDescription || "Preview of the featured video.",
-        thumbnail: categoryDefaultThumbnail,
-        duration: "8:30",
-        rating: "4.9",
-        category: "Getting Started",
-        embedUrl: "https://www.youtube.com/embed/ysz5S6PUM-U?rel=0",
-    };
-
-    const mockVideos: JourneyVideo[] = [
-        { id: "v1", title: "Charting Your Course", thumbnail: "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=400&q=80", duration: "18:30", tag: "New" },
-        { id: "v2", title: "Market Volatility", thumbnail: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=400&q=80", duration: "15:20" },
-    ];
 
     const [hoveredSection, setHoveredSection] = useState<string | null>(null);
 
@@ -320,16 +306,11 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
                 <div className="relative group">
                     <RetirementJourneySection
                         brandColor={brandColor}
-                        featuredVideo={featuredVideo}
-                        retirementVideos={mockVideos}
-                        planningVideos={mockVideos}
-                        onVideoClick={() => { }}
-                        onFeaturedVideoClick={() => { }}
                         mainTitle={step1Data?.journeyHeader || step1Data?.benefitTitle || (category === "Custom" ? `Welcome to your benefits!` : `Your ${category} Benefits`)}
                         subtitle={step1Data?.journeySubtitle || "Explore your comprehensive benefits package."}
                         description={step1Data?.journeyBodyText || step1Data?.shortDescription || ""}
-                        backgroundImage={categoryHeroBg}
                         planVideoUrl={planVideoUrl}
+                        planVideoFallbackImage={categoryDefaultImage}
                     />
                 </div>
 

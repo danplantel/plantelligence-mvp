@@ -212,6 +212,7 @@ export function BenefitsEditorPanel({
                     ...step1Data,
                     planVideo: key,
                     planVideoFileName: file.name,
+                    planVideoRemoved: false,
                 });
                 // Backup: also save to dedicated per-category localStorage (zustand store may lose it during navigation)
                 try {
@@ -237,6 +238,7 @@ export function BenefitsEditorPanel({
             ...step1Data,
             planVideo: undefined,
             planVideoFileName: undefined,
+            planVideoRemoved: true,
         });
         try {
             const cat = step1Data?.benefitCategory || "Retirement";
@@ -690,6 +692,7 @@ export function BenefitsEditorPanel({
                     </div>
 
                     <div className="space-y-4">
+                        <Label className="text-xs font-bold text-foreground">Upload Plan Video</Label>
                         {step1Data.planVideo ? (
                             <Card className="border border-muted shadow-sm">
                                 <CardContent className="p-4 space-y-3">
@@ -726,7 +729,6 @@ export function BenefitsEditorPanel({
                             </Card>
                         ) : (
                             <div className="space-y-3">
-                                <Label className="text-xs font-bold text-foreground">Upload Plan Video</Label>
                                 <div className="flex items-center gap-3">
                                     <label
                                         className={cn(

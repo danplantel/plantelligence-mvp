@@ -3,21 +3,16 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams } from "next/navigation";
 import { useClientPortal } from "@/contexts/client-portal-context";
-import { VideoModal } from "@/components/video-modal";
 import { FAQSection, DynamicFAQItem, FAQContact } from "@/components/faq-section";
 import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
 import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions-faq";
 import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
 import { PortalMaterialsHero } from "@/components/pages/client-portal/sections/portal-materials-hero";
-import { DocumentsSection } from "@/components/pages/client-portal/sections/documents-section";
 import { CompletenessAutoTrigger } from "@/components/pages/client-portal/sections/completeness-auto-trigger";
 import { HowCanWeHelpSection } from "@/components/pages/client-portal/sections/how-can-we-help-section";
 import {
   RetirementJourneySection,
-  JourneyVideo,
-  FeaturedJourneyVideo,
 } from "@/components/pages/client-portal/sections/retirement-journey-section";
-import { getCategoryHeroBackgroundUrl } from "@/lib/portal-category-hero-background";
 import {
   RetirementDocumentsAccordion,
   RetirementDocumentItem,
@@ -31,24 +26,18 @@ import {
 
 const WELLNESS_DOCUMENT_HUB = benefitCategoryToDocumentHubLabel("Company / Plan Sponsor");
 
+const WELLNESS_FALLBACK_IMAGE =
+  "https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=1600&q=80";
+
 export default function WellnessProgramsPage() {
   const { clientData } = useClientPortal();
   const params = useParams();
   const clientId = params.id as string;
-  const [selectedVideo, setSelectedVideo] = useState<JourneyVideo | null>(null);
-  const [dbVideos, setDbVideos] = useState<JourneyVideo[]>([]);
-  const [dbFeaturedVideo, setDbFeaturedVideo] =
-    useState<FeaturedJourneyVideo | null>(null);
   const [wellnessDocs, setWellnessDocs] = useState<RetirementDocumentItem[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(true);
 
   const brandColor = clientData?.brandColor || "#1F3A60";
   const secondaryColor = clientData?.secondaryColor || "#6B7280";
-
-  const categoryHeroBg = useMemo(
-    () => getCategoryHeroBackgroundUrl(clientData ?? null),
-    [clientData],
-  );
 
   /** Re-merge documents when embedded list ids change — avoids re-fetching on every clientData reference churn. */
   const documentsSig = useMemo(() => {
@@ -167,116 +156,6 @@ export default function WellnessProgramsPage() {
     return benefits.find((b: any) => b.category === "Company / Plan Sponsor");
   }, [clientData?.employeePortalPreview]);
 
-  const featuredVideo = {
-    id: "wellness-programs-featured",
-    title: "Whole-Person Wellness Programs",
-    description:
-      "Discover how your company supports every aspect of your wellbeing—from mental health resources and fitness challenges to financial coaching and personalized wellness journeys. Learn what's included and how to get started today.",
-    thumbnail:
-      "https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=1600&q=80",
-    duration: "10:45",
-    rating: "4.7",
-    category: "Wellbeing",
-    embedUrl: "https://www.youtube.com/embed/YE7VzlLtp-4",
-  };
-
-  const wellnessVideos: JourneyVideo[] = [
-    {
-      id: "mental-health",
-      title: "Mental Health Support Overview",
-      thumbnail:
-        "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400&q=80",
-      duration: "09:15",
-      tag: "New",
-    },
-    {
-      id: "fitness-stipend",
-      title: "How to Use Your Fitness Stipend",
-      thumbnail:
-        "https://images.unsplash.com/photo-1571019613576-2b22c76fd955?w=400&q=80",
-      duration: "07:50",
-      tag: "Popular",
-    },
-    {
-      id: "nutrition-coaching",
-      title: "Nutrition Coaching Perks",
-      thumbnail:
-        "https://images.unsplash.com/photo-1467453678174-768ec283a940?w=400&q=80",
-      duration: "08:40",
-    },
-  ];
-
-  // Load videos from database for this page placement
-  useEffect(() => {
-    const fetchVideos = async () => {
-      if (!clientId) return;
-
-      try {
-        const response = await fetch(
-          `/api/videos/get-by-placement?pagePlacement=wellness-programs&clientId=${clientId}`,
-        );
-
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success && data.videos) {
-            setDbVideos(data.videos);
-            if (data.featuredVideo) {
-              setDbFeaturedVideo(data.featuredVideo);
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching videos:", error);
-      }
-    };
-
-    fetchVideos();
-  }, [clientId]);
-
-  const mindfulnessVideos: JourneyVideo[] = [
-    {
-      id: "burnout-toolkit",
-      title: "Burnout Recovery Toolkit",
-      thumbnail:
-        "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=400&q=80",
-      duration: "12:05",
-      tag: "Essential",
-    },
-    {
-      id: "guided-meditation",
-      title: "10-Min Guided Meditation",
-      thumbnail:
-        "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=400&q=80",
-      duration: "10:00",
-    },
-    {
-      id: "financial-wellness",
-      title: "Financial Wellness Coaching",
-      thumbnail:
-        "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=400&q=80",
-      duration: "11:35",
-      tag: "Trending",
-    },
-  ];
-
-  const handleVideoClick = (video: JourneyVideo) => {
-    setSelectedVideo(video);
-  };
-
-  const handleFeaturedVideoClick = () => {
-    setSelectedVideo({
-      id: featuredVideo.id,
-      title: featuredVideo.title,
-      thumbnail: featuredVideo.thumbnail,
-      duration: featuredVideo.duration,
-      description: featuredVideo.description,
-    });
-  };
-
-  const closeModal = () => {
-    setSelectedVideo(null);
-  };
-
   return (
     <div className="min-h-screen w-full">
       <CompletenessAutoTrigger
@@ -296,20 +175,11 @@ export default function WellnessProgramsPage() {
 
         <RetirementJourneySection
           brandColor={brandColor}
-          featuredVideo={featuredVideo}
-          retirementVideos={wellnessVideos}
-          planningVideos={mindfulnessVideos}
-          onVideoClick={handleVideoClick}
-          onFeaturedVideoClick={handleFeaturedVideoClick}
-          dbVideos={dbVideos}
-          dbFeaturedVideo={dbFeaturedVideo || undefined}
           mainTitle={benefitData?.journeyHeader || benefitData?.title || "Whole-Person Wellness Programs"}
           subtitle={benefitData?.journeySubtitle || "Supporting your health, mind, and financial well-being."}
           description={benefitData?.journeyBodyText || benefitData?.shortDescription || "Your well-being goes beyond traditional benefits. Discover programs designed to support your physical, mental, and financial health—from fitness stipends and nutrition coaching to mental health resources and financial wellness tools. Thrive at work and at home."}
-          firstCarouselTitle="Wellness Programs"
-          secondCarouselTitle="Mindfulness & Well-being"
-          backgroundImage={categoryHeroBg}
           planVideoUrl={(benefitData as any)?.planVideo}
+          planVideoFallbackImage={WELLNESS_FALLBACK_IMAGE}
         />
 
         <HowCanWeHelpSection
@@ -334,13 +204,6 @@ export default function WellnessProgramsPage() {
 
         <HaveQuestions brandColor={brandColor} secondaryColor={secondaryColor} contacts={supportContactsForFAQ} />
       </main>
-
-      <VideoModal
-        isOpen={!!selectedVideo}
-        onClose={closeModal}
-        videoTitle={selectedVideo?.title || ""}
-        videoDescription={selectedVideo?.description}
-      />
     </div>
   );
 }
