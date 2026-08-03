@@ -510,7 +510,7 @@ export function BenefitsStep1() {
           body: JSON.stringify({ categoryPortalVisibility }),
         });
 
-        // Save insurance fields per-category via the new Benefit API
+        // Save insurance fields + header background per-category via the new Benefit API
         if (currentStepData.benefitCategory) {
           const category = currentStepData.benefitCategory === "Custom"
             ? "Company / Plan Sponsor"
@@ -524,6 +524,13 @@ export function BenefitsStep1() {
               insuranceLoginUrl: currentStepData.insuranceLoginUrl || "",
               insuranceBackgroundImage: currentStepData.insuranceBackgroundImage || "",
               insuranceContainerBlockOpacity: currentStepData.insuranceContainerBlockOpacity ?? 0.8,
+              // Header background image (uploaded in the Branding section) — the
+              // Benefit row stores this as `backgroundImage` (legacy: `image`).
+              backgroundImage: currentStepData.brandImages?.header?.url || null,
+              // Plan video (uploaded in Step 2 Editor Panel). Must be included
+              // so the dual-write doesn't wipe the video from employeePortalPreview.
+              planVideo: currentStepData.planVideo || null,
+              planVideoFileName: currentStepData.planVideoFileName || null,
             }),
           });
         }

@@ -15,6 +15,7 @@ import {
 } from "@/lib/portal-category-visibility";
 import { resolvePersistedDocumentCategory } from "@/lib/document-category";
 import { normalizeClientBrandingKeysForResponse } from "@/lib/branding-image-url";
+import { getPresignedReadUrl, isR2Configured } from "@/lib/r2";
 
 /**
  * Convert the advisor's User.disclaimer into a single display string for the
@@ -213,10 +214,38 @@ export async function GET(
       clientId,
     );
 
-    // Presigned URL generation for plan videos is now handled by the dedicated
-    // Benefit API routes (GET /api/clients/[id]/benefits and
-    // GET /api/clients/[id]/benefits/[category]). The dual-write in the PUT
-    // benefit handler keeps employeePortalPreview in sync.
+    // Generate presigned URLs for plan videos so portal viewers (employees)
+    // can play them. Portal pages cannot call the authenticated Benefit API
+    // directly, so we must sign R2 keys here using the dual-written
+    // employeePortalPreview.benefits data.
+    if (forPortal && isR2Configured()) {
+      const extractKey = (v: string): string | null => {
+        if (!v || v.startsWith("http")) return null;
+        try {
+          const u = new URL(v, "http://localhost");
+          const k = u.searchParams.get("key");
+          if (k) return k;
+        } catch { /* not a URL, treat as raw key */ }
+        return v;
+      };
+
+      const ep = (dataPayload as any).employeePortalPreview;
+      if (ep?.benefits && Array.isArray(ep.benefits)) {
+        const benefitsWithUrls = await Promise.all(
+          ep.benefits.map(async (b: any) => {
+            const rawKey = b.planVideo ? extractKey(String(b.planVideo)) : null;
+            if (rawKey) {
+              try {
+                const url = await getPresignedReadUrl({ key: rawKey });
+                if (url) return { ...b, planVideo: url };
+              } catch { /* keep original if signing fails */ }
+            }
+            return b;
+          })
+        );
+        (dataPayload as any).employeePortalPreview = { ...ep, benefits: benefitsWithUrls };
+      }
+    }
 
     return NextResponse.json({
       success: true,

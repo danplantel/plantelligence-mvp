@@ -231,8 +231,25 @@ export async function PUT(
       const allBenefits = await prisma.benefit.findMany({ where: { clientId } });
       const existingEp = (client as any).employeePortalPreview || {};
 
+      // Map existing legacy benefits by category so we can preserve legacy-only
+      // fields (e.g. `image`) when the corresponding Benefit row is not yet
+      // backfilled. Prevents the dual-write from wiping a previously-saved header.
+      const norm = (cat: string) =>
+        (cat || "").toLowerCase().trim().replace(/\s+/g, " ");
+      const legacyByCategory = new Map<string, any>();
+      const existingLegacy = Array.isArray(existingEp.benefits)
+        ? existingEp.benefits
+        : [];
+      for (const lb of existingLegacy) {
+        const key = norm(String(lb?.category ?? ""));
+        if (key && !legacyByCategory.has(key)) legacyByCategory.set(key, lb);
+      }
+
       // Map Benefit rows → legacy benefit array shape
-      const benefitsArray = allBenefits.map((b) => ({
+      const benefitsArray = allBenefits.map((b) => {
+        const legacy = legacyByCategory.get(norm(b.category));
+        const bg = b.backgroundImage || legacy?.image || null;
+        return {
         id: b.category.toLowerCase().replace(/\s+/g, "-"),
         title: b.title,
         category: b.category,
@@ -244,7 +261,11 @@ export async function PUT(
         planVideo: b.planVideo,
         planVideoFileName: b.planVideoFileName,
         partnerLogo: b.partnerLogo,
-        backgroundImage: b.backgroundImage,
+        // Legacy consumers (portal-welcome-banner, completeness check) read the
+        // header background from `image`; the new Benefit model calls it
+        // `backgroundImage`. Write both so neither breaks during dual-write.
+        image: bg,
+        backgroundImage: bg,
         innerHeaderImage: b.innerHeaderImage,
         helpCards: b.helpCards,
         insurancePlanId: b.insurancePlanId,
@@ -270,7 +291,8 @@ export async function PUT(
         heroUseGradient: b.heroUseGradient,
         desktopHeroBackgroundPosition: b.desktopHeroBackgroundPosition,
         mobileHeroBackgroundPosition: b.mobileHeroBackgroundPosition,
-      }));
+      };
+      });
 
       await prisma.client.update({
         where: { id: clientId },

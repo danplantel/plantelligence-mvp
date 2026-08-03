@@ -331,10 +331,11 @@ export function PortalWelcomeBanner({
       >
         <img
           src={(() => {
-            // Per-category image from employeePortalPreview.benefits (persisted per category from wizard/API)
+            // Per-category image from employeePortalPreview.benefits (persisted per category from wizard/API).
+            // `image` is the legacy field name; `backgroundImage` is the new Benefit-model name.
             const benefits = clientData?.employeePortalPreview?.benefits ?? [];
             const catBenefit = benefits.find((b: any) => (b.category || "").toLowerCase() === (category || "").toLowerCase());
-            const persistedImage = catBenefit?.image;
+            const persistedImage = catBenefit?.image || catBenefit?.backgroundImage;
             // Wizard store image from the current editor session (fallback)
             const wizardImage = wizardStep1Data?.brandImages?.header?.url;
             // Only use wizard image if it matches the current category

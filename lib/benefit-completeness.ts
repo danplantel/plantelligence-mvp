@@ -195,7 +195,10 @@ export function getBenefitCompleteness(
 
     // Require the **benefit card** header image (not only plan/hero) so the hub card cannot look
     // "complete" in the wizard while the card still shows a broken/empty top image.
-    const hasBenefitCardHeaderImage = isPresentAssetUrl(configuredBenefit?.image);
+    // `image` is the legacy field name; `backgroundImage` is the new Benefit-model name.
+    const hasBenefitCardHeaderImage = isPresentAssetUrl(
+      configuredBenefit?.image || configuredBenefit?.backgroundImage,
+    );
     const hasImage = hasBenefitCardHeaderImage;
 
     const brandingComplete = hasLogo && hasImage;
