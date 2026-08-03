@@ -503,30 +503,37 @@ export function BenefitsStep1() {
           Other: visibility["Custom"] !== false,
         };
 
-        // Only send insurance fields + visibility — do NOT overwrite benefits
-        // (the wizard completion save may have just set planVideo, faqs, etc.)
-        const employeePortalPreviewPatch = {
-          insurancePlanId: currentStepData.insurancePlanId || "",
-          insuranceLoginUrl: currentStepData.insuranceLoginUrl || "",
-          insuranceBackgroundImage: currentStepData.insuranceBackgroundImage || "",
-          insuranceContainerBlockOpacity: currentStepData.insuranceContainerBlockOpacity ?? 0.8,
-        };
-
+        // Save categoryPortalVisibility (client-level) via the main client API
         await fetch(`/api/clients/${currentStepData.planId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            employeePortalPreview: employeePortalPreviewPatch,
-            categoryPortalVisibility,
-          }),
+          body: JSON.stringify({ categoryPortalVisibility }),
         });
+
+        // Save insurance fields per-category via the new Benefit API
+        if (currentStepData.benefitCategory) {
+          const category = currentStepData.benefitCategory === "Custom"
+            ? "Company / Plan Sponsor"
+            : currentStepData.benefitCategory;
+
+          await fetch(`/api/clients/${currentStepData.planId}/benefits/${encodeURIComponent(category)}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              insurancePlanId: currentStepData.insurancePlanId || "",
+              insuranceLoginUrl: currentStepData.insuranceLoginUrl || "",
+              insuranceBackgroundImage: currentStepData.insuranceBackgroundImage || "",
+              insuranceContainerBlockOpacity: currentStepData.insuranceContainerBlockOpacity ?? 0.8,
+            }),
+          });
+        }
       } catch (error) {
         console.error("Auto-save error:", error);
       }
     }, 2000);
 
     return () => clearTimeout(timer);
-  }, [getMergedClientData, currentStepData.planId]);
+  }, [getMergedClientData, currentStepData.planId, currentStepData.benefitCategory]);
 
   // Fetch user's primary service categories for initial visibility defaults
   useEffect(() => {

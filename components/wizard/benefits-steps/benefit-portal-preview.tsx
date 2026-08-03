@@ -99,13 +99,9 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
     // ── Plan Video: wizard-in-progress first, then persisted (unless explicitly removed), then localStorage fallback ──
     // R2 keys are stored raw; preview uses the admin-authenticated /api/r2/object endpoint
     const planVideoUrl = useMemo(() => {
-        const lsKey1 = typeof window !== "undefined" ? localStorage.getItem("benefits-plan-video-key-" + category) : null;
-        // Also check old "Custom" key (renamed to "Company / Plan Sponsor")
-        const lsKey2 = category === "Company / Plan Sponsor" && typeof window !== "undefined" ? localStorage.getItem("benefits-plan-video-key-Custom") : null;
         // Wizard-in-progress takes priority; only fall back to persisted categoryBenefit.planVideo if not explicitly removed
         const rawValue = step1Data?.planVideo
-            || (!step1Data?.planVideoRemoved && categoryBenefit?.planVideo)
-            || lsKey1 || lsKey2;
+            || (!step1Data?.planVideoRemoved && categoryBenefit?.planVideo);
         if (!rawValue) return undefined;
         // If it's already a full URL (e.g. presigned), use directly
         if (rawValue.startsWith("http") || rawValue.startsWith("/api/")) return rawValue;

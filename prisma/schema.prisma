@@ -730,6 +730,78 @@ model Client {
   @@index([companyName])
   @@index([userId])
   @@index([status])
+  benefits Benefit[]
+}
+
+// Benefit model — one row per (clientId, category)
+model Benefit {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  clientId    String   @db.ObjectId
+  category    String   // "Retirement" | "Group Health" | "Group Life" | "Company / Plan Sponsor"
+
+  // Core
+  title            String
+  shortDescription String?
+
+  // Journey Section
+  journeyHeader   String?
+  journeySubtitle String?
+  journeyBodyText String?
+
+  // Plan Video (raw R2 key)
+  planVideo         String?
+  planVideoFileName String?
+
+  // Branding
+  partnerLogo     String?
+  backgroundImage String?
+  innerHeaderImage String?
+
+  // Help Cards
+  helpCards Json?
+
+  // Insurance / Portal Materials
+  insurancePlanId               String?
+  insuranceLoginUrl             String?
+  insuranceBackgroundImage      String?
+  insuranceContainerBlockOpacity Float?
+
+  // FAQs & Support Contacts
+  faqs            Json?
+  supportContacts Json?
+
+  // Closing & Signature
+  signatureMode           String?
+  customClosing           String?
+  customSignatureName     String?
+  customSignatureCompany  String?
+  customClosingBold             Boolean?
+  customClosingItalic           Boolean?
+  customSignatureNameBold       Boolean?
+  customSignatureNameItalic     Boolean?
+  customSignatureCompanyBold    Boolean?
+  customSignatureCompanyItalic  Boolean?
+
+  // Hero Overlay Settings (per-benefit, overrides client-level)
+  heroBackgroundOpacity    Float?
+  heroContainerBlockOpacity Float?
+  heroContainerInverted     Boolean?
+  heroBackgroundInverted    Boolean?
+  heroUseGradient           Boolean?
+  desktopHeroBackgroundPosition Json?
+  mobileHeroBackgroundPosition  Json?
+
+  // Visibility
+  isEnabled Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id])
+
+  @@unique([clientId, category])
+  @@index([clientId])
+  @@index([category])
 }
 
 // Meeting model

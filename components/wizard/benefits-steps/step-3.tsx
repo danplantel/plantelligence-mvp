@@ -198,7 +198,7 @@ export function BenefitsStep3() {
     }
   };
 
-  // Save FAQs to the server immediately (draft persist)
+  // Save FAQs to the server immediately (draft persist) via the new Benefit API
   const handleSaveFaqs = async () => {
     const planId = step1Data?.planId;
     const benefitCategory = step1Data?.benefitCategory;
@@ -209,45 +209,22 @@ export function BenefitsStep3() {
 
     setSavePending(true);
     try {
-      // Fetch current client data to merge
-      const res = await fetch(`/api/clients/${planId}`);
-      const result = await res.json();
-      if (!result.success) throw new Error(result.error || "Failed to fetch client data");
+      // Normalize "Custom" → "Company / Plan Sponsor" for the API
+      const category = benefitCategory === "Custom"
+        ? "Company / Plan Sponsor"
+        : benefitCategory;
 
-      const client = result.data;
-      const currentBenefits = client.employeePortalPreview?.benefits ?? client.employeePortalPreview?.previewData?.benefits ?? [];
-
-      // Build updated benefit with current FAQ data
-      const updatedBenefit = {
-        id: benefitCategory.toLowerCase().replace(/\s+/g, "-"),
-        title: step1Data?.benefitTitle || benefitCategory,
-        category: benefitCategory,
-        isEnabled: true,
-        faqs: resolvedFaqs,
-        supportContacts: currentStep3Data.supportContacts,
-      };
-
-      // Merge into the existing benefits array (replace matching category, keep others)
-      const norm = (cat: string) => cat.toLowerCase().trim().replace(/\s+/g, " ");
-      const targetNorm = norm(benefitCategory);
-      const updatedBenefits = currentBenefits.map((b: any) =>
-        norm(String(b?.category ?? "")) === targetNorm ? updatedBenefit : b,
+      const updateRes = await fetch(
+        `/api/clients/${planId}/benefits/${encodeURIComponent(category)}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            faqs: resolvedFaqs,
+            supportContacts: currentStep3Data.supportContacts,
+          }),
+        },
       );
-      if (!currentBenefits.some((b: any) => norm(String(b?.category ?? "")) === targetNorm)) {
-        updatedBenefits.push(updatedBenefit);
-      }
-
-      // Save via API
-      const updateRes = await fetch(`/api/clients/${planId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          employeePortalPreview: {
-            ...client.employeePortalPreview,
-            benefits: updatedBenefits,
-          },
-        }),
-      });
 
       const updateResult = await updateRes.json();
       if (!updateResult.success) throw new Error(updateResult.error || "Failed to save FAQs");

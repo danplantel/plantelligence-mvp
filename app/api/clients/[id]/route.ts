@@ -12,11 +12,9 @@ import {
 import {
   getCategoryPortalVisibility,
   filterContactsByPortalVisibility,
-  syncBenefitsWithCategoryVisibility,
 } from "@/lib/portal-category-visibility";
 import { resolvePersistedDocumentCategory } from "@/lib/document-category";
 import { normalizeClientBrandingKeysForResponse } from "@/lib/branding-image-url";
-import { getPresignedReadUrl, isR2Configured } from "@/lib/r2";
 
 /**
  * Convert the advisor's User.disclaimer into a single display string for the
@@ -215,36 +213,10 @@ export async function GET(
       clientId,
     );
 
-    // Generate presigned URLs for plan videos so portal viewers (employees) can play them
-    if (forPortal && isR2Configured()) {
-      // Helper: extract raw R2 key from old /api/r2/object?key=... URLs or use as-is
-      const extractKey = (v: string): string | null => {
-        if (!v || v.startsWith("http")) return null; // already a presigned URL
-        try {
-          const u = new URL(v, "http://localhost");
-          const k = u.searchParams.get("key");
-          if (k) return k;
-        } catch { /* not a URL, treat as raw key */ }
-        return v;
-      };
-
-      const ep = (dataPayload as any).employeePortalPreview;
-      if (ep?.benefits && Array.isArray(ep.benefits)) {
-        const benefitsWithUrls = await Promise.all(
-          ep.benefits.map(async (b: any) => {
-            const rawKey = b.planVideo ? extractKey(String(b.planVideo)) : null;
-            if (rawKey) {
-              try {
-                const url = await getPresignedReadUrl({ key: rawKey });
-                if (url) return { ...b, planVideo: url };
-              } catch { /* keep original if signing fails */ }
-            }
-            return b;
-          })
-        );
-        (dataPayload as any).employeePortalPreview = { ...ep, benefits: benefitsWithUrls };
-      }
-    }
+    // Presigned URL generation for plan videos is now handled by the dedicated
+    // Benefit API routes (GET /api/clients/[id]/benefits and
+    // GET /api/clients/[id]/benefits/[category]). The dual-write in the PUT
+    // benefit handler keeps employeePortalPreview in sync.
 
     return NextResponse.json({
       success: true,
@@ -474,24 +446,12 @@ export async function PUT(
       keyContacts: keyContacts
         ? (keyContacts as any)
         : existingClient.keyContacts,
-      // Save employeePortalPreview (benefits data). When Edit Panel restores a category,
-      // sync benefits so isEnabled=true for that category — otherwise they stay hidden.
-      employeePortalPreview: (() => {
-        const basePreview = employeePortalPreview
-          ? (employeePortalPreview as any)
-          : (existingClient as any).employeePortalPreview;
-        // Merge with existing data: preserve benefits, disclaimers, etc. when patch doesn't include them
-        const existingEp = (existingClient as any).employeePortalPreview || {};
-        const merged = { ...existingEp, ...basePreview };
-        if ((body as any).categoryPortalVisibility !== undefined && merged?.benefits) {
-          const visibility = getCategoryPortalVisibility((body as any).categoryPortalVisibility);
-          return {
-            ...merged,
-            benefits: syncBenefitsWithCategoryVisibility(merged.benefits, visibility),
-          };
-        }
-        return merged;
-      })(),
+      // employeePortalPreview: merge patch with existing data.
+      // Benefits are now managed via the dedicated Benefit API with dual-write
+      // keeping this field in sync. Only merge top-level preview fields here.
+      employeePortalPreview: employeePortalPreview !== undefined
+        ? { ...((existingClient as any).employeePortalPreview || {}), ...(employeePortalPreview as any) }
+        : (existingClient as any).employeePortalPreview,
       // Category Display (Show/Hide): always persist when sent by Edit Client so Hide state is not lost
       categoryPortalVisibility:
         (body as any).categoryPortalVisibility !== undefined

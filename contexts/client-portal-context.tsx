@@ -27,7 +27,6 @@ interface ClientData {
   disclaimers?: string;
   keyContacts: any[];
   documents?: any[];
-  employeePortalPreview?: any;
   categoryPortalVisibility?: Record<string, boolean>;
   spdFile?: string;
   spdFileName?: string;

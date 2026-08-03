@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams } from "next/navigation";
 import { useClientPortal } from "@/contexts/client-portal-context";
+import useSWR from "swr";
 import { FAQSection, DynamicFAQItem, FAQContact } from "@/components/faq-section";
 import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
 import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions-faq";
@@ -23,6 +24,10 @@ import {
   benefitCategoryToDocumentHubLabel,
   mapMergedRowsToBenefitHubItems,
 } from "@/lib/map-plan-documents-for-benefit-hub";
+import { getBenefitFromPreview } from "@/lib/benefit-data-helpers";
+import type { BenefitData } from "@/types/benefit";
+
+const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 const WELLNESS_DOCUMENT_HUB = benefitCategoryToDocumentHubLabel("Company / Plan Sponsor");
 
@@ -38,6 +43,20 @@ export default function WellnessProgramsPage() {
 
   const brandColor = clientData?.brandColor || "#1F3A60";
   const secondaryColor = clientData?.secondaryColor || "#6B7280";
+
+  // Fetch benefit data from the new Benefit API
+  const { data: benefitApiData } = useSWR(
+    clientId ? `/api/clients/${clientId}/benefits/Company%20%2F%20Plan%20Sponsor?forPortal=1` : null,
+    fetcher,
+    { revalidateOnFocus: false, dedupingInterval: 60_000 },
+  );
+  const benefitFromApi: BenefitData | null = benefitApiData?.benefit ?? null;
+
+  // Fall back to legacy employeePortalPreview during dual-write transition
+  const benefitData = useMemo(() => {
+    if (benefitFromApi) return benefitFromApi;
+    return getBenefitFromPreview((clientData as any)?.employeePortalPreview, "Company / Plan Sponsor");
+  }, [benefitFromApi, clientData]);
 
   /** Re-merge documents when embedded list ids change — avoids re-fetching on every clientData reference churn. */
   const documentsSig = useMemo(() => {
@@ -100,13 +119,9 @@ export default function WellnessProgramsPage() {
     };
   }, [clientId, documentsSig]);
 
-  // Extract FAQs for this category from employeePortalPreview.benefits.
+  // Extract FAQs for this category from the benefit data.
   const faqsForCategory = useMemo(() => {
-    const benefits = (clientData as any)?.employeePortalPreview?.benefits ?? [];
-    const wellnessBenefit = benefits.find(
-      (b: any) => b.category === "Company / Plan Sponsor",
-    );
-    const faqs = wellnessBenefit?.faqs;
+    const faqs = benefitData?.faqs;
     if (faqs && Array.isArray(faqs)) {
       const enabled = faqs.filter(
         (f: any) => f.enabled !== false,
@@ -118,7 +133,7 @@ export default function WellnessProgramsPage() {
       return defaults as DynamicFAQItem[];
     }
     return undefined;
-  }, [clientData?.employeePortalPreview]);
+  }, [benefitData]);
 
   // Resolve support contacts for this category.
   const supportContactsForFAQ = useMemo(() => {
@@ -126,11 +141,7 @@ export default function WellnessProgramsPage() {
       ? clientData?.keyContacts
       : (clientData?.keyContacts as any)?.contacts || [];
 
-    const benefits = (clientData as any)?.employeePortalPreview?.benefits ?? [];
-    const wellnessBenefit = benefits.find(
-      (b: any) => b.category === "Company / Plan Sponsor",
-    );
-    const rawSupportContacts = wellnessBenefit?.supportContacts;
+    const rawSupportContacts = benefitData?.supportContacts;
     if (!Array.isArray(rawSupportContacts)) return undefined;
 
     const enabled = rawSupportContacts.filter((sc: any) => sc.enabled !== false);
@@ -148,13 +159,7 @@ export default function WellnessProgramsPage() {
         headshot: matched?.headshot || undefined,
       } as FAQContact;
     });
-  }, [clientData?.employeePortalPreview, clientData?.keyContacts]);
-
-  // Extract benefit data (benefitTitle, shortDescription) for this category
-  const benefitData = useMemo(() => {
-    const benefits = (clientData as any)?.employeePortalPreview?.benefits ?? [];
-    return benefits.find((b: any) => b.category === "Company / Plan Sponsor");
-  }, [clientData?.employeePortalPreview]);
+  }, [benefitData, clientData?.keyContacts]);
 
   return (
     <div className="min-h-screen w-full">
@@ -169,16 +174,16 @@ export default function WellnessProgramsPage() {
           brandColor={brandColor}
           secondaryColor={secondaryColor}
           customHeadline={benefitData?.title}
-          customDescription={benefitData?.shortDescription}
+          customDescription={benefitData?.shortDescription ?? undefined}
           category="Company / Plan Sponsor"
         />
 
         <RetirementJourneySection
           brandColor={brandColor}
-          mainTitle={benefitData?.journeyHeader || benefitData?.title || "Whole-Person Wellness Programs"}
-          subtitle={benefitData?.journeySubtitle || "Supporting your health, mind, and financial well-being."}
-          description={benefitData?.journeyBodyText || benefitData?.shortDescription || "Your well-being goes beyond traditional benefits. Discover programs designed to support your physical, mental, and financial health—from fitness stipends and nutrition coaching to mental health resources and financial wellness tools. Thrive at work and at home."}
-          planVideoUrl={(benefitData as any)?.planVideo}
+          mainTitle={(benefitData as any)?.journeyHeader || benefitData?.title || "Whole-Person Wellness Programs"}
+          subtitle={(benefitData as any)?.journeySubtitle || "Supporting your health, mind, and financial well-being."}
+          description={(benefitData as any)?.journeyBodyText || benefitData?.shortDescription || "Your well-being goes beyond traditional benefits. Discover programs designed to support your physical, mental, and financial health—from fitness stipends and nutrition coaching to mental health resources and financial wellness tools. Thrive at work and at home."}
+          planVideoUrl={benefitData?.planVideo as string | undefined}
           planVideoFallbackImage={WELLNESS_FALLBACK_IMAGE}
         />
 

@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useClientPortal } from "@/contexts/client-portal-context";
 import { useParams } from "next/navigation";
+import useSWR from "swr";
 import { FAQSection, DynamicFAQItem, FAQContact } from "@/components/faq-section";
 import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
 import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions-faq";
@@ -23,6 +24,10 @@ import {
   benefitCategoryToDocumentHubLabel,
   mapMergedRowsToBenefitHubItems,
 } from "@/lib/map-plan-documents-for-benefit-hub";
+import { getBenefitFromPreview } from "@/lib/benefit-data-helpers";
+import type { BenefitData } from "@/types/benefit";
+
+const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 /** Same hub label as Create Benefits → Retirement card (`resolvePersistedDocumentCategory("Document", "Retirement")`). */
 const RETIREMENT_DOCUMENT_HUB = benefitCategoryToDocumentHubLabel("Retirement");
@@ -42,11 +47,19 @@ export default function RetirementPage() {
   const brandColor = clientData?.brandColor || "#1F3A60";
   const secondaryColor = clientData?.secondaryColor || "#6B7280";
 
-  // Extract benefit data (benefitTitle, shortDescription) for this category
+  // Fetch benefit data from the new Benefit API (typed, no more JSON rummaging)
+  const { data: benefitApiData } = useSWR(
+    clientId ? `/api/clients/${clientId}/benefits/Retirement?forPortal=1` : null,
+    fetcher,
+    { revalidateOnFocus: false, dedupingInterval: 60_000 },
+  );
+  const benefitFromApi: BenefitData | null = benefitApiData?.benefit ?? null;
+
+  // Fall back to legacy employeePortalPreview during dual-write transition
   const benefitData = useMemo(() => {
-    const benefits = (clientData as any)?.employeePortalPreview?.benefits ?? [];
-    return benefits.find((b: any) => b.category === "Retirement");
-  }, [clientData?.employeePortalPreview]);
+    if (benefitFromApi) return benefitFromApi;
+    return getBenefitFromPreview((clientData as any)?.employeePortalPreview, "Retirement");
+  }, [benefitFromApi, clientData]);
 
   /** Re-merge documents when embedded list ids change — avoids re-fetching on every clientData reference churn. */
   const documentsSig = useMemo(() => {
@@ -61,14 +74,10 @@ export default function RetirementPage() {
   const clientDataRef = useRef(clientData);
   clientDataRef.current = clientData;
 
-  // Extract FAQs for this category from employeePortalPreview.benefits.
+  // Extract FAQs for this category from the benefit data.
   // Falls back to Retirement-specific defaults when no custom FAQs are saved yet.
   const faqsForCategory = useMemo(() => {
-    const benefits = (clientData as any)?.employeePortalPreview?.benefits ?? [];
-    const retirementBenefit = benefits.find(
-      (b: any) => b.category === "Retirement",
-    );
-    const faqs = retirementBenefit?.faqs;
+    const faqs = benefitData?.faqs;
     if (faqs && Array.isArray(faqs)) {
       const enabled = faqs.filter(
         (f: any) => f.enabled !== false,
@@ -81,7 +90,7 @@ export default function RetirementPage() {
       return defaults as DynamicFAQItem[];
     }
     return undefined;
-  }, [clientData?.employeePortalPreview]);
+  }, [benefitData]);
 
   // Resolve support contacts from the benefit's supportContacts (selected in wizard Step 3).
   // Cross-references contactId with keyContacts for email/phone/headshot.
@@ -91,11 +100,7 @@ export default function RetirementPage() {
       ? clientData?.keyContacts
       : (clientData?.keyContacts as any)?.contacts || [];
 
-    const benefits = (clientData as any)?.employeePortalPreview?.benefits ?? [];
-    const retirementBenefit = benefits.find(
-      (b: any) => b.category === "Retirement",
-    );
-    const rawSupportContacts = retirementBenefit?.supportContacts;
+    const rawSupportContacts = benefitData?.supportContacts;
     if (!Array.isArray(rawSupportContacts)) return undefined;
 
     const enabled = rawSupportContacts.filter((sc: any) => sc.enabled !== false);
@@ -113,7 +118,7 @@ export default function RetirementPage() {
         headshot: matched?.headshot || undefined,
       } as FAQContact;
     });
-  }, [clientData?.employeePortalPreview, clientData?.keyContacts]);
+  }, [benefitData, clientData?.keyContacts]);
 
   // Same data as Benefits Step 4: GET /api/documents/client + embedded docs from context
   useEffect(() => {
@@ -176,16 +181,16 @@ export default function RetirementPage() {
           brandColor={brandColor}
           secondaryColor={secondaryColor}
           customHeadline={benefitData?.title}
-          customDescription={benefitData?.shortDescription}
+          customDescription={benefitData?.shortDescription ?? undefined}
           category="Retirement"
         />
 
         <RetirementJourneySection
           brandColor={brandColor}
-          mainTitle={benefitData?.journeyHeader || benefitData?.title || "Your Retirement Journey Starts Here"}
-          subtitle={benefitData?.journeySubtitle || "Build your future with confidence."}
-          description={benefitData?.journeyBodyText || benefitData?.shortDescription || "Take control of your financial future with our comprehensive retirement planning resources. Whether you're just starting your career or preparing for the next chapter, we provide the tools and guidance you need to build a secure retirement."}
-          planVideoUrl={(benefitData as any)?.planVideo}
+          mainTitle={(benefitData as any)?.journeyHeader || benefitData?.title || "Your Retirement Journey Starts Here"}
+          subtitle={(benefitData as any)?.journeySubtitle || "Build your future with confidence."}
+          description={(benefitData as any)?.journeyBodyText || benefitData?.shortDescription || "Take control of your financial future with our comprehensive retirement planning resources. Whether you're just starting your career or preparing for the next chapter, we provide the tools and guidance you need to build a secure retirement."}
+          planVideoUrl={benefitData?.planVideo as string | undefined}
           planVideoFallbackImage={RETIREMENT_FALLBACK_IMAGE}
         />
 
@@ -214,3 +219,4 @@ export default function RetirementPage() {
     </div>
   );
 }
+

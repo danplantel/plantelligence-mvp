@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams } from "next/navigation";
 import { useClientPortal } from "@/contexts/client-portal-context";
+import useSWR from "swr";
 import { FAQSection, DynamicFAQItem, FAQContact } from "@/components/faq-section";
 import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
 import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions-faq";
@@ -23,6 +24,10 @@ import {
   benefitCategoryToDocumentHubLabel,
   mapMergedRowsToBenefitHubItems,
 } from "@/lib/map-plan-documents-for-benefit-hub";
+import { getBenefitFromPreview } from "@/lib/benefit-data-helpers";
+import type { BenefitData } from "@/types/benefit";
+
+const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 const LIFE_DOCUMENT_HUB = benefitCategoryToDocumentHubLabel("Group Life");
 
@@ -38,6 +43,20 @@ export default function LifeInsurancePage() {
 
   const brandColor = clientData?.brandColor || "#1F3A60";
   const secondaryColor = clientData?.secondaryColor || "#6B7280";
+
+  // Fetch benefit data from the new Benefit API
+  const { data: benefitApiData } = useSWR(
+    clientId ? `/api/clients/${clientId}/benefits/Group%20Life?forPortal=1` : null,
+    fetcher,
+    { revalidateOnFocus: false, dedupingInterval: 60_000 },
+  );
+  const benefitFromApi: BenefitData | null = benefitApiData?.benefit ?? null;
+
+  // Fall back to legacy employeePortalPreview during dual-write transition
+  const benefitData = useMemo(() => {
+    if (benefitFromApi) return benefitFromApi;
+    return getBenefitFromPreview((clientData as any)?.employeePortalPreview, "Group Life");
+  }, [benefitFromApi, clientData]);
 
   /** Re-merge documents when embedded list ids change — avoids re-fetching on every clientData reference churn. */
   const documentsSig = useMemo(() => {
@@ -100,13 +119,9 @@ export default function LifeInsurancePage() {
     };
   }, [clientId, documentsSig]);
 
-  // Extract FAQs for this category from employeePortalPreview.benefits.
+  // Extract FAQs for this category from the benefit data.
   const faqsForCategory = useMemo(() => {
-    const benefits = (clientData as any)?.employeePortalPreview?.benefits ?? [];
-    const lifeBenefit = benefits.find(
-      (b: any) => b.category === "Group Life",
-    );
-    const faqs = lifeBenefit?.faqs;
+    const faqs = benefitData?.faqs;
     if (faqs && Array.isArray(faqs)) {
       const enabled = faqs.filter(
         (f: any) => f.enabled !== false,
@@ -118,7 +133,7 @@ export default function LifeInsurancePage() {
       return defaults as DynamicFAQItem[];
     }
     return undefined;
-  }, [clientData?.employeePortalPreview]);
+  }, [benefitData]);
 
   // Resolve support contacts
   const supportContactsForFAQ = useMemo(() => {
@@ -126,11 +141,7 @@ export default function LifeInsurancePage() {
       ? clientData?.keyContacts
       : (clientData?.keyContacts as any)?.contacts || [];
 
-    const benefits = (clientData as any)?.employeePortalPreview?.benefits ?? [];
-    const lifeBenefit = benefits.find(
-      (b: any) => b.category === "Group Life",
-    );
-    const rawSupportContacts = lifeBenefit?.supportContacts;
+    const rawSupportContacts = benefitData?.supportContacts;
     if (!Array.isArray(rawSupportContacts)) return undefined;
 
     const enabled = rawSupportContacts.filter((sc: any) => sc.enabled !== false);
@@ -148,13 +159,7 @@ export default function LifeInsurancePage() {
         headshot: matched?.headshot || undefined,
       } as FAQContact;
     });
-  }, [clientData?.employeePortalPreview, clientData?.keyContacts]);
-
-  // Extract benefit data (benefitTitle, shortDescription) for this category
-  const benefitData = useMemo(() => {
-    const benefits = (clientData as any)?.employeePortalPreview?.benefits ?? [];
-    return benefits.find((b: any) => b.category === "Group Life");
-  }, [clientData?.employeePortalPreview]);
+  }, [benefitData, clientData?.keyContacts]);
 
   return (
     <div className="min-h-screen w-full">
@@ -169,16 +174,16 @@ export default function LifeInsurancePage() {
           brandColor={brandColor}
           secondaryColor={secondaryColor}
           customHeadline={benefitData?.title}
-          customDescription={benefitData?.shortDescription}
+          customDescription={benefitData?.shortDescription ?? undefined}
           category="Group Life"
         />
 
         <RetirementJourneySection
           brandColor={brandColor}
-          mainTitle={benefitData?.journeyHeader || benefitData?.title || "Life Insurance: Protecting What Matters Most"}
-          subtitle={benefitData?.journeySubtitle || "Secure your family's financial future with the right coverage."}
-          description={benefitData?.journeyBodyText || benefitData?.shortDescription || "Protect what matters most. Our life insurance resources help you understand your coverage options and ensure your loved ones are financially secure, no matter what life brings. Explore term life, whole life, and supplemental coverage tailored to your needs."}
-          planVideoUrl={(benefitData as any)?.planVideo}
+          mainTitle={(benefitData as any)?.journeyHeader || benefitData?.title || "Life Insurance: Protecting What Matters Most"}
+          subtitle={(benefitData as any)?.journeySubtitle || "Secure your family's financial future with the right coverage."}
+          description={(benefitData as any)?.journeyBodyText || benefitData?.shortDescription || "Protect what matters most. Our life insurance resources help you understand your coverage options and ensure your loved ones are financially secure, no matter what life brings. Explore term life, whole life, and supplemental coverage tailored to your needs."}
+          planVideoUrl={benefitData?.planVideo as string | undefined}
           planVideoFallbackImage={LIFE_INSURANCE_FALLBACK_IMAGE}
         />
 

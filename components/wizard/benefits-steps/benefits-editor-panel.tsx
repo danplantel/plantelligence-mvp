@@ -214,12 +214,6 @@ export function BenefitsEditorPanel({
                     planVideoFileName: file.name,
                     planVideoRemoved: false,
                 });
-                // Backup: also save to dedicated per-category localStorage (zustand store may lose it during navigation)
-                try {
-                    const cat = step1Data?.benefitCategory || "Retirement";
-                    localStorage.setItem("benefits-plan-video-key-" + cat, key);
-                    localStorage.setItem("benefits-plan-video-filename-" + cat, file.name);
-                } catch { /* ignore */ }
             } else {
                 alert("Failed to upload video. Please try again.");
             }
@@ -240,11 +234,6 @@ export function BenefitsEditorPanel({
             planVideoFileName: undefined,
             planVideoRemoved: true,
         });
-        try {
-            const cat = step1Data?.benefitCategory || "Retirement";
-            localStorage.removeItem("benefits-plan-video-key-" + cat);
-            localStorage.removeItem("benefits-plan-video-filename-" + cat);
-        } catch { /* ignore */ }
     };
 
     // Hero overlay settings handler
