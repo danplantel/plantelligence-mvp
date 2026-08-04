@@ -41,8 +41,7 @@ import { Input } from "@/components/ui/input";
 import { ContactCardLayoutPreviewModal } from "@/components/pages/edit-client/contact-card-layout-preview-modal";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ColorPicker } from "@/components/ui/color-picker";
-import { Building2, Palette, Globe, FileText, CheckCircle2, AlertCircle, Eye, X, ArrowLeftRight } from "lucide-react";
+import { Building2, Globe, FileText, Eye, X } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { PRIMARY_SERVICE_CATEGORY_OPTIONS } from "@/lib/service-categories";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -60,6 +59,7 @@ import type {
   BenefitsCategory,
 } from "@/types/new-client-wizard";
 import { EditPlanPreviewSection } from "@/components/wizard/new-client-steps/sections/edit-plan-preview-section";
+import { BrandColorsSection } from "@/components/wizard/new-client-steps/sections/brand-colors-section";
 import { CardSelectionModal } from "@/components/wizard/new-client-steps/card-selection-modal";
 import { PortalDisclaimers } from "@/components/pages/client-portal/sections/portal-disclaimers";
 import { uploadBrandingToR2 } from "@/lib/branding-r2";
@@ -1156,190 +1156,40 @@ export default function EditClientPage() {
               </Card>
 
               {/* Brand Colors */}
-              <Card className="dark:bg-gray-800">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 dark:text-gray-100">
-                    <Palette className="w-5 h-5 text-accent-blue" />
-                    Brand Colors
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground dark:text-gray-400">
-                    Choose your primary and secondary brand colors for the
-                    employee portal. Colors are automatically extracted from
-                    your uploaded logo and applied to buttons, footers, headers,
-                    and more. Click on the colors below to edit them to your
-                    liking.
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Primary Color */}
-                    <div className="space-y-3 relative">
-                      <Label className="dark:text-gray-300">
-                        Primary Color <span className="text-red-500">*</span>
-                      </Label>
-                      <div className="flex items-center space-x-3">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            handleInputChange(
-                              "isPrimaryColorPickerOpen",
-                              !companyData.isPrimaryColorPickerOpen,
-                            );
-                            if (
-                              !companyData.isPrimaryColorPickerOpen &&
-                              companyData.isSecondaryColorPickerOpen
-                            ) {
-                              handleInputChange(
-                                "isSecondaryColorPickerOpen",
-                                false,
-                              );
-                            }
-                          }}
-                          className={`w-9 h-9 border rounded cursor-pointer flex items-center justify-center ${
-                            companyData.primaryColor
-                              ? "border-gray-300 dark:border-gray-600"
-                              : "border-dashed border-gray-400 dark:border-gray-500"
-                          }`}
-                          style={{
-                            background:
-                              companyData.primaryColor || "transparent",
-                          }}
-                        >
-                          <div
-                            className={`w-4 h-4 rounded ${
-                              companyData.primaryColor
-                                ? "border border-white/20"
-                                : "border border-gray-400 dark:border-gray-500"
-                            }`}
-                          />
-                        </button>
-                        <Input
-                          icon={<Palette className="h-4 w-4" />}
-                          type="text"
-                          value={companyData.primaryColor}
-                          onChange={(e) =>
-                            handleInputChange(
-                              "primaryColor",
-                              e.target.value,
-                            )
-                          }
-                          placeholder="#..."
-                          className="flex-1"
-                        />
-                      </div>
-                      <ColorPicker
-                        value={companyData.primaryColor}
-                        onChange={(color) =>
-                          handleInputChange("primaryColor", color)
-                        }
-                        isOpen={
-                          companyData.isPrimaryColorPickerOpen || false
-                        }
-                        onOpenChange={(open) =>
-                          handleInputChange(
-                            "isPrimaryColorPickerOpen",
-                            open || false,
-                          )
-                        }
-                        title="Primary Color"
-                      />
-                    </div>
-
-                    {/* Secondary Color */}
-                    <div className="space-y-3 relative">
-                      <Label className="dark:text-gray-300">
-                        Secondary Color{" "}
-                        <span className="text-red-500">*</span>
-                      </Label>
-                      <div className="flex items-center space-x-3">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            handleInputChange(
-                              "isSecondaryColorPickerOpen",
-                              !companyData.isSecondaryColorPickerOpen,
-                            );
-                            if (
-                              !companyData.isSecondaryColorPickerOpen &&
-                              companyData.isPrimaryColorPickerOpen
-                            ) {
-                              handleInputChange(
-                                "isPrimaryColorPickerOpen",
-                                false,
-                              );
-                            }
-                          }}
-                          className={`w-9 h-9 border rounded cursor-pointer flex items-center justify-center ${
-                            companyData.secondaryColor
-                              ? "border-gray-300 dark:border-gray-600"
-                              : "border-dashed border-gray-400 dark:border-gray-500"
-                          }`}
-                          style={{
-                            background:
-                              companyData.secondaryColor || "transparent",
-                          }}
-                        >
-                          <div
-                            className={`w-4 h-4 rounded ${
-                              companyData.secondaryColor
-                                ? "border border-white/20"
-                                : "border border-gray-400 dark:border-gray-500"
-                            }`}
-                          />
-                        </button>
-                        <Input
-                          icon={<Palette className="h-4 w-4" />}
-                          type="text"
-                          value={companyData.secondaryColor}
-                          onChange={(e) =>
-                            handleInputChange(
-                              "secondaryColor",
-                              e.target.value,
-                            )
-                          }
-                          placeholder="#..."
-                          className="flex-1"
-                        />
-                      </div>
-                      <ColorPicker
-                        value={companyData.secondaryColor}
-                        onChange={(color) =>
-                          handleInputChange("secondaryColor", color)
-                        }
-                        isOpen={
-                          companyData.isSecondaryColorPickerOpen || false
-                        }
-                        onOpenChange={(open) =>
-                          handleInputChange(
-                            "isSecondaryColorPickerOpen",
-                            open || false,
-                          )
-                        }
-                        title="Secondary Color"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Swap Colors */}
-                  <div className="flex justify-center pt-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const prim = companyData.primaryColor;
-                        const sec = companyData.secondaryColor;
-                        handleInputChange("primaryColor", sec);
-                        handleInputChange("secondaryColor", prim);
-                      }}
-                      className="inline-flex items-center gap-2 text-xs"
-                    >
-                      <ArrowLeftRight className="w-3.5 h-3.5" />
-                      Swap Colors
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+              <BrandColorsSection
+                primaryColor={companyData.primaryColor}
+                secondaryColor={companyData.secondaryColor}
+                onPrimaryChange={(color) =>
+                  handleInputChange("primaryColor", color)
+                }
+                onSecondaryChange={(color) =>
+                  handleInputChange("secondaryColor", color)
+                }
+                isPrimaryPickerOpen={
+                  companyData.isPrimaryColorPickerOpen || false
+                }
+                isSecondaryPickerOpen={
+                  companyData.isSecondaryColorPickerOpen || false
+                }
+                onPrimaryPickerOpenChange={(open) =>
+                  handleInputChange(
+                    "isPrimaryColorPickerOpen",
+                    open || false,
+                  )
+                }
+                onSecondaryPickerOpenChange={(open) =>
+                  handleInputChange(
+                    "isSecondaryColorPickerOpen",
+                    open || false,
+                  )
+                }
+                logoDataUrl={
+                  companyData.companyLogo?.url?.startsWith("data:")
+                    ? companyData.companyLogo.url
+                    : undefined
+                }
+                websiteUrl={companyData.companyWebsite}
+              />
 
               {/* Brand Images */}
               <BrandImagesSection
