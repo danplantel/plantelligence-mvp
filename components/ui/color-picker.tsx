@@ -20,10 +20,10 @@ const solidColors = [
   "#1F3A60",
   "#6B7280",
   "#E5E7EB",
-  "#FFFFFF",
-  "#1CA5A8",
-  "#2E7D32",
-  "#F2994A",
+  "#0F6D66",
+  "#2C5F2D",
+  "#3A6EA5",
+  "#D71E28",
 ];
 
 function ColorPicker({
