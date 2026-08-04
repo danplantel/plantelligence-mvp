@@ -643,9 +643,9 @@ export function BenefitsEditorPanel({
                         If no video is uploaded, the default category image will be shown instead.
                     </p>
 
-                    {/* Journey Section Text Overrides */}
+                    {/* Video Section Overrides */}
                     <div className="space-y-4 mb-6 p-4 border border-muted rounded-lg bg-white dark:bg-gray-800">
-                        <Label className="text-xs font-bold text-foreground">Journey Section Text</Label>
+                        <Label className="text-xs font-bold text-foreground">Video Section Text</Label>
                         <p className="text-[11px] text-muted-foreground -mt-2">
                             Customize the header, subtitle, and body text shown in the Retirement Journey section below the welcome banner.
                         </p>

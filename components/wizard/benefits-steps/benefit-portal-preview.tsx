@@ -302,9 +302,9 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
                 <div className="relative group">
                     <RetirementJourneySection
                         brandColor={brandColor}
-                        mainTitle={step1Data?.journeyHeader || step1Data?.benefitTitle || (category === "Custom" ? `Welcome to your benefits!` : `Your ${category} Benefits`)}
-                        subtitle={step1Data?.journeySubtitle || "Explore your comprehensive benefits package."}
-                        description={step1Data?.journeyBodyText || step1Data?.shortDescription || ""}
+                        mainTitle={step1Data?.journeyHeader || (category === "Custom" ? "Whole-Person Wellness Programs" : `Your ${category} Journey Starts Here`)}
+                        subtitle={step1Data?.journeySubtitle || "Build your future with confidence."}
+                        description={step1Data?.journeyBodyText || "Take control of your financial future with our comprehensive planning resources."}
                         planVideoUrl={planVideoUrl}
                         planVideoFallbackImage={categoryDefaultImage}
                     />
