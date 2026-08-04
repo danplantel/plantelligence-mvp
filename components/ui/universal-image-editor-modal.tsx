@@ -1653,24 +1653,21 @@ export function UniversalImageEditorModal({
         cropY = Math.round((ch - cropHeight) / 2);
       }
     } else if (type === "headshot") {
-      // Always center the crop on the canvas — headshots use a fixed circular
-      // guideline so the image should always be positioned at the canvas center.
-      // Using activeObject.left can produce a right-shifted result when the
-      // object's logical position drifts from the visual center (e.g. after
-      // the user taps the canvas, Fabric.js may record a stale position).
-      const imageCenterX = cw / 2;
-      const imageCenterY = ch / 2;
+      // Match the circle preview zoom level (scaleFactor = 0.65 in
+      // generatePreviews).  The preview shows 65 % of the canvas area
+      // centred; crop the same region so the saved output matches what
+      // the user sees in the editor preview panel.
+      const scaleFactor = 0.65;
+      const cropSize = Math.round(Math.min(cw, ch) * scaleFactor);
 
-      const cropFactor = 0.8;
+      cropWidth = cropSize;
+      cropHeight = cropSize;
 
-      // Both dimensions scaled from the image's actual rendered size
-      cropWidth = Math.min(Math.round(photoWidth * cropFactor), cw - 2);
-      cropHeight = Math.min(Math.round(photoHeight * cropFactor), ch - 2);
+      cropX = Math.round((cw - cropWidth) / 2);
+      cropY = Math.round((ch - cropHeight) / 2);
 
-      // Center on the canvas, then clamp to canvas edges
-      cropX = Math.round(imageCenterX - cropWidth / 2);
-      cropY = Math.round(imageCenterY - cropHeight / 2);
-
+      // Clamp to canvas edges (should never be needed for a centred square
+      // on a square canvas, but kept as a safety net).
       if (cropX < 0) cropX = 0;
       if (cropY < 0) cropY = 0;
       if (cropX + cropWidth > cw) cropX = cw - cropWidth;
