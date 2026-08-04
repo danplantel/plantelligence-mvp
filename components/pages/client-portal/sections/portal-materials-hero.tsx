@@ -52,7 +52,7 @@ export function PortalMaterialsHero({
 }: PortalMaterialsHeroProps) {
   // Resolve insurance fields from client portal context (persisted inside employeePortalPreview)
   const { clientData } = useClientPortal();
-  const epp = clientData?.employeePortalPreview as Record<string, unknown> | undefined;
+  const epp = (clientData as any)?.employeePortalPreview as Record<string, unknown> | undefined;
 
   // Plan ID label: prop override → context → default
   const resolvedPlanIdLabel = planIdLabelProp ?? (epp?.insurancePlanId ? `PLAN ID: ${epp.insurancePlanId}` : undefined);

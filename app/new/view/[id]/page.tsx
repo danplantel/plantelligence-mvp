@@ -145,7 +145,7 @@ export default function ViewClientPage() {
           },
           keyContacts: visibleContacts,
           documents: (clientData as any).documents,
-          employeePortalPreview: clientData.employeePortalPreview,
+          employeePortalPreview: (clientData as any).employeePortalPreview,
           categoryPortalVisibility: categoryVisibility,
         }}
         hideHeader={true}
