@@ -123,7 +123,7 @@ export function EditClientHeader({
             Status:
           </Label>
           <Select value={clientStatus} onValueChange={onStatusChange}>
-            <SelectTrigger className="w-32 h-10 font-medium border-2 border-accent-blue bg-white dark:bg-gray-800 dark:text-gray-100 hover:bg-accent-blue/5 dark:hover:bg-accent-blue/10 focus:ring-2 focus:ring-accent-blue/20">
+            <SelectTrigger className="w-32 h-8 text-sm font-medium border-2 border-accent-blue bg-white dark:bg-gray-800 dark:text-gray-100 hover:bg-accent-blue/5 dark:hover:bg-accent-blue/10 focus:ring-2 focus:ring-accent-blue/20">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -136,21 +136,23 @@ export function EditClientHeader({
 
         <Button
           variant="default"
+          size="sm"
           onClick={handleOpenPortal}
           disabled={!hasClient || !clientId}
-          className="font-medium px-6"
+          className="font-medium w-32 justify-center"
         >
-          <ExternalLink className="mr-2 h-4 w-4" />
+          <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
           Open Portal
         </Button>
 
         <Button
           variant="outline"
+          size="sm"
           onClick={() => setDeleteDialogOpen(true)}
           disabled={!hasClient || !clientId || isDeleting}
-          className="font-medium px-6 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40 dark:hover:text-red-300"
+          className="font-medium w-32 justify-center text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40 dark:hover:text-red-300"
         >
-          <Trash2 className="mr-2 h-4 w-4" />
+          <Trash2 className="mr-1.5 h-3.5 w-3.5" />
           Delete
         </Button>
       </div>
