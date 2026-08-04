@@ -320,6 +320,34 @@ export function BenefitsStep5() {
   const disclaimerOrganizationName =
     userOrganizationName || userOrgNameRef.current || organizationName;
 
+  // ── Fetch User.organizationName independently of the disclaimer fetch ──
+  // This ensures the org name is always captured, even when the User has no
+  // disclaimer saved (getUserProfileDisclaimer returns null in that case).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/profile");
+        if (!res.ok || cancelled) return;
+        const profile = await res.json();
+        const orgName = (
+          profile?.organizationName ||
+          profile?.user?.organizationName ||
+          profile?.wizardSessions?.[0]?.clientProfile?.organizationName ||
+          profile?.wizardSessions?.[0]?.branding?.organizationName ||
+          ""
+        ).trim();
+        if (orgName) {
+          userOrgNameRef.current = orgName;
+          setUserOrganizationName(orgName);
+        }
+      } catch (err) {
+        console.error("Failed to fetch user organizationName:", err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   // ── Fetch the User's disclaimer (same source as Settings > Team & Disclaimers) ──
   // The advisor's profile disclaimer is used as the default for new benefit
   // disclaimers. Returns a Disclaimer object (or null if none is saved).
@@ -329,7 +357,15 @@ export function BenefitsStep5() {
       if (!res.ok) return null;
       const profile = await res.json();
       // Capture User.organizationName for the `[Organization Name]` placeholder.
-      const orgName = (profile?.organizationName || "").trim();
+      // The /api/profile endpoint may return organizationName at the top level
+      // or nested under `user.organizationName`.
+      const orgName = (
+        profile?.organizationName ||
+        profile?.user?.organizationName ||
+        profile?.wizardSessions?.[0]?.clientProfile?.organizationName ||
+        profile?.wizardSessions?.[0]?.branding?.organizationName ||
+        ""
+      ).trim();
       if (orgName) {
         userOrgNameRef.current = orgName;
         setUserOrganizationName(orgName);
