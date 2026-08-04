@@ -316,54 +316,37 @@ export function PortalWelcomeBanner({
   // Compute the default background image per category
   const categoryDefaultBg = CATEGORY_DEFAULT_BGS[category || ""] || DEFAULT_WELCOME_BG;
 
+  // Resolve the full-bleed background image URL
+  const benefits = clientData?.employeePortalPreview?.benefits ?? [];
+  const catBenefit = benefits.find((b: any) => (b.category || "").toLowerCase() === (category || "").toLowerCase());
+  const persistedImage = catBenefit?.image;
+  const wizardImage = wizardStep1Data?.brandImages?.header?.url;
+  const wizardMatch = wizardStep1Data?.benefitCategory && category && wizardStep1Data.benefitCategory === category ? wizardImage : undefined;
+  const backgroundSrc = persistedImage || wizardMatch || categoryDefaultBg;
+
   return (
     <section
       id="portal-welcome-banner"
       className={`relative isolate overflow-hidden min-h-[50vh] lg:min-h-screen w-full ${
         effectiveContainerInverted ? "text-gray-900" : "text-white"
       }`}
-      style={{ backgroundColor: "#0F172A" }}
+      style={{
+        backgroundColor: "#0F172A",
+        backgroundImage: backgroundSrc ? `url(${backgroundSrc})` : undefined,
+        backgroundSize: "cover",
+        backgroundPosition: desktopHeroBackgroundPosition
+          ? `${desktopHeroBackgroundPosition.x}% ${desktopHeroBackgroundPosition.y}%`
+          : "center",
+        backgroundRepeat: "no-repeat",
+      }}
+      data-bg-src={backgroundSrc || "(none)"}
+      data-bg-category={category || "(none)"}
     >
-      {/* Background Image — uses min-height/min-width to guarantee full coverage for any image resolution */}
-      <div
-        className="absolute inset-0 z-0"
-        style={{ backgroundColor: "#0F172A" }}
-      >
-        <img
-          src={(() => {
-            // Per-category image from employeePortalPreview.benefits (persisted per category from wizard/API).
-            // `image` is the legacy field name; `backgroundImage` is the new Benefit-model name.
-            const benefits = clientData?.employeePortalPreview?.benefits ?? [];
-            const catBenefit = benefits.find((b: any) => (b.category || "").toLowerCase() === (category || "").toLowerCase());
-            const persistedImage = catBenefit?.image || catBenefit?.backgroundImage;
-            // Wizard store image from the current editor session (fallback)
-            const wizardImage = wizardStep1Data?.brandImages?.header?.url;
-            // Only use wizard image if it matches the current category
-            const wizardMatch = wizardStep1Data?.benefitCategory && category && wizardStep1Data.benefitCategory === category ? wizardImage : undefined;
-            return persistedImage || wizardMatch || categoryDefaultBg;
-          })()}
-          alt=""
-          style={{
-            minWidth: "100%",
-            minHeight: "100%",
-            width: "auto",
-            height: "auto",
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            objectFit: "cover",
-            objectPosition: desktopHeroBackgroundPosition
-              ? `${desktopHeroBackgroundPosition.x}% ${desktopHeroBackgroundPosition.y}%`
-              : "center",
-          }}
-        />
-      </div>
       {mobileHeroBackgroundPosition && (
         <style>{`
           @media (max-width: 640px) {
-            #portal-welcome-banner .absolute.inset-0.z-0 img {
-              object-position: ${mobileHeroBackgroundPosition.x}% ${mobileHeroBackgroundPosition.y}% !important;
+            #portal-welcome-banner {
+              background-position: ${mobileHeroBackgroundPosition.x}% ${mobileHeroBackgroundPosition.y}% !important;
             }
           }
         `}</style>
