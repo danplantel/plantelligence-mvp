@@ -12,6 +12,8 @@ interface ThumbnailSectionEditorProps {
   onDefaultPhotoClick: () => void;
   onEditClick: () => void;
   onFileSelect: (imageData: BrandImageData) => void;
+  /** Called when any interactive element inside the upload area gains focus */
+  onFieldFocus?: () => void;
 }
 
 export function ThumbnailSectionEditor({
@@ -22,6 +24,7 @@ export function ThumbnailSectionEditor({
   onDefaultPhotoClick,
   onEditClick,
   onFileSelect,
+  onFieldFocus,
 }: ThumbnailSectionEditorProps) {
   return (
     <div className="pt-6 border-t border-border dark:border-gray-700">
@@ -60,6 +63,7 @@ export function ThumbnailSectionEditor({
           onEditClick={onEditClick}
           onFileSelect={onFileSelect}
           isHighlighted={isHighlighted}
+          onFocus={onFieldFocus}
         />
       </div>
     </div>

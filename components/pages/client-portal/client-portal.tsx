@@ -134,45 +134,49 @@ export function ClientPortal({
         />
       )}
 
-      <PortalHero
-        companyData={{
-          ...companyData,
-          backgroundImg: heroBackgroundImg,
-        }}
-        brandColor={brandColor}
-        secondaryColor={secondaryColor}
-        heroTitle={
-          companyData?.heroTitle ||
-          (companyData as any)?.brandImages?._meta?.heroTitle
-        }
-        heroDescription={
-          companyData?.heroDescription ||
-          (companyData as any)?.brandImages?._meta?.heroDescription
-        }
-        backgroundOpacity={companyData?.heroBackgroundOpacity ?? 1.0}
-        containerBlockOpacity={
-          companyData?.heroContainerBlockOpacity ??
-          companyData?.heroContainerOpacity ??
-          0.67
-        }
-        containerInverted={companyData?.heroContainerInverted ?? false}
-        backgroundInverted={companyData?.heroBackgroundInverted ?? false}
-        useGradient={companyData?.heroUseGradient ?? false}
-        desktopHeroBackgroundPosition={companyData?.desktopHeroBackgroundPosition}
-        mobileHeroBackgroundPosition={companyData?.mobileHeroBackgroundPosition}
-        onHeroTitleClick={onHeroTitleClick}
-        onHeroDescriptionClick={onHeroDescriptionClick}
-        showEditIndicators={showEditIndicators}
-      />
+      <div data-preview-field="banner">
+        <PortalHero
+          companyData={{
+            ...companyData,
+            backgroundImg: heroBackgroundImg,
+          }}
+          brandColor={brandColor}
+          secondaryColor={secondaryColor}
+          heroTitle={
+            companyData?.heroTitle ||
+            (companyData as any)?.brandImages?._meta?.heroTitle
+          }
+          heroDescription={
+            companyData?.heroDescription ||
+            (companyData as any)?.brandImages?._meta?.heroDescription
+          }
+          backgroundOpacity={companyData?.heroBackgroundOpacity ?? 1.0}
+          containerBlockOpacity={
+            companyData?.heroContainerBlockOpacity ??
+            companyData?.heroContainerOpacity ??
+            0.67
+          }
+          containerInverted={companyData?.heroContainerInverted ?? false}
+          backgroundInverted={companyData?.heroBackgroundInverted ?? false}
+          useGradient={companyData?.heroUseGradient ?? false}
+          desktopHeroBackgroundPosition={companyData?.desktopHeroBackgroundPosition}
+          mobileHeroBackgroundPosition={companyData?.mobileHeroBackgroundPosition}
+          onHeroTitleClick={onHeroTitleClick}
+          onHeroDescriptionClick={onHeroDescriptionClick}
+          showEditIndicators={showEditIndicators}
+        />
+      </div>
 
-      <PortalMission
-        company={companyData}
-        brandColor={brandColor}
-        secondaryColor={secondaryColor}
-        onMissionHeadlineClick={onMissionHeadlineClick}
-        onMissionBodyClick={onMissionBodyClick}
-        showEditIndicators={showEditIndicators}
-      />
+      <div data-preview-field="mission">
+        <PortalMission
+          company={companyData}
+          brandColor={brandColor}
+          secondaryColor={secondaryColor}
+          onMissionHeadlineClick={onMissionHeadlineClick}
+          onMissionBodyClick={onMissionBodyClick}
+          showEditIndicators={showEditIndicators}
+        />
+      </div>
 
       {!hideBenefits && (
         <PortalBenefits

@@ -721,9 +721,52 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
   const totalFixedHeight = HEADER_HEIGHT + barHeight + BOTTOM_NAV_HEIGHT;
   const togglePreviewMode = () => setPreviewMode((prev) => (prev === "desktop" ? "mobile" : "desktop"));
 
+  // ── Scroll the preview to a field when its editor input is focused/clicked ──
+  const focusPreviewField = (field: string) => {
+    window.dispatchEvent(
+      new CustomEvent("benefitsPreviewScrollTo", { detail: { field } }),
+    );
+  };
+
+  useEffect(() => {
+    const handlePreviewScroll = (e: Event) => {
+      const field = (e as CustomEvent<{ field?: string }>).detail?.field;
+      if (!field) return;
+      const container = document.querySelector(
+        "[data-preview-scroll-container]",
+      );
+      if (!container) return;
+
+      requestAnimationFrame(() => {
+        const el = document.querySelector(`[data-preview-field="${field}"]`);
+        if (!el) return;
+        const elRect = el.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        const elCenter = elRect.top + elRect.height / 2;
+        const containerCenter =
+          containerRect.top + container.clientHeight / 2;
+        const delta = elCenter - containerCenter;
+        const maxScroll =
+          (container as HTMLElement).scrollHeight -
+          (container as HTMLElement).clientHeight;
+        const targetScroll = Math.min(
+          Math.max(0, (container as HTMLElement).scrollTop + delta),
+          maxScroll,
+        );
+        (container as HTMLElement).scrollTo({
+          top: targetScroll,
+          behavior: "smooth",
+        });
+      });
+    };
+    window.addEventListener("benefitsPreviewScrollTo", handlePreviewScroll);
+    return () =>
+      window.removeEventListener("benefitsPreviewScrollTo", handlePreviewScroll);
+  }, []);
+
   const previewContent = (
     <>
-      <div ref={bannerPreviewSectionRef} data-preview-section="banner">
+      <div ref={bannerPreviewSectionRef} data-preview-section="banner" data-preview-field="banner">
         <BannerPreviewSection
           onCompanyDataChange={handleCompanyDataChange}
           isPreviewSticky={false}
@@ -743,7 +786,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
         />
       </div>
       <div ref={previewScrollContainerRef} className="overflow-y-auto max-h-screen">
-        <div ref={brandingPreviewCardRef}>
+        <div ref={brandingPreviewCardRef} data-preview-field="mission">
           <BrandingPreviewCard
             missionHeadline={missionData.missionHeadline}
             missionBody={missionData.missionBody}
@@ -843,7 +886,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
           {
             title: "Images",
             content: (
-              <>
+              <div>
                 <BannerSectionEditor
                   onCompanyDataChange={handleCompanyDataChange}
                   onWelcomeDataChange={(field, value) => {
@@ -874,6 +917,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
                       setPreviewMode("mobile");
                     }
                   }}
+                  onFieldFocus={() => focusPreviewField("banner")}
                 />
                 <ThumbnailSectionEditor
                   currentImage={stepData.companyBasics?.brandImages?.thumbnail || undefined}
@@ -881,14 +925,16 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
                   onImageChange={thumbnailImage.handleThumbnailImageChange} onImageRemove={thumbnailImage.handleThumbnailImageRemove}
                   onDefaultPhotoClick={() => thumbnailImage.setGalleryOpen(true)}
                   onEditClick={thumbnailImage.handleThumbnailEditClick} onFileSelect={thumbnailImage.handleThumbnailFileSelect}
+                  onFieldFocus={() => focusPreviewField("banner")}
                 />
-              </>
+              </div>
             ),
           },
           {
             title: "Hero Content",
             content: (
-              <Card className="dark:bg-gray-800">
+              <div>
+                <Card className="dark:bg-gray-800">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm dark:text-gray-100">Welcome Message</CardTitle>
                 </CardHeader>
@@ -923,15 +969,17 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
                     }}
                     bannerTitleCardRef={bannerTitleCardRef}
                     isBannerTitleHighlighted={isBannerTitleHighlighted}
+                    onFieldFocus={() => focusPreviewField("banner")}
                   />
                 </CardContent>
               </Card>
+              </div>
             ),
           },
           {
             title: "Company Mission Statement",
             content: (
-              <>
+              <div>
                 <MissionSectionEditor
                   missionHeadline={missionData.missionHeadline} missionBody={missionData.missionBody}
                   defaultHeadline={defaultHeadline} defaultBodyText={defaultWelcomeBodyText}
@@ -943,9 +991,10 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
                   onUseDefaultHeadlineChange={missionData.handleUseDefaultHeadline} onUseDefaultBodyChange={missionData.handleUseDefaultBody}
                   onGenerateMissionHeadline={missionData.handleGenerateMissionHeadline} onGenerateMissionBody={missionData.handleGenerateMissionBody}
                   thumbnailImgUrl={stepData.companyBasics?.brandImages?.thumbnail?.url}
+                  onFieldFocus={() => focusPreviewField("mission")}
                 />
                 <div data-section-id="thumbnail" ref={missionFieldsRef} style={{ minHeight: "1px", height: "60px" }} />
-              </>
+              </div>
             ),
           },
         ]}
@@ -981,6 +1030,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
 
         <div
           ref={scrollableRef}
+          data-preview-scroll-container
           className={`flex-1 overflow-x-hidden bg-gray-300 dark:bg-gray-950 flex flex-col items-center ${
             previewMode === "mobile" ? "overflow-y-hidden justify-center" : "overflow-y-auto"
           }`}

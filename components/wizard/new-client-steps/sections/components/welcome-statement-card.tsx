@@ -24,6 +24,8 @@ interface WelcomeStatementCardProps {
   bannerTitleCardRef?: React.RefObject<HTMLDivElement>;
   isBannerTitleHighlighted?: boolean;
   isWelcomeBodyHighlighted?: boolean;
+  /** Called when an Input or Textarea gains focus */
+  onFieldFocus?: () => void;
 }
 
 export function WelcomeStatementCard({
@@ -39,6 +41,7 @@ export function WelcomeStatementCard({
   bannerTitleCardRef,
   isBannerTitleHighlighted,
   isWelcomeBodyHighlighted,
+  onFieldFocus,
 }: WelcomeStatementCardProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const cursorPositionRef = useRef<number | null>(null);
@@ -119,6 +122,7 @@ export function WelcomeStatementCard({
           readOnly={!onHeadlineChange}
           disabled={!onHeadlineChange}
           onChange={(e) => onHeadlineChange?.(e.target.value)}
+          onFocus={() => onFieldFocus?.()}
           data-field="headline"
           destructive={errorFields.includes("headline")}
         />
@@ -162,6 +166,7 @@ export function WelcomeStatementCard({
         <Textarea
           ref={textareaRef}
           value={welcomeData?.bodyText || ""}
+          onFocus={() => onFieldFocus?.()}
           onKeyDown={(e) => {
             // Save cursor position BEFORE the change happens
             const textarea = e.currentTarget;

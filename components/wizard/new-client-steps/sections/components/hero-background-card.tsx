@@ -29,6 +29,8 @@ interface HeroBackgroundCardProps {
   mobilePosition: MobileHeroPosition;
   /** Called when the user repositions the mobile hero background */
   onMobilePositionChange: (position: MobileHeroPosition) => void;
+  /** Called when any interactive element inside the upload area gains focus */
+  onFieldFocus?: () => void;
 }
 
 export function HeroBackgroundCard({
@@ -44,6 +46,7 @@ export function HeroBackgroundCard({
   onDesktopPositionChange,
   mobilePosition,
   onMobilePositionChange,
+  onFieldFocus,
 }: HeroBackgroundCardProps) {
   // Resolve the image URL for the canvas preview
   const imageUrl = heroImageData?.previewUrl || heroImageData?.url || undefined;
@@ -115,6 +118,7 @@ export function HeroBackgroundCard({
           onEditClick={onEditClick}
           onFileSelect={onFileSelect}
           maxFileSize={15}
+          onFocus={onFieldFocus}
         />
       ) : segmentMode === "desktop" ? (
         /* ── Desktop tab: reposition canvas ── */

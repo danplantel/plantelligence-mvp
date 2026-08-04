@@ -48,6 +48,8 @@ interface BrandImageUploadProps {
     onClose: () => void;
   }) => void; // Callback to get modal state for external rendering
   isHighlighted?: boolean;
+  /** Called when any interactive element inside the upload area gains focus */
+  onFocus?: () => void;
 }
 
 export function BrandImageUpload({
@@ -69,6 +71,7 @@ export function BrandImageUpload({
   onModalStateChange,
   isHighlighted = false,
   universalModalCustomConfig = {},
+  onFocus,
 }: BrandImageUploadProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -383,6 +386,7 @@ export function BrandImageUpload({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
+        onMouseDown={() => onFocus?.()}
       >
         {currentImage ? (
           <div className="w-full">

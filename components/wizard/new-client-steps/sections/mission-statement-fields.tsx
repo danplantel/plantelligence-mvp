@@ -36,6 +36,8 @@ interface MissionStatementFieldsProps {
   // Optional: show message when generation limit is reached
   missionGenerationLimitReached?: boolean;
   highlightedField?: "headline" | "body" | null;
+  /** Called when an Input or Textarea gains focus */
+  onFieldFocus?: () => void;
 }
 
 export function MissionStatementFields({
@@ -61,6 +63,7 @@ export function MissionStatementFields({
   showUseDefault = true,
   missionGenerationLimitReached = false,
   highlightedField = null,
+  onFieldFocus,
 }: MissionStatementFieldsProps) {
   return (
     <>
@@ -112,6 +115,7 @@ export function MissionStatementFields({
               ref={headlineRef}
               value={missionHeadline}
               onChange={(e) => onHeadlineChange(e.target.value)}
+              onFocus={() => onFieldFocus?.()}
               maxLength={60}
               placeholder="Write a short, one-sentence mission headline that supports the Company Mission Statement."
               data-field="missionHeadline"
@@ -161,6 +165,7 @@ export function MissionStatementFields({
               ref={bodyTextRef}
               value={missionBody}
               onChange={(e) => onBodyChange(e.target.value)}
+              onFocus={() => onFieldFocus?.()}
               rows={6}
               maxLength={600}
               placeholder="Share the bigger mission behind your organization..."

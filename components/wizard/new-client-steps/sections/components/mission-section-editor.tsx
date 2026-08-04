@@ -25,6 +25,8 @@ interface MissionSectionEditorProps {
   highlightedField?: "headline" | "body" | null;
   /** URL for thumbnail image preview in the editor (left column) */
   thumbnailImgUrl?: string;
+  /** Called when an Input or Textarea gains focus */
+  onFieldFocus?: () => void;
 }
 
 export function MissionSectionEditor({
@@ -49,6 +51,7 @@ export function MissionSectionEditor({
   onGenerateMissionBody,
   highlightedField,
   thumbnailImgUrl,
+  onFieldFocus,
 }: MissionSectionEditorProps) {
   return (
     <div
@@ -79,6 +82,7 @@ export function MissionSectionEditor({
         onGenerateMissionHeadline={onGenerateMissionHeadline}
         onGenerateMissionBody={onGenerateMissionBody}
         highlightedField={highlightedField}
+        onFieldFocus={onFieldFocus}
       />
     </div>
   );

@@ -66,6 +66,8 @@ interface BannerSectionEditorProps {
   errorFields?: string[];
   /** Called when the user switches between Edit / Desktop / Mobile in Hero Background */
   onHeroSegmentModeChange?: (mode: HeroSegmentMode) => void;
+  /** Called when any interactive element inside the editor gains focus */
+  onFieldFocus?: () => void;
   /** Self-contained logo editor — same as Step 1's UniversalImageEditorModal */
   isLogoModalOpen?: boolean;
   pendingLogoData?: CompanyLogoData | null;
@@ -104,6 +106,7 @@ export function BannerSectionEditor({
   onLogoModalChange,
   onLogoModalRemove,
   onLogoModalClose,
+  onFieldFocus,
 }: BannerSectionEditorProps) {
   // Overlay settings hook for Hero section
   const storeCompanyBasics = useNewClientWizardStore((state) => state.stepData.companyBasics);
@@ -281,7 +284,7 @@ export function BannerSectionEditor({
     <div data-section-id="banner" className="space-y-4">
       {/* Company Logo Editor at the very top — self-contained
           UniversalImageEditorModal matching Step 1. */}
-      <Card className="dark:bg-gray-800">
+      <Card className="dark:bg-gray-800" onMouseDown={() => onFieldFocus?.()}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 dark:text-gray-100">
             <ImageIcon className="w-5 h-5 text-accent-blue" />
@@ -374,12 +377,13 @@ export function BannerSectionEditor({
               setMobileHeroPosition(pos);
               onCompanyDataChange("mobileHeroBackgroundPosition", pos);
             }}
+            onFieldFocus={onFieldFocus}
           />
         </CardContent>
       </Card>
 
       {/* Hero Overlay Settings */}
-      <Card className="dark:bg-gray-800">
+      <Card className="dark:bg-gray-800" onMouseDown={() => onFieldFocus?.()}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 dark:text-gray-100">
             <Settings className="w-5 h-5 text-accent-blue" />
