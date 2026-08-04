@@ -982,7 +982,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
               <div>
                 <MissionSectionEditor
                   missionHeadline={missionData.missionHeadline} missionBody={missionData.missionBody}
-                  defaultHeadline={defaultHeadline} defaultBodyText={defaultWelcomeBodyText}
+                  defaultHeadline={defaultHeadline} defaultBodyText={missionData.defaultMissionBody}
                   useDefaultHeadline={missionData.useDefaultHeadline} useDefaultBody={missionData.useDefaultBody}
                   headlineCharCount={missionData.headlineCharCount} bodyCharCount={missionData.bodyCharCount}
                   isHeadlineValid={missionData.isHeadlineValid} isBodyValid={missionData.isBodyValid}

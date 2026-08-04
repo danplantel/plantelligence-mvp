@@ -1,13 +1,28 @@
 import { useState, useEffect, useRef } from "react";
+import { useSession } from "next-auth/react";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
-import { MISSION_STATEMENT_PRESETS } from "../../constants/welcome-statements";
+import {
+  MISSION_STATEMENT_PRESETS,
+  DEFAULT_MISSION_BODY_TEMPLATE,
+} from "../../constants/welcome-statements";
 
 const defaultHeadline = "Here to Support You - Today and Every Day.";
-const defaultWelcomeBodyText =
-  "This website was created as your central source for exploring and taking advantage of your company benefits. Our goal is to make it easy for you to stay informed, engaged, and confident in the resources available to you.\n\nWhether you're just getting started or continuing your journey, this site is here to help you make the most of everything our company has to offer.";
 
 export function useMissionData() {
-  const { stepData, saveStepDataLocally } = useNewClientWizardStore();
+  const { stepData, saveStepDataLocally, advisorProfile } =
+    useNewClientWizardStore();
+  // The logged-in user's organization name (User.organizationName), falling
+  // back to the advisor profile org, then the plan/company name.
+  const { data: session } = useSession();
+  const organizationName =
+    session?.user?.organizationName ||
+    (advisorProfile as any)?.organizationName ||
+    stepData.companyBasics?.companyName ||
+    "";
+  const defaultMissionBody = DEFAULT_MISSION_BODY_TEMPLATE.replace(
+    /\{\{COMPANY_NAME\}\}/g,
+    organizationName || "our company",
+  );
   const [missionHeadlineLocal, setMissionHeadlineLocal] = useState<string>(
     stepData.companyBasics?.missionHeadline || "",
   );
@@ -61,6 +76,16 @@ export function useMissionData() {
     if (useDefaultHeadline && (!currentHeadline || currentHeadline.trim() === "")) {
       handleHeadlineChange(defaultHeadline);
     }
+  }, []);
+
+  // Handle default body initialization — populate the Mission Statement with
+  // the default text (resolved with User.organizationName) when empty.
+  useEffect(() => {
+    const currentBody = stepData.companyBasics?.missionBody;
+    if (!currentBody || currentBody.trim() === "") {
+      handleBodyChange(defaultMissionBody);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // No auto-syncing of default toggles based on content emptiness to avoid frustration when clearing fields
@@ -131,7 +156,7 @@ export function useMissionData() {
         missionBody: value,
       });
     }
-    if (useDefaultBody && value !== defaultWelcomeBodyText) {
+    if (useDefaultBody && value !== defaultMissionBody) {
       setUseDefaultBody(false);
     }
   };
@@ -157,7 +182,7 @@ export function useMissionData() {
       if (stepData.companyBasics) {
         saveStepDataLocally("companyBasics", {
           ...stepData.companyBasics,
-          missionBody: defaultWelcomeBodyText,
+          missionBody: defaultMissionBody,
         });
       }
     }
@@ -231,6 +256,7 @@ export function useMissionData() {
   return {
     missionHeadline: missionHeadlineLocal,
     missionBody: missionBodyLocal,
+    defaultMissionBody,
     useDefaultHeadline,
     useDefaultBody,
     headlineCharCount,
