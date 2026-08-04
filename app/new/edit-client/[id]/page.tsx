@@ -620,6 +620,10 @@ export default function EditClientPage() {
   );
   const [userAvatar, setUserAvatar] = useState<string | null>(null);
 
+  // Current user's organization name (User.organizationName), used to populate
+  // the [Organization Name] placeholder in the disclaimer text.
+  const [userOrgName, setUserOrgName] = useState<string>("");
+
   const headlineRef = useRef<HTMLInputElement>(null);
   const bodyTextRef = useRef<HTMLTextAreaElement>(null);
 
@@ -787,9 +791,73 @@ export default function EditClientPage() {
     setTitle("Edit Plan");
   }, [setTitle]);
 
+  // Fetch the current user's organization name so [Organization Name] in the
+  // disclaimer text is populated with User.organizationName.
+  useEffect(() => {
+    let cancelled = false;
+    const loadUserOrgName = async () => {
+      try {
+        const res = await fetch("/api/profile");
+        if (!res.ok) return;
+        const profile = await res.json();
+        const orgName =
+          profile?.organizationName ||
+          profile?.wizardSessions?.[0]?.branding?.organizationName ||
+          profile?.company ||
+          "";
+        if (!cancelled) setUserOrgName(orgName);
+      } catch {
+        // Silent — best-effort fetch for the organization name.
+      }
+    };
+    loadUserOrgName();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const handleSaveClick = () => {
     handleSave();
   };
+
+  // ── Disclaimer text resolution ──
+  // Resolve [Organization Name] with the current user's organization name
+  // (falling back to the client company name) so the placeholder never renders
+  // literally in the editor or the footer preview.
+  const disclaimerOrgName =
+    userOrgName || companyData.companyName || "[Organization Name]";
+
+  const getRawDisclaimerText = (): string => {
+    const raw = (client as any)?.disclaimers ?? disclaimers;
+    if (typeof raw === "string") return raw;
+    if (Array.isArray(raw))
+      return raw
+        .map((item: any) => item?.text || item || "")
+        .filter(Boolean)
+        .join("\n\n");
+    if (raw && typeof raw === "object") {
+      if (Array.isArray((raw as any).disclaimers))
+        return (raw as any)
+          .disclaimers.map((d: any) => d?.text || "")
+          .filter(Boolean)
+          .join("\n\n");
+      if (raw.text) return raw.text;
+    }
+    return "";
+  };
+
+  // Editor text: falls back to the default disclosures (org name resolved) when
+  // no disclaimer text exists yet.
+  const getResolvedDisclaimerText = (): string => {
+    const rawText = getRawDisclaimerText();
+    if (!rawText) return resolveDefaultDisclosuresText(disclaimerOrgName);
+    return rawText.replace(/\[Organization Name\]/g, disclaimerOrgName);
+  };
+
+  // Footer preview text: resolves the placeholder but keeps the previous empty
+  // fallback (so PortalDisclaimers renders its built-in text when empty).
+  const getResolvedDisclaimerPreviewText = (): string =>
+    getRawDisclaimerText().replace(/\[Organization Name\]/g, disclaimerOrgName);
 
   if (loading) {
     return (
@@ -1429,25 +1497,7 @@ export default function EditClientPage() {
                     </Label>
                     <Textarea
                       id="disclaimers-text"
-                      value={(() => {
-                        const raw =
-                          (client as any)?.disclaimers ?? disclaimers;
-                        if (typeof raw === "string") return raw;
-                        if (Array.isArray(raw))
-                          return raw
-                            .map((item: any) => item?.text || item || "")
-                            .filter(Boolean)
-                            .join("\n\n");
-                        if (raw && typeof raw === "object") {
-                          if (Array.isArray((raw as any).disclaimers))
-                            return (raw as any)
-                              .disclaimers.map((d: any) => d?.text || "")
-                              .filter(Boolean)
-                              .join("\n\n");
-                          if (raw.text) return raw.text;
-                        }
-                        return resolveDefaultDisclosuresText(companyData.companyName || "");
-                      })()}
+                      value={getResolvedDisclaimerText()}
                       onChange={(e) => setDisclaimers(e.target.value)}
                       placeholder="Enter legal disclaimers to display in the portal footer..."
                       rows={8}
@@ -1577,25 +1627,7 @@ export default function EditClientPage() {
                         {/* PortalDisclaimers with disclaimer text */}
                         <PortalDisclaimers
                           companyData={{
-                            disclaimers: (() => {
-                              const raw =
-                                (client as any)?.disclaimers ?? disclaimers;
-                              if (typeof raw === "string") return raw;
-                              if (Array.isArray(raw))
-                                return raw
-                                  .map((item: any) => item?.text || item || "")
-                                  .filter(Boolean)
-                                  .join("\n\n");
-                              if (raw && typeof raw === "object") {
-                                if (Array.isArray((raw as any).disclaimers))
-                                  return (raw as any)
-                                    .disclaimers.map((d: any) => d?.text || "")
-                                    .filter(Boolean)
-                                    .join("\n\n");
-                                if (raw.text) return raw.text;
-                              }
-                              return "";
-                            })(),
+                            disclaimers: getResolvedDisclaimerPreviewText(),
                             brandColor: resolvedFooterBgColor,
                             companyName: companyData.companyName,
                           }}
