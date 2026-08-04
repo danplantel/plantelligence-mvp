@@ -624,6 +624,11 @@ export default function EditClientPage() {
   // the [Organization Name] placeholder in the disclaimer text.
   const [userOrgName, setUserOrgName] = useState<string>("");
 
+  // Tracks whether the user has edited the disclaimer so the editor Textarea
+  // uses the editable state (including an intentionally cleared value) instead
+  // of re-deriving from the stored client disclaimers on every keystroke.
+  const disclaimerEditedRef = useRef(false);
+
   const headlineRef = useRef<HTMLInputElement>(null);
   const bodyTextRef = useRef<HTMLTextAreaElement>(null);
 
@@ -821,14 +826,20 @@ export default function EditClientPage() {
   };
 
   // ── Disclaimer text resolution ──
-  // Resolve [Organization Name] with the current user's organization name
-  // (falling back to the client company name) so the placeholder never renders
+  // Resolve [Organization Name] with the current user's organization name and
+  // [Company Name] with the client's company name so placeholders never render
   // literally in the editor or the footer preview.
   const disclaimerOrgName =
     userOrgName || companyData.companyName || "[Organization Name]";
+  const disclaimerCompName = companyData.companyName || "[Company Name]";
 
+  // Once the user has edited the disclaimer, use the editable `disclaimers`
+  // state as the source of truth so the Textarea reflects keystrokes (and can
+  // be cleared). Otherwise fall back to the stored client disclaimers.
   const getRawDisclaimerText = (): string => {
-    const raw = (client as any)?.disclaimers ?? disclaimers;
+    const raw = disclaimerEditedRef.current
+      ? disclaimers
+      : (client as any)?.disclaimers ?? disclaimers;
     if (typeof raw === "string") return raw;
     if (Array.isArray(raw))
       return raw
@@ -850,14 +861,20 @@ export default function EditClientPage() {
   // no disclaimer text exists yet.
   const getResolvedDisclaimerText = (): string => {
     const rawText = getRawDisclaimerText();
-    if (!rawText) return resolveDefaultDisclosuresText(disclaimerOrgName);
-    return rawText.replace(/\[Organization Name\]/g, disclaimerOrgName);
+    const base = rawText
+      ? rawText
+      : resolveDefaultDisclosuresText(disclaimerOrgName);
+    return base
+      .replace(/\[Organization Name\]/g, disclaimerOrgName)
+      .replace(/\[Company Name\]/g, disclaimerCompName);
   };
 
-  // Footer preview text: resolves the placeholder but keeps the previous empty
+  // Footer preview text: resolves the placeholders but keeps the previous empty
   // fallback (so PortalDisclaimers renders its built-in text when empty).
   const getResolvedDisclaimerPreviewText = (): string =>
-    getRawDisclaimerText().replace(/\[Organization Name\]/g, disclaimerOrgName);
+    getRawDisclaimerText()
+      .replace(/\[Organization Name\]/g, disclaimerOrgName)
+      .replace(/\[Company Name\]/g, disclaimerCompName);
 
   if (loading) {
     return (
@@ -1498,7 +1515,10 @@ export default function EditClientPage() {
                     <Textarea
                       id="disclaimers-text"
                       value={getResolvedDisclaimerText()}
-                      onChange={(e) => setDisclaimers(e.target.value)}
+                      onChange={(e) => {
+                        disclaimerEditedRef.current = true;
+                        setDisclaimers(e.target.value);
+                      }}
                       placeholder="Enter legal disclaimers to display in the portal footer..."
                       rows={8}
                       className="min-h-[200px] dark:bg-gray-900 dark:text-gray-200"
