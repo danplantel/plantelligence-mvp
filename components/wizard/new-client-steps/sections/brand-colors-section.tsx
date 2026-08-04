@@ -83,6 +83,50 @@ const confidenceConfig: Record<
 };
 
 // ── Component ────────────────────────────────────────────────────────────────
+//
+//  BRAND COLOR EXTRACTION — HOW IT WORKS
+//  =====================================
+//  1. MANUAL TRIGGER — User clicks "Extract Colors". Extraction only runs on
+//     demand, never automatically. Button indicates source: logo / website / both.
+//
+//  2. LOGO EXTRACTION — Canvas-based pixel analysis of uploaded logo image,
+//     sampling at 200×200px. Filters transparent & near-black/white pixels,
+//     picks most frequent color as primary, most distinct as secondary.
+//
+//  3. WEBSITE EXTRACTION — POST /api/extract-site-colors spawns headless
+//     Puppeteer browser, loads the live site, extracts computed CSS colors
+//     weighted by source: buttons/CTAs (1.0), CSS custom properties (0.9),
+//     nav bars (0.8), links (0.6), headings (0.4). Neutrals filtered out.
+//
+//  4. NEUTRAL LOGO GUARD — If logo-extracted color has luminance < 0.15
+//     (near-black artwork) or > 0.85 (near-white), it's treated as non-brand
+//     and the system defers to site extraction. No false "needs review" flags.
+//
+//  5. CROSS-CHECK (CIELAB deltaE) — Logo vs. site primary compared using
+//     perceptually-uniform deltaE distance:
+//       ΔE ≤ 5   → "both-agree"     → HIGH confidence, auto-fill
+//       5 < ΔE ≤ 12 → moderate diverge → MEDIUM confidence + review hint
+//       ΔE > 12  → strong diverge   → NEEDS REVIEW flagged
+//
+//  6. SECONDARY COLOR — Selected independently as the 2nd-most-weighted
+//     distinct color from site extraction (or logo secondary if site-only).
+//     NOT derived from primary — both colors are extracted & validated separately.
+//
+//  7. SAFETY PASS (both colors, independently):
+//     a) Snap to nearest of 8 corporate-safe presets (Deep Navy, Teal, Forest
+//        Green, Steel Blue, Slate Gray, Crimson Red, Amber Gold, Deep Violet)
+//     b) WCAG 2.1 AA contrast check (4.5:1) against white & black text
+//     c) Auto-darken/lighten any color that fails the contrast threshold
+//
+//  8. FALLBACKS — Site-only → medium confidence. Logo-only + not neutral →
+//     medium confidence. Logo-only + neutral → low confidence + warning.
+//     Neither source → safe defaults (#1F3A60 / #3A6EA5).
+//
+//  9. UI FEEDBACK — Confidence badge (High/Medium/Low/Needs Review), source
+//     badges, WCAG ratio inline per color, expandable details panel (raw logo
+//     color, raw site color, ΔE distance, extraction URL). User can override
+//     with color pickers at any time.
+//
 
 export function BrandColorsSection({
   primaryColor,
