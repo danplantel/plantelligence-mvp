@@ -848,8 +848,13 @@ export default function DocumentsPage() {
               {selectedPlan && clientsData && (
                 <CardContent className="pt-6">
                   {activeSection === "upload" ? (
-                  <><h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Upload Documents</h3><p className="text-sm text-muted-foreground mb-6">
+                  <><h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Upload Documents</h3><p className="text-sm text-muted-foreground mb-2">
                     Upload PDFs for this Benefits Hub. Suggestions should be reviewed before publishing.</p>
+                    <Alert className="mb-4 border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30">
+                      <AlertDescription className="text-xs text-center text-blue-700 dark:text-blue-300">
+                        You can upload up to 10 files at once. For larger batches, upload in groups of 10 or fewer.
+                      </AlertDescription>
+                    </Alert>
                     <DocumentUploadTab
                       selectedPlan={selectedPlan}
                       showSaveButton={false}

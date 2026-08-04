@@ -139,31 +139,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const created = await prisma.$transaction(async (tx) => {
-      const docs: { id: string; fileName: string }[] = [];
-      for (const row of normalized) {
-        const doc = await tx.document.create({
-          data: {
-            title: row.title,
-            fileName: row.fileName,
-            fileUrl: R2_FILEURL_PLACEHOLDER,
-            storageKey: row.storageKey,
-            type: row.docType,
-            shortDescription: row.shortDescription,
-            language: row.language,
-            clientId,
-            category: row.category,
-            categorySuggested: row.categorySuggested,
-            categoryConfidence: row.categoryConfidence,
-            showQrCode: row.showQrCode,
-            ...(row.expirationDate ? { expirationDate: row.expirationDate } : {}),
-            uploadedAt: new Date(),
-          } as any,
-        });
-        docs.push({ id: doc.id, fileName: doc.fileName });
-      }
-      return docs;
-    });
+    const created = await prisma.$transaction(
+      async (tx) => {
+        const docs: { id: string; fileName: string }[] = [];
+        for (const row of normalized) {
+          const doc = await tx.document.create({
+            data: {
+              title: row.title,
+              fileName: row.fileName,
+              fileUrl: R2_FILEURL_PLACEHOLDER,
+              storageKey: row.storageKey,
+              type: row.docType,
+              shortDescription: row.shortDescription,
+              language: row.language,
+              clientId,
+              category: row.category,
+              categorySuggested: row.categorySuggested,
+              categoryConfidence: row.categoryConfidence,
+              showQrCode: row.showQrCode,
+              ...(row.expirationDate ? { expirationDate: row.expirationDate } : {}),
+              uploadedAt: new Date(),
+            } as any,
+          });
+          docs.push({ id: doc.id, fileName: doc.fileName });
+        }
+        return docs;
+      },
+      {
+        // Default timeout is 5000ms — too short for batch inserts.
+        // 30s accommodates up to ~15 documents at ~2s each.
+        maxWait: 10000,
+        timeout: 30000,
+      },
+    );
 
     return NextResponse.json({
       success: true,
