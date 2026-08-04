@@ -486,6 +486,10 @@ export function ComplianceDocumentsUpload({
         console.error("Error loading documents from server:", error);
       } finally {
         initialized.current = true;
+        // Clear the gate now that initial load is complete.
+        // Subsequent document additions (user uploads) will trigger
+        // the "Adding Documents" dialog via auto-persist.
+        autoPersistGate.current = false;
       }
     };
 
@@ -521,14 +525,16 @@ export function ComplianceDocumentsUpload({
   // Only fires when temp docs with storageKeys exist — which happens after the
   // user clicks "Add X Documents" in the review UI, NOT on mount.
   //
-  // NOTE: Does NOT call onDocumentsAdded or onSave — those callbacks are
-  // reserved for explicit user-initiated saves (handleManualSave).
-  // Auto-persist is completely silent.
+  // Auto-persist: persists new R2 uploads in the background so they appear
+  // in the documents list. Triggers the "Adding Documents" dialog via
+  // onDocumentsAdded (guarded by autoPersistGate to skip initial load).
+  //
+  // DISABLED when showSaveButton is true (manual save mode, e.g. wizard).
   const isPersistingRef = useRef(false);
   const persistedStorageKeys = useRef<Set<string>>(new Set());
   // Gate: skip the first trigger after clientId changes (initial load).
-  // This prevents auto-persist from firing on existing temp-ID documents
-  // that were just loaded from the API.
+  // This prevents the dialog from appearing when documents are loaded from
+  // the API on mount — only user-added documents trigger the dialog.
   const autoPersistGate = useRef(true);
   useEffect(() => {
     if (!autoPersistTriggerKey) return;
@@ -563,7 +569,8 @@ export function ComplianceDocumentsUpload({
     }
 
     isPersistingRef.current = true;
-    // NOTE: No onDocumentsAdded / onSave here — auto-persist is silent.
+    // Show "Adding Documents" dialog (guarded — skipped on initial load)
+    onDocumentsAdded?.();
     persistNewDocumentsToApi(clientId!, docs)
       .then((updated) => {
         setRetirementPlanDocuments(updated);
@@ -583,6 +590,8 @@ export function ComplianceDocumentsUpload({
         lastSavedDocumentsRef.current = savedState;
         setHasUnsavedChanges(false);
         if (onHasUnsavedChangesChange) onHasUnsavedChangesChange(false);
+        // Notify parent — triggers fetchDocuments → close dialog → toast
+        onSave?.(updated);
       })
       .catch((err) => {
         console.error("Persist new documents failed:", err);
@@ -590,6 +599,8 @@ export function ComplianceDocumentsUpload({
         for (const d of tempDocs) {
           persistedStorageKeys.current.delete((d as any).storageKey.trim());
         }
+        // Close dialog even on error so UI isn't stuck
+        onSave?.(docs);
       })
       .finally(() => {
         isPersistingRef.current = false;

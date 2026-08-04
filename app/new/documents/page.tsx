@@ -515,8 +515,8 @@ export default function DocumentsPage() {
     return raw.filter((doc, idx, arr) => arr.findIndex((d) => d.id === doc.id) === idx);
   }, [docsData]);
 
-  const fetchDocuments = useCallback(() => {
-    refreshDocsSWR();
+  const fetchDocuments = useCallback((): Promise<any> => {
+    return refreshDocsSWR();
   }, [refreshDocsSWR]);
 
   const updateURL = (search: string, type: string, client: string) => {
@@ -850,7 +850,25 @@ export default function DocumentsPage() {
                   {activeSection === "upload" ? (
                   <><h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Upload Documents</h3><p className="text-sm text-muted-foreground mb-6">
                     Upload PDFs for this Benefits Hub. Suggestions should be reviewed before publishing.</p>
-                    <DocumentUploadTab selectedPlan={selectedPlan} showSaveButton={false} onHasUnsavedChangesChange={setHasUnsavedUploadChanges} onSaveFunctionReady={setUploadSaveFn} onDocumentsAdded={() => setIsTransitioningToDocuments(true)} onDocumentsSaved={() => { toast.success("Documents saved successfully"); fetchDocuments(); setActiveSection("documents"); const url = new URL(window.location.href); url.searchParams.set("section", "documents"); window.history.pushState({}, "", url.toString()); setIsTransitioningToDocuments(false); }} /></>
+                    <DocumentUploadTab
+                      selectedPlan={selectedPlan}
+                      showSaveButton={false}
+                      onHasUnsavedChangesChange={setHasUnsavedUploadChanges}
+                      onSaveFunctionReady={setUploadSaveFn}
+                      onDocumentsAdded={() => {
+                        setIsTransitioningToDocuments(true);
+                        setActiveSection("documents");
+                        const url = new URL(window.location.href);
+                        url.searchParams.set("section", "documents");
+                        window.history.pushState({}, "", url.toString());
+                      }}
+                      onDocumentsSaved={() => {
+                        fetchDocuments().then(() => {
+                          setIsTransitioningToDocuments(false);
+                          toast.success("Documents added successfully");
+                        });
+                      }}
+                    /></>
                 ) : (
                   <div className="space-y-4">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Documents List</h3>
