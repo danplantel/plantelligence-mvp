@@ -57,9 +57,11 @@ TITLE RULES
 
 Use this format when applicable:
 
-[Document Type] - [Plan or Coverage Option] - [Document Year]
+[Document Type] - [Plan or Coverage Option]
 
-Include the plan option or year only when clearly supported and useful.
+Include the plan option only when clearly supported and useful.
+
+Do NOT include the document year in the display_title. The year belongs in the document_year field only, never in the title.
 
 Do not include:
 
@@ -70,6 +72,7 @@ Do not include:
 - Revision code
 - Upload date
 - The word PDF
+- Any year or date (e.g., "2021", "2023", "2024")
 
 Do not treat a target-date fund year, copyright year, or form revision year as the document year.
 
