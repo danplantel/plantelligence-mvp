@@ -8,14 +8,13 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { ColorPicker } from "@/components/ui/color-picker";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
-import { Building2, Palette, Globe, Image as ImageIcon, CheckCircle2, AlertCircle, Sparkles, Upload, Plus, X, AlertTriangle, ArrowLeftRight, Loader2, XCircle } from "lucide-react";
+import { Building2, Globe, Image as ImageIcon, CheckCircle2, AlertCircle, Sparkles, Upload, Plus, X, AlertTriangle, Loader2, XCircle } from "lucide-react";
 import { isValidDomain, normalizeCleanDomain } from "@/lib/url-utils";
-import { extractColorsFromImage } from "@/lib/extract-colors-from-image";
 import { deleteFromR2 } from "@/lib/upload-to-r2";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BrandImagesSection } from "./sections/brand-images-section";
+import { BrandColorsSection } from "./sections/brand-colors-section";
 import {
   CompanyBasicsData,
   CompanyLogoData,
@@ -261,18 +260,6 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
     const trimmed = value.trim();
     if (!trimmed) return "Portal URL is required";
     if (trimmed.length < 2) return "Portal URL must be at least 2 characters";
-    return null;
-  };
-
-  const validateHexColor = (value: string, label: string): string | null => {
-    if (!value || value.trim() === "") return null; // optional until logo is uploaded
-    const hexColorRegex = /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/;
-    if (!hexColorRegex.test(value)) return `${label} must be a valid hex color (e.g., #1F3A60)`;
-    return null;
-  };
-
-  const validateLogo = (logo: CompanyLogoData | null): string | null => {
-    if (!logo || !logo.url) return null; // optional in v2
     return null;
   };
 
@@ -1035,16 +1022,9 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                     setLogoPreviewDataUrl(previewDataUrl);
                   }
 
-                  // Extract colors from the logo preview
-                  if (previewSrc) {
-                    try {
-                      const colors = await extractColorsFromImage(previewSrc);
-                      updateField("primaryColor", colors.primary);
-                      updateField("secondaryColor", colors.secondary);
-                    } catch (_) {
-                      // Fallback to defaults if extraction fails
-                    }
-                  }
+                  // Note: Brand color extraction is triggered manually by the
+                  // user via the "Extract Colors" button in BrandColorsSection,
+                  // which uses both the logo and the company website.
 
                   // Save the logo data
                   const logoData: CompanyLogoData = {
@@ -1084,176 +1064,30 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
           </Card>
 
           {/* Brand Colors */}
-          <Card className="dark:bg-gray-800">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 dark:text-gray-100">
-                <Palette className="w-5 h-5 text-accent-blue" />
-                Brand Colors
-              </CardTitle>
-              <p className="text-sm text-muted-foreground dark:text-gray-400">
-                Choose your primary and secondary brand colors for the employee
-                portal. Colors are automatically extracted from your uploaded logo
-                and applied to buttons, footers, headers, and more. Click on the colors
-                below to edit them to your liking.
-              </p>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Primary Color */}
-                <div className="space-y-3 relative">
-                  <Label className="dark:text-gray-300">Primary Color <span className="text-red-500">*</span></Label>
-                  <div className="flex items-center space-x-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        updateField(
-                          "isPrimaryColorPickerOpen",
-                          !companyData.isPrimaryColorPickerOpen,
-                        );
-                        if (!companyData.isPrimaryColorPickerOpen && companyData.isSecondaryColorPickerOpen) {
-                          updateField("isSecondaryColorPickerOpen", false);
-                        }
-                      }}
-                      className={`w-9 h-9 border rounded cursor-pointer flex items-center justify-center ${isFieldInvalid("primaryColor") ? "border-red-500" : companyData.primaryColor ? "border-gray-300 dark:border-gray-600" : "border-dashed border-gray-400 dark:border-gray-500"}`}
-                      style={{ background: companyData.primaryColor || "transparent" }}
-                    >
-                      <div className={`w-4 h-4 rounded ${companyData.primaryColor ? "border border-white/20" : "border border-gray-400 dark:border-gray-500"}`} />
-                    </button>
-                    <Input
-                      icon={<Palette className="h-4 w-4" />}
-                      type="text"
-                      value={companyData.primaryColor}
-                      onChange={(e) => {
-                        updateField("primaryColor", e.target.value);
-                        if (touchedFields["primaryColor"]) {
-                          setFieldError("primaryColor", validateHexColor(e.target.value, "Primary color"));
-                        }
-                      }}
-                      onBlur={() => {
-                        markTouched("primaryColor");
-                        setFieldError("primaryColor", validateHexColor(companyData.primaryColor, "Primary color"));
-                      }}
-                      placeholder="#..."
-                      className="flex-1"
-                      destructive={isFieldInvalid("primaryColor")}
-                    />
-                    {touchedFields["primaryColor"] && !fieldErrors["primaryColor"] && (
-                      <CheckCircle2 className="w-4 h-4 text-green-500 dark:text-green-400 shrink-0" />
-                    )}
-                  </div>
-                  <ColorPicker
-                    value={companyData.primaryColor}
-                    onChange={(color) => {
-                      updateField("primaryColor", color);
-                      if (touchedFields["primaryColor"]) {
-                        setFieldError("primaryColor", validateHexColor(color, "Primary color"));
-                      }
-                    }}
-                    isOpen={companyData.isPrimaryColorPickerOpen || false}
-                    onOpenChange={(open) => {
-                      if (!open && touchedFields["primaryColor"]) {
-                        setFieldError("primaryColor", validateHexColor(companyData.primaryColor, "Primary color"));
-                      }
-                      updateField("isPrimaryColorPickerOpen", open || false);
-                    }}
-                    title="Primary Color"
-                  />
-                  {touchedFields["primaryColor"] && fieldErrors["primaryColor"] && (
-                    <p className="text-xs text-red-500 dark:text-red-400 flex items-center gap-1">
-                      <AlertCircle className="w-3 h-3" />
-                      {fieldErrors["primaryColor"]}
-                    </p>
-                  )}
-                </div>
-
-                {/* Secondary Color */}
-                <div className="space-y-3 relative">
-                  <Label className="dark:text-gray-300">Secondary Color <span className="text-red-500">*</span></Label>
-                  <div className="flex items-center space-x-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        updateField(
-                          "isSecondaryColorPickerOpen",
-                          !companyData.isSecondaryColorPickerOpen,
-                        );
-                        if (!companyData.isSecondaryColorPickerOpen && companyData.isPrimaryColorPickerOpen) {
-                          updateField("isPrimaryColorPickerOpen", false);
-                        }
-                      }}
-                      className={`w-9 h-9 border rounded cursor-pointer flex items-center justify-center ${isFieldInvalid("secondaryColor") ? "border-red-500" : companyData.secondaryColor ? "border-gray-300 dark:border-gray-600" : "border-dashed border-gray-400 dark:border-gray-500"}`}
-                      style={{ background: companyData.secondaryColor || "transparent" }}
-                    >
-                      <div className={`w-4 h-4 rounded ${companyData.secondaryColor ? "border border-white/20" : "border border-gray-400 dark:border-gray-500"}`} />
-                    </button>
-                    <Input
-                      icon={<Palette className="h-4 w-4" />}
-                      type="text"
-                      value={companyData.secondaryColor}
-                      onChange={(e) => {
-                        updateField("secondaryColor", e.target.value);
-                        if (touchedFields["secondaryColor"]) {
-                          setFieldError("secondaryColor", validateHexColor(e.target.value, "Secondary color"));
-                        }
-                      }}
-                      onBlur={() => {
-                        markTouched("secondaryColor");
-                        setFieldError("secondaryColor", validateHexColor(companyData.secondaryColor, "Secondary color"));
-                      }}
-                      placeholder="#..."
-                      className="flex-1"
-                      destructive={isFieldInvalid("secondaryColor")}
-                    />
-                    {touchedFields["secondaryColor"] && !fieldErrors["secondaryColor"] && (
-                      <CheckCircle2 className="w-4 h-4 text-green-500 dark:text-green-400 shrink-0" />
-                    )}
-                  </div>
-                  <ColorPicker
-                    value={companyData.secondaryColor}
-                    onChange={(color) => {
-                      updateField("secondaryColor", color);
-                      if (touchedFields["secondaryColor"]) {
-                        setFieldError("secondaryColor", validateHexColor(color, "Secondary color"));
-                      }
-                    }}
-                    isOpen={companyData.isSecondaryColorPickerOpen || false}
-                    onOpenChange={(open) => {
-                      if (!open && touchedFields["secondaryColor"]) {
-                        setFieldError("secondaryColor", validateHexColor(companyData.secondaryColor, "Secondary color"));
-                      }
-                      updateField("isSecondaryColorPickerOpen", open || false);
-                    }}
-                    title="Secondary Color"
-                  />
-                  {touchedFields["secondaryColor"] && fieldErrors["secondaryColor"] && (
-                    <p className="text-xs text-red-500 dark:text-red-400 flex items-center gap-1">
-                      <AlertCircle className="w-3 h-3" />
-                      {fieldErrors["secondaryColor"]}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Swap Colors */}
-              <div className="flex justify-center pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const prim = companyData.primaryColor;
-                    const sec = companyData.secondaryColor;
-                    updateField("primaryColor", sec);
-                    updateField("secondaryColor", prim);
-                  }}
-                  className="inline-flex items-center gap-2 text-xs"
-                >
-                  <ArrowLeftRight className="w-3.5 h-3.5" />
-                  Swap Colors
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <BrandColorsSection
+            primaryColor={companyData.primaryColor}
+            secondaryColor={companyData.secondaryColor}
+            onPrimaryChange={(color) => updateField("primaryColor", color)}
+            onSecondaryChange={(color) => updateField("secondaryColor", color)}
+            isPrimaryPickerOpen={companyData.isPrimaryColorPickerOpen || false}
+            isSecondaryPickerOpen={companyData.isSecondaryColorPickerOpen || false}
+            onPrimaryPickerOpenChange={(open) =>
+              updateField("isPrimaryColorPickerOpen", open || false)
+            }
+            onSecondaryPickerOpenChange={(open) =>
+              updateField("isSecondaryColorPickerOpen", open || false)
+            }
+            logoDataUrl={
+              logoPreviewDataUrl ||
+              (companyData.companyLogo?.url?.startsWith("data:")
+                ? companyData.companyLogo.url
+                : undefined)
+            }
+            websiteUrl={companyData.companyWebsite}
+            errorFields={errorFields}
+            touchedFields={touchedFields}
+            fieldErrors={fieldErrors}
+          />
 
           {/* Brand Images */}
           <BrandImagesSection
