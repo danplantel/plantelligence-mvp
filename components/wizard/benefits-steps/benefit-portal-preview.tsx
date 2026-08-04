@@ -222,6 +222,87 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
         }));
     };
 
+    // ── Scroll the preview to a field when its editor input is focused ──
+    useEffect(() => {
+        // Fields whose editor input maps to a section-level preview element
+        const sectionFallback: Record<string, string> = {
+            benefitTitle: "messaging",
+            shortDescription: "messaging",
+            signatureMode: "messaging",
+            customClosing: "messaging",
+            customSignatureName: "messaging",
+            customSignatureCompany: "messaging",
+            companyLogo: "messaging",
+            brandImagesHeader: "messaging",
+            innerHeaderImage: "messaging",
+            insuranceBackgroundImage: "insurance",
+            insuranceContainerBlockOpacity: "insurance",
+            insurancePlanId: "insurance",
+            insuranceLoginUrl: "insurance",
+            helpCards: "helpCards",
+            journeyHeader: "journeyHeader",
+            journeySubtitle: "journeySubtitle",
+            journeyBodyText: "journeyBodyText",
+            planVideo: "planVideo",
+            planVideoFileName: "planVideo",
+        };
+
+        const handlePreviewScroll = (e: Event) => {
+            const field = (e as CustomEvent<{ field?: string }>).detail?.field;
+            if (!field) return;
+            const selector = sectionFallback[field] || field;
+            const container =
+                document.querySelector("[data-preview-scroll-container]");
+            if (!container) return;
+
+            // Queue scroll via rAF so it executes after any pending React re-renders
+            // (e.g., from the editor input's onChange auto-formatting).
+            requestAnimationFrame(() => {
+                // Insurance is the last section — simply scroll to the bottom.
+                if (selector === "insurance") {
+                    const maxScroll =
+                        (container as HTMLElement).scrollHeight -
+                        (container as HTMLElement).clientHeight;
+                    (container as HTMLElement).scrollTo({
+                        top: Math.max(0, maxScroll),
+                        behavior: "smooth",
+                    });
+                    return;
+                }
+
+                const el = document.querySelector(
+                    `[data-preview-field="${selector}"]`,
+                );
+                if (el) {
+                    const elRect = el.getBoundingClientRect();
+                    const containerRect = container.getBoundingClientRect();
+                    const elCenter = elRect.top + elRect.height / 2;
+                    const containerCenter =
+                        containerRect.top + container.clientHeight / 2;
+                    const delta = elCenter - containerCenter;
+                    const maxScroll =
+                        (container as HTMLElement).scrollHeight -
+                        (container as HTMLElement).clientHeight;
+                    const targetScroll = Math.min(
+                        Math.max(
+                            0,
+                            (container as HTMLElement).scrollTop + delta,
+                        ),
+                        maxScroll,
+                    );
+                    (container as HTMLElement).scrollTo({
+                        top: targetScroll,
+                        behavior: "smooth",
+                    });
+                }
+            });
+        };
+        window.addEventListener("benefitsPreviewScrollTo", handlePreviewScroll);
+        return () => {
+            window.removeEventListener("benefitsPreviewScrollTo", handlePreviewScroll);
+        };
+    }, []);
+
     const EditPencil = () => (
         <div className="absolute -top-2 -left-2 z-20 bg-[#3b82f6] rounded-full p-1.5 shadow-lg border border-white/20">
             <Pencil className="w-3 h-3 text-white" strokeWidth={2.5} />
@@ -245,7 +326,7 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
                 `}</style>
             )}
             <main>
-                <div className="relative">
+                <div className="relative" data-preview-field="messaging">
                     <PortalWelcomeBanner
                         brandColor={brandColor}
                         secondaryColor={secondaryColor}
@@ -312,7 +393,7 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
                     onVideoClick={() => handleEdit("planVideo")}
                 />
 
-                <div className={mobile ? "force-visible relative" : "relative"}>
+                <div className={mobile ? "force-visible relative" : "relative"} data-preview-field="helpCards">
                     <HowCanWeHelpSection
                         brandColor={brandColor}
                         secondaryColor={secondaryColor}
@@ -324,6 +405,7 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
 
                 <div
                     className="relative group cursor-pointer"
+                    data-preview-field="insurance"
                     onClick={() => handleEdit("insurance")}
                     onMouseEnter={() => setHoveredSection("insurance")}
                     onMouseLeave={() => setHoveredSection(null)}

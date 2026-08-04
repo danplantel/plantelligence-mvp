@@ -105,6 +105,12 @@ export function BenefitsEditorPanel({
 
     const [highlightedSection, setHighlightedSection] = React.useState<string | null>(null);
 
+    // When an editor input is focused, ask the preview to scroll to the
+    // corresponding element. Maps editor field keys → preview data-preview-field.
+    const focusPreviewField = (field: string) => {
+        window.dispatchEvent(new CustomEvent("benefitsPreviewScrollTo", { detail: { field } }));
+    };
+
     // Sync highlightedField (cardId) with accordion open state.
     // Only the clicked card's accordion opens; all others close.
     useEffect(() => {
@@ -323,7 +329,7 @@ export function BenefitsEditorPanel({
                 >
                     <SectionHeader number={1} title="Branding" />
                     <div className="space-y-8">
-                        <div className="space-y-4">
+                        <div className="space-y-4" onMouseDown={() => focusPreviewField("companyLogo")}>
                             <Label className="text-xs font-bold text-foreground">Provider Logo</Label>
                             <BrandImageUpload
                                 slotKey="companyLogo"
@@ -353,7 +359,7 @@ export function BenefitsEditorPanel({
                                 universalModalType="normalizer"
                             />
                         </div>
-                        <div className="space-y-4">
+                        <div className="space-y-4" onMouseDownCapture={() => focusPreviewField("brandImagesHeader")}>
                             <Label className="text-xs font-bold text-foreground">Header Background</Label>
                             <HeroBackgroundCard
                                 heroImageData={step1Data.brandImages?.header || null}
@@ -382,7 +388,7 @@ export function BenefitsEditorPanel({
                                 }}
                             />
                         </div>
-                        <div className="space-y-4">
+                        <div className="space-y-4" onMouseDown={() => focusPreviewField("innerHeaderImage")}>
                             <Label className="text-xs font-bold text-foreground">Inner Header Image</Label>
                             <BrandImageUpload
                                 slotKey="innerHeaderImage"
@@ -446,6 +452,7 @@ export function BenefitsEditorPanel({
                             <Input
                                 value={step1Data.benefitTitle || ""}
                                 onChange={(e) => saveStepData(1, { ...step1Data, benefitTitle: e.target.value })}
+                                onFocus={() => focusPreviewField("benefitTitle")}
                                 placeholder="e.g. 401(k) Retirement Plan"
                                 className="h-11 shadow-sm border-muted"
                                 maxLength={24}
@@ -456,6 +463,7 @@ export function BenefitsEditorPanel({
                             <Textarea
                                 value={step1Data.shortDescription || ""}
                                 onChange={(e) => saveStepData(1, { ...step1Data, shortDescription: e.target.value })}
+                                onFocus={() => focusPreviewField("shortDescription")}
                                 placeholder="Provide a helpful overview for employees..."
                                 className="min-h-[120px] shadow-sm border-muted leading-relaxed"
                                 maxLength={450}
@@ -477,6 +485,7 @@ export function BenefitsEditorPanel({
                                         id="emsig-user"
                                         name="signatureMode"
                                         checked={(step1Data.signatureMode || "user") === "user"}
+                                        onFocus={() => focusPreviewField("messaging")}
                                         onChange={() => saveStepData(1, { ...step1Data, signatureMode: "user" })}
                                         className="h-4 w-4"
                                     />
@@ -488,6 +497,7 @@ export function BenefitsEditorPanel({
                                         id="emsig-custom"
                                         name="signatureMode"
                                         checked={(step1Data.signatureMode || "user") === "custom"}
+                                        onFocus={() => focusPreviewField("messaging")}
                                         onChange={() => saveStepData(1, { ...step1Data, signatureMode: "custom" })}
                                         className="h-4 w-4"
                                     />
@@ -502,6 +512,7 @@ export function BenefitsEditorPanel({
                                             <Input
                                                 value={step1Data.customClosing || ""}
                                                 onChange={(e) => saveStepData(1, { ...step1Data, customClosing: e.target.value })}
+                                                onFocus={() => focusPreviewField("messaging")}
                                                 placeholder='Closing text e.g. "We hope to inspire you to save!"'
                                                 className="h-9 shadow-sm border-muted text-xs flex-1"
                                             />
@@ -524,6 +535,7 @@ export function BenefitsEditorPanel({
                                             <Input
                                                 value={step1Data.customSignatureName || ""}
                                                 onChange={(e) => saveStepData(1, { ...step1Data, customSignatureName: e.target.value })}
+                                                onFocus={() => focusPreviewField("messaging")}
                                                 placeholder='Signature name e.g. "[Name] - [Position]"'
                                                 className="h-9 shadow-sm border-muted text-xs flex-1"
                                             />
@@ -546,6 +558,7 @@ export function BenefitsEditorPanel({
                                             <Input
                                                 value={step1Data.customSignatureCompany || ""}
                                                 onChange={(e) => saveStepData(1, { ...step1Data, customSignatureCompany: e.target.value })}
+                                                onFocus={() => focusPreviewField("messaging")}
                                                 placeholder='Company Name'
                                                 className="h-9 shadow-sm border-muted text-xs flex-1"
                                             />
@@ -655,6 +668,7 @@ export function BenefitsEditorPanel({
                                 <Input
                                     value={step1Data.journeyHeader || ""}
                                     onChange={(e) => saveStepData(1, { ...step1Data, journeyHeader: e.target.value })}
+                                    onFocus={() => focusPreviewField("journeyHeader")}
                                     placeholder="Section Header"
                                     className="h-9 shadow-sm border-muted text-sm"
                                 />
@@ -664,6 +678,7 @@ export function BenefitsEditorPanel({
                                 <Input
                                     value={step1Data.journeySubtitle || ""}
                                     onChange={(e) => saveStepData(1, { ...step1Data, journeySubtitle: e.target.value })}
+                                    onFocus={() => focusPreviewField("journeySubtitle")}
                                     placeholder="e.g. Build your future with confidence."
                                     className="h-9 shadow-sm border-muted text-sm"
                                 />
@@ -673,6 +688,7 @@ export function BenefitsEditorPanel({
                                 <Textarea
                                     value={step1Data.journeyBodyText || ""}
                                     onChange={(e) => saveStepData(1, { ...step1Data, journeyBodyText: e.target.value })}
+                                    onFocus={() => focusPreviewField("journeyBodyText")}
                                     placeholder="Preview of the featured video."
                                     className="min-h-[80px] shadow-sm border-muted text-sm leading-relaxed"
                                 />
@@ -731,6 +747,7 @@ export function BenefitsEditorPanel({
                                             type="file"
                                             accept="video/*"
                                             onChange={handlePlanVideoUpload}
+                                            onFocus={() => focusPreviewField("planVideo")}
                                             className="hidden"
                                             disabled={videoUploading}
                                         />
@@ -783,6 +800,7 @@ export function BenefitsEditorPanel({
                                         <Input
                                             value={card.title}
                                             onChange={(e) => updateHelpCard(card.id, { title: e.target.value })}
+                                            onFocus={() => focusPreviewField("helpCards")}
                                             className="h-9 text-sm"
                                         />
                                     </div>
@@ -793,6 +811,7 @@ export function BenefitsEditorPanel({
                                         <Input
                                             value={card.introBold || ""}
                                             onChange={(e) => updateHelpCard(card.id, { introBold: e.target.value || undefined })}
+                                            onFocus={() => focusPreviewField("helpCards")}
                                             className="h-9 text-sm"
                                             placeholder="e.g. Transitioning to a new employer?"
                                         />
@@ -816,6 +835,7 @@ export function BenefitsEditorPanel({
                                                 <Textarea
                                                     value={p}
                                                     onChange={(e) => updateParagraph(card.id, idx, e.target.value)}
+                                                    onFocus={() => focusPreviewField("helpCards")}
                                                     className="min-h-[60px] text-sm flex-1"
                                                     placeholder={`Paragraph ${idx + 1}`}
                                                 />
@@ -839,6 +859,7 @@ export function BenefitsEditorPanel({
                                         <Input
                                             value={card.cta}
                                             onChange={(e) => updateHelpCard(card.id, { cta: e.target.value })}
+                                            onFocus={() => focusPreviewField("helpCards")}
                                             className="h-9 text-sm"
                                             placeholder="e.g. LEARN MORE →"
                                         />
@@ -850,6 +871,7 @@ export function BenefitsEditorPanel({
                                         <Input
                                             value={card.href || ""}
                                             onChange={(e) => updateHelpCard(card.id, { href: e.target.value || undefined })}
+                                            onFocus={() => focusPreviewField("helpCards")}
                                             className="h-9 text-sm"
                                             placeholder="e.g. /financial-planning"
                                         />
@@ -872,7 +894,7 @@ export function BenefitsEditorPanel({
                         Configure the plan ID and login button shown in the Insurance Benefits Access & Materials section.
                     </p>
                     <div className="space-y-6">
-                        <div className="space-y-4">
+                        <div className="space-y-4" onMouseDown={() => focusPreviewField("insuranceBackgroundImage")}>
                             <Label className="text-xs font-bold text-foreground">Background Image</Label>
                             <BrandImageUpload
                                 slotKey="insuranceBg"
@@ -941,6 +963,8 @@ export function BenefitsEditorPanel({
                             <Label className="text-xs font-bold text-foreground">Plan ID # <span className="text-red-500">*</span></Label>
                             <Input
                                 value={step1Data.insurancePlanId || ""}
+                                onMouseDown={() => focusPreviewField("insurancePlanId")}
+                                onFocus={() => focusPreviewField("insurancePlanId")}
                                 onChange={(e) => {
                                     // Auto-format to xxxx-xxxx-xxxx pattern
                                     const raw = e.target.value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 12);
@@ -968,6 +992,8 @@ export function BenefitsEditorPanel({
                             <Input
                                 value={step1Data.insuranceLoginUrl || ""}
                                 onChange={(e) => saveStepData(1, { ...step1Data, insuranceLoginUrl: e.target.value })}
+                                onMouseDown={() => focusPreviewField("insuranceLoginUrl")}
+                                onFocus={() => focusPreviewField("insuranceLoginUrl")}
                                 placeholder="e.g. https://portal.empower.com/auth/login"
                                 className="h-11 shadow-sm border-muted"
                                 type="url"

@@ -80,6 +80,7 @@ export function RetirementJourneySection({
           >
             <div
               className={`relative ${onMainTitleClick ? "cursor-pointer group" : ""}`}
+              data-preview-field="journeyHeader"
               onClick={(e) => { e.stopPropagation(); onMainTitleClick?.(); }}
               onMouseEnter={() => onMainTitleClick && setHoveredField("mainTitle")}
               onMouseLeave={() => onMainTitleClick && setHoveredField(null)}
@@ -91,6 +92,7 @@ export function RetirementJourneySection({
             </div>
             <div
               className={`relative ${onSubtitleClick ? "cursor-pointer group" : ""}`}
+              data-preview-field="journeySubtitle"
               onClick={(e) => { e.stopPropagation(); onSubtitleClick?.(); }}
               onMouseEnter={() => onSubtitleClick && setHoveredField("subtitle")}
               onMouseLeave={() => onSubtitleClick && setHoveredField(null)}
@@ -102,6 +104,7 @@ export function RetirementJourneySection({
             </div>
             <div
               className={`relative ${onDescriptionClick ? "cursor-pointer group" : ""}`}
+              data-preview-field="journeyBodyText"
               onClick={(e) => { e.stopPropagation(); onDescriptionClick?.(); }}
               onMouseEnter={() => onDescriptionClick && setHoveredField("description")}
               onMouseLeave={() => onDescriptionClick && setHoveredField(null)}
@@ -115,6 +118,7 @@ export function RetirementJourneySection({
 
           <motion.div
             className={`relative w-full ${onVideoClick ? "cursor-pointer group" : ""}`}
+            data-preview-field="planVideo"
             variants={imageVariants}
             initial="hidden"
             animate={isInView ? "visible" : "hidden"}

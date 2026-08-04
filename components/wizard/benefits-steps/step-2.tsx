@@ -392,6 +392,7 @@ export function BenefitsStep2() {
                 {/* Scrollable content — items-center keeps the preview centered */}
                 <div
                     ref={scrollableRef}
+                    data-preview-scroll-container
                     className={`flex-1 overflow-x-hidden bg-gray-300 dark:bg-gray-950 flex flex-col items-center ${
                         previewMode === "mobile" ? "overflow-y-hidden justify-center" : "overflow-y-auto"
                     }`}
