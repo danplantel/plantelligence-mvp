@@ -217,7 +217,7 @@ export function LargeHorizontalCard({
 
         {/* NAME */}
         <h3
-          className="text-3xl font-dm-serif font-semibold m-0"
+          className="text-2xl font-dm-serif font-semibold m-0 w-full max-w-full whitespace-nowrap overflow-hidden text-ellipsis"
           style={{ color: textColor || "#111827" }}
         >
           {contact.contactType === "team_support"

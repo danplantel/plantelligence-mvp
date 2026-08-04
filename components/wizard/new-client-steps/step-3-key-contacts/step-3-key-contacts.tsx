@@ -152,6 +152,26 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
     setSlideIndexLocal(step3SlideIndex);
   }, [step3SlideIndex, slideIndex, contacts.length]);
 
+  // Scroll to the top of the page whenever the active slide changes, so each
+  // new slide (e.g. the category explorer after the contact form) starts from
+  // the top instead of retaining the previous slide's scroll position.
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    const wizardContent = Array.from(document.querySelectorAll("div")).find(
+      (el) => {
+        const htmlEl = el as HTMLElement;
+        return (
+          htmlEl.scrollHeight > htmlEl.clientHeight &&
+          (htmlEl.className.includes("mb-12") ||
+            htmlEl.className.includes("mb-20"))
+        );
+      },
+    ) as HTMLElement | undefined;
+    if (wizardContent) {
+      wizardContent.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [slideIndex]);
+
   // Seed advisor contacts from profile for their primary service categories.
   // Only runs once the user has saved at least one main contact (slide 1 → slide 2
   // transition) so the category explorer never shows surprise pre-seeded contacts

@@ -201,8 +201,8 @@ export function SmallVerticalCard({
       ? "h-[60px] w-[60px]"
       : "h-[90px] w-[90px]";
     const nameSize = compact
-      ? "text-base sm:text-lg"
-      : "text-xl sm:text-2xl";
+      ? "text-xs sm:text-sm"
+      : "text-base sm:text-lg";
     const subtitleSize = compact ? "text-xs" : "text-sm";
     const gapLogo = compact ? "mb-3" : "mb-6";
     const gapAvatar = compact ? "mb-3" : "mb-6";
@@ -241,7 +241,7 @@ export function SmallVerticalCard({
 
           {/* NAME */}
           <h3
-            className={`${nameSize} font-semibold ${gapName} text-center flex-shrink-0 font-dm-serif`}
+            className={`${nameSize} font-semibold ${gapName} text-center flex-shrink-0 font-dm-serif w-full max-w-full whitespace-nowrap overflow-hidden text-ellipsis px-1`}
             style={{ color: textColor || effectiveBrandColor }}
           >
             {contact.contactType === "team_support"
@@ -455,7 +455,7 @@ export function SmallVerticalCard({
 
         {/* NAME */}
         <h3
-          className="text-lg sm:text-2xl font-semibold mb-1 sm:mb-2 text-center flex-shrink-0 font-dm-serif"
+          className="text-sm sm:text-lg font-semibold mb-1 sm:mb-2 text-center flex-shrink-0 font-dm-serif w-full max-w-full whitespace-nowrap overflow-hidden text-ellipsis px-1"
           style={{ color: textColor || effectiveBrandColor }}
         >
           {contact.contactType === "team_support"

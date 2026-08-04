@@ -207,7 +207,7 @@ export function PrimaryContactCard({
         </div>
 
         {/* RIGHT: CONTENT — uses flex-1 + mt-auto to push CTA buttons to the bottom */}
-        <div className="flex flex-col font-red-hat gap-2 h-full" style={{ color: textColor }}>
+        <div className="flex flex-col font-red-hat gap-2 h-full min-w-0" style={{ color: textColor }}>
           {/* COMPANY LOGO */}
           {(contact.companyLogo || contact.logo) && (
             <div className="mb-1">
@@ -222,7 +222,7 @@ export function PrimaryContactCard({
 
           {/* NAME */}
           <h2
-            className="text-2xl sm:text-3xl lg:text-4xl font-semibold font-dm-serif leading-tight"
+            className="text-xl sm:text-2xl lg:text-3xl font-semibold font-dm-serif leading-tight w-full max-w-full whitespace-nowrap overflow-hidden text-ellipsis"
             style={{ color: effectiveBrandColor }}
           >
             {contact.contactType === "team_support"
