@@ -111,10 +111,14 @@ export function ComplianceDocumentsUpload({
 
   const [retirementPlanDocuments, setRetirementPlanDocuments] =
     useState<Document[]>(initialDocuments);
-  
-  // Deduplicate documents by storageKey — safety net for any double-processing
+
+  // Stable ref so callbacks (handleManualSave) always read latest documents
+  // without causing effect re-fires when the array identity changes.
+  const retirementPlanDocumentsRef = useRef(retirementPlanDocuments);
+  retirementPlanDocumentsRef.current = retirementPlanDocuments;
+
   // Deduplicate documents by storageKey — safety net for any double-processing.
-  // Uses length-based trigger to avoid infinite re-render loops.
+  // Only dispatches a state update when duplicates are actually detected.
   const prevDocLengthRef = useRef(0);
   useEffect(() => {
     if (isWizardControlled || !clientId) return;
@@ -122,13 +126,24 @@ export function ComplianceDocumentsUpload({
     if (curLen === prevDocLengthRef.current) return;
     prevDocLengthRef.current = curLen;
 
+    // Check for duplicates synchronously first; skip setState if none found.
+    const seen = new Set<string>();
+    let hasDuplicates = false;
+    for (const d of retirementPlanDocuments) {
+      const key = (d as any).storageKey as string | undefined;
+      if (!key || !key.trim()) continue;
+      if (seen.has(key.trim())) { hasDuplicates = true; break; }
+      seen.add(key.trim());
+    }
+    if (!hasDuplicates) return;
+
     setRetirementPlanDocuments((prev) => {
-      const seen = new Set<string>();
+      const dedupSeen = new Set<string>();
       const deduped = prev.filter((d) => {
         const key = (d as any).storageKey as string | undefined;
         if (!key || !key.trim()) return true;
-        if (seen.has(key.trim())) return false;
-        seen.add(key.trim());
+        if (dedupSeen.has(key.trim())) return false;
+        dedupSeen.add(key.trim());
         return true;
       });
       if (deduped.length !== prev.length) {
@@ -397,6 +412,9 @@ export function ComplianceDocumentsUpload({
       previousClientIdRef.current = clientId;
       // Clear documents when switching clients
       setRetirementPlanDocuments([]);
+      // Reset auto-persist guards for the new client
+      autoPersistGate.current = true;
+      persistedStorageKeys.current.clear();
     }
 
     const loadDocuments = async () => {
@@ -474,36 +492,68 @@ export function ComplianceDocumentsUpload({
     loadDocuments();
   }, [clientId, isWizardControlled, onHasUnsavedChangesChange]);
 
-  // Auto-persist: persists new R2 uploads so they appear in Preview/List without
-  // requiring an explicit Save button. DISABLED when showSaveButton is true (manual save mode,
-  // e.g. wizard). Only fires when temp docs with storageKeys exist — which happens after the user
-  // clicks "Add X Documents" in the review UI, NOT on mount or during file upload.
+  // Memoized key that only changes when new temp documents with storageKeys
+  // are added. This prevents the auto-persist effect from re-firing due to
+  // unrelated document changes (e.g. category updates, loaded docs).
+  const autoPersistTriggerKey = useMemo(() => {
+    if (!clientId || isWizardControlled || showSaveButton) return "";
+    const ids: string[] = [];
+    for (const d of retirementPlanDocuments) {
+      const key = (d as any).storageKey as string | undefined;
+      if (!key || !key.trim()) continue;
+      const sid = String(d.id);
+      if (
+        sid.startsWith("temp-") ||
+        sid.startsWith("doc-") ||
+        sid.startsWith("plan-doc-") ||
+        sid.startsWith("optional-doc-")
+      ) {
+        ids.push(`${sid}:${key.trim()}`);
+      }
+    }
+    ids.sort();
+    return ids.join("|");
+  }, [clientId, isWizardControlled, showSaveButton, retirementPlanDocuments]);
+
+  // Auto-persist: silently persists new R2 uploads in the background so they
+  // appear in Preview/List without requiring an explicit Save button.
+  // DISABLED when showSaveButton is true (manual save mode, e.g. wizard).
+  // Only fires when temp docs with storageKeys exist — which happens after the
+  // user clicks "Add X Documents" in the review UI, NOT on mount.
   //
-  // Shows the "Adding Documents" modal via onDocumentsAdded when temp docs are detected
-  // (i.e., after user action) and closes it via onSave/onDocumentsSaved on completion.
+  // NOTE: Does NOT call onDocumentsAdded or onSave — those callbacks are
+  // reserved for explicit user-initiated saves (handleManualSave).
+  // Auto-persist is completely silent.
   const isPersistingRef = useRef(false);
   const persistedStorageKeys = useRef<Set<string>>(new Set());
+  // Gate: skip the first trigger after clientId changes (initial load).
+  // This prevents auto-persist from firing on existing temp-ID documents
+  // that were just loaded from the API.
+  const autoPersistGate = useRef(true);
   useEffect(() => {
-    if (!clientId || isWizardControlled || showSaveButton) return;
+    if (!autoPersistTriggerKey) return;
+    // Skip initial trigger — only auto-persist documents added by the user
+    // during this session, not documents loaded from the API on mount.
+    if (autoPersistGate.current) {
+      autoPersistGate.current = false;
+      return;
+    }
     // Don't auto-persist while a manual save is in progress (and vice versa)
     if (isSavingRef.current) return;
 
-    const isTempPersistId = (id: string) =>
-      String(id).startsWith("temp-") ||
-      String(id).startsWith("doc-") ||
-      String(id).startsWith("plan-doc-") ||
-      String(id).startsWith("optional-doc-");
-    const tempDocs = retirementPlanDocuments.filter(
-      (d) => {
-        const key = (d as any).storageKey as string | undefined;
-        return (
-          key &&
-          key.trim() !== "" &&
-          isTempPersistId(String(d.id)) &&
-          !persistedStorageKeys.current.has(key.trim())
-        );
-      },
-    );
+    const docs = retirementPlanDocumentsRef.current;
+    const tempDocs = docs.filter((d) => {
+      const key = (d as any).storageKey as string | undefined;
+      if (!key || !key.trim()) return false;
+      const sid = String(d.id);
+      return (
+        (sid.startsWith("temp-") ||
+          sid.startsWith("doc-") ||
+          sid.startsWith("plan-doc-") ||
+          sid.startsWith("optional-doc-")) &&
+        !persistedStorageKeys.current.has(key.trim())
+      );
+    });
     if (tempDocs.length === 0 || isPersistingRef.current) return;
 
     // Mark these storage keys as persisted BEFORE the async call,
@@ -513,9 +563,8 @@ export function ComplianceDocumentsUpload({
     }
 
     isPersistingRef.current = true;
-    // Show modal — user has just clicked "Add X Documents"
-    onDocumentsAdded?.();
-    persistNewDocumentsToApi(clientId, retirementPlanDocuments)
+    // NOTE: No onDocumentsAdded / onSave here — auto-persist is silent.
+    persistNewDocumentsToApi(clientId!, docs)
       .then((updated) => {
         setRetirementPlanDocuments(updated);
         const savedState = JSON.stringify(
@@ -529,13 +578,11 @@ export function ComplianceDocumentsUpload({
                 : "",
               originalFileName: d.originalFileName || "",
             }))
-            .sort((a, b) => a.id.localeCompare(b.id))
+            .sort((a, b) => a.id.localeCompare(b.id)),
         );
         lastSavedDocumentsRef.current = savedState;
         setHasUnsavedChanges(false);
         if (onHasUnsavedChangesChange) onHasUnsavedChangesChange(false);
-        // Close modal / notify parent on success
-        onSave?.(updated);
       })
       .catch((err) => {
         console.error("Persist new documents failed:", err);
@@ -543,20 +590,12 @@ export function ComplianceDocumentsUpload({
         for (const d of tempDocs) {
           persistedStorageKeys.current.delete((d as any).storageKey.trim());
         }
-        // Close modal even on error so UI isn't stuck
-        onSave?.(retirementPlanDocuments);
       })
       .finally(() => {
         isPersistingRef.current = false;
       });
-  }, [
-    clientId,
-    isWizardControlled,
-    showSaveButton,
-    retirementPlanDocuments,
-    onSave,
-    onHasUnsavedChangesChange,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoPersistTriggerKey]);
 
   // Track unsaved changes - improved comparison
   useEffect(() => {
@@ -746,27 +785,31 @@ export function ComplianceDocumentsUpload({
     hasSkippedCategorization,
   ]);
 
-  // Expose save function to parent component
+  // Expose save function to parent component.
+  // Uses a stable ref for documents so the effect doesn't re-fire on every
+  // document change — handleManualSave always reads the latest via the ref.
   useEffect(() => {
     if (onSaveFunctionReady && clientId) {
       onSaveFunctionReady(handleManualSave);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onSaveFunctionReady, clientId, retirementPlanDocuments]);
+  }, [onSaveFunctionReady, clientId]);
 
-  // Manual save function
+  // Manual save function — always reads latest documents via ref.
   const handleManualSave = async () => {
     // Don't manually save while auto-persist is in flight
     if (!clientId || isSavingRef.current || isPersistingRef.current) return;
     isSavingRef.current = true;
 
+    const docs = retirementPlanDocumentsRef.current;
+
     // Don't attempt to save when there are no documents — prevents spurious success toast
-    if (retirementPlanDocuments.length === 0) {
+    if (docs.length === 0) {
       isSavingRef.current = false;
       return;
     }
 
-    const missingCategory = retirementPlanDocuments.filter(
+    const missingCategory = docs.filter(
       (d) => !d.category?.trim(),
     );
     if (missingCategory.length > 0 && !hasSkippedCategorization) {
@@ -788,7 +831,7 @@ export function ComplianceDocumentsUpload({
         String(id).startsWith("plan-doc-") ||
         String(id).startsWith("optional-doc-");
 
-      const docsToSave = retirementPlanDocuments.filter(
+      const docsToSave = docs.filter(
         (d) => isTempId(String(d.id)) && (d as any).storageKey,
       );
 
@@ -851,7 +894,7 @@ export function ComplianceDocumentsUpload({
       } else {
         // Update saved state with the same format as tracking
         const savedState = JSON.stringify(
-          retirementPlanDocuments
+          docs
             .map((d) => ({
               id: d.id,
               name: d.name,
@@ -870,7 +913,7 @@ export function ComplianceDocumentsUpload({
         }
         toast.success("Documents saved successfully");
         if (onSave) {
-          onSave(retirementPlanDocuments);
+          onSave(docs);
         }
       }
     } catch (error) {
@@ -878,7 +921,7 @@ export function ComplianceDocumentsUpload({
       toast.error("Error saving documents. Please try again.");
       // Ensure the "Adding Documents" modal closes even on error
       if (onSave) {
-        onSave(retirementPlanDocuments);
+        onSave(docs);
       }
     } finally {
       setIsSaving(false);

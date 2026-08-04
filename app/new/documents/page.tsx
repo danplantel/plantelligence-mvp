@@ -61,7 +61,7 @@ import { formatUsDate } from "@/lib/date";
 
 const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
 
-// â”€â”€ Sortable table header â”€â”€
+// Sortable table header
 function SortableTh({
   column,
   label,
@@ -95,7 +95,7 @@ function SortableTh({
   );
 }
 
-// â”€â”€ Plan search bar (replaces StickyPlanCombobox) â”€â”€
+// Plan search bar (replaces StickyPlanCombobox)
 function PlanSearchBar({
   plans,
   value,
@@ -384,51 +384,6 @@ function PlanSearchBar({
             document.body,
           )
         : null}
-    </div>
-  );
-}
-
-// â”€â”€ Recent plan labels shown when no plan is selected â”€â”€
-function RecentPlanLabels({
-  plans,
-  onSelect,
-}: {
-  plans: Client[];
-  onSelect: (planId: string) => void;
-}) {
-  const recentIds = getRecentPlanIds();
-  const recentPlanObjects = useMemo(() => {
-    const planMap = new Map(plans.map((p) => [p.id, p]));
-    const result: Client[] = [];
-    const seen = new Set<string>();
-    for (const id of recentIds) {
-      const p = planMap.get(id);
-      if (p && !seen.has(id)) {
-        result.push(p);
-        seen.add(id);
-      }
-    }
-    return result;
-  }, [recentIds, plans]);
-
-  if (recentPlanObjects.length === 0) return null;
-
-  return (
-    <div className="flex flex-wrap items-center gap-1.5 pt-2">
-      <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
-      {recentPlanObjects.slice(0, 5).map((plan) => (
-        <button
-          key={plan.id}
-          type="button"
-          onClick={() => {
-            persistPlanSelection("documents", plan.id);
-            onSelect(plan.id);
-          }}
-          className="inline-flex items-center rounded-md border border-accent-blue/30 bg-accent-blue/5 px-2 py-0.5 text-xs font-medium text-accent-blue hover:bg-accent-blue/10 hover:border-accent-blue/50 transition-colors"
-        >
-          {plan.companyName}
-        </button>
-      ))}
     </div>
   );
 }
@@ -1030,7 +985,7 @@ export default function DocumentsPage() {
                       </div>
                     )}
 
-                    {/* Card View â€” refactored without PDF preview, draggable */}
+                    {/* Card View refactored without PDF preview, draggable */}
                     {filteredDocs.length > 0 && viewMode === "cards" && (
                       <DragDropContext onDragEnd={(result) => {
                         if (!result.destination) return;
@@ -1181,6 +1136,7 @@ export default function DocumentsPage() {
       <DocumentPreviewModal isOpen={previewOpen} onClose={() => { setPreviewOpen(false); setPreviewDocument(null); }} document={previewDocument} isLoading={isLoadingPreview} />
       <DocumentEditModal isOpen={editModalOpen} onClose={() => { setEditModalOpen(false); setDocumentToEdit(null); }} document={documentToEdit} onSave={handleSaveEdit} />
       <NavigateAwayWarningDialog open={leaveGuard.dialogOpen} isSaving={leaveGuard.isSaving} isDiscarding={leaveGuard.isDiscarding} onStay={leaveGuard.stayAndKeepEditing} onSaveAndExit={leaveGuard.saveAndExit} onDiscardWithoutSaving={leaveGuard.discardWithoutSaving} onDialogOpenChange={leaveGuard.dialogOnOpenChange} onDiscardPointerDownCapture={leaveGuard.suppressStayOnNextClose} />
+      
       {/* Loading dialog shown while documents are being saved and transitioned to View Documents */}
       <Dialog open={isTransitioningToDocuments}>
         <DialogContent className="sm:max-w-sm [&>button.absolute]:hidden" onInteractOutside={(e) => e.preventDefault()}>
