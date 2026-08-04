@@ -1,6 +1,7 @@
 /**
- * Validates if a string is a valid domain (accepts various formats)
- * Accepts: example.com, www.example.com, https://example.com, https://www.example.com
+ * Validates if a string is a valid domain or website URL (accepts various formats)
+ * Accepts: example.com, www.example.com, https://example.com, https://www.example.com,
+ *          example.com/path, https://example.com/path?query=1#hash, example.com:8080
  */
 export function isValidDomain(url: string): boolean {
   if (!url || url.trim() === '') {
@@ -8,21 +9,31 @@ export function isValidDomain(url: string): boolean {
   }
 
   const trimmedUrl = url.trim();
-  
-  // Must contain a dot
-  if (!trimmedUrl.includes('.')) {
+
+  // Reject strings containing whitespace
+  if (/\s/.test(trimmedUrl)) {
     return false;
   }
 
-  // Basic domain validation - check it has valid characters
-  const domainRegex = /^[a-zA-Z0-9.-]+$/;
-  
-  return domainRegex.test(trimmedUrl);
+  // Prepends a protocol when missing so `new URL` can parse bare domains too
+  try {
+    const candidate = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmedUrl)
+      ? trimmedUrl
+      : `https://${trimmedUrl}`;
+    const parsed = new URL(candidate);
+
+    // Hostname must contain a dot and have a valid domain suffix
+    const hostname = parsed.hostname;
+    return hostname.includes('.') && hostname.length > 1;
+  } catch {
+    return false;
+  }
 }
 
 /**
  * Validates if a string is a clean domain name without www. or https://
- * Only accepts domains like: example.com, subdomain.example.com
+ * Accepts domains and subdomains with optional paths, e.g.:
+ * example.com, subdomain.example.com, example.com/path
  */
 export function isValidCleanDomain(url: string): boolean {
   if (!url || url.trim() === '') {
@@ -30,23 +41,25 @@ export function isValidCleanDomain(url: string): boolean {
   }
 
   const trimmedUrl = url.trim();
-  
+
   // Must not start with www. or https:// or http://
-  if (trimmedUrl.startsWith('www.') || 
-      trimmedUrl.startsWith('https://') || 
+  if (trimmedUrl.startsWith('www.') ||
+      trimmedUrl.startsWith('https://') ||
       trimmedUrl.startsWith('http://')) {
     return false;
   }
 
-  // Must contain a dot
-  if (!trimmedUrl.includes('.')) {
+  if (/\s/.test(trimmedUrl)) {
     return false;
   }
 
-  // Basic domain validation - just check it has valid characters
-  const domainRegex = /^[a-zA-Z0-9.-]+$/;
-  
-  return domainRegex.test(trimmedUrl);
+  try {
+    const parsed = new URL(`https://${trimmedUrl}`);
+    const hostname = parsed.hostname;
+    return hostname.includes('.') && hostname.length > 1;
+  } catch {
+    return false;
+  }
 }
 
 /**
