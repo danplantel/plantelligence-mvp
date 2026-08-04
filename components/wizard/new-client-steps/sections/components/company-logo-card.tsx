@@ -21,6 +21,8 @@ interface CompanyLogoCardProps {
     onClose: () => void;
   }) => void;
   isHighlighted?: boolean;
+  /** Called when any interactive element inside the upload area gains focus */
+  onFieldFocus?: () => void;
 }
 
 const convertLogoToBrandImage = (
@@ -57,6 +59,7 @@ export const CompanyLogoCard = forwardRef<HTMLDivElement, CompanyLogoCardProps>(
       renderModalOutside = false,
       onLogoModalStateChange,
       isHighlighted = false,
+      onFieldFocus,
     },
     ref,
   ) {
@@ -122,6 +125,7 @@ export const CompanyLogoCard = forwardRef<HTMLDivElement, CompanyLogoCardProps>(
           renderModalOutside={!!onLogoModalStateChange}
           onModalStateChange={handleLogoModalStateChangeFromUpload}
           isHighlighted={isHighlighted}
+          onFocus={onFieldFocus}
         />
       </div>
     );

@@ -434,6 +434,49 @@ export function EditPlanPreviewSection({
     }
   }, [editorIsOpen, handleCloseEditor, handleOpenEditor]);
 
+  // ── Scroll the preview to a section when its editor input is focused ──
+  const focusPreviewField = (field: string) => {
+    window.dispatchEvent(
+      new CustomEvent("benefitsPreviewScrollTo", { detail: { field } }),
+    );
+  };
+
+  useEffect(() => {
+    const handlePreviewScroll = (e: Event) => {
+      const field = (e as CustomEvent<{ field?: string }>).detail?.field;
+      if (!field) return;
+      const container = document.querySelector(
+        "[data-preview-scroll-container]",
+      );
+      if (!container) return;
+
+      requestAnimationFrame(() => {
+        const el = document.querySelector(`[data-preview-field="${field}"]`);
+        if (!el) return;
+        const elRect = el.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        const elCenter = elRect.top + elRect.height / 2;
+        const containerCenter =
+          containerRect.top + (container as HTMLElement).clientHeight / 2;
+        const delta = elCenter - containerCenter;
+        const maxScroll =
+          (container as HTMLElement).scrollHeight -
+          (container as HTMLElement).clientHeight;
+        const targetScroll = Math.min(
+          Math.max(0, (container as HTMLElement).scrollTop + delta),
+          maxScroll,
+        );
+        (container as HTMLElement).scrollTo({
+          top: targetScroll,
+          behavior: "smooth",
+        });
+      });
+    };
+    window.addEventListener("benefitsPreviewScrollTo", handlePreviewScroll);
+    return () =>
+      window.removeEventListener("benefitsPreviewScrollTo", handlePreviewScroll);
+  }, []);
+
   // ── Overlay settings ──
   const {
     heroOverlayOpacity,
@@ -553,6 +596,7 @@ export function EditPlanPreviewSection({
                 onLogoImageChange={handleLogoImageChange}
                 onLogoImageRemove={handleLogoImageRemove}
                 isHighlighted={false}
+                onFieldFocus={() => focusPreviewField("banner")}
               />
             </CardContent>
           </Card>
@@ -575,6 +619,7 @@ export function EditPlanPreviewSection({
                 onDesktopPositionChange={handleDesktopHeroPositionChange}
                 mobilePosition={mobileHeroPosition}
                 onMobilePositionChange={handleMobileHeroPositionChange}
+                onFieldFocus={() => focusPreviewField("banner")}
               />
             </CardContent>
           </Card>
@@ -599,11 +644,12 @@ export function EditPlanPreviewSection({
                 defaultBodyText={defaultWelcomeMessage}
                 onHeadlineChange={handleWelcomeHeadlineChange}
                 onBodyChange={handleWelcomeBodyChange}
+                onFieldFocus={() => focusPreviewField("banner")}
               />
             </CardContent>
           </Card>
 
-          <Card className="dark:bg-gray-800">
+          <Card className="dark:bg-gray-800" onMouseDown={() => focusPreviewField("banner")}>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm dark:text-gray-100">Overlay Settings</CardTitle>
             </CardHeader>
@@ -652,6 +698,7 @@ export function EditPlanPreviewSection({
               onGenerateMissionHeadline={handleGenerateMissionHeadline}
               onGenerateMissionBody={handleGenerateMissionBody}
               showUseDefault={false}
+              onFieldFocus={() => focusPreviewField("mission")}
             />
           </CardContent>
         </Card>
@@ -737,6 +784,7 @@ export function EditPlanPreviewSection({
         {/* Scrollable preview content */}
         <div
           ref={scrollableRef}
+          data-preview-scroll-container
           className={`flex-1 overflow-x-hidden bg-gray-300 dark:bg-gray-950 flex flex-col items-center ${
             previewMode === "mobile" ? "overflow-y-hidden justify-center" : "overflow-y-auto"
           }`}
