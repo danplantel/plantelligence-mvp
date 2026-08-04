@@ -967,8 +967,8 @@ export default function DocumentsPage() {
                                     </td>
                                     <td className="px-3 py-3">
                                       <div>
-                                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate max-w-[280px]">{doc.title}</p>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate max-w-[280px]">{doc.description}</p>
+                                        <p className="text-xs font-medium text-gray-900 dark:text-gray-100 truncate max-w-[280px]">{doc.title}</p>
+                                        <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 truncate max-w-[280px]">{doc.description}</p>
                                       </div>
                                     </td>
                                     <td className="px-3 py-3">
