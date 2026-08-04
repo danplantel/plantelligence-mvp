@@ -64,6 +64,7 @@ import { CardSelectionModal } from "@/components/wizard/new-client-steps/card-se
 import { PortalDisclaimers } from "@/components/pages/client-portal/sections/portal-disclaimers";
 import { uploadBrandingToR2 } from "@/lib/branding-r2";
 import { resolveDefaultDisclosuresText } from "@/lib/disclaimer-constants";
+import { DisclaimerUpdateConfirmDialog } from "@/components/pages/settings/disclaimer-update-confirm-dialog";
 
 // ============================================================================
 // Helper Components
@@ -629,6 +630,11 @@ export default function EditClientPage() {
   // of re-deriving from the stored client disclaimers on every keystroke.
   const disclaimerEditedRef = useRef(false);
 
+  // Disclaimer update confirmation dialog state (mirrors the Settings page flow).
+  const [showDisclaimerConfirmDialog, setShowDisclaimerConfirmDialog] =
+    useState(false);
+  const [isSavingDisclaimer, setIsSavingDisclaimer] = useState(false);
+
   const headlineRef = useRef<HTMLInputElement>(null);
   const bodyTextRef = useRef<HTMLTextAreaElement>(null);
 
@@ -822,7 +828,27 @@ export default function EditClientPage() {
   }, []);
 
   const handleSaveClick = () => {
+    // If the disclaimer was edited, require confirmation before saving so the
+    // user can confirm the Client/Plan disclaimer will be updated.
+    if (disclaimerEditedRef.current) {
+      setShowDisclaimerConfirmDialog(true);
+      return;
+    }
     handleSave();
+  };
+
+  const handleConfirmDisclaimerSave = async () => {
+    setIsSavingDisclaimer(true);
+    try {
+      const ok = await handleSave();
+      // Only close the dialog once the save succeeds (the success toast is
+      // shown by handleSave). On failure it stays open so the user can retry.
+      if (ok) {
+        setShowDisclaimerConfirmDialog(false);
+      }
+    } finally {
+      setIsSavingDisclaimer(false);
+    }
   };
 
   // ── Disclaimer text resolution ──
@@ -1693,6 +1719,14 @@ export default function EditClientPage() {
           contacts={keyContacts}
           brandColor={companyData.primaryColor}
           companyName={companyData.companyName}
+        />
+
+        {/* Disclaimer Update Confirmation Dialog */}
+        <DisclaimerUpdateConfirmDialog
+          open={showDisclaimerConfirmDialog}
+          onOpenChange={setShowDisclaimerConfirmDialog}
+          onConfirm={handleConfirmDisclaimerSave}
+          submitting={isSavingDisclaimer}
         />
       </div>
 

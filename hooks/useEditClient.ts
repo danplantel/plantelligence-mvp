@@ -688,8 +688,8 @@ export function useEditClient() {
     return fieldErrors;
   };
 
-  const handleSave = async () => {
-    if (!client) return;
+  const handleSave = async (): Promise<boolean> => {
+    if (!client) return false;
 
     // Validate form if status is Active
     if (clientStatus === "Active") {
@@ -698,10 +698,11 @@ export function useEditClient() {
         toast.error("Please complete all required fields:", {
           description: validationErrors.join(", "),
         });
-        return;
+        return false;
       }
     }
 
+    let ok = false;
     try {
       setSaving(true);
 
@@ -861,6 +862,7 @@ export function useEditClient() {
 
       const result = await response.json();
       if (result.success) {
+        ok = true;
         toast.success("Client updated successfully");
       } else {
         throw new Error("Failed to update client");
@@ -871,6 +873,7 @@ export function useEditClient() {
     } finally {
       setSaving(false);
     }
+    return ok;
   };
 
   return {
