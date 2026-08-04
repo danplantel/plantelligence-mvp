@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import { useSession } from "next-auth/react";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import {
   MISSION_STATEMENT_PRESETS,
@@ -9,19 +8,13 @@ import {
 const defaultHeadline = "Here to Support You - Today and Every Day.";
 
 export function useMissionData() {
-  const { stepData, saveStepDataLocally, advisorProfile } =
-    useNewClientWizardStore();
-  // The logged-in user's organization name (User.organizationName), falling
-  // back to the advisor profile org, then the plan/company name.
-  const { data: session } = useSession();
-  const organizationName =
-    session?.user?.organizationName ||
-    (advisorProfile as any)?.organizationName ||
-    stepData.companyBasics?.companyName ||
-    "";
+  const { stepData, saveStepDataLocally } = useNewClientWizardStore();
+  // The plan/company name from Step 1 (Company Basics) is used to fill the
+  // {{COMPANY_NAME}} placeholder in the default Mission Statement body.
+  const companyName = stepData.companyBasics?.companyName || "";
   const defaultMissionBody = DEFAULT_MISSION_BODY_TEMPLATE.replace(
     /\{\{COMPANY_NAME\}\}/g,
-    organizationName || "our company",
+    companyName || "our company",
   );
   const [missionHeadlineLocal, setMissionHeadlineLocal] = useState<string>(
     stepData.companyBasics?.missionHeadline || "",
@@ -79,14 +72,21 @@ export function useMissionData() {
   }, []);
 
   // Handle default body initialization — populate the Mission Statement with
-  // the default text (resolved with User.organizationName) when empty.
+  // the default text (filled with the plan's Company Name). This runs on mount
+  // (and whenever the company name changes) but only touches the field when it
+  // is empty OR still holds the auto-generated default template, so a custom
+  // mission statement the user typed is never overwritten.
   useEffect(() => {
     const currentBody = stepData.companyBasics?.missionBody;
-    if (!currentBody || currentBody.trim() === "") {
+    const isDefaultTemplate =
+      !!currentBody &&
+      currentBody.trim().startsWith("At ") &&
+      currentBody.includes("this employee benefits portal is one way");
+    if (!currentBody || currentBody.trim() === "" || isDefaultTemplate) {
       handleBodyChange(defaultMissionBody);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [defaultMissionBody]);
 
   // No auto-syncing of default toggles based on content emptiness to avoid frustration when clearing fields
 
