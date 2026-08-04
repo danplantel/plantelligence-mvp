@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -514,7 +515,7 @@ function EditComplianceDocumentsSection({
 // ============================================================================
 
 const EDIT_TABS = [
-  { id: "company", label: "Company Basics & Branding" },
+  { id: "company", label: "Branding" },
   { id: "preview", label: "Preview" },
   { id: "contacts", label: "Key Contacts" },
   { id: "documents", label: "Documents" },
@@ -565,6 +566,15 @@ export default function EditClientPage() {
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [isPreviewLayoutModalOpen, setIsPreviewLayoutModalOpen] =
     useState(false);
+
+  // Portal target for the tabs bar – the Header renders <div id="header-tabs-portal" />
+  // and we portal the TabsList into it so it appears inside the fixed header while
+  // staying within the <Tabs> React context.
+  const [headerPortalTarget, setHeaderPortalTarget] =
+    useState<HTMLElement | null>(null);
+  useEffect(() => {
+    setHeaderPortalTarget(document.getElementById("header-tabs-portal"));
+  }, []);
 
   // ── Footer background color state ──
   const storedFooterBg =
@@ -952,18 +962,24 @@ export default function EditClientPage() {
             value={activeTab}
             onValueChange={(val) => setActiveTab(val as EditTabId)}
           >
-            {/* Tab bar sits between toolbar (z-[45]) and preview (z-20) */}
-            <TabsList className="relative z-[40] w-full justify-start gap-1 bg-transparent p-0 border-b rounded-none mb-8 flex-wrap h-auto min-h-fit">
-              {EDIT_TABS.map((tab) => (
-                <TabsTrigger
-                  key={tab.id}
-                  value={tab.id}
-                  className="data-[state=active]:font-bold data-[state=active]:border-b-2 data-[state=active]:border-accent-blue data-[state=active]:text-accent-blue rounded-none px-4 py-3 text-sm font-medium whitespace-nowrap"
-                >
-                  {tab.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
+            {/* Tab bar renders inside the fixed header via portal so it stays
+                visible when scrolling. The portal target <div id="header-tabs-portal" />
+                is rendered by the Header component. */}
+            {headerPortalTarget &&
+              createPortal(
+                <TabsList className="w-full justify-center gap-1 bg-transparent p-0 border-b rounded-none flex-nowrap h-auto min-h-fit overflow-x-auto">
+                  {EDIT_TABS.map((tab) => (
+                    <TabsTrigger
+                      key={tab.id}
+                      value={tab.id}
+                      className="data-[state=active]:font-bold data-[state=active]:border-b-2 data-[state=active]:border-accent-blue data-[state=active]:text-accent-blue rounded-none px-4 py-3 text-sm font-medium whitespace-nowrap"
+                    >
+                      {tab.label}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>,
+                headerPortalTarget,
+              )}
 
             {/* ── Tab 1: Company Basics & Branding ── */}
             <TabsContent value="company" className="space-y-6 mt-0">

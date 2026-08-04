@@ -56,8 +56,8 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
           marginLeft: "var(--sidebar-width, 18rem)",
         }}
       >
-        {/* Left: Title + Step Title (equal flex basis to balance center) */}
-        <div className="flex items-center gap-2 flex-1 min-w-0">
+        {/* Left: Title + Step Title */}
+        <div className="flex items-center gap-2 flex-[1] min-w-0">
           {title && <h1 className="text-xl font-semibold dark:text-white truncate">{title}</h1>}
           {stepTitle && (
             <>
@@ -67,17 +67,16 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
           )}
         </div>
 
-        {/* Center: Stepper (when provided) */}
-        {stepper ? (
-          <div className="flex-1 flex justify-center min-w-0">
-            {stepper}
-          </div>
-        ) : (
-          <div className="flex-1" />
-        )}
+        {/* Center: Stepper (when provided) or portal target for page-level tabs
+            (e.g. Edit Plan tabs). Pages portal their TabsList here via createPortal
+            so it stays inside the <Tabs> React context while rendering in the header.
+            flex-[3] gives the center more width so tabs stay on one line. */}
+        <div className="flex-[3] flex justify-center min-w-0">
+          {stepper ? stepper : <div id="header-tabs-portal" className="w-full" />}
+        </div>
 
-        {/* Right: Actions (equal flex basis to balance center) */}
-        <div className="flex items-center justify-end gap-2 flex-1 min-w-0">
+        {/* Right: Actions */}
+        <div className="flex items-center justify-end gap-2 flex-[1] min-w-0">
           <DocumentExpirationNotifications />
           {mounted && (
             <Button
@@ -97,6 +96,7 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
           <UserNav />
         </div>
       </nav>
+
     </div>
   );
 }
