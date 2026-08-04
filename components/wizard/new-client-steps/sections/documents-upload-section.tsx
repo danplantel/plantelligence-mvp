@@ -49,7 +49,7 @@ import {
   type BulkSuggestInputDoc,
 } from "@/lib/document-bulk-category-suggest";
 
-const MAX_BATCH_FILE_COUNT = 15;
+const MAX_BATCH_FILE_COUNT = 10;
 const MAX_BATCH_PDF_COUNT = 25;
 const MAX_PDF_BYTES = 50 * 1024 * 1024;
 
