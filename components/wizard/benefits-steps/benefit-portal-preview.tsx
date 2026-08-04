@@ -299,16 +299,18 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
                     />
                 </div>
 
-                <div className="relative group">
-                    <RetirementJourneySection
-                        brandColor={brandColor}
-                        mainTitle={step1Data?.journeyHeader || (category === "Custom" ? "Whole-Person Wellness Programs" : `Your ${category} Journey Starts Here`)}
-                        subtitle={step1Data?.journeySubtitle || "Build your future with confidence."}
-                        description={step1Data?.journeyBodyText || "Take control of your financial future with our comprehensive planning resources."}
-                        planVideoUrl={planVideoUrl}
-                        planVideoFallbackImage={categoryDefaultImage}
-                    />
-                </div>
+                <RetirementJourneySection
+                    brandColor={brandColor}
+                    mainTitle={step1Data?.journeyHeader || (category === "Custom" ? "Whole-Person Wellness Programs" : `Your ${category} Journey Starts Here`)}
+                    subtitle={step1Data?.journeySubtitle || "Build your future with confidence."}
+                    description={step1Data?.journeyBodyText || "Take control of your financial future with our comprehensive planning resources."}
+                    planVideoUrl={planVideoUrl}
+                    planVideoFallbackImage={categoryDefaultImage}
+                    onMainTitleClick={() => handleEdit("planVideo")}
+                    onSubtitleClick={() => handleEdit("planVideo")}
+                    onDescriptionClick={() => handleEdit("planVideo")}
+                    onVideoClick={() => handleEdit("planVideo")}
+                />
 
                 <div className={mobile ? "force-visible relative" : "relative"}>
                     <HowCanWeHelpSection
@@ -320,7 +322,13 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
                     />
                 </div>
 
-                <div className="relative">
+                <div
+                    className="relative group cursor-pointer"
+                    onClick={() => handleEdit("insurance")}
+                    onMouseEnter={() => setHoveredSection("insurance")}
+                    onMouseLeave={() => setHoveredSection(null)}
+                >
+                    {hoveredSection === "insurance" && <EditPencil />}
                     <PortalMaterialsHero
                         brandColor={brandColor}
                         category={category}
@@ -335,7 +343,6 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
                         containerBlockOpacity={step1Data?.insuranceContainerBlockOpacity ?? 0.8}
                         planIdLabel={step1Data?.insurancePlanId ? `PLAN ID: ${step1Data.insurancePlanId}` : "PLAN ID: [Not Set]"}
                         buttonLabel="REGISTER OR LOGIN HERE"
-                        onButtonClick={step1Data?.insuranceLoginUrl ? () => window.open(step1Data.insuranceLoginUrl, "_blank", "noopener,noreferrer") : undefined}
                         onPlanIdClick={() => handleEdit("insurance", "planId")}
                     />
                 </div>
