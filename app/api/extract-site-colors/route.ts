@@ -15,7 +15,75 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import puppeteer, { Browser } from "puppeteer";
+import type { Browser, LaunchOptions } from "puppeteer-core";
+
+// Vercel serverless doesn't include Chrome.  @sparticuz/chromium provides a
+// Lambda-compatible Chromium binary.  Locally we use the full puppeteer
+// package which bundles its own Chrome.
+
+let _puppeteerCore: typeof import("puppeteer-core") | null = null;
+let _chromium: typeof import("@sparticuz/chromium").default | null = null;
+
+const isVercel = !!process.env.VERCEL;
+
+async function resolveLaunchOptions(): Promise<LaunchOptions> {
+  if (isVercel) {
+    // ── Vercel / serverless ────────────────────────────────────────────
+    if (!_chromium) {
+      _chromium = (await import("@sparticuz/chromium")).default;
+    }
+    if (!_puppeteerCore) {
+      _puppeteerCore = await import("puppeteer-core");
+    }
+    return {
+      args: _chromium.args,
+      executablePath: await _chromium.executablePath(),
+      headless: true,
+    };
+  }
+
+  // ── Local development ───────────────────────────────────────────────
+  // Try the full puppeteer package (bundled Chrome via npx puppeteer browsers install)
+  try {
+    const puppeteerFull = await import("puppeteer");
+    if (!_puppeteerCore) {
+      _puppeteerCore = puppeteerFull as unknown as typeof import("puppeteer-core");
+    }
+    return {
+      headless: true,
+      executablePath: (puppeteerFull as any).default?.executablePath?.() ?? puppeteerFull.executablePath?.(),
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+      ],
+    };
+  } catch {
+    // puppeteer not available — fall back to puppeteer-core with system Chrome
+    if (!_puppeteerCore) {
+      _puppeteerCore = await import("puppeteer-core");
+    }
+    return {
+      headless: true,
+      channel: "chrome",
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+      ],
+    };
+  }
+}
+
+async function launchBrowser(): Promise<Browser> {
+  const opts = await resolveLaunchOptions();
+  if (!_puppeteerCore) {
+    _puppeteerCore = await import("puppeteer-core");
+  }
+  return _puppeteerCore.default.launch(opts);
+}
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -322,17 +390,10 @@ async function getBrowser(): Promise<Browser> {
     }
   }
 
-  // Fresh launch
+  // Fresh launch — uses @sparticuz/chromium on Vercel, puppeteer's bundled
+  // Chrome (or system Chrome) in local development.
   browserLaunchPromise = (async () => {
-    const launched = await puppeteer.launch({
-      headless: true,
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-gpu",
-      ],
-    });
+    const launched = await launchBrowser();
 
     // Handle unexpected disconnects
     launched.on("disconnected", () => {
