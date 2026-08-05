@@ -3,6 +3,13 @@ const nextConfig = {
   // chroma-js is a pure ESM package that needs to be transpiled by Next.js
   // for the production build to correctly handle its default export.
   transpilePackages: ["chroma-js"],
+
+  // @sparticuz/chromium contains a bin/ directory with the Chromium binary.
+  // Webpack must NOT bundle this package — it must remain as an external
+  // require so the binary path stays resolvable at runtime on Vercel.
+  // puppeteer-core is also externalized to avoid bundling its internals.
+  serverExternalPackages: ["@sparticuz/chromium", "puppeteer-core"],
+
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "**" },
