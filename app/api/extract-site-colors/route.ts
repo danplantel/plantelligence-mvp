@@ -12,46 +12,56 @@
  *
  * Request:  POST { url: string }
  * Response: { success: true, data: { primary: string, secondary: string, candidates: SiteColorCandidate[], confidence: number } }
+ *
+ * ── Vercel Strategy ──
+ * On Vercel (Pro, 250 MB limit): uses @sparticuz/chromium as the Chromium
+ * binary provider.  puppeteer-core is bundled normally; @sparticuz/chromium
+ * is externalized via serverExternalPackages so its bin/ directory stays
+ * intact.  Local dev uses the full puppeteer package's bundled Chrome
+ * (loaded via require() to avoid bundling it into Vercel's build).
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import type { Browser, LaunchOptions } from "puppeteer-core";
 
-// Vercel serverless doesn't include Chrome.  @sparticuz/chromium provides a
-// Lambda-compatible Chromium binary.  Locally we use the full puppeteer
-// package which bundles its own Chrome.
-
-let _puppeteerCore: typeof import("puppeteer-core") | null = null;
-let _chromium: typeof import("@sparticuz/chromium").default | null = null;
-
 const isVercel = !!process.env.VERCEL;
 
-async function resolveLaunchOptions(): Promise<LaunchOptions> {
+/**
+ * Resolve Puppeteer launch options based on environment.
+ *
+ * Vercel   → @sparticuz/chromium (externalized package, bin/ preserved)
+ * Local    → full puppeteer package (bundled Chrome via npx puppeteer
+ *            browsers install), falling back to system Chrome.
+ *
+ * Using require() for the local fallback prevents webpack from bundling
+ * the ~400 MB puppeteer package into the Vercel deployment.
+ */
+async function resolveLaunchOptions(): Promise<LaunchOptions & { puppeteer: typeof import("puppeteer-core") }> {
   if (isVercel) {
-    // ── Vercel / serverless ────────────────────────────────────────────
-    if (!_chromium) {
-      _chromium = (await import("@sparticuz/chromium")).default;
-    }
-    if (!_puppeteerCore) {
-      _puppeteerCore = await import("puppeteer-core");
-    }
+    const [puppeteer, chromium] = await Promise.all([
+      import("puppeteer-core"),
+      import("@sparticuz/chromium"),
+    ]);
     return {
-      args: _chromium.args,
-      executablePath: await _chromium.executablePath(),
+      puppeteer,
+      args: chromium.default.args,
+      executablePath: await chromium.default.executablePath(),
       headless: true,
     };
   }
 
   // ── Local development ───────────────────────────────────────────────
-  // Try the full puppeteer package (bundled Chrome via npx puppeteer browsers install)
+  const puppeteer = await import("puppeteer-core");
+
+  // Try the full puppeteer package for its bundled Chrome path.
+  // require() avoids webpack static analysis on Vercel.
   try {
-    const puppeteerFull = await import("puppeteer");
-    if (!_puppeteerCore) {
-      _puppeteerCore = puppeteerFull as unknown as typeof import("puppeteer-core");
-    }
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { executablePath } = require("puppeteer") as { executablePath: () => string };
     return {
+      puppeteer,
       headless: true,
-      executablePath: (puppeteerFull as any).default?.executablePath?.() ?? puppeteerFull.executablePath?.(),
+      executablePath: executablePath(),
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
@@ -60,11 +70,9 @@ async function resolveLaunchOptions(): Promise<LaunchOptions> {
       ],
     };
   } catch {
-    // puppeteer not available — fall back to puppeteer-core with system Chrome
-    if (!_puppeteerCore) {
-      _puppeteerCore = await import("puppeteer-core");
-    }
+    // puppeteer full package unavailable — try system Chrome
     return {
+      puppeteer,
       headless: true,
       channel: "chrome",
       args: [
@@ -75,14 +83,6 @@ async function resolveLaunchOptions(): Promise<LaunchOptions> {
       ],
     };
   }
-}
-
-async function launchBrowser(): Promise<Browser> {
-  const opts = await resolveLaunchOptions();
-  if (!_puppeteerCore) {
-    _puppeteerCore = await import("puppeteer-core");
-  }
-  return _puppeteerCore.default.launch(opts);
 }
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -390,10 +390,11 @@ async function getBrowser(): Promise<Browser> {
     }
   }
 
-  // Fresh launch — uses @sparticuz/chromium on Vercel, puppeteer's bundled
-  // Chrome (or system Chrome) in local development.
+  // Fresh launch — uses @sparticuz/chromium on Vercel, puppeteer's
+  // bundled Chrome (or system Chrome) in local development.
   browserLaunchPromise = (async () => {
-    const launched = await launchBrowser();
+    const { puppeteer, ...opts } = await resolveLaunchOptions();
+    const launched = await puppeteer.default.launch(opts);
 
     // Handle unexpected disconnects
     launched.on("disconnected", () => {

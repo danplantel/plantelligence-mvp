@@ -4,24 +4,12 @@ const nextConfig = {
   // for the production build to correctly handle its default export.
   transpilePackages: ["chroma-js"],
 
-  // @sparticuz/chromium contains a bin/ directory with the Chromium binary.
-  // Webpack must NOT bundle this package — it must remain as an external
-  // require so the binary path stays resolvable at runtime on Vercel.
-  // puppeteer-core is also externalized to avoid bundling its internals.
-  serverExternalPackages: ["@sparticuz/chromium", "puppeteer-core"],
-
-  // Vercel's output file tracing (NFT) follows the JS import graph.  The
-  // @sparticuz/chromium package loads Brotli-compressed binaries from its
-  // bin/ directory via fs operations at runtime, which the tracer cannot
-  // detect.  Without this, Vercel strips bin/ and chromium.executablePath()
-  // fails with "input directory ... does not exist".
-  experimental: {
-    outputFileTracingIncludes: {
-      "/api/extract-site-colors": [
-        "./node_modules/@sparticuz/chromium/bin/**",
-      ],
-    },
-  },
+  // @sparticuz/chromium ships a bin/ directory with Brotli-compressed
+  // Chromium binaries.  This package MUST be externalized so webpack does
+  // not bundle it — if bundled, import.meta.url is rewritten and the
+  // relative path to bin/ breaks.  Vercel preserves the full package
+  // directory for externalized packages (Pro plan: 250 MB limit).
+  serverExternalPackages: ["@sparticuz/chromium"],
 
   images: {
     remotePatterns: [
