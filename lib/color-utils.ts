@@ -7,7 +7,18 @@
  *   - Corporate preset snapping
  */
 
-import chroma from "chroma-js";
+import _chroma from "chroma-js";
+
+/**
+ * chroma-js is a dual CJS/ESM package. In Next.js production builds, webpack may
+ * resolve the CJS bundle and wrap it in a { default } namespace object, causing
+ * `import chroma from "chroma-js"` to receive `{ default: fn }` instead of `fn`.
+ *
+ * This guard unwraps the default export regardless of how the bundler resolves it,
+ * ensuring chroma is always the callable function.
+ */
+const chroma: typeof _chroma =
+  typeof _chroma === "function" ? _chroma : (_chroma as any).default ?? _chroma;
 
 // ── Corporate Preset Colors (8-color safety palette) ──────────────────────────
 // These are "safe" brand colors commonly used in corporate settings. Extracted

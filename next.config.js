@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // chroma-js is a pure ESM package that needs to be transpiled by Next.js
+  // for the production build to correctly handle its default export.
+  transpilePackages: ["chroma-js"],
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "**" },
