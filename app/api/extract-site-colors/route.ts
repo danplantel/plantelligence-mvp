@@ -42,10 +42,17 @@ async function resolveLaunchOptions(): Promise<LaunchOptions & { puppeteer: type
       import("puppeteer-core"),
       import("@sparticuz/chromium"),
     ]);
+
+    // The postinstall script copies node_modules/@sparticuz/chromium/bin/
+    // to chromium-bin/ at the project root.  We pass this as the explicit
+    // input path so chromium.executablePath() finds the .br files even
+    // when Vercel strips them from node_modules.
+    const binPath = "chromium-bin/";
+
     return {
       puppeteer,
       args: chromium.default.args,
-      executablePath: await chromium.default.executablePath(),
+      executablePath: await chromium.default.executablePath(binPath),
       headless: true,
     };
   }
