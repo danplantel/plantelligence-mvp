@@ -167,7 +167,7 @@ export function OnboardingWizardStepper({
          </div>
 
          {/* Step Indicators */}
-         <div className="relative right-16 flex items-center w-1/2 mt-2">
+         <div className="relative right-16 flex items-center justify-center w-1/2 mt-2">
         {visibleSteps.map((step, index) => {
           const isLastVisible = index === visibleSteps.length - 1;
           const isCurrent = step.id === currentStep;
@@ -178,7 +178,6 @@ export function OnboardingWizardStepper({
             <div
               key={step.id}
               className="relative flex items-center"
-              style={{ flex: isLastVisible ? 0 : 1 }}
             >
               <button
                 onClick={() => handleStepClick(step.id)}
@@ -224,7 +223,7 @@ export function OnboardingWizardStepper({
 
               {!isLastVisible && (
                 <div
-                  className={`h-0.5 flex-1 mx-0.25 transition-all duration-200 ${
+                  className={`h-0.5 w-10 mx-1 transition-all duration-200 ${
                     step.id < currentStep
                       ? "bg-accent-blue"
                       : isDarkMode ? "" : "bg-[#23919C]/10"
