@@ -10,6 +10,19 @@ const nextConfig = {
   // puppeteer-core is also externalized to avoid bundling its internals.
   serverExternalPackages: ["@sparticuz/chromium", "puppeteer-core"],
 
+  // Vercel's output file tracing (NFT) follows the JS import graph.  The
+  // @sparticuz/chromium package loads Brotli-compressed binaries from its
+  // bin/ directory via fs operations at runtime, which the tracer cannot
+  // detect.  Without this, Vercel strips bin/ and chromium.executablePath()
+  // fails with "input directory ... does not exist".
+  experimental: {
+    outputFileTracingIncludes: {
+      "/api/extract-site-colors": [
+        "./node_modules/@sparticuz/chromium/bin/**",
+      ],
+    },
+  },
+
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "**" },
