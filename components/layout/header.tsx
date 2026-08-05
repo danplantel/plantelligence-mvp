@@ -70,8 +70,15 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
         {/* Center: Stepper (when provided) or portal target for page-level tabs
             (e.g. Edit Plan tabs). Pages portal their TabsList here via createPortal
             so it stays inside the <Tabs> React context while rendering in the header.
-            flex-[3] gives the center more width so tabs stay on one line. */}
-        <div className="flex-[3] flex justify-center min-w-0">
+            A stepper is kept at its natural (compact) width so the left title area
+            gets the leftover space; flex-[3] is only used for the tabs portal so
+            tabs stay on one line. */}
+        <div
+          className={cn(
+            "flex justify-center min-w-0",
+            stepper ? "flex-shrink-0" : "flex-[3]",
+          )}
+        >
           {stepper ? stepper : <div id="header-tabs-portal" className="w-full" />}
         </div>
 

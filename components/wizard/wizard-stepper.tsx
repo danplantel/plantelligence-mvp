@@ -212,9 +212,9 @@ export function WizardStepper({
   const visibleSteps = getVisibleSteps();
 
   return (
-    <div className="w-full flex items-center justify-between gap-4 h-8 flex-nowrap">
+    <div className="flex items-center justify-center h-8">
       {/* Center: Stepper Steps (title is shown in the header's left section) */}
-      <div className="relative flex items-center flex-1 gap-0 h-full min-w-0 px-4">
+      <div className="relative flex items-center h-full min-w-0">
         {visibleSteps.map((step, index) => {
           const isLastVisible = index === visibleSteps.length - 1;
           const isCurrent = step.id === currentStep;
@@ -223,7 +223,7 @@ export function WizardStepper({
           return (
             <div
               key={step.id}
-              className="relative flex items-center flex-1 h-full min-w-0"
+              className="relative flex items-center h-full"
             >
               <div
                 className={`size-5 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 ${isCurrent
@@ -259,7 +259,7 @@ export function WizardStepper({
 
               {!isLastVisible && (
                 <div
-                  className="h-0.5 flex-1 mx-0.25 transition-all duration-200"
+                  className="h-0.5 w-12 mx-1 transition-all duration-200"
                   style={{
                     backgroundColor: step.id < currentStep ? "#17A2B8" : (theme === "dark" ? "#4B5563" : "#D1D5DB")
                   }}
