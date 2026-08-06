@@ -1156,82 +1156,99 @@ export function ContactFormSlide({
         </p>
       </div>
 
-      {/* Contact Type - Radio List (compact) */}
-      <div className="w-full max-w-md space-y-1.5">
-        <Label className="dark:text-gray-300 font-medium text-sm">
-          Contact Type
-        </Label>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => setContactType("individual")}
-            className={cn(
-              "flex items-center gap-2 p-3 rounded-lg border-2 text-left transition-all",
-              contactType === "individual"
-                ? "border-accent-blue bg-accent-blue/5 shadow-sm"
-                : "border-gray-200 bg-white hover:border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500",
-            )}
-          >
-            <div
-              className={cn(
-                "w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors",
-                contactType === "individual"
-                  ? "border-accent-blue"
-                  : "border-gray-300 dark:border-gray-500",
-              )}
-            >
-              {contactType === "individual" && (
-                <div className="w-2 h-2 rounded-full bg-accent-blue" />
-              )}
-            </div>
-            <div className="flex flex-col">
-              <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">
-                Individual
-              </span>
-              <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                A specific person
-              </span>
-            </div>
-          </button>
-          <button
-            type="button"
-            onClick={() => setContactType("team_support")}
-            className={cn(
-              "flex items-center gap-2 p-3 rounded-lg border-2 text-left transition-all",
-              contactType === "team_support"
-                ? "border-accent-blue bg-accent-blue/5 shadow-sm"
-                : "border-gray-200 bg-white hover:border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500",
-            )}
-          >
-            <div
-              className={cn(
-                "w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors",
-                contactType === "team_support"
-                  ? "border-accent-blue"
-                  : "border-gray-300 dark:border-gray-500",
-              )}
-            >
-              {contactType === "team_support" && (
-                <div className="w-2 h-2 rounded-full bg-accent-blue" />
-              )}
-            </div>
-            <div className="flex flex-col">
-              <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">
-                Team / Support Line
-              </span>
-              <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                A department or group
-              </span>
-            </div>
-          </button>
-        </div>
-      </div>
-
       {/* Form + Preview: side-by-side on large screens */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full max-w-3xl items-start">
         {/* Left column: Form Fields */}
-        <Card className="w-full dark:bg-gray-800 dark:border-gray-700 shadow-sm">
-          <CardContent className="pt-3 space-y-2.5">
+        <div className="flex flex-col gap-2.5 min-w-0">
+          {/* Back button — visible escape hatch above the form card so users
+              aren't forced to fill out the form when they accidentally clicked
+              "+" on the Category Explorer or changed their mind. */}
+          <button
+            type="button"
+            onClick={onBack}
+            className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm font-medium text-muted-foreground hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-accent-blue dark:hover:text-accent-blue shadow-sm transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            {isFromSomeoneElse
+              ? "Back to contact selection"
+              : isGuided
+                ? "Back"
+                : "Back to categories"}
+          </button>
+
+          <Card className="w-full dark:bg-gray-800 dark:border-gray-700 shadow-sm">
+            <CardContent className="pt-3 space-y-2.5">
+            {/* Contact Type - Radio List (compact) */}
+            <div className="space-y-1.5">
+              <Label className="dark:text-gray-300 font-medium text-sm">
+                Contact Type
+              </Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setContactType("individual")}
+                  className={cn(
+                    "flex items-center gap-2 p-3 rounded-lg border-2 text-left transition-all",
+                    contactType === "individual"
+                      ? "border-accent-blue bg-accent-blue/5 shadow-sm"
+                      : "border-gray-200 bg-white hover:border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500",
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors",
+                      contactType === "individual"
+                        ? "border-accent-blue"
+                        : "border-gray-300 dark:border-gray-500",
+                    )}
+                  >
+                    {contactType === "individual" && (
+                      <div className="w-2 h-2 rounded-full bg-accent-blue" />
+                    )}
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[0.65em] font-semibold text-gray-900 dark:text-gray-100">
+                      Individual
+                    </span>
+                    <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                      A specific person
+                    </span>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setContactType("team_support")}
+                  className={cn(
+                    "flex items-center gap-2 p-3 rounded-lg border-2 text-left transition-all",
+                    contactType === "team_support"
+                      ? "border-accent-blue bg-accent-blue/5 shadow-sm"
+                      : "border-gray-200 bg-white hover:border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500",
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors",
+                      contactType === "team_support"
+                        ? "border-accent-blue"
+                        : "border-gray-300 dark:border-gray-500",
+                    )}
+                  >
+                    {contactType === "team_support" && (
+                      <div className="w-2 h-2 rounded-full bg-accent-blue" />
+                    )}
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[0.65em] font-semibold text-gray-900 dark:text-gray-100">
+                      Team / Support Line
+                    </span>
+                    <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                      A department or group
+                    </span>
+                  </div>
+                </button>
+              </div>
+            </div>
+
             {/* Primary Contact Toggle — hidden for Company / Plan Sponsor and TPA (Someone Else) since they are always primary */}
             {category !== "Company / Plan Sponsor" && !isFromSomeoneElse && (
               <div className="pb-2 border-b border-gray-100 dark:border-gray-700 mb-1">
@@ -1745,7 +1762,8 @@ export function ContactFormSlide({
             </div>
 
           </CardContent>
-        </Card>
+          </Card>
+        </div>
 
         {/* Right column: Live Contact Card Preview (sticks on scroll) */}
         <StickyPreviewContainer>
