@@ -326,8 +326,18 @@ function PlanSearchBar({ plans, value, onChange, disabled, userSubdomain }: { pl
   };
   return (
     <div className="space-y-2" ref={containerRef}>
-      <div className="flex items-center justify-between">
-        <CardTitle className="text-2xl font-bold">Meeting Sessions</CardTitle>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <CardTitle className="text-2xl font-bold shrink-0">Meeting Sessions</CardTitle>
+          {selectedPlan && (
+            <span
+              className="text-xl font-semibold text-accent-blue truncate max-w-[280px]"
+              title={selectedPlan.companyName}
+            >
+              {selectedPlan.companyName}
+            </span>
+          )}
+        </div>
         {value && (
           <Button
             variant="outline"
