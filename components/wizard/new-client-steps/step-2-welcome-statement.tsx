@@ -224,6 +224,23 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
     useState(false);
   const [useDefaultWelcomeMessage, setUseDefaultWelcomeMessage] = useState(true);
 
+  // ── Capture the original sidebar width before the editor auto-opens,
+  //     and restore it on unmount so the layout snaps back cleanly.
+  useEffect(() => {
+    const originalWidth =
+      document.documentElement.style.getPropertyValue("--sidebar-width");
+    return () => {
+      if (originalWidth) {
+        document.documentElement.style.setProperty(
+          "--sidebar-width",
+          originalWidth,
+        );
+      } else {
+        document.documentElement.style.removeProperty("--sidebar-width");
+      }
+    };
+  }, []);
+
   const editorIsOpen =
     editorState.isEditorOpen || editorState.isEditorAnimating;
 
@@ -448,6 +465,19 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
         originalSidebarWidthRef.current = null;
       }
     }
+
+    // Restore the original sidebar width when the component unmounts
+    // (e.g. navigating to another step while the Edit Panel is open).
+    return () => {
+      if (originalSidebarWidthRef.current !== null) {
+        if (originalSidebarWidthRef.current) {
+          document.documentElement.style.setProperty("--sidebar-width", originalSidebarWidthRef.current);
+        } else {
+          document.documentElement.style.removeProperty("--sidebar-width");
+        }
+        originalSidebarWidthRef.current = null;
+      }
+    };
   }, [editorState.isEditorOpen, editorState.isEditorAnimating]);
 
   // Scroll to top when component mounts
