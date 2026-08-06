@@ -1542,9 +1542,19 @@ export function BenefitsStep1() {
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-lg text-gray-900 font-bold dark:text-gray-100">
-                Plan & Benefit Selection
-              </CardTitle>
+              <div className="flex items-center gap-2 flex-wrap">
+                <CardTitle className="text-lg text-gray-900 font-bold dark:text-gray-100">
+                  Plan & Benefit Selection
+                </CardTitle>
+                {selectedPlanName && (
+                  <span
+                    className="text-base font-semibold text-accent-blue truncate max-w-[280px]"
+                    title={selectedPlanName}
+                  >
+                    {selectedPlanName}
+                  </span>
+                )}
+              </div>
               <CardDescription className="text-sm text-gray-600 text-muted-foreground">
                 Choose which plan and benefit category you want to configure.
               </CardDescription>
