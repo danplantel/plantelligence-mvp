@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils";
 import {
   FlyerPreview,
   FLYER_TEMPLATE_BENEFITS_CATEGORY,
+  TemplateThumbnail,
   type FlyerTemplateId,
   type FlyerImagePosition,
 } from "./flyer-templates";
@@ -135,26 +136,57 @@ interface FlyerTemplateDefaults {
   headline: string;
   subtitle: string;
   body: string;
+  topic?: string;
 }
 
 const MEETING_TEMPLATE_DEFAULTS: Record<string, FlyerTemplateDefaults> = {
-  "MeetingTemplate1": { headline: "Transform Your Tomorrow: {#ffcb0a}Unlock the Full Potential of your 401(k)!{/}", subtitle: "Join Our Retirement Plan Advisory Team To Discover How To Maximize Your Retirement Benefits",        body: "Mark your calendar for this upcoming benefits event." },
+  "MeetingTemplate1": { 
+    headline: "Transform Your Tomorrow: {#ffcb0a}Unlock the Full Potential of your 401(k)!{/}", 
+    subtitle: "Join Our Retirement Plan Advisory Team To Discover How To Maximize Your Retirement Benefits", 
+    body: "Mark your calendar for this upcoming benefits event." },
 };
 
 const MEETING_TEMPLATE_DEFAULTS_ES: Record<string, FlyerTemplateDefaults> = {
-  "MeetingTemplate1": { headline: "Transforme Su Mañana: {#ffcb0a}Descubra Cómo Maximizar Sus Beneficios de Jubilación!{/}", subtitle: "Únase a Nuestro Equipo de Asesoría de Planes de Jubilación para Descubrir Cómo Maximizar Sus Beneficios de Jubilación",        body: "Marque su calendario para este próximo evento de beneficios." },
+  "MeetingTemplate1": { 
+    headline: "Transforme Su Mañana: {#ffcb0a}Descubra Cómo Maximizar Sus Beneficios de Jubilación!{/}", 
+    subtitle: "Únase a Nuestro Equipo de Asesoría de Planes de Jubilación para Descubrir Cómo Maximizar Sus Beneficios de Jubilación", 
+    body: "Marque su calendario para este próximo evento de beneficios."},
 };
 
 const TOPICAL_TEMPLATE_DEFAULTS: Record<string, FlyerTemplateDefaults> = {
-  "TopicalTemplate1": { headline: "MISSING", subtitle: "Retirement Savings From Former Employer", body: "Whether you've moved to a new job or are between opportunities, how you manage your savings now will shape your future retirement. /n **PLEASE CONTACT US TO BE RE-UNITED WITH YOUR MONEY**" },
-  "TopicalTemplate2": { headline: "Don't Leave This Unfinished.", subtitle: "Do you have a beneficiary listed for your retirement account?",     body: "People often forget to:/n- Add a beneficiary/n- Update an existing one/n- Review after major life events" },
-  "TopicalTemplate3": { headline: "Invest in Yourself: /n Start Your Retirement Journey Today!", subtitle: "Whether you're just starting your journey or looking to enhance your existing retirement strategy, every contribution counts.",     body: "- **It's Easy & Convenient**. Your contribution is automatically deducted from your pay and deposited into your account./n- **Employer Matching Contributions.** Take advantage of potential employer matching contributions\u2014it's like getting free money to boost your retirement savings even further.*/n- **Tax-Deferred Savings.** Money is put into your retirement account before federal (and most state) taxes. That means you don't pay taxes on it until you take the money out./n- **You're in Control.** Decide your contribution amount and investment strategy. Not sure how to invest? Our team at Waypoint Financial Advisors is here for you./n/n If you have any questions regarding your retirement future or how to get started in the plan, visit us by scanning the QR code below or call us at 877-757-3263. Para ayuda en español acerca del plan 401k, por favor llame al 877-757-3263" },
+  "TopicalTemplate1": { 
+    headline: "MISSING", 
+    subtitle: "Retirement Savings From Former Employer", 
+    body: "Whether you've moved to a new job or are between opportunities, how you manage your savings now will shape your future retirement. /n **PLEASE CONTACT US TO BE RE-UNITED WITH YOUR MONEY**", 
+    topic: "Retirement Savings From Former Employer" },
+  "TopicalTemplate2": { 
+    headline: "Don't Leave This Unfinished.", 
+    subtitle: "Do you have a beneficiary listed for your retirement account?",
+    body: "People often forget to:/n- Add a beneficiary/n- Update an existing one/n- Review after major life events", 
+    topic: "Beneficiary Designation" },
+  "TopicalTemplate3": { 
+    headline: "Invest in Yourself: /n Start Your Retirement Journey Today!", 
+    subtitle: "Whether you're just starting your journey or looking to enhance your existing retirement strategy, every contribution counts.",
+    body: "- **It's Easy & Convenient**. Your contribution is automatically deducted from your pay and deposited into your account./n- **Employer Matching Contributions.** Take advantage of potential employer matching contributions\u2014it's like getting free money to boost your retirement savings even further.*/n- **Tax-Deferred Savings.** Money is put into your retirement account before federal (and most state) taxes. That means you don't pay taxes on it until you take the money out./n- **You're in Control.** Decide your contribution amount and investment strategy. Not sure how to invest? Our team at Waypoint Financial Advisors is here for you./n/n If you have any questions regarding your retirement future or how to get started in the plan, visit us by scanning the QR code below or call us at 877-757-3263. Para ayuda en español acerca del plan 401k, por favor llame al 877-757-3263", 
+    topic: "Start Your Retirement Journey" },
 };
 
 const TOPICAL_TEMPLATE_DEFAULTS_ES: Record<string, FlyerTemplateDefaults> = {
-  "TopicalTemplate1": { headline: "FALTANTE", subtitle: "Ahorros para la Jubilación de Su ex Empleador", body: "Ya sea que haya cambiado de trabajo o se encuentre entre oportunidades, la manera en que administre sus ahorros hoy definira su jubilación futura. /n **POR FAVOR, CONTÁCTENOS PARA RECUPERAR SU DINERO**" },
-  "TopicalTemplate2": { headline: "No Dejes Esto Sin Terminar.", subtitle: "¿Tiene un beneficiario designado para su cuenta de jubilación?",     body: "Las personas a menudo olvidan:/n- Agregar un beneficiario/n- Actualizar uno existente/n- Revisar después de eventos importantes de la vida" },
-  "TopicalTemplate3": { headline: "Invierta en Usted Mismo: /n ¡Comience Hoy Su Viaje de Jubilación!", subtitle: "Ya sea que recién esté comenzando su viaje o buscando mejorar su estrategia de jubilación existente, cada contribución cuenta.",     body: "- Es Fácil y Conveniente. Su contribución se deduce automáticamente de su pago y se deposita en su cuenta./n- Contribuciones de Igualación del Empleador. Aproveche las posibles contribuciones de igualación del empleador\u2014es como obtener dinero gratis para impulsar aún más sus ahorros de jubilación.*/n- Ahorros con Impuestos Diferidos. El dinero se coloca en su cuenta de jubilación antes de los impuestos federales (y la mayoría estatales). Eso significa que no paga impuestos hasta que retire el dinero./n- Usted Tiene el Control. Decida su monto de contribución y estrategia de inversión. ¿No sabe cómo invertir? Nuestro equipo en Waypoint Financial Advisors está aquí para usted./nSi tiene alguna pregunta sobre su futuro de jubilación o cómo comenzar en el plan, visítenos escaneando el código QR a continuación o llámenos al 877-757-3263." },
+  "TopicalTemplate1": { 
+    headline: "FALTANTE", 
+    subtitle: "Ahorros para la Jubilación de Su ex Empleador", 
+    body: "Ya sea que haya cambiado de trabajo o se encuentre entre oportunidades, la manera en que administre sus ahorros hoy definira su jubilación futura. /n **POR FAVOR, CONTÁCTENOS PARA RECUPERAR SU DINERO**", 
+    topic: "Ahorros para la Jubilación de Su Ex Empleador" },
+  "TopicalTemplate2": { 
+    headline: "No Dejes Esto Sin Terminar.", 
+    subtitle: "¿Tiene un beneficiario designado para su cuenta de jubilación?", 
+    body: "Las personas a menudo olvidan:/n- Agregar un beneficiario/n- Actualizar uno existente/n- Revisar después de eventos importantes de la vida", 
+    topic: "Designación de Beneficiario" },
+  "TopicalTemplate3": { 
+    headline: "Invierta en Usted Mismo: /n ¡Comience Hoy Su Viaje de Jubilación!", 
+    subtitle: "Ya sea que recién esté comenzando su viaje o buscando mejorar su estrategia de jubilación existente, cada contribución cuenta.",     
+    body: "- Es Fácil y Conveniente. Su contribución se deduce automáticamente de su pago y se deposita en su cuenta./n- Contribuciones de Igualación del Empleador. Aproveche las posibles contribuciones de igualación del empleador\u2014es como obtener dinero gratis para impulsar aún más sus ahorros de jubilación.*/n- Ahorros con Impuestos Diferidos. El dinero se coloca en su cuenta de jubilación antes de los impuestos federales (y la mayoría estatales). Eso significa que no paga impuestos hasta que retire el dinero./n- Usted Tiene el Control. Decida su monto de contribución y estrategia de inversión. ¿No sabe cómo invertir? Nuestro equipo en Waypoint Financial Advisors está aquí para usted./nSi tiene alguna pregunta sobre su futuro de jubilación o cómo comenzar en el plan, visítenos escaneando el código QR a continuación o llámenos al 877-757-3263.", 
+    topic: "Comience Su Viaje de Jubilación" },
 };
 
 /** Flyer templates that support an optional custom header image. */
@@ -1049,21 +1081,47 @@ export default function MarketingAssetModal({
           {flyerStep === 2 && flyerMode === "topical" && (
             <div className="space-y-4">
               <div>
-                <Label className="text-base font-semibold">Enter a topic</Label>
-                <p className="text-xs text-muted-foreground mt-1">What is this flyer about?</p>
+                <Label className="text-base font-semibold">Choose a flyer topic</Label>
+                <p className="text-xs text-muted-foreground mt-1">Select the topic for your flyer.</p>
               </div>
-              <Input
-                placeholder="e.g. Open Enrollment, Retirement Planning, Health Benefits…"
-                value={flyerTopic}
-                onChange={(e) => {
-                  setFlyerTopic(e.target.value);
-                  setHeadline(e.target.value);
-                  setFlyerSubtitle(`Learn more about ${e.target.value}`);
-                }}
-              />
+              {availableFlyerTemplates.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 px-4 py-5 text-center space-y-2">
+                  <p className="text-sm font-medium text-foreground">
+                    No templates available for this benefit category
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    There are no flyer templates matching &ldquo;{flyerCategory || "All Benefits"}&rdquo;. Go back and choose a different benefit category.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-3">
+                  {availableFlyerTemplates.map((templateId) => {
+                    const defaults = TOPICAL_TEMPLATE_DEFAULTS[templateId];
+                    const topic = defaults?.topic || templateId;
+                    return (
+                      <button
+                        key={templateId}
+                        type="button"
+                        onClick={() => {
+                          setFlyerTemplate(templateId);
+                          setFlyerTopic(topic);
+                          setFlyerStep(3);
+                        }}
+                        className="group flex flex-col items-center gap-2 rounded-xl border-2 border-transparent bg-white dark:bg-gray-900 p-3 text-left shadow-sm hover:shadow-md hover:border-[var(--accent-blue)]/40 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--accent-blue)]"
+                      >
+                        <span className="text-[11px] font-semibold text-gray-800 dark:text-gray-200 text-center leading-tight min-h-[2.5em] flex items-center justify-center">
+                          {topic}
+                        </span>
+                        <div className="w-full aspect-[3/4] rounded-lg overflow-hidden border bg-gray-50 dark:bg-gray-800">
+                          <TemplateThumbnail id={templateId} bgColor={planBrandColor || "#23919c"} />
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               <div className="flex items-center gap-2 pt-2">
                 <Button type="button" variant="outline" size="sm" onClick={() => setFlyerStep(1)}>Back</Button>
-                <Button type="button" size="sm" disabled={!flyerTopic.trim()} onClick={() => setFlyerStep(3)}>Next</Button>
               </div>
             </div>
           )}
@@ -1085,30 +1143,60 @@ export default function MarketingAssetModal({
                   </p>
                 </div>
               ) : (
-                <select
-                  className="flex h-9 w-full rounded-md border border-input bg-white dark:bg-gray-800 px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  value={flyerTemplate}
-                  onChange={(e) => {
-                    const next = e.target.value;
-                    setFlyerTemplate(next);
-                    // Also apply template defaults immediately so the form inputs update
+                <div className="grid grid-cols-1 gap-4 max-h-[420px] overflow-y-auto pr-1">
+                  {availableFlyerTemplates.map((templateId) => {
                     const dict = flyerLanguage === "es"
                       ? (flyerMode === "meeting" ? MEETING_TEMPLATE_DEFAULTS_ES : TOPICAL_TEMPLATE_DEFAULTS_ES)
                       : (flyerMode === "meeting" ? MEETING_TEMPLATE_DEFAULTS : TOPICAL_TEMPLATE_DEFAULTS);
-                    const defaults = dict[next];
-                    if (defaults) {
-                      setHeadline(defaults.headline);
-                      setFlyerSubtitle(defaults.subtitle);
-                      setBody(defaults.body.replace(/\/n\/n/g, "\n\n").replace(/\/n/g, "\n"));
-                    }
-                  }}
-                >
-                  {availableFlyerTemplates.map((name) => (
-                    <option key={name} value={name}>
-                      {name}
-                    </option>
-                  ))}
-                </select>
+                    const defaults = dict[templateId];
+                    const isSelected = flyerTemplate === templateId;
+                    const processText = (text: string) => text.replace(/\/n\/n/g, "\n\n").replace(/\/n/g, "\n");
+                    return (
+                      <button
+                        key={templateId}
+                        type="button"
+                        onClick={() => {
+                          setFlyerTemplate(templateId);
+                          if (defaults) {
+                            setHeadline(processText(defaults.headline));
+                            setFlyerSubtitle(processText(defaults.subtitle));
+                            setBody(processText(defaults.body));
+                          }
+                        }}
+                        className={cn(
+                          "relative w-full rounded-xl border-2 overflow-hidden transition-all duration-200 text-left",
+                          isSelected
+                            ? "border-[var(--accent-blue)] ring-2 ring-[var(--accent-blue)]/30 shadow-lg"
+                            : "border-gray-200 hover:border-[var(--accent-blue)]/40 hover:shadow-md dark:border-gray-700"
+                        )}
+                      >
+                        {isSelected && (
+                          <div className="absolute top-3 right-3 z-10 h-6 w-6 rounded-full bg-[var(--accent-blue)] flex items-center justify-center shadow">
+                            <svg className="h-3.5 w-3.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          </div>
+                        )}
+                        <div className="pointer-events-none [&>svg]:!max-w-full [&>svg]:!w-full [&>svg]:!h-auto [&>svg]:!rounded-none [&>svg]:!shadow-none [&>svg]:!border-0">
+                          <FlyerPreview
+                            headline={defaults ? processText(defaults.headline) : templateId}
+                            body={defaults ? processText(defaults.body) : ""}
+                            ctaText=""
+                            bgColor={bgColor}
+                            startDate=""
+                            planName={planName}
+                            planLogo={planLogo}
+                            organizationLogo={organizationLogo}
+                            disclaimerText={disclaimerText}
+                            flyerSubtitle={defaults ? processText(defaults.subtitle) : ""}
+                            flyerTemplate={templateId as FlyerTemplateId}
+                            flyerLanguage={flyerLanguage}
+                          />
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               )}
 
               {/* Meeting info or Topic summary — shown below template selector */}
