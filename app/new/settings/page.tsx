@@ -813,6 +813,9 @@ export default function SettingsPage() {
             <TabsTrigger value="profile" className="flex items-center gap-2 relative">
               <User className="h-4 w-4" />
               Profile
+              {tabDirty.profile && (
+                <Circle className="h-2 w-2 fill-amber-500 text-amber-500 absolute -top-0.5 -right-0.5" />
+              )}
             </TabsTrigger>
             <TabsTrigger value="branding" className="flex items-center gap-2 relative">
               <Building2 className="h-4 w-4" />
