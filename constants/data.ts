@@ -1184,11 +1184,11 @@ export const navItems: NavItem[] = [
         href: "/new/communications/meetings",
         label: "Meetings",
       },
-      {
-        title: "Webinars & Replays",
-        href: "/new/communications/webinars",
-        label: "Webinars & Replays",
-      },
+      // {
+      //   title: "Webinars & Replays",
+      //   href: "/new/communications/webinars",
+      //   label: "Webinars & Replays",
+      // },
       {
         title: "Marketing",
         href: "/new/communications/marketing",
@@ -1202,24 +1202,24 @@ export const navItems: NavItem[] = [
     icon: "fileText",
     label: "Documents",
   },
-  {
-    title: "Video",
-    href: "/new/video",
-    icon: "play",
-    label: "Video",
-    items: [
-      {
-        title: "View Videos",
-        href: "/new/videos",
-        label: "View Videos",
-      },
-      {
-        title: "Create Video",
-        href: "/new/video",
-        label: "Create Video",
-      },
-    ],
-  },
+  // {
+  //   title: "Video",
+  //   href: "/new/video",
+  //   icon: "play",
+  //   label: "Video",
+  //   items: [
+  //     {
+  //       title: "View Videos",
+  //       href: "/new/videos",
+  //       label: "View Videos",
+  //     },
+  //     {
+  //       title: "Create Video",
+  //       href: "/new/video",
+  //       label: "Create Video",
+  //     },
+  //   ],
+  // },
   {
     title: "Create Benefits",
     href: "/new/benefits",
