@@ -458,6 +458,22 @@ export default function SettingsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepData, isLoading, userProfile]);
 
+  // ── After BrandingSetupCard initializes, re-sync the baseline snapshot ──
+  // BrandingSetupCard has a useEffect that auto-generates missionStatement
+  // from organizationName on mount. That fires after our initial snapshot,
+  // causing a false-positive "unsaved changes" detection. We schedule a
+  // microtask to capture the final post-initialization form state.
+  useEffect(() => {
+    if (activeTab !== "branding" || !initialBranding) return;
+    const id = setTimeout(() => {
+      setInitialBranding(
+        JSON.parse(JSON.stringify(brandingForm.getValues())),
+      );
+    }, 0);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formKey]);
+
   // ── Sync primaryServiceCategories from userProfile when it becomes available ──
   // This ensures categories from the User DB record are applied even if
   // cachedProfile resolved after the initial form reset.
