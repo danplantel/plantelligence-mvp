@@ -265,8 +265,27 @@ export function CategoryExplorer({
     }
   }, [contacts, stepData.keyContacts, saveStepDataLocally, orderedCategories]);
 
-  const [expandedCategory, setExpandedCategory] =
-    useState<BenefitsCategory | null>(null);
+  // Set of categories whose accordions are currently expanded.  Using a Set
+  // (instead of a single value) allows multiple accordions to be open at once.
+  const [expandedCategories, setExpandedCategories] = useState<
+    Set<BenefitsCategory>
+  >(new Set());
+
+  // When the CategoryExplorer slide opens, auto-expand every category that
+  // already has contacts.  This component mounts fresh each time the user
+  // navigates to this slide, so accordions containing existing team members
+  // open on arrival.  The user can still collapse/expand manually afterward.
+  useEffect(() => {
+    if (contacts.length === 0) return;
+    const covered = orderedCategories.filter(
+      (cat) => getCategoryStatus(cat) > 0,
+    );
+    if (covered.length > 0) {
+      setExpandedCategories(new Set(covered));
+    }
+    // Intentionally run only once per mount (each time the slide is opened).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Check that every benefit category with contacts has a primary contact designated
   const allCategoriesHavePrimary = useMemo(() => {
@@ -426,9 +445,17 @@ export function CategoryExplorer({
     [contacts, stepData.keyContacts, saveStepDataLocally],
   );
 
-  // Toggle category expansion
+  // Toggle a single category's expansion without collapsing the others.
   const toggleCategory = useCallback((category: BenefitsCategory) => {
-    setExpandedCategory((prev) => (prev === category ? null : category));
+    setExpandedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(category)) {
+        next.delete(category);
+      } else {
+        next.add(category);
+      }
+      return next;
+    });
   }, []);
 
   // Edit handler for benefit-category accordion contacts
@@ -608,7 +635,7 @@ export function CategoryExplorer({
         {orderedCategories.map((category) => {
           const count = getCategoryStatus(category);
           const isCovered = count > 0;
-          const isExpanded = expandedCategory === category;
+          const isExpanded = expandedCategories.has(category);
           const categoryContacts = getContactsForCategory(category);
           const displayLabel = CATEGORY_LABEL[category] || category;
 
