@@ -1159,6 +1159,26 @@ export default function MeetingsPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Custom Meeting Type Save Dialog */}
+      <Dialog open={openModel} onOpenChange={setOpenModel}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Save Custom Meeting Type?</DialogTitle>
+            <DialogDescription>
+              Would you like to save "{formData.customMeetingType || "Custom Meeting"}" as a reusable meeting type for future sessions?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => handleSubmitDialod(false)}>
+              Don't Save
+            </Button>
+            <Button onClick={() => handleSubmitDialod(true)}>
+              Save & Continue
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Post-Save Dialog â€” ask if user wants to duplicate */}
       <Dialog open={postSaveDialogOpen} onOpenChange={setPostSaveDialogOpen}>
         <DialogContent className="max-w-md">
