@@ -1156,9 +1156,20 @@ export default function MarketingAssetModal({
           {/* Step 3: Template */}
           {flyerStep === 3 && (
             <div className="space-y-4">
-              <div>
-                <Label className="text-base font-semibold">Choose a template</Label>
-                <p className="text-xs text-muted-foreground mt-1">Select the design for your flyer.</p>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <Label className="text-base font-semibold">Customize Template</Label>
+                  <p className="text-xs text-muted-foreground mt-1">Select the design for your flyer.</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setFlyerStep(noFlyerTemplates ? 1 : 2)}
+                  className="shrink-0"
+                >
+                  Back
+                </Button>
               </div>
               {availableFlyerTemplates.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 px-4 py-5 text-center space-y-2">
@@ -1187,11 +1198,17 @@ export default function MarketingAssetModal({
                     }
                   }}
                 >
-                  {availableFlyerTemplates.map((name) => (
-                    <option key={name} value={name}>
-                      {name}
-                    </option>
-                  ))}
+                  {availableFlyerTemplates.map((name) => {
+                    const dict = flyerLanguage === "es"
+                      ? (flyerMode === "meeting" ? MEETING_TEMPLATE_DEFAULTS_ES : TOPICAL_TEMPLATE_DEFAULTS_ES)
+                      : (flyerMode === "meeting" ? MEETING_TEMPLATE_DEFAULTS : TOPICAL_TEMPLATE_DEFAULTS);
+                    const defaults = dict[name];
+                    return (
+                      <option key={name} value={name}>
+                        {defaults?.topic || name}
+                      </option>
+                    );
+                  })}
                 </select>
               )}
 
@@ -1228,25 +1245,6 @@ export default function MarketingAssetModal({
                   )}
                 </div>
               )}
-              {!noFlyerTemplates && flyerMode === "topical" && flyerTopic && (
-                <div className="rounded-lg border bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground space-y-1">
-                  <div className="flex items-center gap-1.5 font-medium text-foreground">
-                    <span className="text-[10px]">📝</span>
-                    Topic: {flyerTopic}
-                  </div>
-                </div>
-              )}
-
-              <div className="flex items-center gap-2 pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setFlyerStep(noFlyerTemplates ? 1 : 2)}
-                >
-                  Back
-                </Button>
-              </div>
             </div>
           )}
         </div>
