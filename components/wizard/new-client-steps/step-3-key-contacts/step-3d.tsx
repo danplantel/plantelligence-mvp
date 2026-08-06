@@ -125,11 +125,18 @@ function SortablePreviewCard({
   children,
   isDragging: externalIsDragging,
   onEdit,
+  header,
+  headerMode = false,
 }: {
   id: string | number;
   children: React.ReactNode;
   isDragging?: boolean;
   onEdit?: () => void;
+  /** Optional content (e.g. category label) shown in the header bar when headerMode is true */
+  header?: React.ReactNode;
+  /** When true, renders the drag handle + edit button in a header bar ABOVE the card
+   *  (mobile preview) instead of as absolute overlays inside the card. */
+  headerMode?: boolean;
 }) {
   const {
     attributes,
@@ -156,6 +163,38 @@ function SortablePreviewCard({
     },
   };
 
+  // Shared drag handle (positioning applied by the caller context)
+  const dragHandle = (
+    <div
+      {...dragHandleListeners}
+      className={cn(
+        "cursor-grab active:cursor-grabbing",
+        "bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-md p-1.5 transition-all shadow-sm",
+        "opacity-70 group-hover:opacity-100",
+        (isDragging || externalIsDragging) && "opacity-100 bg-gray-300 dark:bg-gray-600",
+      )}
+      style={{
+        touchAction: "none",
+      }}
+      title="Drag to reorder"
+    >
+      <GripVertical className="w-4 h-4 text-gray-700 dark:text-gray-300" />
+    </div>
+  );
+
+  // Shared edit button (positioning applied by the caller context)
+  const editButton = onEdit ? (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); onEdit(); }}
+      className="bg-white border border-gray-300 rounded-md px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-accent-blue shadow-sm"
+      title="Edit this contact"
+    >
+      <Pencil className="w-3 h-3 inline mr-1" />
+      Edit
+    </button>
+  ) : null;
+
   return (
     <div
       ref={setNodeRef}
@@ -167,35 +206,30 @@ function SortablePreviewCard({
       {...attributes}
       {...listeners}
     >
-      {/* Edit button — visible on hover, positioned next to drag handle */}
-      {onEdit && (
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); onEdit(); }}
-          className="absolute top-2 left-12 z-20 opacity-0 group-hover:opacity-100 transition-opacity bg-white border border-gray-300 rounded-md px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-accent-blue shadow-sm"
-          title="Edit this contact"
-        >
-          <Pencil className="w-3 h-3 inline mr-1" />
-          Edit
-        </button>
+      {headerMode ? (
+        // Header bar ABOVE the card — keeps drag handle, category label, and
+        // Edit button from overlapping the card's top content on mobile.
+        <div className="flex items-center justify-between gap-2 mt-8 mb-1 px-0.5">
+          <div className="flex items-center gap-1.5 min-w-0">
+            {dragHandle}
+            {header}
+          </div>
+          {editButton}
+        </div>
+      ) : (
+        <>
+          {/* Edit button — visible on hover, positioned next to drag handle */}
+          {onEdit && (
+            <div className="absolute top-2 left-12 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+              {editButton}
+            </div>
+          )}
+          {/* Gray drag handle - visible on hover and when dragging */}
+          <div className="absolute top-2 left-2 z-10 opacity-70 group-hover:opacity-100">
+            {dragHandle}
+          </div>
+        </>
       )}
-
-      {/* Gray drag handle - visible on hover and when dragging */}
-      <div
-        {...dragHandleListeners}
-        className={cn(
-          "absolute top-2 left-2 z-10 cursor-grab active:cursor-grabbing",
-          "bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-md p-1.5 transition-all shadow-sm",
-          "opacity-70 group-hover:opacity-100",
-          (isDragging || externalIsDragging) && "opacity-100 bg-gray-300 dark:bg-gray-600",
-        )}
-        style={{
-          touchAction: "none",
-        }}
-        title="Drag to reorder"
-      >
-        <GripVertical className="w-4 h-4 text-gray-700 dark:text-gray-300" />
-      </div>
       {children}
     </div>
   );
@@ -213,6 +247,7 @@ function RenderCardBySlot({
   index,
   baselineBackgroundColor,
   compact,
+  hideCategoryBadge = false,
 }: {
   slot: CardSlot;
   contact: any;
@@ -225,6 +260,8 @@ function RenderCardBySlot({
   baselineBackgroundColor?: string;
   /** When true, SmallVerticalCard uses compact sizing (reduced padding, avatar, text) */
   compact?: boolean;
+  /** When true, skips the absolute-positioned category badge overlay (mobile preview shows it in the header bar instead) */
+  hideCategoryBadge?: boolean;
 }) {
   // Use index to determine visual primary status (first item is always primary)
   const isPrimaryContact = index === 0;
@@ -233,8 +270,8 @@ function RenderCardBySlot({
     isPrimary: isPrimaryContact,
   };
 
-  // Category badge for the card
-  const categoryBadge = contact.categoryLabel ? (
+  // Category badge for the card (suppressed in header mode to avoid overlapping card content)
+  const categoryBadge = !hideCategoryBadge && contact.categoryLabel ? (
     <div className="absolute top-2 right-2 z-10">
       <Badge
         variant="secondary"
@@ -1131,6 +1168,17 @@ export function NewClientStep3d({
             id={contact.id}
             isDragging={activePreviewId === contact.id}
             onEdit={() => handleCardClick(contact.id)}
+            headerMode={previewMode === "mobile"}
+            header={
+              previewMode === "mobile" && contact.categoryLabel ? (
+                <Badge
+                  variant="secondary"
+                  className="text-[10px] px-2 py-0.5 font-medium bg-white/90 dark:bg-gray-800/90 border-gray-200 dark:border-gray-600 shadow-sm"
+                >
+                  {contact.categoryLabel}
+                </Badge>
+              ) : undefined
+            }
           >
             <RenderCardBySlot
               slot={effectiveSlot}
@@ -1143,6 +1191,7 @@ export function NewClientStep3d({
               index={index}
               baselineBackgroundColor={globalBackgroundColor}
               compact={isCompact}
+              hideCategoryBadge={previewMode === "mobile"}
             />
           </SortablePreviewCard>
         );
