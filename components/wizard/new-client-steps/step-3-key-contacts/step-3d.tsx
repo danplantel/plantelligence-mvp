@@ -451,6 +451,23 @@ export function NewClientStep3d({
         originalSidebarWidthRef.current = null;
       }
     }
+
+    // When the component unmounts (navigating to another step), restore the
+    // original sidebar width so the editor panel's widened space doesn't
+    // persist on other wizard steps.
+    return () => {
+      if (originalSidebarWidthRef.current !== null) {
+        if (originalSidebarWidthRef.current) {
+          document.documentElement.style.setProperty(
+            "--sidebar-width",
+            originalSidebarWidthRef.current,
+          );
+        } else {
+          document.documentElement.style.removeProperty("--sidebar-width");
+        }
+        originalSidebarWidthRef.current = null;
+      }
+    };
   }, [isEditorOpen, isEditorAnimating]);
 
   // ── Measure toolbar height ──
