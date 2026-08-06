@@ -1043,11 +1043,11 @@ export default function SettingsPage() {
               <div className="flex-shrink-0 w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
                 <AlertTriangle className="w-4 h-4 text-amber-600" />
               </div>
-              <AlertDialogTitle className="text-lg font-semibold text-gray-900">
+              <AlertDialogTitle className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                 Unsaved Changes
               </AlertDialogTitle>
             </div>
-            <AlertDialogDescription className="text-gray-600">
+            <AlertDialogDescription className="text-gray-600 dark:text-gray-400">
               You have unsaved changes that will be lost. What would you like to
               do?
             </AlertDialogDescription>
@@ -1055,7 +1055,7 @@ export default function SettingsPage() {
           <AlertDialogFooter className="flex flex-row items-center gap-2 sm:gap-2 mt-4">
             <AlertDialogCancel
               onClick={handleCancelTabChange}
-              className="flex-1 m-0 border-gray-300 text-gray-700 hover:bg-gray-50"
+              className="flex-1 m-0 border-gray-300 text-gray-700 dark:text-gray-300 dark:hover:bg-gray-700 hover:bg-gray-50"
             >
               Cancel
             </AlertDialogCancel>
