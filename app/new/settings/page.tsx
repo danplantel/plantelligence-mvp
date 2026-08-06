@@ -836,7 +836,7 @@ export default function SettingsPage() {
             </TabsTrigger>
             <TabsTrigger value="team" className="flex items-center gap-2">
               <UsersIcon className="h-4 w-4" />
-              Team & Disclaimers
+              Disclaimers
             </TabsTrigger>
           </TabsList>
 
@@ -906,7 +906,7 @@ export default function SettingsPage() {
             />
           </TabsContent>
 
-          {/* Team & Disclaimers Tab */}
+          {/* Disclaimers Tab */}
           <TabsContent value="team" className="space-y-6">
             <TeamAndDisclaimersSection isLoading={isLoading} />
           </TabsContent>
