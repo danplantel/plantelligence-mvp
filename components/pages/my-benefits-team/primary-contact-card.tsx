@@ -239,7 +239,7 @@ export function PrimaryContactCard({
 
           {/* COMPANY NAME */}
           {(contact.companyName || companyName) && (
-            <p className="text-sm sm:text-base font-semibold font-dm-serif" style={{ color: textColor }}>
+            <p className="text-sm sm:text-base font-semibold font-dm-serif" style={{ color: effectiveBrandColor }}>
               {contact.companyName || companyName}
             </p>
           )}

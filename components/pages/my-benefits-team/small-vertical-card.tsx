@@ -242,7 +242,7 @@ export function SmallVerticalCard({
           {/* NAME */}
           <h3
             className={`${nameSize} font-semibold ${gapName} text-center flex-shrink-0 font-dm-serif w-full max-w-full whitespace-nowrap overflow-hidden text-ellipsis px-1`}
-            style={{ color: textColor || effectiveBrandColor }}
+            style={{ color: effectiveBrandColor }}
           >
             {contact.contactType === "team_support"
               ? contact.displayName || contact.name
@@ -264,7 +264,7 @@ export function SmallVerticalCard({
           {(contact.companyName || companyName) && (
             <p
               className={`${subtitleSize} font-semibold ${gapCompany} text-center flex-shrink-0 font-dm-serif`}
-              style={{ color: textColor || effectiveBrandColor }}
+              style={{ color: effectiveBrandColor }}
             >
               {contact.companyName || companyName}
             </p>
@@ -456,7 +456,7 @@ export function SmallVerticalCard({
         {/* NAME */}
         <h3
           className="text-sm sm:text-lg font-semibold mb-1 sm:mb-2 text-center flex-shrink-0 font-dm-serif w-full max-w-full whitespace-nowrap overflow-hidden text-ellipsis px-1"
-          style={{ color: textColor || effectiveBrandColor }}
+          style={{ color: effectiveBrandColor }}
         >
           {contact.contactType === "team_support"
             ? contact.displayName || contact.name
@@ -478,7 +478,7 @@ export function SmallVerticalCard({
         {(contact.companyName || companyName) && (
           <p
             className="text-sm sm:text-base font-semibold mb-2 sm:mb-3 text-center flex-shrink-0 font-dm-serif"
-            style={{ color: textColor || effectiveBrandColor }}
+            style={{ color: effectiveBrandColor }}
           >
             {contact.companyName || companyName}
           </p>

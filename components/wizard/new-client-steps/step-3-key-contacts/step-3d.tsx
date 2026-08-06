@@ -44,7 +44,6 @@ import { CSS } from "@dnd-kit/utilities";
 import { LargeHorizontalCard } from "@/components/pages/my-benefits-team/large-horizontal-card";
 import { SmallVerticalCard } from "@/components/pages/my-benefits-team/small-vertical-card";
 import { PrimaryContactCard } from "@/components/pages/my-benefits-team/primary-contact-card";
-import { ContactAvatar } from "@/components/pages/my-benefits-team/contact-avatar";
 
 interface NewClientStep3dProps {
   errorFields?: string[];

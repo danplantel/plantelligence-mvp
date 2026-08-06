@@ -218,7 +218,7 @@ export function LargeHorizontalCard({
         {/* NAME */}
         <h3
           className="text-2xl font-dm-serif font-semibold m-0 w-full max-w-full whitespace-nowrap overflow-hidden text-ellipsis"
-          style={{ color: textColor || "#111827" }}
+          style={{ color: effectiveBrandColor }}
         >
           {contact.contactType === "team_support"
             ? contact.displayName || contact.name
@@ -239,7 +239,7 @@ export function LargeHorizontalCard({
         {(contact.companyName || companyName) && (
           <p
             className="text-base font-semibold m-0 font-dm-serif"
-            style={{ color: textColor || brandColor }}
+            style={{ color: effectiveBrandColor }}
           >
             {contact.companyName || companyName}
           </p>
