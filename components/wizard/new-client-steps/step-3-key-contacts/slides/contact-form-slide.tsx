@@ -20,6 +20,8 @@ import { BenefitsCategory, ContactType } from "@/types/new-client-wizard";
 import { cn } from "@/lib/utils";
 import { formatPhoneWithExtension } from "@/lib/phone-utils";
 import { toast } from "sonner";
+import { SmallVerticalCard } from "@/components/pages/my-benefits-team/small-vertical-card";
+import { useContactStyles } from "../../sections/hooks/use-contact-styles";
 
 // ==================== Types ====================
 
@@ -354,6 +356,11 @@ export function ContactFormSlide({
   errorFields: externalErrorFields = [],
 }: ContactFormSlideProps) {
   const { stepData, saveStepDataLocally } = useNewClientWizardStore();
+
+  // Match the card styling used in the Step 3 preview (step-3d.tsx).
+  const { styles } = useContactStyles();
+  const brandColor = styles.cardPrimaryColor;
+  const secondaryColor = styles.cardSecondaryColor;
 
   const step3bData = (stepData as any).step3b || {};
 
@@ -1770,31 +1777,54 @@ export function ContactFormSlide({
           <span className="text-[10px] font-semibold uppercase tracking-wider text-accent-blue mb-1 text-center">
             Portal Preview
           </span>
-          <ContactCardPreview
-            contactType={contactType}
-            firstName={firstName}
-            lastName={lastName}
-            title={title}
-            displayName={displayName}
-            email={email}
-            phone={phone}
-            phoneExtension={phoneExtension}
-            headshot={headshot}
+          <SmallVerticalCard
+            contact={{
+              id: "preview",
+              contactType,
+              name:
+                contactType === "individual"
+                  ? `${firstName} ${lastName}`.trim()
+                  : displayName || "Team Name",
+              firstName,
+              lastName,
+              title: contactType === "individual" ? title || "Job Title" : undefined,
+              displayName: contactType === "team_support" ? displayName : undefined,
+              email,
+              phone,
+              phoneExtension,
+              headshot,
+              companyName: companyName || defaultCompanyName,
+              companyLogo:
+                category !== "Company / Plan Sponsor" && externalAdminLogo
+                  ? externalAdminLogo
+                  : category === "Company / Plan Sponsor"
+                    ? defaultCompanyLogo
+                    : undefined,
+              benefitsCategory:
+                category === "Group Health"
+                  ? "Health Insurance"
+                  : category === "Group Life"
+                    ? "Life Insurance"
+                    : (category as any),
+              benefitsCategoryOther: customBenefits,
+              isPrimary,
+              displayEmail,
+              displayPhone,
+              enableContactButton: enableCtaButton,
+              contactButtonType: enableCtaButton
+                ? (ctaType === "schedule" ? "calendar" : ctaType === "call" ? "phone" : ctaType === "email" ? "email" : "url")
+                : undefined,
+              schedulingUrl: enableCtaButton && ctaType === "schedule" ? schedulingUrl : undefined,
+              websiteUrl: enableCtaButton && ctaType === "contact" ? websiteUrl : undefined,
+            }}
+            brandColor={brandColor}
+            secondaryColor={secondaryColor}
+            appointmentLink={stepData?.companyBasics?.appointmentLink || ""}
             companyName={companyName || defaultCompanyName}
-            companyLogoSrc={
-              category !== "Company / Plan Sponsor" && externalAdminLogo
-                ? externalAdminLogo
-                : category === "Company / Plan Sponsor"
-                  ? defaultCompanyLogo
-                  : undefined
-            }
-            isPrimary={isPrimary}
-            category={category}
-            enableCtaButton={enableCtaButton}
-            ctaType={ctaType}
-            displayEmail={displayEmail}
-            displayPhone={displayPhone}
-            ctaColor={stepData?.companyBasics?.secondaryColor || "#6B7280"}
+            index={0}
+            disableAnimation={true}
+            baselineBackgroundColor="#ffffff"
+            compact={true}
           />
         </StickyPreviewContainer>
       </div>
