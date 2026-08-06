@@ -36,6 +36,10 @@ export interface FlyerPreviewProps {
   flyerImageHeight?: number | null;
   /** Benefits category this flyer template belongs to (e.g. "Retirement"). */
   benefitsCategory?: string;
+  /** Unique suffix appended to SVG id attributes to avoid collisions when multiple previews coexist. */
+  idSuffix?: string;
+  /** Override the default SVG className (e.g. strip border/shadow for thumbnails). */
+  className?: string;
 }
 
 /** Default benefits category for each flyer template. All current templates map to "Retirement". */
@@ -545,21 +549,25 @@ export function TemplateThumbnail({ id, bgColor }: { id: string; bgColor: string
 // ── Router ────────────────────────────────────────────────────
 
 export function FlyerPreview(props: FlyerPreviewProps) {
-  switch (props.flyerTemplate) {
-    case "TopicalTemplate2": return <TopicalTemplate2 {...props} />;
-    case "TopicalTemplate3": return <TopicalTemplate3 {...props} />;
-    case "MeetingTemplate1": return <MeetingTemplate1 {...props} />;
-    default:                 return <TopicalTemplate1 {...props} />;
+  const { className: _className, ...rest } = props;
+  const svgCls = _className ?? "w-full h-auto max-w-[420px] rounded-xl shadow-sm border";
+  const suffixed = { ...rest, sid: rest.idSuffix || "", svgCls };
+  switch (rest.flyerTemplate) {
+    case "TopicalTemplate2": return <TopicalTemplate2 {...suffixed} />;
+    case "TopicalTemplate3": return <TopicalTemplate3 {...suffixed} />;
+    case "MeetingTemplate1": return <MeetingTemplate1 {...suffixed} />;
+    default:                 return <TopicalTemplate1 {...suffixed} />;
   }
 }
 
-// ── Topical Template 1 ─────────────────────────────────────────
-function TopicalTemplate1({
-  headline, body, bgColor, startDate, planName, planLogo,
-  flyerImage, flyerImagePosition, flyerImageWidth, flyerImageHeight, flyerQrUrl, flyerQrDataUrl, meetingTime, meetingLocation,
-  flyerSubtitle, organizationLogo, disclaimerText, flyerLanguage,
-  benefitsCategory,
-}: FlyerPreviewProps) {
+// ── Topical Templates ─────────────────────────────────────────
+export function TopicalTemplate1(allProps: FlyerPreviewProps & { sid?: string; svgCls?: string }) {
+  const {
+    headline, body, bgColor, startDate, planName, planLogo,
+    flyerImage, flyerImagePosition, flyerImageWidth, flyerImageHeight, flyerQrUrl, flyerQrDataUrl, meetingTime, meetingLocation,
+    flyerSubtitle, organizationLogo, disclaimerText, flyerLanguage,
+    benefitsCategory, sid = "", svgCls,
+  } = allProps;
   const templateBenefitsCategory =
     benefitsCategory ?? FLYER_TEMPLATE_BENEFITS_CATEGORY.TopicalTemplate1;
   const { wrapText } = useFlyerHelpers(startDate, meetingTime);
@@ -585,7 +593,7 @@ function TopicalTemplate1({
     <svg
       viewBox="0 0 612 848"
       xmlns="http://www.w3.org/2000/svg"
-      className="w-full h-auto max-w-[420px] rounded-xl shadow-sm border"
+      className={svgCls ?? "w-full h-auto max-w-[420px] rounded-xl shadow-sm border"}
       style={{ fontFamily: "system-ui, -apple-system, sans-serif" }}
       data-benefits-category={templateBenefitsCategory}
     >
@@ -617,11 +625,11 @@ function TopicalTemplate1({
 
       {/* Two images — horizontally aligned */}
       <defs>
-        <clipPath id="cl1-left"><rect x="80" y="185" width="157" height="300" rx="4" /></clipPath>
-        <clipPath id="cl1-right"><rect x="270.75" y="200" width="247.5" height="270" rx="4" /></clipPath>
+        <clipPath id={`cl1-left${sid}`}><rect x="80" y="185" width="157" height="300" rx="4" /></clipPath>
+        <clipPath id={`cl1-right${sid}`}><rect x="270.75" y="200" width="247.5" height="270" rx="4" /></clipPath>
       </defs>
       {/* Left: Company Logo (20% smaller) */}
-      <g clipPath="url(#cl1-left)">
+      <g clipPath={`url(#cl1-left${sid})`}>
         {resolvedPlanLogo ? (
           <image href={resolvedPlanLogo} x="80" y="185" width="157" height="300" preserveAspectRatio="xMidYMid meet" />
         ) : (
@@ -629,7 +637,7 @@ function TopicalTemplate1({
         )}
       </g>
       {/* Right: Piggy Bank (40% bigger) — overridable via a custom flyer image */}
-      <g clipPath="url(#cl1-right)">
+      <g clipPath={`url(#cl1-right${sid})`}>
         {flyerImage ? (
             <image
               href={flyerImage}
@@ -698,12 +706,13 @@ function TopicalTemplate1({
   );
 }
 
-function TopicalTemplate2({
-  headline, body, bgColor, startDate, planName, planLogo,
-  flyerImage, flyerImagePosition, flyerImageWidth, flyerImageHeight, flyerQrUrl, flyerQrDataUrl, meetingTime, flyerSubtitle,
-  organizationLogo, disclaimerText, flyerLanguage,
-  benefitsCategory,
-}: FlyerPreviewProps) {
+export function TopicalTemplate2(allProps: FlyerPreviewProps & { sid?: string; svgCls?: string }) {
+  const {
+    headline, body, bgColor, startDate, planName, planLogo,
+    flyerImage, flyerImagePosition, flyerImageWidth, flyerImageHeight, flyerQrUrl, flyerQrDataUrl, meetingTime, flyerSubtitle,
+    organizationLogo, disclaimerText, flyerLanguage,
+    benefitsCategory, sid = "", svgCls,
+  } = allProps;
   const templateBenefitsCategory =
     benefitsCategory ?? FLYER_TEMPLATE_BENEFITS_CATEGORY.TopicalTemplate2;
   const { wrapText } = useFlyerHelpers(startDate, meetingTime);
@@ -732,19 +741,19 @@ function TopicalTemplate2({
     <svg
       viewBox="0 0 612 848"
       xmlns="http://www.w3.org/2000/svg"
-      className="w-full h-auto max-w-[420px] rounded-xl shadow-sm border"
+      className={svgCls ?? "w-full h-auto max-w-[420px] rounded-xl shadow-sm border"}
       style={{ fontFamily: "system-ui, -apple-system, sans-serif" }}
       data-benefits-category={templateBenefitsCategory}
     >
       <defs>
-        <clipPath id="b2-photoClip"><rect width="612" height="400" rx="8" /></clipPath>
+        <clipPath id={`b2-photoClip${sid}`}><rect width="612" height="400" rx="8" /></clipPath>
       </defs>
 
       {/* White background */}
       <rect width="612" height="820" fill="white" rx="8" />
 
       {/* Hero image — parent_outline.png (overridable via a custom header image) */}
-      <g clipPath="url(#b2-photoClip)">
+      <g clipPath={`url(#b2-photoClip${sid})`}>
           <image
             href={flyerImage || parentOutlineUrl}
             x={heroImgX}
@@ -815,12 +824,13 @@ function TopicalTemplate2({
   );
 }
 
-function TopicalTemplate3({
-  headline, body, bgColor, startDate, planName, planLogo,
-  flyerImage, flyerImagePosition, flyerImageWidth, flyerImageHeight, flyerQrUrl, flyerQrDataUrl, meetingTime, flyerSubtitle,
-  organizationLogo, disclaimerText, flyerLanguage,
-  benefitsCategory,
-}: FlyerPreviewProps) {
+export function TopicalTemplate3(allProps: FlyerPreviewProps & { sid?: string; svgCls?: string }) {
+  const {
+    headline, body, bgColor, startDate, planName, planLogo,
+    flyerImage, flyerImagePosition, flyerImageWidth, flyerImageHeight, flyerQrUrl, flyerQrDataUrl, meetingTime, flyerSubtitle,
+    organizationLogo, disclaimerText, flyerLanguage,
+    benefitsCategory, sid = "", svgCls,
+  } = allProps;
   const templateBenefitsCategory =
     benefitsCategory ?? FLYER_TEMPLATE_BENEFITS_CATEGORY.TopicalTemplate3;
   const { wrapText } = useFlyerHelpers(startDate, meetingTime);
@@ -845,23 +855,23 @@ function TopicalTemplate3({
     <svg
       viewBox="0 0 612 848"
       xmlns="http://www.w3.org/2000/svg"
-      className="w-full h-auto max-w-[420px] rounded-xl shadow-sm border"
+      className={svgCls ?? "w-full h-auto max-w-[420px] rounded-xl shadow-sm border"}
       style={{ fontFamily: "system-ui, -apple-system, sans-serif" }}
       data-benefits-category={templateBenefitsCategory}
     >
       <defs>
-        <linearGradient id="c3-overlay" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={`c3-overlay${sid}`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#000" stopOpacity="0.3" />
           <stop offset="100%" stopColor="#000" stopOpacity="0.65" />
         </linearGradient>
-        <clipPath id="c3-photoClip"><rect width="612" height="240" rx="8" /></clipPath>
+        <clipPath id={`c3-photoClip${sid}`}><rect width="612" height="240" rx="8" /></clipPath>
       </defs>
 
       {/* White background */}
       <rect width="612" height="820" fill="white" rx="8" />
 
       {/* Hero image — holding_a_compass.png with overlay and headline (overridable via a custom header image) */}
-      <g clipPath="url(#c3-photoClip)">
+      <g clipPath={`url(#c3-photoClip${sid})`}>
           <image
             href={flyerImage || holdingCompassUrl}
             x={heroImgX}
@@ -870,7 +880,7 @@ function TopicalTemplate3({
             height={heroImgH}
             preserveAspectRatio="xMinYMin slice"
           />
-        <rect width="612" height="240" fill="url(#c3-overlay)" />
+        <rect width="612" height="240" fill={`url(#c3-overlay${sid})`} />
         {headlineWrapped.slice(0, 4).map((line, i) => (
           <text key={`hl-${i}`} x="40" y={90 + i * 32} textAnchor="start" fill="white" fontSize="22" fontWeight="800" letterSpacing="-0.5">
             {renderFormattedText(line)}
@@ -935,12 +945,14 @@ function TopicalTemplate3({
   );
 }
 
-function MeetingTemplate1({
-  headline, body, bgColor, startDate, planName, planLogo,
-  flyerImage, flyerImagePosition, flyerImageWidth, flyerImageHeight, flyerQrUrl, flyerQrDataUrl, meetingTime, meetingLocation, flyerSubtitle,
-  organizationLogo, disclaimerText, flyerLanguage,
-  benefitsCategory,
-}: FlyerPreviewProps) {
+// ── Meeting Templates ─────────────────────────────────────────
+export function MeetingTemplate1(allProps: FlyerPreviewProps & { sid?: string; svgCls?: string }) {
+  const {
+    headline, body, bgColor, startDate, planName, planLogo,
+    flyerImage, flyerImagePosition, flyerImageWidth, flyerImageHeight, flyerQrUrl, flyerQrDataUrl, meetingTime, meetingLocation, flyerSubtitle,
+    organizationLogo, disclaimerText, flyerLanguage,
+    benefitsCategory, sid = "", svgCls,
+  } = allProps;
   const templateBenefitsCategory =
     benefitsCategory ?? FLYER_TEMPLATE_BENEFITS_CATEGORY.MeetingTemplate1;
   const { formattedDate, formattedTime, wrapText } = useFlyerHelpers(startDate, meetingTime);
@@ -965,23 +977,23 @@ function MeetingTemplate1({
     <svg
       viewBox="0 0 612 848"
       xmlns="http://www.w3.org/2000/svg"
-      className="w-full h-auto max-w-[420px] rounded-xl shadow-sm border"
+      className={svgCls ?? "w-full h-auto max-w-[420px] rounded-xl shadow-sm border"}
       style={{ fontFamily: "system-ui, -apple-system, sans-serif" }}
       data-benefits-category={templateBenefitsCategory}
     >
       <defs>
-        <linearGradient id="e4-overlay" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={`e4-overlay${sid}`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#000" stopOpacity="0.45" />
           <stop offset="100%" stopColor="#000" stopOpacity="0.72" />
         </linearGradient>
-        <clipPath id="e4-photoClip"><rect width="612" height="260" rx="8" /></clipPath>
+        <clipPath id={`e4-photoClip${sid}`}><rect width="612" height="260" rx="8" /></clipPath>
       </defs>
 
       {/* White background */}
       <rect width="612" height="820" fill="white" rx="8" />
 
       {/* Hero image — counting_money.jpg with overlay and headline (overridable via a custom flyer image) */}
-      <g clipPath="url(#e4-photoClip)">
+      <g clipPath={`url(#e4-photoClip${sid})`}>
         <image
           href={flyerImage || countingMoneyUrl}
           x={heroImgX}
@@ -990,7 +1002,7 @@ function MeetingTemplate1({
           height={heroImgH}
           preserveAspectRatio="xMinYMin slice"
         />
-        <rect width="612" height="260" fill="url(#e4-overlay)" />
+        <rect width="612" height="260" fill={`url(#e4-overlay${sid})`} />
         {headlineWrapped.slice(0, 4).map((line, i) => (
           <text key={`hl-${i}`} x="306" y={95 + i * 40} textAnchor="middle" fill="white" fontSize="32" fontWeight="800" letterSpacing="-0.5">
             {renderFormattedText(line)}

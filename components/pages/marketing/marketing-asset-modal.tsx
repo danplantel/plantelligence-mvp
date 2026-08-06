@@ -31,6 +31,10 @@ import {
   FlyerPreview,
   FLYER_TEMPLATE_BENEFITS_CATEGORY,
   TemplateThumbnail,
+  TopicalTemplate1,
+  TopicalTemplate2,
+  TopicalTemplate3,
+  MeetingTemplate1,
   type FlyerTemplateId,
   type FlyerImagePosition,
 } from "./flyer-templates";
@@ -1098,6 +1102,23 @@ export default function MarketingAssetModal({
                   {availableFlyerTemplates.map((templateId) => {
                     const defaults = TOPICAL_TEMPLATE_DEFAULTS[templateId];
                     const topic = defaults?.topic || templateId;
+                    const processText = (text: string) => text.replace(/\/n\/n/g, "\n\n").replace(/\/n/g, "\n");
+                    const shared = {
+                      headline: defaults ? processText(defaults.headline) : templateId,
+                      body: defaults ? processText(defaults.body) : "",
+                      ctaText: "",
+                      bgColor: bgColor || "#111111",
+                      startDate: "",
+                      planName,
+                      planLogo,
+                      organizationLogo,
+                      disclaimerText,
+                      flyerSubtitle: defaults ? processText(defaults.subtitle) : "",
+                      flyerTemplate: templateId as FlyerTemplateId,
+                      flyerLanguage,
+                      sid: templateId,
+                      svgCls: "w-full h-auto",
+                    };
                     return (
                       <button
                         key={templateId}
@@ -1107,13 +1128,19 @@ export default function MarketingAssetModal({
                           setFlyerTopic(topic);
                           setFlyerStep(3);
                         }}
-                        className="group flex flex-col items-center gap-2 rounded-xl border-2 border-transparent bg-white dark:bg-gray-900 p-3 text-left shadow-sm hover:shadow-md hover:border-[var(--accent-blue)]/40 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--accent-blue)]"
+                        className="group flex flex-col items-center gap-2 rounded-xl border-2 border-transparent bg-white dark:bg-gray-900 p-3 text-left shadow-sm hover:shadow-xl hover:border-[var(--accent-blue)]/50 hover:-translate-y-0.5 hover:scale-[1.03] transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--accent-blue)]"
                       >
                         <span className="text-[11px] font-semibold text-gray-800 dark:text-gray-200 text-center leading-tight min-h-[2.5em] flex items-center justify-center">
                           {topic}
                         </span>
                         <div className="w-full aspect-[3/4] rounded-lg overflow-hidden border bg-gray-50 dark:bg-gray-800">
-                          <TemplateThumbnail id={templateId} bgColor={planBrandColor || "#23919c"} />
+                          {(() => {
+                            switch (templateId) {
+                              case "TopicalTemplate2": return <TopicalTemplate2 {...shared} />;
+                              case "TopicalTemplate3": return <TopicalTemplate3 {...shared} />;
+                              default: return <TopicalTemplate1 {...shared} />;
+                            }
+                          })()}
                         </div>
                       </button>
                     );
@@ -1143,60 +1170,29 @@ export default function MarketingAssetModal({
                   </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-4 max-h-[420px] overflow-y-auto pr-1">
-                  {availableFlyerTemplates.map((templateId) => {
+                <select
+                  className="flex h-9 w-full rounded-md border border-input bg-white dark:bg-gray-800 px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={flyerTemplate}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setFlyerTemplate(next);
                     const dict = flyerLanguage === "es"
                       ? (flyerMode === "meeting" ? MEETING_TEMPLATE_DEFAULTS_ES : TOPICAL_TEMPLATE_DEFAULTS_ES)
                       : (flyerMode === "meeting" ? MEETING_TEMPLATE_DEFAULTS : TOPICAL_TEMPLATE_DEFAULTS);
-                    const defaults = dict[templateId];
-                    const isSelected = flyerTemplate === templateId;
-                    const processText = (text: string) => text.replace(/\/n\/n/g, "\n\n").replace(/\/n/g, "\n");
-                    return (
-                      <button
-                        key={templateId}
-                        type="button"
-                        onClick={() => {
-                          setFlyerTemplate(templateId);
-                          if (defaults) {
-                            setHeadline(processText(defaults.headline));
-                            setFlyerSubtitle(processText(defaults.subtitle));
-                            setBody(processText(defaults.body));
-                          }
-                        }}
-                        className={cn(
-                          "relative w-full rounded-xl border-2 overflow-hidden transition-all duration-200 text-left",
-                          isSelected
-                            ? "border-[var(--accent-blue)] ring-2 ring-[var(--accent-blue)]/30 shadow-lg"
-                            : "border-gray-200 hover:border-[var(--accent-blue)]/40 hover:shadow-md dark:border-gray-700"
-                        )}
-                      >
-                        {isSelected && (
-                          <div className="absolute top-3 right-3 z-10 h-6 w-6 rounded-full bg-[var(--accent-blue)] flex items-center justify-center shadow">
-                            <svg className="h-3.5 w-3.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                              <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                          </div>
-                        )}
-                        <div className="pointer-events-none [&>svg]:!max-w-full [&>svg]:!w-full [&>svg]:!h-auto [&>svg]:!rounded-none [&>svg]:!shadow-none [&>svg]:!border-0">
-                          <FlyerPreview
-                            headline={defaults ? processText(defaults.headline) : templateId}
-                            body={defaults ? processText(defaults.body) : ""}
-                            ctaText=""
-                            bgColor={bgColor}
-                            startDate=""
-                            planName={planName}
-                            planLogo={planLogo}
-                            organizationLogo={organizationLogo}
-                            disclaimerText={disclaimerText}
-                            flyerSubtitle={defaults ? processText(defaults.subtitle) : ""}
-                            flyerTemplate={templateId as FlyerTemplateId}
-                            flyerLanguage={flyerLanguage}
-                          />
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+                    const defaults = dict[next];
+                    if (defaults) {
+                      setHeadline(defaults.headline);
+                      setFlyerSubtitle(defaults.subtitle);
+                      setBody(defaults.body.replace(/\/n\/n/g, "\n\n").replace(/\/n/g, "\n"));
+                    }
+                  }}
+                >
+                  {availableFlyerTemplates.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
               )}
 
               {/* Meeting info or Topic summary — shown below template selector */}
