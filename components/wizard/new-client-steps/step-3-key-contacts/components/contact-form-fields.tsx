@@ -138,7 +138,8 @@ export function ContactFormFields({
               )}
               className={cn(
                 disabled ? "opacity-50 cursor-not-allowed" : "",
-                "dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600",
+                "h-9 text-sm",
+                "dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600",
               )}
               disabled={disabled}
             />
@@ -163,7 +164,8 @@ export function ContactFormFields({
               )}
               className={cn(
                 disabled ? "opacity-50 cursor-not-allowed" : "",
-                "dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600",
+                "h-9 text-sm",
+                "dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600",
               )}
               disabled={disabled}
             />
@@ -190,7 +192,8 @@ export function ContactFormFields({
                   disabled && "opacity-50 cursor-not-allowed",
                   errorFields.some((field) => field.includes("title")) &&
                   "border-red-500",
-                  "dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600",
+                  "h-9 text-sm",
+                  "dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600",
                 )}
                 disabled={disabled}
               />
@@ -255,7 +258,7 @@ export function ContactFormFields({
                       variant="outline"
                       onClick={onDefaultTeamImageClick}
                       disabled={disabled}
-                      className="rounded-l-none border-l-0 h-9 px-3 text-accent-blue hover:text-accent-blue/80 bg-background dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 dark:border-gray-600"
+                      className="rounded-l-none border-l-0 h-9 px-3 text-accent-blue hover:text-accent-blue/80 bg-background dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-600 dark:border-gray-600"
                       title="Choose from gallery"
                     >
                       <ImageIcon className="w-4 h-4" />
@@ -290,7 +293,7 @@ export function ContactFormFields({
               )}
               className={cn(
                 disabled ? "opacity-50 cursor-not-allowed" : "",
-                "dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600",
+                "dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600",
               )}
               disabled={disabled}
             />
@@ -309,7 +312,7 @@ export function ContactFormFields({
               placeholder="e.g., Human Resources"
               className={cn(
                 disabled ? "opacity-50 cursor-not-allowed" : "",
-                "dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600",
+                "dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600",
               )}
               disabled={disabled}
             />

@@ -128,10 +128,10 @@ export const ContactSectionEditor = memo(function ContactSectionEditor({ errorFi
             {/* Section 2: Individual Contacts */}
             <div data-section-id="contacts-list" className="space-y-6">
                 <div className="mb-4">
-                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide dark:text-gray-400">
                         Contact Details
                     </h3>
-                    <div className="h-px w-12 bg-border mt-2" />
+                    <div className="h-px w-12 bg-border dark:bg-gray-600 mt-2" />
                 </div>
 
                 <div className="space-y-4">
@@ -157,26 +157,26 @@ export const ContactSectionEditor = memo(function ContactSectionEditor({ errorFi
                                 )}
                             >
                                 <div
-                                    className="p-4 cursor-pointer flex items-center justify-between bg-white"
+                                    className="p-4 cursor-pointer flex items-center justify-between bg-white dark:bg-gray-800"
                                     onClick={() => setExpandedContactId(isExpanded ? null : contact.id)}
                                 >
                                     <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-full bg-accent-blue/5 flex items-center justify-center text-accent-blue font-semibold text-xs">
+                                        <div className="w-8 h-8 rounded-full bg-accent-blue/5 dark:bg-accent-blue/10 flex items-center justify-center text-accent-blue font-semibold text-xs">
                                             {index + 1}
                                         </div>
                                         <div>
-                                            <h4 className="text-sm font-medium text-gray-900">{contactName}</h4>
-                                            <p className="text-xs text-muted-foreground">{contact.benefitsCategory}</p>
+                                            <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">{contactName}</h4>
+                                            <p className="text-xs text-muted-foreground dark:text-gray-400">{contact.benefitsCategory}</p>
                                         </div>
                                     </div>
-                                    {isExpanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                                    {isExpanded ? <ChevronUp className="w-4 h-4 text-gray-400 dark:text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-400 dark:text-gray-500" />}
                                 </div>
 
                                 {isExpanded && (
-                                    <div className="p-4 border-t bg-gray-50/30 space-y-4">
+                                    <div className="p-4 border-t dark:border-gray-700 bg-gray-50/30 dark:bg-gray-800/50 space-y-4">
                                         {/* Primary Contact Toggle — hidden for Company / Plan Sponsor */}
                                         {!isPlanSponsor && (
-                                            <div className="pb-2 border-b border-gray-100 mb-1">
+                                            <div className="pb-2 border-b border-gray-100 dark:border-gray-700 mb-1">
                                                 <div className="flex items-center space-x-2">
                                                     <Checkbox
                                                         id={`is-primary-${contact.id}`}
@@ -225,21 +225,21 @@ export const ContactSectionEditor = memo(function ContactSectionEditor({ errorFi
                                                     className={cn(
                                                         "flex items-center gap-2 p-3 rounded-lg border-2 text-left transition-all",
                                                         (contact.contactType || "individual") === "individual"
-                                                            ? "border-accent-blue bg-accent-blue/5 shadow-sm"
-                                                            : "border-gray-200 bg-white hover:border-gray-300",
+                                                            ? "border-accent-blue bg-accent-blue/5 dark:bg-accent-blue/10 shadow-sm"
+                                                            : "border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-500",
                                                     )}
                                                 >
                                                     <div className={cn(
                                                         "w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors",
-                                                        (contact.contactType || "individual") === "individual" ? "border-accent-blue" : "border-gray-300",
+                                                        (contact.contactType || "individual") === "individual" ? "border-accent-blue" : "border-gray-300 dark:border-gray-600",
                                                     )}>
                                                         {(contact.contactType || "individual") === "individual" && (
                                                             <div className="w-2 h-2 rounded-full bg-accent-blue" />
                                                         )}
                                                     </div>
                                                     <div className="flex flex-col">
-                                                        <span className="text-xs font-semibold text-gray-900">Individual</span>
-                                                        <span className="text-[10px] text-gray-500">A specific person</span>
+                                                        <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">Individual</span>
+                                                        <span className="text-[10px] text-gray-500 dark:text-gray-400">A specific person</span>
                                                     </div>
                                                 </button>
                                                 <button
@@ -251,21 +251,21 @@ export const ContactSectionEditor = memo(function ContactSectionEditor({ errorFi
                                                     className={cn(
                                                         "flex items-center gap-2 p-3 rounded-lg border-2 text-left transition-all",
                                                         contact.contactType === "team_support"
-                                                            ? "border-accent-blue bg-accent-blue/5 shadow-sm"
-                                                            : "border-gray-200 bg-white hover:border-gray-300",
+                                                            ? "border-accent-blue bg-accent-blue/5 dark:bg-accent-blue/10 shadow-sm"
+                                                            : "border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-500",
                                                     )}
                                                 >
                                                     <div className={cn(
                                                         "w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors",
-                                                        contact.contactType === "team_support" ? "border-accent-blue" : "border-gray-300",
+                                                        contact.contactType === "team_support" ? "border-accent-blue" : "border-gray-300 dark:border-gray-600",
                                                     )}>
                                                         {contact.contactType === "team_support" && (
                                                             <div className="w-2 h-2 rounded-full bg-accent-blue" />
                                                         )}
                                                     </div>
                                                     <div className="flex flex-col">
-                                                        <span className="text-xs font-semibold text-gray-900">Team / Support</span>
-                                                        <span className="text-[10px] text-gray-500">A department or group</span>
+                                                        <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">Team / Support</span>
+                                                        <span className="text-[10px] text-gray-500 dark:text-gray-400">A department or group</span>
                                                     </div>
                                                 </button>
                                             </div>
@@ -313,11 +313,11 @@ export const ContactSectionEditor = memo(function ContactSectionEditor({ errorFi
 
                                         {/* Contact Company Logo — for non-Plan-Sponsor */}
                                         {!isPlanSponsor && (
-                                            <div className="border-t border-gray-100 pt-3 space-y-2.5">
+                                            <div className="border-t border-gray-100 dark:border-gray-700 pt-3 space-y-2.5">
                                                 <Label className="text-xs font-medium">
                                                     Contact Company Logo
                                                 </Label>
-                                                <p className="text-[10px] text-gray-400">
+                                                <p className="text-[10px] text-gray-400 dark:text-gray-500">
                                                     Upload a logo to display on this contact&rsquo;s portal card.
                                                 </p>
                                                 <div className="pt-1">
@@ -340,13 +340,13 @@ export const ContactSectionEditor = memo(function ContactSectionEditor({ errorFi
                                             </div>
                                         )}
 
-                                        <div className="space-y-2 pt-2 border-t mt-4">
-                                            <Label className="text-xs font-medium uppercase text-gray-500">Contact Info</Label>
+                                        <div className="space-y-2 pt-2 border-t dark:border-gray-700 mt-4">
+                                            <Label className="text-xs font-medium uppercase text-gray-500 dark:text-gray-400">Contact Info</Label>
                                             <div className="grid grid-cols-1 gap-3">
                                                 <div className="space-y-1">
                                                     <Label className="text-xs">Email</Label>
                                                     <div className="relative">
-                                                        <Mail className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
+                                                        <Mail className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400 dark:text-gray-500" />
                                                         <Input
                                                             className="pl-9 h-9 text-sm"
                                                             value={contact.email || ""}
@@ -359,7 +359,7 @@ export const ContactSectionEditor = memo(function ContactSectionEditor({ errorFi
                                                     <div className="space-y-1">
                                                         <Label className="text-xs">Phone</Label>
                                                         <div className="relative">
-                                                            <Phone className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
+                                                            <Phone className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400 dark:text-gray-500" />
                                                             <Input
                                                                 className="pl-9 h-9 text-sm"
                                                                 value={contact.phone || ""}
@@ -382,7 +382,7 @@ export const ContactSectionEditor = memo(function ContactSectionEditor({ errorFi
                                         </div>
 
                                         {/* CTA Button Section */}
-                                        <div className="border-t border-gray-100 pt-3 space-y-2.5">
+                                        <div className="border-t border-gray-100 dark:border-gray-700 pt-3 space-y-2.5">
                                             <div className="flex items-center space-x-2">
                                                 <Checkbox
                                                     id={`enable-cta-${contact.id}`}
@@ -430,14 +430,14 @@ export const ContactSectionEditor = memo(function ContactSectionEditor({ errorFi
                                                                     className={cn(
                                                                         "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-left transition-all",
                                                                         isActive
-                                                                            ? "border-accent-blue bg-accent-blue/5 shadow-sm"
-                                                                            : "border-gray-200 bg-white hover:border-gray-300",
+                                                                            ? "border-accent-blue bg-accent-blue/5 dark:bg-accent-blue/10 shadow-sm"
+                                                                            : "border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-500",
                                                                     )}
                                                                 >
                                                                     <Icon
                                                                         className={cn(
                                                                             "w-3.5 h-3.5 flex-shrink-0",
-                                                                            isActive ? "text-accent-blue" : "text-gray-400",
+                                                                            isActive ? "text-accent-blue" : "text-gray-400 dark:text-gray-500",
                                                                         )}
                                                                     />
                                                                     <span className="text-[11px] font-medium">{opt.label}</span>
@@ -473,7 +473,7 @@ export const ContactSectionEditor = memo(function ContactSectionEditor({ errorFi
                                                     {ctaType === "call" && (
                                                         <div className="space-y-1">
                                                             <Label className="text-xs font-medium">Phone Number</Label>
-                                                            <p className="text-[11px] text-gray-500 bg-gray-50 rounded px-2.5 py-1.5">
+                                                            <p className="text-[11px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded px-2.5 py-1.5">
                                                                 {contact.phone || "Complete the Phone field above first"}
                                                             </p>
                                                         </div>
@@ -482,7 +482,7 @@ export const ContactSectionEditor = memo(function ContactSectionEditor({ errorFi
                                                     {ctaType === "email" && (
                                                         <div className="space-y-1">
                                                             <Label className="text-xs font-medium">Email</Label>
-                                                            <p className="text-[11px] text-gray-500 bg-gray-50 rounded px-2.5 py-1.5">
+                                                            <p className="text-[11px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded px-2.5 py-1.5">
                                                                 {contact.email || "Complete the Email field above first"}
                                                             </p>
                                                         </div>

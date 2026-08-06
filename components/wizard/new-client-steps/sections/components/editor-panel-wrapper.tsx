@@ -8,10 +8,10 @@ import { X } from "lucide-react";
 export function SectionHeader({ number, title }: { number: number; title: string }) {
   return (
     <div className="mb-6">
-      <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.1em]">
+      <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.1em] dark:text-gray-400">
         Section {number}: {title}
       </h3>
-      <div className="h-px w-12 bg-border mt-2" />
+      <div className="h-px w-12 bg-border dark:bg-gray-600 mt-2" />
     </div>
   );
 }
@@ -73,7 +73,7 @@ export function EditorPanelWrapper({
         marginTop: isInline ? undefined : `${topOffset}px`,
       }}
     >
-      <CardHeader className="flex flex-row items-center justify-between px-4 py-4 border-b shadow-md dark:border-gray-700">
+      <CardHeader className="flex flex-row items-center justify-between px-4 py-4 border-b shadow-md dark:border-gray-700 dark:shadow-gray-950/60">
         <div className="flex flex-col gap-1">
           <Label className="text-xs uppercase text-muted-foreground tracking-wide font-medium dark:text-gray-400">
             Plan Branding & Messaging
@@ -88,10 +88,10 @@ export function EditorPanelWrapper({
       </CardHeader>
       <div
         ref={editorScrollContainerRef}
-        className="flex-1 overflow-y-auto px-4 py-4 min-h-0"
+        className="flex-1 overflow-y-auto px-4 py-4 min-h-0 dark:text-gray-200 dark:bg-gray-900"
         data-lenis-wrapper
       >
-        <div data-lenis-content className="space-y-4">
+        <div data-lenis-content className="space-y-4 dark:text-gray-200">
           {sections
             ? sections.map((section, i) => (
                 <div key={i} data-section-index={i}>
@@ -103,7 +103,7 @@ export function EditorPanelWrapper({
         </div>
       </div>
       {footer != null ? (
-        <div className="flex-shrink-0 border-t bg-white dark:bg-gray-800 dark:border-gray-700 px-4 py-3 flex justify-end">
+        <div className="flex-shrink-0 border-t bg-white dark:bg-gray-800 dark:border-gray-700 px-4 py-3 flex justify-end dark:text-gray-200">
           {footer}
         </div>
       ) : null}
