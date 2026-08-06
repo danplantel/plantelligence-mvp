@@ -16,6 +16,7 @@ import { ProfileSettingsSection } from "@/components/pages/settings/profile-sett
 import { BrandingSettingsSection } from "@/components/pages/settings/branding-settings-section";
 import { OrganizationSettingsSection } from "@/components/pages/settings/organization-settings-section";
 import { TeamAndDisclaimersSection } from "@/components/pages/settings/team-and-disclaimers-section";
+import type { DisclaimersSettingsSectionHandle } from "@/components/pages/settings/disclaimers-settings-section";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -57,6 +58,10 @@ export default function SettingsPage() {
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deletionSuccess, setDeletionSuccess] = useState(false);
+
+  // Disclaimers tab — dirty state + imperative handle for save/reset
+  const [teamDirty, setTeamDirty] = useState(false);
+  const disclaimersRef = useRef<DisclaimersSettingsSectionHandle>(null);
 
   // Store initial values for comparison
   const [initialUserSetup, setInitialUserSetup] = useState<any>(null);
@@ -627,6 +632,7 @@ export default function SettingsPage() {
         ? JSON.stringify(watchedOrg) !== JSON.stringify(initialOrganization) ||
           JSON.stringify(watchedServices) !== JSON.stringify(initialServices)
         : false,
+    team: teamDirty,
   };
 
   // ── Tab change with unsaved check ───────────────────────────────────────
@@ -638,6 +644,8 @@ export default function SettingsPage() {
         ? tabDirty.branding
         : activeTab === "organization"
         ? tabDirty.organization
+        : activeTab === "team"
+        ? tabDirty.team
         : false;
 
     if (currentDirty) {
@@ -661,6 +669,9 @@ export default function SettingsPage() {
           break;
         case "organization":
           await handleSaveOrganization();
+          break;
+        case "team":
+          await disclaimersRef.current?.save();
           break;
       }
     } finally {
@@ -689,6 +700,9 @@ export default function SettingsPage() {
           servicesForm.reset(initialServices);
         }
         break;
+      case "team":
+        disclaimersRef.current?.reset();
+        break;
     }
     toast.info("Changes reverted");
   };
@@ -709,6 +723,11 @@ export default function SettingsPage() {
         case "organization":
           await handleSaveOrganization();
           break;
+        case "team": {
+          const ok = await disclaimersRef.current?.save(true);
+          if (ok === false) return; // validation failed — stay on this tab
+          break;
+        }
       }
       setActiveTab(pendingTab);
       setPendingTab(null);
@@ -771,6 +790,9 @@ export default function SettingsPage() {
             stepData.services || { services: [], customService: "" },
           );
           break;
+        case "team":
+          disclaimersRef.current?.reset();
+          break;
       }
       setActiveTab(pendingTab);
       setPendingTab(null);
@@ -790,6 +812,8 @@ export default function SettingsPage() {
       ? tabDirty.branding
       : activeTab === "organization"
       ? tabDirty.organization
+      : activeTab === "team"
+      ? tabDirty.team
       : false;
 
   // ── Save handler for sections (kept for compatibility but unused by UI) ─
@@ -834,9 +858,12 @@ export default function SettingsPage() {
                 <Circle className="h-2 w-2 fill-amber-500 text-amber-500 absolute -top-0.5 -right-0.5" />
               )}
             </TabsTrigger>
-            <TabsTrigger value="team" className="flex items-center gap-2">
+            <TabsTrigger value="team" className="flex items-center gap-2 relative">
               <UsersIcon className="h-4 w-4" />
               Disclaimers
+              {tabDirty.team && (
+                <Circle className="h-2 w-2 fill-amber-500 text-amber-500 absolute -top-0.5 -right-0.5" />
+              )}
             </TabsTrigger>
           </TabsList>
 
@@ -908,7 +935,11 @@ export default function SettingsPage() {
 
           {/* Disclaimers Tab */}
           <TabsContent value="team" className="space-y-6">
-            <TeamAndDisclaimersSection isLoading={isLoading} />
+            <TeamAndDisclaimersSection
+              isLoading={isLoading}
+              disclaimersRef={disclaimersRef}
+              onDisclaimersDirtyChange={setTeamDirty}
+            />
           </TabsContent>
         </Tabs>
 

@@ -1,8 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
 import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
-import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -22,7 +27,37 @@ const LOCATION_OPTIONS = [
   { id: "other", label: "Other (please specify)" },
 ];
 
-export function DisclaimersSettingsSection() {
+export interface DisclaimersSettingsSectionHandle {
+  /** Persist the current form. Returns false if validation failed / save failed. */
+  save: (skipConfirm?: boolean) => Promise<boolean>;
+  /** Restore the form to the last saved baseline. */
+  reset: () => void;
+  /** Whether the form has unsaved changes. */
+  isDirty: () => boolean;
+}
+
+interface DisclaimersSettingsSectionProps {
+  onDirtyChange?: (dirty: boolean) => void;
+}
+
+interface Baseline {
+  form: {
+    selectedLocations: string[];
+    customLocation: string;
+    disclaimerText: string;
+  };
+  editingDisclaimer: Disclaimer | null;
+}
+
+const EMPTY_BASELINE: Baseline = {
+  form: { selectedLocations: [], customLocation: "", disclaimerText: "" },
+  editingDisclaimer: null,
+};
+
+export const DisclaimersSettingsSection = forwardRef<
+  DisclaimersSettingsSectionHandle,
+  DisclaimersSettingsSectionProps
+>(function DisclaimersSettingsSection({ onDirtyChange }, ref) {
   const { stepData, saveStepDataLocally, loadStepData, saveStepData } =
     useOnboardingWizardStore();
 
@@ -63,11 +98,14 @@ export function DisclaimersSettingsSection() {
       orgNameRef.current || "[Organization Name]",
     );
 
+  // Baseline snapshot used for "unsaved changes" detection.
+  const baselineRef = useRef<Baseline>(EMPTY_BASELINE);
+
   // Map a disclaimer's stored locations back to the form's checkbox ids. Any
   // stored location that isn't a known option (e.g. "Global" on older records)
   // is preserved through the "Other" input, so an existing disclaimer never
   // renders with an empty, disabled form.
-  const applyDisclaimerToForm = (disclaimer: Disclaimer) => {
+  const formFromDisclaimer = (disclaimer: Disclaimer): Baseline["form"] => {
     const knownIds: string[] = [];
     const unknownLocations: string[] = [];
     (disclaimer.locations || []).forEach((location) => {
@@ -79,9 +117,18 @@ export function DisclaimersSettingsSection() {
       }
     });
     const custom = disclaimer.customLocation || unknownLocations.join(", ");
-    setSelectedLocations([...knownIds, ...(custom ? ["other"] : [])]);
-    setCustomLocation(custom);
-    setDisclaimerText(normalizeDisclaimerText(disclaimer.text || ""));
+    return {
+      selectedLocations: [...knownIds, ...(custom ? ["other"] : [])],
+      customLocation: custom,
+      disclaimerText: normalizeDisclaimerText(disclaimer.text || ""),
+    };
+  };
+
+  const applyDisclaimerToForm = (disclaimer: Disclaimer) => {
+    const form = formFromDisclaimer(disclaimer);
+    setSelectedLocations(form.selectedLocations);
+    setCustomLocation(form.customLocation);
+    setDisclaimerText(form.disclaimerText);
     setErrors({});
   };
 
@@ -92,6 +139,10 @@ export function DisclaimersSettingsSection() {
     if (prefillDoneRef.current) return;
     applyDisclaimerToForm(disclaimer);
     setEditingDisclaimer(disclaimer);
+    baselineRef.current = {
+      form: formFromDisclaimer(disclaimer),
+      editingDisclaimer: disclaimer,
+    };
     prefillDoneRef.current = true;
   };
 
@@ -204,7 +255,16 @@ export function DisclaimersSettingsSection() {
     if (editingDisclaimer) {
       applyDisclaimerToForm(editingDisclaimer);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingDisclaimer]);
+
+  // ── Dirty detection: notify parent whenever the form changes ────────────
+  useEffect(() => {
+    const current = { selectedLocations, customLocation, disclaimerText };
+    const dirty =
+      JSON.stringify(current) !== JSON.stringify(baselineRef.current.form);
+    onDirtyChange?.(dirty);
+  }, [selectedLocations, customLocation, disclaimerText, onDirtyChange]);
 
   const handleLocationToggle = (locationId: string) => {
     const newLocations = selectedLocations.includes(locationId)
@@ -272,50 +332,7 @@ export function DisclaimersSettingsSection() {
     setCustomLocation("");
     setDisclaimerText("");
     setErrors({});
-  };
-
-  const handleSaveForm = async () => {
-    if (!validateForm()) return;
-
-    // If editing an existing disclaimer, show the confirmation dialog first so
-    // the user can confirm that the disclaimer will be changed/updated.
-    if (editingDisclaimer) {
-      setShowUpdateConfirmDialog(true);
-      return;
-    }
-
-    await handleAddDisclaimer(buildDisclaimerData());
-    clearForm();
-  };
-
-  const handleConfirmUpdateDisclaimer = async () => {
-    if (!editingDisclaimer) return;
-    setIsSaving(true);
-    try {
-      const data = buildDisclaimerData();
-      await handleUpdateDisclaimer(editingDisclaimer.id, data);
-      // Re-prefill the form with the updated disclaimer so the user sees the
-      // persisted content rather than a blank "Add Disclaimer" state.
-      prefillDoneRef.current = false;
-      const updatedDisclaimer: Disclaimer = { ...data, id: editingDisclaimer.id };
-      prefillFromDisclaimer(updatedDisclaimer);
-      // Only close the dialog + show success once the update has succeeded.
-      setShowUpdateConfirmDialog(false);
-      toast.success("Disclaimer updated successfully");
-    } catch (error) {
-      console.error("Error updating disclaimer:", error);
-      toast.error("Failed to update disclaimer. Please try again.");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleCancelEdit = () => {
-    setEditingDisclaimer(null);
-    setSelectedLocations([]);
-    setCustomLocation("");
-    setDisclaimerText("");
-    setErrors({});
+    baselineRef.current = EMPTY_BASELINE;
   };
 
   // Keep User.disclaimer (Prisma User record) in sync so the portal footer and
@@ -377,10 +394,94 @@ export function DisclaimersSettingsSection() {
     await persistToUserProfile(updatedDisclaimers);
   };
 
-  const isSaveDisabled =
-    selectedLocations.length === 0 ||
-    disclaimerText.trim().length < 10 ||
-    (selectedLocations.includes("other") && !customLocation.trim());
+  // Persist an update and re-prefill the form with the updated disclaimer so
+  // the user sees the persisted content rather than a blank "Add Disclaimer"
+  // state.
+  const performUpdateDisclaimer = async (
+    id: string,
+    data: Omit<Disclaimer, "id">,
+  ) => {
+    await handleUpdateDisclaimer(id, data);
+    prefillDoneRef.current = false;
+    const updatedDisclaimer: Disclaimer = { ...data, id };
+    prefillFromDisclaimer(updatedDisclaimer);
+  };
+
+  const handleConfirmUpdateDisclaimer = async () => {
+    if (!editingDisclaimer) return;
+    setIsSaving(true);
+    try {
+      const data = buildDisclaimerData();
+      await performUpdateDisclaimer(editingDisclaimer.id, data);
+      // Only close the dialog + show success once the update has succeeded.
+      setShowUpdateConfirmDialog(false);
+      toast.success("Disclaimer updated successfully");
+    } catch (error) {
+      console.error("Error updating disclaimer:", error);
+      toast.error("Failed to update disclaimer. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Save handler — called by the parent's "Save Changes" bottom bar.
+  const handleSaveForm = async (skipConfirm = false) => {
+    if (!validateForm()) return false;
+
+    // If editing an existing disclaimer, show the confirmation dialog first so
+    // the user can confirm that the disclaimer will be changed/updated — unless
+    // we're saving while switching tabs (skipConfirm).
+    if (editingDisclaimer) {
+      if (!skipConfirm) {
+        setShowUpdateConfirmDialog(true);
+        return true;
+      }
+
+      setIsSaving(true);
+      try {
+        await performUpdateDisclaimer(
+          editingDisclaimer.id,
+          buildDisclaimerData(),
+        );
+        toast.success("Disclaimer updated successfully");
+        return true;
+      } catch (error) {
+        console.error("Error updating disclaimer:", error);
+        toast.error("Failed to update disclaimer. Please try again.");
+        return false;
+      } finally {
+        setIsSaving(false);
+      }
+    }
+
+    await handleAddDisclaimer(buildDisclaimerData());
+    clearForm();
+    return true;
+  };
+
+  const handleResetForm = () => {
+    const baseline = baselineRef.current;
+    setSelectedLocations(baseline.form.selectedLocations);
+    setCustomLocation(baseline.form.customLocation);
+    setDisclaimerText(baseline.form.disclaimerText);
+    setEditingDisclaimer(baseline.editingDisclaimer);
+    setErrors({});
+  };
+
+  const getIsDirty = () => {
+    const current = { selectedLocations, customLocation, disclaimerText };
+    return JSON.stringify(current) !== JSON.stringify(baselineRef.current.form);
+  };
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      save: handleSaveForm,
+      reset: handleResetForm,
+      isDirty: getIsDirty,
+    }),
+    [handleSaveForm, handleResetForm, getIsDirty],
+  );
 
   const getCharacterCountColor = () => {
     const count = disclaimerText.length;
@@ -402,19 +503,6 @@ export function DisclaimersSettingsSection() {
         </div>
       ) : (
         <div className="space-y-4">
-        {editingDisclaimer && (
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-muted-foreground">Editing disclaimer</p>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleCancelEdit}
-              className="h-8 text-xs"
-            >
-              Cancel Edit
-            </Button>
-          </div>
-        )}
 
         {/* Multi-Select Checkboxes */}
         <div className="space-y-3">
@@ -504,12 +592,6 @@ export function DisclaimersSettingsSection() {
 
         </div>
       )}
-      {/* Action Button — always visible, disabled while loading */}
-      <div className="flex justify-end">
-        <Button onClick={handleSaveForm} disabled={isSaveDisabled || isLoading}>
-          {editingDisclaimer ? "Update Disclaimer" : "Add Disclaimer"}
-        </Button>
-      </div>
 
       {/* Update Disclaimer Confirmation Dialog */}
       <DisclaimerUpdateConfirmDialog
@@ -520,4 +602,4 @@ export function DisclaimersSettingsSection() {
       />
     </div>
   );
-}
+});
