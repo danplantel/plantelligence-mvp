@@ -256,30 +256,118 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
 
   // ==================== Slide Handlers ====================
 
-  // Slide 0 → Slide 1
+  // Slide 0 → Slide 1 (Company / Plan Sponsor)
   const handleFirstContactContinue = useCallback(() => {
-    saveStepDataLocally("step3b", {});
+    // If a Company / Plan Sponsor contact already exists (e.g. the user
+    // went Back → Back → forward again), pre-populate the form with its
+    // data so they can edit instead of starting from scratch.
+    const existing = contacts.find((c: any) => {
+      const cats = c.benefitsCategories || (c.benefitsCategory ? [c.benefitsCategory] : []);
+      return cats.includes("Company / Plan Sponsor");
+    });
+
+    if (existing) {
+      saveStepDataLocally("step3b", {
+        editingContactId: existing.id,
+        contactType: existing.contactType || "individual",
+        firstName: existing.firstName || "",
+        lastName: existing.lastName || "",
+        title: existing.title || "",
+        displayName: existing.displayName || "",
+        email: existing.email || "",
+        phone: existing.phone || "",
+        phoneExtension: existing.phoneExtension || "",
+        headshot: existing.headshot || "",
+        headshotFileName: existing.headshotFileName || "",
+        companyName: existing.companyName || "",
+        isPrimaryOverall: existing.isPrimaryOverall ?? true,
+        enableContactButton: existing.enableContactButton ?? existing.displayScheduleAppointment === true,
+        ctaType: existing.contactButtonType === "calendar" ? "schedule" as const
+          : existing.contactButtonType === "phone" ? "call" as const
+          : existing.contactButtonType === "email" ? "email" as const
+          : existing.contactButtonType === "url" ? "contact" as const
+          : (existing.displayScheduleAppointment ? "schedule" as const
+            : existing.displayPhone && !existing.displayEmail ? "call" as const
+            : existing.displayEmail && !existing.displayPhone ? "email" as const
+            : existing.displayUrl ? "contact" as const
+            : "schedule" as const),
+        schedulingUrl: existing.schedulingUrl || "",
+        websiteUrl: existing.websiteUrl || "",
+        displayEmail: existing.displayEmail,
+        displayPhone: existing.displayPhone,
+        displayUrl: existing.displayUrl,
+        displayScheduleAppointment: existing.displayScheduleAppointment,
+      });
+      setIsGuidedForm(false);
+    } else {
+      saveStepDataLocally("step3b", {});
+      setIsGuidedForm(true);
+    }
+
     setContactFormCategory("Company / Plan Sponsor");
-    setIsGuidedForm(true);
     setIsFromSomeoneElse(false);
     goToSlide(1);
-  }, [goToSlide, saveStepDataLocally]);
+  }, [goToSlide, saveStepDataLocally, contacts]);
 
   // Slide 0 → Someone Else selected → navigate to slide 1 (ContactFormSlide)
   const handleSomeoneElseSelect = useCallback(
     (option: SomeoneElseOption) => {
       const category = mapSomeoneElseOptionToCategory(option);
-      // Clear previous form data and set "Someone Else" context
-      saveStepDataLocally("step3b", {
-        isFromSomeoneElse: true,
-        someoneElseOption: option,
+
+      // If a Third Party Contact already exists, pre-populate the form
+      // so the user can edit instead of starting from scratch.
+      const existing = contacts.find((c: any) => {
+        const cats = c.benefitsCategories || (c.benefitsCategory ? [c.benefitsCategory] : []);
+        return cats.includes("Third Party Contact");
       });
+
+      if (existing) {
+        saveStepDataLocally("step3b", {
+          editingContactId: existing.id,
+          isFromSomeoneElse: true,
+          someoneElseOption: option,
+          contactType: existing.contactType || "individual",
+          firstName: existing.firstName || "",
+          lastName: existing.lastName || "",
+          title: existing.title || "",
+          displayName: existing.displayName || "",
+          email: existing.email || "",
+          phone: existing.phone || "",
+          phoneExtension: existing.phoneExtension || "",
+          headshot: existing.headshot || "",
+          headshotFileName: existing.headshotFileName || "",
+          companyName: existing.companyName || "",
+          isPrimaryOverall: existing.isPrimaryOverall ?? true,
+          enableContactButton: existing.enableContactButton ?? existing.displayScheduleAppointment === true,
+          ctaType: existing.contactButtonType === "calendar" ? "schedule" as const
+            : existing.contactButtonType === "phone" ? "call" as const
+            : existing.contactButtonType === "email" ? "email" as const
+            : existing.contactButtonType === "url" ? "contact" as const
+            : (existing.displayScheduleAppointment ? "schedule" as const
+              : existing.displayPhone && !existing.displayEmail ? "call" as const
+              : existing.displayEmail && !existing.displayPhone ? "email" as const
+              : existing.displayUrl ? "contact" as const
+              : "schedule" as const),
+          schedulingUrl: existing.schedulingUrl || "",
+          websiteUrl: existing.websiteUrl || "",
+          displayEmail: existing.displayEmail,
+          displayPhone: existing.displayPhone,
+          displayUrl: existing.displayUrl,
+          displayScheduleAppointment: existing.displayScheduleAppointment,
+        });
+      } else {
+        saveStepDataLocally("step3b", {
+          isFromSomeoneElse: true,
+          someoneElseOption: option,
+        });
+      }
+
       setContactFormCategory(category);
       setIsGuidedForm(false);
       setIsFromSomeoneElse(true);
       goToSlide(1);
     },
-    [goToSlide, saveStepDataLocally],
+    [goToSlide, saveStepDataLocally, contacts],
   );
 
   // Slide 1 → Slide 2 (contact saved)
