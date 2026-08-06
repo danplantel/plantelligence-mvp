@@ -205,6 +205,8 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
   const overlaySettingsCardRef = useRef<HTMLDivElement>(null);
   const thumbnailCardRef = useRef<HTMLDivElement>(null);
   const bannerTitleCardRef = useRef<HTMLDivElement>(null);
+  const heroBackgroundCardRef = useRef<HTMLDivElement>(null);
+  const heroContentRef = useRef<HTMLDivElement>(null);
   const bannerPreviewSectionRef = useRef<HTMLDivElement>(null);
   const brandingPreviewCardRef = useRef<HTMLDivElement>(null);
   const previewScrollContainerRef = useRef<HTMLDivElement>(null);
@@ -258,6 +260,32 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
     }
   }, []);
 
+  // Generic helper to scroll the editor container to a given element,
+  // aligning it near the top or bottom of the visible panel.
+  const scrollEditorToElement = useCallback(
+    (element: HTMLElement, align: "top" | "bottom" = "top") => {
+      const container = editorScrollContainerRef.current;
+      if (!container) return;
+      const elementRect = element.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      const elementTopRelativeToContainer =
+        elementRect.top - containerRect.top + container.scrollTop;
+      const elementBottomRelativeToContainer =
+        elementTopRelativeToContainer + elementRect.height;
+      const containerHeight = containerRect.height;
+      const containerScrollHeight = container.scrollHeight;
+      const padding = 16;
+      const targetScrollTop =
+        align === "bottom"
+          ? elementBottomRelativeToContainer - containerHeight + padding
+          : elementTopRelativeToContainer - padding;
+      const maxScrollTop = containerScrollHeight - containerHeight;
+      const finalScrollTop = Math.min(Math.max(0, targetScrollTop), maxScrollTop);
+      container.scrollTo({ top: finalScrollTop, behavior: "smooth" });
+    },
+    [editorScrollContainerRef],
+  );
+
   useFieldFocus(
     editorState.isEditorOpen,
     editorState.isEditorAnimating,
@@ -269,6 +297,55 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
     missionFieldsRef,
     scrollToMissionFields,
   );
+
+  // ── Scroll to the top-most required field when validation errors appear ──
+  useEffect(() => {
+    if (!errorFields || errorFields.length === 0) return;
+
+    // Only handle Step 2 relevant fields (in document order within the panel)
+    const step2Fields = [
+      "brandImages.header",
+      "headline",
+      "bodyText",
+      "missionHeadline",
+      "missionBody",
+    ];
+    const errored = step2Fields.filter((f) => errorFields.includes(f));
+    if (errored.length === 0) return;
+
+    // Resolve the top-most errored section
+    let targetRef: React.RefObject<HTMLDivElement> | null = null;
+    let align: "top" | "bottom" = "top";
+    if (errored.includes("brandImages.header")) {
+      targetRef = heroBackgroundCardRef;
+    } else if (errored.includes("headline") || errored.includes("bodyText")) {
+      targetRef = heroContentRef;
+    } else if (
+      errored.includes("missionHeadline") ||
+      errored.includes("missionBody")
+    ) {
+      targetRef = missionFieldsRef;
+      align = "bottom";
+    }
+    if (!targetRef) return;
+    const resolvedTargetRef: React.RefObject<HTMLDivElement> = targetRef;
+
+    // Ensure the editor is open so the scroll is visible
+    if (!editorState.isEditorOpen) {
+      editorState.setIsEditorOpen(true);
+      setTimeout(() => editorState.setIsEditorAnimating(true), 10);
+    }
+
+    // Wait for the editor to render/animate before scrolling
+    const timer = setTimeout(() => {
+      if (resolvedTargetRef.current) {
+        scrollEditorToElement(resolvedTargetRef.current, align);
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [errorFields]);
 
   // Initialize smooth transitions for page layout
   useEffect(() => {
@@ -903,6 +980,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
                   logoCardRef={logoCardRef} isLogoCardHighlighted={isLogoCardHighlighted} onLogoCardHighlightChange={setIsLogoCardHighlighted}
                   overlaySettingsCardRef={overlaySettingsCardRef} isOverlaySettingsHighlighted={isOverlaySettingsHighlighted} onOverlaySettingsHighlightChange={setIsOverlaySettingsHighlighted}
                   bannerTitleCardRef={bannerTitleCardRef} isBannerTitleHighlighted={isBannerTitleHighlighted} onBannerTitleHighlightChange={setIsBannerTitleHighlighted}
+                  heroBackgroundCardRef={heroBackgroundCardRef}
                   useDefaultBody={useDefaultWelcomeMessage}
                   onToggleDefaultBody={(checked) => {
                     setUseDefaultWelcomeMessage(checked);
@@ -933,7 +1011,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
           {
             title: "Hero Content",
             content: (
-              <div>
+              <div ref={heroContentRef}>
                 <Card className="dark:bg-gray-800">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm dark:text-gray-100">Welcome Message</CardTitle>

@@ -64,6 +64,8 @@ interface BannerSectionEditorProps {
   onToggleDefaultBody: (checked: boolean) => void;
   defaultBodyText: string;
   errorFields?: string[];
+  /** Ref to the Hero Background Header Image card (used to scroll it into view) */
+  heroBackgroundCardRef?: React.RefObject<HTMLDivElement>;
   /** Called when the user switches between Edit / Desktop / Mobile in Hero Background */
   onHeroSegmentModeChange?: (mode: HeroSegmentMode) => void;
   /** Called when any interactive element inside the editor gains focus */
@@ -100,6 +102,7 @@ export function BannerSectionEditor({
   onToggleDefaultBody,
   defaultBodyText,
   errorFields = [],
+  heroBackgroundCardRef,
   onHeroSegmentModeChange,
   isLogoModalOpen,
   pendingLogoData,
@@ -345,7 +348,7 @@ export function BannerSectionEditor({
       </Card>
 
       {/* Hero Background Image */}
-      <Card className="dark:bg-gray-800">
+      <Card className="dark:bg-gray-800" ref={heroBackgroundCardRef}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 dark:text-gray-100">
             <ImageIcon2 className="w-5 h-5 text-accent-blue" />
