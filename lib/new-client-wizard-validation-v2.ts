@@ -302,6 +302,13 @@ export const validateNewClientCurrentStepV2 = async (step: number, stepData: any
           step2Errors.push("missionBody");
         }
 
+        // Validate Background Header Image (Hero) — required
+        const heroHeaderUrl =
+          stepData.companyBasics?.brandImages?.header?.url?.trim() || "";
+        if (!heroHeaderUrl) {
+          step2Errors.push("brandImages.header");
+        }
+
         const effectiveWelcomeHeadline = resolveStoredWelcomeHeadline(stepData);
         const effectiveWelcomeBody = resolveStoredWelcomeBody(stepData);
 
@@ -337,6 +344,13 @@ export const validateNewClientCurrentStepV2 = async (step: number, stepData: any
             } else if (missionBody.length > 2000) {
               errorMessages.push({ field: "missionBody", message: "Mission Statement must be 2000 characters or less" });
             }
+          }
+
+          if (step2Errors.includes("brandImages.header")) {
+            errorMessages.push({
+              field: "brandImages.header",
+              message: "Background Header Image (Hero) is required",
+            });
           }
 
           if (step2Errors.includes("headline")) {
