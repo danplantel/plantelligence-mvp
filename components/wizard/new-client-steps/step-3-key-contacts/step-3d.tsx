@@ -1082,10 +1082,17 @@ export function NewClientStep3d({
   const previewContent = useMemo(() => {
     if (previewContacts.length === 0 || slots.length === 0) return null;
 
-    // Get contacts in previewOrder
-    const orderedContacts = previewOrder
+    // Get contacts in previewOrder, then append any contacts whose IDs are
+    // missing from previewOrder (e.g. when previewOrder was initialized from
+    // a stale store snapshot with fewer contacts).  This guarantees every
+    // contact renders, even if previewOrder hasn't synced yet.
+    const orderedById = previewOrder
       .map((id) => previewContacts.find((c) => c.id === id))
       .filter(Boolean) as typeof previewContacts;
+    const remaining = previewContacts.filter(
+      (c) => !previewOrder.includes(c.id),
+    );
+    const orderedContacts = [...orderedById, ...remaining];
 
     // Render contacts in order, assigning slots by index
     const slotElements = orderedContacts
