@@ -127,18 +127,26 @@ export function UserNav() {
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
-              className="relative flex items-center gap-3 h-12 px-3 rounded-lg hover:bg-accent-blue hover:text-white"
+              className="relative flex items-center gap-3 h-12 px-3 rounded-lg hover:bg-accent-blue hover:text-white min-w-0"
             >
-              <Avatar className="w-10 h-10">
+              <Avatar className="w-10 h-10 shrink-0">
                 <AvatarImage src={userImage} alt={userName} />
                 <AvatarFallback className="bg-muted text-muted-foreground text-sm font-semibold">
                   {getNameMonogram(userName)}
                 </AvatarFallback>
               </Avatar>
-              <div className="flex flex-col items-start">
-                <span className="text-sm font-medium">{userName}</span>
+              <div className="flex flex-col items-start min-w-0">
+                <span
+                  className="text-sm font-medium truncate max-w-[200px]"
+                  title={userName}
+                >
+                  {userName}
+                </span>
                 {userTitle && (
-                  <span className="text-xs">
+                  <span
+                    className="text-xs truncate max-w-[200px]"
+                    title={userTitle}
+                  >
                     {userTitle}
                   </span>
                 )}
