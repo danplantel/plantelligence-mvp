@@ -62,7 +62,7 @@ import {
   Loader2,
   ExternalLink,
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, addDays, startOfDay, isBefore } from "date-fns";
 import { formatUsDate } from "@/lib/date";
 import { toast } from "sonner";
 import { AddressSearch } from "@/components/ui/address-search";
@@ -730,6 +730,8 @@ export default function MeetingsPage() {
     toast.info("Edit cancelled. Form reset to create new meeting.");
   };
   const now = new Date();
+  // Earliest selectable meeting date: tomorrow (disable today and all past days).
+  const minSelectableDate = addDays(startOfDay(new Date()), 1);
   const upcomingMeetings = meetings.filter((m) => { if (m.status === "Draft") return true; const md = parseLocalDate(m.date); const [h, mn] = m.time.split(":").map(Number); const mdt = new Date(md); mdt.setHours(h, mn, 0, 0); return mdt >= now; });
   const pastMeetings = meetings.filter((m) => { if (m.status === "Draft") return false; const md = parseLocalDate(m.date); const [h, mn] = m.time.split(":").map(Number); const mdt = new Date(md); mdt.setHours(h, mn, 0, 0); return mdt < now; });
   const currentMeetings = activeTab === "upcoming" ? upcomingMeetings : pastMeetings;
@@ -876,7 +878,8 @@ export default function MeetingsPage() {
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
                     <CalendarComponent mode="single" selected={tempDate ? parseLocalDate(tempDate) : undefined}
-                      onSelect={(d) => { if (d) setTempDate(format(d, "yyyy-MM-dd")); }} initialFocus />
+                      onSelect={(d) => { if (d) setTempDate(format(d, "yyyy-MM-dd")); }}
+                      disabled={(date) => isBefore(date, minSelectableDate)} initialFocus />
                     <div className="flex items-center justify-end gap-2 p-3 border-t border-border">
                       <Button type="button" size="sm" variant="outline" onClick={() => setDatePickerOpen(false)}>Cancel</Button>
                       <Button type="button" size="sm" onClick={() => { if (tempDate) handleInputChange("date", tempDate); setDatePickerOpen(false); }}>OK</Button>
