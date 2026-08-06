@@ -476,8 +476,6 @@ export default function MeetingsPage() {
   const [timeConflictWarning, setTimeConflictWarning] = useState<string>("");
   const [hasConfirmedConflict, setHasConfirmedConflict] = useState(false);
   const [editingMeetingId, setEditingMeetingId] = useState<string | null>(null);
-  const [isValueCastom, setValueCastom] = useState<string>("");
-  const [openModel, setOpenModel] = useState<boolean>(false);
   const [openDeleteModel, setOpenDeleteModel] = useState<boolean>(false);
   const [typeId, setTypeId] = useState<string>("");
   const [valueCustomName, setValueCustomName] = useState<string>();
@@ -515,7 +513,6 @@ export default function MeetingsPage() {
   }});
   useEffect(() => { fetchCustomMeetings(); }, [fetchCustomMeetings]);
   useEffect(() => { setAllMeetingTypes([...customMeetings]); }, [customMeetings, debugSavedMeetings]);
-  const addCustomMeeting = useMeetingStore((state) => state.addCustomMeeting);
   const toastShownRef = useRef(false);
   useEffect(() => {
     const clientParam = searchParams.get("client");
@@ -582,7 +579,7 @@ export default function MeetingsPage() {
       if (field === "meetingType") {
         setErrors((prev) => ({ ...prev, customMeetingType: false }));
         const selectedType = allMeetingTypes.find((type) => type.value === value);
-        if (selectedType) { setValueCastom(value); newData.description = value === "Custom" ? "" : selectedType.description; }
+        if (selectedType) { newData.description = value === "Custom" ? "" : selectedType.description; }
       }
       return newData;
     });
@@ -671,13 +668,11 @@ export default function MeetingsPage() {
     setTimeConflictWarning("");
     setHasConfirmedConflict(false);
     setEditingMeetingId(null);
-    setValueCastom("");
   }, []);
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.clientId) { toast.error("You must select a plan before scheduling a meeting"); return; }
     if (!validateForm()) { toast.error("Please fill in all required fields"); return; }
-    if (isValueCastom === "Custom") { setOpenModel(true); return; }
     setIsSubmitting(true);
     try {
       const isEditing = editingMeetingId !== null;
@@ -722,12 +717,6 @@ export default function MeetingsPage() {
     setEditingMeetingId(meeting.id); setHasConfirmedConflict(false); setMeetingModalOpen(true);
     toast.success("Meeting data loaded for editing. Make your changes and submit to update.");
   };
-  function handleSubmitDialod(save: boolean = false) {
-    const customMeeting = { value: formData.customMeetingType || "Custom Meeting", label: formData.customMeetingType || "Custom Meeting", description: formData.description };
-    if (save) addCustomMeeting(customMeeting);
-    setOpenModel(false); setValueCastom("");
-    setTimeout(() => { const form = document.querySelector("form"); form?.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true })); }, 0);
-  }
   const handleDuplicateMeeting = (meeting: Meeting) => {
     const [hour24, minute] = meeting.time.split(":"); const h24 = parseInt(hour24);
     setFormData({ meetingType: meeting.meetingType || "", customMeetingType: "", client: meeting.client || "", clientId: resolveClientIdForMeeting(meeting), date: meeting.date || "", time: meeting.time || "", hour: (h24 === 0 ? 12 : h24 > 12 ? h24 - 12 : h24).toString(), minute: minute || "00", ampm: h24 >= 12 ? "PM" : "AM", timezone: meeting.timezone || "", duration: meeting.duration || "", customDuration: "", format: meeting.format || "", platform: meeting.platform || "", customPlatform: meeting.customPlatform || "", meetingUrl: meeting.meetingUrl || "", meetingLink: meeting.meetingLink || "", maxAttendees: meeting.maxAttendees?.toString() || "", description: meeting.description || "", address: meeting.address || "", city: meeting.city || "", state: meeting.state || "", zip: meeting.zip || "", language: meeting.language || "", benefitsCategory: meeting.benefitsCategory || "", customBenefitsCategory: meeting.customBenefitsCategory || "" });
@@ -1156,26 +1145,6 @@ export default function MeetingsPage() {
               </Button>
             </DialogFooter>
           </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Custom Meeting Type Save Dialog */}
-      <Dialog open={openModel} onOpenChange={setOpenModel}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Save Custom Meeting Type?</DialogTitle>
-            <DialogDescription>
-              Would you like to save "{formData.customMeetingType || "Custom Meeting"}" as a reusable meeting type for future sessions?
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => handleSubmitDialod(false)}>
-              Don't Save
-            </Button>
-            <Button onClick={() => handleSubmitDialod(true)}>
-              Save & Continue
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
