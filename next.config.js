@@ -4,16 +4,18 @@ const nextConfig = {
   // for the production build to correctly handle its default export.
   transpilePackages: ["chroma-js"],
 
-  // @sparticuz/chromium must be externalized so webpack doesn't bundle it
-  // (bundling rewrites import.meta.url which breaks internal path resolution).
-  serverExternalPackages: ["@sparticuz/chromium"],
-
   // The postinstall script copies @sparticuz/chromium/bin/ → chromium-bin/
   // at the project root.  Vercel's output file tracer (NFT) can't follow
   // import.meta.url-relative paths inside node_modules, but project-root
   // directories are always included.  This ensures the Brotli-compressed
   // Chromium binaries are available at runtime.
   experimental: {
+    // @sparticuz/chromium must be externalized so webpack doesn't bundle it
+    // (bundling rewrites import.meta.url which breaks internal path resolution).
+    // Note: serverExternalPackages is Next.js 15+ only. For Next.js 14.x,
+    // use experimental.serverComponentsExternalPackages instead.
+    serverComponentsExternalPackages: ["@sparticuz/chromium"],
+
     outputFileTracingIncludes: {
       "/api/extract-site-colors": ["./chromium-bin/**"],
     },
