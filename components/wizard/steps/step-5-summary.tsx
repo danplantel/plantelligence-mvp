@@ -9,31 +9,12 @@ import {
   User,
   Palette,
   Contact,
-  Users,
   CheckCircle,
   Briefcase,
 } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Headshot } from "@/components/ui/headshot";
 import { BrandingImage } from "@/components/ui/branding-image";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { SummaryEditModal } from "./sections/summary-edit-modals/summary-edit-modal";
-import { AddTeamMembersSection } from "./sections/add-team-members-section/add-team-members-section";
 import { Step5Disclaimers } from "./step-5-disclaimers";
 
 // Format phone number for display (no country code)
@@ -87,11 +68,6 @@ export function Step5Summary({
   // Initialize as true since disclaimers are optional
   const [isDisclaimersValid, setIsDisclaimersValid] = useState(true);
   const [showValidationError, setShowValidationError] = useState(false);
-  const [isTeamSizeModalOpen, setIsTeamSizeModalOpen] = useState(false);
-  const [tempOrgType, setTempOrgType] = useState("");
-  const [tempCustomOrg, setTempCustomOrg] = useState("");
-  const [tempTeamSize, setTempTeamSize] = useState("");
-
   // Local state for branding colors to ensure they display correctly
   // even if the reactive stepData from the zustand hook is stale.
   const [brandingPrimaryColor, setBrandingPrimaryColor] = useState<string>(
@@ -314,15 +290,6 @@ export function Step5Summary({
     return designations.map((d) => `[${d}]`).join(" ");
   };
 
-  const [isTeamSizeJustMe, setIsTeamSizeJustMe] = useState(
-    stepData.teamSize?.teamSize === "just_me",
-  );
-
-  // Update isTeamSizeJustMe when teamSize changes
-  useEffect(() => {
-    setIsTeamSizeJustMe(stepData.teamSize?.teamSize === "just_me");
-  }, [stepData.teamSize?.teamSize]);
-
   // Handle disclaimers validation
   const handleDisclaimersValidation = (isValid: boolean) => {
     setIsDisclaimersValid(isValid);
@@ -356,95 +323,22 @@ export function Step5Summary({
     setShowStep5ConfirmModal(false);
   };
 
-  const handleOpenTeamSizeModal = () => {
-    // Initialize temp values with current data
-    setTempOrgType(stepData.clientProfile?.organizationType || "");
-    setTempCustomOrg(stepData.clientProfile?.customOrganization || "");
-    setTempTeamSize(stepData.teamSize?.teamSize || "");
-    setIsTeamSizeModalOpen(true);
-  };
-
-  const handleSaveTeamSize = async () => {
-    try {
-      // Save to store
-      await saveStepDataLocally("clientProfile", {
-        organizationType: tempOrgType,
-        customOrganization: tempCustomOrg,
-      });
-
-      await saveStepDataLocally("teamSize", {
-        teamSize: tempTeamSize,
-      });
-
-      // Also save to server
-      await saveStepData(
-        "clientProfile",
-        {
-          organizationType: tempOrgType,
-          customOrganization: tempCustomOrg,
-        },
-        true,
-      );
-
-      await saveStepData(
-        "teamSize",
-        {
-          teamSize: tempTeamSize,
-        },
-        true,
-      );
-
-      setIsTeamSizeModalOpen(false);
-    } catch (error) {
-      console.error("Failed to save team size:", error);
-    }
-  };
-
   // If showing next steps, render that view
   if (showNextSteps) {
     return (
       <div className="space-y-6">
         {/* Page Header */}
-        <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Next Steps</h1>
+        <div className="mt-6">
           <p className="text-gray-600 dark:text-gray-400">
-            Complete these optional steps to customize your experience
+            Add a disclaimer to your profile that populates in the footer of each Portal Hub
           </p>
         </div>
 
         {/* Next Steps Section - Vertical Layout */}
         <div className="space-y-4">
-          {/* Add Team Members */}
-          <div>
-            {!isTeamSizeJustMe ? (
-              <div className="pl-6">
-                <AddTeamMembersSection isVisible={true} hideCard={true} />
-              </div>
-            ) : (
-              <Card className="dark:bg-gray-800 shadow-none">
-                <CardHeader className="pb-2 pt-3">
-                  <CardTitle className="text-lg font-semibold pl-10">
-                    Add Team Members
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center py-4 text-muted-foreground">
-                    <Users className="w-8 h-8 mx-auto mb-2 text-gray-400 dark:text-gray-500" />
-                    <p className="text-xs font-medium mb-2 text-gray-600 dark:text-gray-400">
-                      Change team size to 2+ users to add team members
-                    </p>
-                    <Button variant="outline" size="sm" onClick={handleOpenTeamSizeModal}>
-                      Change Team Size
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
           {/* Add Disclaimers */}
           <div>
-            <Card className="dark:bg-gray-800 shadow-none">
+            <Card className="p-4 dark:bg-gray-800 shadow-none">
               <CardContent className="pt-3 pb-3">
                 <Step5Disclaimers
                   onValidationChange={handleDisclaimersValidation}
@@ -486,109 +380,6 @@ export function Step5Summary({
             </div>
           </div>
         )}
-
-        {/* Team Size Change Modal */}
-        <Dialog
-          open={isTeamSizeModalOpen}
-          onOpenChange={setIsTeamSizeModalOpen}
-        >
-          <DialogContent className="max-w-md dark:bg-gray-900 dark:border-gray-700">
-            <DialogHeader>
-              <DialogTitle className="dark:text-white">Change Team Size</DialogTitle>
-            </DialogHeader>
-
-            <div className="space-y-4 py-4">
-              {/* Organization Type */}
-              <div className="space-y-2">
-                <Label htmlFor="orgType" className="dark:text-gray-300">
-                  Organization Type <span className="text-red-500">*</span>
-                </Label>
-                <Select value={tempOrgType} onValueChange={setTempOrgType}>
-                  <SelectTrigger id="orgType">
-                    <SelectValue placeholder="Select organization type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="independent">
-                      Independent Advisor
-                    </SelectItem>
-                    <SelectItem value="ria">
-                      RIA (Registered Investment Advisor)
-                    </SelectItem>
-                    <SelectItem value="broker_dealer">Broker-Dealer</SelectItem>
-                    <SelectItem value="insurance_agency">
-                      Insurance Agency
-                    </SelectItem>
-                    <SelectItem value="bank">Bank</SelectItem>
-                    <SelectItem value="credit_union">Credit Union</SelectItem>
-                    <SelectItem value="accounting_firm">
-                      Accounting Firm
-                    </SelectItem>
-                    <SelectItem value="law_firm">Law Firm</SelectItem>
-                    <SelectItem value="family_office">Family Office</SelectItem>
-                    <SelectItem value="plan_sponsor">Plan Sponsor</SelectItem>
-                    <SelectItem value="tpa">
-                      TPA (Third Party Administrator)
-                    </SelectItem>
-                    <SelectItem value="recordkeeper">Recordkeeper</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Team Size */}
-              <div className="space-y-2">
-                <Label className="dark:text-gray-300">
-                  Team Size <span className="text-red-500">*</span>
-                </Label>
-                <RadioGroup
-                  value={tempTeamSize}
-                  onValueChange={setTempTeamSize}
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="just_me" id="just_me" />
-                    <Label htmlFor="just_me" className="cursor-pointer dark:text-gray-300">
-                      Just me
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="2_5" id="2_5" />
-                    <Label htmlFor="2_5" className="cursor-pointer dark:text-gray-300">
-                      2-5 people
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="6_20" id="6_20" />
-                    <Label htmlFor="6_20" className="cursor-pointer dark:text-gray-300">
-                      6-20 people
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="enterprise" id="enterprise" />
-                    <Label htmlFor="enterprise" className="cursor-pointer dark:text-gray-300">
-                      Enterprise
-                    </Label>
-                  </div>
-                </RadioGroup>
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setIsTeamSizeModalOpen(false)}
-                className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSaveTeamSize}
-                className="bg-accent-blue text-white hover:bg-accent-blue/90 dark:bg-accent-blue dark:hover:bg-accent-blue/80"
-              >
-                Save Changes
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
         {/* Edit Modal - for Next Steps screen */}
         <SummaryEditModal
