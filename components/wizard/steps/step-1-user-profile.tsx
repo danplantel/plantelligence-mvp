@@ -70,10 +70,10 @@ export function Step1UserProfile({ errorFields = [] }: Step1UserProfileProps) {
         <div
           className={`grid gap-6 transition-all duration-300 ${
             showTeamSize ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1"
-          }`}
+          } lg:items-start`}
         >
           {/* User Profile Section */}
-          <div>
+          <div className="lg:max-h-[calc(100vh_-_10rem)] lg:overflow-y-auto">
             <UserProfileSection errorFields={errorFields} />
             {errors.organizationType && (
               <div className="mt-2 text-sm text-red-600">
@@ -89,7 +89,7 @@ export function Step1UserProfile({ errorFields = [] }: Step1UserProfileProps) {
 
           {/* Team Size Section - Progressive Disclosure */}
           {showTeamSize && (
-            <div className="animate-in slide-in-from-right-5 duration-300">
+            <div className="animate-in slide-in-from-right-5 duration-300 lg:max-h-[calc(100vh_-_10rem)] lg:overflow-y-auto">
               <TeamSizeSection errorFields={errorFields} />
               {errors.teamSize && (
                 <div className="mt-2 text-sm text-red-600">
