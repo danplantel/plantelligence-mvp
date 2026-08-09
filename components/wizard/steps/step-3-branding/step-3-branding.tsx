@@ -36,14 +36,15 @@ import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
 import { brandingSchema } from "@/lib/wizard-validation";
 import { BrandingSetupCard } from "../sections/branding-setup-card/branding-setup-card";
 import { AvatarGeneratorCard } from "../sections/avatar-generator-card/avatar-generator-card";
+import { BrandColorsSection } from "@/components/wizard/new-client-steps/sections/brand-colors-section";
+import { BackgroundImageField } from "@/components/wizard/steps/sections/background-image-field/background-image-field";
+import { deleteFromR2 } from "@/lib/upload-to-r2";
 import {
    createDataSetters,
    createFileHandlers,
    createRemoveHandlers,
-   BrandingState,
  } from "./step-3-branding.funcs";
 import { formatUsDate } from "@/lib/date";
-import { extractColorsFromImage } from "@/lib/extract-colors-from-image";
 
 const DEFAULT_WELCOME_STATEMENT = `Welcome to <Organization_Name>!
 We consider it a privilege to have been selected by <Client_Name> to represent your 401(k) Savings & Investment Plan. Whether you're just starting your employment journey or are a long-time participant, we share your company's commitment to educating you about the importance of this valuable retirement benefit.
@@ -120,11 +121,14 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
   const [brandColor, setBrandColor] = useState(
     stepData.branding?.brandColor || "#1F3A60",
   );
+  // Brand colors start blank. They are populated only when the user clicks
+  // "Extract Colors" in BrandColorsSection (or restores previously saved
+  // values from the store when returning to Step 3).
   const [primaryColor, setPrimaryColor] = useState(
-    stepData.branding?.primaryColor || "#1F3A60",
+    stepData.branding?.primaryColor || "",
   );
   const [secondaryColor, setSecondaryColor] = useState(
-    stepData.branding?.secondaryColor || "#4A90E2",
+    stepData.branding?.secondaryColor || "",
   );
   const [subdomain, setSubdomain] = useState(
     stepData.branding?.subdomain || "",
@@ -295,6 +299,11 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
       setValue("brandColor", stepData.branding.brandColor || "#1F3A60");
       setValue("subdomain", stepData.branding.subdomain || "");
 
+      // Keep the website state in sync with the store so the Brand Colors
+      // extraction always receives the current Organization Website value,
+      // even when returning to Step 3 after the data was persisted.
+      setWebsite(stepData.branding.website || "");
+
       // Restore local state for primaryColor and secondaryColor from store
       // so color pickers show correct values when navigating back to Step 3
       if (stepData.branding.primaryColor) {
@@ -320,6 +329,87 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
   useEffect(() => {
     setValue("logo", logo);
   }, [logo, setValue]);
+
+  // Wire the shared BrandColorsSection (same UI/functionality as the new-client
+  // wizard's Brand Colors section) to the onboarding step-3 state so that color
+  // changes are persisted exactly like the inline onDataChange handler does.
+  const persistBrandColorChange = (
+    field: "primaryColor" | "secondaryColor",
+    value: string,
+  ) => {
+    if (field === "primaryColor") {
+      setPrimaryColor(value);
+      primaryColorRef.current = value;
+    } else {
+      setSecondaryColor(value);
+      secondaryColorRef.current = value;
+    }
+
+    const latestBranding = (useOnboardingWizardStore.getState().stepData
+      .branding || {}) as any;
+    const brandingData: any = {
+      logo: latestBranding.logo ?? logo,
+      logoFileName: latestBranding.logoFileName ?? logoFileName,
+      backgroundImage: latestBranding.backgroundImage ?? backgroundImage,
+      backgroundFileName:
+        latestBranding.backgroundFileName ?? backgroundFileName,
+      organizationName: latestBranding.organizationName ?? organizationName,
+      website: latestBranding.website ?? website,
+      missionStatement: latestBranding.missionStatement ?? missionStatement,
+      brandColor: latestBranding.brandColor ?? brandColor,
+      primaryColor:
+        field === "primaryColor"
+          ? value
+          : latestBranding.primaryColor ?? primaryColorRef.current,
+      secondaryColor:
+        field === "secondaryColor"
+          ? value
+          : latestBranding.secondaryColor ?? secondaryColorRef.current,
+      aiAvatar: latestBranding.aiAvatar ?? aiAvatar,
+      avatarFileName: latestBranding.avatarFileName ?? avatarFileName,
+      subdomain: latestBranding.subdomain ?? subdomain,
+    };
+    saveStepDataLocally("branding", brandingData);
+  };
+
+  // Background image persistence — mirrors the inline onDataChange handling for
+  // backgroundImage/backgroundFileName (saves locally + to server and caches the
+  // preview DataURL against the R2 key so the preview survives page navigation).
+  const handleBackgroundFieldChange = async (
+    nextImage: string,
+    nextFileName: string,
+    nextPreview: string,
+  ) => {
+    setBackgroundImage(nextImage);
+    setBackgroundFileName(nextFileName);
+    setBackgroundPreviewDataUrl(nextPreview);
+    backgroundPreviewDataUrlRef.current = nextPreview;
+
+    if (nextPreview) {
+      cachePreviewDataUrl(nextImage, nextPreview);
+    }
+
+    const latestBranding = (useOnboardingWizardStore.getState().stepData
+      .branding || {}) as any;
+    const brandingData: any = {
+      logo: latestBranding.logo ?? logo,
+      logoFileName: latestBranding.logoFileName ?? logoFileName,
+      backgroundImage: nextImage,
+      backgroundFileName: nextFileName,
+      organizationName: latestBranding.organizationName ?? organizationName,
+      website: latestBranding.website ?? website,
+      missionStatement: latestBranding.missionStatement ?? missionStatement,
+      brandColor: latestBranding.brandColor ?? brandColor,
+      primaryColor: latestBranding.primaryColor ?? primaryColorRef.current,
+      secondaryColor:
+        latestBranding.secondaryColor ?? secondaryColorRef.current,
+      aiAvatar: latestBranding.aiAvatar ?? aiAvatar,
+      avatarFileName: latestBranding.avatarFileName ?? avatarFileName,
+      subdomain: latestBranding.subdomain ?? subdomain,
+    };
+    await saveStepDataLocally("branding", brandingData);
+    await saveStepDataToServer("branding", brandingData);
+  };
 
   return (
     <FormProvider {...methods}>
@@ -347,47 +437,17 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
               logoPreviewDataUrl,
               backgroundPreviewDataUrl,
             }}
+            hideColors
+            hideBackgroundImage
+            disableAutoColorExtraction
             errorFields={errorFields}
             onLogoPreview={async (dataUrl) => {
-            setLogoPreviewDataUrl(dataUrl);
+              // Only record the preview DataURL here. Brand color extraction is
+              // now handled exclusively by the "Extract Colors" button in
+              // BrandColorsSection (matching the new-client wizard) — colors are
+              // NOT auto-populated from the logo on upload.
+              setLogoPreviewDataUrl(dataUrl);
               logoPreviewDataUrlRef.current = dataUrl;
-              try {
-                const colors = await extractColorsFromImage(dataUrl);
-                setPrimaryColor(colors.primary);
-                setSecondaryColor(colors.secondary);
-                // Update refs immediately so that subsequent onDataChange calls
-                // (e.g. for "logo") pick up the correct extracted values
-                primaryColorRef.current = colors.primary;
-                secondaryColorRef.current = colors.secondary;
-                // Persist extracted colors to the Zustand store and server immediately
-                // so Step 5 and the database always see the actual extracted values
-                const latestBranding = (useOnboardingWizardStore.getState().stepData.branding || {}) as any;
-                const brandingData = {
-                  logo: latestBranding.logo ?? logo,
-                  logoFileName: latestBranding.logoFileName ?? logoFileName,
-                  backgroundImage: latestBranding.backgroundImage ?? backgroundImage,
-                  backgroundFileName: latestBranding.backgroundFileName ?? backgroundFileName,
-                  organizationName: latestBranding.organizationName ?? organizationName,
-                  website: latestBranding.website ?? website,
-                  missionStatement: latestBranding.missionStatement ?? missionStatement,
-                  brandColor: latestBranding.brandColor ?? brandColor,
-                  primaryColor: colors.primary,
-                  secondaryColor: colors.secondary,
-                  aiAvatar: latestBranding.aiAvatar ?? aiAvatar,
-                  avatarFileName: latestBranding.avatarFileName ?? avatarFileName,
-                  subdomain: latestBranding.subdomain ?? subdomain,
-                };
-                console.log("[Step3] onLogoPreview - persisting extracted colors:", {
-                  primaryColor: colors.primary,
-                  secondaryColor: colors.secondary,
-                });
-                await saveStepDataLocally("branding", brandingData);
-                await saveStepDataToServer("branding", brandingData);
-              } catch (error) {
-                console.error("Failed to extract colors from logo preview:", error);
-                setPrimaryColor("#1F3A60");
-                setSecondaryColor("#4A90E2");
-              }
             }}
             onDataChange={async (field: any, value: any) => {
               const setters = createDataSetters({
@@ -610,6 +670,46 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
 
               await saveStepDataLocally("branding", brandingData);
             }}
+          />
+        </div>
+
+        <div className="w-full">
+          <BrandColorsSection
+            primaryColor={primaryColor}
+            secondaryColor={secondaryColor}
+            onPrimaryChange={(color) =>
+              persistBrandColorChange("primaryColor", color)
+            }
+            onSecondaryChange={(color) =>
+              persistBrandColorChange("secondaryColor", color)
+            }
+            isPrimaryPickerOpen={isPrimaryColorPickerOpen}
+            isSecondaryPickerOpen={isSecondaryColorPickerOpen}
+            onPrimaryPickerOpenChange={setIsPrimaryColorPickerOpen}
+            onSecondaryPickerOpenChange={setIsSecondaryColorPickerOpen}
+            logoDataUrl={logoPreviewDataUrl || undefined}
+            websiteUrl={website || stepData.branding?.website || ""}
+            errorFields={errorFields}
+          />
+        </div>
+
+        <div className="w-full">
+          <BackgroundImageField
+            asCard
+            value={backgroundImage}
+            fileName={backgroundFileName}
+            previewDataUrl={backgroundPreviewDataUrl}
+            onChange={(value, fileName, previewSrc) => {
+              const nextPreview = previewSrc || backgroundPreviewDataUrl;
+              handleBackgroundFieldChange(value, fileName, nextPreview);
+            }}
+            onRemove={async () => {
+              if (backgroundImage) {
+                await deleteFromR2(backgroundImage);
+              }
+              await handleBackgroundFieldChange("", "", "");
+            }}
+            destructive={errorFields.includes("backgroundImage")}
           />
         </div>
 

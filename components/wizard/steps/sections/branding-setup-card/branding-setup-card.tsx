@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
+import { BackgroundImageField } from "@/components/wizard/steps/sections/background-image-field/background-image-field";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { Label } from "@/components/ui/label";
 import { InfoDialog } from "@/components/ui/info-dialog";
@@ -90,17 +91,29 @@ interface BrandingSetupCardProps {
    onFileRemove: (field: "logo" | "backgroundImage") => void;
    onLogoPreview?: (dataUrl: string) => Promise<void>;
    hideCard?: boolean;
+   hideColors?: boolean;
+   hideBackgroundImage?: boolean;
+   /**
+    * When true, uploading a logo does NOT auto-populate the primary/secondary
+    * brand colors. Color extraction is then left to the dedicated
+    * "Extract Colors" button in BrandColorsSection (matching the new-client
+    * wizard behavior).
+    */
+   disableAutoColorExtraction?: boolean;
  }
 
 export function BrandingSetupCard({
-   data,
-   errorFields = [],
-   onDataChange,
-   onFileUpload,
-   onFileRemove,
-   onLogoPreview,
-   hideCard = false,
- }: BrandingSetupCardProps) {
+  data,
+  errorFields = [],
+  onDataChange,
+  onFileUpload,
+  onFileRemove,
+  onLogoPreview,
+  hideCard = false,
+  hideColors = false,
+  hideBackgroundImage = false,
+  disableAutoColorExtraction = false,
+}: BrandingSetupCardProps) {
    const [websiteError, setWebsiteError] = useState<string>("");
    const fileInputRef = useRef<HTMLInputElement>(null);
    const subdomainManuallyEditedRef = useRef(false);
@@ -445,16 +458,20 @@ export function BrandingSetupCard({
             onDataChange("logoFileName", fileName);
 
             if (previewSrc) {
-              // Extract colors directly from the logo data URL.  This runs
-              // after we've already queued logoPreviewDataUrl + the logo value,
-              // so the trigger preview and cache update without waiting for
-              // colour extraction.
-              try {
-                const colors = await extractColorsFromImage(previewSrc);
-                onDataChange("primaryColor", colors.primary);
-                onDataChange("secondaryColor", colors.secondary);
-              } catch {
-                // Non-critical – the user can pick colours manually
+              // By default, extract colors directly from the logo data URL so the
+              // swatches are populated on upload. When disableAutoColorExtraction
+              // is set (e.g. the onboarding wizard, which uses the dedicated
+              // "Extract Colors" button in BrandColorsSection), skip this so the
+              // Primary/Secondary colors only populate when the user triggers
+              // extraction.
+              if (!disableAutoColorExtraction) {
+                try {
+                  const colors = await extractColorsFromImage(previewSrc);
+                  onDataChange("primaryColor", colors.primary);
+                  onDataChange("secondaryColor", colors.secondary);
+                } catch {
+                  // Non-critical – the user can pick colours manually
+                }
               }
               if (onLogoPreview) {
                 await onLogoPreview(previewSrc);
@@ -472,6 +489,8 @@ export function BrandingSetupCard({
         />
       </div>
 
+      {!hideColors && (
+        <>
       {/* Primary Color */}
       <div className="relative">
         <label className="block text-sm font-medium mb-1">
@@ -547,33 +566,14 @@ export function BrandingSetupCard({
           title="Secondary Color"
         />
       </div>
+      </>)}
 
-      {/* Background Image */}
-      <div>
-        <label className="block text-sm font-medium mb-1 flex items-center gap-1">
-          Background Image (Optional)
-          <button
-            type="button"
-            onClick={() => {
-              setInfoDialogConfig({ title: "Background Image", description: "Upload a background image that will appear behind your content." });
-              setInfoDialogOpen(true);
-            }}
-            className="inline-flex items-center justify-center text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
-          >
-            <Info className="h-3.5 w-3.5" />
-          </button>
-        </label>
-        <UniversalImageEditorModal
-          type="custom"
-          icon={<ImageIcon className="w-4 h-4" />}
+      {!hideBackgroundImage && (
+        <BackgroundImageField
           value={data.backgroundImage || ""}
           fileName={data.backgroundFileName || ""}
           previewDataUrl={data.backgroundPreviewDataUrl}
-          onChange={(value, fileName, headshotData) => {
-            // Use the DataURL preview passed back from the modal so preview works with R2 key
-            const previewDataUrl: string | undefined =
-              (headshotData as any)?.previewDataUrl;
-            const previewSrc = previewDataUrl || (value?.startsWith("data:") ? value : undefined);
+          onChange={(value, fileName, previewSrc) => {
             // Dispatch the preview BEFORE backgroundImage so the module-level
             // previewDataUrlCache (keyed by R2 key) gets populated — mirroring the
             // logo path. If backgroundImage were dispatched first, the preview ref
@@ -593,13 +593,9 @@ export function BrandingSetupCard({
             onDataChange("backgroundFileName", "");
             onFileRemove("backgroundImage");
           }}
-          placeholder="Upload Background Image"
-          modalTitle="Background Image"
-          modalDescription="Upload a background image. Adjust and fit it into the preview dimensions for best results."
-          saveButtonText="Save Background Image"
-          autoSizeOnOpen={true}
+          destructive={errorFields.includes("backgroundImage")}
         />
-      </div>
+      )}
 
     </div>
   );

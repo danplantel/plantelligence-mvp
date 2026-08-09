@@ -161,7 +161,19 @@ export function BrandColorsSection({
     setExtractionError(null);
 
     try {
-      const result = await extractBrandColors(logoDataUrl, websiteUrl);
+      // Normalize the website URL so extraction always receives a valid,
+      // fetchable URL (e.g., "example.com" → "https://example.com").
+      const rawWebsite = websiteUrl?.trim() || "";
+      const normalizedWebsiteUrl = rawWebsite
+        ? /^https?:\/\//i.test(rawWebsite)
+          ? rawWebsite
+          : `https://${rawWebsite}`
+        : undefined;
+
+      const result = await extractBrandColors(
+        logoDataUrl,
+        normalizedWebsiteUrl,
+      );
       setExtractionResult(result);
 
       onPrimaryChange(result.primary);

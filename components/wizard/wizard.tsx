@@ -128,58 +128,64 @@ export function OnboardingWizard({
       // Get fresh data from the current step component before validation
       let freshStepData = { ...stepData };
 
-      // For step 4, wait a bit for store to update and get fresh data
-      if (currentStep === 4) {
-        // Wait longer for the store to update with the latest data
+      // For step 3 and 4, wait a bit for the store to update (e.g. after a logo
+      // or headshot upload) so validation always uses the freshest store data —
+      // the render-cycle stepData can lag behind an async upload save.
+      if (currentStep === 3 || currentStep === 4) {
+        // Wait for the store to update with the latest data
         await new Promise((resolve) => setTimeout(resolve, 500));
 
         // Get fresh data from store after waiting
         const currentStore = useOnboardingWizardStore.getState();
         freshStepData = { ...currentStore.stepData };
 
-        // Always try to get fresh data from form inputs to ensure we have the latest values
-        // This is especially important for headshot which might be uploaded but not yet saved to store
-        const phoneInput = document.querySelector(
-          'input[name="phone"]',
-        ) as HTMLInputElement;
-        const titleInput = document.querySelector(
-          'input[name="title"]',
-        ) as HTMLInputElement;
-        const headshotField = document.querySelector(
-          '[data-field="headshot"]',
-        ) as HTMLElement;
+        // Step 4 only: also read the latest form/DOM values (headshot, phone,
+        // title) since those may not be flushed to the store yet.
+        if (currentStep === 4) {
+          // Always try to get fresh data from form inputs to ensure we have the latest values
+          // This is especially important for headshot which might be uploaded but not yet saved to store
+          const phoneInput = document.querySelector(
+            'input[name="phone"]',
+          ) as HTMLInputElement;
+          const titleInput = document.querySelector(
+            'input[name="title"]',
+          ) as HTMLInputElement;
+          const headshotField = document.querySelector(
+            '[data-field="headshot"]',
+          ) as HTMLElement;
 
-        // Get headshot value - try multiple sources
-        let headshotValue = freshStepData.userSetup?.headshot || "";
+          // Get headshot value - try multiple sources
+          let headshotValue = freshStepData.userSetup?.headshot || "";
 
-        // Try to get headshot from the image preview if available
-        if (headshotField) {
-          const headshotImg = headshotField.querySelector(
-            'img[alt="Current headshot"]',
-          ) as HTMLImageElement;
-          if (
-            headshotImg &&
-            headshotImg.src &&
-            !headshotImg.src.includes("data:image/svg")
-          ) {
-            // Only use if it's a real image, not a placeholder
-            headshotValue = headshotImg.src;
+          // Try to get headshot from the image preview if available
+          if (headshotField) {
+            const headshotImg = headshotField.querySelector(
+              'img[alt="Current headshot"]',
+            ) as HTMLImageElement;
+            if (
+              headshotImg &&
+              headshotImg.src &&
+              !headshotImg.src.includes("data:image/svg")
+            ) {
+              // Only use if it's a real image, not a placeholder
+              headshotValue = headshotImg.src;
+            }
           }
-        }
 
-        // Update freshStepData with form values - always update to ensure we have latest
-        freshStepData.userSetup = {
-          ...freshStepData.userSetup,
-          phone: phoneInput?.value || freshStepData.userSetup?.phone || "",
-          title: titleInput?.value || freshStepData.userSetup?.title || "",
-          name: freshStepData.userSetup?.name || "",
-          email: freshStepData.userSetup?.email || "",
-          designations: freshStepData.userSetup?.designations || [],
-          headshot: headshotValue || freshStepData.userSetup?.headshot || "",
-          headshotFileName: freshStepData.userSetup?.headshotFileName || "",
-          backgroundImage: freshStepData.userSetup?.backgroundImage || "",
-          backgroundFileName: freshStepData.userSetup?.backgroundFileName || "",
-        };
+          // Update freshStepData with form values - always update to ensure we have latest
+          freshStepData.userSetup = {
+            ...freshStepData.userSetup,
+            phone: phoneInput?.value || freshStepData.userSetup?.phone || "",
+            title: titleInput?.value || freshStepData.userSetup?.title || "",
+            name: freshStepData.userSetup?.name || "",
+            email: freshStepData.userSetup?.email || "",
+            designations: freshStepData.userSetup?.designations || [],
+            headshot: headshotValue || freshStepData.userSetup?.headshot || "",
+            headshotFileName: freshStepData.userSetup?.headshotFileName || "",
+            backgroundImage: freshStepData.userSetup?.backgroundImage || "",
+            backgroundFileName: freshStepData.userSetup?.backgroundFileName || "",
+          };
+        }
       }
 
       // Validate current step before proceeding
