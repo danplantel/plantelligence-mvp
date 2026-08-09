@@ -53,6 +53,9 @@ export function NavItemComponent({
   const Icon =
     item.icon && Icons[item.icon] ? Icons[item.icon] : Icons.arrowRight;
   const [isExpanded, setIsExpanded] = useState(false);
+  // Controls the collapsed-sidebar popup so it can be closed after navigating
+  // to one of the child routes.
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const search = searchParams.toString();
@@ -66,12 +69,15 @@ export function NavItemComponent({
     [item.items, pathname, search],
   );
 
-  // Expand if parent is active or has active child
+  // Expand on initial mount if the parent or a child is the active route (e.g.
+  // deep links). We intentionally don't re-run on navigation so that clicking a
+  // child route collapses the expanded submenu.
   useEffect(() => {
     if (isActive || hasActiveChild) {
       setIsExpanded(true);
     }
-  }, [isActive, hasActiveChild]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleNavigate = (href: string) => {
     if (href === "#") return;
@@ -111,7 +117,7 @@ export function NavItemComponent({
           </button>
         ) : (
           // Collapsed sidebar: popover with sub-items on click
-          <Popover>
+          <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
             <PopoverTrigger asChild>
               <button
                 onMouseEnter={onHover}
@@ -146,7 +152,11 @@ export function NavItemComponent({
                     <button
                       key={subIndex}
                       data-nav-href={subItem.href}
-                      onClick={() => handleNavigate(subItem.href ?? "#")}
+                      onClick={() => {
+                        handleNavigate(subItem.href ?? "#");
+                        // Close the popup once the user navigates to a child route
+                        setIsPopoverOpen(false);
+                      }}
                       className={cn(
                         "w-full text-left px-3 py-2 rounded-md transition-colors duration-200 flex items-center gap-3",
                         isSubActive
@@ -207,7 +217,12 @@ export function NavItemComponent({
                   <button
                     key={subIndex}
                     data-nav-href={subItem.href}
-                    onClick={() => handleNavigate(subItem.href ?? "#")}
+                    onClick={() => {
+                      handleNavigate(subItem.href ?? "#");
+                      // Collapse the expanded submenu once the user navigates to a
+                      // child route.
+                      setIsExpanded(false);
+                    }}
                     className={cn(
                       "w-full text-left px-3 py-2 rounded-md transition-colors duration-200",
                       isSubActive
