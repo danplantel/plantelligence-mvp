@@ -110,6 +110,7 @@ export default function UserAuthForm() {
                   <Input
                     type="text"
                     placeholder="Enter your name"
+                    maxLength={100}
                     disabled={loading}
                     {...field}
                   />
@@ -129,6 +130,7 @@ export default function UserAuthForm() {
                   <Input
                     type="email"
                     placeholder="Enter your email"
+                    maxLength={254}
                     disabled={loading}
                     {...field}
                   />
