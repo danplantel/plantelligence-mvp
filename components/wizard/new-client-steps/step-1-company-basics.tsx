@@ -1094,6 +1094,8 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
             brandImages={companyData.brandImages}
             onBrandImagesChange={handleBrandImagesChange}
             errorFields={errorFields}
+            logoUrl={companyData.companyLogo?.url}
+            companyName={companyData.companyName}
           />
         </>
       )}

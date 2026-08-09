@@ -18,6 +18,10 @@ interface BrandImagesSectionProps {
   errorFields?: string[];
   validationErrors?: Record<string, string[]>;
   visibleSlots?: (keyof BrandImagesData)[]; // Optional: filter which slots to show
+  /** Company logo URL (R2 key or data URL) shown in the News & Events header preview navbar */
+  logoUrl?: string | null;
+  /** Company name used as the preview navbar fallback when no logo is selected */
+  companyName?: string;
 }
 
 const BRAND_IMAGE_SLOTS = [
@@ -65,6 +69,8 @@ export function BrandImagesSection({
   errorFields = [],
   validationErrors = {},
   visibleSlots,
+  logoUrl,
+  companyName,
 }: BrandImagesSectionProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeSlotKey, setActiveSlotKey] = useState<
@@ -81,6 +87,9 @@ export function BrandImagesSection({
   const { url: resolvedSecondaryBannerUrl } = useBrandingImageUrl(
     brandImages?.secondaryBanner?.url ?? null,
   );
+
+  // Resolve the company logo (R2 key or data URL) for the preview navbar
+  const { url: resolvedLogoUrl } = useBrandingImageUrl(logoUrl ?? null);
 
   const handleImageChange = (
     slotKey: keyof BrandImagesData,
@@ -698,33 +707,36 @@ export function BrandImagesSection({
 
           {/* Full-page mockup: non-interactive navbar + header at desktop proportions */}
           <div className="flex flex-col bg-white">
-            {/* Mock Top Navbar — non-interactive visual copy */}
-            <div className="flex items-center h-14 px-6 border-b border-gray-200 bg-white shrink-0">
-              {/* Logo placeholder */}
-              <div className="flex items-center gap-2 mr-8">
-                <div className="h-7 w-7 rounded-full bg-gray-300" />
-                <span className="text-sm font-semibold text-gray-400">
-                  Company
-                </span>
+            {/* Mock Top Navbar — non-interactive visual copy styled like the app header */}
+            <div className="flex items-center h-16 px-10 border-b border-border bg-background shrink-0">
+              {/* Logo on the left — actual company logo if selected */}
+              <div className="flex items-center gap-2 mr-8 shrink-0">
+                {resolvedLogoUrl ? (
+                  <img
+                    src={resolvedLogoUrl}
+                    alt={`${companyName || "Company"} logo`}
+                    className="h-8 w-auto max-w-[160px] object-contain"
+                  />
+                ) : (
+                  <>
+                    <div className="h-7 w-7 rounded-full bg-gray-300" />
+                    <span className="text-sm font-semibold text-gray-400">
+                      {companyName || "Company"}
+                    </span>
+                  </>
+                )}
               </div>
 
-              {/* Nav links */}
-              <nav className="flex items-center gap-1 text-xs">
-                {[
-                  "Retirement",
-                  "Health Insurance",
-                  "Life Insurance",
-                  "Wellness Programs",
-                ].map((label) => (
-                  <span
-                    key={label}
-                    className="px-3 py-1.5 rounded-md text-gray-400"
-                  >
-                    {label}
-                  </span>
-                ))}
+              {/* Nav links — matching the employee portal header tabs */}
+              <nav className="flex items-center gap-1 text-xs ml-auto">
+                <span className="px-3 py-1.5 rounded-md text-gray-400">
+                  Your Benefits
+                </span>
                 <span className="px-3 py-1.5 rounded-md text-gray-700 bg-gray-100 font-medium">
                   News & Events
+                </span>
+                <span className="px-3 py-1.5 rounded-md text-gray-400">
+                  My Benefits Team
                 </span>
               </nav>
             </div>

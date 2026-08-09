@@ -258,6 +258,8 @@ export function CompanyBasicsSection({
               onDataChange("brandImages", brandImages)
             }
             validationErrors={validationErrors}
+            logoUrl={companyData.companyLogo?.url}
+            companyName={companyData.companyName}
           />
         </CardContent>
       )}
