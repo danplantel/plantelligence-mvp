@@ -21,6 +21,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { resolveContactCompanyName } from "@/lib/resolve-contact-company-name";
 import type { KeyContact } from "@/types/new-client-wizard";
 import { LargeHorizontalCard } from "@/components/pages/my-benefits-team/large-horizontal-card";
 import { SmallVerticalCard } from "@/components/pages/my-benefits-team/small-vertical-card";
@@ -77,17 +78,21 @@ function RenderCardBySlot({
   brandColor,
   index,
   compact,
+  companyName,
 }: {
   slot: CardSlot;
   contact: any;
   brandColor: string;
   index?: number;
   compact?: boolean;
+  /** Plan/company name fallback shown under the title when the contact has none */
+  companyName?: string;
 }) {
   const contactWithProps = {
     ...contact,
     isPrimary: index === 0,
   };
+  const resolvedCompanyName = contact.companyName || companyName || "";
 
   switch (slot.type) {
     case "primary":
@@ -97,7 +102,7 @@ function RenderCardBySlot({
           brandColor={brandColor}
           secondaryColor={brandColor}
           appointmentLink=""
-          companyName={contact.companyName || ""}
+          companyName={resolvedCompanyName}
           compact={true}
         />
       );
@@ -108,7 +113,7 @@ function RenderCardBySlot({
           brandColor={brandColor}
           secondaryColor={brandColor}
           appointmentLink=""
-          companyName={contact.companyName || ""}
+          companyName={resolvedCompanyName}
           index={index}
           disableAnimation={true}
         />
@@ -120,7 +125,7 @@ function RenderCardBySlot({
           brandColor={brandColor}
           secondaryColor={brandColor}
           appointmentLink=""
-          companyName={contact.companyName || ""}
+          companyName={resolvedCompanyName}
           index={index}
           disableAnimation={true}
           compact={compact}
@@ -136,6 +141,8 @@ function RenderCardBySlot({
 function transformContactToPreview(
   contact: KeyContact,
   companyName: string,
+  currentUserEmail?: string | null,
+  currentUserOrgName?: string | null,
 ): any {
   const displayName =
     contact.name ||
@@ -173,6 +180,14 @@ function transformContactToPreview(
     phone: contact.phone,
     headshot: contact.headshot,
     companyLogo: "",
+    // Show the company name under the title on the card. If this contact is the
+    // logged-in user, use their Organization Name (same behavior as step-3d and
+    // the My Benefits Team page); otherwise prefer the contact's own companyName
+    // (e.g. advisor firm / recordkeeper), else fall back to the plan/company name
+    // passed into the preview modal.
+    companyName:
+      resolveContactCompanyName(contact, currentUserEmail, currentUserOrgName) ||
+      companyName,
     showOnPortal: contact.showOnPortal !== false,
     benefitsCategory: rawBenefitsCategory,
     categoryLabel,
@@ -316,6 +331,10 @@ export interface ContactCardLayoutPreviewModalProps {
   brandColor?: string;
   /** Company name for preview */
   companyName?: string;
+  /** Logged-in user's email — used to show their Organization Name on their own card */
+  currentUserEmail?: string | null;
+  /** Logged-in user's Organization Name — shown on the user's own card */
+  currentUserOrgName?: string | null;
 }
 
 // ── Component ──
@@ -328,6 +347,8 @@ export function ContactCardLayoutPreviewModal({
   contacts,
   brandColor,
   companyName,
+  currentUserEmail,
+  currentUserOrgName,
 }: ContactCardLayoutPreviewModalProps) {
   // Convert persisted displayStyle (0 = default) to layout index (1 = default in step-3d)
   const initialDesktopLayout =
@@ -367,9 +388,14 @@ export function ContactCardLayoutPreviewModal({
 
   const previewContacts = useMemo(() => {
     return contacts.map((contact) =>
-      transformContactToPreview(contact, companyName || ""),
+      transformContactToPreview(
+        contact,
+        companyName || "",
+        currentUserEmail,
+        currentUserOrgName,
+      ),
     );
-  }, [contacts, companyName]);
+  }, [contacts, companyName, currentUserEmail, currentUserOrgName]);
 
   const currentDisplayStyleValue =
     selectedDesktopLayout === 1 ? 0 : selectedDesktopLayout;
@@ -415,6 +441,7 @@ export function ContactCardLayoutPreviewModal({
               brandColor={brandColor || "#1F3A60"}
               index={index}
               compact={isCompact}
+              companyName={companyName || ""}
             />
           </div>
         );

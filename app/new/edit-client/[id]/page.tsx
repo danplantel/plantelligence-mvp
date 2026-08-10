@@ -631,8 +631,10 @@ export default function EditClientPage() {
   );
   const [userAvatar, setUserAvatar] = useState<string | null>(null);
 
-  // Current user's organization name (User.organizationName), used to populate
+  // Current user's identity — used to show the user's Organization Name on
+  // their own contact card in the Contact Card Layout Preview, and to populate
   // the [Organization Name] placeholder in the disclaimer text.
+  const [userEmail, setUserEmail] = useState<string>("");
   const [userOrgName, setUserOrgName] = useState<string>("");
 
   // Tracks whether the user has edited the disclaimer so the editor Textarea
@@ -812,8 +814,10 @@ export default function EditClientPage() {
     setTitle("Edit Plan");
   }, [setTitle]);
 
-  // Fetch the current user's organization name so [Organization Name] in the
-  // disclaimer text is populated with User.organizationName.
+  // Fetch the current user's email + organization name. Used to show the
+  // user's Organization Name on their own contact card in the Contact Card
+  // Layout Preview (same behavior as step-3d), and to populate the
+  // [Organization Name] placeholder in the disclaimer text.
   useEffect(() => {
     let cancelled = false;
     const loadUserOrgName = async () => {
@@ -826,7 +830,12 @@ export default function EditClientPage() {
           profile?.wizardSessions?.[0]?.branding?.organizationName ||
           profile?.company ||
           "";
-        if (!cancelled) setUserOrgName(orgName);
+        const email =
+          profile?.email || profile?.advisorEmail || "";
+        if (!cancelled) {
+          setUserOrgName(orgName);
+          setUserEmail(email);
+        }
       } catch {
         // Silent — best-effort fetch for the organization name.
       }
@@ -1585,6 +1594,8 @@ export default function EditClientPage() {
           contacts={keyContacts}
           brandColor={companyData.primaryColor}
           companyName={companyData.companyName}
+          currentUserEmail={userEmail || null}
+          currentUserOrgName={userOrgName || null}
         />
 
         {/* Disclaimer Update Confirmation Dialog */}
