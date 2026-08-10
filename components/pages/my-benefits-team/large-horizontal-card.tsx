@@ -262,6 +262,7 @@ export function LargeHorizontalCard({
                   <Mail
                     size={18}
                     strokeWidth={1.5}
+                    className="w-[18px] h-[18px] shrink-0"
                     style={{ color: effectiveSecondaryColor }}
                   />
                   <a
@@ -295,6 +296,7 @@ export function LargeHorizontalCard({
                   <Phone
                     size={18}
                     strokeWidth={1.5}
+                    className="w-[18px] h-[18px] shrink-0"
                     style={{ color: effectiveSecondaryColor }}
                   />
                   <a

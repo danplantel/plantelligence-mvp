@@ -255,7 +255,7 @@ export function PrimaryContactCard({
               style={{ color: textColor }}
             >
               <span className="flex items-center justify-center w-8 h-8 rounded-full bg-black/5 dark:bg-white/10 shrink-0 group-hover:scale-110 transition-transform">
-                <Mail size={16} strokeWidth={1.5} style={{ color: effectiveSecondaryColor }} />
+                <Mail size={18} strokeWidth={1.5} className="w-[18px] h-[18px] shrink-0" style={{ color: effectiveSecondaryColor }} />
               </span>
               {contact.email}
             </a>
@@ -269,7 +269,7 @@ export function PrimaryContactCard({
               style={{ color: textColor }}
             >
               <span className="flex items-center justify-center w-8 h-8 rounded-full bg-black/5 dark:bg-white/10 shrink-0 group-hover:scale-110 transition-transform">
-                <Phone size={16} strokeWidth={1.5} style={{ color: effectiveSecondaryColor }} />
+                <Phone size={18} strokeWidth={1.5} className="w-[18px] h-[18px] shrink-0" style={{ color: effectiveSecondaryColor }} />
               </span>
               {formatPhoneWithExtension(contact.phone, contact.phoneExtension)}
             </a>

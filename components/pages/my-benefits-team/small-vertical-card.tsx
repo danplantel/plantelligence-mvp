@@ -351,9 +351,9 @@ export function SmallVerticalCard({
                   className="flex items-center justify-center gap-2 group"
                 >
                   <Mail
-                    size={iconSize}
+                    size={18}
                     strokeWidth={1.5}
-                    className="transition-colors duration-200"
+                    className="w-[18px] h-[18px] shrink-0 transition-colors duration-200"
                     style={{ color: effectiveSecondaryColor }}
                   />
                   {contact.email ? (
@@ -397,9 +397,9 @@ export function SmallVerticalCard({
                   className="flex items-center justify-center gap-2 group"
                 >
                   <Phone
-                    size={iconSize}
+                    size={18}
                     strokeWidth={1.5}
-                    className="transition-colors duration-200"
+                    className="w-[18px] h-[18px] shrink-0 transition-colors duration-200"
                     style={{ color: effectiveSecondaryColor }}
                   />
                   {contact.phone ? (
@@ -600,8 +600,9 @@ export function SmallVerticalCard({
                 className="flex items-center justify-center gap-2 group"
               >
                 <Mail
+                  size={18}
                   strokeWidth={1.5}
-                  className="w-[14px] h-[14px] sm:w-[18px] sm:h-[18px] transition-colors duration-200"
+                  className="w-[18px] h-[18px] shrink-0 transition-colors duration-200"
                   style={{ color: effectiveSecondaryColor }}
                 />
                 {contact.email ? (
@@ -644,8 +645,9 @@ export function SmallVerticalCard({
                 className="flex items-center justify-center gap-2 group"
               >
                 <Phone
+                  size={18}
                   strokeWidth={1.5}
-                  className="w-[14px] h-[14px] sm:w-[18px] sm:h-[18px] transition-colors duration-200"
+                  className="w-[18px] h-[18px] shrink-0 transition-colors duration-200"
                   style={{ color: effectiveSecondaryColor }}
                 />
                 {contact.phone ? (
