@@ -5,7 +5,7 @@ import { flushSync, createPortal } from "react-dom";
 import useSWR from "swr";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,7 +32,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Calendar,
   Clock,
@@ -483,6 +482,10 @@ export default function MeetingsPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [meetingToDelete, setMeetingToDelete] = useState<{ id: string; title: string } | null>(null);
   const [postSaveDialogOpen, setPostSaveDialogOpen] = useState(false);
+  const [postSaveView, setPostSaveView] = useState<"created" | "duplicate">("created");
+  /** Snapshot of the just-created meeting so the duplicate form inherits all fields
+   *  (meetingType, duration, format, etc.) that the duplicate page doesn't re-collect. */
+  const createdMeetingData = useRef<MeetingFormData | null>(null);
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string>("");
@@ -688,7 +691,7 @@ export default function MeetingsPage() {
       if (response.ok) {
         toast.success(isEditing ? "Meeting updated successfully!" : "Meeting created successfully!");
         if (isEditing) { setFormData({ ...DEFAULT_MEETING_FORM_DATA, meetingType: formData.meetingType, client: formData.client, clientId: formData.clientId }); setDurationHour("0"); setDurationMinute("0"); setErrors({}); setTimeConflictWarning(""); setHasConfirmedConflict(false); setEditingMeetingId(null); setMeetingModalOpen(false); }
-        else { resetMeetingForm(); setMeetingModalOpen(false); setPostSaveDialogOpen(true); }
+        else { createdMeetingData.current = { ...formData }; resetMeetingForm(); setMeetingModalOpen(false); setPostSaveView("created"); setPostSaveDialogOpen(true); }
         await fetchMeetings();
       } else toast.error(result.error || `Failed to ${isEditing ? "update" : "create"} meeting`);
     } catch (error) { toast.error(`An error occurred while ${editingMeetingId ? "updating" : "creating"} the meeting`); }
@@ -707,6 +710,38 @@ export default function MeetingsPage() {
       else toast.error(result.error || "Failed to save draft meeting");
     } catch { toast.error("An error occurred while saving the draft"); }
     finally { setIsSubmitting(false); }
+  };
+  const handleCreateDuplicate = async () => {
+    if (!formData.clientId) { toast.error("You must select a plan before scheduling a meeting"); return; }
+    if (!formData.date || !formData.time) { toast.error("Date and time are required to duplicate the meeting"); return; }
+    setIsSubmitting(true);
+    try {
+      const response = await fetch("/api/meetings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...formData,
+          meetingType: formData.meetingType === "Custom" ? formData.customMeetingType : formData.meetingType,
+          duration: formData.duration,
+          meetingLink: formData.meetingLink || resolveRsvpUrl(formData),
+          status: "Upcoming",
+        }),
+      });
+      const result = await response.json();
+      if (response.ok) {
+        toast.success("Meeting duplicated successfully!");
+        setPostSaveDialogOpen(false);
+        setPostSaveView("created");
+        createdMeetingData.current = null;
+        await fetchMeetings();
+      } else {
+        toast.error(result.error || "Failed to duplicate meeting");
+      }
+    } catch {
+      toast.error("An error occurred while duplicating the meeting");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
   const handleDeleteMeeting = (meeting: Meeting) => { setMeetingToDelete({ id: meeting.id, title: meeting.meeting }); setDeleteConfirmOpen(true); };
   const handleConfirmDelete = async () => {
@@ -1158,37 +1193,209 @@ export default function MeetingsPage() {
       </Dialog>
 
       {/* Post-Save Dialog â€” ask if user wants to duplicate */}
-      <Dialog open={postSaveDialogOpen} onOpenChange={setPostSaveDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <div className="flex justify-center mb-2">
-              <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
-              </div>
+      <Dialog open={postSaveDialogOpen} onOpenChange={(open) => { setPostSaveDialogOpen(open); if (!open) setPostSaveView("created"); }}>
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+          {postSaveView === "created" ? (
+            <div key="created">
+              <DialogHeader>
+                <div className="flex justify-center mb-2">
+                  <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                    <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
+                  </div>
+                </div>
+                <DialogTitle>Meeting Created</DialogTitle>
+                <DialogDescription>
+                  The meeting has been successfully scheduled. Would you like to create a duplicate of this meeting?
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="gap-2">
+                <Button variant="outline" onClick={() => {
+                  // Always start with empty editable fields (date, time, language,
+                  // format, link) — only inherit the hidden fields required by the API.
+                  const snap = createdMeetingData.current;
+                  setFormData({
+                    ...DEFAULT_MEETING_FORM_DATA,
+                    ...(snap ? {
+                      meetingType: snap.meetingType,
+                      customMeetingType: snap.customMeetingType || "",
+                      client: snap.client,
+                      clientId: snap.clientId,
+                      duration: snap.duration,
+                      description: snap.description || DEFAULT_MEETING_DESCRIPTION,
+                      platform: snap.platform || "",
+                      maxAttendees: snap.maxAttendees || "",
+                      meetingUrl: snap.meetingUrl || "",
+                      timezone: snap.timezone || "America/New_York",
+                      benefitsCategory: snap.benefitsCategory || "",
+                      customBenefitsCategory: snap.customBenefitsCategory || "",
+                    } : {}),
+                  });
+                  setDurationHour("0");
+                  setDurationMinute("0");
+                  setPostSaveView("duplicate");
+                }}>
+                  Yes, duplicate
+                </Button>
+                <Button onClick={() => { resetMeetingForm(); setPostSaveDialogOpen(false); }}>
+                  No
+                </Button>
+              </DialogFooter>
             </div>
-            <DialogTitle>Meeting Created</DialogTitle>
-            <DialogDescription>
-              The meeting has been successfully scheduled. Would you like to create a duplicate of this meeting?
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => {
-              const currentData = { ...formData };
-              setPostSaveDialogOpen(false);
-              setMeetingModalOpen(true);
-              toast.success("Form pre-filled for duplication. Adjust any details and submit.");
-            }}>
-              Yes, duplicate
-            </Button>
-            <Button onClick={() => {
-              setFormData({ ...DEFAULT_MEETING_FORM_DATA, client: formData.client, clientId: formData.clientId });
-              setDurationHour("0");
-              setDurationMinute("0");
-              setPostSaveDialogOpen(false);
-            }}>
-              No
-            </Button>
-          </DialogFooter>
+          ) : (
+            <div key="duplicate" className="animate-in slide-in-from-right-5 duration-300">
+              <DialogHeader>
+                <div className="flex justify-center mb-2">
+                  <div className="w-12 h-12 rounded-full bg-accent-blue/10 flex items-center justify-center">
+                    <Copy className="h-6 w-6 text-accent-blue" />
+                  </div>
+                </div>
+                <DialogTitle>Duplicate Meeting</DialogTitle>
+                <DialogDescription>
+                  Adjust the language, date, time, and meeting link for the duplicated meeting.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                {/* Inherited meeting info (read-only fields not editable here) */}
+                <div className="bg-muted/50 rounded-lg p-3 border border-border/60">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                    <span className="text-muted-foreground">Meeting Type:</span>
+                    <span className="font-medium truncate">{formData.meetingType || "—"}</span>
+                    <span className="text-muted-foreground">Duration:</span>
+                    <span className="font-medium">{formData.duration || "—"}</span>
+                    <span className="text-muted-foreground">Plan:</span>
+                    <span className="font-medium truncate">{formData.client || "—"}</span>
+                    <span className="text-muted-foreground">Benefit Category:</span>
+                    <span className="font-medium truncate">{formData.benefitsCategory || "—"}</span>
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-border/60">
+                    <span className="block text-xs text-muted-foreground mb-0.5">Description</span>
+                    <p className="text-xs font-medium text-foreground leading-relaxed">{formData.description || "—"}</p>
+                  </div>
+                </div>
+
+                {/* Language */}
+                <div className="space-y-2">
+                  <Label>Language</Label>
+                  <Select value={formData.language || undefined} onValueChange={(v) => handleInputChange("language", v)}>
+                    <SelectTrigger className="dark:bg-gray-800"><SelectValue placeholder="Select language" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="English">English</SelectItem>
+                      <SelectItem value="Spanish">Spanish</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Date */}
+                <div className="space-y-2">
+                  <Label>Date</Label>
+                  <Popover open={datePickerOpen} onOpenChange={(open) => { setDatePickerOpen(open); if (open) setTempDate(formData.date); }}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className={`w-full justify-start text-left font-normal ${!formData.date && "text-muted-foreground"} dark:bg-gray-800`}>
+                        <Calendar className="mr-2 h-4 w-4" />
+                        {formData.date ? format(parseLocalDate(formData.date), "PPP") : "Pick a date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start" side="top">
+                      <div className="flex max-h-[70vh] flex-col overflow-hidden">
+                        <div className="overflow-y-auto min-h-0">
+                          <CalendarComponent mode="single" selected={tempDate ? parseLocalDate(tempDate) : undefined} onSelect={(d) => { if (d) setTempDate(format(d, "yyyy-MM-dd")); }} disabled={(date) => isBefore(date, minSelectableDate)} initialFocus />
+                        </div>
+                        <div className="flex items-center justify-end gap-2 p-3 border-t border-border shrink-0">
+                          <Button type="button" size="sm" variant="outline" onClick={() => setDatePickerOpen(false)}>Cancel</Button>
+                          <Button type="button" size="sm" onClick={() => { if (tempDate) handleInputChange("date", tempDate); setDatePickerOpen(false); }}>OK</Button>
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                {/* Time */}
+                <div className="space-y-2">
+                  <Label>Time</Label>
+                  <Popover open={timePickerOpen} onOpenChange={(open) => { setTimePickerOpen(open); if (open) { setTempHour(formData.hour); setTempMinute(formData.minute); setTempAmpm(formData.ampm); } }}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className={`w-full justify-start text-left font-normal ${!formData.time && "text-muted-foreground"} dark:bg-gray-800`}>
+                        <Clock className="mr-2 h-4 w-4" />
+                        {formData.time ? formatTime12h(formData.time) : "Select time"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-72 p-4" align="start">
+                      <div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Hour</Label>
+                          <Select value={tempHour} onValueChange={setTempHour}>
+                            <SelectTrigger className="dark:bg-gray-800"><SelectValue placeholder="-" /></SelectTrigger>
+                            <SelectContent position="popper" side="bottom" align="start" avoidCollisions={false} className="max-h-[200px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-track]:bg-transparent" style={{ scrollbarWidth: "thin" }}>{HOURS.map((h) => <SelectItem key={h} value={h.toString()}>{h}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Minute</Label>
+                          <Select value={tempMinute} onValueChange={setTempMinute}>
+                            <SelectTrigger className="dark:bg-gray-800"><SelectValue placeholder="-" /></SelectTrigger>
+                            <SelectContent className="max-h-[200px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-track]:bg-transparent" style={{ scrollbarWidth: "thin" }}>{MINUTES.map((m) => <SelectItem key={m} value={m.toString().padStart(2, "0")}>{m.toString().padStart(2, "0")}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">AM/PM</Label>
+                          <Select value={tempAmpm} onValueChange={setTempAmpm}>
+                            <SelectTrigger className="dark:bg-gray-800"><SelectValue placeholder="-" /></SelectTrigger>
+                            <SelectContent>{AMPM_OPTIONS.map((ap) => <SelectItem key={ap} value={ap}>{ap}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-end gap-2 pt-3 border-t border-border mt-3">
+                        <Button type="button" size="sm" variant="outline" onClick={() => setTimePickerOpen(false)}>Cancel</Button>
+                        <Button type="button" size="sm" onClick={() => {
+                          if (tempHour && tempMinute && tempAmpm) {
+                            const hour24 = tempAmpm === "AM" ? (tempHour === "12" ? "00" : tempHour.padStart(2, "0")) : tempHour === "12" ? "12" : (parseInt(tempHour) + 12).toString();
+                            handleInputChange("time", `${hour24}:${tempMinute.padStart(2, "0")}`);
+                            setFormData((prev) => ({ ...prev, hour: tempHour, minute: tempMinute, ampm: tempAmpm }));
+                          }
+                          setTimePickerOpen(false);
+                        }}>OK</Button>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                {/* Format */}
+                <div className="space-y-2">
+                  <Label>Format</Label>
+                  <Select value={formData.format || undefined} onValueChange={(v) => handleInputChange("format", v)}>
+                    <SelectTrigger className={cn("dark:bg-gray-800", !formData.format && "text-gray-400 dark:text-gray-500")}>
+                      <SelectValue placeholder="Select format" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FORMATS.map((fmt) => <SelectItem key={fmt} value={fmt}>{fmt}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Link (Virtual) or Location (In-Person) */}
+                {formData.format === "Virtual" && (
+                  <div className="space-y-2">
+                    <Label>Meeting Link</Label>
+                    <Input value={formData.meetingLink} onChange={(e) => handleInputChange("meetingLink", e.target.value)} placeholder="https://" />
+                  </div>
+                )}
+                {formData.format === "In-Person" && (
+                  <div className="space-y-2">
+                    <Label>Location</Label>
+                    <AddressSearch value={formData.address} onChange={(v) => handleInputChange("address", v)} onLocationSelect={handleLocationSelect} />
+                    {formData.address && (
+                      <p className="text-xs text-muted-foreground">{formData.address}, {formData.city}, {formData.state} {formData.zip}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+              <DialogFooter className="gap-2 pt-4">
+                <Button type="button" variant="outline" onClick={() => setPostSaveView("created")}>Back</Button>
+                <Button type="button" onClick={handleCreateDuplicate} disabled={isSubmitting}>
+                  {isSubmitting ? "Duplicating..." : "Create Duplicate"}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
