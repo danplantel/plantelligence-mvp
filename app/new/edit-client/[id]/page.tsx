@@ -7,6 +7,19 @@ import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import {
   Plus,
@@ -16,6 +29,9 @@ import {
   Gift,
   Monitor,
   Smartphone,
+  Pencil,
+  Mail,
+  Phone,
   Image as ImageIcon,
 } from "lucide-react";
 import {
@@ -29,7 +45,6 @@ import { useEditClient } from "@/hooks/useEditClient";
 // Import components from new-client-steps
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { BrandImagesSection } from "@/components/wizard/new-client-steps/sections/brand-images-section";
-import { KeyContactsSection } from "@/components/wizard/new-client-steps/sections/key-contacts-section";
 import { DocumentsUploadSection } from "@/components/wizard/new-client-steps/sections/documents-upload-section";
 import { AddMoreContactsModal } from "@/components/wizard/new-client-steps/step-3-key-contacts/components/add-more-contacts-modal";
 import { BrandingImage } from "@/components/ui/branding-image";
@@ -71,6 +86,180 @@ import { DisclaimerUpdateConfirmDialog } from "@/components/pages/settings/discl
 // Helper Components
 // ============================================================================
 
+// ── Compact contact row (replaces KeyContactsSection dropdown) ──
+function ContactRow({
+  contact,
+  onEdit,
+}: {
+  contact: KeyContact;
+  onEdit: () => void;
+}) {
+  const displayName =
+    contact.firstName || contact.lastName
+      ? `${contact.firstName || ""} ${contact.lastName || ""}`.trim()
+      : contact.name || "Unnamed Contact";
+  const role = contact.title || contact.customRole || contact.role || "";
+
+  return (
+    <div className="flex items-center gap-3 py-2.5 border-b border-gray-100 dark:border-gray-700 last:border-0">
+      <div className="flex-1 min-w-0">
+        <p className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
+          {displayName}
+        </p>
+        {role && (
+          <p className="text-xs text-muted-foreground truncate">{role}</p>
+        )}
+        <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+          {contact.email && (
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Mail className="w-3 h-3 shrink-0" />
+              <span className="truncate max-w-[160px]">{contact.email}</span>
+            </span>
+          )}
+          {contact.phone && (
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Phone className="w-3 h-3 shrink-0" />
+              {contact.phone}
+            </span>
+          )}
+        </div>
+      </div>
+      <Button
+        size="sm"
+        variant="ghost"
+        className="h-8 w-8 p-0"
+        onClick={onEdit}
+      >
+        <Pencil className="w-3.5 h-3.5" />
+      </Button>
+    </div>
+  );
+}
+
+// ── Simple Edit Contact Dialog ──
+function EditContactDialog({
+  open,
+  onOpenChange,
+  contact,
+  onSave,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  contact: KeyContact | null;
+  onSave: (updated: KeyContact) => void;
+}) {
+  const [form, setForm] = useState({
+    firstName: "",
+    lastName: "",
+    title: "",
+    email: "",
+    phone: "",
+    companyName: "",
+  });
+
+  useEffect(() => {
+    if (contact) {
+      setForm({
+        firstName: contact.firstName || "",
+        lastName: contact.lastName || "",
+        title: contact.title || contact.customRole || "",
+        email: contact.email || "",
+        phone: contact.phone || "",
+        companyName: contact.companyName || "",
+      });
+    }
+  }, [contact]);
+
+  const handleSave = () => {
+    if (!contact) return;
+    const displayName = `${form.firstName} ${form.lastName}`.trim();
+    onSave({
+      ...contact,
+      firstName: form.firstName,
+      lastName: form.lastName,
+      name: displayName || contact.name,
+      title: form.title,
+      customRole: form.title,
+      email: form.email,
+      phone: form.phone,
+      companyName: form.companyName,
+    });
+    onOpenChange(false);
+  };
+
+  const update = (field: string, value: string) =>
+    setForm((prev) => ({ ...prev, [field]: value }));
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Edit Contact</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-3 py-2">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">First Name</Label>
+              <Input
+                value={form.firstName}
+                onChange={(e) => update("firstName", e.target.value)}
+                placeholder="First"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Last Name</Label>
+              <Input
+                value={form.lastName}
+                onChange={(e) => update("lastName", e.target.value)}
+                placeholder="Last"
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Title / Role</Label>
+            <Input
+              value={form.title}
+              onChange={(e) => update("title", e.target.value)}
+              placeholder="e.g. Benefits Advisor"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Email</Label>
+            <Input
+              value={form.email}
+              onChange={(e) => update("email", e.target.value)}
+              placeholder="email@example.com"
+              type="email"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Phone</Label>
+            <Input
+              value={form.phone}
+              onChange={(e) => update("phone", e.target.value)}
+              placeholder="(555) 123-4567"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Company Name</Label>
+            <Input
+              value={form.companyName}
+              onChange={(e) => update("companyName", e.target.value)}
+              placeholder="Company"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave}>Save Changes</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // Edit Key Contacts Section (no accordion wrapper - controlled by parent tab)
 function EditKeyContactsSection({
   contacts,
@@ -91,6 +280,9 @@ function EditKeyContactsSection({
   validationErrors?: Record<string, string[]>;
   onAddContactForCategory: (category: BenefitsCategory) => void;
 }) {
+  const [editingContact, setEditingContact] = useState<KeyContact | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
   // Count contacts per benefit category (for the grid summary)
   const companyContactCount = contacts.filter((c) =>
     c.benefitsCategories?.includes("Company / Plan Sponsor") ||
@@ -104,7 +296,17 @@ function EditKeyContactsSection({
     (c.role as string) === "External HR / Administrator";
 
   const externalContacts = contacts.filter(isExternalContact);
-  const nonExternalContacts = contacts.filter((c) => !isExternalContact(c));
+
+  const handleOpenEdit = (contact: KeyContact) => {
+    setEditingContact(contact);
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveContact = (updated: KeyContact) => {
+    onContactsChange(
+      contacts.map((c) => (c.id === updated.id ? updated : c))
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -141,81 +343,83 @@ function EditKeyContactsSection({
         </div>
       </div>
 
-      {/* Per-category accordion cards */}
-      {([
-        { id: "Retirement" as BenefitsCategory, label: "Retirement", icon: <Building2 className="w-5 h-5 text-accent-blue" /> },
-        { id: "Group Health" as BenefitsCategory, label: "Group Health", icon: <Shield className="w-5 h-5 text-accent-blue" /> },
-        { id: "Group Life" as BenefitsCategory, label: "Group Life", icon: <Heart className="w-5 h-5 text-accent-blue" /> },
-        { id: "Other Benefits" as BenefitsCategory, label: "Other Benefits", icon: <Gift className="w-5 h-5 text-accent-blue" /> },
-      ]).map((category) => {
-        const categoryContacts = contacts.filter((c) =>
-          c.benefitsCategories?.includes(category.id) ||
-          c.benefitsCategory === category.id
-        );
-        return (
-          <Card key={category.id} className="overflow-hidden border-gray-200 dark:border-gray-700">
-            <CardHeader className="bg-gray-50/80 dark:bg-gray-800/80 py-3 px-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+      {/* Per-category accordions */}
+      <Accordion type="multiple" className="space-y-3">
+        {([
+          { id: "Retirement" as BenefitsCategory, label: "Retirement", icon: <Building2 className="w-5 h-5 text-accent-blue" />, value: "retirement" },
+          { id: "Group Health" as BenefitsCategory, label: "Group Health", icon: <Shield className="w-5 h-5 text-accent-blue" />, value: "group-health" },
+          { id: "Group Life" as BenefitsCategory, label: "Group Life", icon: <Heart className="w-5 h-5 text-accent-blue" />, value: "group-life" },
+          { id: "Other Benefits" as BenefitsCategory, label: "Other Benefits", icon: <Gift className="w-5 h-5 text-accent-blue" />, value: "other-benefits" },
+        ]).map((category) => {
+          const categoryContacts = contacts.filter((c) =>
+            c.benefitsCategories?.includes(category.id) ||
+            c.benefitsCategory === category.id
+          );
+          return (
+            <AccordionItem
+              key={category.value}
+              value={category.value}
+              className="border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 overflow-hidden"
+            >
+              <AccordionTrigger className="px-4 py-3 hover:no-underline bg-gray-50/80 dark:bg-gray-800/80 data-[state=open]:bg-gray-50/80">
+                <div className="flex items-center gap-2 flex-1">
                   {category.icon}
-                  <CardTitle className="text-base font-semibold">{category.label}</CardTitle>
-                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-1">
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                     {categoryContacts.length}
                   </Badge>
+                  <span className="text-base font-semibold">{category.label}</span>
                 </div>
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() => onAddContactForCategory(category.id)}
+                  className="mr-2"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAddContactForCategory(category.id);
+                  }}
                 >
                   <Plus className="w-3.5 h-3.5 mr-1" />
                   Add
                 </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="p-4">
-              {categoryContacts.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-4">
-                  No contacts assigned to {category.label}. Click &ldquo;Add&rdquo; to create one.
-                </p>
-              ) : (
-                <KeyContactsSection
-                  contacts={categoryContacts}
-                  onContactsChange={(updatedContacts) => {
-                    const otherContacts = contacts.filter((c) =>
-                      !(c.benefitsCategories?.includes(category.id) ||
-                        c.benefitsCategory === category.id)
-                    );
-                    onContactsChange([...otherContacts, ...updatedContacts]);
-                  }}
-                  onHeadshotUpload={onHeadshotUpload}
-                  onHeadshotRemove={onHeadshotRemove}
-                  organizationName={companyData.companyName}
-                  companyLogo={companyData.companyLogo?.url}
-                  recordkeeperFromStep4={documentsData.recordkeeper}
-                  errorFields={validationErrors.keyContacts || []}
-                />
-              )}
-            </CardContent>
-          </Card>
-        );
-      })}
+              </AccordionTrigger>
+              <AccordionContent className="px-4 pt-2 pb-3">
+                {categoryContacts.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-4">
+                    No contacts assigned to {category.label}. Click &ldquo;Add&rdquo; to create one.
+                  </p>
+                ) : (
+                  categoryContacts.map((contact) => (
+                    <ContactRow
+                      key={contact.id}
+                      contact={contact}
+                      onEdit={() => handleOpenEdit(contact)}
+                    />
+                  ))
+                )}
+              </AccordionContent>
+            </AccordionItem>
+          );
+        })}
 
-      {/* External HR / Administrator section */}
-      <Card className="overflow-hidden border-gray-200 dark:border-gray-700">
-        <CardHeader className="bg-gray-50/80 dark:bg-gray-800/80 py-3 px-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+        {/* External HR / Administrator accordion */}
+        <AccordionItem
+          value="external-hr"
+          className="border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 overflow-hidden"
+        >
+          <AccordionTrigger className="px-4 py-3 hover:no-underline bg-gray-50/80 dark:bg-gray-800/80 data-[state=open]:bg-gray-50/80">
+            <div className="flex items-center gap-2 flex-1">
               <Users className="w-5 h-5 text-amber-500" />
-              <CardTitle className="text-base font-semibold">External HR / Administrator</CardTitle>
-              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-1">
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                 {externalContacts.length}
               </Badge>
+              <span className="text-base font-semibold">External HR / Administrator</span>
             </div>
             <Button
               size="sm"
               variant="ghost"
-              onClick={() => {
+              className="mr-2"
+              onClick={(e) => {
+                e.stopPropagation();
                 const newContact: KeyContact = {
                   id: `contact-${Date.now()}`,
                   contactType: "team_support",
@@ -246,32 +450,32 @@ function EditKeyContactsSection({
               <Plus className="w-3.5 h-3.5 mr-1" />
               Add
             </Button>
-          </div>
-        </CardHeader>
-        {externalContacts.length > 0 ? (
-          <CardContent className="p-4">
-            <KeyContactsSection
-              contacts={externalContacts}
-              onContactsChange={(updatedContacts) => {
-                onContactsChange([...nonExternalContacts, ...updatedContacts]);
-              }}
-              onHeadshotUpload={onHeadshotUpload}
-              onHeadshotRemove={onHeadshotRemove}
-              organizationName={companyData.companyName}
-              companyLogo={companyData.companyLogo?.url}
-              recordkeeperFromStep4={documentsData.recordkeeper}
-              errorFields={validationErrors.keyContacts || []}
-            />
-          </CardContent>
-        ) : (
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground text-center py-4">
-              No external HR contacts. Click &ldquo;Add&rdquo; to create one.
-            </p>
-          </CardContent>
-        )}
-      </Card>
+          </AccordionTrigger>
+          <AccordionContent className="px-4 pt-2 pb-3">
+            {externalContacts.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-4">
+                No external HR contacts. Click &ldquo;Add&rdquo; to create one.
+              </p>
+            ) : (
+              externalContacts.map((contact) => (
+                <ContactRow
+                  key={contact.id}
+                  contact={contact}
+                  onEdit={() => handleOpenEdit(contact)}
+                />
+              ))
+            )}
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
 
+      {/* Edit Contact Dialog */}
+      <EditContactDialog
+        open={isEditModalOpen}
+        onOpenChange={setIsEditModalOpen}
+        contact={editingContact}
+        onSave={handleSaveContact}
+      />
     </div>
   );
 }
@@ -829,8 +1033,9 @@ export default function EditClientPage() {
   };
 
   useEffect(() => {
-    setTitle("Edit Plan");
-  }, [setTitle]);
+    const companyName = companyData.companyName?.trim();
+    setTitle(companyName ? `Edit Plan - ${companyName}` : "Edit Plan");
+  }, [setTitle, companyData.companyName]);
 
   // Fetch the current user's email + organization name. Used to show the
   // user's Organization Name on their own contact card in the Contact Card
