@@ -66,19 +66,19 @@ export const quickActions: QuickAction[] = [
   {
     icon: Calendar,
     label: "Create Meeting/Event",
-    href: "/new/communications",
+    href: "/new/communications/meetings",
     description: "Schedule webinars & sessions",
   },
   {
     icon: Upload,
     label: "Upload Documents",
-    href: "#",
+    href: "/new/documents",
     description: "Add compliance docs",
   },
   {
     icon: Megaphone,
     label: "Marketing",
-    href: "#",
+    href: "/new/communications/marketing",
     description: "Create flyers & announcements",
   },
 ];

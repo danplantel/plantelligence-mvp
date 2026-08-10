@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LucideIcon } from "lucide-react";
+import Link from "next/link";
 
 interface Action {
   icon: LucideIcon;
@@ -32,7 +33,7 @@ export function QuickActions({
               className="flex flex-col items-center gap-2 w-full h-[112px] p-0 dark:hover:border-accent-blue"
               asChild
             >
-              <a href={action.href}>
+              <Link href={action.href}>
                 <action.icon className="size-6 text-accent-blue" />
                 <div className="text-center">
                   <div className="font-medium text-sm font-regular">
@@ -42,7 +43,7 @@ export function QuickActions({
                     {action.description}
                   </div>
                 </div>
-              </a>
+              </Link>
             </Button>
           ))}
         </div>
