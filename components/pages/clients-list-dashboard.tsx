@@ -6,7 +6,6 @@ import { Card } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
@@ -54,13 +53,9 @@ import {
   Plus,
   Eye,
   Edit,
-  MoreHorizontal,
-  Copy,
-  UserPlus,
   Globe,
   Calendar,
   FileText as FileTextIcon,
-  Video,
   Megaphone,
   Filter,
   CheckCircle,
@@ -468,7 +463,6 @@ export function ClientsListDashboardPage() {
                     <TableHead className="py-4">Key Contacts</TableHead>
                     <TableHead className="py-4">Quick Actions</TableHead>
                     <TableHead className="py-4"></TableHead>
-                    <TableHead className="w-[70px] py-4">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -510,7 +504,7 @@ export function ClientsListDashboardPage() {
                           {/* Quick Actions */}
                           <TableCell className="py-4">
                             <div className="flex items-center space-x-1">
-                              {[1, 2, 3, 4, 5].map((j) => (
+                              {[1, 2, 3, 4, 5, 6].map((j) => (
                                 <div
                                   key={j}
                                   className="h-8 w-8 bg-gray-200 rounded animate-pulse"
@@ -522,16 +516,12 @@ export function ClientsListDashboardPage() {
                           <TableCell className="py-4">
                             <div className="h-8 w-24 bg-gray-200 rounded animate-pulse" />
                           </TableCell>
-                          {/* Actions */}
-                          <TableCell className="py-4">
-                            <div className="h-8 w-8 bg-gray-200 rounded animate-pulse" />
-                          </TableCell>
                         </TableRow>
                       ))}
                     </>
                   ) : clients.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="h-24 text-center">
+                      <TableCell colSpan={8} className="h-24 text-center">
                         No plans found.
                       </TableCell>
                     </TableRow>
@@ -739,26 +729,6 @@ export function ClientsListDashboardPage() {
                                       className="h-8 w-8"
                                       onClick={() =>
                                         toast.info(
-                                          "Education feature will be implemented soon",
-                                        )
-                                      }
-                                    >
-                                      <Video className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Education</p>
-                                  </TooltipContent>
-                                </Tooltip>
-
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8"
-                                      onClick={() =>
-                                        toast.info(
                                           "Marketing feature will be implemented soon",
                                         )
                                       }
@@ -768,6 +738,38 @@ export function ClientsListDashboardPage() {
                                   </TooltipTrigger>
                                   <TooltipContent>
                                     <p>Marketing</p>
+                                  </TooltipContent>
+                                </Tooltip>
+
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8"
+                                      onClick={() => handleEditClient(client.id)}
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Edit</p>
+                                  </TooltipContent>
+                                </Tooltip>
+
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                      onClick={() => handleDeleteClient(client)}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Delete</p>
                                   </TooltipContent>
                                 </Tooltip>
                               </div>
@@ -785,60 +787,7 @@ export function ClientsListDashboardPage() {
                                 <CheckCircle className="mr-2 h-4 w-4" />
                                 Finish Setup
                               </Button>
-                            ) : (
-                              <span className="text-muted-foreground text-sm">
-                                -
-                              </span>
-                            )}
-                          </TableCell>
-                          <TableCell className="py-4">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuGroup>
-                                  <DropdownMenuItem
-                                    onClick={() => handleEditClient(client.id)}
-                                  >
-                                    <Edit className="mr-2 h-4 w-4" />
-                                    Edit
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() =>
-                                      toast.info(
-                                        "Duplicate feature coming soon",
-                                      )
-                                    }
-                                  >
-                                    <Copy className="mr-2 h-4 w-4" />
-                                    Duplicate
-                                  </DropdownMenuItem>
-                                </DropdownMenuGroup>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() => handleDeleteClient(client)}
-                                  className="text-red-600"
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  Delete
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                {/* Hide until Team Invite feature is implemented */}
-                                {/* <DropdownMenuItem
-                                  onClick={() =>
-                                    toast.info(
-                                      "Invite collaborator feature coming soon",
-                                    )
-                                  }
-                                >
-                                  <UserPlus className="mr-2 h-4 w-4" />
-                                  Invite Collaborator
-                                </DropdownMenuItem> */}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                            ) : null}
                           </TableCell>
                         </TableRow>
                       );
