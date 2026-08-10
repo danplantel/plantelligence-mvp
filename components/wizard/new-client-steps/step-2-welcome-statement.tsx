@@ -590,17 +590,29 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
     const currentCompanyBasics = store.stepData.companyBasics;
     if (currentCompanyBasics) {
       const preservedBrandImages = currentCompanyBasics.brandImages || {};
-      const updatedCompanyBasics = {
-        ...currentCompanyBasics,
-        [field]: value,
-        brandImages: {
-          ...preservedBrandImages,
-          ...(preservedBrandImages.header && { header: preservedBrandImages.header }),
-          ...(preservedBrandImages.thumbnail && { thumbnail: preservedBrandImages.thumbnail }),
-          ...(preservedBrandImages.secondaryBanner && { secondaryBanner: preservedBrandImages.secondaryBanner }),
-          ...(preservedBrandImages.favicon && { favicon: preservedBrandImages.favicon }),
-        },
-      };
+
+      // When the field being changed IS brandImages (e.g. a background upload
+      // or removal), use the incoming value directly — the previous code always
+      // overwrote it with the preserved copy, so background images were never
+      // persisted and vanished after navigating away and back.
+      const updatedCompanyBasics =
+        field === "brandImages"
+          ? {
+              ...currentCompanyBasics,
+              brandImages: value,
+            }
+          : {
+              ...currentCompanyBasics,
+              [field]: value,
+              brandImages: {
+                ...preservedBrandImages,
+                ...(preservedBrandImages.header && { header: preservedBrandImages.header }),
+                ...(preservedBrandImages.thumbnail && { thumbnail: preservedBrandImages.thumbnail }),
+                ...(preservedBrandImages.secondaryBanner && { secondaryBanner: preservedBrandImages.secondaryBanner }),
+                ...(preservedBrandImages.favicon && { favicon: preservedBrandImages.favicon }),
+              },
+            };
+
       saveStepDataLocally("companyBasics", updatedCompanyBasics);
     }
   };
