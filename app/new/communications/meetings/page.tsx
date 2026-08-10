@@ -1401,14 +1401,23 @@ export default function MeetingsPage() {
 
       {/* Preview Dialog shows meetings as they appear in the client portal */}
       <Dialog open={previewDialogOpen} onOpenChange={setPreviewDialogOpen}>
-        <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Meeting Preview</DialogTitle>
-            <DialogDescription>
-              This is how meetings will appear to clients in the portal.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
+        <DialogContent className="max-w-7xl max-h-[90vh] flex flex-col p-0 overflow-hidden [&>button.absolute]:hidden">
+          {/* Fixed header: title, description, and close button on one row */}
+          <div className="shrink-0 flex items-center justify-between gap-4 border-b px-6 py-4 bg-background">
+            <div className="flex items-center gap-3 min-w-0">
+              <DialogTitle className="shrink-0">Meeting Preview</DialogTitle>
+              <DialogDescription className="truncate">
+                This is how meetings will appear to clients in the portal.
+              </DialogDescription>
+            </div>
+            <DialogClose asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 rounded-full">
+                <X className="h-4 w-4" />
+              </Button>
+            </DialogClose>
+          </div>
+          {/* Scrollable body */}
+          <div className="flex-1 overflow-y-auto p-6">
             {formData.clientId ? (
               <WebinarsSection
                 clientId={formData.clientId}
@@ -1428,7 +1437,7 @@ export default function MeetingsPage() {
               </div>
             )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="shrink-0 border-t px-6 py-4">
             <Button variant="outline" onClick={() => setPreviewDialogOpen(false)}>
               Close
             </Button>
