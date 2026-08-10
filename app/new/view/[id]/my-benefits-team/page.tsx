@@ -184,21 +184,10 @@ export default function MyBenefitsTeamPage() {
           </h1>
         </div>
 
-        {/* 3) Render only non-hidden contacts (visibility passed for defensive filter in layouts) */}
+        {/* 3) Render only non-hidden contacts (visibility passed for defensive filter in layouts).
+             Layouts mirror step-3d.tsx EXACTLY — grid columns, gaps, and card types must stay in sync. */}
         {displayStyle === 0 && (
           <DefaultLayout
-            primaryContact={primaryContact}
-            rest={rest}
-            visibility={visibility}
-            brandColor={brandColor}
-            secondaryColor={secondaryColor}
-            appointmentLink={appointmentLink}
-            companyName={companyName}
-            baselineBackgroundColor={globalBackgroundColor}
-          />
-        )}
-        {displayStyle === 1 && (
-          <Layout1
             primaryContact={primaryContact}
             rest={rest}
             visibility={visibility}
@@ -232,7 +221,7 @@ export default function MyBenefitsTeamPage() {
           />
         )}
         {displayStyle === 4 && (
-          <Layout1
+          <Layout4
             primaryContact={primaryContact}
             rest={rest}
             visibility={visibility}
@@ -264,8 +253,9 @@ export default function MyBenefitsTeamPage() {
    LAYOUT COMPONENTS
 --------------------------------------------------- */
 
-// Layout 1: 1 large horizontal + 1 small vertical (top row) + 3 small vertical (bottom row)
-function Layout1({
+// Layout 4 (displayStyle 4): 2 large horizontal (top row) + 3 small vertical (bottom row)
+// Mirrors step-3d.tsx displayStyle 4 EXACTLY.
+function Layout4({
   primaryContact,
   rest,
   visibility,
@@ -289,31 +279,28 @@ function Layout1({
   const showPrimary = primaryContact && !isContactHiddenByCategory(primaryContact as any, visibility);
 
   return (
-    <>
+    <div className="space-y-4">
       {/* 2 LARGE HORIZONTAL CARDS */}
-      <div className="mt-11 grid w-full min-w-0 gap-8 md:grid-cols-2">
+      <div className="grid w-full min-w-0 grid-cols-1 md:grid-cols-2 gap-4 [&>*]:min-w-0">
         {showPrimary && primaryContact && (
-          <div className="flex-shrink-0">
-            <LargeHorizontalCard
-              contact={{
-                ...primaryContact,
-                isPrimary: true,
-              }}
-              brandColor={brandColor}
-              secondaryColor={secondaryColor}
-              appointmentLink={appointmentLink}
-              companyName={companyName}
-              index={0}
-              baselineBackgroundColor={baselineBackgroundColor}
-            />
-          </div>
+          <LargeHorizontalCard
+            contact={{
+              ...primaryContact,
+              isPrimary: true,
+            }}
+            brandColor={brandColor}
+            secondaryColor={secondaryColor}
+            appointmentLink={appointmentLink}
+            companyName={companyName}
+            index={0}
+            baselineBackgroundColor={baselineBackgroundColor}
+          />
         )}
-        {/* Small Vertical Card (Secondary) */}
         {first && (
           <LargeHorizontalCard
             contact={{
               ...first,
-              isPrimary: false, // Second contact is not primary
+              isPrimary: false,
             }}
             brandColor={brandColor}
             secondaryColor={secondaryColor}
@@ -327,31 +314,30 @@ function Layout1({
 
       {/* SMALL VERTICAL CARDS - Show all remaining contacts */}
       {smallCards.length > 0 && (
-        <div className="mt-3 w-full min-w-0">
-          <div className="grid w-full min-w-0 grid-cols-3 gap-8">
-            {smallCards.map((contact, index) => (
-              <SmallVerticalCard
-                key={contact.id || index}
-                contact={{
-                  ...contact,
-                  isPrimary: false,
-                }}
-                brandColor={brandColor}
-                secondaryColor={secondaryColor}
-                appointmentLink={appointmentLink}
-                companyName={companyName}
-                index={index + 2}
-                baselineBackgroundColor={baselineBackgroundColor}
-              />
-            ))}
-          </div>
+        <div className="grid w-full min-w-0 grid-cols-2 sm:grid-cols-3 gap-4 [&>*]:min-w-0">
+          {smallCards.map((contact, index) => (
+            <SmallVerticalCard
+              key={contact.id || index}
+              contact={{
+                ...contact,
+                isPrimary: false,
+              }}
+              brandColor={brandColor}
+              secondaryColor={secondaryColor}
+              appointmentLink={appointmentLink}
+              companyName={companyName}
+              index={index + 2}
+              baselineBackgroundColor={baselineBackgroundColor}
+            />
+          ))}
         </div>
       )}
-    </>
+    </div>
   );
 }
 
-// Layout 2: 4 large horizontal
+// Layout 2 (displayStyle 2): 4 large horizontal (2×2 grid)
+// Mirrors step-3d.tsx displayStyle 2 EXACTLY.
 function Layout2({
   contacts,
   visibility,
@@ -376,7 +362,7 @@ function Layout2({
   }));
 
   return (
-    <div className="mt-10 grid w-full min-w-0 gap-8 md:grid-cols-2">
+    <div className="grid w-full min-w-0 grid-cols-1 md:grid-cols-2 gap-4 [&>*]:min-w-0">
       {contactsWithPrimary.map((contact, index) => (
         <LargeHorizontalCard
           key={contact.id || index}
@@ -393,7 +379,8 @@ function Layout2({
   );
 }
 
-// Layout 3: 8 small vertical
+// Layout 3 (displayStyle 3): 8 small vertical (responsive grid)
+// Mirrors step-3d.tsx displayStyle 3 EXACTLY.
 function Layout3({
   contacts,
   visibility,
@@ -418,26 +405,25 @@ function Layout3({
   }));
 
   return (
-    <div className="mt-10 w-full min-w-0">
-      <div className="grid w-full min-w-0 grid-cols-4 gap-8">
-        {contactsWithPrimary.map((contact, index) => (
-          <SmallVerticalCard
-            key={contact.id || index}
-            contact={contact}
-            brandColor={brandColor}
-            secondaryColor={secondaryColor}
-            appointmentLink={appointmentLink}
-            companyName={companyName}
-            index={index}
-            baselineBackgroundColor={baselineBackgroundColor}
-          />
-        ))}
-      </div>
+    <div className="grid w-full min-w-0 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 [&>*]:min-w-0">
+      {contactsWithPrimary.map((contact, index) => (
+        <SmallVerticalCard
+          key={contact.id || index}
+          contact={contact}
+          brandColor={brandColor}
+          secondaryColor={secondaryColor}
+          appointmentLink={appointmentLink}
+          companyName={companyName}
+          index={index}
+          baselineBackgroundColor={baselineBackgroundColor}
+        />
+      ))}
     </div>
   );
 }
 
-// Default layout (original layout)
+// Default layout (displayStyle 0): 1 primary + 4 small vertical (responsive grid)
+// Mirrors step-3d.tsx displayStyle 0 EXACTLY.
 function DefaultLayout({
   primaryContact,
   rest,
@@ -461,7 +447,7 @@ function DefaultLayout({
   const restVisible = rest.filter((c) => !isContactHiddenByCategory(c as any, visibility));
 
   return (
-    <>
+    <div className="space-y-4">
       {/* ---------- PRIMARY CONTACT BLOCK ---------- */}
       {showPrimary && primaryContact && (
         <PrimaryContactCard
@@ -476,27 +462,25 @@ function DefaultLayout({
 
       {/* ---------- SECONDARY CONTACT CARDS ---------- */}
       {restVisible.length > 0 && (
-        <div className="mt-3 w-full min-w-0">
-          <div className="grid w-full min-w-0 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-1">
-            {restVisible.map((contact, index) => (
-              <SmallVerticalCard
-                key={contact.id || index}
-                contact={{
-                  ...contact,
-                  isPrimary: false,
-                }}
-                brandColor={brandColor}
-                secondaryColor={secondaryColor}
-                appointmentLink={appointmentLink}
-                companyName={companyName}
-                index={index + 1}
-                baselineBackgroundColor={baselineBackgroundColor}
-              />
-            ))}
-          </div>
+        <div className="grid w-full min-w-0 grid-cols-2 sm:grid-cols-4 gap-4 [&>*]:min-w-0">
+          {restVisible.map((contact, index) => (
+            <SmallVerticalCard
+              key={contact.id || index}
+              contact={{
+                ...contact,
+                isPrimary: false,
+              }}
+              brandColor={brandColor}
+              secondaryColor={secondaryColor}
+              appointmentLink={appointmentLink}
+              companyName={companyName}
+              index={index + 1}
+              baselineBackgroundColor={baselineBackgroundColor}
+            />
+          ))}
         </div>
       )}
-    </>
+    </div>
   );
 }
 
