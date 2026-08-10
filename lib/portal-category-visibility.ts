@@ -223,7 +223,10 @@ export function areAllCategoriesHiddenInPortal(
 /**
  * Business rules:
  * - If visibility is missing/invalid → show contact (no filter).
- * - If all 4 categories are hidden → hide every contact.
+ * - If all 4 categories are hidden (the default state for newly created plans) →
+ *   still show every contact. Key contacts must display even when all benefit hubs
+ *   are hidden; the category toggles only hide contacts for a specific category when
+ *   at least one other category remains visible.
  * - If contact has no categories → show only when all 4 categories are visible; else hide.
  * - If contact has at least one category → show iff that category (or any of them) is visible.
  * Visibility should come from getCategoryPortalVisibility so keys are always the 4 canonical ones.
@@ -233,7 +236,10 @@ export function isContactVisibleInPortal(
   visibility: CategoryPortalVisibility | null | undefined,
 ): boolean {
   if (!visibility || typeof visibility !== "object") return true;
-  if (areAllCategoriesHiddenInPortal(visibility)) return false;
+  // Contacts display even when every hub is hidden (default for new plans); the
+  // per-category Hide toggles only suppress contacts in that category when at
+  // least one other category is still visible.
+  if (areAllCategoriesHiddenInPortal(visibility)) return true;
   const cats = Array.isArray(benefitsCategories) ? benefitsCategories : [];
   if (cats.length === 0) {
     return VISIBILITY_KEYS.every((key) => visibility[key] !== false);

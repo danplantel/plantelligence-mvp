@@ -69,8 +69,9 @@
 
 1. Взяти категорії контакту: `getContactCategories(contact)` → напр. `["Retirement"]`.
 2. Взяти видимість з клієнта: `visibility = getCategoryPortalVisibility(client.categoryPortalVisibility)`.
-3. Контакт **прихований**, якщо **жодна** з його категорій не видима: `visibility[key] === false` для всіх ключів, що відповідають категоріям контакту.  
+3. Контакт **прихований**, якщо **жодна** з його категорій не видима: `visibility[key] === false` для всіх ключів, що відповідають категоріям контакту.
    Тобто: контакт з категорією Retirement прихований, коли `visibility["Retirement"] === false`.
+4. **Виняток:** якщо **всі 4 категорії приховані** (типовий стан нового плану, `HIDDEN_CATEGORY_PORTAL_VISIBILITY`), контакти **все одно показуються**. Перемикачі Show/Hide приховують контакти лише певної категорії, коли хоча б одна інша категорія залишається видимою.
 
 Це реалізовано в `lib/portal-category-visibility.ts`: **isContactVisibleInPortal(benefitsCategories, visibility)** і **isContactHiddenByCategory** на сторінці My Benefits Team.
 
@@ -154,13 +155,15 @@ My Benefits Team показує дані **лише з клієнта** (GET `/a
 
 - **Дані:** `clientData` з `useClientPortal()` (той самий GET клієнта).
 - **Контакты:** `clientData.keyContacts.contacts` (або масив у старому форматі), фільтр `showOnPortal !== false`.
-- **Visibility (бл. 81–94):**  
+- **Visibility (бл. 81–94):**
   `visibility = getCategoryPortalVisibility(clientData.categoryPortalVisibility ?? clientData.employeePortalPreview?.categoryPortalVisibility)`.
-- **Фільтрація (бл. 95–110):**  
+- **Фільтрація (бл. 95–110):**
   **visibleContacts** = `contacts.filter(c => isContactVisibleInPortal(getContactCategoriesFromLib(c), visibility))`.
 - **Рендер:** усі картки (primary, large, small) рендеряться тільки з **visibleContacts** (бл. 111–112, далі передача в layout-компоненти).
 
 Тобто приховування контактів відбувається саме тут: один список контактів → один відфільтрований список → один вивід.
+
+> **Важливо:** контакти показуються навіть коли **всі 4 категорії приховані** (типовий стан нового плану). Перемикачі Show/Hide приховують лише контакти конкретної прихованої категорії, якщо хоча б одна інша категорія залишається видимою. Тобто новий план одразу показує доданих ключових контактів, навіть поки бенефіт-хаби ще не опубліковані.
 
 ### 5.2 Головна сторінка порталу (хаб + контакти в порталі)
 

@@ -183,7 +183,10 @@ export async function GET(
         (client as any).employeePortalPreview?.categoryPortalVisibility);
     const categoryPortalVisibility = getCategoryPortalVisibility(rawVisibility);
 
-    // For portal/My Benefits Team: return only contacts in visible categories (hidden cards are not sent from server)
+    // For portal/My Benefits Team: key contacts are always returned. Category
+    // visibility toggles only suppress contacts in a hidden category when at least
+    // one other category is visible; when every hub is hidden (default for new
+    // plans) contacts are still shown. Hidden-by-category cards are not sent here.
     let keyContactsToReturn: any = (client as any).keyContacts;
     if (forPortal && keyContactsToReturn != null) {
       const rawContacts = Array.isArray(keyContactsToReturn)
