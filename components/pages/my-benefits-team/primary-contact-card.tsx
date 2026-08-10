@@ -74,8 +74,11 @@ export function PrimaryContactCard({
 }: PrimaryContactCardProps) {
   const effectiveBrandColor = contact.cardPrimaryColor || brandColor;
   const effectiveSecondaryColor = contact.cardSecondaryColor || secondaryColor;
-  const backgroundColor = contact.cardBackgroundColor || baselineBackgroundColor || "#ffffff";
+  // Card background defaults to the plan's secondary color; the primary color is used as the card's accent.
+  const backgroundColor = contact.cardBackgroundColor || baselineBackgroundColor || effectiveSecondaryColor;
   const textColor = readableColor(backgroundColor);
+  // Icon chip background: translucent white on dark backgrounds, translucent black on light.
+  const iconChipBg = textColor === "#ffffff" ? "bg-black" : "bg-white";
   // Determine which buttons to show and which is primary (first checked button becomes primary)
   // Use saved orders from contact or default orders
   type ContactInfoType = "phone" | "email";
@@ -226,7 +229,7 @@ export function PrimaryContactCard({
           {/* NAME */}
           <h2
             className="text-xl sm:text-2xl lg:text-3xl font-semibold font-dm-serif leading-tight w-full max-w-full whitespace-nowrap overflow-hidden text-ellipsis"
-            style={{ color: effectiveBrandColor }}
+            style={{ color: textColor }}
           >
             {contact.contactType === "team_support"
               ? contact.displayName || contact.name
@@ -242,7 +245,7 @@ export function PrimaryContactCard({
 
           {/* COMPANY NAME */}
           {(contact.companyName || companyName) && (
-            <p className="text-sm sm:text-base font-semibold font-dm-serif" style={{ color: effectiveBrandColor }}>
+            <p className="text-sm sm:text-base font-bold" style={{ color: textColor }}>
               {contact.companyName || companyName}
             </p>
           )}
@@ -254,8 +257,8 @@ export function PrimaryContactCard({
               className="flex items-center gap-2.5 text-sm sm:text-base font-red-hat hover:opacity-80 transition-opacity group"
               style={{ color: textColor }}
             >
-              <span className="flex items-center justify-center w-8 h-8 rounded-full bg-black/5 dark:bg-white/10 shrink-0 group-hover:scale-110 transition-transform">
-                <Mail size={18} strokeWidth={1.5} className="w-[18px] h-[18px] shrink-0" style={{ color: effectiveSecondaryColor }} />
+              <span className={`flex items-center justify-center w-8 h-8 rounded-full ${iconChipBg} shrink-0 group-hover:scale-110 transition-transform`}>
+                <Mail size={18} strokeWidth={1.5} className="w-[18px] h-[18px] shrink-0" style={{ color: effectiveBrandColor }} />
               </span>
               {contact.email}
             </a>
@@ -268,8 +271,8 @@ export function PrimaryContactCard({
               className="flex items-center gap-2.5 text-sm sm:text-base font-red-hat hover:opacity-80 transition-opacity group"
               style={{ color: textColor }}
             >
-              <span className="flex items-center justify-center w-8 h-8 rounded-full bg-black/5 dark:bg-white/10 shrink-0 group-hover:scale-110 transition-transform">
-                <Phone size={18} strokeWidth={1.5} className="w-[18px] h-[18px] shrink-0" style={{ color: effectiveSecondaryColor }} />
+              <span className={`flex items-center justify-center w-8 h-8 rounded-full ${iconChipBg} shrink-0 group-hover:scale-110 transition-transform`}>
+                <Phone size={18} strokeWidth={1.5} className="w-[18px] h-[18px] shrink-0" style={{ color: effectiveBrandColor }} />
               </span>
               {formatPhoneWithExtension(contact.phone, contact.phoneExtension)}
             </a>
@@ -288,7 +291,7 @@ export function PrimaryContactCard({
               buttons.map((button, idx) => {
                 const isPrimaryButton = idx === primaryIndex;
                 const buttonBg = isPrimaryButton
-                  ? effectiveSecondaryColor
+                  ? effectiveBrandColor
                   : "#F3F4F6";
                 const buttonColor = isPrimaryButton ? "#ffffff" : readableColor(buttonBg);
 
@@ -319,7 +322,7 @@ export function PrimaryContactCard({
             ) : (
               <Button
                 className="w-full rounded-lg px-5 py-3 text-sm font-semibold uppercase tracking-wide text-white hover:opacity-90 font-red-hat transition-all duration-200 hover:scale-105"
-                style={{ backgroundColor: effectiveSecondaryColor }}
+                style={{ backgroundColor: effectiveBrandColor }}
                 onClick={() => window.open(appointmentLink, "_blank")}
               >
                 Schedule Appointment
