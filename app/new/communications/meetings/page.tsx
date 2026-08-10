@@ -272,6 +272,13 @@ const formatTime12h = (time24: string): string => {
   return `${hour12}:${minute.toString().padStart(2, "0")} ${ampm}`;
 };
 
+/** Ensure a URL has a scheme so it opens as an absolute link (e.g. "google.com" → "https://google.com"). */
+const normalizeUrl = (url?: string): string => {
+  const trimmed = (url || "").trim();
+  if (!trimmed) return "";
+  return /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed) ? trimmed : `https://${trimmed}`;
+};
+
 const TIMEZONE_OPTIONS = [
   { value: "America/New_York", label: "Eastern Time (ET)" },
   { value: "America/Chicago", label: "Central Time (CT)" },
@@ -860,7 +867,7 @@ export default function MeetingsPage() {
                           <div className="space-y-1"><div className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><Calendar className="h-3 w-3 shrink-0" /><span className="font-medium uppercase tracking-wider">Date</span></div><div className="text-xs font-semibold pl-[18px]">{meetingDate}</div><div className="text-[11px] text-muted-foreground pl-[18px]">{formatTime12h(meeting.time)}{meeting.timezone && <span className="text-[10px] ml-1 opacity-75">({getTimezoneAbbr(meeting.timezone)})</span>}</div></div>
                           <div className="space-y-1"><div className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><Clock className="h-3 w-3 shrink-0" /><span className="font-medium uppercase tracking-wider">Duration</span></div><div className="text-xs font-semibold pl-[18px]">{meeting.duration}</div></div>
                           <div className="space-y-1"><div className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><Users className="h-3 w-3 shrink-0" /><span className="font-medium uppercase tracking-wider">Attendees</span></div><div className="text-xs font-semibold pl-[18px]">{meeting.attendees}{meeting.maxAttendees && ` / ${meeting.maxAttendees}`}</div></div>
-                          <div className="space-y-1 min-w-0"><div className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><FormatIcon className="h-3 w-3 shrink-0" /><span className="font-medium uppercase tracking-wider truncate">{meeting.format === "Virtual" && meeting.platform ? meeting.platform : meeting.format}</span></div>{meeting.format === "Virtual" && meeting.meetingLink && <div className="text-xs font-medium pl-[18px] text-primary/80 truncate">View link &rarr;</div>}{meeting.format === "Virtual" && !meeting.meetingLink && <div className="text-xs font-medium pl-[18px] text-muted-foreground truncate">No link</div>}{meeting.format === "In-Person" && meeting.address && <div className="text-xs font-semibold pl-[18px] truncate">{meeting.city}, {meeting.state}</div>}{meeting.format === "In-Person" && !meeting.address && <div className="text-xs font-medium pl-[18px] text-muted-foreground">TBA</div>}</div>
+                          <div className="space-y-1 min-w-0"><div className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><FormatIcon className="h-3 w-3 shrink-0" /><span className="font-medium uppercase tracking-wider truncate">{meeting.format === "Virtual" && meeting.platform ? meeting.platform : meeting.format}</span></div>{meeting.format === "Virtual" && meeting.meetingLink && <a href={normalizeUrl(meeting.meetingLink || meeting.meetingUrl)} target="_blank" rel="noopener noreferrer" className="text-xs font-medium pl-[18px] text-primary/80 truncate hover:underline">View link &rarr;</a>}{meeting.format === "Virtual" && !meeting.meetingLink && <div className="text-xs font-medium pl-[18px] text-muted-foreground truncate">No link</div>}{meeting.format === "In-Person" && meeting.address && <div className="text-xs font-semibold pl-[18px] truncate">{meeting.city}, {meeting.state}</div>}{meeting.format === "In-Person" && !meeting.address && <div className="text-xs font-medium pl-[18px] text-muted-foreground">TBA</div>}</div>
                         </div>
                         <div className="flex items-center gap-1.5 pt-2.5 border-t border-border/50 mt-auto bg-muted/30 -mx-4 -mb-4 px-4 pb-3 rounded-b-xl"><Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" /><span className="text-[11px] font-medium text-muted-foreground/70 shrink-0">Client</span><span className="text-xs font-semibold truncate">{meeting.client}</span></div>
                       </div>
