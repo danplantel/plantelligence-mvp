@@ -8,6 +8,13 @@ export const DEFAULT_CATEGORY_PORTAL_VISIBILITY: CategoryPortalVisibility =
     return acc;
   }, {} as CategoryPortalVisibility);
 
+/** All-hidden portal visibility — default for newly created plans so advisors explicitly publish benefit hubs. */
+export const HIDDEN_CATEGORY_PORTAL_VISIBILITY: CategoryPortalVisibility =
+  PRIMARY_SERVICE_CATEGORY_OPTIONS.reduce((acc, cat) => {
+    acc[cat] = false;
+    return acc;
+  }, {} as CategoryPortalVisibility);
+
 /** Canonical visibility keys (must match Edit Panel and PRIMARY_SERVICE_CATEGORY_OPTIONS) */
 const VISIBILITY_KEYS_READONLY = [
   "Retirement",

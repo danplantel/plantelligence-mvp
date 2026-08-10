@@ -2,10 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
-import {
-  areAllCategoriesHiddenInPortal,
-  getCategoryPortalVisibility,
-} from "@/lib/portal-category-visibility";
+import { HIDDEN_CATEGORY_PORTAL_VISIBILITY } from "@/lib/portal-category-visibility";
 import {
   resolveUserPrimaryServiceCategoryLabels,
   userPrimaryServicesMapToBenefitsCategory,
@@ -37,6 +34,35 @@ function base64DataUrlToBuffer(
   } catch {
     return null;
   }
+}
+
+/** Default hidden benefit hubs — seeded on newly created plans so every hub starts hidden. */
+const DEFAULT_HIDDEN_BENEFITS = [
+  { id: "retirement", category: "Retirement", title: "Retirement Plan Benefits", isEnabled: false },
+  { id: "health", category: "Group Health", title: "Health Insurance", isEnabled: false },
+  { id: "life", category: "Group Life", title: "Life Insurance", isEnabled: false },
+  { id: "wellness", category: "Company / Plan Sponsor", title: "Wellness Programs", isEnabled: false },
+];
+
+/**
+ * Newly created plans start with every benefit hub hidden on the Portal Hub.
+ * Forces isEnabled=false on all benefits (preserving other fields) and, when no
+ * benefits exist yet, seeds the 4 default hubs as hidden so the Benefits wizard
+ * reflects them as Hidden and the advisor explicitly publishes each one.
+ */
+function withHiddenBenefits(previewData: any): any {
+  const base =
+    previewData && typeof previewData === "object" && !Array.isArray(previewData)
+      ? { ...previewData }
+      : {};
+  const existing = Array.isArray(previewData?.benefits)
+    ? previewData.benefits
+    : [];
+  const benefits =
+    existing.length > 0
+      ? existing.map((b: any) => ({ ...b, isEnabled: false }))
+      : DEFAULT_HIDDEN_BENEFITS;
+  return { ...base, benefits };
 }
 
 export async function POST(request: NextRequest) {
@@ -98,21 +124,9 @@ export async function POST(request: NextRequest) {
       previewDataForClient = base;
     }
 
-    // 3b.0 publish gate: Benefits Hub must show ≥1 category (same rule as Step 5 UI)
-    const portalVisibilityForGate = getCategoryPortalVisibility(
-      previewDataForClient?.categoryPortalVisibility ??
-        previewDataForClient?.previewData?.categoryPortalVisibility,
-    );
-    if (areAllCategoriesHiddenInPortal(portalVisibilityForGate)) {
-      return NextResponse.json(
-        {
-          error:
-            "The Benefits Hub must show at least one benefit category before publishing. In Step 5, under Benefits, turn Visibility on for at least one category.",
-          code: "NO_VISIBLE_PORTAL_CATEGORIES",
-        },
-        { status: 400 },
-      );
-    }
+    // NOTE: There is intentionally NO "at least one category visible" gate here.
+    // Newly created plans default all 4 benefit hubs to hidden; the advisor
+    // publishes each hub explicitly from the Benefits wizard (benefits/step-1).
 
     // Mark wizard session as completed (only after publish gates pass)
     await prisma.newClientWizardSession.update({
@@ -389,15 +403,16 @@ export async function POST(request: NextRequest) {
             faviconImgName: brandImgs?.favicon?.fileName ?? null,
             // Save disclaimers data as JSON object (not stringified)
             disclaimers: disclaimersData ? (disclaimersData as any) : null,
-            // Benefits + visibility from Step 5 (so portal shows only enabled benefit cards)
+            // Benefits + visibility from Step 5 (so portal shows only enabled benefit cards).
+            // Newly created plans default ALL 4 benefit hubs (retirement, health, life, wellness)
+            // to hidden on the Portal Hub — the advisor publishes each hub explicitly from the
+            // Benefits wizard. Benefits are forced to isEnabled=false at creation.
             ...(previewDataForClient && {
-              employeePortalPreview: previewDataForClient,
+              employeePortalPreview: withHiddenBenefits(previewDataForClient),
             }),
-            // Category Display (Portal Visibility) from Step 5 edit panel — hides categories/contacts in portal and My Benefits Team (always set so portal filter works)
-            categoryPortalVisibility: getCategoryPortalVisibility(
-              previewDataForClient?.categoryPortalVisibility ??
-                previewDataForClient?.previewData?.categoryPortalVisibility
-            ),
+            // Category Display (Portal Visibility) — all hubs start hidden so the advisor
+            // explicitly publishes benefit categories from the Benefits wizard.
+            categoryPortalVisibility: { ...HIDDEN_CATEGORY_PORTAL_VISIBILITY },
           },
         });
 

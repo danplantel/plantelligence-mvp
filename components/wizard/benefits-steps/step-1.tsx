@@ -1198,6 +1198,32 @@ export function BenefitsStep1() {
           visibilityFromPlan["Custom"] = visibilityFromPlan["Company / Plan Sponsor"] ?? false;
         }
 
+        // Client-level categoryPortalVisibility is the authoritative "hidden" signal the
+        // portal uses. Respect it so newly created plans (which default to all-hidden) reflect
+        // as Hidden here even if their benefit rows don't carry isEnabled=false yet.
+        const planCategoryVisibility = (fullPlan as any)?.categoryPortalVisibility;
+        if (
+          planCategoryVisibility &&
+          typeof planCategoryVisibility === "object" &&
+          !Array.isArray(planCategoryVisibility)
+        ) {
+          const portalToStep1Label: Record<string, string> = {
+            Retirement: "Retirement",
+            "Group Health": "Group Health",
+            "Group Life": "Group Life",
+            Other: "Custom",
+          };
+          for (const [portalKey, step1Label] of Object.entries(portalToStep1Label)) {
+            const v = (planCategoryVisibility as Record<string, boolean>)[portalKey];
+            if (v !== undefined) {
+              visibilityFromPlan[step1Label] = v;
+            }
+          }
+          // Keep the "Company / Plan Sponsor" alias in sync with "Custom"
+          visibilityFromPlan["Company / Plan Sponsor"] =
+            visibilityFromPlan["Custom"] ?? false;
+        }
+
         // Sync insurance fields from the persisted plan data into step1Data
         // so that previously saved insuranceBackgroundImage, insurancePlanId,
         // and insuranceLoginUrl are available in the wizard store.
