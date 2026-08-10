@@ -24,6 +24,7 @@ import type {
 import { RetirementDocumentItem } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
 import { DocumentPreviewModal } from "@/components/pages/documents/components/document-preview-modal";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { ChevronRight } from "lucide-react";
 import { deleteFromR2 } from "@/lib/upload-to-r2";
@@ -105,6 +106,12 @@ export function NewClientStep4({
 
   // Track whether documents are currently being uploaded (disable tab switching)
   const [isUploading, setIsUploading] = useState(false);
+
+  // Pending document deletion (awaiting confirmation dialog)
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
 
   // Separate state for retirement plan documents section
   const [retirementPlanDocuments, setRetirementPlanDocuments] =
@@ -505,15 +512,23 @@ export function NewClientStep4({
     }
   };
 
-  const handleDeleteClick = async (documentId: string, documentTitle: string) => {
-    const doc = retirementPlanDocuments.find((d) => d.id === documentId);
+  // Open the "Are you sure?" confirmation dialog before deleting.
+  const handleDeleteClick = (documentId: string, documentTitle: string) => {
+    setDeleteConfirm({ id: documentId, title: documentTitle });
+  };
+
+  // Perform the actual deletion after the user confirms.
+  const confirmDelete = async () => {
+    const pending = deleteConfirm;
+    if (!pending) return;
+    const doc = retirementPlanDocuments.find((d) => d.id === pending.id);
     if (doc?.storageKey) {
       await deleteFromR2(doc.storageKey);
     }
     setRetirementPlanDocuments((prev) =>
-      prev.filter((doc) => doc.id !== documentId),
+      prev.filter((doc) => doc.id !== pending.id),
     );
-    toast.success(`"${documentTitle}" deleted`);
+    toast.success(`"${pending.title}" deleted`);
   };
 
   const handleSaveEdit = async (
@@ -898,6 +913,23 @@ export function NewClientStep4({
         }}
         document={previewDocument}
         isLoading={isLoadingPreview}
+      />
+
+      {/* Delete confirmation dialog */}
+      <ConfirmDialog
+        open={!!deleteConfirm}
+        onOpenChange={(open) => {
+          if (!open) setDeleteConfirm(null);
+        }}
+        onConfirm={confirmDelete}
+        title="Delete document?"
+        description={
+          deleteConfirm
+            ? `Are you sure you want to delete "${deleteConfirm.title}"? This action cannot be undone.`
+            : ""
+        }
+        confirmText="Delete"
+        variant="destructive"
       />
     </div>
   );
