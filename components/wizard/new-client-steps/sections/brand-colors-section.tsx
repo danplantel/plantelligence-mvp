@@ -501,7 +501,9 @@ export function BrandColorsSection({
             {isFieldInvalid("primaryColor") && (
               <p className="text-xs text-red-500 dark:text-red-400 flex items-center gap-1">
                 <AlertCircle className="w-3 h-3" />
-                Primary color must be a valid hex color (e.g., #1F3A60)
+                {primaryColor && primaryColor.trim()
+                  ? "Primary color must be a valid hex color (e.g., #1F3A60)"
+                  : "Primary color is required"}
               </p>
             )}
 
@@ -582,7 +584,9 @@ export function BrandColorsSection({
             {isFieldInvalid("secondaryColor") && (
               <p className="text-xs text-red-500 dark:text-red-400 flex items-center gap-1">
                 <AlertCircle className="w-3 h-3" />
-                Secondary color must be a valid hex color (e.g., #1F3A60)
+                {secondaryColor && secondaryColor.trim()
+                  ? "Secondary color must be a valid hex color (e.g., #1F3A60)"
+                  : "Secondary color is required"}
               </p>
             )}
 

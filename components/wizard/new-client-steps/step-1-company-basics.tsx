@@ -263,6 +263,11 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
     return null;
   };
 
+  const validateColorRequired = (value: string, label: string): string | null => {
+    if (!value || value.trim() === "") return `${label} is required`;
+    return null;
+  };
+
   // Only the branding sub-step is shown (welcomeMission moved to Step 2)
   const currentSubStep: CompanyBasicsSubStep = "branding";
   // No auto-initialization to default to avoid user frustration
@@ -1067,8 +1072,16 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
           <BrandColorsSection
             primaryColor={companyData.primaryColor}
             secondaryColor={companyData.secondaryColor}
-            onPrimaryChange={(color) => updateField("primaryColor", color)}
-            onSecondaryChange={(color) => updateField("secondaryColor", color)}
+            onPrimaryChange={(color) => {
+              updateField("primaryColor", color);
+              markTouched("primaryColor");
+              setFieldError("primaryColor", validateColorRequired(color, "Primary color"));
+            }}
+            onSecondaryChange={(color) => {
+              updateField("secondaryColor", color);
+              markTouched("secondaryColor");
+              setFieldError("secondaryColor", validateColorRequired(color, "Secondary color"));
+            }}
             isPrimaryPickerOpen={companyData.isPrimaryColorPickerOpen || false}
             isSecondaryPickerOpen={companyData.isSecondaryColorPickerOpen || false}
             onPrimaryPickerOpenChange={(open) =>

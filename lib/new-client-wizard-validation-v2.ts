@@ -103,7 +103,14 @@ export const validateCompanyBasics = (data: CompanyBasicsData) => {
   }
 
   // Company logo is optional in new structure
-  // Brand colors have defaults, so no validation needed
+
+  // Brand colors are required
+  if (!data.primaryColor || data.primaryColor.trim() === "") {
+    errors.push({ field: "primaryColor", message: "Primary color is required" });
+  }
+  if (!data.secondaryColor || data.secondaryColor.trim() === "") {
+    errors.push({ field: "secondaryColor", message: "Secondary color is required" });
+  }
 
   // Portal URL is required
   if (!data.portalUrl || data.portalUrl.trim() === "") {

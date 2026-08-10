@@ -938,12 +938,37 @@ export async function DELETE(
     // Get client name before deletion for meeting cleanup
     const clientName = client.companyName;
 
-    // Find the associated wizard session so we can clean up sub-records
+    // Find the associated wizard session so we can clean up sub-records.
     const wizardSession = await prisma.newClientWizardSession.findFirst({
       where: { userId: session.user.id, completed: false },
       orderBy: { createdAt: "desc" },
       select: { id: true },
     });
+
+    // Free the portal URL claimed by this plan. Lingering wizard draft sessions
+    // can keep their NewClientCompanyBasics.portalUrl in the DB, which makes the
+    // URL report as "taken" after the client is deleted. Clean up ALL of this
+    // user's sessions that claim the deleted plan's portal URL — matched by the
+    // client's slug (completed plans) or by the client's company name (drafts) —
+    // in addition to the latest incomplete session as a fallback.
+    const staleBasics = await prisma.newClientCompanyBasics.findMany({
+      where: {
+        session: { userId: session.user.id },
+        OR: [
+          ...(client.companyName
+            ? [{ companyName: client.companyName }]
+            : []),
+          ...(client.slug ? [{ portalUrl: client.slug }] : []),
+        ],
+      },
+      select: { sessionId: true },
+    });
+    const staleSessionIds = Array.from(
+      new Set([
+        ...(wizardSession ? [wizardSession.id] : []),
+        ...staleBasics.map((b) => b.sessionId),
+      ]),
+    );
 
     // Delete webinars outside the transaction (raw command + MongoDB transactions can conflict)
     await prisma.$runCommandRaw({
@@ -971,15 +996,15 @@ export async function DELETE(
       () => prisma.marketingAsset.deleteMany({ where: { clientId } }),
       () => prisma.marketingFlyer.deleteMany({ where: { clientId } }),
       () => prisma.video.deleteMany({ where: { clientId } }),
-      ...(wizardSession
+      ...(staleSessionIds.length > 0
         ? [
-            () => prisma.newClientCompanyBasics.deleteMany({ where: { sessionId: wizardSession.id } }),
-            () => prisma.newClientWelcomeStatement.deleteMany({ where: { sessionId: wizardSession.id } }),
-            () => prisma.newClientKeyContacts.deleteMany({ where: { sessionId: wizardSession.id } }),
-            () => prisma.newClientContactBuilder.deleteMany({ where: { sessionId: wizardSession.id } }),
-            () => prisma.newClientComplianceDocuments.deleteMany({ where: { sessionId: wizardSession.id } }),
-            () => prisma.newClientEmployeePortalPreview.deleteMany({ where: { sessionId: wizardSession.id } }),
-            () => prisma.newClientWizardSession.deleteMany({ where: { id: wizardSession.id } }),
+            () => prisma.newClientCompanyBasics.deleteMany({ where: { sessionId: { in: staleSessionIds } } }),
+            () => prisma.newClientWelcomeStatement.deleteMany({ where: { sessionId: { in: staleSessionIds } } }),
+            () => prisma.newClientKeyContacts.deleteMany({ where: { sessionId: { in: staleSessionIds } } }),
+            () => prisma.newClientContactBuilder.deleteMany({ where: { sessionId: { in: staleSessionIds } } }),
+            () => prisma.newClientComplianceDocuments.deleteMany({ where: { sessionId: { in: staleSessionIds } } }),
+            () => prisma.newClientEmployeePortalPreview.deleteMany({ where: { sessionId: { in: staleSessionIds } } }),
+            () => prisma.newClientWizardSession.deleteMany({ where: { id: { in: staleSessionIds } } }),
           ]
         : []),
       () => prisma.client.delete({ where: { id: clientId } }),
