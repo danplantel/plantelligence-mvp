@@ -767,46 +767,76 @@ function SortableCard({
   };
 
   return (
-    <div ref={setNodeRef} style={style}>
+    <div ref={setNodeRef} className="h-full" style={style}>
       <Card
-        className={`shadow-sm transition-transform hover:-translate-y-1 hover:shadow-md ${isDragging ? "bg-gray-200 dark:bg-gray-700" : "bg-white dark:bg-gray-800"
-          } dark:border-gray-700`}
+        className={`h-full shadow-sm transition-transform hover:-translate-y-1 hover:shadow-md ${
+          isDragging ? "bg-gray-100" : "bg-white"
+        }`}
         style={{
           borderColor: `${brandColor}26`,
           borderWidth: 1,
         }}
       >
-        <CardContent className="flex flex-col items-center px-6 py-8 text-center relative overflow-hidden">
-          {/* Delete button - top right corner */}
-          {doc.onDelete && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                doc.onDelete?.();
-              }}
-              className="absolute top-2 right-2 p-1 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-600 dark:text-gray-500 dark:hover:text-red-400 transition-colors z-10"
-              aria-label="Delete document"
+        <CardContent className="flex min-h-[320px] h-full flex-col items-center px-6 pt-1 pb-8 text-center relative overflow-hidden">
+          {/* Top row — drag handle, category badge right next to it (left-aligned),
+              and Edit/Delete actions pushed to the right. */}
+          <div className="w-full mb-5 flex items-center gap-2 min-w-0">
+            <div
+              {...listeners}
+              {...attributes}
+              className="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 flex-shrink-0"
             >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-          <div
-            {...listeners}
-            {...attributes}
-            className="mb-2 self-start cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
-          >
-            <GripVertical className="h-5 w-5" />
+              <GripVertical className="h-5 w-5" />
+            </div>
+            {doc.category && (
+              <Badge
+                variant="outline"
+                className="text-[11px] font-bold px-2 py-0 h-5 bg-white shadow-sm whitespace-nowrap flex-shrink-0"
+                style={{ color: brandColor, borderColor: `${brandColor}40` }}
+              >
+                {doc.category}
+              </Badge>
+            )}
+            <div className="ml-auto flex items-center gap-1 flex-shrink-0">
+              {!isEditing && (onEdit || onStartEdit) && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleStartEdit();
+                  }}
+                  className="h-7 w-7 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                  aria-label="Edit document"
+                  title="Edit document"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+              )}
+              {doc.onDelete && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    doc.onDelete?.();
+                  }}
+                  className="h-7 w-7 rounded-full flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                  aria-label="Delete document"
+                  title="Delete document"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
           </div>
 
           {isEditing ? (
             <>
               <div className="w-full mb-4">
-                <label className="text-xs text-gray-600 font-medium mb-2 block dark:text-gray-300">
+                <label className="text-xs text-gray-600 font-medium mb-2 block">
                   PDF File
                 </label>
                 <div
-                  className="border-2 border-dashed rounded-md p-4 cursor-pointer hover:border-gray-400 dark:hover:border-gray-500 transition-colors dark:border-gray-600"
+                  className="border-2 border-dashed rounded-md p-4 cursor-pointer hover:border-gray-400 transition-colors"
                   style={{
                     borderColor: editFile ? accentColor : `${brandColor}40`,
                     backgroundColor: editFile
@@ -835,17 +865,17 @@ function SortableCard({
                         >
                           {editFile.name}
                         </p>
-                        <p className="text-xs text-gray-500 mt-1 dark:text-gray-400">
+                        <p className="text-xs text-gray-500 mt-1">
                           {(editFile.size / 1024 / 1024).toFixed(2)} MB
                         </p>
                       </>
                     ) : (
                       <>
-                        <Upload className="h-8 w-8 mb-2 text-gray-400 dark:text-gray-500" />
-                        <p className="text-xs text-gray-600 text-center dark:text-gray-300">
+                        <Upload className="h-8 w-8 mb-2 text-gray-400" />
+                        <p className="text-xs text-gray-600 text-center">
                           Click to upload PDF
                         </p>
-                        <p className="text-xs text-gray-500 mt-1 dark:text-gray-400">PDF only</p>
+                        <p className="text-xs text-gray-500 mt-1">PDF only</p>
                       </>
                     )}
                   </div>
@@ -853,7 +883,7 @@ function SortableCard({
               </div>
               <div className="w-full mb-4">
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs text-gray-600 font-medium dark:text-gray-300">
+                  <label className="text-xs text-gray-600 font-medium">
                     Category
                   </label>
                 </div>
@@ -861,7 +891,7 @@ function SortableCard({
                   value={editCategory}
                   onValueChange={(value) => setEditCategory(value as BenefitsCategory)}
                 >
-                  <SelectTrigger className="w-full h-8 text-xs dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600">
+                  <SelectTrigger className="w-full h-8 text-xs">
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
@@ -875,7 +905,7 @@ function SortableCard({
               </div>
               <div className="w-full mb-2">
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs text-gray-600 font-medium dark:text-gray-300">
+                  <label className="text-xs text-gray-600 font-medium">
                     Title
                   </label>
                   <span
@@ -883,7 +913,7 @@ function SortableCard({
                       ? "text-red-500"
                       : editTitle.length > 75
                         ? "text-amber-500"
-                        : "text-gray-500 dark:text-gray-400"
+                        : "text-gray-500"
                       }`}
                   >
                     {editTitle.length}/85
@@ -897,7 +927,7 @@ function SortableCard({
                     }
                   }}
                   maxLength={85}
-                  className={`text-center text-sm font-semibold dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 ${editTitle.length > 85
+                  className={`text-center text-sm font-semibold ${editTitle.length > 85
                     ? "border-red-500 focus:border-red-500"
                     : ""
                     }`}
@@ -907,7 +937,7 @@ function SortableCard({
               </div>
               <div className="w-full mb-4">
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs text-gray-600 font-medium dark:text-gray-300">
+                  <label className="text-xs text-gray-600 font-medium">
                     Description
                   </label>
                   <span
@@ -915,7 +945,7 @@ function SortableCard({
                       ? "text-red-500"
                       : editDescription.length > 150
                         ? "text-amber-500"
-                        : "text-gray-500 dark:text-gray-400"
+                        : "text-gray-500"
                       }`}
                   >
                     {editDescription.length}/160
@@ -930,7 +960,7 @@ function SortableCard({
                   }}
                   maxLength={160}
                   rows={2}
-                  className={`text-center text-xs dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 ${editDescription.length > 160
+                  className={`text-center text-xs ${editDescription.length > 160
                     ? "border-red-500 focus:border-red-500"
                     : ""
                     }`}
@@ -940,41 +970,31 @@ function SortableCard({
           ) : (
             <>
               <div
-                className="mb-4 flex h-12 w-12 items-center justify-center rounded-md dark:bg-accent-blue/20"
+                className="mb-4 flex h-12 w-12 items-center justify-center rounded-md"
                 style={{ backgroundColor: `${accentColor}1F` }}
               >
-                <FileText className="h-6 w-6 dark:!text-accent-blue" style={{ color: accentColor }} />
+                <FileText className="h-6 w-6" style={{ color: accentColor }} />
               </div>
-              {doc.category && (
-                <div className="absolute top-4 left-11 flex flex-col gap-1 items-start z-10">
-                  <Badge
-                    variant="outline"
-                    className="text-[11px] font-bold px-2 py-0 h-5 border-gray-200 text-gray-500 bg-white shadow-sm dark:border-gray-600 dark:text-gray-300 dark:bg-gray-700"
-                  >
-                    {doc.category}
-                  </Badge>
-                </div>
-              )}
               <h4
-                className="mb-2 text-base font-semibold line-clamp-2 break-words dark:text-gray-100"
-                style={{ fontFamily: '"DM Serif Display", serif' }}
+                className="mb-2 text-base font-semibold line-clamp-2 break-words"
+                style={{ color: brandColor, fontFamily: '"DM Serif Display", serif' }}
                 title={doc.title}
               >
                 {doc.title}
               </h4>
 
               <p
-                className="mb-4 text-xs text-[#6B6B6B] line-clamp-3 break-words dark:text-gray-400"
+                className="mb-4 text-xs text-[#6B6B6B] line-clamp-3 break-words"
                 title={doc.description}
               >
                 {doc.description}
               </p>
               {qrViewUrl && (
                 <div className="mb-4 flex flex-col items-center gap-1.5 w-full">
-                  <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground dark:text-gray-400">
+                  <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                     Scan to open
                   </span>
-                  <div className="rounded-md border border-gray-200 bg-white p-2 shadow-sm dark:border-gray-600 dark:bg-gray-700">
+                  <div className="rounded-md border border-gray-200 bg-white p-2 shadow-sm">
                     <QRCodeSVG value={qrViewUrl} size={88} level="M" />
                   </div>
                 </div>
@@ -986,14 +1006,14 @@ function SortableCard({
           {showMetadata && (
             <div className="w-full mb-4 space-y-2 text-left">
               {doc.meta?.client && (
-                <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
-                  <Building className="h-3 w-3 dark:text-gray-500" />
+                <div className="flex items-center gap-1 text-xs text-gray-600">
+                  <Building className="h-3 w-3" />
                   <span>{doc.meta.client.companyName}</span>
                 </div>
               )}
               {doc.meta?.uploadedAt && (
-                <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
-                  <Calendar className="h-3 w-3 dark:text-gray-500" />
+                <div className="flex items-center gap-1 text-xs text-gray-600">
+                  <Calendar className="h-3 w-3" />
                   <span>
                     {formatUsDate(doc.meta.uploadedAt)}
                   </span>
@@ -1091,7 +1111,7 @@ function SortableCard({
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
-            {isEditing ? (
+            {isEditing && (
               <>
                 <Button
                   variant="outline"
@@ -1129,32 +1149,6 @@ function SortableCard({
                   <span className="truncate">CANCEL</span>
                 </Button>
               </>
-            ) : (
-              !showMetadata &&
-              (onEdit || onStartEdit) && (
-                <Button
-                  variant="outline"
-                  className="flex-1 flex items-center justify-center gap-2 text-xs font-semibold transition-all duration-200 hover:scale-105 min-w-0 overflow-hidden dark:!text-accent-blue dark:!border-accent-blue"
-                  style={{
-                    borderColor: brandColor,
-                    color: brandColor,
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = accentColor;
-                    e.currentTarget.style.borderColor = accentColor;
-                    e.currentTarget.style.color = "#ffffff";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = "transparent";
-                    e.currentTarget.style.borderColor = brandColor;
-                    e.currentTarget.style.color = brandColor;
-                  }}
-                  onClick={handleStartEdit}
-                >
-                  <Pencil className="h-3 w-3 flex-shrink-0" />
-                  <span className="truncate">Edit/Update</span>
-                </Button>
-              )
             )}
           </div>
         </CardContent>
@@ -1883,7 +1877,7 @@ export function DocsGrid({
         <DragOverlay>
           {activeDoc ? (
             <Card
-              className="bg-white shadow-xl scale-105 opacity-90 dark:bg-gray-800 dark:border-gray-700"
+              className="bg-white shadow-xl scale-105 opacity-90"
               style={{
                 borderColor: `${brandColor}40`,
                 borderWidth: 1,
@@ -1901,7 +1895,7 @@ export function DocsGrid({
                 </div>
 
                 <h4
-                  className="mb-2 text-base font-semibold line-clamp-2 break-words dark:text-gray-100"
+                  className="mb-2 text-base font-semibold line-clamp-2 break-words"
                   style={{ fontFamily: '"DM Serif Display", serif' }}
                   title={activeDoc.title}
                 >
@@ -1909,7 +1903,7 @@ export function DocsGrid({
                 </h4>
 
                 <p
-                  className="mb-6 text-xs text-[#6B6B6B] line-clamp-3 break-words dark:text-gray-400"
+                  className="mb-6 text-xs text-[#6B6B6B] line-clamp-3 break-words"
                   title={activeDoc.description}
                 >
                   {activeDoc.description}
