@@ -829,6 +829,14 @@ export function ContactFormSlide({
         );
         const updatedKeyContacts = { ...keyContactsData, contacts: updatedContacts };
         saveStepDataLocally("keyContacts", updatedKeyContacts);
+        // Persist editingContactId in step3b so re-entering the form after
+        // navigating back (e.g. via the breadcrumb dots) edits this contact
+        // instead of creating a duplicate.
+        editingContactIdRef.current = existingContact.id;
+        saveStepDataLocally("step3b", {
+          ...step3bData,
+          editingContactId: existingContact.id,
+        });
         return existingContact.id;
       }
 
@@ -897,6 +905,13 @@ export function ContactFormSlide({
           );
           const updatedKeyContacts = { ...keyContactsData, contacts: updatedContacts };
           saveStepDataLocally("keyContacts", updatedKeyContacts);
+          // Persist editingContactId in step3b so re-entering the form edits
+          // instead of creating a duplicate.
+          editingContactIdRef.current = existingMainContact.id;
+          saveStepDataLocally("step3b", {
+            ...step3bData,
+            editingContactId: existingMainContact.id,
+          });
           return existingMainContact.id;
         }
       }
@@ -966,6 +981,13 @@ export function ContactFormSlide({
       const updatedContacts = [...demotedContacts, newContact];
       const updatedKeyContacts = { ...keyContactsData, contacts: updatedContacts };
       saveStepDataLocally("keyContacts", updatedKeyContacts);
+      // Persist the new contact's ID in step3b so re-entering the form
+      // edits this contact instead of creating a duplicate.
+      editingContactIdRef.current = newContact.id;
+      saveStepDataLocally("step3b", {
+        ...step3bData,
+        editingContactId: newContact.id,
+      });
       return newContact.id;
     },
     [
