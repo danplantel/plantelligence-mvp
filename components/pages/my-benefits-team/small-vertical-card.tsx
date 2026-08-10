@@ -506,7 +506,7 @@ export function SmallVerticalCard({
         delay: index * 0.1,
         ease: "easeOut",
       }}
-      className={`${cardWidth} h-auto min-h-0 sm:min-h-[580px] flex flex-col items-center rounded-xl border border-[#E5E5E5] px-4 py-6 sm:px-8 sm:py-10 shadow-sm transition-all duration-200 hover:shadow-md hover:border-gray-300 cursor-pointer`}
+      className={`${cardWidth} h-auto min-h-0 sm:min-h-[420px] flex flex-col items-center rounded-xl border border-[#E5E5E5] px-4 py-6 sm:px-8 sm:py-10 shadow-sm transition-all duration-200 hover:shadow-md hover:border-gray-300 cursor-pointer`}
       style={{ backgroundColor }}
     >
       <div className="flex flex-col items-center flex-1 w-full">
