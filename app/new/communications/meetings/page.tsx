@@ -305,6 +305,11 @@ type SortColumn = "meeting" | "client" | "date" | "status";
 type SortDirection = "asc" | "desc";
 const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
 
+const SORT_OPTIONS: { value: string; label: string; column: SortColumn; direction: SortDirection }[] = [
+  { value: "date-desc", label: "Furthest Meeting Date", column: "date", direction: "desc" },
+  { value: "date-asc", label: "Closest Meeting Date", column: "date", direction: "asc" },
+];
+
 function PlanSearchBar({ plans, value, onChange, disabled, userSubdomain }: { plans: Client[]; value: string; onChange: (planId: string) => void; disabled?: boolean; userSubdomain?: string; }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -444,8 +449,7 @@ export default function MeetingsPage() {
   const [benefitsCategoryFilter, setBenefitsCategoryFilter] = useState("all");
   const [clientFilter, setClientFilter] = useState("all");
   const [sortColumn, setSortColumn] = useState<SortColumn>("date");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
-  const [activeTab, setActiveTab] = useState("upcoming");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const meetingFormRef = useRef<HTMLFormElement | null>(null);
@@ -706,6 +710,14 @@ export default function MeetingsPage() {
   };
   const handleGenerateWithAI = () => { toast.info("AI generation feature coming soon!"); };
   const handleSort = (column: SortColumn) => { if (sortColumn === column) setSortDirection(sortDirection === "asc" ? "desc" : "asc"); else { setSortColumn(column); setSortDirection("asc"); } };
+  const currentSortValue = `${sortColumn}-${sortDirection}`;
+  const handleSortSelect = (value: string) => {
+    const opt = SORT_OPTIONS.find((o) => o.value === value);
+    if (opt) {
+      setSortColumn(opt.column);
+      setSortDirection(opt.direction);
+    }
+  };
   const handleSaveAsDraft = async () => {
     setIsSubmitting(true);
     try {
@@ -777,12 +789,10 @@ export default function MeetingsPage() {
     setDurationHour("0"); setDurationMinute("0"); setErrors({}); setTimeConflictWarning(""); setHasConfirmedConflict(false); setEditingMeetingId(null); setMeetingModalOpen(false);
     toast.info("Edit cancelled. Form reset to create new meeting.");
   };
-  const now = new Date();
   // Earliest selectable meeting date: tomorrow (disable today and all past days).
   const minSelectableDate = addDays(startOfDay(new Date()), 1);
-  const upcomingMeetings = meetings.filter((m) => { if (m.status === "Draft") return true; const md = parseLocalDate(m.date); const [h, mn] = m.time.split(":").map(Number); const mdt = new Date(md); mdt.setHours(h, mn, 0, 0); return mdt >= now; });
-  const pastMeetings = meetings.filter((m) => { if (m.status === "Draft") return false; const md = parseLocalDate(m.date); const [h, mn] = m.time.split(":").map(Number); const mdt = new Date(md); mdt.setHours(h, mn, 0, 0); return mdt < now; });
-  const currentMeetings = activeTab === "upcoming" ? upcomingMeetings : pastMeetings;
+  // Show all meetings (upcoming + past + drafts) — the Upcoming/Past toggle was removed.
+  const currentMeetings = meetings;
   const filteredMeetings = currentMeetings.filter((m) => (statusFilter === "all" || m.status === statusFilter) && (clientFilter === "all" || m.client.toLowerCase() === clientFilter.toLowerCase()) && (benefitsCategoryFilter === "all" || m.benefitsCategory === benefitsCategoryFilter));
   const sortedMeetings = [...filteredMeetings].sort((a, b) => { let av: any = a[sortColumn]; let bv: any = b[sortColumn]; if (sortColumn === "date") { av = new Date(av).getTime(); bv = new Date(bv).getTime(); } else { av = av?.toString().toLowerCase() || ""; bv = bv?.toString().toLowerCase() || ""; } return sortDirection === "asc" ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1); });
 
@@ -819,13 +829,10 @@ export default function MeetingsPage() {
                 <div className="space-y-4">
                   {selectedPlanHasMeetings && (
                     <div className="flex items-center justify-start gap-2 flex-wrap">
-                      <div className="flex space-x-1 bg-[#F2F2F4] dark:bg-[#030303] border border-[#efefef] dark:border-[#1c1c1c] p-0.5 rounded-lg shrink-0">
-                        <button onClick={() => setActiveTab("upcoming")} className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 h-9 text-[0.75em] font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 min-w-[100px] ${activeTab === "upcoming" ? "bg-accent-blue dark:bg-accent-blue text-white shadow" : "text-muted-foreground hover:text-foreground"}`}>Upcoming ({upcomingMeetings.length})</button>
-                        <button onClick={() => setActiveTab("past")} className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 h-9 text-[0.75em] font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 min-w-[100px] ${activeTab === "past" ? "bg-accent-blue dark:bg-accent-blue text-white shadow" : "text-muted-foreground hover:text-foreground"}`}>Past ({pastMeetings.length})</button>
-                      </div>
-                      <div className="w-px h-9 bg-border mx-1 shrink-0" />
                       <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger className="w-32 h-9 bg-white dark:bg-gray-800 text-xs"><SelectValue placeholder="All Status" /></SelectTrigger><SelectContent><SelectItem value="all">All Status</SelectItem><SelectItem value="Upcoming">Upcoming</SelectItem><SelectItem value="Past">Past</SelectItem><SelectItem value="Draft">Draft</SelectItem></SelectContent></Select>
                       <Select value={benefitsCategoryFilter} onValueChange={setBenefitsCategoryFilter}><SelectTrigger className="w-40 h-9 bg-white dark:bg-gray-800 text-xs"><SelectValue placeholder="All Categories" /></SelectTrigger><SelectContent><SelectItem value="all">All Categories</SelectItem><SelectItem value="Retirement">Retirement</SelectItem><SelectItem value="Group Health">Group Health</SelectItem><SelectItem value="Group Life">Group Life</SelectItem><SelectItem value="Other">Other</SelectItem></SelectContent></Select>
+                      <div className="w-px h-9 bg-border mx-1 shrink-0" />
+                      <Select value={currentSortValue} onValueChange={handleSortSelect}><SelectTrigger className="w-44 h-9 bg-white dark:bg-gray-800 text-xs"><SelectValue placeholder="Sort by" /></SelectTrigger><SelectContent>{SORT_OPTIONS.map((o) => (<SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>))}</SelectContent></Select>
                       <div className="w-px h-9 bg-border mx-1 shrink-0" />
                       <Button variant="outline" onClick={() => setPreviewDialogOpen(true)} className="gap-1.5 flex-1"><FileText className="h-4 w-4" />Preview</Button>
                       <Button onClick={() => { resetMeetingForm(); setMeetingModalOpen(true); }} className="gap-1.5 flex-1"><Plus className="h-4 w-4" />Add Meeting</Button>
