@@ -174,7 +174,7 @@ export default function MyBenefitsTeamPage() {
         {/* TITLE */}
         <div className="text-center">
           <h1
-            className="text-4xl font-semibold"
+            className="text-4xl font-semibold mb-8"
             style={{
               fontFamily: '"DM Serif Display", serif',
               color: brandColor,
@@ -253,8 +253,9 @@ export default function MyBenefitsTeamPage() {
    LAYOUT COMPONENTS
 --------------------------------------------------- */
 
-// Layout 4 (displayStyle 4): 2 large horizontal (top row) + 3 small vertical (bottom row)
-// Mirrors step-3d.tsx displayStyle 4 EXACTLY.
+// Layout 4 (displayStyle 4): all compact vertical cards — 2 top row + 3 bottom row
+// Mirrors step-3d.tsx displayStyle 4 EXACTLY — step-3d converts "large" slots
+// to compact SmallVerticalCard on desktop, so every card renders vertically.
 function Layout4({
   primaryContact,
   rest,
@@ -280,10 +281,10 @@ function Layout4({
 
   return (
     <div className="space-y-4">
-      {/* 2 LARGE HORIZONTAL CARDS */}
+      {/* TOP ROW — 2 vertical cards */}
       <div className="grid w-full min-w-0 grid-cols-1 md:grid-cols-2 gap-4 [&>*]:min-w-0">
         {showPrimary && primaryContact && (
-          <LargeHorizontalCard
+          <SmallVerticalCard
             contact={{
               ...primaryContact,
               isPrimary: true,
@@ -297,7 +298,7 @@ function Layout4({
           />
         )}
         {first && (
-          <LargeHorizontalCard
+          <SmallVerticalCard
             contact={{
               ...first,
               isPrimary: false,
@@ -312,7 +313,7 @@ function Layout4({
         )}
       </div>
 
-      {/* SMALL VERTICAL CARDS - Show all remaining contacts */}
+      {/* BOTTOM ROW — remaining vertical cards */}
       {smallCards.length > 0 && (
         <div className="grid w-full min-w-0 grid-cols-2 sm:grid-cols-3 gap-4 [&>*]:min-w-0">
           {smallCards.map((contact, index) => (
@@ -336,8 +337,9 @@ function Layout4({
   );
 }
 
-// Layout 2 (displayStyle 2): 4 large horizontal (2×2 grid)
-// Mirrors step-3d.tsx displayStyle 2 EXACTLY.
+// Layout 2 (displayStyle 2): compact vertical cards in a 2×2 grid
+// Mirrors step-3d.tsx displayStyle 2 EXACTLY — step-3d converts "large"
+// slots to compact SmallVerticalCard for Layout 2 on desktop.
 function Layout2({
   contacts,
   visibility,
@@ -364,7 +366,7 @@ function Layout2({
   return (
     <div className="grid w-full min-w-0 grid-cols-1 md:grid-cols-2 gap-4 [&>*]:min-w-0">
       {contactsWithPrimary.map((contact, index) => (
-        <LargeHorizontalCard
+        <SmallVerticalCard
           key={contact.id || index}
           contact={contact}
           brandColor={brandColor}
