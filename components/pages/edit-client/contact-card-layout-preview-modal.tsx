@@ -573,10 +573,11 @@ export function ContactCardLayoutPreviewModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
         {/* ── Fixed Header: controls + expandable layout previews inline ── */}
-        <div className="shrink-0 bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-6 py-3">
+        {/* pr-14 reserves space for the Dialog's built-in Close (X) button at top-right */}
+        <div className="shrink-0 bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-6 py-3 pr-14">
           {/* ── Controls bar ── */}
           <div className="flex items-center justify-between gap-4">
-            <div>
+            <div className="my-4">
               <DialogTitle className="text-lg m-0 dark:text-gray-100">Contact Card Layout Preview</DialogTitle>
               <DialogDescription className="mt-0.5 dark:text-gray-400">
                 Choose how contact cards appear on the employee portal. Switch
