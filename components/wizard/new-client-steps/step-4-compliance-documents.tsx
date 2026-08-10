@@ -820,6 +820,10 @@ export function NewClientStep4({
             getDocumentType={getDocumentType}
             onDelete={(id, name) => handleDeleteClick(id, name)}
             onDownload={(id, name) => handleDownload(id, name)}
+            compact
+            hideUploadedTime
+            showActionTooltips
+            showDirectEditDelete
             onEdit={(id, title, updates) => {
               if (updates?.category !== undefined) {
                 const docIndex = retirementPlanDocuments.findIndex((d) => d.id === id);

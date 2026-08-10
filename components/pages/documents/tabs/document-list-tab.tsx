@@ -20,6 +20,14 @@ interface DocumentListTabProps {
   availableCategories?: string[];
   /** Switches parent to Upload tab when list is empty */
   onGoToUpload?: () => void;
+  /** Compact rows with smaller font sizes (wizard List tab). */
+  compact?: boolean;
+  /** Hide the upload time, showing only the date. */
+  hideUploadedTime?: boolean;
+  /** Show tooltips on the quick action buttons. */
+  showActionTooltips?: boolean;
+  /** Render Edit/Delete as direct buttons instead of the "..." menu. */
+  showDirectEditDelete?: boolean;
 }
 
 export function DocumentListTab({
@@ -36,6 +44,10 @@ export function DocumentListTab({
   onEdit,
   availableCategories,
   onGoToUpload,
+  compact = false,
+  hideUploadedTime = false,
+  showActionTooltips = false,
+  showDirectEditDelete = false,
 }: DocumentListTabProps) {
   if (!selectedPlan) {
     return (
@@ -96,6 +108,10 @@ export function DocumentListTab({
           getDocumentType={getDocumentType}
           onEdit={onEdit}
           availableCategories={availableCategories}
+          compact={compact}
+          hideUploadedTime={hideUploadedTime}
+          showActionTooltips={showActionTooltips}
+          showDirectEditDelete={showDirectEditDelete}
         />
       </CardContent>
     </Card>
