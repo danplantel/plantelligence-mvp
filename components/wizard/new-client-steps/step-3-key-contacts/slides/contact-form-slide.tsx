@@ -381,10 +381,16 @@ export function ContactFormSlide({
   const [headshotFileName, setHeadshotFileName] = useState<string>(
     step3bData.headshotFileName || "",
   );
-  // Company/Organization always starts blank for new contacts.
-  // When editing an existing contact, the editingContactId useEffect
-  // below restores the saved companyName from step3b data.
-  const [companyName, setCompanyName] = useState("");
+  // Company/Organization starts blank for new contacts, but is restored from
+  // step3b when editing an existing contact (editingContactId set) or when
+  // returning to a Someone Else form that already has a saved value (e.g.
+  // Next → Category Explorer → back). This keeps the field populated across
+  // slide navigation/remounts, matching how all other fields are initialised.
+  const restoreCompanyName =
+    Boolean(step3bData.editingContactId) || isFromSomeoneElse;
+  const [companyName, setCompanyName] = useState(
+    restoreCompanyName ? step3bData.companyName || "" : "",
+  );
   const [isPrimary, setIsPrimary] = useState(
     category === "Company / Plan Sponsor"
       ? true
@@ -1282,6 +1288,7 @@ export function ContactFormSlide({
                   Company / Organization <span className="text-red-500">*</span>
                 </Label>
                 <Input
+                  value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
                   placeholder="e.g. Benefits Provider Inc."
                   className="h-8 text-sm"
