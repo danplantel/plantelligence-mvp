@@ -780,19 +780,7 @@ export const validateNewClientCurrentStepV2 = async (step: number, stepData: any
               }
             }
 
-            // Phone validation
-            if (!contact.phone || contact.phone.trim() === "") {
-              step3Errors.push({
-                field: `phone`,
-                contactId: contactId,
-                contactName: contactIdentifier,
-              });
-              step3Errors.push({
-                field: `contact_${contactId}_phone`,
-                contactId: contactId,
-                contactName: contactIdentifier,
-              });
-            }
+            // Phone is optional — no required validation.
 
             // Scheduling URL is required when the "Schedule Appt." CTA is enabled
             const enableContactButton = contact.enableContactButton === true;

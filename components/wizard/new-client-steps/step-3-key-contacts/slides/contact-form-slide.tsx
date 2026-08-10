@@ -414,8 +414,10 @@ export function ContactFormSlide({
   const [displayEmail, setDisplayEmail] = useState(
     step3bData.displayEmail ?? true,
   );
+  // Phone "show on card" toggle: defaults to unchecked when there is no phone
+  // value to display; otherwise respects the saved preference.
   const [displayPhone, setDisplayPhone] = useState(
-    step3bData.displayPhone ?? true,
+    phone ? (step3bData.displayPhone ?? true) : false,
   );
 
   // Custom Benefits description — only shown when category is "Other Benefits"
@@ -532,7 +534,7 @@ export function ContactFormSlide({
             })(),
       );
       setDisplayEmail(sb.displayEmail ?? true);
-      setDisplayPhone(sb.displayPhone ?? true);
+      setDisplayPhone(sb.phone ? (sb.displayPhone ?? true) : false);
       setEnableCtaButton(sb.enableContactButton ?? false);
       setCtaType(sb.ctaType || "schedule");
       setSchedulingUrl(sb.schedulingUrl || "");
@@ -542,6 +544,21 @@ export function ContactFormSlide({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [(stepData as any)?.step3b?.editingContactId]);
+
+  // Keep the Phone "show on card" toggle in sync with the phone field: uncheck
+  // when there is no phone value, and auto-check when the user first adds one.
+  // An explicit display preference on an already-populated contact is preserved
+  // (the ref ensures we only auto-check on the empty → non-empty transition).
+  const prevPhoneRef = useRef(phone);
+  useEffect(() => {
+    const prevPhone = prevPhoneRef.current;
+    prevPhoneRef.current = phone;
+    if (!phone) {
+      setDisplayPhone(false);
+    } else if (!prevPhone) {
+      setDisplayPhone(true);
+    }
+  }, [phone]);
 
   // Focus first name on mount for guided mode
   useEffect(() => {
@@ -1071,8 +1088,6 @@ export function ContactFormSlide({
       errors.push("companyName");
     }
 
-    if (!phone.trim()) errors.push("phone");
-
     // Scheduling URL is required when the "Schedule Appt." CTA is enabled
     if (enableCtaButton && ctaType === "schedule" && !schedulingUrl.trim()) {
       errors.push("schedulingUrl");
@@ -1119,7 +1134,6 @@ export function ContactFormSlide({
     title,
     displayName,
     email,
-    phone,
     customBenefits,
     category,
     enableCtaButton,
@@ -1426,7 +1440,7 @@ export function ContactFormSlide({
 
             <div className="space-y-1" data-field="phone">
               <Label className="dark:text-gray-300 text-xs font-medium">
-                Phone <span className="text-red-500">*</span>
+                Phone
               </Label>
               <div className="flex gap-2">
                 <div className="flex-1">
@@ -1482,9 +1496,6 @@ export function ContactFormSlide({
                   />
                 </div>
               </div>
-              {hasError("phone") && (
-                <p className="text-[10px] text-red-500">Phone number is required</p>
-              )}
             </div>
 
             {/* Call-to-Action Button Section */}
