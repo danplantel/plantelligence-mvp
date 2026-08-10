@@ -740,64 +740,6 @@ export function NewClientStep4({
               disabled: isInlineSkipLoading,
             }}
           />
-
-          {/* Document Preview with Language Switcher */}
-          {retirementPlanDocuments.length > 0 && (
-            <div className="mt-4">
-              {/* Language Switcher */}
-              {availableLanguages.length > 1 && (
-                <div className="mb-6 flex flex-wrap gap-2">
-                  {availableLanguages.map((lang) => {
-                    const isActive = previewLanguage === lang;
-                    return (
-                      <button
-                        key={lang}
-                        type="button"
-                        onClick={() => {
-                          setPreviewLanguage(lang);
-                        }}
-                        className={`rounded-full px-5 py-2 text-[16px] leading-tight font-red-hat font-semibold border transition-colors ${isActive
-                          ? "bg-[#002B5B] text-white border-[#002B5B]"
-                          : "bg-white text-[#002B5B] border-[#D1D5DB] hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600"
-                          }`}
-                        style={
-                          isActive
-                            ? {
-                              backgroundColor: primaryColor,
-                              borderColor: primaryColor,
-                            }
-                            : {}
-                        }
-                      >
-                        {lang === "EN" ? "ENGLISH" : "ESPAÑOL"}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Filtered Documents Preview */}
-              {retirementDocs.length === 0 ? (
-                <div className="flex items-center justify-center py-20">
-                  <p className="text-gray-600 text-lg dark:text-gray-400">
-                    No documents found.
-                  </p>
-                </div>
-              ) : (
-                <DocumentPreviewTab
-                  selectedPlan="current-plan"
-                  isLoading={false}
-                  documents={retirementDocs}
-                  onDelete={handleDeleteClick}
-                  onDownload={handleDownload}
-                  onDocumentsChange={refreshDocuments}
-                  onSaveEdit={handleSaveEdit}
-                  brandColor={primaryColor}
-                  accentColor={secondaryColor}
-                />
-              )}
-            </div>
-          )}
         </TabsContent>
 
         <TabsContent value="list" className="mt-6">
@@ -902,17 +844,6 @@ export function NewClientStep4({
               })}
             </div>
           )}
-
-          {/* All Docs: takes you back to document list (List tab) */}
-          <div className="mb-4">
-            <button
-              type="button"
-              onClick={() => setActiveTab("list")}
-              className="text-sm font-medium hover:underline text-[#002B5B] dark:text-gray-200"
-            >
-              ← All Docs
-            </button>
-          </div>
 
           {/* Category Filter Tabs - only benefit categories (no All Docs as category; Preview mimics hub) */}
           <div className="mb-8 flex flex-wrap gap-2 border-b pb-4">

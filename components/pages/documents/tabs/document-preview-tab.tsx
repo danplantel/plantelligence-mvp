@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { DocumentsCardsView } from "../views/documents-cards-view";
 import type { RetirementDocumentItem } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
 import { BenefitsCategory } from "@/types/new-client-wizard";
@@ -67,16 +68,14 @@ export function DocumentPreviewTab({
   return (
     <div className="space-y-6">
       {isInfoVisible && (
-        <div className="bg-blue-50 border border-blue-200 rounded-md p-4 pr-10 flex items-start gap-3 relative dark:bg-accent-blue/10 dark:border-accent-blue/30">
-          <div className="text-blue-500 mt-0.5 shrink-0 dark:text-accent-blue-light">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line x1="12" x2="12.01" y1="16" y2="16" /></svg>
-          </div>
-          <div className="space-y-1 flex-1">
-            <p className="text-sm text-blue-800 font-medium dark:text-accent-blue-light">This is how the documents will display on the Benefits Hub. Please confirm order, titles and descriptions of document cards, you can edit them here.</p>
-            {showWizardNextHint && (
-              <p className="text-sm text-blue-700 dark:text-accent-blue-light">From this stage, clicking the footer Next button will take you to the next step.</p>
-            )}
-          </div>
+        <Alert className="relative mb-6 border-blue-200 bg-blue-50 pr-10 dark:border-blue-800 dark:bg-blue-950/30">
+          <AlertTitle className="text-sm font-semibold text-blue-800 dark:text-blue-300">
+            Plan Documents Overview
+          </AlertTitle>
+          {showWizardNextHint && (
+            <AlertDescription className="text-xs text-blue-700 dark:text-blue-400">
+              This is how the documents will display on the Benefits Hub. Please confirm order, titles and descriptions of document cards, you can edit them here.            </AlertDescription>
+          )}
           <button
             type="button"
             onClick={() => setIsInfoVisible(false)}
@@ -85,7 +84,7 @@ export function DocumentPreviewTab({
           >
             <X className="h-4 w-4" />
           </button>
-        </div>
+        </Alert>
       )}
 
       {documents.length === 0 ? (

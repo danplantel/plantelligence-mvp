@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DocumentsUploadSection } from "@/components/wizard/new-client-steps/sections/documents-upload-section";
 import { FileText } from "lucide-react";
 import {
@@ -1194,28 +1193,14 @@ export function ComplianceDocumentsUpload({
   return (
     <div className={compact ? "space-y-3 min-w-0" : "space-y-4"}>
       {showInfoCard && (
-        <Card className="bg-blue-50 border-blue-200 dark:bg-accent-blue/10 dark:border-accent-blue/30">
-          <CardContent
-            className={
-              compact ? "py-3 px-4" : "py-4 sm:py-6 p-4 sm:p-6"
-            }
-          >
-            <div className="flex items-start gap-2 sm:gap-3">
-              <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-accent-blue mt-0.5 flex-shrink-0" />
-              <div>
-                <p
-                  className={
-                    compact
-                      ? "text-sm leading-snug text-blue-900 font-medium dark:text-accent-blue-light"
-                      : "text-sm sm:text-base md:text-lg leading-relaxed text-blue-900 font-medium dark:text-accent-blue-light"
-                  }
-                >
-                  {infoCardText}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <Alert className="mb-6 border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30">
+          <AlertTitle className="text-sm font-semibold text-blue-800 dark:text-blue-300">
+            Plan Documents Overview
+          </AlertTitle>
+          <AlertDescription className="text-xs text-blue-700 dark:text-blue-400">
+            {infoCardText}
+          </AlertDescription>
+        </Alert>
       )}
 
       {mixedCategoryBanner && uncategorizedDocuments.length > 0 && (
