@@ -511,7 +511,6 @@ export default function MeetingsPage() {
   }});
   useEffect(() => { fetchCustomMeetings(); }, [fetchCustomMeetings]);
   useEffect(() => { setAllMeetingTypes([...customMeetings]); }, [customMeetings, debugSavedMeetings]);
-  const toastShownRef = useRef(false);
   useEffect(() => {
     const clientParam = searchParams.get("client");
     const idFromUrl = searchParams.get("planId")?.trim() || searchParams.get("clientId")?.trim() || null;
@@ -523,7 +522,6 @@ export default function MeetingsPage() {
         const found = clients.find((c) => c.companyName.toLowerCase() === clientParam.toLowerCase());
         setFormData((prev) => ({ ...prev, client: found?.companyName ?? clientParam, clientId: found?.id ?? "" }));
         if (found) setSelectedPlan(found.id);
-        if (!toastShownRef.current) { toastShownRef.current = true; setTimeout(() => { toast.success(`Meeting form pre-filled with ${clientParam}`); }, 300); }
       }
     } else if (idFromUrl && clients.length > 0) {
       const client = clients.find((c) => c.id === idFromUrl);
@@ -532,7 +530,6 @@ export default function MeetingsPage() {
         setClientFilter(client.companyName);
         setSelectedPlan(client.id);
         persistPlanSelection("communications", client.id);
-        if (!toastShownRef.current) { toastShownRef.current = true; setTimeout(() => { toast.success(`Meeting form pre-filled with ${client.companyName}`); }, 300); }
       }
     }
   }, [searchParams, clients]);
@@ -659,14 +656,25 @@ export default function MeetingsPage() {
     return Object.keys(newErrors).length === 0;
   };
   const resetMeetingForm = useCallback(() => {
-    setFormData({ ...DEFAULT_MEETING_FORM_DATA });
+    // Keep the currently selected plan so it's not lost when the modal opens
+    // (the plan is chosen before the "Schedule a Meeting" dialog is shown).
+    // Resolve from `selectedPlan` (never cleared by resets) rather than the
+    // previous form values, which other flows (e.g. cancel edit) can wipe.
+    setFormData((prev) => {
+      const plan = clients.find((c) => c.id === selectedPlan);
+      return {
+        ...DEFAULT_MEETING_FORM_DATA,
+        client: plan?.companyName ?? prev.client,
+        clientId: plan?.id ?? prev.clientId,
+      };
+    });
     setDurationHour("0");
     setDurationMinute("0");
     setErrors({});
     setTimeConflictWarning("");
     setHasConfirmedConflict(false);
     setEditingMeetingId(null);
-  }, []);
+  }, [clients, selectedPlan]);
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.clientId) { toast.error("You must select a plan before scheduling a meeting"); return; }
@@ -1153,6 +1161,11 @@ export default function MeetingsPage() {
       <Dialog open={postSaveDialogOpen} onOpenChange={setPostSaveDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
+            <div className="flex justify-center mb-2">
+              <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
+              </div>
+            </div>
             <DialogTitle>Meeting Created</DialogTitle>
             <DialogDescription>
               The meeting has been successfully scheduled. Would you like to create a duplicate of this meeting?
@@ -1160,20 +1173,20 @@ export default function MeetingsPage() {
           </DialogHeader>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => {
-              setFormData({ ...DEFAULT_MEETING_FORM_DATA, client: formData.client, clientId: formData.clientId });
-              setDurationHour("0");
-              setDurationMinute("0");
-              setPostSaveDialogOpen(false);
-            }}>
-              No
-            </Button>
-            <Button onClick={() => {
               const currentData = { ...formData };
               setPostSaveDialogOpen(false);
               setMeetingModalOpen(true);
               toast.success("Form pre-filled for duplication. Adjust any details and submit.");
             }}>
               Yes, duplicate
+            </Button>
+            <Button onClick={() => {
+              setFormData({ ...DEFAULT_MEETING_FORM_DATA, client: formData.client, clientId: formData.clientId });
+              setDurationHour("0");
+              setDurationMinute("0");
+              setPostSaveDialogOpen(false);
+            }}>
+              No
             </Button>
           </DialogFooter>
         </DialogContent>
