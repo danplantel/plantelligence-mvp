@@ -1784,16 +1784,17 @@ export function ContactFormSlide({
               name:
                 contactType === "individual"
                   ? `${firstName} ${lastName}`.trim()
-                  : displayName || "Team Name",
+                  : displayName,
               firstName,
               lastName,
-              title: contactType === "individual" ? title || "Job Title" : undefined,
+              title: contactType === "individual" ? title : undefined,
               displayName: contactType === "team_support" ? displayName : undefined,
               email,
               phone,
               phoneExtension,
               headshot,
-              companyName: companyName || defaultCompanyName,
+              companyName:
+                companyName || (!isFromSomeoneElse ? defaultCompanyName : ""),
               companyLogo:
                 category !== "Company / Plan Sponsor" && externalAdminLogo
                   ? externalAdminLogo
@@ -1820,11 +1821,14 @@ export function ContactFormSlide({
             brandColor={brandColor}
             secondaryColor={secondaryColor}
             appointmentLink={stepData?.companyBasics?.appointmentLink || ""}
-            companyName={companyName || defaultCompanyName}
+            companyName={
+              companyName || (!isFromSomeoneElse ? defaultCompanyName : "")
+            }
             index={0}
             disableAnimation={true}
             baselineBackgroundColor="#ffffff"
             compact={true}
+            previewPlaceholders
           />
         </StickyPreviewContainer>
       </div>

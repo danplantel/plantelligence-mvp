@@ -65,6 +65,9 @@ interface SmallVerticalCardProps {
   /** When true, reduces padding, margins, avatar, text, and min-height for compact
    *  display in constrained containers such as the mobile wizard preview grid. */
   compact?: boolean;
+  /** When true, renders muted [placeholder] labels for any missing card data
+   *  (used only by the wizard's live Portal Preview — never real portal cards). */
+  previewPlaceholders?: boolean;
 }
 
 export function SmallVerticalCard({
@@ -79,6 +82,7 @@ export function SmallVerticalCard({
   baselineBackgroundColor,
   baselineLogoScale,
   compact = false,
+  previewPlaceholders = false,
 }: SmallVerticalCardProps) {
   const isPrimary = contact.isPrimary || false;
   const effectiveBrandColor = contact.cardPrimaryColor || brandColor;
@@ -115,6 +119,42 @@ export function SmallVerticalCard({
   const buttons = [];
   let primaryIndex = -1;
   const isTeamSupport = contact.contactType === "team_support";
+
+  const showPlaceholders = previewPlaceholders === true;
+
+  // Resolved display values — used by both render paths below. When
+  // `showPlaceholders` is true and a value is missing, a muted [placeholder]
+  // label is rendered so the wizard's Portal Preview communicates what data
+  // is expected (e.g. [First & Last Name], [Company Name], [Headshot]).
+  const resolvedCardName = isTeamSupport
+    ? contact.displayName || contact.name
+    : `${contact.firstName || ""} ${contact.lastName || ""}`.trim() ||
+      contact.name;
+  const displayNameText =
+    resolvedCardName ||
+    (showPlaceholders
+      ? isTeamSupport
+        ? "[Team Name]"
+        : "[First & Last Name]"
+      : "");
+
+  const resolvedCardTitle = isTeamSupport
+    ? contact.departmentLabel || contact.customRole
+    : contact.title || contact.customRole;
+  const displayTitleText =
+    resolvedCardTitle ||
+    (showPlaceholders
+      ? isTeamSupport
+        ? "[Department]"
+        : "[Job Title]"
+      : "");
+
+  const resolvedCardCompany = contact.companyName || companyName;
+  const displayCompanyText =
+    resolvedCardCompany || (showPlaceholders ? "[Company Name]" : "");
+
+  const hasAvatarImage = Boolean(contact.headshot || contact.teamImage);
+  const showHeadshotPlaceholder = showPlaceholders && !hasAvatarImage;
 
   // Check if a CTA button was explicitly configured via the wizard
   const hasEnabledCta = contact.enableContactButton === true;
@@ -235,38 +275,62 @@ export function SmallVerticalCard({
           </div>
 
           {/* PROFILE PICTURE */}
-          <div className={`relative ${avatarSize} overflow-hidden rounded-full ${gapAvatar} flex-shrink-0`}>
-            <ContactAvatar contact={contact} />
+          <div
+            className={`relative ${
+              showHeadshotPlaceholder ? "h-[90px] w-[90px]" : avatarSize
+            } overflow-hidden rounded-full ${gapAvatar} flex-shrink-0 ${
+              showHeadshotPlaceholder
+                ? "flex items-center justify-center bg-gray-50"
+                : ""
+            }`}
+          >
+            {showHeadshotPlaceholder ? (
+              <span className="text-[10px] sm:text-xs font-medium italic text-gray-400">
+                [Headshot]
+              </span>
+            ) : (
+              <ContactAvatar contact={contact} />
+            )}
           </div>
 
           {/* NAME */}
           <h3
             className={`${nameSize} font-semibold ${gapName} text-center flex-shrink-0 font-dm-serif w-full max-w-full whitespace-nowrap overflow-hidden text-ellipsis px-1`}
-            style={{ color: effectiveBrandColor }}
+            style={{
+              color:
+                showPlaceholders && !resolvedCardName
+                  ? "#9CA3AF"
+                  : effectiveBrandColor,
+            }}
           >
-            {contact.contactType === "team_support"
-              ? contact.displayName || contact.name
-              : `${contact.firstName || ""} ${contact.lastName || ""}`.trim() ||
-              contact.name}
+            {displayNameText}
           </h3>
 
           {/* TITLE / DEPARTMENT LABEL */}
           <p
             className={`${subtitleSize} font-medium ${gapTitle} text-center font-red-hat flex-shrink-0`}
-            style={{ color: textColor || "#374151" }}
+            style={{
+              color:
+                showPlaceholders && !resolvedCardTitle
+                  ? "#9CA3AF"
+                  : textColor || "#374151",
+            }}
           >
-            {contact.contactType === "team_support"
-              ? contact.departmentLabel || contact.customRole
-              : contact.title || contact.customRole}
+            {displayTitleText}
           </p>
 
           {/* COMPANY NAME */}
-          {(contact.companyName || companyName) && (
+          {(resolvedCardCompany || showPlaceholders) && (
             <p
               className={`${subtitleSize} font-semibold ${gapCompany} text-center flex-shrink-0 font-dm-serif`}
-              style={{ color: effectiveBrandColor }}
+              style={{
+                color:
+                  showPlaceholders && !resolvedCardCompany
+                    ? "#9CA3AF"
+                    : effectiveBrandColor,
+              }}
             >
-              {contact.companyName || companyName}
+              {displayCompanyText}
             </p>
           )}
         </div>
@@ -277,11 +341,10 @@ export function SmallVerticalCard({
         >
           {/* Display contact info in the specified order */}
           {contactInfoOrder.map((infoType: ContactInfoType) => {
-            if (
-              infoType === "email" &&
-              contact.email &&
-              contact.displayEmail !== false
-            ) {
+            if (infoType === "email") {
+              if (contact.displayEmail === false) return null;
+              const hasEmail = Boolean(contact.email);
+              if (!hasEmail && !showPlaceholders) return null;
               return (
                 <p
                   key="email"
@@ -293,36 +356,41 @@ export function SmallVerticalCard({
                     className="transition-colors duration-200"
                     style={{ color: textColor || effectiveSecondaryColor }}
                   />
-                  <a
-                    className="underline text-center transition-colors duration-200"
-                    style={
-                      {
-                        color: textColor || "#4B5563",
-                        "--hover-color": isPrimary
+                  {contact.email ? (
+                    <a
+                      className="underline text-center transition-colors duration-200"
+                      style={
+                        {
+                          color: textColor || "#4B5563",
+                          "--hover-color": isPrimary
+                            ? "rgba(255,255,255,0.8)"
+                            : effectiveBrandColor,
+                        } as React.CSSProperties & { "--hover-color": string }
+                      }
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.color = isPrimary
                           ? "rgba(255,255,255,0.8)"
-                          : effectiveBrandColor,
-                      } as React.CSSProperties & { "--hover-color": string }
-                    }
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.color = isPrimary
-                        ? "rgba(255,255,255,0.8)"
-                        : effectiveBrandColor;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.color = textColor || "#4B5563";
-                    }}
-                    href={`mailto:${contact.email}`}
-                  >
-                    {contact.email}
-                  </a>
+                          : effectiveBrandColor;
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.color = textColor || "#4B5563";
+                      }}
+                      href={`mailto:${contact.email}`}
+                    >
+                      {contact.email}
+                    </a>
+                  ) : (
+                    <span className="text-center italic text-gray-400">
+                      [Email]
+                    </span>
+                  )}
                 </p>
               );
             }
-            if (
-              infoType === "phone" &&
-              contact.phone &&
-              contact.displayPhone !== false
-            ) {
+            if (infoType === "phone") {
+              if (contact.displayPhone === false) return null;
+              const hasPhone = Boolean(contact.phone);
+              if (!hasPhone && !showPlaceholders) return null;
               return (
                 <p
                   key="phone"
@@ -334,28 +402,34 @@ export function SmallVerticalCard({
                     className="transition-colors duration-200"
                     style={{ color: textColor || effectiveSecondaryColor }}
                   />
-                  <a
-                    className="underline text-center transition-colors duration-200"
-                    style={
-                      {
-                        color: textColor || "#4B5563",
-                        "--hover-color": isPrimary
+                  {contact.phone ? (
+                    <a
+                      className="underline text-center transition-colors duration-200"
+                      style={
+                        {
+                          color: textColor || "#4B5563",
+                          "--hover-color": isPrimary
+                            ? "rgba(255,255,255,0.8)"
+                            : effectiveBrandColor,
+                        } as React.CSSProperties & { "--hover-color": string }
+                      }
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.color = isPrimary
                           ? "rgba(255,255,255,0.8)"
-                          : effectiveBrandColor,
-                      } as React.CSSProperties & { "--hover-color": string }
-                    }
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.color = isPrimary
-                        ? "rgba(255,255,255,0.8)"
-                        : effectiveBrandColor;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.color = textColor || "#4B5563";
-                    }}
-                    href={getBasePhoneForDialing(contact.phone)}
-                  >
-                    {formatPhoneWithExtension(contact.phone, contact.phoneExtension)}
-                  </a>
+                          : effectiveBrandColor;
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.color = textColor || "#4B5563";
+                      }}
+                      href={getBasePhoneForDialing(contact.phone)}
+                    >
+                      {formatPhoneWithExtension(contact.phone, contact.phoneExtension)}
+                    </a>
+                  ) : (
+                    <span className="text-center italic text-gray-400">
+                      [Phone]
+                    </span>
+                  )}
                 </p>
               );
             }
@@ -449,38 +523,64 @@ export function SmallVerticalCard({
         </div>
 
         {/* PROFILE PICTURE */}
-        <div className="relative h-[60px] w-[60px] sm:h-[90px] sm:w-[90px] overflow-hidden rounded-full mb-3 sm:mb-6 flex-shrink-0">
-          <ContactAvatar contact={contact} />
+        <div
+          className={`relative ${
+            showHeadshotPlaceholder
+              ? "h-[90px] w-[90px] sm:h-[135px] sm:w-[135px]"
+              : "h-[60px] w-[60px] sm:h-[90px] sm:w-[90px]"
+          } overflow-hidden rounded-full mb-3 sm:mb-6 flex-shrink-0 ${
+            showHeadshotPlaceholder
+              ? "flex items-center justify-center bg-gray-50"
+              : ""
+          }`}
+        >
+          {showHeadshotPlaceholder ? (
+            <span className="text-xs sm:text-sm font-medium italic text-gray-400">
+              [Headshot]
+            </span>
+          ) : (
+            <ContactAvatar contact={contact} />
+          )}
         </div>
 
         {/* NAME */}
         <h3
           className="text-sm sm:text-lg font-semibold mb-1 sm:mb-2 text-center flex-shrink-0 font-dm-serif w-full max-w-full whitespace-nowrap overflow-hidden text-ellipsis px-1"
-          style={{ color: effectiveBrandColor }}
+          style={{
+            color:
+              showPlaceholders && !resolvedCardName
+                ? "#9CA3AF"
+                : effectiveBrandColor,
+          }}
         >
-          {contact.contactType === "team_support"
-            ? contact.displayName || contact.name
-            : `${contact.firstName || ""} ${contact.lastName || ""}`.trim() ||
-            contact.name}
+          {displayNameText}
         </h3>
 
         {/* TITLE / DEPARTMENT LABEL */}
         <p
           className="text-xs sm:text-sm font-medium mb-1 sm:mb-2 text-center font-red-hat flex-shrink-0"
-          style={{ color: textColor || "#374151" }}
+          style={{
+            color:
+              showPlaceholders && !resolvedCardTitle
+                ? "#9CA3AF"
+                : textColor || "#374151",
+          }}
         >
-          {contact.contactType === "team_support"
-            ? contact.departmentLabel || contact.customRole
-            : contact.title || contact.customRole}
+          {displayTitleText}
         </p>
 
         {/* COMPANY NAME */}
-        {(contact.companyName || companyName) && (
+        {(resolvedCardCompany || showPlaceholders) && (
           <p
             className="text-sm sm:text-base font-semibold mb-2 sm:mb-3 text-center flex-shrink-0 font-dm-serif"
-            style={{ color: effectiveBrandColor }}
+            style={{
+              color:
+                showPlaceholders && !resolvedCardCompany
+                  ? "#9CA3AF"
+                  : effectiveBrandColor,
+            }}
           >
-            {contact.companyName || companyName}
+            {displayCompanyText}
           </p>
         )}
       </div>
@@ -491,7 +591,9 @@ export function SmallVerticalCard({
       >
         {/* Display contact info in the specified order */}
         {contactInfoOrder.map((infoType: ContactInfoType) => {
-          if (infoType === "email" && contact.email) {
+          if (infoType === "email") {
+            const hasEmail = Boolean(contact.email);
+            if (!hasEmail && !showPlaceholders) return null;
             return (
               <p
                 key="email"
@@ -502,32 +604,40 @@ export function SmallVerticalCard({
                   className="w-[14px] h-[14px] sm:w-[18px] sm:h-[18px] transition-colors duration-200"
                   style={{ color: textColor || effectiveSecondaryColor }}
                 />
-                <a
-                  className="underline text-center transition-colors duration-200"
-                  style={
-                    {
-                      color: textColor || "#4B5563",
-                      "--hover-color": isPrimary
+                {contact.email ? (
+                  <a
+                    className="underline text-center transition-colors duration-200"
+                    style={
+                      {
+                        color: textColor || "#4B5563",
+                        "--hover-color": isPrimary
+                          ? "rgba(255,255,255,0.8)"
+                          : effectiveBrandColor,
+                      } as React.CSSProperties & { "--hover-color": string }
+                    }
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = isPrimary
                         ? "rgba(255,255,255,0.8)"
-                        : effectiveBrandColor,
-                    } as React.CSSProperties & { "--hover-color": string }
-                  }
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.color = isPrimary
-                      ? "rgba(255,255,255,0.8)"
-                      : effectiveBrandColor;
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.color = textColor || "#4B5563";
-                  }}
-                  href={`mailto:${contact.email}`}
-                >
-                  {contact.email}
-                </a>
+                        : effectiveBrandColor;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = textColor || "#4B5563";
+                    }}
+                    href={`mailto:${contact.email}`}
+                  >
+                    {contact.email}
+                  </a>
+                ) : (
+                  <span className="text-center italic text-gray-400">
+                    [Email]
+                  </span>
+                )}
               </p>
             );
           }
-          if (infoType === "phone" && contact.phone) {
+          if (infoType === "phone") {
+            const hasPhone = Boolean(contact.phone);
+            if (!hasPhone && !showPlaceholders) return null;
             return (
               <p
                 key="phone"
@@ -538,28 +648,34 @@ export function SmallVerticalCard({
                   className="w-[14px] h-[14px] sm:w-[18px] sm:h-[18px] transition-colors duration-200"
                   style={{ color: textColor || effectiveSecondaryColor }}
                 />
-                <a
-                  className="underline text-center transition-colors duration-200"
-                  style={
-                    {
-                      color: textColor || "#4B5563",
-                      "--hover-color": isPrimary
+                {contact.phone ? (
+                  <a
+                    className="underline text-center transition-colors duration-200"
+                    style={
+                      {
+                        color: textColor || "#4B5563",
+                        "--hover-color": isPrimary
+                          ? "rgba(255,255,255,0.8)"
+                          : effectiveBrandColor,
+                      } as React.CSSProperties & { "--hover-color": string }
+                    }
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = isPrimary
                         ? "rgba(255,255,255,0.8)"
-                        : effectiveBrandColor,
-                    } as React.CSSProperties & { "--hover-color": string }
-                  }
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.color = isPrimary
-                      ? "rgba(255,255,255,0.8)"
-                      : effectiveBrandColor;
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.color = textColor || "#4B5563";
-                  }}
-                  href={getBasePhoneForDialing(contact.phone)}
-                >
-                  {formatPhoneWithExtension(contact.phone, contact.phoneExtension)}
-                </a>
+                        : effectiveBrandColor;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = textColor || "#4B5563";
+                    }}
+                    href={getBasePhoneForDialing(contact.phone)}
+                  >
+                    {formatPhoneWithExtension(contact.phone, contact.phoneExtension)}
+                  </a>
+                ) : (
+                  <span className="text-center italic text-gray-400">
+                    [Phone]
+                  </span>
+                )}
               </p>
             );
           }
