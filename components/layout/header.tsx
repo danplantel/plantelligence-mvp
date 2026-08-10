@@ -2,7 +2,8 @@
 
 import { cn } from "@/lib/utils";
 import { UserNav } from "./user-nav";
-import { DocumentExpirationNotifications } from "./document-expiration-notifications";
+// Notifications UI — hidden for now; will be re-added later.
+// import { DocumentExpirationNotifications } from "./document-expiration-notifications";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { useEffect, useState, type ReactNode } from "react";
 import { useTheme } from "next-themes";
@@ -84,7 +85,8 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
 
         {/* Right: Actions */}
         <div className="flex items-center justify-end gap-2 flex-[1] min-w-0">
-          <DocumentExpirationNotifications />
+          {/* Notifications UI — hidden for now; will be re-added later. */}
+          {/* <DocumentExpirationNotifications /> */}
           {mounted && (
             <Button
               variant="ghost"

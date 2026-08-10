@@ -61,6 +61,7 @@ export function UserNav() {
 
   // Fetch fresh user data on mount (skip stale zustand cache)
   const [profileHeadshot, setProfileHeadshot] = useState<string>("");
+  const [profileTitle, setProfileTitle] = useState<string>("");
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
@@ -68,12 +69,13 @@ export function UserNav() {
         loadStepData("branding"),
         loadStepData("userSetup"),
       ]);
-      // Also fetch profile for headshot fallback
+      // Also fetch profile for headshot/title fallback
       try {
         const res = await fetch("/api/profile");
         if (res.ok) {
           const profile = await res.json();
           setProfileHeadshot(profile.headshot || "");
+          setProfileTitle(profile.title || "");
         }
       } catch {
         // Silently fail
@@ -105,7 +107,7 @@ export function UserNav() {
   // Get user name from wizard data with fallback to session
   const userName = stepData.userSetup?.name || session?.user?.name || "";
   const userEmail = stepData.userSetup?.email || session?.user?.email || "";
-  const userTitle = stepData.userSetup?.title || "";
+  const userTitle = stepData.userSetup?.title || profileTitle;
 
   if (session) {
     // Show skeleton while loading

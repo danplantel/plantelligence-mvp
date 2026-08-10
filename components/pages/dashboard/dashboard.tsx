@@ -149,7 +149,7 @@ export function Dashboard() {
             )}
           </div>
 
-          <div className="flex gap-4">
+          {/* <div className="flex gap-4">
             {isLoadingStats ? (
               <div className="flex gap-4">
                 {[1, 2, 3, 4].map((i) => (
@@ -177,7 +177,7 @@ export function Dashboard() {
                 </section>
               ))
             )}
-          </div>
+          </div> */}
         </CardContent>
       </Card>
 
