@@ -589,8 +589,9 @@ export function BenefitsStep5() {
       }, {});
       // Only persist `byCategory` — each category keeps its own disclaimer and no
       // flattened `disclaimers` array is written (avoids duplicating the data).
-      const disclaimersData: DisclaimersData = {
+      const disclaimersData: DisclaimersData & { footerBackground?: { mode: string; customColor: string } } = {
         byCategory: cleanByCategory,
+        footerBackground: { mode: footerBgMode, customColor: footerBgCustomColor },
       };
       // Include Step 1 branding data so the uploaded header background image is persisted
       const step1Data = stepData.step1;
@@ -653,11 +654,63 @@ export function BenefitsStep5() {
     return (d.text || "").replace(/\[Organization Name\]/g, disclaimerOrganizationName);
   }, [disclaimersByCategory, currentCategoryKey, inheritedText, disclaimerOrganizationName]);
 
-  // ── Brand colour from the selected plan ──
+  // ── Brand colours from the selected plan ──
   const brandColor =
     (selectedPlan as any)?.brandColor ||
     (selectedPlan as any)?.primaryColor ||
     "#1F3A60";
+  const secondaryColor =
+    (selectedPlan as any)?.secondaryColor || "#6B7280";
+
+  // ── Footer background colour (persisted alongside disclaimers) ──
+  const storedFooterBg = (() => {
+    try {
+      const raw = (selectedPlan as any)?.disclaimers;
+      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+      return (parsed?.footerBackground as { mode?: string; customColor?: string }) ?? {};
+    } catch {
+      return {};
+    }
+  })();
+  const [footerBgMode, setFooterBgMode] = useState<"primary" | "secondary" | "custom">(
+    (storedFooterBg.mode as "primary" | "secondary" | "custom") || "primary",
+  );
+  const [footerBgCustomColor, setFooterBgCustomColor] = useState(
+    storedFooterBg.customColor || "",
+  );
+  const resolvedFooterBgColor =
+    footerBgMode === "secondary"
+      ? secondaryColor
+      : footerBgMode === "custom" && footerBgCustomColor.trim()
+        ? footerBgCustomColor.trim()
+        : brandColor;
+
+  const persistFooterBg = useCallback(
+    async (mode: string, customColor: string) => {
+      // Persist alongside byCategory to the plan record so the layout reads it.
+      if (!planId) return;
+      const cleanByCategory = Object.entries(disclaimersByCategory).reduce<
+        Partial<Record<PortalDisclaimerCategory, Disclaimer>>
+      >((acc, [key, value]) => {
+        if (value) (acc as Record<string, Disclaimer>)[key] = value;
+        return acc;
+      }, {});
+      const disclaimersData: DisclaimersData & { footerBackground?: { mode: string; customColor: string } } = {
+        byCategory: cleanByCategory,
+        footerBackground: { mode, customColor },
+      };
+      try {
+        await fetch(`/api/clients/${planId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ disclaimers: disclaimersData }),
+        });
+      } catch (err) {
+        console.error("Failed to persist footer background:", err);
+      }
+    },
+    [planId, disclaimersByCategory],
+  );
 
   return (
   <div className="space-y-6 max-w-4xl mx-auto pb-20">
@@ -790,23 +843,95 @@ export function BenefitsStep5() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-5xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             {/* Header */}
-            <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-t-xl">
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                  Footer Preview
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  How the disclaimer will appear on the{" "}
-                  <strong className="text-gray-600 dark:text-gray-300">
-                    {categoryKeyToPortalLabel(currentCategoryKey)}
-                  </strong>{" "}
-                  page
-                </p>
+            <div className="sticky top-0 z-10 flex items-start justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-t-xl">
+              <div className="space-y-2">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                    Footer Preview
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    How the disclaimer will appear on the{" "}
+                    <strong className="text-gray-600 dark:text-gray-300">
+                      {categoryKeyToPortalLabel(currentCategoryKey)}
+                    </strong>{" "}
+                    page
+                  </p>
+                </div>
+                {/* Footer Background Color */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mr-1">
+                    Footer Color:
+                  </span>
+                  <span className="text-[10px] text-gray-400 dark:text-gray-500 italic">
+                    Controls the background color of the portal footer on all pages.
+                  </span>
+                  {(["primary", "secondary", "custom"] as const).map((mode) => {
+                    const label =
+                      mode === "primary"
+                        ? "Primary"
+                        : mode === "secondary"
+                          ? "Secondary"
+                          : "Custom";
+                    const colorVal =
+                      mode === "primary"
+                        ? brandColor
+                        : mode === "secondary"
+                          ? secondaryColor
+                          : footerBgCustomColor || "#888888";
+                    const isActive = footerBgMode === mode;
+                    return (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => {
+                          setFooterBgMode(mode);
+                          persistFooterBg(mode, footerBgCustomColor).catch(() => {});
+                        }}
+                        className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium border transition-all ${
+                          isActive
+                            ? "border-[#23919C] ring-1 ring-[#23919C] bg-[#23919C]/5"
+                            : "border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500"
+                        }`}
+                      >
+                        <span
+                          className="w-3 h-3 rounded-full border border-gray-300 shrink-0"
+                          style={{ background: colorVal }}
+                        />
+                        {label}
+                      </button>
+                    );
+                  })}
+                  {footerBgMode === "custom" && (
+                    <>
+                      <input
+                        type="color"
+                        value={footerBgCustomColor || brandColor}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setFooterBgCustomColor(v);
+                          persistFooterBg("custom", v).catch(() => {});
+                        }}
+                        className="w-6 h-6 rounded cursor-pointer border border-gray-300 p-0.5"
+                      />
+                      <input
+                        type="text"
+                        value={footerBgCustomColor}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setFooterBgCustomColor(v);
+                          persistFooterBg("custom", v).catch(() => {});
+                        }}
+                        placeholder="#HEX"
+                        className="w-20 text-[11px] border border-gray-200 dark:border-gray-600 rounded px-1.5 py-1 bg-transparent"
+                      />
+                    </>
+                  )}
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setPreviewFooterOpen(false)}
-                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors shrink-0"
               >
                 <X className="w-5 h-5 text-gray-500" />
               </button>
@@ -837,9 +962,9 @@ export function BenefitsStep5() {
                   </p>
                 </div>
 
-                {/* The actual Footer with disclaimer */}
+                {/* The actual Footer with disclaimer — uses resolved footer colour */}
                 <Footer
-                  brandColor={brandColor}
+                  brandColor={resolvedFooterBgColor}
                   disclosuresText={buildDisclosureText()}
                   organizationName={organizationName}
                   companyName={companyName}

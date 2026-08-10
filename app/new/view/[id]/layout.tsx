@@ -61,6 +61,21 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
   }, []);
   const brandColor = clientData?.brandColor || "#1F3A60";
   const secondaryColor = clientData?.secondaryColor || "#6B7280";
+
+  // Resolve portal footer background color from the plan's footerBackground
+  // preference (selected during plan creation wizard Step 5a). Falls back to
+  // brandColor (primary) when no custom footer background is configured.
+  const footerBgColor = (() => {
+    try {
+      const raw = (clientData as any)?.disclaimers;
+      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+      const fb = parsed?.footerBackground;
+      if (!fb) return brandColor;
+      if (fb.mode === "secondary") return secondaryColor;
+      if (fb.mode === "custom" && fb.customColor?.trim()) return fb.customColor.trim();
+    } catch { /* ignore parse errors */ }
+    return brandColor;
+  })();
   const organizationName =
     (clientData as any)?.branding?.organizationName ||
     session?.user?.organizationName ||
@@ -495,7 +510,7 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
       />
 
       <Footer
-        brandColor={brandColor}
+        brandColor={footerBgColor}
         disclosuresText={disclosuresText}
         organizationName={organizationName}
         companyName={clientData?.companyName || ""}

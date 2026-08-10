@@ -197,6 +197,7 @@ export async function POST(request: NextRequest) {
           disclaimers: previewData.disclaimers || [],
           disclosuresText: previewData.disclosuresText,
           useDefaultDisclosures: previewData.useDefaultDisclosures,
+          ...(previewData.footerBackground ? { footerBackground: previewData.footerBackground } : {}),
         };
         console.log("=== Loading disclaimersData from previewData ===", disclaimersData);
       }

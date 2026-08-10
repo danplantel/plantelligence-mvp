@@ -34,10 +34,11 @@ export async function POST(request: NextRequest) {
       ? (existingPreview.previewData as any)
       : {};
 
-    // Update previewData with disclaimers
+    // Update previewData with disclaimers and footer background color preference
     const updatedPreviewData = {
       ...previewData,
       disclaimers,
+      ...(data.footerBackground ? { footerBackground: data.footerBackground } : {}),
     };
 
     // Upsert employee portal preview with disclaimers

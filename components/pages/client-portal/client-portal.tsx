@@ -21,6 +21,8 @@ interface CompanyData {
   logoFileName?: string;
   brandColor?: string;
   secondaryColor?: string;
+  /** Footer background color preference: { mode: "primary" | "secondary" | "custom", customColor?: string } */
+  footerBackground?: { mode?: string; customColor?: string };
   backgroundImg?: string;
   backgroundImgName?: string;
   thumbnailImg?: string;
@@ -102,6 +104,16 @@ export function ClientPortal({
   // Dynamic brand colors
   const brandColor = companyData?.brandColor || "#1F3A60";
   const secondaryColor = companyData?.secondaryColor || "#6B7280";
+
+  // Resolve footer background color from footerBackground preference,
+  // falling back to brandColor (primary) when not set.
+  const footerBgColor = (() => {
+    const fb = companyData?.footerBackground;
+    if (!fb) return brandColor;
+    if (fb.mode === "secondary") return secondaryColor;
+    if (fb.mode === "custom" && fb.customColor?.trim()) return fb.customColor.trim();
+    return brandColor;
+  })();
 
   const fadeLeft = {
     hidden: { opacity: 0, x: -40 },
@@ -234,7 +246,7 @@ export function ClientPortal({
         >
           <PortalDisclaimers
             companyData={companyData}
-            brandColor={brandColor}
+            brandColor={footerBgColor}
           />
         </motion.div>
       )}

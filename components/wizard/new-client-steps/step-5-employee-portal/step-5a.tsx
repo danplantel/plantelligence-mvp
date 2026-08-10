@@ -889,6 +889,9 @@ export function NewClientStep5a({
                   <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mr-1">
                     Footer Color:
                   </span>
+                  <span className="text-[10px] text-gray-400 dark:text-gray-500 italic">
+                    Controls the background color of the portal footer on all pages.
+                  </span>
                   {(["primary", "secondary", "custom"] as const).map((mode) => {
                     const label =
                       mode === "primary"
