@@ -32,6 +32,7 @@ import {
   Pencil,
   Mail,
   Phone,
+  Star,
   Image as ImageIcon,
 } from "lucide-react";
 import {
@@ -48,6 +49,7 @@ import { BrandImagesSection } from "@/components/wizard/new-client-steps/section
 import { DocumentsUploadSection } from "@/components/wizard/new-client-steps/sections/documents-upload-section";
 import { AddMoreContactsModal } from "@/components/wizard/new-client-steps/step-3-key-contacts/components/add-more-contacts-modal";
 import { BrandingImage } from "@/components/ui/branding-image";
+import { Headshot } from "@/components/ui/headshot";
 import {
   RetirementDocumentsAccordion,
   type RetirementDocumentItem,
@@ -102,32 +104,44 @@ function ContactRow({
 
   return (
     <div className="flex items-center gap-3 py-2.5 border-b border-gray-100 dark:border-gray-700 last:border-0">
-      <div className="flex-1 min-w-0">
-        <p className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
-          {displayName}
-        </p>
-        {role && (
-          <p className="text-xs text-muted-foreground truncate">{role}</p>
-        )}
-        <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-          {contact.email && (
-            <span className="text-xs text-muted-foreground flex items-center gap-1">
-              <Mail className="w-3 h-3 shrink-0" />
-              <span className="truncate max-w-[160px]">{contact.email}</span>
-            </span>
-          )}
-          {contact.phone && (
-            <span className="text-xs text-muted-foreground flex items-center gap-1">
-              <Phone className="w-3 h-3 shrink-0" />
-              {contact.phone}
-            </span>
-          )}
-        </div>
+      {/* Headshot aligned to the left */}
+      <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600">
+        <Headshot
+          src={contact.headshot || undefined}
+          alt={displayName}
+          monogramName={displayName}
+          className="w-full h-full object-cover"
+        />
       </div>
+
+      {/* All contact info on one row */}
+      <div className="flex-1 min-w-0 flex items-center gap-3 overflow-hidden">
+        <span className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
+          {displayName}
+        </span>
+        {role && (
+          <span className="text-xs text-muted-foreground truncate hidden md:inline">
+            {role}
+          </span>
+        )}
+        {contact.email && (
+          <span className="text-xs text-muted-foreground flex items-center gap-1 shrink-0">
+            <Mail className="w-3 h-3 shrink-0" />
+            <span className="truncate max-w-[180px]">{contact.email}</span>
+          </span>
+        )}
+        {contact.phone && (
+          <span className="text-xs text-muted-foreground flex items-center gap-1 shrink-0">
+            <Phone className="w-3 h-3 shrink-0" />
+            <span className="truncate">{contact.phone}</span>
+          </span>
+        )}
+      </div>
+
       <Button
         size="sm"
         variant="ghost"
-        className="h-8 w-8 p-0"
+        className="h-8 w-8 p-0 shrink-0"
         onClick={onEdit}
       >
         <Pencil className="w-3.5 h-3.5" />
@@ -297,6 +311,31 @@ function EditKeyContactsSection({
 
   const externalContacts = contacts.filter(isExternalContact);
 
+  // The overall primary contact (isPrimaryOverall or legacy isPrimary), falling
+  // back to the first contact so the section always has something to show.
+  const primaryContact =
+    contacts.find((c) => c.isPrimaryOverall || c.isPrimary) ||
+    contacts[0] ||
+    null;
+
+  // Classify the primary contact so the UI can emphasize whether it represents
+  // the Company / Plan Sponsor or an External Admin.
+  const isPrimaryExternalAdmin =
+    !!primaryContact && isExternalContact(primaryContact);
+  const primaryContactLabel = (() => {
+    if (!primaryContact) return null;
+    if (isExternalContact(primaryContact)) return "External Admin";
+    const cats = primaryContact.benefitsCategories || [];
+    if (
+      cats.includes("Company / Plan Sponsor") ||
+      primaryContact.benefitsCategory === "Company / Plan Sponsor"
+    ) {
+      return "Company / Plan Sponsor";
+    }
+    if (cats.length > 0) return cats[0];
+    return "Key Contact";
+  })();
+
   const handleOpenEdit = (contact: KeyContact) => {
     setEditingContact(contact);
     setIsEditModalOpen(true);
@@ -310,6 +349,38 @@ function EditKeyContactsSection({
 
   return (
     <div className="space-y-6">
+      {/* Primary Contact — always visible (no accordion) */}
+      <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+        <div className="flex items-center gap-2 mb-2 flex-wrap">
+          <Star className="w-4 h-4 text-amber-500" />
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+            Primary Contact
+          </h3>
+          {primaryContactLabel && (
+            <Badge
+              variant="secondary"
+              className={`text-[10px] px-2 py-0.5 font-medium ${
+                isPrimaryExternalAdmin
+                  ? "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/40"
+                  : "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-500/20 dark:text-teal-300 dark:border-teal-500/40"
+              }`}
+            >
+              {primaryContactLabel}
+            </Badge>
+          )}
+        </div>
+        {primaryContact ? (
+          <ContactRow
+            contact={primaryContact}
+            onEdit={() => handleOpenEdit(primaryContact)}
+          />
+        ) : (
+          <p className="text-xs text-muted-foreground text-center py-4">
+            No primary contact set yet. Add a contact and mark it as primary.
+          </p>
+        )}
+      </div>
+
       {/* Compact Company / Plan Sponsor section */}
       <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
         <div className="flex items-center gap-4">
@@ -361,7 +432,7 @@ function EditKeyContactsSection({
               value={category.value}
               className="border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 overflow-hidden"
             >
-              <AccordionTrigger className="px-4 py-3 hover:no-underline bg-gray-50/80 dark:bg-gray-800/80 data-[state=open]:bg-gray-50/80">
+              <AccordionTrigger className="px-4 py-3 hover:no-underline bg-gray-50/80 dark:bg-gray-800/80 data-[state=open]:bg-gray-50/80 dark:data-[state=open]:bg-gray-800/80">
                 <div className="flex items-center gap-2 flex-1">
                   {category.icon}
                   <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
@@ -406,7 +477,7 @@ function EditKeyContactsSection({
           value="external-hr"
           className="border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 overflow-hidden"
         >
-          <AccordionTrigger className="px-4 py-3 hover:no-underline bg-gray-50/80 dark:bg-gray-800/80 data-[state=open]:bg-gray-50/80">
+          <AccordionTrigger className="px-4 py-3 hover:no-underline bg-gray-50/80 dark:bg-gray-800/80 data-[state=open]:bg-gray-50/80 dark:data-[state=open]:bg-gray-800/80">
             <div className="flex items-center gap-2 flex-1">
               <Users className="w-5 h-5 text-amber-500" />
               <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
