@@ -148,6 +148,7 @@ export function useEditClient() {
 
   const [keyContacts, setKeyContacts] = useState<KeyContact[]>([]);
   const [keyContactsDisplayStyle, setKeyContactsDisplayStyle] = useState<number | null>(null);
+  const [keyContactsMobileDisplayStyle, setKeyContactsMobileDisplayStyle] = useState<number | null>(null);
   const [categoryPortalVisibility, setCategoryPortalVisibility] = useState<CategoryPortalVisibility>(() => ({ ...DEFAULT_CATEGORY_PORTAL_VISIBILITY }));
   const [documentData, setDocumentData] = useState<DocumentData>({
     spdFile: null,
@@ -309,9 +310,10 @@ export function useEditClient() {
               ? JSON.parse(result.data.keyContacts)
               : result.data.keyContacts || [];
 
-          // Handle new format: { contacts: [...], displayStyle: ... }
+          // Handle new format: { contacts: [...], displayStyle: ..., mobileDisplayStyle: ... }
           let contacts: any[] = [];
           let displayStyle: number | null = null;
+          let mobileDisplayStyle: number | null = null;
           if (Array.isArray(contactsRaw)) {
             // Old format: just an array
             contacts = contactsRaw;
@@ -320,16 +322,18 @@ export function useEditClient() {
             contactsRaw !== null &&
             Array.isArray(contactsRaw.contacts)
           ) {
-            // New format: { contacts: [...], displayStyle: ... }
+            // New format: { contacts: [...], displayStyle: ..., mobileDisplayStyle: ... }
             contacts = contactsRaw.contacts;
             displayStyle = contactsRaw.displayStyle ?? null;
+            mobileDisplayStyle = contactsRaw.mobileDisplayStyle ?? null;
           } else {
             // Fallback: empty array
             contacts = [];
           }
 
-          // Set display style
+          // Set display styles
           setKeyContactsDisplayStyle(displayStyle);
+          setKeyContactsMobileDisplayStyle(mobileDisplayStyle);
 
           // Ensure all contacts have proper role values
           const normalizedContacts = contacts.map((contact: any) => ({
@@ -827,10 +831,11 @@ export function useEditClient() {
       const missionHeadline = ((companyData as any).missionHeadline || "") as string;
       const missionBody = ((companyData as any).missionBody || "") as string;
 
-      // Format keyContacts with displayStyle
+      // Format keyContacts with display styles
       const keyContactsPayload = {
         contacts: keyContacts,
         displayStyle: keyContactsDisplayStyle,
+        mobileDisplayStyle: keyContactsMobileDisplayStyle,
       };
 
       const payload = {
@@ -889,6 +894,7 @@ export function useEditClient() {
     openSections,
     keyContacts,
     keyContactsDisplayStyle,
+    keyContactsMobileDisplayStyle,
     welcomeData,
     documentsData,
     provideSpanishVersions,
@@ -901,6 +907,7 @@ export function useEditClient() {
     setClientStatus,
     setKeyContacts,
     setKeyContactsDisplayStyle,
+    setKeyContactsMobileDisplayStyle,
     setDisclaimers,
     isFormValid,
     getValidationErrors,

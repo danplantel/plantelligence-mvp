@@ -323,8 +323,13 @@ export interface ContactCardLayoutPreviewModalProps {
   onClose: () => void;
   /** Currently selected desktop display style (0, 2, 3, 4, or null for default) */
   currentDisplayStyle: number | null;
-  /** Called when user confirms a new display style */
-  onConfirm: (displayStyle: number | null) => void;
+  /** Currently selected mobile layout (0 = Stacked, 1 = 2-Column Grid, 2 = Hero + Grid) */
+  mobileDisplayStyle?: number | null;
+  /** Called when user confirms layout — returns desktop display style + mobile layout */
+  onConfirm: (
+    displayStyle: number | null,
+    mobileDisplayStyle: number | null,
+  ) => void;
   /** Contacts to show in the preview */
   contacts: KeyContact[];
   /** Brand color for preview accents */
@@ -343,6 +348,7 @@ export function ContactCardLayoutPreviewModal({
   isOpen,
   onClose,
   currentDisplayStyle,
+  mobileDisplayStyle,
   onConfirm,
   contacts,
   brandColor,
@@ -359,7 +365,9 @@ export function ContactCardLayoutPreviewModal({
   );
   const [selectedDesktopLayout, setSelectedDesktopLayout] =
     useState<number>(initialDesktopLayout);
-  const [selectedMobileLayout, setSelectedMobileLayout] = useState(0);
+  const [selectedMobileLayout, setSelectedMobileLayout] = useState<number>(
+    mobileDisplayStyle ?? 0,
+  );
   const [isLayoutSectionCollapsed, setIsLayoutSectionCollapsed] =
     useState(true);
 
@@ -369,18 +377,18 @@ export function ContactCardLayoutPreviewModal({
       const resetLayout =
         currentDisplayStyle === null || currentDisplayStyle === 0 ? 1 : currentDisplayStyle;
       setSelectedDesktopLayout(resetLayout);
-      setSelectedMobileLayout(0);
+      setSelectedMobileLayout(mobileDisplayStyle ?? 0);
       setPreviewMode("desktop");
       setIsLayoutSectionCollapsed(true);
     }
-  }, [isOpen, currentDisplayStyle]);
+  }, [isOpen, currentDisplayStyle, mobileDisplayStyle]);
 
   const hasContacts = contacts.length > 0;
 
   const handleConfirm = () => {
     // Convert layout style back to displayStyle (1 → 0)
     const displayStyleValue = selectedDesktopLayout === 1 ? 0 : selectedDesktopLayout;
-    onConfirm(displayStyleValue);
+    onConfirm(displayStyleValue, selectedMobileLayout);
     onClose();
   };
 

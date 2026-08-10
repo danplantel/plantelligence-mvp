@@ -539,6 +539,7 @@ export default function EditClientPage() {
     clientStatus,
     keyContacts,
     keyContactsDisplayStyle,
+    keyContactsMobileDisplayStyle,
     welcomeData,
     documentsData,
     disclaimers,
@@ -546,6 +547,7 @@ export default function EditClientPage() {
     setClientStatus,
     setKeyContacts,
     setKeyContactsDisplayStyle,
+    setKeyContactsMobileDisplayStyle,
     setDisclaimers,
     handleInputChange,
     handleWelcomeChange,
@@ -1588,8 +1590,10 @@ export default function EditClientPage() {
           isOpen={isPreviewLayoutModalOpen}
           onClose={() => setIsPreviewLayoutModalOpen(false)}
           currentDisplayStyle={keyContactsDisplayStyle}
-          onConfirm={(displayStyle) => {
+          mobileDisplayStyle={keyContactsMobileDisplayStyle}
+          onConfirm={(displayStyle, mobileDisplayStyle) => {
             setKeyContactsDisplayStyle(displayStyle);
+            setKeyContactsMobileDisplayStyle(mobileDisplayStyle);
           }}
           contacts={keyContacts}
           brandColor={companyData.primaryColor}

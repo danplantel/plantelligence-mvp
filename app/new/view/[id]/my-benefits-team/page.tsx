@@ -80,6 +80,7 @@ export default function MyBenefitsTeamPage() {
   // Normalize keyContacts to handle both old format (array) and new format (object with contacts and displayStyle)
   let contacts: Contact[] = [];
   let displayStyle: number | null = null;
+  let mobileDisplayStyle: number | null = null;
   let globalBackgroundColor: string | undefined = undefined;
   /** Wizard saves logoScale on keyContacts root (same as card colors), not per contact */
   let globalLogoScale: number | undefined = undefined;
@@ -94,13 +95,14 @@ export default function MyBenefitsTeamPage() {
       typeof clientData.keyContacts === "object" &&
       clientData.keyContacts !== null
     ) {
-      // New format: { contacts: [...], displayStyle: ... }
+      // New format: { contacts: [...], displayStyle: ..., mobileDisplayStyle: ... }
       const keyContactsData = clientData.keyContacts as any;
       const contactsArray = Array.isArray(keyContactsData.contacts)
         ? keyContactsData.contacts
         : [];
       contacts = contactsArray.filter((c: Contact) => c.showOnPortal !== false);
       displayStyle = keyContactsData.displayStyle ?? null;
+      mobileDisplayStyle = keyContactsData.mobileDisplayStyle ?? null;
       globalBackgroundColor = keyContactsData.cardBackgroundColor;
       globalLogoScale =
         typeof keyContactsData.logoScale === "number"
@@ -185,65 +187,82 @@ export default function MyBenefitsTeamPage() {
         </div>
 
         {/* 3) Render only non-hidden contacts (visibility passed for defensive filter in layouts).
-             Layouts mirror step-3d.tsx EXACTLY — grid columns, gaps, and card types must stay in sync. */}
-        {displayStyle === 0 && (
-          <DefaultLayout
-            primaryContact={primaryContact}
-            rest={rest}
-            visibility={visibility}
-            brandColor={brandColor}
-            secondaryColor={secondaryColor}
-            appointmentLink={appointmentLink}
-            companyName={companyName}
-            baselineBackgroundColor={globalBackgroundColor}
-          />
-        )}
-        {displayStyle === 2 && (
-          <Layout2
+             Desktop layouts (md and up) mirror step-3d.tsx EXACTLY — grid columns, gaps,
+             and card types must stay in sync. Mobile layouts render below md from
+             mobileDisplayStyle (0 = Stacked, 1 = 2-Column, 2 = Hero + Grid). */}
+        <div className="hidden md:block">
+          {displayStyle === 0 && (
+            <DefaultLayout
+              primaryContact={primaryContact}
+              rest={rest}
+              visibility={visibility}
+              brandColor={brandColor}
+              secondaryColor={secondaryColor}
+              appointmentLink={appointmentLink}
+              companyName={companyName}
+              baselineBackgroundColor={globalBackgroundColor}
+            />
+          )}
+          {displayStyle === 2 && (
+            <Layout2
+              contacts={visibleContacts}
+              visibility={visibility}
+              brandColor={brandColor}
+              secondaryColor={secondaryColor}
+              appointmentLink={appointmentLink}
+              companyName={companyName}
+              baselineBackgroundColor={globalBackgroundColor}
+            />
+          )}
+          {displayStyle === 3 && (
+            <Layout3
+              contacts={visibleContacts}
+              visibility={visibility}
+              brandColor={brandColor}
+              secondaryColor={secondaryColor}
+              appointmentLink={appointmentLink}
+              companyName={companyName}
+              baselineBackgroundColor={globalBackgroundColor}
+            />
+          )}
+          {displayStyle === 4 && (
+            <Layout4
+              primaryContact={primaryContact}
+              rest={rest}
+              visibility={visibility}
+              brandColor={brandColor}
+              secondaryColor={secondaryColor}
+              appointmentLink={appointmentLink}
+              companyName={companyName}
+              baselineBackgroundColor={globalBackgroundColor}
+            />
+          )}
+          {displayStyle === null && (
+            <DefaultLayout
+              primaryContact={primaryContact}
+              rest={rest}
+              visibility={visibility}
+              brandColor={brandColor}
+              secondaryColor={secondaryColor}
+              appointmentLink={appointmentLink}
+              companyName={companyName}
+              baselineBackgroundColor={globalBackgroundColor}
+            />
+          )}
+        </div>
+
+        {/* MOBILE LAYOUT (below md) — uses mobileDisplayStyle (mirrors step-3d mobile preview) */}
+        <div className="md:hidden">
+          <MobileLayout
             contacts={visibleContacts}
-            visibility={visibility}
+            mobileDisplayStyle={mobileDisplayStyle ?? 0}
             brandColor={brandColor}
             secondaryColor={secondaryColor}
             appointmentLink={appointmentLink}
             companyName={companyName}
             baselineBackgroundColor={globalBackgroundColor}
           />
-        )}
-        {displayStyle === 3 && (
-          <Layout3
-            contacts={visibleContacts}
-            visibility={visibility}
-            brandColor={brandColor}
-            secondaryColor={secondaryColor}
-            appointmentLink={appointmentLink}
-            companyName={companyName}
-            baselineBackgroundColor={globalBackgroundColor}
-          />
-        )}
-        {displayStyle === 4 && (
-          <Layout4
-            primaryContact={primaryContact}
-            rest={rest}
-            visibility={visibility}
-            brandColor={brandColor}
-            secondaryColor={secondaryColor}
-            appointmentLink={appointmentLink}
-            companyName={companyName}
-            baselineBackgroundColor={globalBackgroundColor}
-          />
-        )}
-        {displayStyle === null && (
-          <DefaultLayout
-            primaryContact={primaryContact}
-            rest={rest}
-            visibility={visibility}
-            brandColor={brandColor}
-            secondaryColor={secondaryColor}
-            appointmentLink={appointmentLink}
-            companyName={companyName}
-            baselineBackgroundColor={globalBackgroundColor}
-          />
-        )}
+        </div>
       </div>
     </div>
   );
@@ -482,6 +501,78 @@ function DefaultLayout({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// Mobile layout (below md breakpoint) — mirrors step-3d.tsx mobile preview EXACTLY.
+// mobileDisplayStyle: 0 = Stacked (single column), 1 = 2-Column Grid, 2 = Hero + Grid.
+function MobileLayout({
+  contacts,
+  mobileDisplayStyle,
+  brandColor,
+  secondaryColor,
+  appointmentLink,
+  companyName,
+  baselineBackgroundColor,
+}: {
+  contacts: Contact[];
+  mobileDisplayStyle: number;
+  brandColor: string;
+  secondaryColor: string;
+  appointmentLink: string;
+  companyName: string;
+  baselineBackgroundColor?: string;
+}) {
+  const toRender = contacts.map((contact, index) => ({
+    ...contact,
+    isPrimary: index === 0,
+  }));
+
+  // All mobile cards render as compact vertical cards (matches step-3d mobile preview).
+  const cards = toRender.map((contact, index) => (
+    <SmallVerticalCard
+      key={contact.id || index}
+      contact={contact}
+      brandColor={brandColor}
+      secondaryColor={secondaryColor}
+      appointmentLink={appointmentLink}
+      companyName={companyName}
+      index={index}
+      compact={true}
+      baselineBackgroundColor={baselineBackgroundColor}
+    />
+  ));
+
+  if (mobileDisplayStyle === 1) {
+    // 2-Column Grid
+    return (
+      <div className="grid w-full min-w-0 grid-cols-2 gap-2 [&>*]:min-w-0">
+        {cards}
+      </div>
+    );
+  }
+
+  if (mobileDisplayStyle === 2) {
+    // Hero + Grid: first card full-width, remaining in 2-column grid
+    const hero = cards[0];
+    const gridCards = cards.slice(1);
+    return (
+      <div className="w-full min-w-0 max-w-none space-y-2">
+        {hero && <div className="w-full min-w-0">{hero}</div>}
+        {gridCards.length > 0 && (
+          <div className="grid w-full min-w-0 grid-cols-2 gap-2 [&>*]:min-w-0">
+            {gridCards}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // 0 (default): Stacked — all cards in a single column
+  return (
+    <div className="w-full min-w-0 max-w-none space-y-2">
+      {cards}
     </div>
   );
 }

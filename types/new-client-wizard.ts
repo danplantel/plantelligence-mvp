@@ -211,6 +211,8 @@ export interface KeyContactsData {
   contactCardLayoutStyle?: number;
   contactDisplayOrder?: string[];
   displayStyle?: number | null;
+  /** Mobile layout (0 = Stacked, 1 = 2-Column Grid, 2 = Hero + Grid) */
+  mobileDisplayStyle?: number | null;
   cardPrimaryColor?: string;
   cardSecondaryColor?: string;
   cardBackgroundColor?: string;

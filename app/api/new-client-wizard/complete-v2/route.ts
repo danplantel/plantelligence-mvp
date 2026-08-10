@@ -379,8 +379,10 @@ export async function POST(request: NextRequest) {
             keyContacts: {
               contacts: normalizedContacts,
               displayStyle: displayStyle,
-              // Preserve style fields from rawContacts (cardBackgroundColor, logoScale, etc.)
+              // Preserve mobile layout + style fields from rawContacts
+              // (mobileDisplayStyle, cardBackgroundColor, logoScale, etc.)
               ...(typeof rawContacts === 'object' && rawContacts !== null && !Array.isArray(rawContacts) && {
+                mobileDisplayStyle: (rawContacts as any).mobileDisplayStyle,
                 cardPrimaryColor: (rawContacts as any).cardPrimaryColor,
                 cardSecondaryColor: (rawContacts as any).cardSecondaryColor,
                 cardBackgroundColor: (rawContacts as any).cardBackgroundColor,

@@ -600,7 +600,9 @@ export function NewClientStep3d({
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">(
     "desktop",
   );
-  const [mobileLayoutStyle, setMobileLayoutStyle] = useState<number>(0);
+  const [mobileLayoutStyle, setMobileLayoutStyle] = useState<number>(
+    keyContactsData.mobileDisplayStyle ?? 0,
+  );
   const isDraggingRef = useRef<boolean>(false);
   const justFinishedDragRef = useRef<boolean>(false);
 
@@ -829,6 +831,26 @@ export function NewClientStep3d({
     }
   };
 
+  const handleMobileLayoutChange = async (mobileLayoutId: number) => {
+    setMobileLayoutStyle(mobileLayoutId);
+    const updatedKeyContacts = {
+      ...keyContactsData,
+      contacts: contacts, // Ensure current contacts are included
+      contactDisplayOrder: contacts.map((c) => c.id), // Ensure display order is included
+      mobileDisplayStyle: mobileLayoutId,
+    };
+    lastPersistedKeyContactsData.current = updatedKeyContacts;
+    await saveStepDataLocally("keyContacts", updatedKeyContacts);
+
+    // Save to server and draft
+    try {
+      await saveStepDataToServer("keyContacts", updatedKeyContacts);
+      await saveAsDraft();
+    } catch (error) {
+      console.error("Failed to save draft when changing mobile layout:", error);
+    }
+  };
+
   // Function to save current state before next step
   const saveCurrentState = useCallback(async () => {
     const currentKeyContactsData = stepData.keyContacts || { contacts: [] };
@@ -837,6 +859,7 @@ export function NewClientStep3d({
       contacts: contacts, // Use current local contacts state
       contactDisplayOrder: contacts.map((c) => c.id), // Use current display order
       displayStyle: layoutStyle === 1 ? 0 : layoutStyle, // Use current layout style
+      mobileDisplayStyle: mobileLayoutStyle, // Use current mobile layout style
     };
 
     await saveStepDataLocally("keyContacts", updatedKeyContacts);
@@ -849,6 +872,7 @@ export function NewClientStep3d({
   }, [
     contacts,
     layoutStyle,
+    mobileLayoutStyle,
     stepData.keyContacts,
     saveStepDataLocally,
     saveStepDataToServer,
@@ -1020,6 +1044,9 @@ export function NewClientStep3d({
 
     const newStyle = currentKeyContactsData.displayStyle ?? null;
     setLayoutStyle(newStyle === null || newStyle === 0 ? 1 : newStyle);
+
+    // Sync mobile layout from store (0 = Stacked, 1 = 2-Column, 2 = Hero + Grid)
+    setMobileLayoutStyle(currentKeyContactsData.mobileDisplayStyle ?? 0);
 
     // Sync preview order if needed
     const newOrder =
@@ -1562,7 +1589,7 @@ export function NewClientStep3d({
                                         ? "border-2 border-accent-blue shadow-sm"
                                         : "border border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500",
                                     )}
-                                    onClick={() => setMobileLayoutStyle(layout.id)}
+                                    onClick={() => handleMobileLayoutChange(layout.id)}
                                   >
                                     <CardContent className="p-1 h-full flex flex-col">
                                       <div className="flex items-center justify-between mb-0.5">
