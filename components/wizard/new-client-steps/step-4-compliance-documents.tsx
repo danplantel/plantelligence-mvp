@@ -827,7 +827,7 @@ export function NewClientStep4({
           />
         </TabsContent>
 
-        <TabsContent value="preview" className="mt-6">
+        <TabsContent value="preview" className="mt-6 pb-24">
           {/* Language Switcher */}
           {availableLanguages.length > 1 && (
             <div className="mb-6 flex flex-wrap gap-2">
