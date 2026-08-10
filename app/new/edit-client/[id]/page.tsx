@@ -1597,6 +1597,7 @@ export default function EditClientPage() {
           }}
           contacts={keyContacts}
           brandColor={companyData.primaryColor}
+          secondaryColor={companyData.secondaryColor}
           companyName={companyData.companyName}
           currentUserEmail={userEmail || null}
           currentUserOrgName={userOrgName || null}

@@ -76,6 +76,7 @@ function RenderCardBySlot({
   slot,
   contact,
   brandColor,
+  secondaryColor,
   index,
   compact,
   companyName,
@@ -83,6 +84,7 @@ function RenderCardBySlot({
   slot: CardSlot;
   contact: any;
   brandColor: string;
+  secondaryColor?: string;
   index?: number;
   compact?: boolean;
   /** Plan/company name fallback shown under the title when the contact has none */
@@ -93,6 +95,7 @@ function RenderCardBySlot({
     isPrimary: index === 0,
   };
   const resolvedCompanyName = contact.companyName || companyName || "";
+  const resolvedSecondaryColor = secondaryColor || brandColor;
 
   switch (slot.type) {
     case "primary":
@@ -100,7 +103,7 @@ function RenderCardBySlot({
         <PrimaryContactCard
           contact={contactWithProps}
           brandColor={brandColor}
-          secondaryColor={brandColor}
+          secondaryColor={resolvedSecondaryColor}
           appointmentLink=""
           companyName={resolvedCompanyName}
           compact={true}
@@ -111,7 +114,7 @@ function RenderCardBySlot({
         <LargeHorizontalCard
           contact={contactWithProps}
           brandColor={brandColor}
-          secondaryColor={brandColor}
+          secondaryColor={resolvedSecondaryColor}
           appointmentLink=""
           companyName={resolvedCompanyName}
           index={index}
@@ -123,7 +126,7 @@ function RenderCardBySlot({
         <SmallVerticalCard
           contact={contactWithProps}
           brandColor={brandColor}
-          secondaryColor={brandColor}
+          secondaryColor={resolvedSecondaryColor}
           appointmentLink=""
           companyName={resolvedCompanyName}
           index={index}
@@ -334,6 +337,8 @@ export interface ContactCardLayoutPreviewModalProps {
   contacts: KeyContact[];
   /** Brand color for preview accents */
   brandColor?: string;
+  /** Secondary color for preview accents (e.g. Phone/Email icons) */
+  secondaryColor?: string;
   /** Company name for preview */
   companyName?: string;
   /** Logged-in user's email — used to show their Organization Name on their own card */
@@ -352,6 +357,7 @@ export function ContactCardLayoutPreviewModal({
   onConfirm,
   contacts,
   brandColor,
+  secondaryColor,
   companyName,
   currentUserEmail,
   currentUserOrgName,
@@ -447,6 +453,7 @@ export function ContactCardLayoutPreviewModal({
               slot={effectiveSlot}
               contact={contact}
               brandColor={brandColor || "#1F3A60"}
+              secondaryColor={secondaryColor || brandColor || "#1F3A60"}
               index={index}
               compact={isCompact}
               companyName={companyName || ""}

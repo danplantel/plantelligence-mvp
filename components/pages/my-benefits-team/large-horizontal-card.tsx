@@ -262,7 +262,7 @@ export function LargeHorizontalCard({
                   <Mail
                     size={18}
                     strokeWidth={1.5}
-                    style={{ color: textColor || effectiveBrandColor }}
+                    style={{ color: effectiveSecondaryColor }}
                   />
                   <a
                     href={`mailto:${contact.email}`}
@@ -295,7 +295,7 @@ export function LargeHorizontalCard({
                   <Phone
                     size={18}
                     strokeWidth={1.5}
-                    style={{ color: textColor || effectiveBrandColor }}
+                    style={{ color: effectiveSecondaryColor }}
                   />
                   <a
                     href={getBasePhoneForDialing(contact.phone)}

@@ -354,7 +354,7 @@ export function SmallVerticalCard({
                     size={iconSize}
                     strokeWidth={1.5}
                     className="transition-colors duration-200"
-                    style={{ color: textColor || effectiveSecondaryColor }}
+                    style={{ color: effectiveSecondaryColor }}
                   />
                   {contact.email ? (
                     <a
@@ -400,7 +400,7 @@ export function SmallVerticalCard({
                     size={iconSize}
                     strokeWidth={1.5}
                     className="transition-colors duration-200"
-                    style={{ color: textColor || effectiveSecondaryColor }}
+                    style={{ color: effectiveSecondaryColor }}
                   />
                   {contact.phone ? (
                     <a
@@ -602,7 +602,7 @@ export function SmallVerticalCard({
                 <Mail
                   strokeWidth={1.5}
                   className="w-[14px] h-[14px] sm:w-[18px] sm:h-[18px] transition-colors duration-200"
-                  style={{ color: textColor || effectiveSecondaryColor }}
+                  style={{ color: effectiveSecondaryColor }}
                 />
                 {contact.email ? (
                   <a
@@ -646,7 +646,7 @@ export function SmallVerticalCard({
                 <Phone
                   strokeWidth={1.5}
                   className="w-[14px] h-[14px] sm:w-[18px] sm:h-[18px] transition-colors duration-200"
-                  style={{ color: textColor || effectiveSecondaryColor }}
+                  style={{ color: effectiveSecondaryColor }}
                 />
                 {contact.phone ? (
                   <a
