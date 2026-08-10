@@ -250,10 +250,27 @@ function PlanSearchBar({
           </Button>
         )}
       </div>
-      <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-        Select a plan
-        <span className="text-red-500"> *</span>
-      </label>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+        <Input
+          ref={inputRef}
+          type="text"
+          placeholder="Search for a plan"
+          value={query}
+          onChange={(e) => {
+            if (!open) setOpen(true);
+            setQuery(e.target.value);
+          }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={handleKeyDown}
+          disabled={disabled}
+          className="h-9 pl-9 pr-3 bg-white dark:bg-gray-800"
+          aria-label="Search plans"
+          aria-expanded={open}
+          aria-haspopup="listbox"
+          autoComplete="off"
+        />
+      </div>
 
       {/* Recent Plans chips (same style as benefits page) */}
       {recentPlanObjects.length > 0 && (
@@ -276,28 +293,6 @@ function PlanSearchBar({
           ))}
         </div>
       )}
-
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-        <Input
-          ref={inputRef}
-          type="text"
-          placeholder={selectedPlan ? selectedPlan.companyName : "Search plans..."}
-          value={query}
-          onChange={(e) => {
-            if (!open) setOpen(true);
-            setQuery(e.target.value);
-          }}
-          onFocus={() => setOpen(true)}
-          onKeyDown={handleKeyDown}
-          disabled={disabled}
-          className="h-9 pl-9 pr-3 bg-white dark:bg-gray-800"
-          aria-label="Search plans"
-          aria-expanded={open}
-          aria-haspopup="listbox"
-          autoComplete="off"
-        />
-      </div>
 
       {/* Dropdown */}
       {open && typeof document !== "undefined"

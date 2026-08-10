@@ -1610,9 +1610,27 @@ export function BenefitsStep1() {
         <CardContent className="space-y-5">
           {/* Plan Selector */}
           <div className="space-y-2">
-            <Label className="text-sm font-semibold text-gray-700 dark:text-gray-100">
-              Select Plan <span className="text-red-500">*</span>
-            </Label>
+            {/* Plan search input */}
+            <div ref={planSearchContainerRef} className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              <Input
+                ref={planSearchInputRef}
+                type="text"
+                placeholder="Search for a plan"
+                value={planSearchQuery}
+                onChange={(e) => {
+                  if (!planSearchOpen) setPlanSearchOpen(true);
+                  setPlanSearchQuery(e.target.value);
+                }}
+                onFocus={() => setPlanSearchOpen(true)}
+                onKeyDown={handlePlanSearchKeyDown}
+                className="h-10 pl-9 pr-3 bg-white dark:bg-gray-700 dark:border-gray-600"
+                aria-label="Search plans"
+                aria-expanded={planSearchOpen}
+                aria-haspopup="listbox"
+                autoComplete="off"
+              />
+            </div>
 
             {/* Recent Plans quick-select chips */}
             {recentPlans.length > 0 && !loading && (
@@ -1635,28 +1653,6 @@ export function BenefitsStep1() {
                 ))}
               </div>
             )}
-
-            {/* Plan search input */}
-            <div ref={planSearchContainerRef} className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-              <Input
-                ref={planSearchInputRef}
-                type="text"
-                placeholder={selectedPlanName || "Search plans\u2026"}
-                value={planSearchQuery}
-                onChange={(e) => {
-                  if (!planSearchOpen) setPlanSearchOpen(true);
-                  setPlanSearchQuery(e.target.value);
-                }}
-                onFocus={() => setPlanSearchOpen(true)}
-                onKeyDown={handlePlanSearchKeyDown}
-                className="h-10 pl-9 pr-3 bg-white dark:bg-gray-700 dark:border-gray-600"
-                aria-label="Search plans"
-                aria-expanded={planSearchOpen}
-                aria-haspopup="listbox"
-                autoComplete="off"
-              />
-            </div>
             {plans.length === 0 && !loading ? (
               <p className="text-sm text-muted-foreground pt-1">
                 No plans found for your account yet. Create a client plan first

@@ -359,7 +359,10 @@ function PlanSearchBar({ plans, value, onChange, disabled, userSubdomain }: { pl
           </Button>
         )}
       </div>
-      <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Select a plan<span className="text-red-500"> *</span></label>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+        <Input ref={inputRef} type="text" placeholder="Search for a plan" value={query} onChange={(e) => { if (!open) setOpen(true); setQuery(e.target.value); }} onFocus={() => setOpen(true)} onKeyDown={handleKeyDown} disabled={disabled} className="h-9 pl-9 pr-3 bg-white dark:bg-gray-800" aria-label="Search plans" aria-expanded={open} aria-haspopup="listbox" autoComplete="off" />
+      </div>
 
       {/* Recent Plans chips (same style as benefits page) */}
       {recentPlanObjects.length > 0 && (
@@ -382,11 +385,6 @@ function PlanSearchBar({ plans, value, onChange, disabled, userSubdomain }: { pl
           ))}
         </div>
       )}
-
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-        <Input ref={inputRef} type="text" placeholder={selectedPlan ? selectedPlan.companyName : "Search plans\u2026"} value={query} onChange={(e) => { if (!open) setOpen(true); setQuery(e.target.value); }} onFocus={() => setOpen(true)} onKeyDown={handleKeyDown} disabled={disabled} className="h-9 pl-9 pr-3 bg-white dark:bg-gray-800" aria-label="Search plans" aria-expanded={open} aria-haspopup="listbox" autoComplete="off" />
-      </div>
       {open && typeof document !== "undefined" ? createPortal(
         <div ref={dropdownRef} role="listbox" className="rounded-md border border-input bg-white dark:bg-gray-800 shadow-lg overflow-hidden z-50" style={{ position: "fixed", top: (containerRef.current?.getBoundingClientRect().bottom ?? 0) + 4, left: containerRef.current?.getBoundingClientRect().left ?? 0, width: containerRef.current?.getBoundingClientRect().width ?? 300, maxHeight: 288 }}>
           {query.trim() && <div className="px-3 py-1.5 border-b border-border/60"><p className="text-xs text-muted-foreground">{dropdownItems.length} plan{dropdownItems.length !== 1 ? "s" : ""} found</p></div>}
