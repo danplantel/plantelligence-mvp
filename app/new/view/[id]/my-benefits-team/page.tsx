@@ -35,6 +35,7 @@ interface Contact {
   customRole?: string;
   email?: string;
   phone?: string;
+  phoneExtension?: string;
   headshot?: string;
   logo?: string;
   showOnPortal?: boolean;

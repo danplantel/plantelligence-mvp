@@ -5,9 +5,11 @@ import { BrandingImage } from "@/components/ui/branding-image";
 import { Mail, Phone } from "lucide-react";
 import { motion } from "framer-motion";
 import { PrimaryVisual } from "@/components/pages/my-benefits-team/primary-visual";
-import { formatPhone } from "@/components/pages/my-benefits-team/utils";
 import { readableColor, mix } from "polished";
-import { getBasePhoneForDialing } from "@/lib/phone-utils";
+import {
+  formatPhoneWithExtension,
+  getBasePhoneForDialing,
+} from "@/lib/phone-utils";
 
 interface Contact {
   id?: string | number;
@@ -18,6 +20,7 @@ interface Contact {
   customRole?: string;
   email?: string;
   phone?: string;
+  phoneExtension?: string;
   headshot?: string;
   logo?: string;
   companyName?: string;
@@ -268,7 +271,7 @@ export function PrimaryContactCard({
               <span className="flex items-center justify-center w-8 h-8 rounded-full bg-black/5 dark:bg-white/10 shrink-0 group-hover:scale-110 transition-transform">
                 <Phone size={16} strokeWidth={1.5} />
               </span>
-              {formatPhone(contact.phone)}
+              {formatPhoneWithExtension(contact.phone, contact.phoneExtension)}
             </a>
           )}
 
