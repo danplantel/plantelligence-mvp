@@ -15,10 +15,10 @@ import {
   Heart,
   Gift,
   Monitor,
+  Smartphone,
   Image as ImageIcon,
 } from "lucide-react";
 import {
-  ActionsSection,
   EditClientHeader,
   EditClientPreview,
   EditClientLoading,
@@ -32,7 +32,7 @@ import { BrandImagesSection } from "@/components/wizard/new-client-steps/section
 import { KeyContactsSection } from "@/components/wizard/new-client-steps/sections/key-contacts-section";
 import { DocumentsUploadSection } from "@/components/wizard/new-client-steps/sections/documents-upload-section";
 import { AddMoreContactsModal } from "@/components/wizard/new-client-steps/step-3-key-contacts/components/add-more-contacts-modal";
-import { CategoryGrid } from "@/components/wizard/new-client-steps/step-3-key-contacts/components/category-grid";
+import { BrandingImage } from "@/components/ui/branding-image";
 import {
   RetirementDocumentsAccordion,
   type RetirementDocumentItem,
@@ -80,6 +80,7 @@ function EditKeyContactsSection({
   onHeadshotUpload,
   onHeadshotRemove,
   validationErrors = {},
+  onAddContactForCategory,
 }: {
   contacts: KeyContact[];
   companyData: CompanyBasicsData;
@@ -88,133 +89,76 @@ function EditKeyContactsSection({
   onHeadshotUpload?: (index: number, file: File) => void;
   onHeadshotRemove?: (index: number) => void;
   validationErrors?: Record<string, string[]>;
+  onAddContactForCategory: (category: BenefitsCategory) => void;
 }) {
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-
   // Count contacts per benefit category (for the grid summary)
   const companyContactCount = contacts.filter((c) =>
     c.benefitsCategories?.includes("Company / Plan Sponsor") ||
     c.benefitsCategory === "Company / Plan Sponsor"
   ).length;
 
-  const handleAddContactForCategory = (category: BenefitsCategory) => {
-    const planOrganizationType =
-      (companyData.organizationType as
-        | "Advisor Firm"
-        | "Client"
-        | "Recordkeeper"
-        | "Partner/Custom") || "Advisor Firm";
+  // Determine which contacts are external
+  const isExternalContact = (c: KeyContact) =>
+    c.contactType === "team_support" ||
+    (c.role === "Other" && c.roleOther === "External HR / Administrator") ||
+    (c.role as string) === "External HR / Administrator";
 
-    const getDefaultDescription = (orgType?: string): string => {
-      switch (orgType) {
-        case "Advisor Firm":
-          return `Your dedicated financial professional for retirement plan education, enrollment assistance, and investment guidance.`;
-        case "Client":
-          return "Your primary contact for enrollment questions, plan changes, and general benefits support.";
-        case "Recordkeeper":
-          return `For account access, contributions, or transaction assistance, please contact ${documentsData.recordkeeper || "[Recordkeeper Name]"} directly.`;
-        case "Partner/Custom":
-          return `For questions about additional benefits such as insurance, wellness, or supplemental programs, please contact ${companyData.companyName || "[Company Name]"}.`;
-        default:
-          return `Your dedicated financial professional for retirement plan education, enrollment assistance, and investment guidance.`;
-      }
-    };
-
-    const newContact: KeyContact = {
-      id: `contact-${Date.now()}`,
-      contactType: "individual",
-      benefitsCategories: [category],
-      benefitsCategory: category,
-      role: "Advisor / Specialist",
-      isPrimaryForCategory: false,
-      companyName: companyData.companyName || "",
-      companyLogo: companyData.companyLogo?.url || undefined,
-      firstName: "",
-      lastName: "",
-      title: "",
-      email: "",
-      phone: "",
-      website: "",
-      showOnPortal: true,
-      enableContactButton: true,
-      isPrimary: false,
-      displayScope: "thisPortal",
-      name: "",
-      orgType: planOrganizationType,
-      organization: companyData.companyName || "",
-      description: getDefaultDescription(planOrganizationType),
-    };
-    onContactsChange([...contacts, newContact]);
-  };
-
-  // All categories including Company/Plan Sponsor + External HR
-  interface CategorySection {
-    id: string;
-    label: string;
-    icon: React.ReactNode;
-    isExternal?: boolean;
-  }
-
-  const categorySections: CategorySection[] = [
-    { id: "Company / Plan Sponsor", label: "Company / Plan Sponsor", icon: <Users className="w-5 h-5 text-accent-blue" /> },
-    { id: "Retirement", label: "Retirement", icon: <Building2 className="w-5 h-5 text-accent-blue" /> },
-    { id: "Group Health", label: "Group Health", icon: <Shield className="w-5 h-5 text-accent-blue" /> },
-    { id: "Group Life", label: "Group Life", icon: <Heart className="w-5 h-5 text-accent-blue" /> },
-    { id: "Other Benefits", label: "Other Benefits", icon: <Gift className="w-5 h-5 text-accent-blue" /> },
-    { id: "__external__", label: "External HR / Administrator", icon: <Users className="w-5 h-5 text-amber-500" />, isExternal: true },
-  ];
-
-  const allCategoryIds = categorySections.map((s) => s.id);
-
-  // Group contacts by their benefit category
-  const contactsByCategory = useMemo(() => {
-    const grouped: Record<string, KeyContact[]> = {};
-    for (const section of categorySections) {
-      if (section.isExternal) {
-        // External: contacts with role "External HR / Administrator" or contactType "team_support"
-        // External: contacts with "External HR / Administrator" role or team_support contactType
-        grouped[section.id] = contacts.filter((c) =>
-          c.contactType === "team_support" ||
-          (c.role === "Other" && c.roleOther === "External HR / Administrator") ||
-          (c.role as string) === "External HR / Administrator"
-        );
-      } else {
-        grouped[section.id] = contacts.filter((c) =>
-          c.benefitsCategories?.includes(section.id as BenefitsCategory) ||
-          c.benefitsCategory === section.id
-        );
-      }
-    }
-    return grouped;
-  }, [contacts]);
+  const externalContacts = contacts.filter(isExternalContact);
+  const nonExternalContacts = contacts.filter((c) => !isExternalContact(c));
 
   return (
     <div className="space-y-6">
-      {/* Category grid showing contact counts per benefit category */}
-      <CategoryGrid
-        categories={["Retirement", "Group Health", "Group Life", "Other Benefits"]}
-        selectedCategory={null}
-        onCategorySelect={() => {}}
-        contacts={contacts}
-        companyContactCount={companyContactCount}
-        lockCategoriesUntilSponsor={false}
-        showPlanSponsorCard={true}
-        planSponsorCompanyLogo={companyData.companyLogo?.url}
-        showContactCounts={true}
-        fromStep3b={false}
-      />
+      {/* Compact Company / Plan Sponsor section */}
+      <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+        <div className="flex items-center gap-4">
+          {companyData.companyLogo?.url && (
+            <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 flex items-center justify-center shrink-0">
+              <BrandingImage
+                src={companyData.companyLogo.url}
+                alt="Company Logo"
+                className="w-10 h-10 object-contain"
+              />
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+              Company / Plan Sponsor
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              {companyContactCount === 0
+                ? "Contact(s) needed"
+                : `${companyContactCount} ${companyContactCount === 1 ? "contact" : "contacts"} added`}
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => onAddContactForCategory("Company / Plan Sponsor")}
+          >
+            <Plus className="w-3.5 h-3.5 mr-1" />
+            Add
+          </Button>
+        </div>
+      </div>
 
-      {/* Category-grouped contact sections */}
-      {categorySections.map((section) => {
-        const categoryContacts = contactsByCategory[section.id] || [];
-        const matchField = section.isExternal ? "role" : "benefitsCategory";
+      {/* Per-category accordion cards */}
+      {([
+        { id: "Retirement" as BenefitsCategory, label: "Retirement", icon: <Building2 className="w-5 h-5 text-accent-blue" /> },
+        { id: "Group Health" as BenefitsCategory, label: "Group Health", icon: <Shield className="w-5 h-5 text-accent-blue" /> },
+        { id: "Group Life" as BenefitsCategory, label: "Group Life", icon: <Heart className="w-5 h-5 text-accent-blue" /> },
+        { id: "Other Benefits" as BenefitsCategory, label: "Other Benefits", icon: <Gift className="w-5 h-5 text-accent-blue" /> },
+      ]).map((category) => {
+        const categoryContacts = contacts.filter((c) =>
+          c.benefitsCategories?.includes(category.id) ||
+          c.benefitsCategory === category.id
+        );
         return (
-          <Card key={section.id} className="overflow-hidden border-gray-200 dark:border-gray-700">
+          <Card key={category.id} className="overflow-hidden border-gray-200 dark:border-gray-700">
             <CardHeader className="bg-gray-50/80 dark:bg-gray-800/80 py-3 px-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  {section.icon}
-                  <CardTitle className="text-base font-semibold">{section.label}</CardTitle>
+                  {category.icon}
+                  <CardTitle className="text-base font-semibold">{category.label}</CardTitle>
                   <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-1">
                     {categoryContacts.length}
                   </Badge>
@@ -222,37 +166,7 @@ function EditKeyContactsSection({
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() => {
-                    if (section.isExternal) {
-                      const newContact: KeyContact = {
-                        id: `contact-${Date.now()}`,
-                        contactType: "team_support",
-                        benefitsCategories: [],
-                        benefitsCategory: undefined,
-                        role: "Other",
-                        roleOther: "External HR / Administrator",
-                        isPrimaryForCategory: false,
-                        companyName: "",
-                        companyLogo: undefined,
-                        firstName: "",
-                        lastName: "",
-                        title: "",
-                        email: "",
-                        phone: "",
-                        website: "",
-                        showOnPortal: true,
-                        enableContactButton: true,
-                        isPrimary: false,
-                        displayScope: "thisPortal",
-                        name: "",
-                        orgType: "Advisor Firm",
-                        description: "External HR or administrator contact for benefits support.",
-                      };
-                      onContactsChange([...contacts, newContact]);
-                    } else {
-                      handleAddContactForCategory(section.id as BenefitsCategory);
-                    }
-                  }}
+                  onClick={() => onAddContactForCategory(category.id)}
                 >
                   <Plus className="w-3.5 h-3.5 mr-1" />
                   Add
@@ -260,56 +174,104 @@ function EditKeyContactsSection({
               </div>
             </CardHeader>
             <CardContent className="p-4">
-              {categoryContacts.length === 0 && (
+              {categoryContacts.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-4">
-                  No contacts assigned to {section.label}. Click &ldquo;Add&rdquo; to create one.
+                  No contacts assigned to {category.label}. Click &ldquo;Add&rdquo; to create one.
                 </p>
+              ) : (
+                <KeyContactsSection
+                  contacts={categoryContacts}
+                  onContactsChange={(updatedContacts) => {
+                    const otherContacts = contacts.filter((c) =>
+                      !(c.benefitsCategories?.includes(category.id) ||
+                        c.benefitsCategory === category.id)
+                    );
+                    onContactsChange([...otherContacts, ...updatedContacts]);
+                  }}
+                  onHeadshotUpload={onHeadshotUpload}
+                  onHeadshotRemove={onHeadshotRemove}
+                  organizationName={companyData.companyName}
+                  companyLogo={companyData.companyLogo?.url}
+                  recordkeeperFromStep4={documentsData.recordkeeper}
+                  errorFields={validationErrors.keyContacts || []}
+                />
               )}
-              <KeyContactsSection
-                contacts={categoryContacts}
-                onContactsChange={(updatedContacts) => {
-                  const otherContacts = contacts.filter((c) => {
-                    if (section.isExternal) {
-                      const isExternal = c.contactType === "team_support" ||
-                        (c.role === "Other" && c.roleOther === "External HR / Administrator") ||
-                        (c.role as string) === "External HR / Administrator";
-                      return !isExternal;
-                    }
-                    return !(c.benefitsCategories?.includes(section.id as BenefitsCategory) ||
-                      c.benefitsCategory === section.id);
-                  });
-                  onContactsChange([...otherContacts, ...updatedContacts]);
-                }}
-                onHeadshotUpload={onHeadshotUpload}
-                onHeadshotRemove={onHeadshotRemove}
-                organizationName={companyData.companyName}
-                companyLogo={companyData.companyLogo?.url}
-                recordkeeperFromStep4={documentsData.recordkeeper}
-                errorFields={validationErrors.keyContacts || []}
-              />
             </CardContent>
           </Card>
         );
       })}
 
-      {/* Add Contact button */}
-      <Button
-        onClick={() => setIsAddModalOpen(true)}
-        variant="outline"
-        className="w-full lg:w-[320px] lg:flex lg:items-center lg:justify-center lg:mx-auto bg-accent-blue text-white"
-      >
-        <Plus className="w-4 h-4 mr-2" />
-        Add Contact ({contacts.length})
-      </Button>
+      {/* External HR / Administrator section */}
+      <Card className="overflow-hidden border-gray-200 dark:border-gray-700">
+        <CardHeader className="bg-gray-50/80 dark:bg-gray-800/80 py-3 px-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-amber-500" />
+              <CardTitle className="text-base font-semibold">External HR / Administrator</CardTitle>
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-1">
+                {externalContacts.length}
+              </Badge>
+            </div>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                const newContact: KeyContact = {
+                  id: `contact-${Date.now()}`,
+                  contactType: "team_support",
+                  benefitsCategories: [],
+                  benefitsCategory: undefined,
+                  role: "Other",
+                  roleOther: "External HR / Administrator",
+                  isPrimaryForCategory: false,
+                  companyName: "",
+                  companyLogo: undefined,
+                  firstName: "",
+                  lastName: "",
+                  title: "",
+                  email: "",
+                  phone: "",
+                  website: "",
+                  showOnPortal: true,
+                  enableContactButton: true,
+                  isPrimary: false,
+                  displayScope: "thisPortal",
+                  name: "",
+                  orgType: "Advisor Firm",
+                  description: "External HR or administrator contact for benefits support.",
+                };
+                onContactsChange([...contacts, newContact]);
+              }}
+            >
+              <Plus className="w-3.5 h-3.5 mr-1" />
+              Add
+            </Button>
+          </div>
+        </CardHeader>
+        {externalContacts.length > 0 ? (
+          <CardContent className="p-4">
+            <KeyContactsSection
+              contacts={externalContacts}
+              onContactsChange={(updatedContacts) => {
+                onContactsChange([...nonExternalContacts, ...updatedContacts]);
+              }}
+              onHeadshotUpload={onHeadshotUpload}
+              onHeadshotRemove={onHeadshotRemove}
+              organizationName={companyData.companyName}
+              companyLogo={companyData.companyLogo?.url}
+              recordkeeperFromStep4={documentsData.recordkeeper}
+              errorFields={validationErrors.keyContacts || []}
+            />
+          </CardContent>
+        ) : (
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground text-center py-4">
+              No external HR contacts. Click &ldquo;Add&rdquo; to create one.
+            </p>
+          </CardContent>
+        )}
+      </Card>
 
-      {/* Category-driven Add Contact Modal */}
-      <AddMoreContactsModal
-        open={isAddModalOpen}
-        onOpenChange={setIsAddModalOpen}
-        onSkip={() => setIsAddModalOpen(false)}
-        onAddContactForCategory={handleAddContactForCategory}
-        contacts={contacts}
-      />
     </div>
   );
 }
@@ -568,6 +530,60 @@ export default function EditClientPage() {
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [isPreviewLayoutModalOpen, setIsPreviewLayoutModalOpen] =
     useState(false);
+  const [isAddContactModalOpen, setIsAddContactModalOpen] = useState(false);
+
+  const handleAddContactForCategory = useCallback(
+    (category: BenefitsCategory) => {
+      const planOrganizationType =
+        (companyData.organizationType as
+          | "Advisor Firm"
+          | "Client"
+          | "Recordkeeper"
+          | "Partner/Custom") || "Advisor Firm";
+
+      const getDefaultDescription = (orgType?: string): string => {
+        switch (orgType) {
+          case "Advisor Firm":
+            return `Your dedicated financial professional for retirement plan education, enrollment assistance, and investment guidance.`;
+          case "Client":
+            return "Your primary contact for enrollment questions, plan changes, and general benefits support.";
+          case "Recordkeeper":
+            return `For account access, contributions, or transaction assistance, please contact ${documentsData.recordkeeper || "[Recordkeeper Name]"} directly.`;
+          case "Partner/Custom":
+            return `For questions about additional benefits such as insurance, wellness, or supplemental programs, please contact ${companyData.companyName || "[Company Name]"}.`;
+          default:
+            return `Your dedicated financial professional for retirement plan education, enrollment assistance, and investment guidance.`;
+        }
+      };
+
+      const newContact: KeyContact = {
+        id: `contact-${Date.now()}`,
+        contactType: "individual",
+        benefitsCategories: [category],
+        benefitsCategory: category,
+        role: "Advisor / Specialist",
+        isPrimaryForCategory: false,
+        companyName: companyData.companyName || "",
+        companyLogo: companyData.companyLogo?.url || undefined,
+        firstName: "",
+        lastName: "",
+        title: "",
+        email: "",
+        phone: "",
+        website: "",
+        showOnPortal: true,
+        enableContactButton: true,
+        isPrimary: false,
+        displayScope: "thisPortal",
+        name: "",
+        orgType: planOrganizationType,
+        organization: companyData.companyName || "",
+        description: getDefaultDescription(planOrganizationType),
+      };
+      setKeyContacts([...keyContacts, newContact]);
+    },
+    [companyData, documentsData, keyContacts, setKeyContacts],
+  );
 
   // Portal target for the tabs bar – the Header renders <div id="header-tabs-portal" />
   // and we portal the TabsList into it so it appears inside the fixed header while
@@ -1267,16 +1283,59 @@ export default function EditClientPage() {
               <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-xl">Key Contacts</CardTitle>
-                    <Button
-                      onClick={() => setIsPreviewLayoutModalOpen(true)}
-                      variant="outline"
-                      size="sm"
-                      className="text-sm"
-                    >
-                      <Monitor className="w-4 h-4 mr-2" />
-                      Preview / Modify Card Layout
-                    </Button>
+                    <div className="flex items-center gap-3">
+                      <CardTitle className="text-xl">Key Contacts</CardTitle>
+                      <Button
+                        onClick={() => setIsAddContactModalOpen(true)}
+                        variant="outline"
+                        size="sm"
+                        className="text-sm"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Contact ({keyContacts.length})
+                      </Button>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {/* Layout Indicator */}
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-1.5 border border-gray-200 dark:border-gray-700">
+                        <span className="flex items-center gap-1.5">
+                          <Monitor className="w-3.5 h-3.5" />
+                          <span className="font-medium text-gray-700 dark:text-gray-300">
+                            {keyContactsDisplayStyle === 0
+                              ? "Default"
+                              : keyContactsDisplayStyle === 2
+                                ? "Layout 2"
+                                : keyContactsDisplayStyle === 3
+                                  ? "Layout 3"
+                                  : keyContactsDisplayStyle === 4
+                                    ? "Layout 4"
+                                    : "None"}
+                          </span>
+                        </span>
+                        <span className="text-gray-300 dark:text-gray-600">|</span>
+                        <span className="flex items-center gap-1.5">
+                          <Smartphone className="w-3.5 h-3.5" />
+                          <span className="font-medium text-gray-700 dark:text-gray-300">
+                            {keyContactsMobileDisplayStyle === 0
+                              ? "Stacked"
+                              : keyContactsMobileDisplayStyle === 1
+                                ? "2-Col"
+                                : keyContactsMobileDisplayStyle === 2
+                                  ? "Hero"
+                                  : "None"}
+                          </span>
+                        </span>
+                      </div>
+                      <Button
+                        onClick={() => setIsPreviewLayoutModalOpen(true)}
+                        variant="outline"
+                        size="sm"
+                        className="text-sm"
+                      >
+                        <Monitor className="w-4 h-4 mr-2" />
+                        Preview / Modify Card Layout
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -1288,6 +1347,7 @@ export default function EditClientPage() {
                     onHeadshotUpload={handleHeadshotUpload}
                     onHeadshotRemove={handleHeadshotRemove}
                     validationErrors={getValidationErrors()}
+                    onAddContactForCategory={handleAddContactForCategory}
                   />
                 </CardContent>
               </Card>
@@ -1574,6 +1634,15 @@ export default function EditClientPage() {
             </TabsContent>
           </Tabs>
         </div>
+
+        {/* Add Contact Modal */}
+        <AddMoreContactsModal
+          open={isAddContactModalOpen}
+          onOpenChange={setIsAddContactModalOpen}
+          onSkip={() => setIsAddContactModalOpen(false)}
+          onAddContactForCategory={handleAddContactForCategory}
+          contacts={keyContacts}
+        />
 
         {/* Card Selection Modal */}
         <CardSelectionModal
