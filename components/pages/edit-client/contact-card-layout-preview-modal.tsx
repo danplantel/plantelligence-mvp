@@ -572,145 +572,141 @@ export function ContactCardLayoutPreviewModal({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
-        <DialogHeader className="px-6 pt-6 pb-3 shrink-0">
-          <DialogTitle>Contact Card Layout Preview</DialogTitle>
-          <DialogDescription>
-            Choose how contact cards appear on the employee portal. Switch
-            between Desktop and Mobile to see both views.
-          </DialogDescription>
-        </DialogHeader>
+        {/* ── Fixed Header: controls + expandable layout previews inline ── */}
+        <div className="shrink-0 bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-6 py-3">
+          {/* ── Controls bar ── */}
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <DialogTitle className="text-lg m-0 dark:text-gray-100">Contact Card Layout Preview</DialogTitle>
+              <DialogDescription className="mt-0.5 dark:text-gray-400">
+                Choose how contact cards appear on the employee portal. Switch
+                between Desktop and Mobile to see both views.
+              </DialogDescription>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Desktop / Mobile Toggle */}
+              <div className="inline-flex items-center rounded-lg border border-gray-200 overflow-hidden dark:border-gray-600">
+                <button
+                  onClick={() => setPreviewMode("desktop")}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-all cursor-pointer",
+                    previewMode === "desktop"
+                      ? "bg-accent-blue text-white"
+                      : "bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700",
+                  )}
+                >
+                  <Monitor className="w-4 h-4" />
+                  <span className="hidden sm:inline">Desktop</span>
+                </button>
+                <button
+                  onClick={() => setPreviewMode("mobile")}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-all cursor-pointer",
+                    previewMode === "mobile"
+                      ? "bg-accent-blue text-white"
+                      : "bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700",
+                  )}
+                >
+                  <Smartphone className="w-4 h-4" />
+                  <span className="hidden sm:inline">Mobile</span>
+                </button>
+              </div>
 
-        <div className="flex-1 overflow-y-auto px-6 pb-4 space-y-5">
-          {/* Desktop / Mobile Toggle */}
-          <div className="flex items-center justify-center">
-            <div className="inline-flex items-center rounded-lg border border-gray-200 overflow-hidden dark:border-gray-600">
+              {/* Card Layout Style Dropdown */}
               <button
-                onClick={() => setPreviewMode("desktop")}
-                className={cn(
-                  "flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-all cursor-pointer",
-                  previewMode === "desktop"
-                    ? "bg-accent-blue text-white"
-                    : "bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700",
-                )}
+                onClick={() =>
+                  setIsLayoutSectionCollapsed(!isLayoutSectionCollapsed)
+                }
+                className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all cursor-pointer text-sm dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-700"
               >
-                <Monitor className="w-4 h-4" />
-                Desktop
-              </button>
-              <button
-                onClick={() => setPreviewMode("mobile")}
-                className={cn(
-                  "flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-all cursor-pointer",
-                  previewMode === "mobile"
-                    ? "bg-accent-blue text-white"
-                    : "bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700",
+                <LayoutGrid className="w-4 h-4 text-accent-blue" />
+                <span className="text-gray-700 dark:text-gray-300 hidden sm:inline">
+                  {isLayoutSectionCollapsed
+                    ? "Show Layout Options"
+                    : "Hide Layout Options"}
+                </span>
+                {isLayoutSectionCollapsed ? (
+                  <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                ) : (
+                  <ChevronUp className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                 )}
-              >
-                <Smartphone className="w-4 h-4" />
-                Mobile
               </button>
             </div>
           </div>
 
-          {/* Live Preview — matches step-3d.tsx rendering */}
-          {hasContacts && (
-            <Card className="space-y-4 dark:bg-gray-800 dark:border-gray-700 overflow-hidden">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Palette className="w-5 h-5 text-accent-blue" />
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                      Preview
-                    </h2>
-                  </div>
-                  <button
-                    onClick={() =>
-                      setIsLayoutSectionCollapsed(!isLayoutSectionCollapsed)
-                    }
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all cursor-pointer text-sm dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-700"
-                  >
-                    <LayoutGrid className="w-4 h-4 text-accent-blue" />
-                    <span className="text-gray-700 dark:text-gray-300 hidden sm:inline">
-                      {isLayoutSectionCollapsed
-                        ? "Show Layout Options"
-                        : "Hide Layout Options"}
-                    </span>
-                    {isLayoutSectionCollapsed ? (
-                      <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                    ) : (
-                      <ChevronUp className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                    )}
-                  </button>
-                </div>
-              </CardHeader>
-
-              <CardContent className="space-y-4">
-                {/* Collapsible Layout Section */}
-                {!isLayoutSectionCollapsed && (
-                  <div className="space-y-4 pb-6 border-b border-gray-200 dark:border-gray-700">
-                    <h4 className="text-xs font-semibold text-gray-900 dark:text-gray-100">
-                      {previewMode === "mobile"
-                        ? "Mobile Layout Style"
-                        : "Card Layout Style"}
-                    </h4>
-
-                    <div
-                      className={cn(
-                        "grid gap-2",
-                        previewMode === "desktop"
-                          ? "grid-cols-2 sm:grid-cols-4"
-                          : "grid-cols-3",
-                      )}
-                    >
-                      {currentThumbs.map((layout) => {
-                        const isSelected = currentSelected === layout.id;
-                        return (
-                          <Card
-                            key={layout.id}
-                            className={cn(
-                              "cursor-pointer transition-all duration-200 hover:shadow-md overflow-hidden",
-                              isSelected
-                                ? "ring-2 ring-accent-blue border-accent-blue shadow-sm"
-                                : "border border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500",
-                              previewMode === "desktop"
-                                ? "h-[120px]"
-                                : "h-[110px]",
-                            )}
-                            onClick={() => handleLayoutClick(layout.id)}
-                          >
-                            <CardContent className="p-1 h-full flex flex-col">
-                              <div className="flex items-center justify-between mb-0.5">
-                                <h4 className="text-[9px] font-semibold text-gray-900 leading-tight dark:text-gray-100">
-                                  {layout.name}
-                                </h4>
-                                {isSelected && (
-                                  <div className="w-1.5 h-1.5 rounded-full bg-accent-blue flex-shrink-0" />
-                                )}
-                              </div>
-                              <div className="flex-1 flex items-center justify-center overflow-hidden">
-                                <div className="scale-[0.5] origin-center w-full">
-                                  {layout.thumbnail}
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
-                    </div>
-                  </div>
+          {/* ── Layout Previews (expandable inline within header) ── */}
+          {!isLayoutSectionCollapsed && (
+            <div className="mt-3 pt-3 border-t dark:border-gray-700">
+              <h4 className="text-xs font-semibold text-gray-900 mb-3 dark:text-gray-100">
+                {previewMode === "mobile"
+                  ? "Mobile Layout Style"
+                  : "Card Layout Style"}
+              </h4>
+              <div
+                className={cn(
+                  "grid gap-2",
+                  previewMode === "desktop"
+                    ? "grid-cols-2 sm:grid-cols-4"
+                    : "grid-cols-3",
                 )}
+              >
+                {currentThumbs.map((layout) => {
+                  const isSelected = currentSelected === layout.id;
+                  return (
+                    <Card
+                      key={layout.id}
+                      className={cn(
+                        "cursor-pointer transition-all duration-200 hover:shadow-md overflow-hidden",
+                        isSelected
+                          ? "ring-2 ring-accent-blue border-accent-blue shadow-sm"
+                          : "border border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500",
+                        previewMode === "desktop"
+                          ? "h-[120px]"
+                          : "h-[110px]",
+                      )}
+                      onClick={() => handleLayoutClick(layout.id)}
+                    >
+                      <CardContent className="p-1 h-full flex flex-col">
+                        <div className="flex items-center justify-between mb-0.5">
+                          <h4 className="text-[9px] font-semibold text-gray-900 leading-tight dark:text-gray-100">
+                            {layout.name}
+                          </h4>
+                          {isSelected && (
+                            <div className="w-1.5 h-1.5 rounded-full bg-accent-blue flex-shrink-0" />
+                          )}
+                        </div>
+                        <div className="flex-1 flex items-center justify-center overflow-hidden">
+                          <div className="scale-[0.5] origin-center w-full">
+                            {layout.thumbnail}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
 
-                {/* Preview Content — matches step-3d.tsx exactly */}
+        {/* ── Scrollable Body ── */}
+        <div className="flex-1 overflow-y-auto px-6 pb-4">
+          {hasContacts ? (
+            <>
+
+              {/* Preview Content — matches step-3d.tsx exactly */}
+              <div className="py-4">
                 <div className="bg-[#F8F8F3] rounded-lg p-8 border border-gray-200">
                   <div
                     className={cn(
                       previewMode === "mobile" &&
-                        "max-w-[375px] mx-auto rounded-[3rem] border-[6px] border-gray-800 dark:border-gray-600 bg-white dark:bg-gray-950 shadow-xl overflow-hidden",
+                        "max-w-[375px] mx-auto rounded-[3rem] border-[6px] border-gray-800 bg-white shadow-xl overflow-hidden",
                     )}
                   >
                     {/* Notch bar for mobile frame */}
                     {previewMode === "mobile" && (
-                      <div className="flex items-center justify-center py-2 bg-gray-800 dark:bg-gray-600">
-                        <div className="w-16 h-1.5 rounded-full bg-gray-600 dark:bg-gray-400" />
+                      <div className="flex items-center justify-center py-2 bg-gray-800">
+                        <div className="w-16 h-1.5 rounded-full bg-gray-600" />
                       </div>
                     )}
 
@@ -745,11 +741,9 @@ export function ContactCardLayoutPreviewModal({
                     </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {!hasContacts && (
+              </div>
+            </>
+          ) : (
             <div className="text-center py-12 text-muted-foreground text-sm bg-[#F8F8F3] rounded-lg border border-gray-200">
               Add contacts to preview the card layout.
             </div>
