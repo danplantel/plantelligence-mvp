@@ -470,7 +470,7 @@ export default function MarketingAssetModal({
       if (assetType === "pop-up" || editingAsset.type === "pop-up") {
         setShowEveryVisit(!!d.showEveryVisit);
         setPopupPages((d.popupPages as string[]) || ["all"]);
-        setFlyerSubtitle((editingAsset.flyerSubtitle as string) || (d.flyerSubtitle as string) || "");
+        setFlyerSubtitle("");
         setPopupCtaUrl((d.ctaUrl as string) || "");
       }
 
@@ -630,7 +630,7 @@ export default function MarketingAssetModal({
       : headline ||
         (resolvedType === "news-post"
           ? "Post Headline"
-          : resolvedType === "portal-notice"
+          : resolvedType === "portal-notice" || resolvedType === "pop-up"
             ? "Headline"
             : "Flyer Preview");
   const previewBody =
@@ -846,7 +846,6 @@ export default function MarketingAssetModal({
     if (resolvedType === "pop-up") {
       data.showEveryVisit = showEveryVisit;
       data.popupPages = popupPages;
-      data.flyerSubtitle = flyerSubtitle || null;
       data.ctaUrl = popupCtaUrl || null;
     }
     if (resolvedType === "news-post") {
@@ -1633,9 +1632,22 @@ export default function MarketingAssetModal({
             </Label>
             <Input id="pu-headline" placeholder="Enter headline…" value={headline} onChange={(e) => setHeadline(e.target.value)} />
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="pu-subtitle">Subtitle</Label>
-            <Input id="pu-subtitle" placeholder="A short description…" value={flyerSubtitle} onChange={(e) => setFlyerSubtitle(e.target.value)} />
+          {/* Date range — shown directly under the headline for Pop-Up */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="startDate">
+                Start date
+                <span className="text-red-500 ml-0.5">*</span>
+              </Label>
+              <Input id="startDate" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="endDate">
+                End date
+                <span className="text-red-500 ml-0.5">*</span>
+              </Label>
+              <Input id="endDate" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+            </div>
           </div>
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
@@ -1714,6 +1726,23 @@ export default function MarketingAssetModal({
               <span className="text-red-500 ml-0.5">*</span>
             </Label>
             <Input id="np-headline" placeholder="Enter headline…" value={headline} onChange={(e) => setHeadline(e.target.value)} />
+          </div>
+          {/* Date range — shown directly under the headline for News & Events Post */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="startDate">
+                Start date
+                <span className="text-red-500 ml-0.5">*</span>
+              </Label>
+              <Input id="startDate" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="endDate">
+                End date
+                <span className="text-red-500 ml-0.5">*</span>
+              </Label>
+              <Input id="endDate" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+            </div>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="np-subtitle">Subtitle</Label>
@@ -1815,25 +1844,6 @@ export default function MarketingAssetModal({
         </div>
       )}
 
-      {/* Date range — shown for Pop-Up and News Post; Top Banner shows its date range under the headline */}
-      {(resolvedType === "pop-up" || resolvedType === "news-post") && (
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="startDate">
-              Start date
-              <span className="text-red-500 ml-0.5">*</span>
-            </Label>
-            <Input id="startDate" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="endDate">
-              End date
-              <span className="text-red-500 ml-0.5">*</span>
-            </Label>
-            <Input id="endDate" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-          </div>
-        </div>
-      )}
     </>
   );
 
@@ -1910,7 +1920,7 @@ export default function MarketingAssetModal({
                   End: <span className="font-medium text-foreground">{new Date(endDate).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}</span>
                 </span>
               )}
-              {(resolvedType === "pop-up" || resolvedType === "news-post") && flyerSubtitle && (
+              {resolvedType === "news-post" && flyerSubtitle && (
                 <span className="text-muted-foreground text-xs">
                   Subtitle: <span className="font-medium text-foreground">{flyerSubtitle}</span>
                 </span>
@@ -2774,7 +2784,7 @@ function PreviewPane({
         />
       );
     case "pop-up":
-      return <PopUpPreview headline={headline} body={body} ctaText={ctaText} bgColor={bgColor} planName={planName} planLogo={planLogo} subtitle={flyerSubtitle} isMobile={isMobile} />;
+      return <PopUpPreview headline={headline} body={body} ctaText={ctaText} bgColor={bgColor} planName={planName} planLogo={planLogo} isMobile={isMobile} />;
     case "news-post":
       return <NewsPostPreview headline={headline} body={body} planName={planName} ctaText={ctaText} subtitle={flyerSubtitle} bgImage={bgImage} postCategory={postCategory} startDate={startDate} isMobile={isMobile} bgColor={bgColor} />;
   }
@@ -2977,7 +2987,6 @@ function PopUpPreview({
   bgColor,
   planName,
   planLogo,
-  subtitle,
   isMobile,
 }: {
   headline: string;
@@ -2986,7 +2995,6 @@ function PopUpPreview({
   bgColor: string;
   planName?: string;
   planLogo?: string;
-  subtitle?: string;
   isMobile?: boolean;
 }) {
   const { url: resolvedPlanLogo } = useBrandingImageUrl(planLogo);
@@ -3018,7 +3026,6 @@ function PopUpPreview({
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <h3 className="text-lg font-bold text-gray-900 leading-snug">{headline || "Announcement"}</h3>
-                <p className={cn("text-xs mt-0.5", subtitle ? "text-gray-500" : "text-gray-300 italic")}>{subtitle || "A short description\u2026"}</p>
               </div>
               <div className="h-6 w-6 shrink-0 rounded-full border-2 border-gray-300 flex items-center justify-center text-gray-400 text-xs">✕</div>
             </div>
@@ -3067,7 +3074,6 @@ function PopUpPreview({
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
               <h3 className="text-lg font-bold text-gray-900 leading-snug">{headline || "Announcement"}</h3>
-              <p className={cn("text-xs mt-0.5", subtitle ? "text-gray-500" : "text-gray-300 italic")}>{subtitle || "A short description\u2026"}</p>
             </div>
             <div className="h-6 w-6 shrink-0 rounded-full border-2 border-gray-300 flex items-center justify-center text-gray-400 text-xs">✕</div>
           </div>
