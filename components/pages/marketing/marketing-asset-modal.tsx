@@ -124,6 +124,16 @@ interface Meeting {
 
 const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
 
+/**
+ * Strip flyer text-formatting markers from a string for plain-text display
+ * (e.g. toasts). Removes color codes like `{#ffcb0a}gold{/}` → `gold`.
+ */
+function stripColorMarkers(text: string): string {
+  return (text || "")
+    .replace(/\{#([0-9a-fA-F]{6})\}/g, "")
+    .replace(/\{\/\}/g, "");
+}
+
 const ASSET_META: Record<AssetType, { label: string; icon: string }> = {
   "flyer": { label: "Flyer", icon: "📄" },
   "portal-notice": { label: "Portal Notice", icon: "📢" },
@@ -875,7 +885,7 @@ export default function MarketingAssetModal({
       onSave?.();
       toast({
         title: `${saveLabel} ${isEditing ? "updated" : "saved"}`,
-        description: `"${headline || saveLabel}" has been ${isEditing ? "updated" : "created"} as ${assetStatus}.`,
+        description: `"${stripColorMarkers(headline || saveLabel)}" has been ${isEditing ? "updated" : "created"} as ${assetStatus}.`,
         className: "border-green-500 bg-green-50 text-green-900 dark:bg-green-950 dark:text-green-100 dark:border-green-800",
       });
     } catch (error) {
