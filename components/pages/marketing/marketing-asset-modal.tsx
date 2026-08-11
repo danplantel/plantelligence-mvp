@@ -726,6 +726,11 @@ export default function MarketingAssetModal({
         setIsSaving(false);
         return;
       }
+      if (ctaText.trim() && !portalCtaUrl.trim()) {
+        toast({ title: "Validation error", description: "Button link is required when a button text is provided.", variant: "destructive", className: "z-[9999]" });
+        setIsSaving(false);
+        return;
+      }
     }
 
     // Validate Pop-Up required fields
@@ -752,6 +757,11 @@ export default function MarketingAssetModal({
       }
       if (!endDate) {
         toast({ title: "Validation error", description: "End date is required for Pop-Up.", variant: "destructive", className: "z-[9999]" });
+        setIsSaving(false);
+        return;
+      }
+      if (ctaText.trim() && !popupCtaUrl.trim()) {
+        toast({ title: "Validation error", description: "Button link is required when a button text is provided.", variant: "destructive", className: "z-[9999]" });
         setIsSaving(false);
         return;
       }
@@ -786,6 +796,11 @@ export default function MarketingAssetModal({
       }
       if (!endDate) {
         toast({ title: "Validation error", description: "End date is required for News Post.", variant: "destructive", className: "z-[9999]" });
+        setIsSaving(false);
+        return;
+      }
+      if (ctaText.trim() && !newsPostCtaUrl.trim()) {
+        toast({ title: "Validation error", description: "Button link is required when a button text is provided.", variant: "destructive", className: "z-[9999]" });
         setIsSaving(false);
         return;
       }
@@ -1607,10 +1622,15 @@ export default function MarketingAssetModal({
             <Label htmlFor="portalCtaText">Button text (optional)</Label>
             <Input id="portalCtaText" placeholder="Learn More" value={ctaText} onChange={(e) => setCtaText(e.target.value)} />
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="portalCtaUrl">Button link (optional)</Label>
-            <Input id="portalCtaUrl" placeholder="https://example.com" value={portalCtaUrl} onChange={(e) => setPortalCtaUrl(e.target.value)} />
-          </div>
+          {ctaText.trim() && (
+            <div className="space-y-1.5">
+              <Label htmlFor="portalCtaUrl">
+                Button link
+                <span className="text-red-500 ml-0.5">*</span>
+              </Label>
+              <Input id="portalCtaUrl" placeholder="https://example.com" value={portalCtaUrl} onChange={(e) => setPortalCtaUrl(e.target.value)} />
+            </div>
+          )}
           {/* Button color */}
           <PlanColorSelector
             label="Button color"
@@ -1663,10 +1683,15 @@ export default function MarketingAssetModal({
             <Label htmlFor="pu-cta-text">Button text</Label>
             <Input id="pu-cta-text" placeholder="Learn More" value={ctaText} onChange={(e) => setCtaText(e.target.value)} />
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="pu-cta-url">Button link (optional)</Label>
-            <Input id="pu-cta-url" placeholder="https://example.com" value={popupCtaUrl} onChange={(e) => setPopupCtaUrl(e.target.value)} />
-          </div>
+          {ctaText.trim() && (
+            <div className="space-y-1.5">
+              <Label htmlFor="pu-cta-url">
+                Button link
+                <span className="text-red-500 ml-0.5">*</span>
+              </Label>
+              <Input id="pu-cta-url" placeholder="https://example.com" value={popupCtaUrl} onChange={(e) => setPopupCtaUrl(e.target.value)} />
+            </div>
+          )}
           <div>
             <Label className="text-sm font-medium">
               Show on pages
@@ -1829,10 +1854,15 @@ export default function MarketingAssetModal({
             <Label htmlFor="ctaText">Button text</Label>
             <Input id="ctaText" placeholder="Learn More" value={ctaText} onChange={(e) => setCtaText(e.target.value)} />
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="np-cta-url">Button link (optional)</Label>
-            <Input id="np-cta-url" placeholder="https://example.com" value={newsPostCtaUrl} onChange={(e) => setNewsPostCtaUrl(e.target.value)} />
-          </div>
+          {ctaText.trim() && (
+            <div className="space-y-1.5">
+              <Label htmlFor="np-cta-url">
+                Button link
+                <span className="text-red-500 ml-0.5">*</span>
+              </Label>
+              <Input id="np-cta-url" placeholder="https://example.com" value={newsPostCtaUrl} onChange={(e) => setNewsPostCtaUrl(e.target.value)} />
+            </div>
+          )}
           {/* Button color */}
           <PlanColorSelector
             label="Button color"
