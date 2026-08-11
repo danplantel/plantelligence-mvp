@@ -115,6 +115,7 @@ interface Meeting {
   duration: string;
   format: string;
   platform?: string;
+  meetingLink?: string;
   address?: string;
   city?: string;
   state?: string;
@@ -557,6 +558,13 @@ export default function MarketingAssetModal({
           ? [m.city, m.state].filter(Boolean).join(", ") || "In-Person"
           : m.platform || m.format || "Virtual"
       );
+
+      // Populate the QR code link with the meeting's virtual meeting link (if any)
+      if (m.meetingLink && m.meetingLink.trim()) {
+        setFlyerQrUrl(m.meetingLink.trim());
+        setFlyerQrDataUrl("");
+        setQrResult(null);
+      }
     }
   };
 
