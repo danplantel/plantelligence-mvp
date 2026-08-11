@@ -106,6 +106,46 @@ interface SavedAsset {
 
 const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
 
+/** Human-friendly topic labels for the built-in topical flyer templates. */
+const TOPICAL_TEMPLATE_TOPICS: Record<string, string> = {
+  TopicalTemplate1: "Retirement Savings From Former Employer",
+  TopicalTemplate2: "Beneficiary Designation",
+  TopicalTemplate3: "Start Your Retirement Journey",
+};
+
+/**
+ * Build the secondary descriptor line shown under a saved flyer in the
+ * "Marketing Assets" list. Shows the flyer kind (Meeting / Topical) and
+ * its benefit category, plus for meeting flyers the meeting type & date, or
+ * for topical flyers the topic.
+ */
+function formatFlyerMeta(asset: SavedAsset): string | null {
+  if (asset.type !== "flyer") return null;
+  const d = (asset.data ?? {}) as Record<string, unknown>;
+  const template = (d.flyerTemplate as string) || "";
+  const category = (d.flyerCategory as string) || "All Benefits";
+  const isTopical = template.startsWith("Topical");
+
+  const parts: string[] = [isTopical ? "Topical" : "Meeting", category];
+  if (isTopical) {
+    const topic = (d.flyerTopic as string) || TOPICAL_TEMPLATE_TOPICS[template] || "";
+    if (topic) parts.push(topic);
+  } else {
+    const meetingType = (d.meetingType as string) || "";
+    if (meetingType) parts.push(meetingType);
+    if (asset.startDate) {
+      parts.push(
+        new Date(asset.startDate).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        }),
+      );
+    }
+  }
+  return parts.join(" · ");
+}
+
 function PlanSearchBar({
   plans,
   value,
@@ -745,7 +785,7 @@ export default function MarketingPage() {
               </AccordionContent>
             </AccordionItem>
 
-            {/* Edit Marketing Assets Accordion */}
+            {/* Marketing Assets Accordion */}
             <AccordionItem value="edit" className="rounded-xl border bg-white dark:bg-gray-800 dark:border-gray-700 shadow-sm">
               <AccordionTrigger className="px-5 py-3 hover:no-underline [&[data-state=open]>svg]:rotate-180">
                 <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
@@ -755,7 +795,7 @@ export default function MarketingPage() {
                     <line x1="16" y1="13" x2="8" y2="13" />
                     <line x1="16" y1="17" x2="8" y2="17" />
                   </svg>
-                  Edit Marketing Assets
+                  Marketing Assets
                   <span className="text-xs text-muted-foreground font-normal">({savedAssets.length})</span>
                 </div>
               </AccordionTrigger>
@@ -911,14 +951,26 @@ export default function MarketingPage() {
                                     : asset.type.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
                                   }
                                 </span>
-                                <span className="text-muted-foreground ml-1">
-                                  · {new Date(asset.createdAt).toLocaleDateString("en-US", {
-                                      year: "numeric",
-                                      month: "short",
-                                      day: "numeric",
-                                    })}
-                                </span>
+                                {asset.type !== "flyer" && (
+                                  <span className="text-muted-foreground ml-1">
+                                    · {new Date(asset.createdAt).toLocaleDateString("en-US", {
+                                        year: "numeric",
+                                        month: "short",
+                                        day: "numeric",
+                                      })}
+                                  </span>
+                                )}
                               </p>
+                              {asset.type === "flyer" &&
+                                (() => {
+                                  const meta = formatFlyerMeta(asset);
+                                  if (!meta) return null;
+                                  return (
+                                    <p className="text-xs text-muted-foreground truncate mt-0.5">
+                                      {meta}
+                                    </p>
+                                  );
+                                })()}
                             </div>
 
                             {asset.type === "flyer" && (

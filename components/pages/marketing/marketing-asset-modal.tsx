@@ -286,6 +286,7 @@ export default function MarketingAssetModal({
   const [meetingTime, setMeetingTime] = useState("");
   const [meetingPlatform, setMeetingPlatform] = useState("");
   const [meetingLocation, setMeetingLocation] = useState("");
+  const [meetingType, setMeetingType] = useState("");
   const [selectedMeetingId, setSelectedMeetingId] = useState("");
   const [flyerImage, setFlyerImage] = useState<string>("");
   const [flyerImageLoading, setFlyerImageLoading] = useState(false);
@@ -494,6 +495,7 @@ export default function MarketingAssetModal({
         setFlyerCategory((d.flyerCategory as string) || "");
         setMeetingTime((d.meetingTime as string) || "");
         setMeetingLocation((d.meetingLocation as string) || "");
+        setMeetingType((d.meetingType as string) || "");
         setFlyerImage((editingAsset.flyerImage as string) || (d.flyerImage as string) || "");
         setFlyerImagePosition((d.flyerImagePosition as FlyerImagePosition) || { x: 50, y: 50 });
         setFlyerImageWidth((d.flyerImageWidth as number) || null);
@@ -516,6 +518,7 @@ export default function MarketingAssetModal({
       setMeetingTime("");
       setMeetingPlatform("");
       setMeetingLocation("");
+      setMeetingType("");
       setSelectedMeetingId("");
       setFlyerImage("");
       setFlyerImagePosition({ x: 50, y: 50 });
@@ -573,6 +576,7 @@ export default function MarketingAssetModal({
           ? [m.city, m.state].filter(Boolean).join(", ") || "In-Person"
           : m.platform || m.format || "Virtual"
       );
+      setMeetingType(m.meetingType || "");
 
       // Populate the QR code link with the meeting's virtual meeting link (if any)
       if (m.meetingLink && m.meetingLink.trim()) {
@@ -810,6 +814,7 @@ export default function MarketingAssetModal({
       data.flyerSubtitle = flyerSubtitle;
       data.meetingTime = meetingTime;
       data.meetingLocation = meetingLocation;
+      data.meetingType = meetingType || null;
       data.flyerImage = flyerImage;
       data.flyerImagePosition = flyerImagePosition;
       data.flyerImageWidth = flyerImageWidth;
