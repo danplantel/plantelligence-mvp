@@ -17,6 +17,8 @@ interface DocumentListTabProps {
   onDelete: (documentId: string, documentTitle: string) => void;
   getDocumentType: (doc: Document) => string;
   onEdit?: (documentId: string, title: string, updates?: { category?: string }) => void;
+  /** Passed through to DocumentsTableView – hides the Category dropdown when true. */
+  disableCategoryEdit?: boolean;
   availableCategories?: string[];
   /** Switches parent to Upload tab when list is empty */
   onGoToUpload?: () => void;
@@ -48,6 +50,7 @@ export function DocumentListTab({
   hideUploadedTime = false,
   showActionTooltips = false,
   showDirectEditDelete = false,
+  disableCategoryEdit = false,
 }: DocumentListTabProps) {
   if (!selectedPlan) {
     return (
@@ -112,6 +115,7 @@ export function DocumentListTab({
           hideUploadedTime={hideUploadedTime}
           showActionTooltips={showActionTooltips}
           showDirectEditDelete={showDirectEditDelete}
+          disableCategoryEdit={disableCategoryEdit}
         />
       </CardContent>
     </Card>

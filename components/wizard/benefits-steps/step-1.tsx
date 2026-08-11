@@ -492,41 +492,57 @@ export function BenefitsStep1() {
           Other: visibility["Custom"] !== false,
         };
 
-        // Save categoryPortalVisibility (client-level) via the main client API
-        await fetch(`/api/clients/${currentStepData.planId}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ categoryPortalVisibility }),
-        });
+        const apiCalls: Promise<any>[] = [
+          // Save categoryPortalVisibility (client-level) via the main client API
+          fetch(`/api/clients/${currentStepData.planId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ categoryPortalVisibility }),
+          }),
+        ];
 
-        // Save insurance fields + header background per-category via the new Benefit API
+        // Save insurance fields + header background + isEnabled per-category via the
+        // new Benefit API, so the visibility toggle takes effect on the portal
+        // immediately without requiring the entire wizard to be completed.
         if (currentStepData.benefitCategory) {
           const category = currentStepData.benefitCategory === "Custom"
             ? "Company / Plan Sponsor"
             : currentStepData.benefitCategory;
 
-          await fetch(`/api/clients/${currentStepData.planId}/benefits/${encodeURIComponent(category)}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              insurancePlanId: currentStepData.insurancePlanId || "",
-              insuranceLoginUrl: currentStepData.insuranceLoginUrl || "",
-              insuranceBackgroundImage: currentStepData.insuranceBackgroundImage || "",
-              insuranceContainerBlockOpacity: currentStepData.insuranceContainerBlockOpacity ?? 0.8,
-              // Header background image (uploaded in the Branding section) — the
-              // Benefit row stores this as `backgroundImage` (legacy: `image`).
-              backgroundImage: currentStepData.brandImages?.header?.url || null,
-              // Plan video (uploaded in Step 2 Editor Panel). Must be included
-              // so the dual-write doesn't wipe the video from employeePortalPreview.
-              planVideo: currentStepData.planVideo || null,
-              planVideoFileName: currentStepData.planVideoFileName || null,
+          const visKey =
+            currentStepData.benefitCategory === "Company / Plan Sponsor"
+              ? "Custom"
+              : currentStepData.benefitCategory;
+          const isEnabled =
+            (currentStepData.benefitVisibility ?? {})[visKey] !== false;
+
+          apiCalls.push(
+            fetch(`/api/clients/${currentStepData.planId}/benefits/${encodeURIComponent(category)}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                isEnabled,
+                insurancePlanId: currentStepData.insurancePlanId || "",
+                insuranceLoginUrl: currentStepData.insuranceLoginUrl || "",
+                insuranceBackgroundImage: currentStepData.insuranceBackgroundImage || "",
+                insuranceContainerBlockOpacity: currentStepData.insuranceContainerBlockOpacity ?? 0.8,
+                // Header background image (uploaded in the Branding section) — the
+                // Benefit row stores this as `backgroundImage` (legacy: `image`).
+                backgroundImage: currentStepData.brandImages?.header?.url || null,
+                // Plan video (uploaded in Step 2 Editor Panel). Must be included
+                // so the dual-write doesn't wipe the video from employeePortalPreview.
+                planVideo: currentStepData.planVideo || null,
+                planVideoFileName: currentStepData.planVideoFileName || null,
+              }),
             }),
-          });
+          );
         }
+
+        await Promise.all(apiCalls);
       } catch (error) {
         console.error("Auto-save error:", error);
       }
-    }, 2000);
+    }, 500);
 
     return () => clearTimeout(timer);
   }, [getMergedClientData, currentStepData.planId, currentStepData.benefitCategory]);
@@ -2040,7 +2056,9 @@ export function BenefitsStep1() {
                                 });
 
                                 try {
-                                  // Persist to backend immediately
+                                  // Persist to backend immediately — both client-level
+                                  // categoryPortalVisibility and the per-benefit isEnabled
+                                  // flag, so the portal reflects the toggle without delay.
                                   const newVisibility = {
                                     ...(currentStepData.benefitVisibility ?? {}),
                                     [cat]: checked,
@@ -2052,13 +2070,36 @@ export function BenefitsStep1() {
                                     Other: newVisibility["Custom"] !== false,
                                   };
 
-                                  const response = await fetch(`/api/clients/${currentStepData.planId}`, {
+                                  const clientPromise = fetch(`/api/clients/${currentStepData.planId}`, {
                                     method: "PUT",
                                     headers: { "Content-Type": "application/json" },
                                     body: JSON.stringify({ categoryPortalVisibility }),
                                   });
 
-                                  if (!response.ok) throw new Error("Failed to save");
+                                  const benefitCategory =
+                                    cat === "Custom" ? "Company / Plan Sponsor" : cat;
+                                  const benefitPromise = fetch(
+                                    `/api/clients/${currentStepData.planId}/benefits/${encodeURIComponent(benefitCategory)}`,
+                                    {
+                                      method: "PUT",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ isEnabled: checked }),
+                                    },
+                                  );
+
+                                  const [clientRes, benefitRes] = await Promise.all([
+                                    clientPromise,
+                                    benefitPromise,
+                                  ]);
+
+                                  if (!clientRes.ok) throw new Error("Failed to save client visibility");
+                                  // isEnabled benefit write is non-blocking; log a warning if it fails
+                                  if (!benefitRes.ok) {
+                                    console.warn(
+                                      "Benefit isEnabled save returned",
+                                      benefitRes.status,
+                                    );
+                                  }
 
                                   const label = cat === "Custom" ? "Custom benefit" : `${cat} benefit`;
                                   if (checked) {

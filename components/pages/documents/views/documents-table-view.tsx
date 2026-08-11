@@ -67,6 +67,10 @@ interface DocumentsTableViewProps {
   showActionTooltips?: boolean;
   /** Render Edit/Delete as direct buttons instead of the "..." menu. */
   showDirectEditDelete?: boolean;
+  /** When true, the Category column renders static badges instead of the editable
+   *  Select dropdown, even when `onEdit` is provided. Used in the Create Benefits
+   *  flow where the category is already fixed by the benefit being configured. */
+  disableCategoryEdit?: boolean;
 }
 
 interface ActionButtonProps {
@@ -126,6 +130,7 @@ export function DocumentsTableView({
   hideUploadedTime = false,
   showActionTooltips = false,
   showDirectEditDelete = false,
+  disableCategoryEdit = false,
 }: DocumentsTableViewProps) {
   return (
     <TooltipProvider delayDuration={200}>
@@ -197,7 +202,7 @@ export function DocumentsTableView({
                     </div>
                   </TableCell>
                   <TableCell>
-                    {onEdit ? (
+                    {onEdit && !disableCategoryEdit ? (
                       <div
                         onClick={(e) => e.stopPropagation()}
                         className="min-w-[140px] max-w-[240px]"

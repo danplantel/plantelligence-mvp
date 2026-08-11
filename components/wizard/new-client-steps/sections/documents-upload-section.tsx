@@ -1571,38 +1571,35 @@ export function DocumentsUploadSection({
               )}
             </div>
 
-            {/* Category - Always show, even if fixed, to give feedback */}
-            <div className="space-y-2">
-              <Label className="flex items-center justify-between dark:text-gray-300">
-                <span>Category</span>
-                {isAutoCategorized && (
-                  <Badge className="bg-accent-blue/10 text-accent-blue hover:bg-accent-blue/10 border-none px-2 py-0 h-5 text-[11px] font-bold">
-                    Auto-categorized
-                  </Badge>
-                )}
-              </Label>
-              <Select
-                value={currentDocumentCategory}
-                onValueChange={(val: any) => setCurrentDocumentCategory(val)}
-                disabled={!!fixedCategory} // Category is locked if passed as fixed
-              >
-                <SelectTrigger className="w-full bg-white border-gray-200 h-9 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300">
-                  <SelectValue placeholder="Select Category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Retirement">{getDocumentCategoryDisplayLabel("Retirement")}</SelectItem>
-                  <SelectItem value="Group Life">{getDocumentCategoryDisplayLabel("Group Life")}</SelectItem>
-                  <SelectItem value="Group Health">{getDocumentCategoryDisplayLabel("Group Health")}</SelectItem>
-                  <SelectItem value="Multiple">{getDocumentCategoryDisplayLabel("Multiple")}</SelectItem>
-                  <SelectItem value="Other Benefits">{getDocumentCategoryDisplayLabel("Other Benefits")}</SelectItem>
-                </SelectContent>
-              </Select>
-              {fixedCategory && (
-                <p className="text-[10px] text-muted-foreground italic">
-                  * Locked for this category
-                </p>
-              )}
-            </div>
+            {/* Category - hidden when fixed to the current benefit (Create Benefits flow),
+                because the category is already determined by which benefit is being configured. */}
+            {!fixedCategory && (
+              <div className="space-y-2">
+                <Label className="flex items-center justify-between dark:text-gray-300">
+                  <span>Category</span>
+                  {isAutoCategorized && (
+                    <Badge className="bg-accent-blue/10 text-accent-blue hover:bg-accent-blue/10 border-none px-2 py-0 h-5 text-[11px] font-bold">
+                      Auto-categorized
+                    </Badge>
+                  )}
+                </Label>
+                <Select
+                  value={currentDocumentCategory}
+                  onValueChange={(val: any) => setCurrentDocumentCategory(val)}
+                >
+                  <SelectTrigger className="w-full bg-white border-gray-200 h-9 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300">
+                    <SelectValue placeholder="Select Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Retirement">{getDocumentCategoryDisplayLabel("Retirement")}</SelectItem>
+                    <SelectItem value="Group Life">{getDocumentCategoryDisplayLabel("Group Life")}</SelectItem>
+                    <SelectItem value="Group Health">{getDocumentCategoryDisplayLabel("Group Health")}</SelectItem>
+                    <SelectItem value="Multiple">{getDocumentCategoryDisplayLabel("Multiple")}</SelectItem>
+                    <SelectItem value="Other Benefits">{getDocumentCategoryDisplayLabel("Other Benefits")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {/* Document Name */}
             <div className="space-y-2">

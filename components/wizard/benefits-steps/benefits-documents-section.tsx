@@ -563,6 +563,7 @@ export function BenefitsDocumentsSection({
             hideUploadedTime
             showActionTooltips
             showDirectEditDelete
+            disableCategoryEdit
             onEdit={(id, title, updates) => {
               if (updates?.category !== undefined) {
                 const docIndex = documents.findIndex((d) => d.id === id);
