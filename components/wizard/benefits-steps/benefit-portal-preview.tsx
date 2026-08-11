@@ -138,27 +138,43 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
     }, [categoryBenefit, step3Data?.faqs, category]);
 
     // ── Support contacts extraction: matches retirement/page.tsx logic ──
+    // 1. Check employeePortalPreview.benefits[].supportContacts (persisted from wizard Step 3)
+    // 2. Fall back to step3Data.supportContacts (wizard-in-progress, not yet persisted)
     const faqContacts = useMemo(() => {
         const rawContacts = Array.isArray(step1Data?.selectedPlan?.keyContacts)
             ? step1Data?.selectedPlan?.keyContacts
             : (step1Data?.selectedPlan as any)?.keyContacts?.contacts || [];
-        const rawSupportContacts = categoryBenefit?.supportContacts;
-        if (!Array.isArray(rawSupportContacts)) return undefined;
-        const enabled = rawSupportContacts.filter((sc: any) => sc.enabled !== false);
-        if (enabled.length === 0) return undefined;
-        return enabled.map((sc: any) => {
-            const matched = rawContacts.find((c: any) => c.id === sc.contactId);
-            return {
-                id: sc.contactId,
-                title: sc.title || matched?.name || `${matched?.firstName ?? ""} ${matched?.lastName ?? ""}`.trim() || "Support Contact",
-                description: sc.description || matched?.customRole || matched?.title || "",
-                email: matched?.email || "",
-                phone: matched?.phone || "",
-                phoneExtension: matched?.phoneExtension,
-                headshot: matched?.headshot || undefined,
-            } as FAQContact;
-        });
-    }, [step1Data?.selectedPlan, categoryBenefit]);
+
+        const mapContacts = (list: any[]) => list
+            .filter((sc: any) => sc.enabled !== false)
+            .map((sc: any) => {
+                const matched = rawContacts.find((c: any) => c.id === sc.contactId);
+                return {
+                    id: sc.contactId,
+                    title: sc.title || matched?.name || `${matched?.firstName ?? ""} ${matched?.lastName ?? ""}`.trim() || "Support Contact",
+                    description: sc.description || matched?.customRole || matched?.title || "",
+                    email: matched?.email || "",
+                    phone: matched?.phone || "",
+                    phoneExtension: matched?.phoneExtension,
+                    headshot: matched?.headshot || undefined,
+                } as FAQContact;
+            });
+
+        // Persisted support contacts take priority (matches how the live portal resolves them)
+        const persisted = mapContacts(
+            Array.isArray(categoryBenefit?.supportContacts)
+                ? categoryBenefit.supportContacts
+                : [],
+        );
+        if (persisted.length > 0) return persisted;
+        // Fall back to wizard-in-progress Step 3 selections
+        const wizardRaw = step3Data?.supportContacts;
+        const wizardContacts = mapContacts(
+            Array.isArray(wizardRaw) ? wizardRaw : [],
+        );
+        if (wizardContacts.length === 0) return undefined;
+        return wizardContacts;
+    }, [step1Data?.selectedPlan, categoryBenefit, step3Data?.supportContacts]);
 
     // Map documents: Step 4 (wizard) or, when empty, `selectedPlan.documents` from the plan API
     const documents = useMemo(() => {

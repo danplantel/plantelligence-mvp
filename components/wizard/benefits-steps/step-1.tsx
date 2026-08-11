@@ -9,6 +9,7 @@ import {
 } from "@/lib/marketing/hub-url";
 import {
   BenefitsStep1Data,
+  BenefitsStep3Data,
   useBenefitsWizardStore,
 } from "@/lib/benefits-wizard-store";
 import {
@@ -467,7 +468,9 @@ export function BenefitsStep1() {
     );
   }, [currentStepData.benefitCategory, getMergedClientData]);
 
-  // Auto-expand incomplete sections
+  // Auto-expand incomplete sections (e.g. when the category changes or data loads) by adding
+  // them to whatever the user already has open. Never auto-closes sections: collapsing the
+  // active section (e.g. Messaging) as soon as its field becomes valid is jarring mid-edit.
   useEffect(() => {
     if (!currentCompleteness?.sections) return;
 
@@ -476,10 +479,9 @@ export function BenefitsStep1() {
       .map(([name]) => name);
 
     if (incomplete.length > 0) {
-      setActiveAccordions(incomplete);
-    } else {
-      // All complete, collapse all
-      setActiveAccordions([]);
+      setActiveAccordions((prev) =>
+        Array.from(new Set([...prev, ...incomplete])),
+      );
     }
   }, [currentStepData.benefitCategory, currentCompleteness?.isComplete]);
 
@@ -750,6 +752,103 @@ export function BenefitsStep1() {
     plans,
     saveStepData,
   ]);
+
+  // Load persisted Step 3 support contacts (and FAQs) for the current category into the
+  // wizard store when entering the flow, so previously saved selections are retained.
+  // Tracks loaded categories (step3.supportContactsLoadedCategories) so this never
+  // clobbers in-session edits or removals on re-render.
+  useEffect(() => {
+    const cat = currentStepData.benefitCategory;
+    if (!cat || !getMergedClientData) return;
+
+    const latest = useBenefitsWizardStore.getState().stepData.step3;
+    const loadedCats = latest?.supportContactsLoadedCategories ?? [];
+    if (loadedCats.includes(cat)) return;
+
+    const benefits = getMergedClientData.employeePortalPreview?.benefits || [];
+    const catKey = normalizeBenefitsCategoryForCompleteness(cat);
+    const benefit = benefits.find((b: any) => {
+      const bKey = normalizeBenefitsCategoryForCompleteness(
+        String(b?.category ?? ""),
+      );
+      return bKey === catKey;
+    });
+
+    const savedSupportContacts = Array.isArray(benefit?.supportContacts)
+      ? benefit.supportContacts
+      : null;
+    const savedFaqs =
+      Array.isArray(benefit?.faqs) && benefit.faqs.length > 0
+        ? benefit.faqs
+        : null;
+
+    const next: BenefitsStep3Data = {
+      ...(latest || {
+        faqs: [],
+        supportContacts: [],
+        currentSubStep: "a" as const,
+      }),
+      supportContacts: savedSupportContacts ?? latest?.supportContacts ?? [],
+      supportContactsLoadedCategories: [...loadedCats, cat],
+    };
+    if (savedFaqs) {
+      next.faqs = savedFaqs;
+      next.faqsByCategory = {
+        ...(latest?.faqsByCategory ?? {}),
+        [cat]: savedFaqs,
+      };
+    }
+    saveStepData(3, next);
+  }, [currentStepData.benefitCategory, getMergedClientData, saveStepData]);
+
+  // Load persisted Benefit Logo (partnerLogo) and Benefit Description (shortDescription) for the
+  // current category into step1 when entering the flow, so previously saved values are retained
+  // (e.g. deep-link re-entry sets planId/category but never loads the logo or description).
+  // Reads the RAW plan benefit — NOT getMergedClientData, which overwrites these fields with the
+  // current (possibly empty) wizard values. Runs once per category
+  // (step1.benefitFieldsLoadedCategories) so in-session edits are never clobbered.
+  useEffect(() => {
+    const cat = currentStepData.benefitCategory;
+    const rawPlan = currentStepData.selectedPlan;
+    if (!cat || !rawPlan) return;
+
+    const loadedCats = currentStepData.benefitFieldsLoadedCategories ?? [];
+    if (loadedCats.includes(cat)) return;
+
+    const benefits = rawPlan.employeePortalPreview?.benefits || [];
+    const catKey = normalizeBenefitsCategoryForCompleteness(cat);
+    const benefit = benefits.find((b: any) => {
+      const bKey = normalizeBenefitsCategoryForCompleteness(
+        String(b?.category ?? ""),
+      );
+      return bKey === catKey;
+    });
+    if (!benefit) return;
+
+    const savedLogo = benefit?.partnerLogo;
+    const savedDescription = benefit?.shortDescription;
+    if (!savedLogo && !savedDescription) return;
+
+    const next: BenefitsStep1Data = {
+      ...currentStepData,
+      benefitFieldsLoadedCategories: [...loadedCats, cat],
+    };
+    if (savedDescription) {
+      next.shortDescription = savedDescription;
+    }
+    if (savedLogo) {
+      next.companyLogo = {
+        url: savedLogo,
+        fileName: "logo.png",
+        fileSize: 0,
+        width: 0,
+        height: 0,
+        hasTransparency: false,
+        warnings: [],
+      } as CompanyLogoData;
+    }
+    saveStepData(1, next);
+  }, [currentStepData.benefitCategory, currentStepData.selectedPlan, saveStepData]);
 
   // Conversion helpers
   const convertBrandImageToLogo = (
@@ -2180,7 +2279,7 @@ export function BenefitsStep1() {
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label className="text-sm font-bold text-gray-700 dark:text-gray-100">
-                      Display Title
+                      Display Title <span className="text-red-500">*</span>
                     </Label>
                     <Input
                       value={currentStepData.benefitTitle}
@@ -2217,7 +2316,7 @@ export function BenefitsStep1() {
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-bold text-gray-700 dark:text-gray-100">
-                      Benefit Description
+                      Benefit Description <span className="text-red-500">*</span>
                     </Label>
                     <Textarea
                       value={currentStepData.shortDescription || ""}

@@ -83,6 +83,9 @@ export interface BenefitsStep1Data {
     journeySubtitle?: string;
     /** Journey section body text override */
     journeyBodyText?: string;
+    /** Categories for which benefit fields (logo, short description) have been loaded from the
+     *  persisted benefit on entry, so re-entry doesn't clobber in-session edits. */
+    benefitFieldsLoadedCategories?: string[];
 }
 
 export interface FAQItem {
@@ -108,6 +111,9 @@ export interface BenefitsStep3Data {
     /** Per-category FAQ storage keyed by benefitCategory (e.g. "Retirement", "Group Health", "Group Life", "Custom").
      *  Persisted across wizard step navigations so manual additions are not lost. */
     faqsByCategory?: Record<string, FAQItem[]>;
+    /** Categories for which support contacts have been loaded from the persisted benefit.
+     *  Prevents re-loading from clobbering in-session edits/removals on re-render. */
+    supportContactsLoadedCategories?: string[];
 }
 
 export interface BenefitsStep4Data {
