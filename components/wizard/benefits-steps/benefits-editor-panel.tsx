@@ -23,7 +23,7 @@ import { BannerOverlaySettingsCard } from "@/components/wizard/new-client-steps/
 import { HeroBackgroundCard, type HeroSegmentMode } from "@/components/wizard/new-client-steps/sections/components/hero-background-card";
 import { uploadFileToR2 } from "@/lib/upload-to-r2";
 
-const DEFAULT_HELP_CARDS: HelpCardData[] = [
+export const DEFAULT_HELP_CARDS: HelpCardData[] = [
     {
         id: "access-account",
         title: "Access My Retirement Account",
@@ -31,7 +31,7 @@ const DEFAULT_HELP_CARDS: HelpCardData[] = [
             "View your balances, plan documents, and investment details all in one place.",
             "Take charge of your retirement plan and stay on top of your progress anytime.",
         ],
-        cta: "ACCESS ACCOUNT →",
+        cta: "",
     },
     {
         id: "financial-planning",
@@ -40,8 +40,7 @@ const DEFAULT_HELP_CARDS: HelpCardData[] = [
             "Exclusive Benefits for [Company Name] Plan Participants",
             "Elevate your financial journey with personalized planning through [Advisor Name]—a comprehensive service seamlessly integrated with your retirement benefits.",
         ],
-        cta: "START PLANNING →",
-        href: "/financial-planning",
+        cta: "",
     },
     {
         id: "rollovers",
@@ -50,8 +49,7 @@ const DEFAULT_HELP_CARDS: HelpCardData[] = [
         paragraphs: [
             "Understand your options for managing the savings you've built. The decision you make now can have a lasting impact on your retirement lifestyle.",
         ],
-        cta: "LEARN MORE →",
-        href: "/rollovers-distributions",
+        cta: "",
     },
 ];
 
@@ -864,18 +862,29 @@ export function BenefitsEditorPanel({
                                             placeholder="e.g. LEARN MORE →"
                                         />
                                     </div>
-                                    <div className="space-y-2">
-                                        <Label className="text-[11px] font-bold text-muted-foreground uppercase">
-                                            Link Path (optional)
-                                        </Label>
-                                        <Input
-                                            value={card.href || ""}
-                                            onChange={(e) => updateHelpCard(card.id, { href: e.target.value || undefined })}
-                                            onFocus={() => focusPreviewField("helpCards")}
-                                            className="h-9 text-sm"
-                                            placeholder="e.g. /financial-planning"
-                                        />
-                                    </div>
+                                    {card.cta?.trim() ? (
+                                        <div className="space-y-2">
+                                            <Label className="text-[11px] font-bold text-muted-foreground uppercase">
+                                                Link Path <span className="text-red-500">*</span>
+                                            </Label>
+                                            <Input
+                                                value={card.href || ""}
+                                                onChange={(e) => updateHelpCard(card.id, { href: e.target.value || undefined })}
+                                                onFocus={() => focusPreviewField("helpCards")}
+                                                className={cn(
+                                                    "h-9 text-sm",
+                                                    !card.href?.trim() && "border-red-400 focus-visible:ring-red-400",
+                                                )}
+                                                placeholder="e.g. /financial-planning"
+                                                required
+                                            />
+                                            {!card.href?.trim() && (
+                                                <p className="text-[11px] text-red-500">
+                                                    Link path is required when a button text is added.
+                                                </p>
+                                            )}
+                                        </div>
+                                    ) : null}
                                 </AccordionContent>
                             </AccordionItem>
                         ))}

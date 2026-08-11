@@ -42,6 +42,7 @@ import { normalizePortalDocumentLanguage } from "@/lib/portal-document-language"
 import { resolvePersistedDocumentCategory } from "@/lib/document-category";
 import { getCategoryHeroBackgroundUrl, DEFAULT_WELCOME_BG } from "@/lib/portal-category-hero-background";
 import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
+import { DEFAULT_HELP_CARDS } from "./benefits-editor-panel";
 
 export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
     const { stepData } = useBenefitsWizardStore();
@@ -398,7 +399,7 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
                         brandColor={brandColor}
                         secondaryColor={secondaryColor}
                         clientId={step1Data?.planId}
-                        cards={step1Data?.helpCards}
+                        cards={step1Data?.helpCards?.length ? step1Data.helpCards : DEFAULT_HELP_CARDS}
                         onCardEdit={(cardId) => handleEdit("helpCards", cardId)}
                     />
                 </div>

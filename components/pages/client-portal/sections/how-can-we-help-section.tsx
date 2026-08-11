@@ -126,23 +126,25 @@ export function HowCanWeHelpSection({
               ))}
             </div>
 
-            {card.href ? (
-              <Link
-                href={`${basePath}${card.href}`}
-                className="mt-auto w-full rounded-md border bg-white py-3 text-center text-[15px] font-red-hat uppercase tracking-[0.15em] transition-all duration-300 hover:opacity-90 hover:scale-105"
-                style={{ borderColor: secondaryColor, color: secondaryColor }}
-              >
-                {card.cta}
-              </Link>
-            ) : (
-              <button
-                type="button"
-                className="mt-auto w-full rounded-md border bg-white py-3 text-center text-[15px] font-red-hat uppercase tracking-[0.15em] transition-all duration-300 hover:opacity-90 hover:scale-105"
-                style={{ borderColor: secondaryColor, color: secondaryColor }}
-              >
-                {card.cta}
-              </button>
-            )}
+            {card.cta?.trim() ? (
+              card.href ? (
+                <Link
+                  href={`${basePath}${card.href}`}
+                  className="mt-auto w-full rounded-md border bg-white py-3 text-center text-[15px] font-red-hat uppercase tracking-[0.15em] transition-all duration-300 hover:opacity-90 hover:scale-105"
+                  style={{ borderColor: secondaryColor, color: secondaryColor }}
+                >
+                  {card.cta}
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  className="mt-auto w-full rounded-md border bg-white py-3 text-center text-[15px] font-red-hat uppercase tracking-[0.15em] transition-all duration-300 hover:opacity-90 hover:scale-105"
+                  style={{ borderColor: secondaryColor, color: secondaryColor }}
+                >
+                  {card.cta}
+                </button>
+              )
+            ) : null}
           </motion.div>
           </div>
         ))}
