@@ -450,51 +450,7 @@ function PlanSearchBar({
   );
 }
 
-function RecentPlanLabels({
-  plans,
-  onSelect,
-}: {
-  plans: Client[];
-  onSelect: (planId: string) => void;
-}) {
-  const recentIds = getRecentPlanIds();
-  const recentPlanObjects = useMemo(() => {
-    const planMap = new Map(plans.map((p) => [p.id, p]));
-    const result: Client[] = [];
-    const seen = new Set<string>();
-    for (const id of recentIds) {
-      const p = planMap.get(id);
-      if (p && !seen.has(id)) {
-        result.push(p);
-        seen.add(id);
-      }
-    }
-    return result;
-  }, [recentIds, plans]);
-
-  if (recentPlanObjects.length === 0) return null;
-
-  return (
-    <div className="flex flex-wrap items-center gap-1.5 pt-2">
-      <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
-      {recentPlanObjects.slice(0, 5).map((plan) => (
-        <button
-          key={plan.id}
-          type="button"
-          onClick={() => {
-            persistPlanSelection("marketing", plan.id);
-            onSelect(plan.id);
-          }}
-          className="inline-flex items-center rounded-md border border-accent-blue/30 bg-accent-blue/5 px-2 py-0.5 text-xs font-medium text-accent-blue hover:bg-accent-blue/10 hover:border-accent-blue/50 transition-colors"
-        >
-          {plan.companyName}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-// â”€â”€ SVG Illustrations â”€â”€
+// SVG Illustrations
 
 const FlyerIllustration = () => (
   <svg viewBox="0 0 48 38" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-full w-full">
@@ -827,13 +783,9 @@ function MarketingAssetListAccordionItem({
                             : asset.type.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
                           }
                         </span>
-                        {asset.type !== "flyer" && (
-                          <span className="text-muted-foreground ml-1">
-                            · {new Date(asset.createdAt).toLocaleDateString("en-US", {
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric",
-                              })}
+                        {asset.type !== "flyer" && asset.headline && (
+                          <span className="text-muted-foreground ml-1.5 font-normal">
+                            {asset.headline}
                           </span>
                         )}
                       </p>
@@ -1110,6 +1062,7 @@ export default function MarketingPage() {
         {selectedPlan && selectedClient && !isLoadingClients && (
         <div className="space-y-4">
           <Accordion type="multiple" defaultValue={["create"]} className="space-y-4">
+
             {/* Create Marketing Asset Accordion */}
             <AccordionItem value="create" className="rounded-xl border bg-white dark:bg-gray-800 dark:border-gray-700 shadow-sm">
               <AccordionTrigger className="px-5 py-3 hover:no-underline [&[data-state=open]>svg]:rotate-180">
