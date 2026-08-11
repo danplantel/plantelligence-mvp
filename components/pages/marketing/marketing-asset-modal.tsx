@@ -2013,7 +2013,26 @@ export default function MarketingAssetModal({
               )}
             </div>
             <div ref={flyerPreviewRef} className={cn("flex-1 overflow-y-auto p-6 flex items-start justify-center", previewMode === "mobile" && "bg-gray-100 dark:bg-gray-900")}>
-              {noFlyerTemplates ? (
+              {assetType === "portal-notice" && !portalElement ? (
+                <div className="flex h-full w-full items-center justify-center">
+                  <div className="flex flex-col items-center justify-center text-center">
+                    <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--accent-blue)]/10">
+                      <svg className="h-8 w-8 text-[var(--accent-blue)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="16" y1="13" x2="8" y2="13" />
+                        <line x1="16" y1="17" x2="8" y2="17" />
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300">
+                      Choose Portal Notice Type
+                    </h3>
+                    <p className="mt-1 text-sm text-muted-foreground max-w-[260px] mx-auto">
+                      Select an option on the left to see its preview here.
+                    </p>
+                  </div>
+                </div>
+              ) : noFlyerTemplates ? (
                 <div className="flex items-center justify-center h-full w-full text-sm text-muted-foreground">
                   No flyer to preview for this benefit category.
                 </div>
