@@ -2240,9 +2240,7 @@ export function BenefitsStep1() {
                           "text-[10px] font-bold",
                           (currentStepData.shortDescription?.length || 0) >= 110
                             ? "text-red-500"
-                            : (currentStepData.shortDescription?.length || 0) < 50
-                              ? "text-amber-500"
-                              : "text-green-500",
+                            : "text-green-500",
                         )}
                       >
                         {currentStepData.shortDescription?.length || 0} / 120

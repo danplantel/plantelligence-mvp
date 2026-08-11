@@ -217,13 +217,13 @@ export function getBenefitCompleteness(
         configuredBenefit?.title &&
         configuredBenefit.title !== ""
     );
-    const hasDescription = descriptionText.length >= 50;
+    const hasDescription = descriptionText.length > 0;
     // Button copy is not collected in the Create Benefits wizard; it is filled from hub
     // defaults on save. Do not block completeness on `buttonText`.
     const messagingComplete = hasCustomTitle && hasDescription;
 
     if (!hasCustomTitle) missingInfo.push("Custom title missing");
-    if (!hasDescription) missingInfo.push("Description missing (min 50 chars on this benefit card)");
+    if (!hasDescription) missingInfo.push("Description missing");
 
     // SECTION 3: CONTACTS
 
