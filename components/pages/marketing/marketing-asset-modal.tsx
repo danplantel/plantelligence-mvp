@@ -427,9 +427,11 @@ export default function MarketingAssetModal({
     }
   }, [flyerMode, flyerStep, resolvedType, flyerTemplate, flyerCategory, availableFlyerTemplates]);
 
-  // Apply template defaults whenever user enters step 3 (template) or changes template/language
+  // Apply template defaults whenever user enters step 3 (template) or changes template/language.
+  // Skipped when editing an existing flyer so the saved content is never overwritten by defaults.
   useEffect(() => {
     if (resolvedType !== "flyer" || flyerStep < 3) return;
+    if (editingAsset) return;
     const dict = flyerLanguage === "es"
       ? (flyerMode === "meeting" ? MEETING_TEMPLATE_DEFAULTS_ES : TOPICAL_TEMPLATE_DEFAULTS_ES)
       : (flyerMode === "meeting" ? MEETING_TEMPLATE_DEFAULTS : TOPICAL_TEMPLATE_DEFAULTS);
@@ -440,7 +442,7 @@ export default function MarketingAssetModal({
     setHeadline(processText(defaults.headline));
     setFlyerSubtitle(processText(defaults.subtitle));
     setBody(processText(defaults.body));
-  }, [flyerTemplate, flyerStep, flyerMode, resolvedType, flyerLanguage]);
+  }, [flyerTemplate, flyerStep, flyerMode, resolvedType, flyerLanguage, editingAsset]);
 
   useEffect(() => {
     if (editingAsset) {
@@ -482,10 +484,13 @@ export default function MarketingAssetModal({
 
       // Flyer specific
       if (assetType === "flyer" || editingAsset.type === "flyer") {
+        // Restore the exact template the flyer was created with, and derive the
+        // flyer mode from it so the preview/edit renders the correct design.
+        const savedTemplate = (d.flyerTemplate as string) || "MeetingTemplate1";
         setFlyerStep(3);
-        setFlyerMode("meeting");
+        setFlyerMode(savedTemplate.startsWith("Topical") ? "topical" : "meeting");
         setFlyerSubtitle((editingAsset.flyerSubtitle as string) || (d.flyerSubtitle as string) || "");
-        setFlyerTemplate((d.flyerTemplate as string) || "MeetingTemplate1");
+        setFlyerTemplate(savedTemplate);
         setFlyerCategory((d.flyerCategory as string) || "");
         setMeetingTime((d.meetingTime as string) || "");
         setMeetingLocation((d.meetingLocation as string) || "");
@@ -611,12 +616,16 @@ export default function MarketingAssetModal({
     reader.readAsDataURL(file);
   };
 
+  // When previewing/editing an existing flyer, always show the saved content
+  // (never the "Select a meeting" placeholder). The headline keeps any color
+  // markers so the flyer renders its colored text — only the header display
+  // strips them (see the metadata card below).
   const previewHeadline =
-    resolvedType === "flyer" && flyerMode === "meeting" && !selectedMeeting
+    resolvedType === "flyer" && flyerMode === "meeting" && !selectedMeeting && !editingAsset
       ? "Select a meeting below"
       : headline || (resolvedType === "news-post" ? "Post Headline" : "Flyer Preview");
   const previewBody =
-    resolvedType === "flyer" && flyerMode === "meeting" && !selectedMeeting
+    resolvedType === "flyer" && flyerMode === "meeting" && !selectedMeeting && !editingAsset
       ? "Choose a meeting to populate the flyer content automatically."
       : body || "Your content will appear here…";
 
@@ -1854,7 +1863,7 @@ export default function MarketingAssetModal({
                 })}
               </span>
               <span className="text-muted-foreground text-xs">
-                Headline: <span className="font-medium text-foreground">{headline || editingAsset.headline}</span>
+                Headline: <span className="font-medium text-foreground">{stripColorMarkers(headline || editingAsset.headline)}</span>
               </span>
               {startDate && (
                 <span className="text-muted-foreground text-xs">
