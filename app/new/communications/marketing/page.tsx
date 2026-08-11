@@ -535,6 +535,8 @@ interface MarketingAssetListProps {
   advisorLogoUrl?: string;
   companyName?: string;
   planLogo?: string;
+  /** When false, hides the status filter pills (e.g. for the Flyers accordion). */
+  showStatusFilter?: boolean;
 }
 
 /**
@@ -557,6 +559,7 @@ function MarketingAssetListAccordionItem({
   advisorLogoUrl,
   companyName,
   planLogo,
+  showStatusFilter = true,
 }: MarketingAssetListProps) {
   const [statusFilter, setStatusFilter] = useState<MarketingAssetStatus | "All">("All");
   const [typeFilter, setTypeFilter] = useState<AssetType | "All">("All");
@@ -664,24 +667,25 @@ function MarketingAssetListAccordionItem({
                   className="shrink-0 mr-1"
                   aria-label="Select all assets"
                 />
-                {(["All", ...ASSET_STATUSES] as const).map((s) => {
-                  const count = s === "All" ? assets.length : assets.filter((a) => a.status === s).length;
-                  return (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => setStatusFilter(s)}
-                      className={cn(
-                        "whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                        statusFilter === s
-                          ? "bg-gray-900 text-white dark:bg-accent-blue dark:text-white"
-                          : "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700",
-                      )}
-                    >
-                      {s === "All" ? "All" : s} <span className="opacity-60">({count})</span>
-                    </button>
-                  );
-                })}
+                {showStatusFilter &&
+                  (["All", ...ASSET_STATUSES] as const).map((s) => {
+                    const count = s === "All" ? assets.length : assets.filter((a) => a.status === s).length;
+                    return (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setStatusFilter(s)}
+                        className={cn(
+                          "whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                          statusFilter === s
+                            ? "bg-gray-900 text-white dark:bg-accent-blue dark:text-white"
+                            : "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700",
+                        )}
+                      >
+                        {s === "All" ? "All" : s} <span className="opacity-60">({count})</span>
+                      </button>
+                    );
+                  })}
               </div>
               {/* Type filter dropdown */}
               {typeOptions.length > 1 && (
@@ -900,20 +904,22 @@ function MarketingAssetListAccordionItem({
                       <button type="button" className="text-xs font-medium text-red-500 hover:underline shrink-0" onClick={() => setDeletingId(asset.id)}>Delete</button>
                     )}
 
-                    <div className="relative shrink-0 ml-2">
-                      <select value={asset.status}
-                        onChange={async (e) => {
-                          const newStatus = e.target.value as MarketingAssetStatus;
-                          try { await fetch(`/api/marketing/assets/${asset.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: newStatus }) }); mutateAssets(); } catch (err) { console.error("Failed to update status:", err); }
-                        }}
-                        className={cn("appearance-none rounded-full border px-2.5 py-0.5 pr-6 text-[11px] font-semibold cursor-pointer transition-colors", STATUS_COLORS[asset.status])}
-                      >
-                        {ASSET_STATUSES.map((s) => (<option key={s} value={s}>{s}</option>))}
-                      </select>
-                      <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-current opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="6 9 12 15 18 9" />
-                      </svg>
-                    </div>
+                    {asset.type !== "flyer" && (
+                      <div className="relative shrink-0 ml-2">
+                        <select value={asset.status}
+                          onChange={async (e) => {
+                            const newStatus = e.target.value as MarketingAssetStatus;
+                            try { await fetch(`/api/marketing/assets/${asset.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: newStatus }) }); mutateAssets(); } catch (err) { console.error("Failed to update status:", err); }
+                          }}
+                          className={cn("appearance-none rounded-full border px-2.5 py-0.5 pr-6 text-[11px] font-semibold cursor-pointer transition-colors", STATUS_COLORS[asset.status])}
+                        >
+                          {ASSET_STATUSES.map((s) => (<option key={s} value={s}>{s}</option>))}
+                        </select>
+                        <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-current opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg>
+                      </div>
+                    )}
                   </div>
                 ))
               )}
@@ -1151,6 +1157,7 @@ export default function MarketingPage() {
               assets={savedAssets.filter((a) => a.type === "flyer")}
               isLoading={isLoadingAssets}
               typeOptions={[{ value: "All", label: "All Types" }]}
+              showStatusFilter={false}
               emptyTitle="No flyers yet"
               emptyDescription="Create your first flyer above."
               onPreview={handlePreviewAsset}
