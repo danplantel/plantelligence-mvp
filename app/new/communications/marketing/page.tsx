@@ -23,12 +23,12 @@ import MarketingAssetModal, {
   type PortalNoticeElement,
 } from "@/components/pages/marketing/marketing-asset-modal";
 import {
-  buildFlyerSvgFromData,
-  downloadFlyerPdf,
+  renderFlyerPreviewToSvg,
   svgElementToDataUrl,
   generateFlyerPdfBlob,
+  resolveQrImageDataUrl,
 } from "@/lib/marketing/flyer-pdf";
-import { toR2BrandingKey, getR2ObjectProxyUrl } from "@/lib/branding-image-url";
+import type { FlyerPreviewProps } from "@/components/pages/marketing/flyer-templates";
 import {
   getLastPlanId,
   getRecentPlanIds,
@@ -526,6 +526,18 @@ export default function MarketingPage() {
     revalidateOnFocus: false,
   });
   const userSubdomain: string | undefined = profileData?.subdomain || undefined;
+
+  // Fetch plan details (for company logo)
+  const { data: planData } = useSWR(
+    selectedPlan ? `/api/clients/${selectedPlan}` : null,
+    jsonFetcher,
+    { dedupingInterval: 60_000, revalidateOnFocus: false },
+  );
+  const planLogo: string | undefined = useMemo(
+    () => (planData?.data as { companyLogo?: string })?.companyLogo,
+    [planData],
+  );
+
   const [modalOpen, setModalOpen] = useState(false);
   const [activeAssetType, setActiveAssetType] = useState<AssetType>("flyer");
   const [editingFlyerStep, setEditingFlyerStep] = useState<number | undefined>(undefined);
@@ -923,18 +935,48 @@ export default function MarketingPage() {
                                     const flyerImage = (d.flyerImage as string) || asset.flyerImage || "";
                                     const meetingTime = (d.meetingTime as string) || asset.meetingTime || "";
                                     const meetingLocation = (d.meetingLocation as string) || asset.meetingLocation || "";
+                                    const flyerTemplate = (d.flyerTemplate as string) || "MeetingTemplate1";
+                                    const flyerImagePosition = (d.flyerImagePosition as { x: number; y: number }) || { x: 50, y: 50 };
+                                    const flyerImageWidth = (d.flyerImageWidth as number) || null;
+                                    const flyerImageHeight = (d.flyerImageHeight as number) || null;
+                                    const disclaimerText = (d.disclaimerText as string) || "";
+                                    const flyerLanguage = ((d.flyerLanguage as "en" | "es") || "en");
+                                    const organizationLogo = (profileData as any)?.advisorLogoUrl || undefined;
 
-                                    const logoUrl = asset.planLogo ? getR2ObjectProxyUrl(toR2BrandingKey(asset.planLogo) ?? "") || asset.planLogo : null;
-                                    const svgEl = buildFlyerSvgFromData(
-                                      { headline: asset.headline ?? "", body: asset.body ?? "", startDate: asset.startDate ?? "", bgColor: asset.bgColor ?? "#23919c", planName: asset.planName ?? "", planLogo: asset.planLogo, flyerSubtitle, flyerImage, flyerQrUrl, flyerQrDataUrl, meetingTime, meetingLocation },
-                                      logoUrl,
-                                    );
+                                    // Ensure the QR image is inlined as a data URL so it survives
+                                    // SVG -> PDF rasterisation (external sub-resources are blocked).
+                                    const resolvedQrDataUrl = await resolveQrImageDataUrl(flyerQrDataUrl, flyerQrUrl);
+
+                                    const flyerProps: FlyerPreviewProps = {
+                                      headline: asset.headline ?? "",
+                                      body: asset.body ?? "",
+                                      ctaText: "",
+                                      bgColor: asset.bgColor ?? "#23919c",
+                                      startDate: asset.startDate ?? "",
+                                      planName: selectedClient?.companyName ?? "",
+                                      planLogo: planLogo,
+                                      organizationLogo,
+                                      disclaimerText,
+                                      flyerImage,
+                                      flyerQrUrl,
+                                      flyerQrDataUrl: resolvedQrDataUrl,
+                                      meetingTime,
+                                      meetingLocation,
+                                      flyerSubtitle,
+                                      flyerTemplate: flyerTemplate as FlyerPreviewProps["flyerTemplate"],
+                                      flyerLanguage,
+                                      flyerImagePosition,
+                                      flyerImageWidth,
+                                      flyerImageHeight,
+                                    };
+
+                                    const svgEl = await renderFlyerPreviewToSvg(flyerProps);
                                     const dataUrl = await svgElementToDataUrl(svgEl);
                                     const blob = await generateFlyerPdfBlob(dataUrl);
                                     const url = URL.createObjectURL(blob);
                                     const a = document.createElement("a");
                                     a.href = url;
-                                    const safeName = (asset.planName ?? "flyer").replace(/[^a-zA-Z0-9_-]/g, "_");
+                                    const safeName = (selectedClient?.companyName ?? "flyer").replace(/[^a-zA-Z0-9_-]/g, "_");
                                     a.download = `${safeName}_flyer.pdf`;
                                     document.body.appendChild(a);
                                     a.click();

@@ -9,6 +9,7 @@
  */
 
 import jsPDF from "jspdf";
+import type { FlyerPreviewProps } from "@/components/pages/marketing/flyer-templates";
 
 // ── Data shape (shared between modal & marketing page) ───────────────────────
 
@@ -31,9 +32,75 @@ export interface FlyerPdfData {
 // ── SVG builder (for re-creating a flyer from saved data) ────────────────────
 
 /**
+ * Render the actual FlyerPreview React component into a hidden DOM container,
+ * extract the resulting SVG, and return it. This guarantees the PDF matches
+ * the on-screen template exactly — unlike buildFlyerSvgFromData which produces
+ * a generic layout that ignores the template, image positioning, disclaimer,
+ * organization logo, language, and other fields.
+ *
+ * Used by the Edit Marketing Assets section so a previously saved flyer can be
+ * downloaded as a PDF that matches what the advisor sees in the modal preview.
+ */
+export async function renderFlyerPreviewToSvg(
+  props: FlyerPreviewProps,
+): Promise<SVGSVGElement> {
+  const [{ createRoot }, { FlyerPreview }, React] = await Promise.all([
+    import("react-dom/client"),
+    import("@/components/pages/marketing/flyer-templates"),
+    import("react"),
+  ]);
+
+  return new Promise((resolve, reject) => {
+    const container = document.createElement("div");
+    container.style.position = "absolute";
+    container.style.left = "-9999px";
+    container.style.top = "0";
+    container.style.width = "612px";
+    document.body.appendChild(container);
+
+    const root = createRoot(container);
+
+    // Strip decorative Tailwind classes so the SVG uses its intrinsic size
+    // (viewBox) rather than CSS-constrained dimensions in the hidden container.
+    const cleanProps = { ...props, className: "w-full h-auto" };
+    root.render(React.createElement(FlyerPreview, cleanProps as any));
+
+    // Poll for the SVG after React commits the render. We use rAF chaining
+    // to let React flush, then retry up to ~3 s for the SVG to appear.
+    let attempts = 0;
+    const maxAttempts = 30;
+
+    const checkForSvg = () => {
+      const svg = container.querySelector("svg");
+      if (svg) {
+        const clone = svg.cloneNode(true) as SVGSVGElement;
+        root.unmount();
+        document.body.removeChild(container);
+        resolve(clone);
+      } else if (++attempts < maxAttempts) {
+        requestAnimationFrame(checkForSvg);
+      } else {
+        root.unmount();
+        document.body.removeChild(container);
+        reject(new Error("FlyerPreview did not render an SVG element"));
+      }
+    };
+
+    // Double rAF ensures React has committed the initial render before we poll.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        checkForSvg();
+      });
+    });
+  });
+}
+
+/**
  * Build a simplified flyer SVG element from saved data.
- * Used by the Edit Marketing Assets section so it can download a previously
- * saved flyer without needing the modal's React FlyerPreview component.
+ * @deprecated Prefer {@link renderFlyerPreviewToSvg} which renders the actual
+ *   FlyerPreview React component so the PDF matches the template the advisor
+ *   selected. This function produces a generic layout that does not reflect
+ *   any of the real flyer templates and is only kept as a fallback.
  */
 export function buildFlyerSvgFromData(
   data: FlyerPdfData,
@@ -341,6 +408,61 @@ export async function downloadFlyerPdf(
   const dataUrl = await svgElementToDataUrl(svgEl);
   const blob = await generateFlyerPdfBlob(dataUrl);
   triggerDownload(blob, fileName);
+}
+
+/** Convert a Blob to a base64 data URL. */
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
+ * Ensure the QR code image is available as an inline data URL so it renders
+ * reliably when the flyer SVG is rasterised into a PDF.
+ *
+ * - If `qrDataUrl` is already a `data:` URL, use it as-is.
+ * - If `qrDataUrl` is a URL (e.g. a QR.io image URL that may be cross-origin
+ *   or expired), fetch it and inline it as a data URL.
+ * - If no usable data URL exists, fall back to generating one from `qrUrl`
+ *   via api.qrserver.com.
+ *
+ * This is needed because when an SVG is loaded as an <img> for canvas/PDF
+ * rasterisation, the browser blocks external sub-resources — so any image
+ * that isn't inlined as a data URL is silently dropped from the PDF.
+ */
+export async function resolveQrImageDataUrl(
+  qrDataUrl: string,
+  qrUrl: string,
+): Promise<string> {
+  // Already an inline data URL — nothing to do.
+  if (qrDataUrl && qrDataUrl.startsWith("data:")) return qrDataUrl;
+
+  // It's a remote URL (e.g. QR.io image URL) — fetch and inline it.
+  if (qrDataUrl) {
+    try {
+      const res = await fetch(qrDataUrl);
+      if (res.ok) return await blobToDataUrl(await res.blob());
+    } catch {
+      // fall through to the qrserver fallback below
+    }
+  }
+
+  // No usable data URL — generate one from the original link.
+  if (qrUrl) {
+    try {
+      const fallbackUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(qrUrl)}`;
+      const res = await fetch(fallbackUrl);
+      if (res.ok) return await blobToDataUrl(await res.blob());
+    } catch {
+      // ignore — return the original value as-is
+    }
+  }
+
+  return qrDataUrl || "";
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
