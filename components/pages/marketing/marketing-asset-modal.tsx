@@ -318,7 +318,7 @@ export default function MarketingAssetModal({
   const [noticeType, setNoticeType] = useState<"text" | "countdown">("text");
   const [countdownTarget, setCountdownTarget] = useState("");
   const [portalCtaUrl, setPortalCtaUrl] = useState("");
-  const [buttonColor, setButtonColor] = useState("#ffffff");
+  const [buttonColor, setButtonColor] = useState(planSecondaryColor || "#ffffff");
 
   // Pop-up specific
   const [showEveryVisit, setShowEveryVisit] = useState(false);
@@ -463,7 +463,7 @@ export default function MarketingAssetModal({
         setCountdownTarget((d.countdownTarget as string) || "");
         setPortalCtaUrl((d.portalCtaUrl as string) || "");
         setPortalElement((editingAsset.portalElement as PortalNoticeElement) || "top-banner");
-        setButtonColor((d.buttonColor as string) || "#ffffff");
+        setButtonColor((d.buttonColor as string) || planSecondaryColor || "#ffffff");
       }
 
       // Pop-up specific
@@ -538,7 +538,7 @@ export default function MarketingAssetModal({
       setNoticeType("text");
       setCountdownTarget("");
       setPortalCtaUrl("");
-      setButtonColor("#ffffff");
+      setButtonColor(planSecondaryColor || "#ffffff");
       setCtaText("");
       setPostCategory("Retirement");
       setSelectedBgImage("");
@@ -627,7 +627,12 @@ export default function MarketingAssetModal({
   const previewHeadline =
     resolvedType === "flyer" && flyerMode === "meeting" && !selectedMeeting && !editingAsset
       ? "Select a meeting below"
-      : headline || (resolvedType === "news-post" ? "Post Headline" : "Flyer Preview");
+      : headline ||
+        (resolvedType === "news-post"
+          ? "Post Headline"
+          : resolvedType === "portal-notice"
+            ? "Headline"
+            : "Flyer Preview");
   const previewBody =
     resolvedType === "flyer" && flyerMode === "meeting" && !selectedMeeting && !editingAsset
       ? "Choose a meeting to populate the flyer content automatically."
@@ -713,6 +718,11 @@ export default function MarketingAssetModal({
       }
       if (!endDate) {
         toast({ title: "Validation error", description: "End date is required for Top Banner.", variant: "destructive", className: "z-[9999]" });
+        setIsSaving(false);
+        return;
+      }
+      if (noticeType === "countdown" && !countdownTarget.trim()) {
+        toast({ title: "Validation error", description: "Countdown target date/time is required for Countdown Banner.", variant: "destructive", className: "z-[9999]" });
         setIsSaving(false);
         return;
       }
@@ -1538,6 +1548,31 @@ export default function MarketingAssetModal({
             <Input id="pn-headline" placeholder="Enter headline…" value={headline} onChange={(e) => setHeadline(e.target.value)} maxLength={80} />
             <p className="text-[11px] text-muted-foreground text-right tabular-nums">{headline.length}/80</p>
           </div>
+          {/* Date range — shown directly under the headline for Top Banner */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="startDate">
+                Start date
+                <span className="text-red-500 ml-0.5">*</span>
+              </Label>
+              <Input id="startDate" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="endDate">
+                End date
+                <span className="text-red-500 ml-0.5">*</span>
+              </Label>
+              <Input id="endDate" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+            </div>
+          </div>
+          {/* Background color */}
+          <PlanColorSelector
+            label="Banner Background color"
+            value={bgColor}
+            onChange={setBgColor}
+            planPrimaryColor={planBrandColor}
+            planSecondaryColor={planSecondaryColor}
+          />
           <div className="space-y-1.5">
             <Label>Notice type</Label>
             <div className="flex gap-2">
@@ -1559,7 +1594,10 @@ export default function MarketingAssetModal({
           </div>
           {noticeType === "countdown" && (
             <div className="space-y-1.5">
-              <Label>Countdown target date/time</Label>
+              <Label>
+                Countdown target date/time
+                <span className="text-red-500 ml-0.5">*</span>
+              </Label>
               <DateTimePickerPopup
                 value={countdownTarget}
                 onChange={setCountdownTarget}
@@ -1574,14 +1612,6 @@ export default function MarketingAssetModal({
             <Label htmlFor="portalCtaUrl">Button link (optional)</Label>
             <Input id="portalCtaUrl" placeholder="https://example.com" value={portalCtaUrl} onChange={(e) => setPortalCtaUrl(e.target.value)} />
           </div>
-          {/* Background color */}
-          <PlanColorSelector
-            label="Background color"
-            value={bgColor}
-            onChange={setBgColor}
-            planPrimaryColor={planBrandColor}
-            planSecondaryColor={planSecondaryColor}
-          />
           {/* Button color */}
           <PlanColorSelector
             label="Button color"
@@ -1785,20 +1815,20 @@ export default function MarketingAssetModal({
         </div>
       )}
 
-      {/* Date range — always shown for Top Banner; hidden for other countdown types */}
-      {resolvedType !== "flyer" && !(resolvedType !== "portal-notice" && noticeType === "countdown") && (
+      {/* Date range — shown for Pop-Up and News Post; Top Banner shows its date range under the headline */}
+      {(resolvedType === "pop-up" || resolvedType === "news-post") && (
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="startDate">
               Start date
-              {(resolvedType === "portal-notice" || resolvedType === "pop-up" || resolvedType === "news-post") && <span className="text-red-500 ml-0.5">*</span>}
+              <span className="text-red-500 ml-0.5">*</span>
             </Label>
             <Input id="startDate" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="endDate">
               End date
-              {(resolvedType === "portal-notice" || resolvedType === "pop-up" || resolvedType === "news-post") && <span className="text-red-500 ml-0.5">*</span>}
+              <span className="text-red-500 ml-0.5">*</span>
             </Label>
             <Input id="endDate" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
           </div>
