@@ -307,11 +307,13 @@ export const useBenefitsWizardStore = create<BenefitsWizardState>()(
                         // Unlike brandImages, logos are rarely large enough to cause
                         // localStorage quota issues.
 
-                        // Strip large base64 data URLs from brandImages (these can be
-                        // large background images that would bloat localStorage)
+                        // Preserve brandImages.header.url (hero background) — same
+                        // rationale as companyLogo: must survive refresh so the
+                        // auto-save doesn't overwrite the API value with null.
+                        // Strip other brandImages slots which hold large uploads.
                         if (s1.brandImages) {
                             s1.brandImages = { ...s1.brandImages };
-                            for (const key of ["header", "thumbnail", "secondaryBanner", "favicon"] as const) {
+                            for (const key of ["thumbnail", "secondaryBanner", "favicon"] as const) {
                                 if (s1.brandImages[key]?.url) {
                                     s1.brandImages[key] = {
                                         ...s1.brandImages[key]!,

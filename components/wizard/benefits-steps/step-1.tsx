@@ -834,7 +834,9 @@ export function BenefitsStep1() {
 
     const savedLogo = benefit?.partnerLogo;
     const savedDescription = benefit?.shortDescription;
-    if (!savedLogo && !savedDescription) return;
+    const savedHeaderImage =
+      benefit?.backgroundImage || benefit?.image || null;
+    if (!savedLogo && !savedDescription && !savedHeaderImage) return;
 
     const next: BenefitsStep1Data = {
       ...currentStepData,
@@ -853,6 +855,26 @@ export function BenefitsStep1() {
         hasTransparency: false,
         warnings: [],
       } as CompanyLogoData;
+    }
+    if (savedHeaderImage) {
+      next.brandImages = {
+        ...(next.brandImages || {
+          header: null,
+          thumbnail: null,
+          secondaryBanner: null,
+          favicon: null,
+        }),
+        header: {
+          url: savedHeaderImage,
+          fileName: "background.png",
+          fileSize: 0,
+          width: 0,
+          height: 0,
+          recommendedSize: "1920 px—1080 px",
+          status: "ok" as const,
+          warnings: [],
+        },
+      };
     }
     saveStepData(1, next);
   }, [currentStepData.benefitCategory, currentStepData.selectedPlan, saveStepData]);
@@ -1955,26 +1977,6 @@ export function BenefitsStep1() {
                       );
                     });
                   })()}
-                </div>
-              )}
-
-              {/* Selected plan indicator */}
-              {currentStepData.benefitCategory && resolvedPlanId && (
-                <div className="flex items-center gap-2 pt-1 text-sm text-gray-500 dark:text-gray-400">
-                  <Building2 className="size-3.5" />
-                  <span>
-                    Configuring{" "}
-                    <span className="font-medium text-gray-700 dark:text-gray-100">
-                      {currentStepData.benefitCategory === "Custom"
-                        ? currentStepData.benefitTitle || "Custom"
-                        : currentStepData.benefitCategory}
-                    </span>{" "}
-                    for{" "}
-                    <span className="font-medium text-gray-700 dark:text-gray-100">
-                      {plans.find((p) => p.id === resolvedPlanId)?.companyName ||
-                        "selected plan"}
-                    </span>
-                  </span>
                 </div>
               )}
 
