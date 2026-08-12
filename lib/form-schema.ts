@@ -54,17 +54,25 @@ export const passwordSchema = z
     "Password must contain at least one special character",
   );
 
-export const signupSchema = z.object({
-  name: z
-    .string()
-    .min(1, "Name is required")
-    .max(100, "Name must be 100 characters or less"),
-  email: z
-    .string()
-    .email("Enter a valid email address")
-    .max(254, "Email must be 254 characters or less"),
-  password: passwordSchema,
-});
+export const signupSchema = z
+  .object({
+    name: z
+      .string()
+      .min(1, "Name is required")
+      .max(100, "Name must be 100 characters or less"),
+    email: z
+      .string()
+      .email("Enter a valid email address")
+      .max(254, "Email must be 254 characters or less"),
+    password: passwordSchema,
+    confirmPassword: z
+      .string()
+      .min(1, "Please confirm your password"),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords must match",
+    path: ["confirmPassword"],
+  });
 
 export const resetPasswordSchema = z
   .object({

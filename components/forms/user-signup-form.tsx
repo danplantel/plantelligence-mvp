@@ -19,7 +19,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import GoogleSignInButton from "../google-auth-button";
 import { signIn } from "next-auth/react";
-import { Eye, EyeOff } from "lucide-react";
+import { CheckCircle2, Eye, EyeOff } from "lucide-react";
 import { signupSchema, type SignupFormValues } from "@/lib/form-schema";
 import { toast } from "sonner";
 
@@ -32,6 +32,7 @@ export default function UserAuthForm() {
   const [loading, setLoading] = useState(false);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const isValidEmail = (email: string) => {
@@ -41,12 +42,21 @@ export default function UserAuthForm() {
 
   const form = useForm<SignupFormValues>({
     resolver: zodResolver(signupSchema),
+    mode: "onChange",
     defaultValues: {
       name: "",
       email: "",
       password: "",
+      confirmPassword: "",
     },
   });
+
+  const passwordValue = form.watch("password");
+  const confirmPasswordValue = form.watch("confirmPassword");
+  const passwordsMatch =
+    passwordValue.length > 0 &&
+    confirmPasswordValue.length > 0 &&
+    passwordValue === confirmPasswordValue;
 
   const onSubmit = async (data: SignupFormValues) => {
     if (!isValidEmail(data.email)) {
@@ -154,6 +164,9 @@ export default function UserAuthForm() {
                       disabled={loading}
                       {...field}
                     />
+                    {passwordsMatch && (
+                      <CheckCircle2 className="absolute right-10 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500" />
+                    )}
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
@@ -171,6 +184,42 @@ export default function UserAuthForm() {
                 <p className="text-[0.8rem] text-muted-foreground mt-1">
                   Must be at least 8 characters with uppercase, lowercase, number & special character.
                 </p>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="confirmPassword"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Verify Password</FormLabel>
+                <FormControl>
+                  <div className="relative">
+                    <Input
+                      type={showConfirmPassword ? "text" : "password"}
+                      placeholder="Re-enter your password"
+                      disabled={loading}
+                      {...field}
+                    />
+                    {passwordsMatch && (
+                      <CheckCircle2 className="absolute right-10 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500" />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      disabled={loading}
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
@@ -195,7 +244,7 @@ export default function UserAuthForm() {
             </Link>
           </div>
           <Button
-            disabled={loading}
+            disabled={loading || !form.formState.isValid}
             className="w-full ml-auto !mt-3 dark:bg-accent-blue dark:hover:bg-accent-blue/90"
             type="submit"
           >
