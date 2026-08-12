@@ -187,9 +187,9 @@ export default function RetirementPage() {
 
         <RetirementJourneySection
           brandColor={brandColor}
-          mainTitle={(benefitData as any)?.journeyHeader || benefitData?.title || "Your Retirement Journey Starts Here"}
+          mainTitle={(benefitData as any)?.journeyHeader || "Your Retirement Journey Starts Here"}
           subtitle={(benefitData as any)?.journeySubtitle || "Build your future with confidence."}
-          description={(benefitData as any)?.journeyBodyText || benefitData?.shortDescription || "Take control of your financial future with our comprehensive retirement planning resources. Whether you're just starting your career or preparing for the next chapter, we provide the tools and guidance you need to build a secure retirement."}
+          description={(benefitData as any)?.journeyBodyText || "Take control of your financial future with our comprehensive retirement planning resources. Whether you're just starting your career or preparing for the next chapter, we provide the tools and guidance you need to build a secure retirement."}
           planVideoUrl={benefitData?.planVideo as string | undefined}
           planVideoFallbackImage={RETIREMENT_FALLBACK_IMAGE}
         />

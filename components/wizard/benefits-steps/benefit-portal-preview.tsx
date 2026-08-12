@@ -401,9 +401,9 @@ export function BenefitPortalPreview({ mobile, brandColor: brandColorOverride, s
                 <div className={mobile ? "force-visible relative" : "relative"}>
                 <RetirementJourneySection
                     brandColor={brandColor}
-                    mainTitle={step1Data?.journeyHeader || (category === "Custom" ? "Whole-Person Wellness Programs" : `Your ${category} Journey Starts Here`)}
-                    subtitle={step1Data?.journeySubtitle || "Build your future with confidence."}
-                    description={step1Data?.journeyBodyText || "Take control of your financial future with our comprehensive planning resources."}
+                    mainTitle={step1Data?.journeyHeader || (() => { const map: Record<string, string> = { Retirement: "Your Retirement Journey Starts Here", "Group Health": "Your Health Benefits Journey Starts Here", "Group Life": "Your Life Insurance Journey Starts Here", "Company / Plan Sponsor": "Whole-Person Wellness Programs" }; return map[category] || map["Retirement"]; })()}
+                    subtitle={step1Data?.journeySubtitle || (() => { const map: Record<string, string> = { Retirement: "Build your future with confidence.", "Group Health": "Your health, your way.", "Group Life": "Protecting what matters most.", "Company / Plan Sponsor": "Thrive in every aspect of life." }; return map[category] || map["Retirement"]; })()}
+                    description={step1Data?.journeyBodyText || (() => { const map: Record<string, string> = { Retirement: "Take control of your financial future with our comprehensive retirement planning resources.", "Group Health": "Explore your health benefits and find the coverage that fits your needs.", "Group Life": "Understand your life insurance options and secure peace of mind for your loved ones.", "Company / Plan Sponsor": "Discover wellness programs designed to support your overall well-being." }; return map[category] || map["Retirement"]; })()}
                     planVideoUrl={planVideoUrl}
                     planVideoFallbackImage={categoryDefaultImage}
                     onMainTitleClick={() => handleEdit("planVideo")}

@@ -537,6 +537,12 @@ export function BenefitsStep1() {
                 // so the dual-write doesn't wipe the video from employeePortalPreview.
                 planVideo: currentStepData.planVideo || null,
                 planVideoFileName: currentStepData.planVideoFileName || null,
+                // Journey section overrides (Section 2 & 3 in the editor panel).
+                // Persist so the live portal page shows these values even before
+                // the wizard is completed.
+                journeyHeader: currentStepData.journeyHeader || null,
+                journeySubtitle: currentStepData.journeySubtitle || null,
+                journeyBodyText: currentStepData.journeyBodyText || null,
               }),
             }),
           );

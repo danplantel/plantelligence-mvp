@@ -179,9 +179,9 @@ export default function HealthInsurancePage() {
 
         <RetirementJourneySection
           brandColor={brandColor}
-          mainTitle={(benefitData as any)?.journeyHeader || benefitData?.title || "Understanding Your Health Benefits"}
+          mainTitle={(benefitData as any)?.journeyHeader || "Understanding Your Health Benefits"}
           subtitle={(benefitData as any)?.journeySubtitle || "Navigate your coverage with confidence."}
-          description={(benefitData as any)?.journeyBodyText || benefitData?.shortDescription || "Your health and well-being are our priority. Explore our health insurance resources to understand your coverage options, maximize your benefits, and make informed decisions about your medical, dental, and vision care for you and your family."}
+          description={(benefitData as any)?.journeyBodyText || "Your health and well-being are our priority. Explore our health insurance resources to understand your coverage options, maximize your benefits, and make informed decisions about your medical, dental, and vision care for you and your family."}
           planVideoUrl={benefitData?.planVideo as string | undefined}
           planVideoFallbackImage={HEALTH_INSURANCE_FALLBACK_IMAGE}
         />

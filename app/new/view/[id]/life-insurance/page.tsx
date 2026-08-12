@@ -180,9 +180,9 @@ export default function LifeInsurancePage() {
 
         <RetirementJourneySection
           brandColor={brandColor}
-          mainTitle={(benefitData as any)?.journeyHeader || benefitData?.title || "Life Insurance: Protecting What Matters Most"}
+          mainTitle={(benefitData as any)?.journeyHeader || "Life Insurance: Protecting What Matters Most"}
           subtitle={(benefitData as any)?.journeySubtitle || "Secure your family's financial future with the right coverage."}
-          description={(benefitData as any)?.journeyBodyText || benefitData?.shortDescription || "Protect what matters most. Our life insurance resources help you understand your coverage options and ensure your loved ones are financially secure, no matter what life brings. Explore term life, whole life, and supplemental coverage tailored to your needs."}
+          description={(benefitData as any)?.journeyBodyText || "Protect what matters most. Our life insurance resources help you understand your coverage options and ensure your loved ones are financially secure, no matter what life brings. Explore term life, whole life, and supplemental coverage tailored to your needs."}
           planVideoUrl={benefitData?.planVideo as string | undefined}
           planVideoFallbackImage={LIFE_INSURANCE_FALLBACK_IMAGE}
         />

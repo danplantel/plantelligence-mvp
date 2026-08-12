@@ -180,9 +180,9 @@ export default function WellnessProgramsPage() {
 
         <RetirementJourneySection
           brandColor={brandColor}
-          mainTitle={(benefitData as any)?.journeyHeader || benefitData?.title || "Whole-Person Wellness Programs"}
+          mainTitle={(benefitData as any)?.journeyHeader || "Whole-Person Wellness Programs"}
           subtitle={(benefitData as any)?.journeySubtitle || "Supporting your health, mind, and financial well-being."}
-          description={(benefitData as any)?.journeyBodyText || benefitData?.shortDescription || "Your well-being goes beyond traditional benefits. Discover programs designed to support your physical, mental, and financial health—from fitness stipends and nutrition coaching to mental health resources and financial wellness tools. Thrive at work and at home."}
+          description={(benefitData as any)?.journeyBodyText || "Your well-being goes beyond traditional benefits. Discover programs designed to support your physical, mental, and financial health—from fitness stipends and nutrition coaching to mental health resources and financial wellness tools. Thrive at work and at home."}
           planVideoUrl={benefitData?.planVideo as string | undefined}
           planVideoFallbackImage={WELLNESS_FALLBACK_IMAGE}
         />
