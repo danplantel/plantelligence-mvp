@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import Image from "next/image";
 import { motion, useInView } from "framer-motion";
-import { Pencil } from "lucide-react";
+import { Pencil, Play } from "lucide-react";
 import { toNextImageSrc } from "@/lib/branding-image-url";
 
 interface RetirementJourneySectionProps {
@@ -54,6 +54,20 @@ export function RetirementJourneySection({
   };
 
   const [hoveredField, setHoveredField] = useState<string | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const handlePlayPause = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.paused) {
+      video.play();
+      setIsPlaying(true);
+    } else {
+      video.pause();
+      setIsPlaying(false);
+    }
+  }, []);
 
   const EditPencil = ({ label }: { label: string }) => (
     <div
@@ -130,13 +144,25 @@ export function RetirementJourneySection({
             {onVideoClick && hoveredField === "video" && <EditPencil label="Edit plan video" />}
             <div className="aspect-video overflow-hidden rounded-xl border border-white/15 bg-black/80 shadow-2xl sm:rounded-2xl">
               {planVideoUrl ? (
-                <video
-                  src={planVideoUrl}
-                  controls
-                  className="h-full w-full object-cover"
-                  playsInline
-                  preload="metadata"
-                />
+                <div className="relative h-full w-full cursor-pointer" onClick={handlePlayPause}>
+                  <video
+                    ref={videoRef}
+                    src={planVideoUrl}
+                    className="h-full w-full object-cover"
+                    playsInline
+                    preload="metadata"
+                    onEnded={() => setIsPlaying(false)}
+                    onPause={() => setIsPlaying(false)}
+                    onPlay={() => setIsPlaying(true)}
+                  />
+                  {!isPlaying && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/20 transition-opacity">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/90 shadow-lg transition-transform hover:scale-110">
+                        <Play className="h-7 w-7 translate-x-0.5 text-gray-900" fill="currentColor" />
+                      </div>
+                    </div>
+                  )}
+                </div>
               ) : (
                 <Image
                   src={planVideoFallbackImage || "/placeholder.svg"}
