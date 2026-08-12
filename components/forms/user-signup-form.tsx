@@ -13,13 +13,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { zodResolver } from "@hookform/resolvers/zod";
 import axios, { AxiosError } from "axios";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import GoogleSignInButton from "../google-auth-button";
 import { signIn } from "next-auth/react";
-import { CheckCircle2, Eye, EyeOff } from "lucide-react";
+import { CheckCircle2, Eye, EyeOff, Loader2 } from "lucide-react";
 import { signupSchema, type SignupFormValues } from "@/lib/form-schema";
 import { toast } from "sonner";
 
@@ -33,6 +33,9 @@ export default function UserAuthForm() {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [emailAvailability, setEmailAvailability] = useState<
+    "idle" | "checking" | "available" | "taken"
+  >("idle");
   const [error, setError] = useState<string | null>(null);
 
   const isValidEmail = (email: string) => {
@@ -57,6 +60,41 @@ export default function UserAuthForm() {
     passwordValue.length > 0 &&
     confirmPasswordValue.length > 0 &&
     passwordValue === confirmPasswordValue;
+
+  const emailValue = form.watch("email");
+
+  // Debounced email availability check against the database.
+  useEffect(() => {
+    if (!emailValue || !isValidEmail(emailValue)) {
+      setEmailAvailability("idle");
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setEmailAvailability("checking");
+      try {
+        const res = await fetch(
+          `/api/check-email?email=${encodeURIComponent(emailValue)}`,
+          { signal: controller.signal },
+        );
+        if (!res.ok) throw new Error("Failed to check email availability");
+        const data = (await res.json()) as { available: boolean };
+        if (!controller.signal.aborted) {
+          setEmailAvailability(data.available ? "available" : "taken");
+        }
+      } catch (err) {
+        if (!controller.signal.aborted) {
+          setEmailAvailability("idle");
+        }
+      }
+    }, 500);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [emailValue]);
 
   const onSubmit = async (data: SignupFormValues) => {
     if (!isValidEmail(data.email)) {
@@ -137,14 +175,29 @@ export default function UserAuthForm() {
               <FormItem>
                 <FormLabel>Email</FormLabel>
                 <FormControl>
-                  <Input
-                    type="email"
-                    placeholder="Enter your email"
-                    maxLength={254}
-                    disabled={loading}
-                    {...field}
-                  />
+                  <div className="relative">
+                    <Input
+                      type="email"
+                      placeholder="Enter your email"
+                      maxLength={254}
+                      disabled={loading}
+                      {...field}
+                    />
+                    {emailAvailability === "checking" && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      </div>
+                    )}
+                    {emailAvailability === "available" && (
+                      <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500" />
+                    )}
+                  </div>
                 </FormControl>
+                {emailAvailability === "taken" && (
+                  <p className="text-[0.8rem] text-destructive mt-1">
+                    This email is already registered.
+                  </p>
+                )}
                 <FormMessage />
               </FormItem>
             )}
@@ -244,7 +297,11 @@ export default function UserAuthForm() {
             </Link>
           </div>
           <Button
-            disabled={loading || !form.formState.isValid}
+            disabled={
+              loading ||
+              !form.formState.isValid ||
+              emailAvailability === "taken"
+            }
             className="w-full ml-auto !mt-3 dark:bg-accent-blue dark:hover:bg-accent-blue/90"
             type="submit"
           >
