@@ -98,8 +98,15 @@ function BenefitsPageInner() {
 
   /**
    * Portal deep link: `/new/benefits?planId=<clientId>&category=<BenefitsCategory>`
-   * Do not blanket `resetWizard()` when these exist — it races zustand-persist rehydration and wipes URL init.
-   * Re-apply after timeouts so persisted localStorage cannot overwrite deep-linked step1.
+   *
+   * When deep-link params exist they take priority over any persisted state —
+   * re-apply after timeouts so persisted localStorage rehydration cannot
+   * overwrite the URL-driven step1 values.
+   *
+   * When there is NO deep link, rehydrate the persisted store.  Only reset the
+   * wizard when the store is truly empty after rehydration (fresh entry from
+   * the dashboard), so that Brand Logo / Benefit Description and other fields
+   * survive a page refresh.
    */
   useEffect(() => {
     const hasDeepLink = !!(planIdParam && categoryParam);
@@ -132,8 +139,20 @@ function BenefitsPageInner() {
       };
     }
 
-    resetWizard();
-    return undefined;
+    // No deep link — rehydrate persisted state and only reset if truly empty
+    let cancelled = false;
+    const init = async () => {
+      await useBenefitsWizardStore.persist.rehydrate();
+      if (cancelled) return;
+      const sd = useBenefitsWizardStore.getState().stepData;
+      if (!sd.step1?.planId && !sd.step1?.benefitCategory) {
+        resetWizard();
+      }
+    };
+    init();
+    return () => {
+      cancelled = true;
+    };
   }, [planIdParam, categoryParam, saveStepData, resetWizard]);
 
   const onNext = async () => {

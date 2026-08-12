@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import { CompanyLogoData, BrandImagesData, Document } from "@/types/new-client-wizard";
 
 export interface WizardStep {
@@ -140,6 +141,52 @@ export interface BenefitsWizardState {
     resetWizard: () => void;
 }
 
+// Keep only small data URLs in localStorage to avoid quota issues.
+const keepSmallDataUrl = (value: unknown, maxChars: number): string => {
+  if (typeof value !== "string") return "";
+  if (!value.startsWith("data:image/")) return value; // already a URL or empty
+  return value.length <= maxChars ? value : "";
+};
+
+// Custom storage with error handling for QuotaExceededError
+const createSafeStorage = (): any => {
+  return {
+    getItem: (name: string) => {
+      try {
+        const value = localStorage.getItem(name);
+        return value ? JSON.parse(value) : null;
+      } catch (error) {
+        return null;
+      }
+    },
+    setItem: (name: string, value: any): void => {
+      try {
+        const stringValue =
+          typeof value === "string" ? value : JSON.stringify(value);
+        localStorage.setItem(name, stringValue);
+      } catch (error) {
+        if (error instanceof Error && error.name === "QuotaExceededError") {
+          try {
+            localStorage.removeItem(name);
+            const stringValue =
+              typeof value === "string" ? value : JSON.stringify(value);
+            localStorage.setItem(name, stringValue);
+          } catch (retryError) {
+            // Silently fail - data will be lost but app won't crash
+          }
+        }
+      }
+    },
+    removeItem: (name: string) => {
+      try {
+        localStorage.removeItem(name);
+      } catch {
+        // ignore
+      }
+    },
+  };
+};
+
 const benefitsWizardSteps: WizardStep[] = [
     {
         id: 1,
@@ -174,64 +221,120 @@ const benefitsWizardSteps: WizardStep[] = [
 ];
 
 export const useBenefitsWizardStore = create<BenefitsWizardState>()(
-    (set, get) => ({
-        currentStep: 1,
-        totalSteps: 5,
-        steps: benefitsWizardSteps,
-        stepData: {},
+    persist(
+        (set, get) => ({
+            currentStep: 1,
+            totalSteps: 5,
+            steps: benefitsWizardSteps,
+            stepData: {},
 
-        nextStep: () => {
-            const { currentStep, totalSteps } = get();
-            if (currentStep < totalSteps) {
-                set({ currentStep: currentStep + 1 });
-            }
-        },
+            nextStep: () => {
+                const { currentStep, totalSteps } = get();
+                if (currentStep < totalSteps) {
+                    set({ currentStep: currentStep + 1 });
+                }
+            },
 
-        previousStep: () => {
-            const { currentStep } = get();
-            if (currentStep > 1) {
-                set({ currentStep: currentStep - 1 });
-            }
-        },
+            previousStep: () => {
+                const { currentStep } = get();
+                if (currentStep > 1) {
+                    set({ currentStep: currentStep - 1 });
+                }
+            },
 
-        goToStep: (step: number) => {
-            const { totalSteps } = get();
-            if (step >= 1 && step <= totalSteps) {
-                set({ currentStep: step });
-            }
-        },
+            goToStep: (step: number) => {
+                const { totalSteps } = get();
+                if (step >= 1 && step <= totalSteps) {
+                    set({ currentStep: step });
+                }
+            },
 
-        saveStepData: (step: number, data: any) => {
-            set((state) => ({
-                stepData: {
-                    ...state.stepData,
-                    [`step${step}`]: data,
-                },
-            }));
-        },
-        saveStepDataLocally: (stepKey: string, data: any) => {
-            set((state) => ({
-                stepData: {
-                    ...state.stepData,
-                    [stepKey]: data,
-                },
-            }));
-        },
+            saveStepData: (step: number, data: any) => {
+                set((state) => ({
+                    stepData: {
+                        ...state.stepData,
+                        [`step${step}`]: data,
+                    },
+                }));
+            },
+            saveStepDataLocally: (stepKey: string, data: any) => {
+                set((state) => ({
+                    stepData: {
+                        ...state.stepData,
+                        [stepKey]: data,
+                    },
+                }));
+            },
 
-        completeStep: (stepId: number) => {
-            set((state) => ({
-                steps: state.steps.map((step) =>
-                    step.id === stepId ? { ...step, completed: true } : step
-                ),
-            }));
-        },
+            completeStep: (stepId: number) => {
+                set((state) => ({
+                    steps: state.steps.map((step) =>
+                        step.id === stepId ? { ...step, completed: true } : step
+                    ),
+                }));
+            },
 
-        resetWizard: () => {
-            set({
-                currentStep: 1,
-                stepData: {},
-                steps: benefitsWizardSteps.map((s) => ({ ...s, completed: false })),
-            });
-        },
-    })
+            resetWizard: () => {
+                set({
+                    currentStep: 1,
+                    stepData: {},
+                    steps: benefitsWizardSteps.map((s) => ({ ...s, completed: false })),
+                });
+            },
+        }),
+        {
+            name: "benefits-wizard",
+            skipHydration: true,
+            storage: createSafeStorage(),
+            partialize: (state) => {
+                // Strip large/base64 data and reset tracking fields that should
+                // be re-evaluated on rehydration so effects re-run correctly.
+                const cleaned: any = { ...state };
+                if (cleaned.stepData) {
+                    const sd = { ...cleaned.stepData };
+
+                    if (sd.step1) {
+                        const s1 = { ...sd.step1 };
+                        // Don't persist selectedPlan — will be re-fetched from API on rehydration
+                        delete s1.selectedPlan;
+                        // Reset loaded-categories tracking so effects re-run on rehydration
+                        // and re-load partnerLogo / shortDescription from the API
+                        s1.benefitFieldsLoadedCategories = [];
+
+                        // Preserve companyLogo URL as-is — logos are small and must
+                        // survive refresh so the auto-save (which fires on rehydration)
+                        // doesn't overwrite the API's saved partnerLogo with null.
+                        // Unlike brandImages, logos are rarely large enough to cause
+                        // localStorage quota issues.
+
+                        // Strip large base64 data URLs from brandImages (these can be
+                        // large background images that would bloat localStorage)
+                        if (s1.brandImages) {
+                            s1.brandImages = { ...s1.brandImages };
+                            for (const key of ["header", "thumbnail", "secondaryBanner", "favicon"] as const) {
+                                if (s1.brandImages[key]?.url) {
+                                    s1.brandImages[key] = {
+                                        ...s1.brandImages[key]!,
+                                        url: keepSmallDataUrl(s1.brandImages[key]!.url, 50_000),
+                                    };
+                                }
+                            }
+                        }
+
+                        sd.step1 = s1;
+                    }
+
+                    if (sd.step3) {
+                        const s3 = { ...sd.step3 };
+                        // Reset loaded-categories tracking so support contacts are re-loaded on rehydration
+                        s3.supportContactsLoadedCategories = [];
+                        sd.step3 = s3;
+                    }
+
+                    cleaned.stepData = sd;
+                }
+                return cleaned;
+            },
+        }
+    )
 );

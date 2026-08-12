@@ -522,6 +522,10 @@ export function BenefitsStep1() {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 isEnabled,
+                // Persist brand logo + description so they survive page refreshes
+                // and are available whenever the wizard is re-entered.
+                partnerLogo: currentStepData.companyLogo?.url || null,
+                shortDescription: currentStepData.shortDescription || null,
                 insurancePlanId: currentStepData.insurancePlanId || "",
                 insuranceLoginUrl: currentStepData.insuranceLoginUrl || "",
                 insuranceBackgroundImage: currentStepData.insuranceBackgroundImage || "",
