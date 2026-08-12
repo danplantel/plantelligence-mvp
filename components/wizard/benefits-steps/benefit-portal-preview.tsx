@@ -398,6 +398,7 @@ export function BenefitPortalPreview({ mobile, brandColor: brandColorOverride, s
                     />
                 </div>
 
+                <div className={mobile ? "force-visible relative" : "relative"}>
                 <RetirementJourneySection
                     brandColor={brandColor}
                     mainTitle={step1Data?.journeyHeader || (category === "Custom" ? "Whole-Person Wellness Programs" : `Your ${category} Journey Starts Here`)}
@@ -410,6 +411,7 @@ export function BenefitPortalPreview({ mobile, brandColor: brandColorOverride, s
                     onDescriptionClick={() => handleEdit("planVideo")}
                     onVideoClick={() => handleEdit("planVideo")}
                 />
+                </div>
 
                 <div className={mobile ? "force-visible relative" : "relative"} data-preview-field="helpCards">
                     <HowCanWeHelpSection
