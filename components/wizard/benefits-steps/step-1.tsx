@@ -2250,8 +2250,6 @@ export function BenefitsStep1() {
                         })
                       }
                       hideButtons={true}
-                      useUniversalModal={true}
-                      universalModalType="normalizer"
                       maxFileSize={10}
                     />
                   </div>
