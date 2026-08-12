@@ -44,7 +44,7 @@ import { getCategoryHeroBackgroundUrl, DEFAULT_WELCOME_BG } from "@/lib/portal-c
 import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
 import { DEFAULT_HELP_CARDS } from "./benefits-editor-panel";
 
-export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
+export function BenefitPortalPreview({ mobile, brandColor: brandColorOverride, secondaryColor: secondaryColorOverride }: { mobile?: boolean; brandColor?: string; secondaryColor?: string }) {
     const { stepData } = useBenefitsWizardStore();
     const [userName, setUserName] = useState<string | null>(null);
     const [userDesignations, setUserDesignations] = useState<string[]>([]);
@@ -82,11 +82,12 @@ export function BenefitPortalPreview({ mobile }: { mobile?: boolean }) {
     );
 
     // Colors from plan data — matches how retirement/page.tsx reads clientData.brandColor / .secondaryColor
-    const brandColor = step1Data?.selectedPlan?.brandColor
-        || step1Data?.selectedPlan?.brandColors?.primary
+    const brandColor = brandColorOverride
+        || step1Data?.selectedPlan?.brandColor
+        || step1Data?.selectedPlan?.primaryColor
         || "#1F3A60";
-    const secondaryColor = step1Data?.selectedPlan?.secondaryColor
-        || step1Data?.selectedPlan?.brandColors?.secondary
+    const secondaryColor = secondaryColorOverride
+        || step1Data?.selectedPlan?.secondaryColor
         || "#6B7280";
 
     // ── Resolve per-category benefit from persisted data (used for FAQs, planVideo, etc.) ──

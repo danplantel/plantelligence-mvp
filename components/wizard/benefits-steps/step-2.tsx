@@ -266,11 +266,28 @@ export function BenefitsStep2() {
         setPreviewMode((prev) => (prev === "desktop" ? "mobile" : "desktop"));
     };
 
-    const brandColor = step1Data?.selectedPlan?.brandColor
-        || step1Data?.selectedPlan?.brandColors?.primary
+    // Fetch plan data for brand colors when selectedPlan is missing (e.g. on
+    // refresh before the step-1 effect has loaded it).
+    const [planBrandColor, setPlanBrandColor] = useState<string | null>(null);
+    useEffect(() => {
+        if (!step1Data?.planId) return;
+        let cancelled = false;
+        fetch(`/api/clients/${step1Data.planId}`)
+            .then((r) => r.json())
+            .then((result) => {
+                if (cancelled || !result?.data) return;
+                setPlanBrandColor(result.data.brandColor || null);
+            })
+            .catch(() => {});
+        return () => { cancelled = true; };
+    }, [step1Data?.planId]);
+
+    const brandColor =
+        step1Data?.selectedPlan?.brandColor
+        || planBrandColor
         || "#1F3A60";
-    const secondaryColor = step1Data?.selectedPlan?.secondaryColor
-        || step1Data?.selectedPlan?.brandColors?.secondary
+    const secondaryColor =
+        step1Data?.selectedPlan?.secondaryColor
         || "#6B7280";
 
     return (
@@ -424,7 +441,7 @@ export function BenefitsStep2() {
                                             />
                                         </div>
                                         <div>
-                                            <BenefitPortalPreview mobile />
+                                            <BenefitPortalPreview mobile brandColor={brandColor} secondaryColor={secondaryColor} />
                                         </div>
                                     </MobilePreviewFrame>
                                 </div>
@@ -446,7 +463,7 @@ export function BenefitsStep2() {
                                     overflowX: "hidden",
                                 }}
                             >
-                                <BenefitPortalPreview />
+                                <BenefitPortalPreview brandColor={brandColor} secondaryColor={secondaryColor} />
                             </div>
                         </div>
                     )}
