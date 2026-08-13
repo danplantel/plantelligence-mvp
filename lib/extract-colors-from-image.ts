@@ -47,7 +47,26 @@ interface DominantColor {
 export async function extractColorsFromImage(
   imageUrl: string,
 ): Promise<ColorResult> {
-  return new Promise((resolve, reject) => {
+  // For non-inline sources (R2 same-origin proxy, external URLs) fetch the bytes
+  // first and draw from an object URL. A blob drawn from the same origin never
+  // taints the canvas, so getImageData works regardless of CORS headers on the
+  // source. Inline data URLs are used directly.
+  let src = imageUrl;
+  let objectUrl: string | null = null;
+  if (!imageUrl.startsWith("data:")) {
+    try {
+      const res = await fetch(imageUrl, { credentials: "same-origin" });
+      if (res.ok) {
+        const blob = await res.blob();
+        objectUrl = URL.createObjectURL(blob);
+        src = objectUrl;
+      }
+    } catch {
+      // Fall through to a direct <img> load below.
+    }
+  }
+
+  return new Promise<ColorResult>((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
 
@@ -173,6 +192,8 @@ export async function extractColorsFromImage(
       reject(new Error("Failed to load image"));
     };
 
-    img.src = imageUrl;
+    img.src = src;
+  }).finally(() => {
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
   });
 }

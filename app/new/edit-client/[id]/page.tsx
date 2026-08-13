@@ -100,6 +100,10 @@ import { CardSelectionModal } from "@/components/wizard/new-client-steps/card-se
 import { PortalDisclaimers } from "@/components/pages/client-portal/sections/portal-disclaimers";
 import { uploadBrandingToR2 } from "@/lib/branding-r2";
 import {
+  getR2ObjectProxyUrl,
+  toR2BrandingKey,
+} from "@/lib/branding-image-url";
+import {
   resolveDefaultDisclosuresText,
   ensurePlanTelligenceTrademark,
 } from "@/lib/disclaimer-constants";
@@ -2154,9 +2158,21 @@ export default function EditClientPage() {
                   )
                 }
                 logoDataUrl={
-                  companyData.companyLogo?.url?.startsWith("data:")
-                    ? companyData.companyLogo.url
-                    : undefined
+                  (() => {
+                    const url = companyData.companyLogo?.url;
+                    if (!url) return undefined;
+                    // Inline base64 logo → canvas extraction can read it directly.
+                    if (url.startsWith("data:")) return url;
+                    // R2 branding key (org/...) → resolve to the same-origin proxy
+                    // so the canvas pixel analysis works without CORS issues.
+                    const r2Key = toR2BrandingKey(url);
+                    if (r2Key) return getR2ObjectProxyUrl(r2Key) || undefined;
+                    // Root-relative or absolute URL → use as-is.
+                    if (url.startsWith("/") || /^https?:\/\//i.test(url)) {
+                      return url;
+                    }
+                    return undefined;
+                  })()
                 }
                 websiteUrl={companyData.companyWebsite}
                 organizationName={companyData.companyName}
