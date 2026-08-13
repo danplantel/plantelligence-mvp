@@ -406,9 +406,10 @@ export function DocumentsSection({
                     return false;
                   }
 
-                  // If type is "Document" or no type, include it (even if title contains SPD/SBC)
-                  // This is because retirement plan documents can have "SPD" in their name
-                  if (doc.type === "Document" || !doc.type) {
+                  // Include "Document", missing, and the legacy "other" type so plan
+                  // documents uploaded before the type-normalization fix remain visible.
+                  const t = String(doc.type || "Document").toLowerCase();
+                  if (t === "document" || t === "other" || !doc.type) {
                     return true;
                   }
 
@@ -597,7 +598,8 @@ export function DocumentsSection({
                 if (doc.type === "SPD" || doc.type === "SBC") {
                   return false;
                 }
-                if (doc.type === "Document" || !doc.type) {
+                const t = String(doc.type || "Document").toLowerCase();
+                if (t === "document" || t === "other" || !doc.type) {
                   return true;
                 }
                 return false;

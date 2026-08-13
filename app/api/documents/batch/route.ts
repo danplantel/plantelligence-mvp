@@ -84,7 +84,11 @@ export async function POST(request: NextRequest) {
         return;
       }
 
-      const docType = (typeof raw.type === "string" && raw.type.trim()) || "Document";
+      const rawType = typeof raw.type === "string" ? raw.type.trim() : "";
+      // Normalize the wizard's "other" type to the Prisma "Document" type so
+      // these rows are visible to consumers that filter on type === "Document".
+      const docType =
+        !rawType || rawType === "other" ? "Document" : rawType;
       const title =
         (typeof raw.title === "string" && raw.title.trim()) ||
         fileName.replace(/\.[^.]+$/, "") ||
@@ -142,7 +146,26 @@ export async function POST(request: NextRequest) {
     const created = await prisma.$transaction(
       async (tx) => {
         const docs: { id: string; fileName: string }[] = [];
+        // Idempotency: skip rows whose R2 object is already persisted for this
+        // client. Duplicate submissions (retries / racing auto-persist paths)
+        // must not produce duplicate Document rows.
+        const existing = await tx.document.findMany({
+          where: {
+            clientId,
+            storageKey: { in: normalized.map((n) => n.storageKey) },
+          },
+          select: { storageKey: true },
+        });
+        const existingKeys = new Set(
+          existing
+            .map((d) => (d.storageKey || "").trim())
+            .filter((k) => k !== ""),
+        );
         for (const row of normalized) {
+          if (existingKeys.has(row.storageKey.trim())) {
+            continue;
+          }
+          existingKeys.add(row.storageKey.trim());
           const doc = await tx.document.create({
             data: {
               title: row.title,

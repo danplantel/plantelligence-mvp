@@ -36,7 +36,15 @@ export async function persistNewDocumentsToApi(
     const exp = (d as any).expirationDate;
     const expirationDate =
       exp != null && String(exp).trim() !== "" ? String(exp).trim() : null;
-    const docType = (d as any).type || "Document";
+    // The wizard `Document.type` is "spd" | "other", but the Prisma Document model
+    // uses "SPD" | "SBC" | "Document". "other" means a regular plan document, so it
+    // must be persisted as "Document" — otherwise every consumer that filters on
+    // `type === "Document"` (Documents page, Create Benefits, portal) drops these rows.
+    const rawType = (d as any).type;
+    const docType =
+      !rawType || String(rawType).trim() === "" || rawType === "other"
+        ? "Document"
+        : String(rawType);
     const categoryForApi = resolvePersistedDocumentCategory(
       docType,
       d.category,

@@ -26,6 +26,12 @@ export async function deletePlansAndScopedDataForUser(
     where: { client: { userId } },
   });
 
+  // Benefit rows have a required BenefitToClient relation — they must be
+  // removed before the client, otherwise prisma.client.deleteMany() throws P2014.
+  await prisma.benefit.deleteMany({
+    where: { client: { userId } },
+  });
+
   await prisma.webinar.deleteMany({
     where: { userId },
   });

@@ -767,6 +767,14 @@ export async function POST(request: NextRequest) {
             },
           });
 
+          // Benefit rows have a required BenefitToClient relation — remove them
+          // before the draft client so prisma.client.delete() does not throw P2014.
+          await prisma.benefit.deleteMany({
+            where: {
+              clientId: draftClientId,
+            },
+          });
+
           // Now delete the specific Draft Client
           await prisma.client.delete({
             where: {
@@ -790,6 +798,14 @@ export async function POST(request: NextRequest) {
 
               // Delete all Documents associated with this draft client first
               await prisma.document.deleteMany({
+                where: {
+                  clientId: draftClient.id,
+                },
+              });
+
+              // Benefit rows have a required BenefitToClient relation — remove them
+              // before the draft client so prisma.client.delete() does not throw P2014.
+              await prisma.benefit.deleteMany({
                 where: {
                   clientId: draftClient.id,
                 },

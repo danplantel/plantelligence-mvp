@@ -205,6 +205,24 @@ export async function POST(request: NextRequest) {
         storageKey.trim(),
       );
 
+      // Idempotency guard: the client upload flow can race its own auto-persist
+      // (e.g. the debounced optional-documents save + persistNewDocumentsToApi both
+      // firing for the same upload). Never create a second row for the same
+      // client + R2 object.
+      const existing = await prisma.document.findFirst({
+        where: {
+          clientId,
+          storageKey: storageKey.trim(),
+        },
+        select: { id: true, title: true, fileName: true },
+      });
+      if (existing) {
+        return NextResponse.json({
+          message: "Document already exists (R2)",
+          document: existing,
+        });
+      }
+
       const doc = await prisma.document.create({
         data: {
           title: (title ?? fileName.replace(/\.[^.]+$/, "")) || "Document",

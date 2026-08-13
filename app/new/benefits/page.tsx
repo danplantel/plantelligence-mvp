@@ -376,11 +376,16 @@ function BenefitsPageInner() {
           d.storageKey,
         ) === editingHub
       );
-      const fromApiThisHub = (currentDocuments as any[]).filter(
-        (d) =>
-          d.type === "Document" &&
-          resolvePersistedDocumentCategory(d.type, d.category) === editingHub,
-      );
+      const fromApiThisHub = (currentDocuments as any[]).filter((d) => {
+        // Accept both "Document" and the legacy "other" type so documents
+        // uploaded from the Documents page before the type-normalization fix
+        // are not silently dropped from this category on completion.
+        const t = String(d.type ?? "Document").toLowerCase();
+        if (t === "spd" || t === "sbc") return false;
+        return (
+          resolvePersistedDocumentCategory(d.type, d.category) === editingHub
+        );
+      });
       // Deduplicate by both ID AND storageKey: step4 may have temp-ID docs whose
       // storageKey matches real-ID docs from the API (e.g., auto-persisted R2 uploads).
       // Without storageKey matching, both the temp-ID and real-ID versions would be

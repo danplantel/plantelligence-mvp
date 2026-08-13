@@ -1038,6 +1038,9 @@ export async function DELETE(
 
     // Delete related records individually (avoids MongoDB multi-document transaction write conflicts)
     const deleteOps = [
+      // Benefit rows have a required BenefitToClient relation — they must be
+      // removed before the client, otherwise prisma.client.delete() throws P2014.
+      () => prisma.benefit.deleteMany({ where: { clientId } }),
       () => prisma.document.deleteMany({ where: { clientId } }),
       () => prisma.meeting.deleteMany({
         where: {

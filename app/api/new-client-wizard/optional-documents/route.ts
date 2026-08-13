@@ -14,7 +14,12 @@ export async function POST(request: NextRequest) {
 
     const data: OptionalDocumentsFormData & { clientId?: string } = await request.json();
 
-    // If clientId is provided, save documents directly to the client
+    // If clientId is provided, save documents directly to the client.
+    // This is called by the Documents page upload flow (ComplianceDocumentsUpload
+    // auto-persist + its debounced save), so it must be idempotent and
+    // NON-DESTRUCTIVE: never delete existing Document rows here. Deleting +
+    // recreating raced with persistNewDocumentsToApi and caused both duplicate
+    // rows and silently deleted documents uploaded from other surfaces.
     if (data.clientId) {
       // Verify client belongs to user
       const client = await prisma.client.findFirst({
@@ -27,14 +32,6 @@ export async function POST(request: NextRequest) {
       if (!client) {
         return NextResponse.json({ error: "Client not found" }, { status: 404 });
       }
-
-      // Delete all existing documents for this client (to replace them with new ones)
-      await prisma.document.deleteMany({
-        where: {
-          clientId: data.clientId,
-          type: "Document", // Only delete optional documents, not SPD/SBC
-        },
-      });
 
       const savedDocuments = [];
       if (data.optionalFiles && Array.isArray(data.optionalFiles)) {
@@ -53,18 +50,50 @@ export async function POST(request: NextRequest) {
               Number.isFinite((file as any).categoryConfidence)
                 ? Math.round((file as any).categoryConfidence)
                 : null;
+            const key = storageKey.trim();
+
+            // Upsert by storageKey so repeated saves (auto-persist + debounced
+            // save firing for the same upload) never create duplicate rows.
+            const existing = await prisma.document.findFirst({
+              where: { clientId: data.clientId, storageKey: key },
+              select: { id: true },
+            });
+            if (existing) {
+              const document = await prisma.document.update({
+                where: { id: existing.id },
+                data: {
+                  title: (file as any).title || file.fileName || file.description || "Document",
+                  fileName: file.fileName || "document.pdf",
+                  shortDescription: file.description || null,
+                  category: resolvePersistedDocumentCategory(
+                    "Document",
+                    (file as any).category,
+                    key,
+                  ),
+                  categorySuggested,
+                  categoryConfidence,
+                  language: file.language || "EN",
+                  expirationDate: file.expirationDate
+                    ? new Date(file.expirationDate)
+                    : null,
+                } as any,
+              });
+              savedDocuments.push(document);
+              continue;
+            }
+
             const document = await prisma.document.create({
               data: {
                 title: (file as any).title || file.fileName || file.description || "Document",
                 fileName: file.fileName || "document.pdf",
                 fileUrl: "r2:stored",
-                storageKey: storageKey.trim(),
+                storageKey: key,
                 shortDescription: file.description || null,
                 type: "Document",
                 category: resolvePersistedDocumentCategory(
                   "Document",
                   (file as any).category,
-                  storageKey,
+                  key,
                 ),
                 categorySuggested,
                 categoryConfidence,
@@ -209,19 +238,23 @@ export async function GET(request: NextRequest) {
       }
 
       // MongoDB: do not use `archivedAt: null` in where (misses docs without the field). Filter in JS.
+      // Do not filter `type` in the query: legacy rows may be stored as "other"
+      // instead of "Document". Filter SPD/SBC out in JS so plan documents remain visible.
       const documents = await prisma.document.findMany({
         where: {
           clientId: clientId,
-          type: "Document",
         },
         orderBy: {
           uploadedAt: "desc",
         },
       });
 
-      const activeDocuments = documents.filter(
-        (doc) => doc.archivedAt == null,
-      );
+      const activeDocuments = documents.filter((doc) => {
+        if (doc.archivedAt != null) return false;
+        const t = String(doc.type ?? "Document").toLowerCase();
+        if (t === "spd" || t === "sbc") return false;
+        return true;
+      });
 
       const retirementPlanDocuments = activeDocuments
         .filter((doc) => (doc.fileUrl && doc.fileUrl.trim() !== "") || (doc as any).storageKey)
