@@ -115,14 +115,107 @@ interface SiteExtractionResult {
 
 const CONFIDENCE_THRESHOLD = 0.3; // Below this, extraction is considered "weak"
 
+// ── Platform global color detection (server-side, reliable) ─────────────────
+
+function isNeutralHex(hex: string): boolean {
+  if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return true;
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const maxDiff = Math.max(Math.abs(r - g), Math.abs(g - b), Math.abs(r - b));
+  if (maxDiff <= 25) return true; // grays
+  const brightness = (r + g + b) / 3;
+  if (brightness > 245 || brightness < 12) return true;
+  return false;
+}
+
+/**
+ * Fetch the target site's HTML + same-origin stylesheets and extract the
+ * platform's declared brand palette (Elementor --e-global-color-* tokens).
+ * Runs server-side with Node fetch, avoiding the browser CORS / CSSOM quirks.
+ *
+ * Elementor's declared "primary" is often black/gray/white (a neutral), so we
+ * promote its "secondary" to primary and its "accent" to secondary — matching
+ * how a human reads the brand (e.g. navy primary + gold secondary).
+ */
+async function fetchPlatformGlobalColors(
+  url: string,
+): Promise<{ primary: string | null; secondary: string | null; colors: string[] }> {
+  const colors: string[] = [];
+  let primary: string | null = null;
+  let secondary: string | null = null;
+  let accent: string | null = null;
+
+  const register = (name: string, hex: string) => {
+    const upper = hex.toUpperCase();
+    if (!/^#[0-9a-fA-F]{6}$/.test(upper) || isNeutralHex(upper)) return;
+    if (/^primary$|color-0$/.test(name)) primary = primary || upper;
+    else if (/^secondary$|color-1$/.test(name)) secondary = secondary || upper;
+    else if (/^accent$/.test(name)) accent = accent || upper;
+    if (!colors.includes(upper)) colors.push(upper);
+  };
+
+  const tokenRe =
+    /--e-global-color-([a-z0-9-]+)\s*:\s*(#[0-9a-fA-F]{3,8})/g;
+
+  try {
+    const htmlRes = await fetch(url, { redirect: "follow" });
+    if (htmlRes.ok) {
+      const html = await htmlRes.text();
+
+      // Inline <style> / server-rendered CSS in the HTML.
+      let m: RegExpExecArray | null;
+      while ((m = tokenRe.exec(html)) !== null) register(m[1], m[2]);
+      tokenRe.lastIndex = 0;
+
+      // Same-origin stylesheet URLs (Elementor kit + combined CSS).
+      const sheetUrls = new Set<string>();
+      const linkRe = /<link[^>]+href=["']([^"']+\.css[^"']*)["']/gi;
+      let lm: RegExpExecArray | null;
+      while ((lm = linkRe.exec(html)) !== null) {
+        try {
+          sheetUrls.add(new URL(lm[1], url).href);
+        } catch {}
+      }
+
+      for (const sheetUrl of sheetUrls) {
+        try {
+          const cssRes = await fetch(sheetUrl, { redirect: "follow" });
+          if (!cssRes.ok) continue;
+          const css = await cssRes.text();
+          let cm: RegExpExecArray | null;
+          while ((cm = tokenRe.exec(css)) !== null) register(cm[1], cm[2]);
+          tokenRe.lastIndex = 0;
+        } catch {}
+      }
+    }
+  } catch {}
+
+  // If the declared primary was neutral (black/gray/white), promote secondary
+  // to primary; use accent as the secondary.
+  const platformPrimary = primary || secondary || null;
+  const platformSecondary =
+    accent || (secondary && secondary !== platformPrimary ? secondary : null);
+
+  return { primary: platformPrimary, secondary: platformSecondary, colors };
+}
+
 // ── Main Extraction Logic (runs inside Puppeteer page context) ──────────────
 
 function buildExtractionScript() {
   return `
-    (() => {
+    (async () => {
       // Helper: parse any CSS color to hex
       function parseToHex(colorStr) {
         if (!colorStr || colorStr === 'transparent' || colorStr === 'rgba(0, 0, 0, 0)') return null;
+        // Handle CSS gradients (linear-gradient / radial-gradient): extract the
+        // first color stop — gradients are common on buttons/CTAs and were
+        // previously skipped entirely.
+        if (typeof colorStr === 'string' && /gradient/i.test(colorStr)) {
+          const first = colorStr.match(/#[0-9a-fA-F]{3,8}|rgba?\([^)]+\)/);
+          if (!first) return null;
+          colorStr = first[0];
+        }
         const ctx = document.createElement('canvas').getContext('2d');
         ctx.fillStyle = colorStr;
         const computed = ctx.fillStyle;
@@ -285,14 +378,144 @@ function buildExtractionScript() {
         }
       }
 
-      return candidates;
+      // 5b. Platform global brand colors (WordPress / Elementor / Squarespace).
+      // Elementor defines its palette as --e-global-color-* custom properties
+      // (including per-kit hashed names like --e-global-color-f34948a) that do
+      // NOT always live on :root. Read them from inline <style> tags and
+      // same-origin stylesheets, then treat them as authoritative high-weight
+      // candidates. This captures the actual declared brand colors (e.g. navy
+      // primary + gold secondary) that element-level scans miss.
+      let platformPrimary = null;
+      let platformSecondary = null;
+
+      const registerGlobalColor = (name, hex) => {
+        if (!hex || isNeutral(hex)) return;
+        const upper = hex.toUpperCase();
+        if (!platformPrimary && /^(primary|color-0|ast-global-color-0)$/i.test(name)) {
+          platformPrimary = upper;
+        } else if (!platformSecondary && /^(secondary|accent|color-1|ast-global-color-1)$/i.test(name)) {
+          platformSecondary = upper;
+        }
+        if (!seenColors.has(upper)) {
+          seenColors.add(upper);
+          candidates.push({
+            hex: upper,
+            source: 'other',
+            selector: ':root --e-global-color-' + name,
+            weight: 1.5,
+            property: '--e-global-color-' + name
+          });
+        }
+      };
+
+      // (a) Inline <style> tags — Elementor kit CSS is often injected here.
+      const globalVarRe = /--e-global-color-([a-z0-9-]+)\s*:\s*(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\))/g;
+      for (const tag of document.querySelectorAll('style')) {
+        const text = tag.textContent || '';
+        let m;
+        while ((m = globalVarRe.exec(text)) !== null) {
+          registerGlobalColor(m[1], parseToHex(m[2]));
+        }
+      }
+
+      // (b) Stylesheets — the combined/optimized CSS is same-origin & readable.
+      try {
+        for (const sheet of document.styleSheets) {
+          let rules;
+          try { rules = sheet.cssRules; } catch { continue; }
+          const walk = (ruleList) => {
+            for (const rule of ruleList) {
+              if (rule.cssRules) walk(rule.cssRules);
+              if (!rule.style) continue;
+              for (let i = 0; i < rule.style.length; i++) {
+                const prop = rule.style[i];
+                if (prop && prop.indexOf('--e-global-color-') === 0) {
+                  registerGlobalColor(
+                    prop.slice('--e-global-color-'.length),
+                    parseToHex(rule.style.getPropertyValue(prop)),
+                  );
+                }
+              }
+            }
+          };
+          walk(rules);
+        }
+      } catch {}
+
+      // (b2) Fetch same-origin stylesheet text — most reliable for minified
+      // combined CSS that the CSSOM may not expose cleanly.
+      const seenSheetUrls = new Set();
+      for (const link of document.querySelectorAll('link[rel="stylesheet"]')) {
+        const href = link.href || '';
+        if (!href || seenSheetUrls.has(href)) continue;
+        seenSheetUrls.add(href);
+        try {
+          const res = await fetch(href);
+          if (!res.ok) continue;
+          const cssText = await res.text();
+          const fetchRe = /--e-global-color-([a-z0-9-]+)\s*:\s*(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\))/g;
+          let fm;
+          while ((fm = fetchRe.exec(cssText)) !== null) {
+            registerGlobalColor(fm[1], parseToHex(fm[2]));
+          }
+        } catch {}
+      }
+
+      // (c) Fallback: resolved computed styles for common theme tokens.
+      const namedTokens = [
+        ['--e-global-color-primary', 'primary'],
+        ['--e-global-color-secondary', 'secondary'],
+        ['--e-global-color-accent', 'accent'],
+        ['--ast-global-color-0', 'ast-global-color-0'],
+        ['--ast-global-color-1', 'ast-global-color-1'],
+        ['--wp--preset--color--primary', 'primary'],
+        ['--wp--preset--color--secondary', 'secondary']
+      ];
+      for (const root of [document.documentElement, document.body]) {
+        const ps = window.getComputedStyle(root);
+        for (const pair of namedTokens) {
+          const val = ps.getPropertyValue(pair[0]).trim();
+          if (val) registerGlobalColor(pair[1], parseToHex(val));
+        }
+      }
+
+      // 6. Scan inline SVG fills/strokes — icons often carry the accent /
+      // secondary brand color and were previously invisible to extraction.
+      const svgEls = document.querySelectorAll('svg, svg path, svg rect, svg circle, svg polygon, svg g');
+      for (const el of svgEls) {
+        const style = window.getComputedStyle(el);
+        const fill = parseToHex(style.fill);
+        const stroke = parseToHex(style.stroke);
+        for (const c of [fill, stroke]) {
+          if (c && !isNeutral(c) && !seenColors.has(c)) {
+            seenColors.add(c);
+            candidates.push({
+              hex: c.toUpperCase(),
+              source: 'other',
+              selector: el.tagName,
+              weight: 0.5,
+              property: 'fill/stroke'
+            });
+          }
+        }
+      }
+
+      return {
+        candidates: candidates,
+        platformPrimary: platformPrimary,
+        platformSecondary: platformSecondary
+      };
     })()
   `;
 }
 
 // ── Result Processing (server-side) ──────────────────────────────────────────
 
-function processCandidates(candidates: SiteColorCandidate[]): SiteExtractionResult {
+function processCandidates(
+  candidates: SiteColorCandidate[],
+  platformPrimary?: string | null,
+  platformSecondary?: string | null,
+): SiteExtractionResult {
   if (candidates.length === 0) {
     return {
       primary: null,
@@ -326,27 +549,43 @@ function processCandidates(candidates: SiteColorCandidate[]): SiteExtractionResu
   // Sort by total weight descending
   const sorted = Array.from(colorMap.values()).sort((a, b) => b.totalWeight - a.totalWeight);
 
-  // Filter distinct colors (at least 50 RGB distance apart)
+  const rgbDistance = (a: string, b: string): number => {
+    const r1 = parseInt(a.slice(1, 3), 16);
+    const g1 = parseInt(a.slice(3, 5), 16);
+    const b1 = parseInt(a.slice(5, 7), 16);
+    const r2 = parseInt(b.slice(1, 3), 16);
+    const g2 = parseInt(b.slice(3, 5), 16);
+    const b2 = parseInt(b.slice(5, 7), 16);
+    return Math.sqrt((r1 - r2) ** 2 + (g1 - g2) ** 2 + (b1 - b2) ** 2);
+  };
+
+  // Filter distinct colors (at least 35 RGB distance apart)
   const distinct: typeof sorted = [];
   for (const entry of sorted) {
-    const isDistinct = distinct.every((d) => {
-      const r1 = parseInt(entry.hex.slice(1, 3), 16);
-      const g1 = parseInt(entry.hex.slice(3, 5), 16);
-      const b1 = parseInt(entry.hex.slice(5, 7), 16);
-      const r2 = parseInt(d.hex.slice(1, 3), 16);
-      const g2 = parseInt(d.hex.slice(3, 5), 16);
-      const b2 = parseInt(d.hex.slice(5, 7), 16);
-      return Math.sqrt((r1 - r2) ** 2 + (g1 - g2) ** 2 + (b1 - b2) ** 2) >= 50;
-    });
-    if (isDistinct) {
+    if (distinct.every((d) => rgbDistance(entry.hex, d.hex) >= 35)) {
       distinct.push(entry);
     }
   }
 
-  // Primary = highest weighted
-  const primary = distinct[0]?.hex || null;
-  // Secondary = second highest weighted (distinct from primary)
-  const secondary = distinct[1]?.hex || null;
+  // Primary = platform-declared primary if available, else highest weighted.
+  const primary = platformPrimary || distinct[0]?.hex || null;
+  // Secondary = platform-declared secondary if available and distinct, else
+  // the second highest weighted distinct color.
+  let secondary =
+    platformSecondary && platformSecondary !== primary
+      ? platformSecondary
+      : distinct[1]?.hex || null;
+
+  // If only one distinct color survived, look for the nearest different hue
+  // among all candidates so we never return the primary twice.
+  if (!secondary && primary) {
+    for (const entry of sorted) {
+      if (entry.hex !== primary && rgbDistance(entry.hex, primary) >= 25) {
+        secondary = entry.hex;
+        break;
+      }
+    }
+  }
 
   // Confidence based on total weight and number of candidates
   const maxPossibleWeight = 5.0; // Rough estimate of what "strong" looks like
@@ -512,12 +751,41 @@ export async function POST(request: NextRequest) {
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       // Run extraction script in page context
-      const candidates = (await page.evaluate(
-        buildExtractionScript(),
-      )) as SiteColorCandidate[];
+      const extracted = (await page.evaluate(buildExtractionScript())) as {
+        candidates: SiteColorCandidate[];
+        platformPrimary?: string | null;
+        platformSecondary?: string | null;
+      };
+      const candidates: SiteColorCandidate[] =
+        extracted?.candidates || [];
+      const pagePlatformPrimary = extracted?.platformPrimary || null;
+      const pagePlatformSecondary = extracted?.platformSecondary || null;
+
+      // Server-side platform color detection (reliable; no CORS/CSSOM quirks).
+      const platform = await fetchPlatformGlobalColors(url);
+      const platformPrimary = platform.primary || pagePlatformPrimary;
+      const platformSecondary =
+        platform.secondary || pagePlatformSecondary;
+
+      // Surface the declared palette as high-weight candidates too.
+      for (const color of platform.colors) {
+        if (!candidates.some((c) => c.hex === color)) {
+          candidates.push({
+            hex: color,
+            source: "other",
+            selector: ":root --e-global-color",
+            weight: 1.5,
+            property: "global-color",
+          });
+        }
+      }
 
       // Process results
-      const result = processCandidates(candidates);
+      const result = processCandidates(
+        candidates,
+        platformPrimary,
+        platformSecondary,
+      );
       result.url = url;
 
       return NextResponse.json({

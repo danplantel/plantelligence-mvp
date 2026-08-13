@@ -368,6 +368,7 @@ interface RawColorPair {
 /** Normalize a hex color to uppercase #RRGGBB without snapping to a preset. */
 function normalizeHexColor(hex: string): string {
   const v = String(hex || "").trim();
+  if (!v) return "";
   return v.startsWith("#") ? v.toUpperCase() : `#${v.toUpperCase()}`;
 }
 
@@ -482,19 +483,22 @@ export async function extractColorSets(
       if (res.ok) {
         const json: SiteColorResponse = await res.json();
         if (json.success && json.data?.primary) {
-          websiteColors = finalizePair(
-            json.data.primary,
-            json.data.secondary || json.data.primary,
-          );
+          const siteSecondary = json.data.secondary || "";
+          websiteColors = finalizePair(json.data.primary, siteSecondary);
+          const warnings: string[] = [];
+          if (json.data.weakExtraction) {
+            warnings.push("Website extraction was weak");
+          }
+          if (!siteSecondary) {
+            warnings.push("Only one brand color found on the website");
+          }
           sets.push({
             id: "website",
             label: "From Website",
             primary: websiteColors.primary,
             secondary: websiteColors.secondary,
             confidence: json.data.weakExtraction ? "low" : "medium",
-            warnings: json.data.weakExtraction
-              ? ["Website extraction was weak"]
-              : [],
+            warnings,
             available: true,
             sourceUrl: websiteUrl.trim(),
           });

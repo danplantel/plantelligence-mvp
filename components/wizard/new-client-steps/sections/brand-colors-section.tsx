@@ -244,7 +244,13 @@ export function BrandColorsSection({
                     {set.available ? (
                       <div className="space-y-2">
                         {renderSwatch("Primary", set.primary)}
-                        {renderSwatch("Secondary", set.secondary)}
+                        {set.secondary ? (
+                          renderSwatch("Secondary", set.secondary)
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            No distinct secondary color found
+                          </p>
+                        )}
                         <span className={`text-xs ${conf.color}`}>
                           {conf.label}
                         </span>
