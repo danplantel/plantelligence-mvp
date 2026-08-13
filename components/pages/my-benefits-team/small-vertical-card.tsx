@@ -358,7 +358,7 @@ export function SmallVerticalCard({
                   />
                   {contact.email ? (
                     <a
-                      className="underline text-center transition-colors duration-200"
+                      className="text-center transition-colors duration-200"
                       style={
                         {
                           color: textColor || "#4B5563",
@@ -404,7 +404,7 @@ export function SmallVerticalCard({
                   />
                   {contact.phone ? (
                     <a
-                      className="underline text-center transition-colors duration-200"
+                      className="text-center transition-colors duration-200"
                       style={
                         {
                           color: textColor || "#4B5563",
@@ -607,7 +607,7 @@ export function SmallVerticalCard({
                 />
                 {contact.email ? (
                   <a
-                    className="underline text-center transition-colors duration-200"
+                    className="text-center transition-colors duration-200"
                     style={
                       {
                         color: textColor || "#4B5563",
@@ -652,7 +652,7 @@ export function SmallVerticalCard({
                 />
                 {contact.phone ? (
                   <a
-                    className="underline text-center transition-colors duration-200"
+                    className="text-center transition-colors duration-200"
                     style={
                       {
                         color: textColor || "#4B5563",

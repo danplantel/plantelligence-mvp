@@ -267,7 +267,7 @@ export function LargeHorizontalCard({
                   />
                   <a
                     href={`mailto:${contact.email}`}
-                    className="underline truncate transition-colors text-base duration-200 font-red-hat"
+                    className="truncate transition-colors text-base duration-200 font-red-hat"
                     style={{
                       color: textColor || effectiveBrandColor,
                     }}
@@ -301,7 +301,7 @@ export function LargeHorizontalCard({
                   />
                   <a
                     href={getBasePhoneForDialing(contact.phone)}
-                    className="truncate underline transition-colors duration-200"
+                    className="truncate transition-colors duration-200"
                     style={{
                       color: textColor || effectiveBrandColor,
                     }}
