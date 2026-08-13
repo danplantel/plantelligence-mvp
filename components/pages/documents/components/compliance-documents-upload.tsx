@@ -247,7 +247,6 @@ export function ComplianceDocumentsUpload({
         category: doc.category,
         categorySuggested: doc.categorySuggested,
         categoryConfidence: doc.categoryConfidence,
-        showQrCode: (doc as any).showQrCode !== false,
         meta: {
           source: "retirement",
           id: doc.id,
@@ -257,27 +256,6 @@ export function ComplianceDocumentsUpload({
         onDelete: () => {
           removeRetirementDocumentById(doc.id);
         },
-        onToggleShowQrCode: isDatabaseId
-          ? (next: boolean) => {
-              void (async () => {
-                const res = await fetch(`/api/documents/${doc.id}`, {
-                  method: "PATCH",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ showQrCode: next }),
-                });
-                if (!res.ok) {
-                  toast.error("Could not update QR code visibility");
-                  return;
-                }
-                const updated = retirementPlanDocuments.map((d) =>
-                  d.id === doc.id ? { ...d, showQrCode: next } : d,
-                );
-                setRetirementPlanDocuments(updated);
-                setPreviewKey((p) => p + 1);
-                onDocumentsChangeRef.current?.(updated);
-              })();
-            }
-          : undefined,
         onArchive: isDatabaseId
           ? () => {
               void (async () => {

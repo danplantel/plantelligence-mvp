@@ -16,7 +16,6 @@ import {
   Building,
   Calendar,
   Trash2,
-  Eye,
   MoreHorizontal,
   X,
   Save,
@@ -64,7 +63,6 @@ import {
   rectSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { QRCodeSVG } from "qrcode.react";
 import { normalizePortalDocumentLanguage } from "@/lib/portal-document-language";
 
 /**
@@ -118,12 +116,9 @@ export type RetirementDocumentItem = {
   category?: BenefitsCategory;
   categorySuggested?: BenefitsCategory;
   categoryConfidence?: number;
-  /** When false, QR is hidden (default: treat undefined as on). */
-  showQrCode?: boolean;
   onEdit?: () => void;
   onDelete?: () => void;
   onDownload?: () => void;
-  onToggleShowQrCode?: (next: boolean) => void;
   onArchive?: () => void;
 };
 
@@ -684,13 +679,7 @@ function SortableCard({
   const [editFile, setEditFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const wasEditingRef = useRef(false);
-  const [qrOrigin, setQrOrigin] = useState("");
   const persistedMongoId = isPersistedMongoDocumentId(doc.id);
-  const qrViewUrl =
-    persistedMongoId &&
-    doc.showQrCode !== false &&
-    qrOrigin &&
-    `${qrOrigin}/api/documents/${doc.id}/view`;
 
   useEffect(() => {
     if (isEditing) {
@@ -705,10 +694,6 @@ function SortableCard({
       wasEditingRef.current = false;
     }
   }, [isEditing, doc.title, doc.description, doc.category]);
-
-  useEffect(() => {
-    setQrOrigin(typeof window !== "undefined" ? window.location.origin : "");
-  }, []);
 
   const handleStartEdit = () => {
     if (onStartEdit) {
@@ -989,16 +974,6 @@ function SortableCard({
               >
                 {doc.description}
               </p>
-              {qrViewUrl && (
-                <div className="mb-4 flex flex-col items-center gap-1.5 w-full">
-                  <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                    Scan to open
-                  </span>
-                  <div className="rounded-md border border-gray-200 bg-white p-2 shadow-sm">
-                    <QRCodeSVG value={qrViewUrl} size={88} level="M" />
-                  </div>
-                </div>
-              )}
             </>
           )}
 
@@ -1049,8 +1024,7 @@ function SortableCard({
                 onStartEdit ||
                 doc.onEdit ||
                 doc.onDelete ||
-                doc.onArchive ||
-                doc.onToggleShowQrCode) && (
+                doc.onArchive) && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
@@ -1079,18 +1053,6 @@ function SortableCard({
                       >
                         <Pencil className="h-4 w-4 mr-2" />
                         Edit/Update
-                      </DropdownMenuItem>
-                    )}
-                    {doc.onToggleShowQrCode && persistedMongoId && (
-                      <DropdownMenuItem
-                        onClick={() =>
-                          doc.onToggleShowQrCode!(doc.showQrCode === false)
-                        }
-                      >
-                        <Eye className="h-4 w-4 mr-2" />
-                        {doc.showQrCode === false
-                          ? "Show QR code"
-                          : "Hide QR code"}
                       </DropdownMenuItem>
                     )}
                     {doc.onArchive && persistedMongoId && (
