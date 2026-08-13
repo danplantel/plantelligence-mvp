@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Plus, FileText, Edit2, Trash2 } from "lucide-react";
+import { ensurePlanTelligenceTrademark } from "@/lib/disclaimer-constants";
 
 interface DisclaimersSectionProps {
   disclaimers: string[];
@@ -180,7 +181,9 @@ export function DisclaimersSection({
             <div className="space-y-2">
               <Input
                 value={customDisclaimer}
-                onChange={(e) => setCustomDisclaimer(e.target.value)}
+                onChange={(e) =>
+                  setCustomDisclaimer(ensurePlanTelligenceTrademark(e.target.value))
+                }
                 placeholder="Please specify other disclaimer"
                 maxLength={50}
               />
@@ -221,7 +224,9 @@ export function DisclaimersSection({
                       <div className="space-y-3">
                         <Textarea
                           value={editText}
-                          onChange={(e) => setEditText(e.target.value)}
+                          onChange={(e) =>
+                            setEditText(ensurePlanTelligenceTrademark(e.target.value))
+                          }
                           placeholder="Enter disclaimer text..."
                           rows={3}
                           className="resize-none"

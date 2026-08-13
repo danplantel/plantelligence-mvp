@@ -17,6 +17,7 @@ import { Disclaimer } from "@/types/wizard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DisclaimerUpdateConfirmDialog } from "@/components/pages/settings/disclaimer-update-confirm-dialog";
 import { fetchProfileOnce, invalidateProfileCache } from "@/lib/fetch-profile";
+import { ensurePlanTelligenceTrademark } from "@/lib/disclaimer-constants";
 
 const LOCATION_OPTIONS = [
   { id: "benefits_hub", label: "Benefits Hub / Client Website" },
@@ -281,8 +282,9 @@ export const DisclaimersSettingsSection = forwardRef<
   };
 
   const handleDisclaimerTextChange = (value: string) => {
-    if (value.length <= 2500) {
-      setDisclaimerText(value);
+    const normalized = ensurePlanTelligenceTrademark(value);
+    if (normalized.length <= 2500) {
+      setDisclaimerText(normalized);
       setErrors((prev) => ({ ...prev, text: "" }));
     }
   };

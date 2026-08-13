@@ -18,7 +18,10 @@ import {
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
 import { Disclaimer } from "@/types/new-client-wizard";
-import { resolveDefaultDisclosuresText } from "@/lib/disclaimer-constants";
+import {
+  resolveDefaultDisclosuresText,
+  ensurePlanTelligenceTrademark,
+} from "@/lib/disclaimer-constants";
 import { PortalDisclaimers } from "@/components/pages/client-portal/sections/portal-disclaimers";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle, Eye, FileText, Edit2, X } from "lucide-react";
@@ -149,7 +152,9 @@ function DisclaimerModal({
             </Label>
             <Textarea
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) =>
+                setText(ensurePlanTelligenceTrademark(e.target.value))
+              }
               rows={6}
               className="min-h-[120px] resize-y text-sm"
               placeholder="Enter disclaimer text..."

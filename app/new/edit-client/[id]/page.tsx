@@ -90,7 +90,10 @@ import { BrandColorsSection } from "@/components/wizard/new-client-steps/section
 import { CardSelectionModal } from "@/components/wizard/new-client-steps/card-selection-modal";
 import { PortalDisclaimers } from "@/components/pages/client-portal/sections/portal-disclaimers";
 import { uploadBrandingToR2 } from "@/lib/branding-r2";
-import { resolveDefaultDisclosuresText } from "@/lib/disclaimer-constants";
+import {
+  resolveDefaultDisclosuresText,
+  ensurePlanTelligenceTrademark,
+} from "@/lib/disclaimer-constants";
 import { DisclaimerUpdateConfirmDialog } from "@/components/pages/settings/disclaimer-update-confirm-dialog";
 
 // ============================================================================
@@ -1952,16 +1955,14 @@ export default function EditClientPage() {
                       value={getResolvedDisclaimerText()}
                       onChange={(e) => {
                         disclaimerEditedRef.current = true;
-                        setDisclaimers(e.target.value);
+                        setDisclaimers(
+                          ensurePlanTelligenceTrademark(e.target.value),
+                        );
                       }}
                       placeholder="Enter legal disclaimers to display in the portal footer..."
-                      rows={8}
+                      rows={25}
                       className="min-h-[200px] dark:bg-gray-900 dark:text-gray-200"
                     />
-                    <p className="text-xs text-muted-foreground dark:text-gray-400">
-                      This text will appear in the footer of the employee
-                      benefits portal.
-                    </p>
                   </div>
                 </CardContent>
               </Card>

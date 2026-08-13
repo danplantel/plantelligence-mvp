@@ -22,7 +22,10 @@ import {
   PortalDisclaimerCategory,
   PORTAL_DISCLAIMER_CATEGORIES,
 } from "@/types/new-client-wizard";
-import { resolveDefaultDisclosuresText } from "@/lib/disclaimer-constants";
+import {
+  resolveDefaultDisclosuresText,
+  ensurePlanTelligenceTrademark,
+} from "@/lib/disclaimer-constants";
 import { Footer } from "@/components/footer";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -211,7 +214,9 @@ function DisclaimerModal({
             </Label>
             <Textarea
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) =>
+                setText(ensurePlanTelligenceTrademark(e.target.value))
+              }
               rows={6}
               className="min-h-[120px] resize-y text-sm"
               placeholder="Enter disclaimer text..."

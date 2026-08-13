@@ -5,6 +5,7 @@ import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useVideoWizardStore } from "@/lib/video-wizard-store";
+import { ensurePlanTelligenceTrademark } from "@/lib/disclaimer-constants";
 
 const MAX_DISCLAIMER_LINES = 25;
 
@@ -14,7 +15,7 @@ const DEFAULT_DISCLAIMER_LINES = [
   "While the material has been compiled from sources believed to be reliable, accuracy is not guaranteed. For comprehensive information about your retirement plan, please refer to your Summary Plan Description.",
   "This video was developed by Waypoint Financial Advisors in collaboration with your employer. Securities and advisory services are offered through LPL Financial, a registered investment advisor, Member FINRA/SIPC.",
   "Waypoint Financial Advisors is a separate entity from LPL Financial. Some portions of this content were created for general informational use and may not be affiliated with any specific representative, broker-dealer, or registered investment advisor.",
-  "Powered by PlanTelligence | Branded Benefits Technology",
+  "Powered by PlanTelligence® | Branded Benefits Technology",
 ];
 
 function normalizeDisclaimers(input: unknown): string[] {
@@ -156,7 +157,9 @@ export function VideoStep5c() {
           <Textarea
             className="min-h-[280px]"
             value={draftText}
-            onChange={(event) => setDraftText(event.target.value)}
+            onChange={(event) =>
+              setDraftText(ensurePlanTelligenceTrademark(event.target.value))
+            }
             placeholder="Enter disclaimer text..."
           />
           <div className="flex items-center justify-end gap-3">

@@ -15,7 +15,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Disclaimer } from "@/types/wizard";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
-import { resolveDefaultDisclosuresText } from "@/lib/disclaimer-constants";
+import {
+  resolveDefaultDisclosuresText,
+  ensurePlanTelligenceTrademark,
+} from "@/lib/disclaimer-constants";
 
 interface AddDisclaimerModalProps {
   isOpen: boolean;
@@ -153,8 +156,9 @@ export function AddDisclaimerModal({
   };
 
   const handleDisclaimerTextChange = (value: string) => {
-    if (value.length <= 2500) {
-      setDisclaimerText(value);
+    const normalized = ensurePlanTelligenceTrademark(value);
+    if (normalized.length <= 2500) {
+      setDisclaimerText(normalized);
       setErrors((prev) => ({ ...prev, text: "" }));
 
       // If user edits text, uncheck "Use Default" if it doesn't match anymore

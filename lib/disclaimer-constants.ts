@@ -1,14 +1,14 @@
 export const DEFAULT_DISCLOSURES_TEXT = `The information and resources provided on this website are for educational and informational purposes only and are not intended as ERISA, tax, legal, investment, insurance, medical, or other professional advice. Each plan, employer, and participant situation is unique. Plan sponsors, employers, and participants should consult their qualified legal, tax, investment, insurance, medical, or other licensed professionals regarding their specific circumstances.
 
-Nothing on this website should be construed as a solicitation, recommendation, or endorsement to buy, sell, or maintain any security, insurance product, or investment strategy. PlanTelligence does not provide investment advice, does not act as an ERISA fiduciary, and does not determine plan design, benefit eligibility, or coverage.
+Nothing on this website should be construed as a solicitation, recommendation, or endorsement to buy, sell, or maintain any security, insurance product, or investment strategy. PlanTelligence® does not provide investment advice, does not act as an ERISA fiduciary, and does not determine plan design, benefit eligibility, or coverage.
 
-PlanTelligence is an independent technology platform and is not affiliated with any broker-dealer, registered investment advisor, insurance carrier, recordkeeper, or third-party administrator.
+PlanTelligence® is an independent technology platform and is not affiliated with any broker-dealer, registered investment advisor, insurance carrier, recordkeeper, or third-party administrator.
 
-Links to external websites are provided for informational purposes only and do not constitute an endorsement or approval by PlanTelligence or any associated firms.
+Links to external websites are provided for informational purposes only and do not constitute an endorsement or approval by PlanTelligence® or any associated firms.
 
-PlanTelligence, [Organization Name], and [Company Name] are separate and unaffiliated entities.
+PlanTelligence®, [Organization Name], and [Company Name] are separate and unaffiliated entities.
 
-© 2026 PlanTelligence. All rights reserved.`;
+© 2026 PlanTelligence®. All rights reserved.`;
 
 /**
  * Builds the default disclosures text with `[Organization Name]` resolved.
@@ -27,11 +27,11 @@ export function resolveDefaultDisclosuresText(
   const org = (orgName || "").trim() || "[Organization Name]";
   const hasComp = includeCompanyName && !!(compName || "").trim();
   const entitiesLine = hasComp
-    ? `PlanTelligence, ${org}, and ${compName!.trim()} are separate and unaffiliated entities.`
-    : `PlanTelligence and ${org} are separate and unaffiliated entities.`;
+    ? `PlanTelligence®, ${org}, and ${compName!.trim()} are separate and unaffiliated entities.`
+    : `PlanTelligence® and ${org} are separate and unaffiliated entities.`;
 
   return DEFAULT_DISCLOSURES_TEXT.replace(
-    /PlanTelligence,\s*\[Organization Name\],\s*and\s*\[Company Name\]\s*are separate and unaffiliated entities\./,
+    /PlanTelligence®?,\s*\[Organization Name\],\s*and\s*\[Company Name\]\s*are separate and unaffiliated entities\./,
     entitiesLine,
   );
 }
@@ -47,22 +47,33 @@ export function resolveOrgOnlyDisclaimerText(
 ): string {
   const org = (orgName || "").trim() || "[Organization Name]";
   return text
-    // Replace the DEFAULT template entities line: "PlanTelligence, [Organization Name], and [Company Name]"
+    // Replace the DEFAULT template entities line: "PlanTelligence®, [Organization Name], and [Company Name]"
     .replace(
-      /PlanTelligence,\s*\[Organization Name\],\s*and\s*\[Company Name\]/g,
-      `PlanTelligence and ${org}`,
+      /PlanTelligence®?,\s*\[Organization Name\],\s*and\s*\[Company Name\]/g,
+      `PlanTelligence® and ${org}`,
     )
-    // Replace an already-substituted entities line: "PlanTelligence, OldOrg, and [Company Name]"
+    // Replace an already-substituted entities line: "PlanTelligence®, OldOrg, and [Company Name]"
     .replace(
-      /PlanTelligence,\s*(.+?),\s*and\s*\[Company Name\]/g,
-      `PlanTelligence and ${org}`,
+      /PlanTelligence®?,\s*(.+?),\s*and\s*\[Company Name\]/g,
+      `PlanTelligence® and ${org}`,
     )
-    // Replace an already-normalized org-only entities line: "PlanTelligence and OldOrg are..."
+    // Replace an already-normalized org-only entities line: "PlanTelligence® and OldOrg are..."
     .replace(
-      /PlanTelligence\s+and\s+.+?\s+are\s+separate\s+and\s+unaffiliated\s+entities\./g,
-      `PlanTelligence and ${org} are separate and unaffiliated entities.`,
+      /PlanTelligence®?\s+and\s+.+?\s+are\s+separate\s+and\s+unaffiliated\s+entities\./g,
+      `PlanTelligence® and ${org} are separate and unaffiliated entities.`,
     )
     .replace(/\[Organization Name\]/g, org)
     .replace(/,\s*and\s*\[Company Name\]/g, "")
     .replace(/\[Company Name\]/g, "");
+}
+
+/**
+ * Appends the Registered Trademark symbol (®) to every occurrence of the
+ * "PlanTelligence" word mark in disclaimer text, so user-entered disclaimers
+ * (which may omit the mark) display consistently as "PlanTelligence®".
+ * Occurrences that already carry the symbol ("PlanTelligence®" or
+ * "PlanTelligence ®") are left untouched.
+ */
+export function ensurePlanTelligenceTrademark(text: string): string {
+  return (text || "").replace(/PlanTelligence(?!\s*®)/g, "PlanTelligence®");
 }
