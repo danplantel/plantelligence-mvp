@@ -46,10 +46,10 @@ export function useEditClient() {
   const searchParams = useSearchParams();
   const clientId = params.id as string;
 
-  const buildDocumentFromApi = (
+  const buildDocumentFromApi = async (
     doc: any,
     fallbackType: Document["type"] = "other",
-  ): Document => {
+  ): Promise<Document> => {
     const fileSource =
       typeof doc.file === "string" && doc.file
         ? doc.file
@@ -79,13 +79,41 @@ export function useEditClient() {
       originalFileName: doc.fileName || doc.originalFileName || doc.title,
     };
 
-    return {
+    // Preserve the category (and related fields) that were chosen when the
+    // document was uploaded on other pages (New Client step 4, Documents page,
+    // Create Benefits). Previously these were dropped here, so documents edited
+    // in Edit Client > Documents lost their category even though the DB row
+    // still had it.
+    const enriched: Document = {
       ...baseDocument,
+      ...(doc.category
+        ? { category: doc.category as Document["category"] }
+        : {}),
+      ...(doc.categorySuggested
+        ? {
+            categorySuggested:
+              doc.categorySuggested as Document["categorySuggested"],
+          }
+        : {}),
+      ...(doc.categoryConfidence != null
+        ? { categoryConfidence: doc.categoryConfidence as number }
+        : {}),
+      ...(doc.storageKey ? { storageKey: doc.storageKey as string } : {}),
+      ...(doc.expirationDate
+        ? { expirationDate: doc.expirationDate as string }
+        : {}),
+    };
+
+    return {
+      ...enriched,
+      // uploadedAt is not part of the wizard Document type but is read via
+      // `(doc as any).uploadedAt` by the Documents tab list/preview, so keep it.
+      ...(doc.uploadedAt ? { uploadedAt: doc.uploadedAt as string } : {}),
       language:
         doc.language === "ES" || doc.language === "EN"
           ? doc.language
-          : guessLanguageFromDocument(baseDocument),
-    };
+          : await guessLanguageFromDocument(baseDocument),
+    } as Document;
   };
 
   const [client, setClient] = useState<Client | null>(null);
@@ -386,15 +414,20 @@ export function useEditClient() {
               (doc.title && doc.title.toLowerCase().includes("spd")),
             );
 
-            const retirementDocs = mappedDocs
-              .filter((doc: any) => doc.id !== spdDoc?.id)
-              .map((doc: any) => buildDocumentFromApi(doc, "other"))
-              .filter((doc: any, idx: number, arr: any[]) =>
-                arr.findIndex((d: any) => d.id === doc.id) === idx,
-              );
+            const retirementDocs = (
+              await Promise.all(
+                mappedDocs
+                  .filter((doc: any) => doc.id !== spdDoc?.id)
+                  .map((doc: any) => buildDocumentFromApi(doc, "other")),
+              )
+            ).filter((doc: any, idx: number, arr: any[]) =>
+              arr.findIndex((d: any) => d.id === doc.id) === idx,
+            );
 
             setDocumentsData({
-              spdFile: spdDoc ? buildDocumentFromApi(spdDoc, "spd") : null,
+              spdFile: spdDoc
+                ? await buildDocumentFromApi(spdDoc, "spd")
+                : null,
               otherDocuments: [],
               retirementPlanDocuments: retirementDocs,
               recordkeeper: result.data.recordkeeper || "",
