@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
@@ -13,7 +13,14 @@ export function OnboardingPageGuard({ children }: OnboardingPageGuardProps) {
   const [shouldShowOnboarding, setShouldShowOnboarding] = useState(false);
   const router = useRouter();
 
+  // React StrictMode (dev) runs mount effects twice; guard against firing the
+  // onboarding-status request twice on a single mount.
+  const statusCheckedRef = useRef(false);
+
   useEffect(() => {
+    if (statusCheckedRef.current) return;
+    statusCheckedRef.current = true;
+
     const checkOnboardingStatus = async () => {
       try {
         const response = await fetch(

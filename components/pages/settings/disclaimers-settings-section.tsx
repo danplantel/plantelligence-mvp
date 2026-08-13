@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { Disclaimer } from "@/types/wizard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DisclaimerUpdateConfirmDialog } from "@/components/pages/settings/disclaimer-update-confirm-dialog";
+import { fetchProfileOnce } from "@/lib/fetch-profile";
 
 const LOCATION_OPTIONS = [
   { id: "benefits_hub", label: "Benefits Hub / Client Website" },
@@ -152,9 +153,8 @@ export const DisclaimersSettingsSection = forwardRef<
   useEffect(() => {
     const loadFromProfile = async () => {
       try {
-        const res = await fetch("/api/profile");
-        if (!res.ok) return;
-        const profile = await res.json();
+        const profile = await fetchProfileOnce();
+        if (!profile) return;
 
         // Resolve the organization name from the profile (User record or
         // completed wizard branding) as a fallback for the store value, so the

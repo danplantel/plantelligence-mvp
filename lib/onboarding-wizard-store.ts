@@ -41,6 +41,7 @@ export interface OnboardingWizardState {
   errorFields: string[];
   isLoading: boolean;
   loadingPromise: Promise<any> | null;
+  stepLoadingPromises: Record<string, Promise<any>>;
   showNextSteps: boolean;
   setShowNextSteps: (show: boolean) => void;
   showStep5ConfirmModal: boolean;
@@ -199,6 +200,7 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
       errorFields: [],
       isLoading: false,
       loadingPromise: null,
+      stepLoadingPromises: {},
       autosaveToServer: false,
       setAutosaveToServer: (enabled: boolean) => set({ autosaveToServer: enabled }),
       showNextSteps: false,
@@ -378,7 +380,7 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
       },
 
       loadStepData: async (stepType: string, force: boolean = false) => {
-        const { stepData } = get();
+        const { stepData, stepLoadingPromises } = get();
 
         // If data already exists and not forcing reload, return cached data
         if (!force && stepData[stepType as keyof typeof stepData]) {
@@ -392,36 +394,63 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
           return cachedData;
         }
 
+        // If an in-flight request for this step already exists, share it so
+        // multiple mount effects don't fire duplicate network requests.
+        const existingPromise = stepLoadingPromises[stepType];
+        if (existingPromise) {
+          return existingPromise;
+        }
+
         console.log(`[loadStepData] FETCHING from server for "${stepType}" (cached: ${!!stepData[stepType as keyof typeof stepData]})`);
 
-        try {
-          // Convert camelCase to kebab-case for API endpoints
-          const apiEndpoint = stepType.replace(/([A-Z])/g, '-$1').toLowerCase();
-          const response = await fetch(`/api/onboarding-wizard/${apiEndpoint}`);
-          if (response.ok) {
-            const result = await response.json();
-            const data = result[stepType];
-            console.log(`[loadStepData] Server returned for "${stepType}":`, {
-              hasData: !!data,
-              hasPrimaryColor: !!(data as any)?.primaryColor,
-              hasSecondaryColor: !!(data as any)?.secondaryColor,
-              primaryColor: (data as any)?.primaryColor,
-              secondaryColor: (data as any)?.secondaryColor,
-            });
-            if (data) {
-              set((state) => ({
-                stepData: {
-                  ...state.stepData,
-                  [stepType]: data,
-                },
-              }));
-              return data;
+        const promise = (async () => {
+          try {
+            // Convert camelCase to kebab-case for API endpoints
+            const apiEndpoint = stepType.replace(/([A-Z])/g, '-$1').toLowerCase();
+            const response = await fetch(`/api/onboarding-wizard/${apiEndpoint}`);
+            if (response.ok) {
+              const result = await response.json();
+              const data = result[stepType];
+              console.log(`[loadStepData] Server returned for "${stepType}":`, {
+                hasData: !!data,
+                hasPrimaryColor: !!(data as any)?.primaryColor,
+                hasSecondaryColor: !!(data as any)?.secondaryColor,
+                primaryColor: (data as any)?.primaryColor,
+                secondaryColor: (data as any)?.secondaryColor,
+              });
+              if (data) {
+                set((state) => ({
+                  stepData: {
+                    ...state.stepData,
+                    [stepType]: data,
+                  },
+                }));
+                return data;
+              }
             }
+          } catch (error) {
+            // Silent error
           }
-        } catch (error) {
-          // Silent error
+          return null;
+        })();
+
+        set((state) => ({
+          stepLoadingPromises: {
+            ...state.stepLoadingPromises,
+            [stepType]: promise,
+          },
+        }));
+
+        try {
+          return await promise;
+        } finally {
+          // Clear the in-flight entry once the request settles.
+          set((state) => {
+            const next = { ...state.stepLoadingPromises };
+            delete next[stepType];
+            return { stepLoadingPromises: next };
+          });
         }
-        return null;
       },
 
       loadAllWizardData: async (force: boolean = false) => {
@@ -725,11 +754,14 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
       name: "onboarding-wizard-store",
       storage: createSafeStorage(),
       skipHydration: true,
-      partialize: (state) => ({
-        ...state,
-        errorFields: [],
-        stepData: removeBase64Data(state.stepData),
-      }),
+      partialize: (state) => {
+        const { stepLoadingPromises: _stepLoadingPromises, ...rest } = state;
+        return {
+          ...rest,
+          errorFields: [],
+          stepData: removeBase64Data(state.stepData),
+        };
+      },
     }
   )
 );

@@ -11,9 +11,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { signOut, useSession } from "next-auth/react";
-import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { isR2BrandingKey } from "@/lib/branding-image-url";
+import { fetchProfileOnce } from "@/lib/fetch-profile";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Settings, LayoutDashboard, FileText, LogOut, Bell, AlertTriangle, Clock, Calendar } from "lucide-react";
@@ -34,7 +34,6 @@ import {
 
 export function UserNav() {
   const { data: session } = useSession();
-  const { stepData, loadStepData } = useOnboardingWizardStore();
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -59,27 +58,17 @@ export function UserNav() {
     setShowLogoutConfirm(false);
   };
 
-  // Fetch fresh user data on mount (skip stale zustand cache)
-  const [profileHeadshot, setProfileHeadshot] = useState<string>("");
-  const [profileTitle, setProfileTitle] = useState<string>("");
+  // Fetch fresh user profile on mount. /api/profile carries everything the
+  // header needs (name, email, title, avatar/headshot, branding aiAvatar) via
+  // wizardSessions[0], so no separate /api/onboarding-wizard/* calls are
+  // required. fetchProfileOnce also coalesces with any other /api/profile
+  // caller on the page (e.g. the settings page).
+  const [profile, setProfile] = useState<any>(null);
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
-      await Promise.all([
-        loadStepData("branding"),
-        loadStepData("userSetup"),
-      ]);
-      // Also fetch profile for headshot/title fallback
-      try {
-        const res = await fetch("/api/profile");
-        if (res.ok) {
-          const profile = await res.json();
-          setProfileHeadshot(profile.headshot || "");
-          setProfileTitle(profile.title || "");
-        }
-      } catch {
-        // Silently fail
-      }
+      const profileData = await fetchProfileOnce();
+      if (profileData) setProfile(profileData);
       setIsLoading(false);
     };
     loadData();
@@ -87,11 +76,12 @@ export function UserNav() {
   }, []); // Only load once on mount
 
   // R2 keys are stored as "org/…"; raw <img src> on /new/… pages resolves to /new/org/… → 404.
+  const wizardUserSetup = profile?.wizardSessions?.[0]?.userSetup;
   const rawUserImage =
-    stepData.branding?.aiAvatar ||
-    stepData.userSetup?.headshot ||
-    (stepData.userSetup?.headshotData as any)?.previewDataUrl ||
-    profileHeadshot ||
+    profile?.wizardSessions?.[0]?.branding?.aiAvatar ||
+    wizardUserSetup?.headshot ||
+    (wizardUserSetup?.headshotData as any)?.previewDataUrl ||
+    profile?.headshot ||
     session?.user?.image ||
     "";
 
@@ -104,10 +94,12 @@ export function UserNav() {
       ? rawUserImage
       : "");
 
-  // Get user name from wizard data with fallback to session
-  const userName = stepData.userSetup?.name || session?.user?.name || "";
-  const userEmail = stepData.userSetup?.email || session?.user?.email || "";
-  const userTitle = stepData.userSetup?.title || profileTitle;
+  // Get user name/email/title from the profile payload with fallback to session
+  const userName =
+    wizardUserSetup?.name || profile?.name || session?.user?.name || "";
+  const userEmail =
+    wizardUserSetup?.email || profile?.email || session?.user?.email || "";
+  const userTitle = profile?.title || wizardUserSetup?.title || "";
 
   if (session) {
     // Show skeleton while loading

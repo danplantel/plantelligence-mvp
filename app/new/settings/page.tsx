@@ -6,6 +6,7 @@ import useSWR from "swr";
 import { useForm } from "react-hook-form";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
+import { fetchProfileOnce } from "@/lib/fetch-profile";
 import { step2ServicesToCategories } from "@/lib/service-categories";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -43,8 +44,7 @@ import {
 
 export default function SettingsPage() {
   const { setTitle } = usePageTitleContext();
-  const { stepData, loadAllWizardData } =
-    useOnboardingWizardStore();
+  const { stepData, loadAllWizardData } = useOnboardingWizardStore();
   const [isSaving, setIsSaving] = useState(false);
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(
@@ -128,10 +128,11 @@ export default function SettingsPage() {
   // User profile data (for branding fallback and primaryServiceCategories)
   const [userProfile, setUserProfile] = useState<any>(null);
 
-  // SWR: cache /api/profile
+  // SWR: cache /api/profile (single-flight fetcher so concurrent callers
+  // share one request instead of racing each other)
   const { data: cachedProfile } = useSWR(
     "/api/profile",
-    (url: string) => fetch(url).then((r) => r.json()),
+    () => fetchProfileOnce(),
     { keepPreviousData: true, dedupingInterval: 60_000, revalidateOnFocus: false },
   );
 
@@ -153,20 +154,21 @@ export default function SettingsPage() {
       if (!hasExistingData) setIsLoading(true);
       switch (tab) {
         case "profile": {
-          const loadedData = await loadAllWizardData(true);
-          const userSetup = loadedData?.userSetup ?? useOnboardingWizardStore.getState().stepData?.userSetup ?? {};
-
-          // Fetch profile from /api/profile if SWR hasn't loaded it yet
+          // The profile tab reads everything from /api/profile — the route
+          // already embeds the wizard session's userSetup
+          // (wizardSessions[0].userSetup via getEffectiveWizardUserSetup),
+          // so a separate /api/onboarding-wizard/user-setup call is not
+          // needed here. The shared wizard store is only a fallback.
           let profileFallback: any = cachedProfile ?? userProfile;
           if (!profileFallback) {
-            try {
-              const profileRes = await fetch("/api/profile");
-              if (profileRes.ok) {
-                profileFallback = await profileRes.json();
-                setUserProfile(profileFallback);
-              }
-            } catch { /* ignore */ }
+            profileFallback = await fetchProfileOnce();
+            if (profileFallback) setUserProfile(profileFallback);
           }
+
+          const userSetup =
+            profileFallback?.wizardSessions?.[0]?.userSetup ??
+            useOnboardingWizardStore.getState().stepData?.userSetup ??
+            {};
 
           let primaryServiceCategories: string[] = Array.isArray(userSetup.primaryServiceCategories)
             ? [...userSetup.primaryServiceCategories]
@@ -174,7 +176,7 @@ export default function SettingsPage() {
           if (primaryServiceCategories.length === 0 && profileFallback?.primaryServiceCategories?.length > 0) {
             primaryServiceCategories = [...profileFallback.primaryServiceCategories];
           }
-          const servicesArray = loadedData?.services?.services ?? useOnboardingWizardStore.getState().stepData?.services?.services ?? [];
+          const servicesArray = useOnboardingWizardStore.getState().stepData?.services?.services ?? [];
           if (primaryServiceCategories.length === 0 && Array.isArray(servicesArray) && servicesArray.length > 0) {
             primaryServiceCategories = step2ServicesToCategories(servicesArray);
           }
@@ -201,16 +203,13 @@ export default function SettingsPage() {
           const loadedData = await loadAllWizardData(true);
           const branding = loadedData?.branding ?? useOnboardingWizardStore.getState().stepData?.branding ?? {};
 
-          // Fetch profile from /api/profile if SWR hasn't loaded it yet
+          // Fetch profile from /api/profile if SWR hasn't loaded it yet.
+          // fetchProfileOnce coalesces with the SWR request (and any other
+          // caller) onto a single in-flight request.
           let profileFallback: any = cachedProfile ?? userProfile;
           if (!profileFallback) {
-            try {
-              const profileRes = await fetch("/api/profile");
-              if (profileRes.ok) {
-                profileFallback = await profileRes.json();
-                setUserProfile(profileFallback);
-              }
-            } catch { /* ignore */ }
+            profileFallback = await fetchProfileOnce();
+            if (profileFallback) setUserProfile(profileFallback);
           }
           const completedBranding = profileFallback?.wizardSessions?.[0]?.branding;
 
@@ -263,15 +262,8 @@ export default function SettingsPage() {
           if (cachedProfile) {
             setUserProfile(cachedProfile);
           } else {
-            try {
-              const profileResponse = await fetch("/api/profile");
-              if (profileResponse.ok) {
-                const profile = await profileResponse.json();
-                setUserProfile(profile);
-              }
-            } catch (err) {
-              console.error("Failed to load user profile:", err);
-            }
+            const profile = await fetchProfileOnce();
+            if (profile) setUserProfile(profile);
           }
           break;
         case "team":
@@ -287,13 +279,9 @@ export default function SettingsPage() {
     }
   };
 
-  // Load data for initial tab on mount
-  useEffect(() => {
-    loadTabData(activeTab);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Load data when tab changes
+  // Load data when the active tab changes (also handles the initial tab on
+  // mount, since activeTab defaults to "profile"). No separate mount-only
+  // effect, which previously caused the initial tab to be loaded twice.
   useEffect(() => {
     if (activeTab === "profile") {
       loadTabData(activeTab);
@@ -307,7 +295,10 @@ export default function SettingsPage() {
   useEffect(() => {
     if (isLoading) return;
 
-    const userSetup = stepData.userSetup || ({} as any);
+    const userSetup =
+      stepData.userSetup ||
+      userProfile?.wizardSessions?.[0]?.userSetup ||
+      ({} as any);
     const profile = userProfile || ({} as any);
 
     let primaryServiceCategories: string[] = Array.isArray(userSetup.primaryServiceCategories)
