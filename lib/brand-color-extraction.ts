@@ -365,13 +365,22 @@ interface RawColorPair {
   secondary: string;
 }
 
-/** Run the safety pass on both colors and return the final hex values. */
+/** Normalize a hex color to uppercase #RRGGBB without snapping to a preset. */
+function normalizeHexColor(hex: string): string {
+  const v = String(hex || "").trim();
+  return v.startsWith("#") ? v.toUpperCase() : `#${v.toUpperCase()}`;
+}
+
+/**
+ * Keep the extracted colors as-is (uppercase hex). The logo/website sets must
+ * reflect colors that actually exist in the source, so they are NOT snapped to
+ * corporate presets — snapping muted/slate hues to a preset was producing
+ * colors (e.g. Slate Gray or Steel Blue) that weren't in the logo at all.
+ */
 function finalizePair(primary: string, secondary: string): RawColorPair {
-  const primarySafety = safetyPass(primary);
-  const secondarySafety = safetyPass(secondary);
   return {
-    primary: primarySafety.adjustedColor || primarySafety.snapped,
-    secondary: secondarySafety.adjustedColor || secondarySafety.snapped,
+    primary: normalizeHexColor(primary),
+    secondary: normalizeHexColor(secondary),
   };
 }
 

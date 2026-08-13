@@ -281,6 +281,12 @@ export function snapToNearestPreset(hex: string): string {
   let bestDistance = Infinity;
 
   for (const preset of CORPORATE_PRESETS) {
+    // Exclude Slate Gray (#6B7280) from snapping: muted "slate" brand colors
+    // (slate plum, slate green, etc.) are perceptually closest to gray and
+    // would otherwise all collapse to the same gray preset, erasing their
+    // actual hue. Gray is not a color we want to recommend as a brand
+    // primary/secondary.
+    if (preset === "#6B7280") continue;
     const d = deltaE(hex, preset);
     if (d < bestDistance) {
       bestDistance = d;

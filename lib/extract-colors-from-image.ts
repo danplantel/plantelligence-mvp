@@ -1,6 +1,15 @@
 /**
- * Extract primary and secondary colors from an image
- * Uses canvas to analyze pixel data and find dominant colors
+ * Extract primary and secondary colors from an image.
+ *
+ * Uses canvas pixel analysis with:
+ *  - Color quantization (5-bit per channel) so anti-aliased / gradient shades of
+ *    the same hue are grouped into one dominant bucket instead of splitting the
+ *    most frequent exact hex across dozens of near-identical values.
+ *  - Saturation weighting so vivid brand colors out-rank muted/background pixels.
+ *  - Neutral filtering (near-white, near-black, and grays R≈G≈B) so backgrounds,
+ *    borders, and text don't masquerade as brand colors.
+ *  - Secondary = the next most dominant color that is clearly distinct from the
+ *    primary (not the "farthest" color, which often picks a background/accent).
  */
 
 interface ColorResult {
@@ -8,38 +17,45 @@ interface ColorResult {
   secondary: string;
 }
 
-/**
- * Convert RGB to Hex color
- */
+/** Convert RGB to Hex color. */
 function rgbToHex(r: number, g: number, b: number): string {
-  return "#" + [r, g, b].map(x => {
-    const hex = x.toString(16);
-    return hex.length === 1 ? "0" + hex : hex;
-  }).join("").toUpperCase();
+  return "#" + [r, g, b]
+    .map((x) => Math.max(0, Math.min(255, Math.round(x))).toString(16).padStart(2, "0"))
+    .join("")
+    .toUpperCase();
 }
 
-/**
- * Get color distance (simple Euclidean distance in RGB space)
- */
-function getColorDistance(color1: [number, number, number], color2: [number, number, number]): number {
+/** Get color distance (simple Euclidean distance in RGB space). */
+function getColorDistance(
+  color1: [number, number, number],
+  color2: [number, number, number],
+): number {
   const [r1, g1, b1] = color1;
   const [r2, g2, b2] = color2;
   return Math.sqrt((r1 - r2) ** 2 + (g1 - g2) ** 2 + (b1 - b2) ** 2);
 }
 
+interface DominantColor {
+  hex: string;
+  count: number;
+  rgb: [number, number, number];
+}
+
 /**
- * Extract primary and secondary colors from image
+ * Extract primary and secondary colors from an image.
  */
-export async function extractColorsFromImage(imageUrl: string): Promise<ColorResult> {
+export async function extractColorsFromImage(
+  imageUrl: string,
+): Promise<ColorResult> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
-    
+
     img.onload = () => {
       try {
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d");
-        
+
         if (!ctx) {
           reject(new Error("Could not get canvas context"));
           return;
@@ -48,19 +64,21 @@ export async function extractColorsFromImage(imageUrl: string): Promise<ColorRes
         // Set canvas size to image size (limit to 200x200 for performance)
         const maxSize = 200;
         const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
-        canvas.width = img.width * scale;
-        canvas.height = img.height * scale;
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
 
-        // Draw image on canvas
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-        // Get image data
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const data = imageData.data;
 
-        // Collect all colors with their frequencies
-        const colorMap = new Map<string, number>();
-        const colors: [number, number, number][] = [];
+        // Quantization step (5-bit per channel). Groups similar shades into one
+        // bucket so the perceived dominant hue wins regardless of anti-aliasing.
+        const STEP = 32;
+        const buckets = new Map<
+          string,
+          { count: number; rSum: number; gSum: number; bSum: number }
+        >();
 
         for (let i = 0; i < data.length; i += 4) {
           const r = data[i];
@@ -71,61 +89,81 @@ export async function extractColorsFromImage(imageUrl: string): Promise<ColorRes
           // Skip transparent pixels
           if (a < 128) continue;
 
-          // Skip near-white and near-black pixels (often backgrounds)
           const brightness = (r + g + b) / 3;
+          // Skip near-white / near-black pixels (often backgrounds/text)
           if (brightness > 240 || brightness < 15) continue;
 
-          const hex = rgbToHex(r, g, b);
-          colorMap.set(hex, (colorMap.get(hex) || 0) + 1);
-          colors.push([r, g, b]);
-        }
+          const max = Math.max(r, g, b);
+          const min = Math.min(r, g, b);
+          const maxDiff = max - min;
+          // Skip near-pure grays (R≈G≈B within ~12) — backgrounds, borders, and
+          // text. Muted "slate" brand colors (which carry a visible hue) are kept
+          // and de-prioritized by the saturation weighting below.
+          if (maxDiff <= 12) continue;
 
-        if (colors.length === 0) {
-          // Fallback if no suitable colors found
-          resolve({
-            primary: "#1F3A60",
-            secondary: "#4A90E2"
-          });
-          return;
-        }
+          // Weight pixels by saturation so vivid brand colors out-rank muted ones.
+          const saturation = max === 0 ? 0 : maxDiff / max;
+          const weight = 0.5 + saturation;
 
-        // Sort colors by frequency
-        const sortedColors = Array.from(colorMap.entries())
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 10) // Get top 10 colors
-          .map(([hex]) => hex);
+          const br = Math.min(255, Math.round(r / STEP) * STEP);
+          const bg = Math.min(255, Math.round(g / STEP) * STEP);
+          const bb = Math.min(255, Math.round(b / STEP) * STEP);
 
-        // Primary color is the most frequent
-        const primaryColor = sortedColors[0];
-
-        // Secondary color is the most different from primary
-        let secondaryColor = sortedColors[1] || primaryColor;
-        let maxDistance = 0;
-
-        const primaryRGB = [
-          parseInt(primaryColor.slice(1, 3), 16),
-          parseInt(primaryColor.slice(3, 5), 16),
-          parseInt(primaryColor.slice(5, 7), 16)
-        ] as [number, number, number];
-
-        for (const hex of sortedColors.slice(1)) {
-          const rgb = [
-            parseInt(hex.slice(1, 3), 16),
-            parseInt(hex.slice(3, 5), 16),
-            parseInt(hex.slice(5, 7), 16)
-          ] as [number, number, number];
-
-          const distance = getColorDistance(primaryRGB, rgb);
-          if (distance > maxDistance) {
-            maxDistance = distance;
-            secondaryColor = hex;
+          const key = `${br}|${bg}|${bb}`;
+          const entry = buckets.get(key);
+          if (entry) {
+            entry.count += weight;
+            entry.rSum += r * weight;
+            entry.gSum += g * weight;
+            entry.bSum += b * weight;
+          } else {
+            buckets.set(key, {
+              count: weight,
+              rSum: r * weight,
+              gSum: g * weight,
+              bSum: b * weight,
+            });
           }
         }
 
-        resolve({
-          primary: primaryColor,
-          secondary: secondaryColor
-        });
+        if (buckets.size === 0) {
+          // Fallback if no suitable colors found
+          resolve({ primary: "#1F3A60", secondary: "#4A90E2" });
+          return;
+        }
+
+        // Sort buckets by weighted dominance (most prominent first)
+        const dominant: DominantColor[] = Array.from(buckets.values())
+          .map((e) => {
+            const r = Math.round(e.rSum / e.count);
+            const g = Math.round(e.gSum / e.count);
+            const b = Math.round(e.bSum / e.count);
+            return {
+              hex: rgbToHex(r, g, b),
+              count: e.count,
+              rgb: [r, g, b] as [number, number, number],
+            };
+          })
+          .sort((a, b) => b.count - a.count);
+
+        // Primary = the most dominant color
+        const primaryColor = dominant[0].hex;
+
+        // Secondary = the next most dominant color that is clearly a different
+        // hue. Start from the 2nd cluster and skip near-identical shades
+        // (anti-aliasing/gradients of the primary) until a genuinely distinct
+        // color is found. Threshold is deliberately modest (30 RGB units) so
+        // muted/adjacent brand hues (e.g. slate plum vs slate green) still
+        // register as distinct instead of being skipped.
+        let secondaryColor = dominant[1]?.hex || primaryColor;
+        for (let i = 1; i < dominant.length; i++) {
+          if (getColorDistance(dominant[0].rgb, dominant[i].rgb) >= 30) {
+            secondaryColor = dominant[i].hex;
+            break;
+          }
+        }
+
+        resolve({ primary: primaryColor, secondary: secondaryColor });
       } catch (error) {
         reject(error);
       }
