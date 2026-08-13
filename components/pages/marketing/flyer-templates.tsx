@@ -678,7 +678,7 @@ export function TopicalTemplate1(allProps: FlyerPreviewProps & { sid?: string; s
 
       {/* Powered by PLANtelligence */}
       <text x="306" y={834} textAnchor="middle" fill="#c1c1c1" fontSize="10" fontWeight="400" letterSpacing="1">
-        powered by PLANtelligence
+        powered by PLANtelligence®
       </text>
 
       {/* Body text below images — supports user-typed bullets (-, *, •) */}
@@ -818,7 +818,7 @@ export function TopicalTemplate2(allProps: FlyerPreviewProps & { sid?: string; s
 
       {/* Powered by PLANtelligence */}
       <text x="306" y={834} textAnchor="middle" fill="#c1c1c1" fontSize="10" fontWeight="400" letterSpacing="1">
-        powered by PLANtelligence
+        powered by PLANtelligence®
       </text>
     </svg>
   );
@@ -939,7 +939,7 @@ export function TopicalTemplate3(allProps: FlyerPreviewProps & { sid?: string; s
 
       {/* Powered by PLANtelligence */}
       <text x="306" y={834} textAnchor="middle" fill="#c1c1c1" fontSize="10" fontWeight="400" letterSpacing="1">
-        powered by PLANtelligence
+        powered by PLANtelligence®
       </text>
     </svg>
   );
@@ -1080,7 +1080,7 @@ export function MeetingTemplate1(allProps: FlyerPreviewProps & { sid?: string; s
 
       {/* Powered by PLANtelligence */}
       <text x="306" y={834} textAnchor="middle" fill="#c1c1c1" fontSize="10" fontWeight="400" letterSpacing="1">
-        powered by PLANtelligence
+        powered by PLANtelligence®
       </text>
     </svg>
   );
