@@ -277,6 +277,7 @@ export function BrandingSetupCard({
         <Input
           icon={<Building2 className="h-4 w-4" />}
           value={organizationName}
+          maxLength={100}
           onChange={async (e) => {
             onDataChange("organizationName", e.target.value);
             // Auto-fill subdomain from org name until the user manually edits the subdomain field

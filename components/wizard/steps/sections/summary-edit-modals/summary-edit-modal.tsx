@@ -435,6 +435,7 @@ We hope to inspire confidence and peace of mind as you navigate your benefits jo
               <Input
                 id="organizationName"
                 value={editData.organizationName}
+                maxLength={100}
                 onChange={(e) =>
                   updateField("organizationName", e.target.value)
                 }
