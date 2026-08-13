@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { Disclaimer } from "@/types/wizard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DisclaimerUpdateConfirmDialog } from "@/components/pages/settings/disclaimer-update-confirm-dialog";
-import { fetchProfileOnce } from "@/lib/fetch-profile";
+import { fetchProfileOnce, invalidateProfileCache } from "@/lib/fetch-profile";
 
 const LOCATION_OPTIONS = [
   { id: "benefits_hub", label: "Benefits Hub / Client Website" },
@@ -345,6 +345,9 @@ export const DisclaimersSettingsSection = forwardRef<
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ disclaimer: json }),
       });
+      // Drop the cached profile so a later remount of this section re-fetches
+      // the updated disclaimers instead of serving stale data.
+      invalidateProfileCache();
     } catch {
       // Non-critical — the wizard completion also persists these.
     }

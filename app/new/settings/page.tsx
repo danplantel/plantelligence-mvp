@@ -6,7 +6,7 @@ import useSWR from "swr";
 import { useForm } from "react-hook-form";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
-import { fetchProfileOnce } from "@/lib/fetch-profile";
+import { fetchProfileOnce, invalidateProfileCache } from "@/lib/fetch-profile";
 import { step2ServicesToCategories } from "@/lib/service-categories";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -490,6 +490,7 @@ export default function SettingsPage() {
       const { saveStepDataToServer } = useOnboardingWizardStore.getState();
       const ok = await saveStepDataToServer("userSetup", data);
       if (!ok) throw new Error("Failed to save user setup");
+      invalidateProfileCache();
       userSetupForm.reset(data, { keepDirtyValues: false });
       setInitialUserSetup(JSON.parse(JSON.stringify(data)));
       toast.success("User profile updated successfully!");
@@ -547,6 +548,7 @@ export default function SettingsPage() {
         console.error("Error updating user profile:", profileError);
       }
 
+      invalidateProfileCache();
       brandingForm.reset(brandingPayload, { keepDirtyValues: false });
       setInitialBranding(JSON.parse(JSON.stringify(brandingPayload)));
       toast.success("Branding settings updated successfully!");
@@ -572,6 +574,7 @@ export default function SettingsPage() {
         saveStepDataToServer("teamSize", { teamSize: formData.teamSize }),
       ]);
 
+      invalidateProfileCache();
       organizationForm.reset(formData, { keepDirtyValues: false });
       setInitialOrganization(JSON.parse(JSON.stringify(formData)));
       toast.success("Organization settings updated successfully!");
