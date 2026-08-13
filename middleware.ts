@@ -94,6 +94,25 @@ export default async function middleware(req: NextRequest) {
     return NextResponse.redirect(signInUrl);
   }
 
+  // ── Onboarding gate (server-side, replaces the client OnboardingGuard) ──
+  // The flag lives in the JWT (set/refreshed by the auth-options jwt
+  // callback), so this is a pure token read — no extra DB query and no
+  // client-side /api/onboarding-wizard/onboarding-status round-trip.
+  // Incomplete users are sent to /new/onboarding; /new/onboarding itself and
+  // the public /new/view/* portals are excluded.
+  const isNewArea = pathname === "/new" || pathname.startsWith("/new/");
+  const isOnboardingPage = pathname.startsWith("/new/onboarding");
+  const isPublicPortal = pathname.startsWith("/new/view/");
+
+  if (
+    isNewArea &&
+    !isOnboardingPage &&
+    !isPublicPortal &&
+    !(token as any).onboardingComplete
+  ) {
+    return NextResponse.redirect(new URL("/new/onboarding", req.url));
+  }
+
   return response;
 }
 

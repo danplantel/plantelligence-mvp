@@ -149,6 +149,24 @@ export const authOptions: NextAuthOptions = {
       if (account) {
         token.provider = account.provider;
       }
+
+      // Onboarding gate latch. Once true it never resets, so the DB is only
+      // queried while the flag is still false — it flips to true on the first
+      // session access after the user completes the wizard, then costs nothing
+      // afterwards. The flag is mirrored into the JWT and consumed by
+      // middleware (see middleware.ts) to replace the old client-side
+      // OnboardingGuard, eliminating the per-navigation onboarding-status call.
+      if (token.id && !(token as any).onboardingComplete) {
+        try {
+          const completed = await prisma.wizardSession.findFirst({
+            where: { userId: token.id as string, completed: true },
+            select: { id: true },
+          });
+          (token as any).onboardingComplete = !!completed;
+        } catch {
+          (token as any).onboardingComplete = false;
+        }
+      }
       return token;
     },
     async signIn(params) {

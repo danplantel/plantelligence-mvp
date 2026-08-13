@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
+import { getSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { OnboardingWizardStepper } from "./onboarding-wizard-stepper";
 import { ChevronLeft, ChevronRight, CheckCircle } from "lucide-react";
@@ -456,6 +457,15 @@ export function OnboardingWizard({
           isCompleted: true,
           currentStep: 5,
         });
+
+        // Refresh the NextAuth JWT so the middleware onboarding gate sees
+        // onboardingComplete=true before the redirect to /new/dashboard
+        // (otherwise the user would be bounced straight back to onboarding).
+        try {
+          await getSession();
+        } catch {
+          // Best-effort; the jwt callback re-checks on the next session fetch.
+        }
 
         // Show success overlay with green checkmark for 3 seconds, then navigate
         setShowSuccessOverlay(true);

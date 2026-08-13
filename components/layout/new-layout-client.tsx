@@ -2,8 +2,6 @@
 
 import Header from "@/components/layout/header";
 import Sidebar from "@/components/layout/new-sidebar";
-import { OnboardingGuard } from "@/components/guards/onboarding-guard";
-import { OnboardingPageGuard } from "@/components/guards/onboarding-page-guard";
 import { usePathname } from "next/navigation";
 import { WizardStepper } from "@/components/wizard/wizard-stepper";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
@@ -16,9 +14,10 @@ interface NewLayoutClientProps {
 export function NewLayoutClient({ children }: NewLayoutClientProps) {
   const pathname = usePathname();
 
-  // If it's onboarding page, use special guard
+  // If it's onboarding page, render without header/sidebar (the onboarding
+  // gate is handled server-side by middleware, not by a client guard).
   if (pathname.includes("/onboarding")) {
-    return <OnboardingPageGuard>{children}</OnboardingPageGuard>;
+    return <>{children}</>;
   }
 
   // If it's view page, don't show header/sidebar
@@ -62,7 +61,7 @@ export function NewLayoutClient({ children }: NewLayoutClientProps) {
   const isWizardPage = isNewClientPage || isBenefitsPage;
 
   return (
-    <OnboardingGuard>
+    <>
       <Header
         stepper={stepperElement}
         stepTitle={stepTitle}
@@ -78,6 +77,6 @@ export function NewLayoutClient({ children }: NewLayoutClientProps) {
           {children}
         </main>
       </div>
-    </OnboardingGuard>
+    </>
   );
 }

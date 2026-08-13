@@ -14,6 +14,7 @@ import {
 } from "@/types/wizard";
 import { normalizeCleanDomain } from "./url-utils";
 import { step2ServicesToCategories } from "./service-categories";
+import { getSession } from "next-auth/react";
 
 export interface WizardStep {
   id: number;
@@ -617,6 +618,14 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
           body: JSON.stringify({ finalData: true }),
         }).then(async response => {
           if (response.ok) {
+            // Refresh the NextAuth JWT so the middleware onboarding gate sees
+            // onboardingComplete=true before the redirect to /new/dashboard
+            // (otherwise the user would be bounced straight back to onboarding).
+            try {
+              await getSession();
+            } catch {
+              // Best-effort; the jwt callback re-checks on the next session fetch.
+            }
             // Redirect to new dashboard after completion
             window.location.href = '/new/dashboard';
           } else {
