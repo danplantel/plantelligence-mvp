@@ -1703,6 +1703,7 @@ export default function EditClientPage() {
                     : undefined
                 }
                 websiteUrl={companyData.companyWebsite}
+                organizationName={companyData.companyName}
               />
 
               {/* Brand Images */}

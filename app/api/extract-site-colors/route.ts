@@ -148,9 +148,16 @@ function buildExtractionScript() {
         const g = parseInt(hex.slice(3,5), 16);
         const b = parseInt(hex.slice(5,7), 16);
         const maxDiff = Math.max(Math.abs(r-g), Math.abs(g-b), Math.abs(r-b));
-        // Pure grays (all values within 10 of each other) or very light/dark
-        if (maxDiff <= 10 && r > 200) return true; // Light gray
-        if (maxDiff <= 10 && r < 50) return true;  // Dark gray
+        // Grays (R≈G≈B within ~25) are neutrals — almost always backgrounds,
+        // borders, or text, never brand colors. Covers light, mid, and dark
+        // grays (e.g. Tailwind gray-400..gray-800, #6B7280 slate gray) that
+        // the previous light/dark-only check let through and which were then
+        // snapped to the Slate Gray preset by the client safety pass.
+        if (maxDiff <= 25) return true;
+        // Very light / very dark colors are effectively neutral regardless of tint.
+        const brightness = (r + g + b) / 3;
+        if (brightness > 245) return true;
+        if (brightness < 12) return true;
         return false;
       }
 

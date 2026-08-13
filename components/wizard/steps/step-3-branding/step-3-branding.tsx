@@ -689,6 +689,7 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
             onSecondaryPickerOpenChange={setIsSecondaryColorPickerOpen}
             logoDataUrl={logoPreviewDataUrl || undefined}
             websiteUrl={website || stepData.branding?.website || ""}
+            organizationName={organizationName}
             errorFields={errorFields}
           />
         </div>

@@ -341,6 +341,264 @@ export function validateManualColors(
   return { primary: primarySafety, secondary: secondarySafety, warnings };
 }
 
+// ── Multi-set extraction (Logo / Website / AI) ──────────────────────────────
+
+export type ColorSetId = "logo" | "website" | "ai";
+
+export interface ColorSetSuggestion {
+  id: ColorSetId;
+  label: string;
+  primary: string;
+  secondary: string;
+  confidence: ExtractionConfidence;
+  warnings: string[];
+  available: boolean;
+  unavailableReason?: string;
+  /** The source URL used for extraction (e.g. the website scanned). */
+  sourceUrl?: string;
+  /** An image preview of the source (e.g. the logo thumbnail). */
+  previewUrl?: string;
+}
+
+interface RawColorPair {
+  primary: string;
+  secondary: string;
+}
+
+/** Run the safety pass on both colors and return the final hex values. */
+function finalizePair(primary: string, secondary: string): RawColorPair {
+  const primarySafety = safetyPass(primary);
+  const secondarySafety = safetyPass(secondary);
+  return {
+    primary: primarySafety.adjustedColor || primarySafety.snapped,
+    secondary: secondarySafety.adjustedColor || secondarySafety.snapped,
+  };
+}
+
+/**
+ * Deterministic fallback for the AI set when the AI call is unavailable:
+ * prefer the website colors, then the logo, and ensure the two colors are
+ * visually distinct.
+ */
+function deterministicBlend(
+  logo: RawColorPair | null,
+  website: RawColorPair | null,
+): RawColorPair {
+  const primary = website?.primary || logo?.primary || "#1F3A60";
+  let secondary = website?.secondary || logo?.secondary || "#3A6EA5";
+
+  if (
+    !secondary ||
+    secondary.toUpperCase() === primary.toUpperCase() ||
+    deltaE(primary, secondary) < 5
+  ) {
+    const alternates = [logo?.secondary, website?.secondary, "#3A6EA5"];
+    secondary =
+      alternates.find(
+        (c) =>
+          c &&
+          c.toUpperCase() !== primary.toUpperCase() &&
+          deltaE(primary, c) >= 5,
+      ) || "#3A6EA5";
+  }
+
+  return { primary, secondary };
+}
+
+/**
+ * Extract three independent brand color sets so the user can choose:
+ *   - "logo"    — colors from the logo image only
+ *   - "website" — colors from the live website only
+ *   - "ai"      — Gemini suggestion combining logo + website + org name,
+ *                 falling back to a deterministic blend when AI fails
+ */
+export async function extractColorSets(
+  logoDataUrl: string | null | undefined,
+  websiteUrl: string | undefined,
+  organizationName?: string,
+): Promise<ColorSetSuggestion[]> {
+  const sets: ColorSetSuggestion[] = [];
+
+  // ── 1. Logo set ─────────────────────────────────────────────────────────
+  let logoColors: RawColorPair | null = null;
+  if (logoDataUrl) {
+    try {
+      const raw = await extractColorsFromImage(logoDataUrl);
+      logoColors = finalizePair(raw.primary, raw.secondary);
+      sets.push({
+        id: "logo",
+        label: "From Logo",
+        primary: logoColors.primary,
+        secondary: logoColors.secondary,
+        confidence: "medium",
+        warnings: [],
+        available: true,
+        previewUrl: logoDataUrl,
+      });
+    } catch {
+      sets.push({
+        id: "logo",
+        label: "From Logo",
+        primary: "",
+        secondary: "",
+        confidence: "low",
+        warnings: ["Logo color extraction failed"],
+        available: false,
+        unavailableReason: "Could not extract colors from the logo",
+      });
+    }
+  } else {
+    sets.push({
+      id: "logo",
+      label: "From Logo",
+      primary: "",
+      secondary: "",
+      confidence: "low",
+      warnings: [],
+      available: false,
+      unavailableReason: "No logo available",
+    });
+  }
+
+  // ── 2. Website set ──────────────────────────────────────────────────────
+  let websiteColors: RawColorPair | null = null;
+  if (websiteUrl?.trim()) {
+    try {
+      const res = await fetch("/api/extract-site-colors", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: websiteUrl.trim() }),
+      });
+
+      if (res.ok) {
+        const json: SiteColorResponse = await res.json();
+        if (json.success && json.data?.primary) {
+          websiteColors = finalizePair(
+            json.data.primary,
+            json.data.secondary || json.data.primary,
+          );
+          sets.push({
+            id: "website",
+            label: "From Website",
+            primary: websiteColors.primary,
+            secondary: websiteColors.secondary,
+            confidence: json.data.weakExtraction ? "low" : "medium",
+            warnings: json.data.weakExtraction
+              ? ["Website extraction was weak"]
+              : [],
+            available: true,
+            sourceUrl: websiteUrl.trim(),
+          });
+        } else {
+          sets.push({
+            id: "website",
+            label: "From Website",
+            primary: "",
+            secondary: "",
+            confidence: "low",
+            warnings: ["Website extraction returned no colors"],
+            available: false,
+            unavailableReason: "No brand colors found on the website",
+          });
+        }
+      } else {
+        sets.push({
+          id: "website",
+          label: "From Website",
+          primary: "",
+          secondary: "",
+          confidence: "low",
+          warnings: ["Website extraction failed"],
+          available: false,
+          unavailableReason: "The website could not be reached",
+        });
+      }
+    } catch {
+      sets.push({
+        id: "website",
+        label: "From Website",
+        primary: "",
+        secondary: "",
+        confidence: "low",
+        warnings: ["Website extraction failed"],
+        available: false,
+        unavailableReason: "The website could not be reached",
+      });
+    }
+  } else {
+    sets.push({
+      id: "website",
+      label: "From Website",
+      primary: "",
+      secondary: "",
+      confidence: "low",
+      warnings: [],
+      available: false,
+      unavailableReason: "No website URL",
+    });
+  }
+
+  // ── 3. AI set ───────────────────────────────────────────────────────────
+  if (logoColors || websiteColors) {
+    let aiColors: RawColorPair | null = null;
+    let usedFallback = false;
+
+    try {
+      const res = await fetch("/api/gemini/suggest-colors", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          logoPrimary: logoColors?.primary || null,
+          logoSecondary: logoColors?.secondary || null,
+          websitePrimary: websiteColors?.primary || null,
+          websiteSecondary: websiteColors?.secondary || null,
+          organizationName: organizationName || "",
+        }),
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        if (json?.primary && json?.secondary) {
+          aiColors = { primary: json.primary, secondary: json.secondary };
+        }
+      }
+    } catch {
+      // fall through to deterministic blend
+    }
+
+    if (!aiColors) {
+      aiColors = deterministicBlend(logoColors, websiteColors);
+      usedFallback = true;
+    }
+
+    const finalized = finalizePair(aiColors.primary, aiColors.secondary);
+    sets.push({
+      id: "ai",
+      label: "AI Suggestion",
+      primary: finalized.primary,
+      secondary: finalized.secondary,
+      confidence: usedFallback ? "low" : "high",
+      warnings: usedFallback
+        ? ["AI unavailable — used a blend of logo & website colors"]
+        : [],
+      available: true,
+    });
+  } else {
+    sets.push({
+      id: "ai",
+      label: "AI Suggestion",
+      primary: "",
+      secondary: "",
+      confidence: "low",
+      warnings: [],
+      available: false,
+      unavailableReason: "Needs a logo or website",
+    });
+  }
+
+  return sets;
+}
+
 // ── Re-exports for convenience ───────────────────────────────────────────────
 
 export {

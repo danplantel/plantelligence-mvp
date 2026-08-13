@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { ColorPicker } from "@/components/ui/color-picker";
 import {
   Palette,
@@ -15,22 +14,16 @@ import {
   Loader2,
   Globe,
   Image as ImageIcon,
-  ShieldAlert,
   Info,
-  ExternalLink,
   Search,
+  Sparkles,
 } from "lucide-react";
 import {
-  extractBrandColors,
-  validateManualColors,
-  type SafeColorResult,
+  extractColorSets,
+  type ColorSetSuggestion,
   type ExtractionConfidence,
 } from "@/lib/brand-color-extraction";
-import {
-  getContrastScores,
-  getPresetName,
-  WCAG_AA_NORMAL,
-} from "@/lib/color-utils";
+import { getPresetName } from "@/lib/color-utils";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -45,6 +38,7 @@ interface BrandColorsSectionProps {
   onSecondaryPickerOpenChange: (open: boolean) => void;
   logoDataUrl?: string | null;
   websiteUrl?: string;
+  organizationName?: string;
   errorFields?: string[];
   touchedFields?: Record<string, boolean>;
   fieldErrors?: Record<string, string | null>;
@@ -54,79 +48,21 @@ interface BrandColorsSectionProps {
 
 const confidenceConfig: Record<
   ExtractionConfidence,
-  { icon: typeof CheckCircle2; label: string; color: string; bgColor: string }
+  { label: string; color: string }
 > = {
-  high: {
-    icon: CheckCircle2,
-    label: "High confidence",
-    color: "text-green-700 dark:text-green-400",
-    bgColor: "bg-green-50 dark:bg-green-900/30",
-  },
-  medium: {
-    icon: CheckCircle2,
-    label: "Medium confidence",
-    color: "text-blue-700 dark:text-blue-400",
-    bgColor: "bg-blue-50 dark:bg-blue-900/30",
-  },
-  low: {
-    icon: Info,
-    label: "Low confidence",
-    color: "text-amber-700 dark:text-amber-400",
-    bgColor: "bg-amber-50 dark:bg-amber-900/30",
-  },
-  "needs-review": {
-    icon: ShieldAlert,
-    label: "Needs review",
-    color: "text-red-700 dark:text-red-400",
-    bgColor: "bg-red-50 dark:bg-red-900/30",
-  },
+  high: { label: "High confidence", color: "text-green-600 dark:text-green-400" },
+  medium: { label: "Medium confidence", color: "text-blue-600 dark:text-blue-400" },
+  low: { label: "Low confidence", color: "text-amber-600 dark:text-amber-400" },
+  "needs-review": { label: "Needs review", color: "text-red-600 dark:text-red-400" },
+};
+
+const setIcons: Record<ColorSetSuggestion["id"], typeof ImageIcon> = {
+  logo: ImageIcon,
+  website: Globe,
+  ai: Sparkles,
 };
 
 // ── Component ────────────────────────────────────────────────────────────────
-//
-//  BRAND COLOR EXTRACTION — HOW IT WORKS
-//  =====================================
-//  1. MANUAL TRIGGER — User clicks "Extract Colors". Extraction only runs on
-//     demand, never automatically. Button indicates source: logo / website / both.
-//
-//  2. LOGO EXTRACTION — Canvas-based pixel analysis of uploaded logo image,
-//     sampling at 200×200px. Filters transparent & near-black/white pixels,
-//     picks most frequent color as primary, most distinct as secondary.
-//
-//  3. WEBSITE EXTRACTION — POST /api/extract-site-colors spawns headless
-//     Puppeteer browser, loads the live site, extracts computed CSS colors
-//     weighted by source: buttons/CTAs (1.0), CSS custom properties (0.9),
-//     nav bars (0.8), links (0.6), headings (0.4). Neutrals filtered out.
-//
-//  4. NEUTRAL LOGO GUARD — If logo-extracted color has luminance < 0.15
-//     (near-black artwork) or > 0.85 (near-white), it's treated as non-brand
-//     and the system defers to site extraction. No false "needs review" flags.
-//
-//  5. CROSS-CHECK (CIELAB deltaE) — Logo vs. site primary compared using
-//     perceptually-uniform deltaE distance:
-//       ΔE ≤ 5   → "both-agree"     → HIGH confidence, auto-fill
-//       5 < ΔE ≤ 12 → moderate diverge → MEDIUM confidence + review hint
-//       ΔE > 12  → strong diverge   → NEEDS REVIEW flagged
-//
-//  6. SECONDARY COLOR — Selected independently as the 2nd-most-weighted
-//     distinct color from site extraction (or logo secondary if site-only).
-//     NOT derived from primary — both colors are extracted & validated separately.
-//
-//  7. SAFETY PASS (both colors, independently):
-//     a) Snap to nearest of 8 corporate-safe presets (Deep Navy, Teal, Forest
-//        Green, Steel Blue, Slate Gray, Crimson Red, Amber Gold, Deep Violet)
-//     b) WCAG 2.1 AA contrast check (4.5:1) against white & black text
-//     c) Auto-darken/lighten any color that fails the contrast threshold
-//
-//  8. FALLBACKS — Site-only → medium confidence. Logo-only + not neutral →
-//     medium confidence. Logo-only + neutral → low confidence + warning.
-//     Neither source → safe defaults (#1F3A60 / #3A6EA5).
-//
-//  9. UI FEEDBACK — Confidence badge (High/Medium/Low/Needs Review), source
-//     badges, WCAG ratio inline per color, expandable details panel (raw logo
-//     color, raw site color, ΔE distance, extraction URL). User can override
-//     with color pickers at any time.
-//
 
 export function BrandColorsSection({
   primaryColor,
@@ -139,57 +75,39 @@ export function BrandColorsSection({
   onSecondaryPickerOpenChange,
   logoDataUrl,
   websiteUrl,
+  organizationName,
   errorFields = [],
   touchedFields = {},
   fieldErrors = {},
 }: BrandColorsSectionProps) {
-  // ── Extraction state ─────────────────────────────────────────────────────
-  const [extractionResult, setExtractionResult] =
-    useState<SafeColorResult | null>(null);
-  const [isRunningExtraction, setIsRunningExtraction] = useState(false);
+  const [colorSets, setColorSets] = useState<ColorSetSuggestion[]>([]);
+  const [isExtracting, setIsExtracting] = useState(false);
   const [extractionError, setExtractionError] = useState<string | null>(null);
-  const [showExtractionDetails, setShowExtractionDetails] = useState(false);
-  const extractionRanRef = useRef(false);
+  const [selectedSetId, setSelectedSetId] = useState<string | null>(null);
 
-  // ── Manual extraction trigger ────────────────────────────────────────────
   const handleExtract = useCallback(async () => {
-    // Don't run if there's nothing to extract from
     if (!logoDataUrl && !websiteUrl?.trim()) return;
 
-    extractionRanRef.current = true;
-    setIsRunningExtraction(true);
+    setIsExtracting(true);
     setExtractionError(null);
+    setSelectedSetId(null);
 
     try {
-      // Normalize the website URL so extraction always receives a valid,
-      // fetchable URL (e.g., "example.com" → "https://example.com").
-      const rawWebsite = websiteUrl?.trim() || "";
-      const normalizedWebsiteUrl = rawWebsite
-        ? /^https?:\/\//i.test(rawWebsite)
-          ? rawWebsite
-          : `https://${rawWebsite}`
-        : undefined;
-
-      const result = await extractBrandColors(
-        logoDataUrl,
-        normalizedWebsiteUrl,
-      );
-      setExtractionResult(result);
-
-      onPrimaryChange(result.primary);
-      onSecondaryChange(result.secondary);
+      const sets = await extractColorSets(logoDataUrl, websiteUrl, organizationName);
+      setColorSets(sets);
     } catch (err: any) {
       setExtractionError(err?.message || "Failed to extract colors");
     } finally {
-      setIsRunningExtraction(false);
+      setIsExtracting(false);
     }
-  }, [logoDataUrl, websiteUrl, onPrimaryChange, onSecondaryChange]);
+  }, [logoDataUrl, websiteUrl, organizationName]);
 
-  // ── Manual color validation ─────────────────────────────────────────────
-  const primaryContrast = primaryColor ? getContrastScores(primaryColor) : null;
-  const secondaryContrast = secondaryColor
-    ? getContrastScores(secondaryColor)
-    : null;
+  const selectSet = (set: ColorSetSuggestion) => {
+    if (!set.available) return;
+    setSelectedSetId(set.id);
+    onPrimaryChange(set.primary);
+    onSecondaryChange(set.secondary);
+  };
 
   const primaryPresetName = primaryColor ? getPresetName(primaryColor) : null;
   const secondaryPresetName = secondaryColor
@@ -203,33 +121,39 @@ export function BrandColorsSection({
     );
   };
 
-  // ── Confidence badge config ──────────────────────────────────────────────
-  const confidenceInfo = extractionResult
-    ? confidenceConfig[extractionResult.extraction.confidence]
-    : null;
-  const ConfIcon = confidenceInfo?.icon;
+  const renderSwatch = (label: string, hex: string) => (
+    <div className="flex items-center gap-2">
+      <span
+        className="w-6 h-6 rounded border border-gray-300 dark:border-gray-600 shrink-0"
+        style={{ background: hex }}
+      />
+      <span className="font-mono text-xs">{hex}</span>
+      <span className="text-xs text-muted-foreground truncate">
+        {getPresetName(hex) || label}
+      </span>
+    </div>
+  );
 
-  // ── Render ───────────────────────────────────────────────────────────────
   return (
     <Card className="dark:bg-gray-800">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 dark:text-gray-100">
           <Palette className="w-5 h-5 text-accent-blue" />
           Brand Colors
-          {isRunningExtraction && (
+          {isExtracting && (
             <Loader2 className="w-4 h-4 animate-spin text-muted-foreground ml-1" />
           )}
         </CardTitle>
         <p className="text-sm text-muted-foreground dark:text-gray-400">
-          Click <strong>Extract Colors</strong> to automatically detect your
-          brand colors from your <b>uploaded logo</b> and <b>company website</b>. Colors are
-          applied to buttons, headers, footers, and more. You can also set them
-          manually using the swatches below.
+          Click <strong>Extract Colors</strong> to generate three brand color
+          sets — from your <b>logo</b>, your <b>website</b>, and an{" "}
+          <b>AI suggestion</b>. Select the set you want, or fine-tune the colors
+          manually below.
         </p>
       </CardHeader>
       <CardContent>
         {/* ── Extract Button ────────────────────────────────────────────── */}
-        {!extractionResult && !isRunningExtraction && (
+        {!isExtracting && colorSets.length === 0 && (
           <div className="mb-4">
             <Button
               type="button"
@@ -237,30 +161,8 @@ export function BrandColorsSection({
               disabled={!logoDataUrl && !websiteUrl?.trim()}
               className="inline-flex items-center gap-2 bg-accent-blue hover:bg-accent-blue/90 text-white"
             >
-              {isRunningExtraction ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Extracting...
-                </>
-              ) : (
-                <>
-                  <Search className="w-4 h-4" />
-                  Extract Colors
-                  {logoDataUrl && websiteUrl?.trim() ? (
-                    <span className="text-xs opacity-75 font-normal">
-                      from logo & website
-                    </span>
-                  ) : logoDataUrl ? (
-                    <span className="text-xs opacity-75 font-normal">
-                      from logo
-                    </span>
-                  ) : websiteUrl?.trim() ? (
-                    <span className="text-xs opacity-75 font-normal">
-                      from website
-                    </span>
-                  ) : null}
-                </>
-              )}
+              <Search className="w-4 h-4" />
+              Extract Colors
             </Button>
             {!logoDataUrl && !websiteUrl?.trim() && (
               <p className="text-xs text-muted-foreground mt-1.5">
@@ -272,179 +174,107 @@ export function BrandColorsSection({
           </div>
         )}
 
-        {/* Re-extract button (shown after initial extraction) */}
-        {extractionResult && !isRunningExtraction && (
-          <div className="mb-4 flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleExtract}
-              className="inline-flex items-center gap-1.5 text-xs"
-            >
-              <Search className="w-3.5 h-3.5" />
-              Re-extract Colors
-            </Button>
-            <span className="text-xs text-muted-foreground">
-              from{" "}
-              {logoDataUrl && websiteUrl?.trim()
-                ? "logo & website"
-                : logoDataUrl
-                  ? "logo"
-                  : "website"}
-            </span>
-          </div>
-        )}
-
-        {/* ── Extraction Status Banner ──────────────────────────────────── */}
-        {extractionResult && !isRunningExtraction && (
-          <div
-            className={`mb-4 p-3 rounded-lg border text-sm ${confidenceInfo?.bgColor} ${confidenceInfo?.color.replace("text-", "border-").replace("dark:", "")}`}
-          >
-            <div className="flex items-start gap-2">
-              {ConfIcon && <ConfIcon className="w-4 h-4 mt-0.5 shrink-0" />}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-medium">
-                    {confidenceInfo?.label}
-                  </span>
-                  {extractionResult.extraction.source === "both-agree" && (
-                    <Badge
-                      variant="outline"
-                      className="text-[10px] px-1.5 py-0 bg-green-100 dark:bg-green-900/40 border-green-300 dark:border-green-700 text-green-800 dark:text-green-300"
-                    >
-                      Logo + Site agree
-                    </Badge>
-                  )}
-                  {extractionResult.extraction.source === "logo" && (
-                    <Badge
-                      variant="outline"
-                      className="text-[10px] px-1.5 py-0 bg-blue-100 dark:bg-blue-900/40 border-blue-300 dark:border-blue-700 text-blue-800 dark:text-blue-300"
-                    >
-                      <ImageIcon className="w-3 h-3 mr-1" />
-                      Logo only
-                    </Badge>
-                  )}
-                  {extractionResult.extraction.source === "website" && (
-                    <Badge
-                      variant="outline"
-                      className="text-[10px] px-1.5 py-0 bg-purple-100 dark:bg-purple-900/40 border-purple-300 dark:border-purple-700 text-purple-800 dark:text-purple-300"
-                    >
-                      <Globe className="w-3 h-3 mr-1" />
-                      Site extracted
-                    </Badge>
-                  )}
-                </div>
-
-                {/* Warnings */}
-                {extractionResult.extraction.warnings.length > 0 && (
-                  <div className="mt-2 space-y-1">
-                    {extractionResult.extraction.warnings.map((w, i) => (
-                      <div
-                        key={i}
-                        className="flex items-start gap-1.5 text-xs opacity-80"
-                      >
-                        <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
-                        <span>{w}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Needs review callout */}
-                {extractionResult.extraction.needsManualReview && (
-                  <div className="mt-2 flex items-center gap-1.5 text-xs font-medium text-red-700 dark:text-red-400">
-                    <ShieldAlert className="w-3.5 h-3.5" />
-                    Colors need manual review — logo and site disagree.
-                  </div>
-                )}
-
-                {/* Expand details */}
-                <button
-                  type="button"
-                  onClick={() =>
-                    setShowExtractionDetails(!showExtractionDetails)
-                  }
-                  className="text-xs underline mt-2 hover:opacity-80"
-                >
-                  {showExtractionDetails ? "Hide details" : "Show details"}
-                </button>
-
-                {showExtractionDetails && (
-                  <div className="mt-2 text-xs space-y-1 opacity-70">
-                    {extractionResult.extraction.logoColor && (
-                      <p>
-                        Logo color:{" "}
-                        <span className="font-mono">
-                          {extractionResult.extraction.logoColor}
-                        </span>
-                      </p>
-                    )}
-                    {extractionResult.extraction.siteColor && (
-                      <p>
-                        Site color:{" "}
-                        <span className="font-mono">
-                          {extractionResult.extraction.siteColor}
-                        </span>
-                      </p>
-                    )}
-                    {extractionResult.extraction.deltaE != null && (
-                      <p>
-                        ΔE distance:{" "}
-                        <span className="font-mono">
-                          {extractionResult.extraction.deltaE}
-                        </span>
-                        {extractionResult.comparison?.isClose
-                          ? " (close match)"
-                          : " (divergent)"}
-                      </p>
-                    )}
-                    {extractionResult.siteUrl && (
-                      <p className="flex items-center gap-1">
-                        <Globe className="w-3 h-3" />
-                        <a
-                          href={
-                            extractionResult.siteUrl.startsWith("http")
-                              ? extractionResult.siteUrl
-                              : `https://${extractionResult.siteUrl}`
-                          }
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="underline hover:opacity-80 inline-flex items-center gap-0.5"
-                        >
-                          {extractionResult.siteUrl}
-                          <ExternalLink className="w-2.5 h-2.5" />
-                        </a>
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* ── Loading state ─────────────────────────────────────────────── */}
-        {isRunningExtraction && (
+        {isExtracting && (
           <div className="mb-4 p-3 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20">
             <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-400">
               <Loader2 className="w-4 h-4 animate-spin" />
-              <span>
-                Extracting brand colors
-                {websiteUrl?.trim()
-                  ? " from your logo & website..."
-                  : " from your logo..."}
-              </span>
+              <span>Extracting brand colors from logo, website & AI…</span>
             </div>
           </div>
         )}
 
         {/* ── Extraction error ──────────────────────────────────────────── */}
-        {extractionError && !isRunningExtraction && (
+        {extractionError && !isExtracting && (
           <div className="mb-4 p-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20">
             <div className="flex items-start gap-2 text-sm text-red-700 dark:text-red-400">
               <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
               <span>{extractionError}</span>
+            </div>
+          </div>
+        )}
+
+        {/* ── Color Set Selection ───────────────────────────────────────── */}
+        {colorSets.length > 0 && !isExtracting && (
+          <div className="mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {colorSets.map((set) => {
+                const Icon = setIcons[set.id];
+                const conf = confidenceConfig[set.confidence];
+                const isSelected = selectedSetId === set.id;
+
+                return (
+                  <button
+                    key={set.id}
+                    type="button"
+                    onClick={() => selectSet(set)}
+                    disabled={!set.available}
+                    className={`p-4 rounded-lg border text-left transition-colors ${
+                      isSelected
+                        ? "border-accent-blue bg-accent-blue/10 ring-1 ring-accent-blue"
+                        : set.available
+                          ? "border-gray-300 dark:border-gray-600 hover:bg-muted/50 dark:hover:bg-gray-700"
+                          : "border-dashed border-gray-300 dark:border-gray-600 opacity-60 cursor-not-allowed"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="font-medium text-sm flex items-center gap-1.5 dark:text-gray-100">
+                        <Icon className="w-4 h-4" />
+                        {set.label}
+                      </span>
+                      {isSelected && (
+                        <CheckCircle2 className="w-4 h-4 text-accent-blue shrink-0" />
+                      )}
+                    </div>
+                    {set.sourceUrl && (
+                      <p className="text-[11px] text-muted-foreground mb-2 flex items-center gap-1 truncate">
+                        <Globe className="w-3 h-3 shrink-0" />
+                        <span className="truncate">{set.sourceUrl}</span>
+                      </p>
+                    )}
+                    {set.previewUrl && (
+                      <div className="mb-2 flex items-center justify-center bg-muted/50 dark:bg-gray-900/40 rounded-md h-16 overflow-hidden">
+                        <img
+                          src={set.previewUrl}
+                          alt={`${set.label} preview`}
+                          className="max-h-full max-w-full object-contain p-1"
+                        />
+                      </div>
+                    )}
+                    {set.available ? (
+                      <div className="space-y-2">
+                        {renderSwatch("Primary", set.primary)}
+                        {renderSwatch("Secondary", set.secondary)}
+                        <span className={`text-xs ${conf.color}`}>
+                          {conf.label}
+                        </span>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        {set.unavailableReason}
+                      </p>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-3 flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleExtract}
+                className="inline-flex items-center gap-1.5 text-xs"
+              >
+                <Search className="w-3.5 h-3.5" />
+                Re-extract Colors
+              </Button>
+              {selectedSetId && (
+                <span className="text-xs text-muted-foreground">
+                  Applied: {colorSets.find((s) => s.id === selectedSetId)?.label}
+                </span>
+              )}
             </div>
           </div>
         )}
@@ -512,26 +342,6 @@ export function BrandColorsSection({
               </p>
             )}
 
-            {/* WCAG Contrast indicator */}
-            {primaryContrast && (
-              <div className="flex items-center gap-2 text-xs">
-                <span className="text-muted-foreground">Contrast:</span>
-                <span
-                  className={
-                    primaryContrast.passesWhite
-                      ? "text-green-600 dark:text-green-400"
-                      : "text-red-600 dark:text-red-400"
-                  }
-                >
-                  {primaryContrast.againstWhite}:1 on white
-                  {primaryContrast.passesWhite ? (
-                    <CheckCircle2 className="w-3 h-3 inline ml-0.5" />
-                  ) : (
-                    <AlertCircle className="w-3 h-3 inline ml-0.5" />
-                  )}
-                </span>
-              </div>
-            )}
           </div>
 
           {/* Secondary Color */}
@@ -595,26 +405,6 @@ export function BrandColorsSection({
               </p>
             )}
 
-            {/* WCAG Contrast indicator */}
-            {secondaryContrast && (
-              <div className="flex items-center gap-2 text-xs">
-                <span className="text-muted-foreground">Contrast:</span>
-                <span
-                  className={
-                    secondaryContrast.passesWhite
-                      ? "text-green-600 dark:text-green-400"
-                      : "text-red-600 dark:text-red-400"
-                  }
-                >
-                  {secondaryContrast.againstWhite}:1 on white
-                  {secondaryContrast.passesWhite ? (
-                    <CheckCircle2 className="w-3 h-3 inline ml-0.5" />
-                  ) : (
-                    <AlertCircle className="w-3 h-3 inline ml-0.5" />
-                  )}
-                </span>
-              </div>
-            )}
           </div>
         </div>
 

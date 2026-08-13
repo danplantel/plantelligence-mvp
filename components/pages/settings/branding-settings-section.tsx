@@ -144,6 +144,7 @@ export function BrandingSettingsSection({
                 onSecondaryPickerOpenChange={setIsSecondaryColorPickerOpen}
                 logoDataUrl={logoDataUrl}
                 websiteUrl={website}
+                organizationName={watchedBranding?.organizationName || ""}
               />
             </div>
           </>

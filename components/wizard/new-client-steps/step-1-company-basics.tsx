@@ -1097,6 +1097,7 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                 : undefined)
             }
             websiteUrl={companyData.companyWebsite}
+            organizationName={companyData.companyName}
             errorFields={errorFields}
             touchedFields={touchedFields}
             fieldErrors={fieldErrors}
