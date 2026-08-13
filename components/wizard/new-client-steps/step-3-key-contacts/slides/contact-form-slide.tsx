@@ -1069,13 +1069,15 @@ export function ContactFormSlide({
       if (!displayName.trim()) errors.push("displayName");
     }
 
-    if (!email.trim()) {
+    // Email is optional — only validate the format when a value is provided
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (email.trim() && !emailRegex.test(email.trim())) {
       errors.push("email");
-    } else {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email.trim())) {
-        errors.push("email");
-      }
+    }
+
+    // Phone is required — must contain 10 digits
+    if (phone.replace(/\D/g, "").length < 10) {
+      errors.push("phone");
     }
 
     // Custom Benefits is required when category is "Other Benefits"
@@ -1134,6 +1136,7 @@ export function ContactFormSlide({
     title,
     displayName,
     email,
+    phone,
     customBenefits,
     category,
     enableCtaButton,
@@ -1421,26 +1424,9 @@ export function ContactFormSlide({
               </div>
             )}
 
-            <div className="space-y-1" data-field="email">
-              <Label className="dark:text-gray-300 text-xs font-medium">
-                Email <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                ref={emailRef}
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="e.g. john@company.com"
-                className={cn("h-8 text-sm", hasError("email") && "border-red-500")}
-              />
-              {hasError("email") && (
-                <p className="text-[10px] text-red-500">Valid email is required</p>
-              )}
-            </div>
-
             <div className="space-y-1" data-field="phone">
               <Label className="dark:text-gray-300 text-xs font-medium">
-                Phone
+                Phone <span className="text-red-500">*</span>
               </Label>
               <div className="flex gap-2">
                 <div className="flex-1">
@@ -1496,6 +1482,26 @@ export function ContactFormSlide({
                   />
                 </div>
               </div>
+              {hasError("phone") && (
+                <p className="text-[10px] text-red-500">Phone number is required</p>
+              )}
+            </div>
+
+            <div className="space-y-1" data-field="email">
+              <Label className="dark:text-gray-300 text-xs font-medium">
+                Email
+              </Label>
+              <Input
+                ref={emailRef}
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="e.g. john@company.com"
+                className={cn("h-8 text-sm", hasError("email") && "border-red-500")}
+              />
+              {hasError("email") && (
+                <p className="text-[10px] text-red-500">Please enter a valid email address</p>
+              )}
             </div>
 
             {/* Call-to-Action Button Section */}
