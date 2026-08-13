@@ -453,8 +453,13 @@ export function BrandColorsSection({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Primary Color */}
           <div className="space-y-3 relative">
-            <Label className="dark:text-gray-300">
+            <Label className="dark:text-gray-300 flex items-center gap-2">
               Primary Color <span className="text-red-500">*</span>
+              {primaryPresetName && (
+                <span className="text-xs font-normal text-muted-foreground bg-muted dark:bg-gray-700 px-2 py-0.5 rounded-full">
+                  {primaryPresetName}
+                </span>
+              )}
             </Label>
             <div className="flex items-center space-x-3">
               <button
@@ -525,19 +530,19 @@ export function BrandColorsSection({
                     <AlertCircle className="w-3 h-3 inline ml-0.5" />
                   )}
                 </span>
-                {primaryPresetName && (
-                  <span className="text-muted-foreground ml-auto">
-                    {primaryPresetName}
-                  </span>
-                )}
               </div>
             )}
           </div>
 
           {/* Secondary Color */}
           <div className="space-y-3 relative">
-            <Label className="dark:text-gray-300">
+            <Label className="dark:text-gray-300 flex items-center gap-2">
               Secondary Color <span className="text-red-500">*</span>
+              {secondaryPresetName && (
+                <span className="text-xs font-normal text-muted-foreground bg-muted dark:bg-gray-700 px-2 py-0.5 rounded-full">
+                  {secondaryPresetName}
+                </span>
+              )}
             </Label>
             <div className="flex items-center space-x-3">
               <button
@@ -608,11 +613,6 @@ export function BrandColorsSection({
                     <AlertCircle className="w-3 h-3 inline ml-0.5" />
                   )}
                 </span>
-                {secondaryPresetName && (
-                  <span className="text-muted-foreground ml-auto">
-                    {secondaryPresetName}
-                  </span>
-                )}
               </div>
             )}
           </div>
