@@ -7,14 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Save, Briefcase, Users, Building2 } from "lucide-react";
 import { UserProfileSection } from "@/components/wizard/steps/sections/user-profile-section/user-profile-section";
 import { TeamSizeSection } from "@/components/wizard/steps/sections/team-size-section/team-size-section";
-import { ServicesSection } from "@/components/wizard/steps/sections/services-section/services-section";
 // import { AddTeamMembersSection } from "@/components/wizard/steps/sections/add-team-members-section/add-team-members-section";
 
 interface OrganizationSettingsSectionProps {
   isLoading: boolean;
   isSaving: boolean;
   organizationForm: any;
-  servicesForm: any;
   onSave: () => Promise<void> | void;
 }
 
@@ -22,7 +20,6 @@ export function OrganizationSettingsSection({
   isLoading,
   isSaving,
   organizationForm,
-  servicesForm,
   onSave,
 }: OrganizationSettingsSectionProps) {
   return (
@@ -131,41 +128,6 @@ export function OrganizationSettingsSection({
                     </p>
                     <FormProvider {...organizationForm}>
                       <TeamSizeSection hideCard={true} disableAutoSave={true} />
-                    </FormProvider>
-                  </div>
-                </div>
-                <div>
-                  <div className="space-y-2">
-                    <h3 className="text-lg font-semibold flex items-center gap-2">
-                      <Briefcase className="w-5 h-5 text-accent-blue" />
-                      Services Provided
-                    </h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      What services do you provide?
-                    </p>
-                    <FormProvider {...servicesForm}>
-                      <ServicesSection
-                        selectedServices={servicesForm.watch("services")}
-                        onServiceToggle={(service) => {
-                          const currentServices =
-                            servicesForm.getValues("services");
-                          const newServices = currentServices.includes(service)
-                            ? currentServices.filter((s: any) => s !== service)
-                            : [...currentServices, service];
-                          servicesForm.setValue("services", newServices, {
-                            shouldDirty: true,
-                            shouldTouch: true,
-                          });
-                        }}
-                        customService={servicesForm.watch("customService")}
-                        onCustomServiceChange={(value) => {
-                          servicesForm.setValue("customService", value, {
-                            shouldDirty: true,
-                            shouldTouch: true,
-                          });
-                        }}
-                        hideCard={true}
-                      />
                     </FormProvider>
                   </div>
                 </div>

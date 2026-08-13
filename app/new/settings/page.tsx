@@ -7,7 +7,6 @@ import { useForm } from "react-hook-form";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
 import { step2ServicesToCategories } from "@/lib/service-categories";
-import { ServiceType } from "@/types/wizard";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -67,7 +66,6 @@ export default function SettingsPage() {
   const [initialUserSetup, setInitialUserSetup] = useState<any>(null);
   const [initialBranding, setInitialBranding] = useState<any>(null);
   const [initialOrganization, setInitialOrganization] = useState<any>(null);
-  const [initialServices, setInitialServices] = useState<any>(null);
 
   // Form for User Setup
   const userSetupForm = useForm({
@@ -114,16 +112,6 @@ export default function SettingsPage() {
       organizationType: "",
       customOrganization: "",
       teamSize: "",
-    },
-  });
-
-  const servicesForm = useForm<{
-    services: ServiceType[];
-    customService: string;
-  }>({
-    defaultValues: {
-      services: [] as ServiceType[],
-      customService: "",
     },
   });
 
@@ -438,28 +426,6 @@ export default function SettingsPage() {
     organizationForm.reset(orgData, { keepDirtyValues: false });
     setInitialOrganization(JSON.parse(JSON.stringify(orgData)));
 
-    const completedServices = userProfile?.wizardSessions?.[0]?.services;
-    const wizardServices = stepData.services || {
-      services: [],
-      customService: "",
-    };
-    const userServices = userProfile?.services
-      ? userProfile.services.split(",").filter((s: string) => s.trim())
-      : [];
-
-    const servicesData = {
-      services:
-        wizardServices.services?.length > 0
-          ? wizardServices.services
-          : completedServices?.services?.length > 0
-          ? completedServices.services
-          : userServices,
-      customService:
-        wizardServices.customService || completedServices?.customService || "",
-    };
-
-    servicesForm.reset(servicesData, { keepDirtyValues: false });
-  setInitialServices(JSON.parse(JSON.stringify(servicesData)));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepData, isLoading, userProfile]);
 
@@ -584,7 +550,6 @@ export default function SettingsPage() {
     setIsSaving(true);
     try {
       const formData = organizationForm.getValues();
-      const servicesData = servicesForm.getValues();
       const { saveStepDataToServer } = useOnboardingWizardStore.getState();
 
       await Promise.all([
@@ -592,18 +557,12 @@ export default function SettingsPage() {
           organizationType: formData.organizationType,
           customOrganization: formData.customOrganization,
         }),
-        saveStepDataToServer("services", {
-          services: servicesData.services,
-          customService: servicesData.customService,
-        }),
         saveStepDataToServer("teamSize", { teamSize: formData.teamSize }),
       ]);
 
       await loadAllWizardData(true);
       organizationForm.reset(formData, { keepDirtyValues: false });
-      servicesForm.reset(servicesData, { keepDirtyValues: false });
       setInitialOrganization(JSON.parse(JSON.stringify(formData)));
-      setInitialServices(JSON.parse(JSON.stringify(servicesData)));
       toast.success("Organization settings updated successfully!");
     } catch (error) {
       console.error("Error saving organization:", error);
@@ -617,7 +576,6 @@ export default function SettingsPage() {
   const watchedUserSetup = userSetupForm.watch();
   const watchedBranding = brandingForm.watch();
   const watchedOrg = organizationForm.watch();
-  const watchedServices = servicesForm.watch();
 
   // ── Computed dirty state per tab (reactive via watch()) ─────────────────
   const tabDirty = {
@@ -627,11 +585,9 @@ export default function SettingsPage() {
     branding: initialBranding
       ? JSON.stringify(watchedBranding) !== JSON.stringify(initialBranding)
       : false,
-    organization:
-      initialOrganization && initialServices
-        ? JSON.stringify(watchedOrg) !== JSON.stringify(initialOrganization) ||
-          JSON.stringify(watchedServices) !== JSON.stringify(initialServices)
-        : false,
+    organization: initialOrganization
+      ? JSON.stringify(watchedOrg) !== JSON.stringify(initialOrganization)
+      : false,
     team: teamDirty,
   };
 
@@ -695,9 +651,6 @@ export default function SettingsPage() {
       case "organization":
         if (initialOrganization) {
           organizationForm.reset(initialOrganization);
-        }
-        if (initialServices) {
-          servicesForm.reset(initialServices);
         }
         break;
       case "team":
@@ -786,9 +739,6 @@ export default function SettingsPage() {
             customOrganization: stepData.clientProfile?.customOrganization || "",
             teamSize: stepData.teamSize?.teamSize || "",
           });
-          servicesForm.reset(
-            stepData.services || { services: [], customService: "" },
-          );
           break;
         case "team":
           disclaimersRef.current?.reset();
@@ -928,7 +878,6 @@ export default function SettingsPage() {
               isLoading={isLoading}
               isSaving={isSaving}
               organizationForm={organizationForm}
-              servicesForm={servicesForm}
               onSave={noopSave}
             />
           </TabsContent>
