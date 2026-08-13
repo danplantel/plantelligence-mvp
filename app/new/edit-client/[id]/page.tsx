@@ -59,7 +59,16 @@ import { Input } from "@/components/ui/input";
 import { ContactCardLayoutPreviewModal } from "@/components/pages/edit-client/contact-card-layout-preview-modal";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Building2, Globe, FileText, Eye, X } from "lucide-react";
+import {
+  Building2,
+  Globe,
+  FileText,
+  Eye,
+  X,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+} from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { PRIMARY_SERVICE_CATEGORY_OPTIONS } from "@/lib/service-categories";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -929,6 +938,73 @@ export default function EditClientPage() {
   // the [Organization Name] placeholder in the disclaimer text.
   const [userEmail, setUserEmail] = useState<string>("");
   const [userOrgName, setUserOrgName] = useState<string>("");
+  const [userSubdomain, setUserSubdomain] = useState<string>("");
+
+  // Portal URL availability check
+  type PortalUrlAvailability = "idle" | "checking" | "available" | "taken";
+  const [portalUrlAvailability, setPortalUrlAvailability] =
+    useState<PortalUrlAvailability>("idle");
+  const [checkedPortalUrl, setCheckedPortalUrl] = useState<string>("");
+  const portalUrlTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastPortalUrlCheckedRef = useRef<string>("");
+  // Only run the availability check after the user has actually edited the
+  // Portal URL. On initial load the value is this client's own slug (which is
+  // always excluded from the check), so querying it would be a pointless
+  // network request.
+  const portalUrlManuallyEditedRef = useRef(false);
+
+  // Debounced Portal URL availability check
+  useEffect(() => {
+    if (portalUrlTimerRef.current) {
+      clearTimeout(portalUrlTimerRef.current);
+    }
+
+    // Skip the check until the user edits the field — the initial value is
+    // this client's own slug, so checking it is redundant.
+    if (!portalUrlManuallyEditedRef.current) {
+      setPortalUrlAvailability("idle");
+      setCheckedPortalUrl("");
+      lastPortalUrlCheckedRef.current = "";
+      return;
+    }
+
+    const slug = (companyData.portalUrl || "").trim();
+    if (!slug || slug.length < 2) {
+      setPortalUrlAvailability("idle");
+      setCheckedPortalUrl("");
+      lastPortalUrlCheckedRef.current = "";
+      return;
+    }
+
+    if (slug === lastPortalUrlCheckedRef.current) {
+      return;
+    }
+
+    portalUrlTimerRef.current = setTimeout(async () => {
+      lastPortalUrlCheckedRef.current = slug;
+      setPortalUrlAvailability("checking");
+      setCheckedPortalUrl(slug);
+      try {
+        const params = new URLSearchParams({ slug });
+        if (clientId) params.set("clientId", clientId);
+        const res = await fetch(`/api/check-portal-url?${params.toString()}`);
+        if (!res.ok) {
+          setPortalUrlAvailability("available");
+          return;
+        }
+        const data = await res.json();
+        setPortalUrlAvailability(data.available ? "available" : "taken");
+      } catch {
+        setPortalUrlAvailability("available");
+      }
+    }, 600);
+
+    return () => {
+      if (portalUrlTimerRef.current) {
+        clearTimeout(portalUrlTimerRef.current);
+      }
+    };
+  }, [companyData.portalUrl, clientId]);
 
   // Tracks whether the user has edited the disclaimer so the editor Textarea
   // uses the editable state (including an intentionally cleared value) instead
@@ -1126,9 +1202,11 @@ export default function EditClientPage() {
           "";
         const email =
           profile?.email || profile?.advisorEmail || "";
+        const subdomain = profile?.subdomain || "";
         if (!cancelled) {
           setUserOrgName(orgName);
           setUserEmail(email);
+          setUserSubdomain(subdomain);
         }
       } catch {
         // Silent — best-effort fetch for the organization name.
@@ -1400,6 +1478,123 @@ export default function EditClientPage() {
                       />
                     </div>
                   </div>
+                </CardContent>
+              </Card>
+
+              {/* Portal URL */}
+              <Card className="dark:bg-gray-800">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 dark:text-gray-100">
+                    <Globe className="w-5 h-5 text-accent-blue" />
+                    Portal URL <span className="text-red-500">*</span>
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground dark:text-gray-400">
+                    Customize the URL where employees will access your
+                    benefits portal.
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground dark:text-gray-400 bg-muted/50 dark:bg-gray-900/50 rounded-lg px-3 py-2">
+                    <span className="shrink-0">https://</span>
+                    <span className="font-medium text-foreground dark:text-gray-200">
+                      {userSubdomain || "your-org"}
+                    </span>
+                    <span className="shrink-0">.plantel.pro/new/view/</span>
+                    <span className="font-medium text-foreground dark:text-gray-200">
+                      {companyData.portalUrl ||
+                        companyData.companyName
+                          .toLowerCase()
+                          .replace(/[^a-z0-9-]/g, "-")
+                          .replace(/-+/g, "-")
+                          .replace(/^-+|-+$/g, "") ||
+                        "your-plan"}
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <Input
+                      id="portalUrl"
+                      name="portalUrl"
+                      data-field="portalUrl"
+                      value={companyData.portalUrl || (client as any)?.slug || ""}
+                      onChange={(e) => {
+                        portalUrlManuallyEditedRef.current = true;
+                        const value = e.target.value
+                          .toLowerCase()
+                          .replace(/[^a-z0-9-]/g, "-")
+                          .replace(/-+/g, "-")
+                          .slice(0, 30);
+                        handleInputChange("portalUrl", value);
+                      }}
+                      placeholder={companyData.companyName
+                        ? companyData.companyName
+                            .toLowerCase()
+                            .replace(/[^a-z0-9-]/g, "-")
+                            .replace(/-+/g, "-")
+                            .replace(/^-+|-+$/g, "")
+                            .slice(0, 30)
+                        : "your-plan"}
+                      maxLength={30}
+                      required
+                      destructive={
+                        getValidationErrors().portalUrl?.length > 0
+                      }
+                    />
+                    <div
+                      className={`absolute -top-8 right-0 flex items-center gap-2 transition-all duration-500 ease-out ${(companyData.portalUrl || "").length >= 15
+                        ? "opacity-100 translate-y-0"
+                        : "opacity-0 translate-y-2 pointer-events-none"
+                        }`}
+                    >
+                      <span
+                        className={`text-xs transition-colors duration-300 ${(companyData.portalUrl || "").length >= 30
+                          ? "text-red-500 dark:text-red-400"
+                          : "text-muted-foreground dark:text-gray-400"
+                          }`}
+                      >
+                        {(companyData.portalUrl || "").length}/30 characters
+                      </span>
+                      {(companyData.portalUrl || "").length >= 30 && (
+                        <Badge
+                          variant="destructive"
+                          className="text-xs animate-in fade-in slide-in-from-right-2 duration-500"
+                        >
+                          Limit reached
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  {/* Portal URL availability indicator */}
+                  {portalUrlAvailability !== "idle" &&
+                    (companyData.portalUrl || "").trim().length >= 2 && (
+                      <div className="flex items-center gap-1.5 mt-1.5">
+                        {portalUrlAvailability === "checking" ? (
+                          <>
+                            <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground">
+                              Checking availability...
+                            </span>
+                          </>
+                        ) : portalUrlAvailability === "available" ? (
+                          <>
+                            <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                            <span className="text-xs text-green-600 dark:text-green-400">
+                              &ldquo;{checkedPortalUrl}&rdquo; is available
+                            </span>
+                          </>
+                        ) : portalUrlAvailability === "taken" ? (
+                          <>
+                            <XCircle className="h-3.5 w-3.5 text-red-500" />
+                            <span className="text-xs text-red-600 dark:text-red-400">
+                              &ldquo;{checkedPortalUrl}&rdquo; is already taken
+                            </span>
+                          </>
+                        ) : null}
+                      </div>
+                    )}
+                  <p className="text-xs text-muted-foreground dark:text-gray-400">
+                    Only lowercase letters, numbers, and hyphens allowed. Max
+                    30 characters.
+                  </p>
                 </CardContent>
               </Card>
 

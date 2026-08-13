@@ -273,6 +273,7 @@ export function useEditClient() {
           setCompanyData({
             companyName: result.data.companyName || "",
             companyWebsite: result.data.companyWebsite || "",
+            portalUrl: result.data.slug || "",
             companyLogo: result.data.companyLogo ? {
               url: result.data.companyLogo,
               fileName: result.data.logoFileName || "",
@@ -597,6 +598,9 @@ export function useEditClient() {
     if (!companyData.companyLogo) {
       errors.push("Company Logo is required");
     }
+    if (!companyData.portalUrl || !companyData.portalUrl.trim()) {
+      errors.push("Portal URL is required");
+    }
 
     if (!companyData.heroDescription || !companyData.heroDescription.trim()) {
       errors.push("Banner Text is required");
@@ -647,6 +651,10 @@ export function useEditClient() {
     // Company Website is not required - removed validation
     if (!companyData.companyLogo) {
       fieldErrors.companyLogo = ["Company Logo is required"];
+    }
+    // Portal URL validation
+    if (!companyData.portalUrl || !companyData.portalUrl.trim()) {
+      fieldErrors.portalUrl = ["Portal URL is required"];
     }
     // Background Header Image and Square Thumbnail validation removed - no longer required
 

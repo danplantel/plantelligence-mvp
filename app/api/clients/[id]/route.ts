@@ -310,6 +310,7 @@ export async function PUT(
     const {
       companyName,
       companyWebsite,
+      portalUrl,
       companyLogo,
       logoFileName,
       primaryColor,
@@ -450,10 +451,58 @@ export async function PUT(
       }
     }
 
+    // ── Portal URL → slug ────────────────────────────────────────────────
+    // The client's `slug` is the unique portal URL. When the user edits the
+    // Portal URL field, sanitize it and ensure it's not already claimed by
+    // another client (excluding this one). Falls back to the existing slug.
+    let newSlug: string | null = null;
+    if (portalUrl && typeof portalUrl === "string" && portalUrl.trim()) {
+      const sanitized = portalUrl
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9-]/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 30);
+
+      if (sanitized) {
+        const conflict = await prisma.client.findFirst({
+          where: {
+            slug: sanitized,
+            id: { not: existingClient.id },
+          },
+          select: { id: true },
+        });
+        if (!conflict) {
+          newSlug = sanitized;
+        } else {
+          // Collision — append a numeric suffix until unique
+          let suffix = 2;
+          let candidate = `${sanitized}-${suffix}`;
+          while (suffix <= 999) {
+            const exists = await prisma.client.findFirst({
+              where: { slug: candidate, id: { not: existingClient.id } },
+              select: { id: true },
+            });
+            if (!exists) {
+              newSlug = candidate;
+              break;
+            }
+            suffix++;
+            candidate = `${sanitized}-${suffix}`;
+          }
+          if (!newSlug) {
+            newSlug = `${sanitized}-${Date.now().toString(36)}`;
+          }
+        }
+      }
+    }
+
     // Prepare update data
     const updateData: any = {
       companyName: companyName || existingClient.companyName,
       companyWebsite: companyWebsite ?? existingClient.companyWebsite,
+      ...(newSlug !== null && { slug: newSlug }),
       companyLogo: logoUrl ?? existingClient.companyLogo,
       logoFileName: logoFileName ?? existingClient.logoFileName,
       brandColor: brandColor || primaryColor || existingClient.brandColor,
