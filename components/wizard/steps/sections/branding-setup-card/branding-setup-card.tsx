@@ -218,7 +218,7 @@ export function BrandingSetupCard({
       .replace(/[^a-z0-9-]/g, "-")
       .replace(/-+/g, "-")
       .replace(/^-+|-+$/g, "")
-      .slice(0, 20);
+      .slice(0, 30);
   };
 
   // Sanitize subdomain input — only lowercase, numbers, hyphens
@@ -228,7 +228,7 @@ export function BrandingSetupCard({
       .toLowerCase()
       .replace(/[^a-z0-9-]/g, "-")
       .replace(/-+/g, "-")
-      .slice(0, 20);
+      .slice(0, 30);
     onDataChange("subdomain", sanitized);
   };
 
@@ -338,7 +338,7 @@ export function BrandingSetupCard({
             required
             destructive={errorFields.includes("subdomain")}
             data-field="subdomain"
-            maxLength={20}
+            maxLength={30}
           />
           <div
             className={`absolute -top-8 right-0 flex items-center gap-2 transition-all duration-500 ease-out ${subdomain.length >= 15
@@ -347,14 +347,14 @@ export function BrandingSetupCard({
               }`}
           >
             <span
-              className={`text-xs transition-colors duration-300 ${subdomain.length >= 20
+              className={`text-xs transition-colors duration-300 ${subdomain.length >= 30
                 ? "text-red-500 dark:text-red-400"
                 : "text-muted-foreground dark:text-gray-400"
                 }`}
             >
-              {subdomain.length}/20 characters
+              {subdomain.length}/30 characters
             </span>
-            {subdomain.length >= 20 && (
+            {subdomain.length >= 30 && (
               <Badge
                 variant="destructive"
                 className="text-xs animate-in fade-in slide-in-from-right-2 duration-500"
