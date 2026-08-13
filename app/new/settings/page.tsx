@@ -44,7 +44,7 @@ import {
 
 export default function SettingsPage() {
   const { setTitle } = usePageTitleContext();
-  const { stepData, loadAllWizardData } = useOnboardingWizardStore();
+  const { stepData } = useOnboardingWizardStore();
   const [isSaving, setIsSaving] = useState(false);
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(
@@ -203,53 +203,48 @@ export default function SettingsPage() {
           break;
         }
         case "branding": {
-          const loadedData = await loadAllWizardData(true);
-          const branding = loadedData?.branding ?? useOnboardingWizardStore.getState().stepData?.branding ?? {};
-
-          // Fetch profile from /api/profile if SWR hasn't loaded it yet.
-          // fetchProfileOnce coalesces with the SWR request (and any other
-          // caller) onto a single in-flight request.
+          // The branding tab reads everything from /api/profile — the route
+          // already embeds wizardSessions[0].branding, so loading the full
+          // 10-step wizard payload (new-session + every step endpoint) is not
+          // needed here. The shared wizard store is only a fallback.
           let profileFallback: any = cachedProfile ?? userProfile;
           if (!profileFallback) {
             profileFallback = await fetchProfileOnce();
             if (profileFallback) setUserProfile(profileFallback);
           }
-          const completedBranding = profileFallback?.wizardSessions?.[0]?.branding;
+
+          const branding =
+            profileFallback?.wizardSessions?.[0]?.branding ??
+            useOnboardingWizardStore.getState().stepData?.branding ??
+            {};
 
           const brandingData = {
             organizationName:
               branding.organizationName ||
-              completedBranding?.organizationName ||
               profileFallback?.organizationName ||
               profileFallback?.company ||
               "",
             website:
-              branding.website || completedBranding?.website || profileFallback?.website || "",
+              branding.website || profileFallback?.website || "",
             logo:
-              branding.logo || completedBranding?.logo || profileFallback?.advisorLogo || "",
-            logoFileName:
-              branding.logoFileName || completedBranding?.logoFileName || "",
+              branding.logo || profileFallback?.advisorLogo || "",
+            logoFileName: branding.logoFileName || "",
             brandColor:
-              branding.brandColor || completedBranding?.brandColor || profileFallback?.brandColor || "#1F3A60",
+              branding.brandColor || profileFallback?.brandColor || "#1F3A60",
             primaryColor:
-              branding.primaryColor || completedBranding?.primaryColor || profileFallback?.primaryColor || "",
+              branding.primaryColor || profileFallback?.primaryColor || "",
             secondaryColor:
-              branding.secondaryColor || completedBranding?.secondaryColor || profileFallback?.secondaryColor || "",
-            missionStatement:
-              branding.missionStatement || completedBranding?.missionStatement || "",
+              branding.secondaryColor || profileFallback?.secondaryColor || "",
+            missionStatement: branding.missionStatement || "",
             backgroundImage:
               branding.backgroundImage ||
-              completedBranding?.backgroundImage ||
               profileFallback?.advisorBackgroundImage ||
               profileFallback?.backgroundImage ||
               "",
-            backgroundFileName:
-              branding.backgroundFileName || completedBranding?.backgroundFileName || "",
-            aiAvatar: branding.aiAvatar || completedBranding?.aiAvatar || "",
-            avatarFileName:
-              branding.avatarFileName || completedBranding?.avatarFileName || "",
-            subdomain:
-              branding.subdomain || completedBranding?.subdomain || profileFallback?.subdomain || "",
+            backgroundFileName: branding.backgroundFileName || "",
+            aiAvatar: branding.aiAvatar || "",
+            avatarFileName: branding.avatarFileName || "",
+            subdomain: branding.subdomain || profileFallback?.subdomain || "",
             isColorPickerOpen: false,
             isGenerating: false,
           };
@@ -260,15 +255,39 @@ export default function SettingsPage() {
           if (profileFallback) setUserProfile(profileFallback);
           break;
         }
-        case "organization":
-          await loadAllWizardData();
-          if (cachedProfile) {
-            setUserProfile(cachedProfile);
-          } else {
-            const profile = await fetchProfileOnce();
-            if (profile) setUserProfile(profile);
+        case "organization": {
+          // Same as the other tabs: read wizard step data from /api/profile
+          // (wizardSessions[0].clientProfile / .teamSize) instead of loading
+          // the full 10-step wizard payload.
+          let profileFallback: any = cachedProfile ?? userProfile;
+          if (!profileFallback) {
+            profileFallback = await fetchProfileOnce();
+            if (profileFallback) setUserProfile(profileFallback);
           }
+
+          const completedClientProfile =
+            profileFallback?.wizardSessions?.[0]?.clientProfile;
+          const completedTeamSize =
+            profileFallback?.wizardSessions?.[0]?.teamSize;
+
+          const orgData = {
+            organizationType:
+              completedClientProfile?.organizationType ||
+              profileFallback?.company ||
+              "",
+            customOrganization:
+              completedClientProfile?.customOrganization ||
+              profileFallback?.customOrganization ||
+              "",
+            teamSize:
+              completedTeamSize?.teamSize ||
+              profileFallback?.teamSize ||
+              "",
+          };
+          organizationForm.reset(orgData, { keepDirtyValues: false });
+          setInitialOrganization(JSON.parse(JSON.stringify(orgData)));
           break;
+        }
         case "team":
           break;
       }
@@ -471,7 +490,6 @@ export default function SettingsPage() {
       const { saveStepDataToServer } = useOnboardingWizardStore.getState();
       const ok = await saveStepDataToServer("userSetup", data);
       if (!ok) throw new Error("Failed to save user setup");
-      await loadAllWizardData(true);
       userSetupForm.reset(data, { keepDirtyValues: false });
       setInitialUserSetup(JSON.parse(JSON.stringify(data)));
       toast.success("User profile updated successfully!");
@@ -529,7 +547,6 @@ export default function SettingsPage() {
         console.error("Error updating user profile:", profileError);
       }
 
-      await loadAllWizardData(true);
       brandingForm.reset(brandingPayload, { keepDirtyValues: false });
       setInitialBranding(JSON.parse(JSON.stringify(brandingPayload)));
       toast.success("Branding settings updated successfully!");
@@ -555,7 +572,6 @@ export default function SettingsPage() {
         saveStepDataToServer("teamSize", { teamSize: formData.teamSize }),
       ]);
 
-      await loadAllWizardData(true);
       organizationForm.reset(formData, { keepDirtyValues: false });
       setInitialOrganization(JSON.parse(JSON.stringify(formData)));
       toast.success("Organization settings updated successfully!");
