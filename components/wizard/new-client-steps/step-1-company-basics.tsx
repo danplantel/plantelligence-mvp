@@ -762,7 +762,7 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                             .replace(/[^a-z0-9-]/g, "-")
                             .replace(/-+/g, "-")
                             .replace(/^-+|-+$/g, "")
-                            .slice(0, 20);
+                            .slice(0, 30);
                           if (slug) {
                             updateField("portalUrl", slug);
                           }
@@ -902,7 +902,7 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                       .toLowerCase()
                       .replace(/[^a-z0-9-]/g, "-")
                       .replace(/-+/g, "-")
-                      .slice(0, 20);
+                      .slice(0, 30);
                     updateField("portalUrl", value);
                     if (touchedFields["portalUrl"]) {
                       setFieldError("portalUrl", validatePortalUrl(value));
@@ -921,9 +921,9 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                         .replace(/[^a-z0-9-]/g, "-")
                         .replace(/-+/g, "-")
                         .replace(/^-+|-+$/g, "")
-                        .slice(0, 20)
+                        .slice(0, 30)
                     : "your-plan"}
-                  maxLength={20}
+                  maxLength={30}
                   required
                   destructive={isFieldInvalid("portalUrl")}
                 />
@@ -939,14 +939,14 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                     }`}
                 >
                   <span
-                    className={`text-xs transition-colors duration-300 ${(companyData.portalUrl || "").length >= 20
+                    className={`text-xs transition-colors duration-300 ${(companyData.portalUrl || "").length >= 30
                       ? "text-red-500 dark:text-red-400"
                       : "text-muted-foreground dark:text-gray-400"
                       }`}
                   >
-                    {(companyData.portalUrl || "").length}/20 characters
+                    {(companyData.portalUrl || "").length}/30 characters
                   </span>
-                  {(companyData.portalUrl || "").length >= 20 && (
+                  {(companyData.portalUrl || "").length >= 30 && (
                     <Badge
                       variant="destructive"
                       className="text-xs animate-in fade-in slide-in-from-right-2 duration-500"
@@ -991,7 +991,7 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                   </div>
                 )}
               <p className="text-xs text-muted-foreground dark:text-gray-400">
-                Only lowercase letters, numbers, and hyphens allowed. Max 20 characters.
+                Only lowercase letters, numbers, and hyphens allowed. Max 30 characters.
               </p>
             </CardContent>
           </Card>

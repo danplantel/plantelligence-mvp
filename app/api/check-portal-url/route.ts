@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Missing or invalid slug parameter' }, { status: 400 });
   }
 
-  const sanitized = slug.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '').slice(0, 20);
+  const sanitized = slug.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30);
   if (!sanitized || sanitized.length === 0) {
     return NextResponse.json({ error: 'Slug contains no valid characters' }, { status: 400 });
   }
