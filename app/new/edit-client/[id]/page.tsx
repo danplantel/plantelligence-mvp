@@ -46,14 +46,23 @@ import { useEditClient } from "@/hooks/useEditClient";
 // Import components from new-client-steps
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { BrandImagesSection } from "@/components/wizard/new-client-steps/sections/brand-images-section";
-import { DocumentsUploadSection } from "@/components/wizard/new-client-steps/sections/documents-upload-section";
+import { ComplianceDocumentsUpload } from "@/components/pages/documents/components/compliance-documents-upload";
+import { DocumentPreviewTab } from "@/components/pages/documents/tabs/document-preview-tab";
+import { DocumentListTab } from "@/components/pages/documents/tabs/document-list-tab";
+import { DocumentPreviewModal } from "@/components/pages/documents/components/document-preview-modal";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { toast } from "sonner";
+import { deleteFromR2 } from "@/lib/upload-to-r2";
+import type {
+  Document as DocumentsModuleDocument,
+  SortColumn,
+  SortDirection,
+} from "@/components/pages/documents/types";
 import { AddMoreContactsModal } from "@/components/wizard/new-client-steps/step-3-key-contacts/components/add-more-contacts-modal";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { Headshot } from "@/components/ui/headshot";
-import {
-  RetirementDocumentsAccordion,
-  type RetirementDocumentItem,
-} from "@/components/pages/client-portal/sections/retirement-documents-accordion";
+import type { RetirementDocumentItem } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
 import { PlanMeetingsSection } from "@/components/pages/edit-client/plan-meetings-section";
 import { Input } from "@/components/ui/input";
 import { ContactCardLayoutPreviewModal } from "@/components/pages/edit-client/contact-card-layout-preview-modal";
@@ -62,7 +71,6 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Building2,
   Globe,
-  FileText,
   Eye,
   X,
   Loader2,
@@ -84,6 +92,7 @@ import type {
   KeyContact,
   ComplianceDocumentsData,
   BenefitsCategory,
+  Document,
 } from "@/types/new-client-wizard";
 import { EditPlanPreviewSection } from "@/components/wizard/new-client-steps/sections/edit-plan-preview-section";
 import { BrandColorsSection } from "@/components/wizard/new-client-steps/sections/brand-colors-section";
@@ -564,6 +573,8 @@ function EditKeyContactsSection({
 }
 
 // Edit Compliance Documents Section (no accordion wrapper - controlled by parent tab)
+// Mirrors the wizard Step 4 compliance documents UI (Upload / List / Preview tabs),
+// wired to the edit-client's documentsData + onDocumentsChange.
 function EditComplianceDocumentsSection({
   documentsData,
   companyData,
@@ -577,184 +588,625 @@ function EditComplianceDocumentsSection({
   validationErrors?: Record<string, string[]>;
   clientId?: string;
 }) {
-  const [editingDocument, setEditingDocument] = useState<any>(null);
-  const editSectionRef = useState<HTMLDivElement | null>(null)[0];
-  const [activeLanguage, setActiveLanguage] = useState<"EN" | "ES">("EN");
-
   const retirementPlanDocuments = documentsData.retirementPlanDocuments || [];
   const primaryColor = companyData.primaryColor || "#002B5B";
   const secondaryColor = companyData.secondaryColor || "#E6C47A";
+  const companyName = companyData.companyName || "Plan";
 
-  const handleEditPreviewDoc = (docItem: RetirementDocumentItem) => {
-    const docId = docItem.meta?.id || docItem.id;
-    const doc = retirementPlanDocuments.find((d) => d.id === docId);
-    if (doc) {
-      setEditingDocument(doc);
-    }
-  };
+  // Latest documents ref — always apply edits to the freshest state (avoids stale
+  // closures when saving from the Preview tab after a tab switch).
+  const retirementPlanDocumentsRef = useRef(retirementPlanDocuments);
+  retirementPlanDocumentsRef.current = retirementPlanDocuments;
 
-  const handleSaveEditedDocument = (updatedDoc: any) => {
-    if (!editingDocument) return;
-    const updatedDocs = retirementPlanDocuments.map((doc) =>
-      doc.id === updatedDoc.id ? updatedDoc : doc,
+  /** Remove duplicate documents by id (keep first occurrence). */
+  const dedupeDocumentsById = (docs: Document[]): Document[] =>
+    docs.filter(
+      (doc, index, self) => index === self.findIndex((d) => d.id === doc.id),
     );
-    onDocumentsChange("retirementPlanDocuments", updatedDocs);
-    setEditingDocument(null);
-  };
 
-  const handleCancelEdit = () => {
-    setEditingDocument(null);
-  };
+  // Track whether documents are currently being uploaded (disable tab switching)
+  const [isUploading, setIsUploading] = useState(false);
 
-  const guessLanguageFromDocument = (doc: any): "EN" | "ES" => {
-    const source = `${doc.name || doc.title || doc.fileName || ""} ${doc.shortDescription || doc.description || ""
-      }`.toLowerCase();
-    if (
-      source.includes("[es]") ||
-      source.includes("(es)") ||
-      source.includes(" español") ||
-      source.includes("spanish")
-    ) {
-      return "ES";
+  // Pending document deletion (awaiting confirmation dialog)
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
+
+  // Store selected language to persist during re-renders (controlled state)
+  const [selectedLanguage, setSelectedLanguage] = useState<"EN" | "ES">("EN");
+
+  // Tabs state — "upload" is the first (default) tab
+  const [activeTab, setActiveTab] = useState("upload");
+  const [sortColumn, setSortColumn] = useState<SortColumn>("uploadedAt");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewDocument, setPreviewDocument] = useState<{
+    id: string;
+    title: string;
+    blobUrl?: string;
+  } | null>(null);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+  // Language state for Document Preview
+  const [previewLanguage, setPreviewLanguage] = useState<"EN" | "ES">("EN");
+  const [activeCategory, setActiveCategory] =
+    useState<BenefitsCategory>("Retirement");
+
+  // Preview tab: only benefit categories (no "All Docs" - hub preview shows by category)
+  const benefitCategories: BenefitsCategory[] = [
+    "Retirement",
+    "Group Life",
+    "Group Health",
+    "Other Benefits",
+  ];
+
+  // Get available languages from documents
+  const availableLanguages = useMemo<("EN" | "ES")[]>(() => {
+    const languages = new Set<"EN" | "ES">();
+    retirementPlanDocuments.forEach((doc) => {
+      const lang = (doc.language as "EN" | "ES") || "EN";
+      languages.add(lang);
+    });
+    return Array.from(languages).sort((a, b) => {
+      // EN first, then ES (preview toggle order)
+      if (a === "EN" && b === "ES") return -1;
+      if (a === "ES" && b === "EN") return 1;
+      return 0;
+    });
+  }, [retirementPlanDocuments]);
+
+  // Sync previewLanguage with available languages
+  // If current language is not available, switch to first available language
+  useEffect(() => {
+    if (availableLanguages.length > 0) {
+      // If current previewLanguage is not in availableLanguages, switch to first available
+      if (!availableLanguages.includes(previewLanguage)) {
+        setPreviewLanguage(availableLanguages[0]);
+      }
     }
-    return "EN";
-  };
+  }, [availableLanguages, previewLanguage]);
 
-  const documentsPreview = useMemo(() => {
-    const preview = retirementPlanDocuments.map((doc) => {
-      const originalLanguage = (doc as any).language;
-      const language =
-        typeof originalLanguage === "string" &&
-          (originalLanguage === "ES" || originalLanguage === "EN")
-          ? (originalLanguage as "EN" | "ES")
-          : guessLanguageFromDocument(doc);
+  // Convert documents to RetirementDocumentItem format for DocumentPreviewTab
+  const retirementDocs = useMemo<RetirementDocumentItem[]>(() => {
+    const mappedDocs = retirementPlanDocuments.map((doc) => {
+      const isDatabaseId =
+        typeof doc.id === "string" &&
+        /^[0-9a-fA-F]{24}$/.test(doc.id) &&
+        !doc.id.startsWith("doc-") &&
+        !doc.id.startsWith("plan-doc-") &&
+        !doc.id.startsWith("optional-doc-") &&
+        !doc.id.startsWith("temp-");
+
+      let href: string;
+      if (isDatabaseId) {
+        href = `/api/documents/${doc.id}/view`;
+      } else if ((doc as any).storageKey) {
+        href = `/api/r2/signed-url?key=${encodeURIComponent((doc as any).storageKey)}&redirect=1`;
+      } else {
+        href = doc.file || "";
+      }
 
       return {
         id: doc.id,
         title: doc.name,
-        description: doc.shortDescription || "",
-        href: doc.file,
-        language: language,
-        showQrCode: false,
+        description: doc.shortDescription || doc.name,
+        href: href,
+        language: (doc.language as "EN" | "ES") || "EN",
+        category: doc.category,
+        categorySuggested: doc.categorySuggested,
+        categoryConfidence: doc.categoryConfidence,
         meta: {
           id: doc.id,
-          fileName: doc.originalFileName || doc.name,
-          language: language,
+          type: "Document",
+          uploadedAt: (doc as any).uploadedAt || new Date().toISOString(),
+        },
+        onDelete: () => {
+          handleDeleteClick(doc.id, doc.name);
+        },
+        onDownload: () => {
+          handleDownload(doc.id, doc.originalFileName || doc.name);
         },
       };
     });
 
-    return preview;
-  }, [retirementPlanDocuments]);
+    // Filter by current language (single language per preview; order EN before ES when both exist in data)
+    const filteredByLang = mappedDocs
+      .filter((doc) => doc.language === previewLanguage)
+      .sort((a, b) => {
+        if (a.language === "EN" && b.language === "ES") return -1;
+        if (a.language === "ES" && b.language === "EN") return 1;
+        return 0;
+      });
 
-  // Auto-switch to ES if all documents are ES and current tab is EN
+    // Filter by active category (Preview mimics hub - no "All Docs")
+    return filteredByLang.filter((doc) => {
+      // Find the original doc to check its category
+      const originalDoc = retirementPlanDocuments.find((d) => d.id === doc.id);
+      return originalDoc?.category === activeCategory;
+    });
+  }, [retirementPlanDocuments, previewLanguage, activeCategory]);
+
+  // Preview: show all benefit categories (even if empty) so the filter bar is always visible
+  const previewCategories = useMemo<BenefitsCategory[]>(() => {
+    return benefitCategories;
+  }, []);
+
+  // When switching to Preview tab: default to Retirement or first category with docs
+  // Also reset if current category no longer has docs
   useEffect(() => {
-    if (
-      documentsPreview.length > 0 &&
-      activeLanguage === "EN" &&
-      documentsPreview.every((doc) => doc.language === "ES")
-    ) {
-      setActiveLanguage("ES");
+    if (activeTab === "preview" && previewCategories.length > 0) {
+      const defaultCat = previewCategories.includes("Retirement")
+        ? "Retirement"
+        : previewCategories[0];
+      setActiveCategory((prev) =>
+        previewCategories.includes(prev) ? prev : defaultCat,
+      );
     }
-  }, [documentsPreview, activeLanguage]);
+  }, [activeTab, previewCategories]);
+
+  // Convert documents to DocumentsModuleDocument format for DocumentListTab
+  const documentsForList = useMemo<DocumentsModuleDocument[]>(() => {
+    return retirementPlanDocuments.map((doc) => ({
+      id: doc.id,
+      title: doc.name,
+      fileName: doc.originalFileName || doc.name,
+      type: "Document",
+      uploadedAt: (doc as any).uploadedAt || new Date().toISOString(),
+      client: {
+        id: "current-plan",
+        companyName: companyName,
+      },
+      category: doc.category,
+      categorySuggested: doc.categorySuggested,
+      categoryConfidence: doc.categoryConfidence,
+      expirationDate: doc.expirationDate,
+    }));
+  }, [retirementPlanDocuments, companyName]);
+
+  // Sort documents for list view
+  const sortedDocuments = useMemo(() => {
+    return [...documentsForList].sort((a, b) => {
+      let aValue: any = a[sortColumn];
+      let bValue: any = b[sortColumn];
+
+      if (sortColumn === "uploadedAt" || sortColumn === "expirationDate") {
+        aValue = aValue ? new Date(aValue).getTime() : 0;
+        bValue = bValue ? new Date(bValue).getTime() : 0;
+      } else if (sortColumn === "client") {
+        aValue = a.client.companyName?.toLowerCase() || "";
+        bValue = b.client.companyName?.toLowerCase() || "";
+      } else {
+        aValue = aValue?.toString().toLowerCase() || "";
+        bValue = bValue?.toString().toLowerCase() || "";
+      }
+
+      if (sortDirection === "asc") {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
+  }, [documentsForList, sortColumn, sortDirection]);
+
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+  };
+
+  // Open the "Are you sure?" confirmation dialog before deleting.
+  const handleDeleteClick = (documentId: string, documentTitle: string) => {
+    setDeleteConfirm({ id: documentId, title: documentTitle });
+  };
+
+  // Perform the actual deletion after the user confirms.
+  const confirmDelete = async () => {
+    const pending = deleteConfirm;
+    if (!pending) return;
+    const currentDocs = retirementPlanDocumentsRef.current;
+    const doc = currentDocs.find((d) => d.id === pending.id);
+    if (doc?.storageKey) {
+      await deleteFromR2(doc.storageKey);
+    }
+    onDocumentsChange(
+      "retirementPlanDocuments",
+      currentDocs.filter((d) => d.id !== pending.id),
+    );
+    toast.success(`"${pending.title}" deleted`);
+  };
+
+  const handleSaveEdit = async (
+    docId: string,
+    title: string,
+    description: string,
+    file?: File,
+    category?: BenefitsCategory,
+  ) => {
+    // If file is provided, convert it to base64
+    let fileData: string | undefined;
+    let originalFileName: string | undefined;
+
+    if (file) {
+      try {
+        const reader = new FileReader();
+        fileData = await new Promise<string>((resolve, reject) => {
+          reader.onload = (e) => {
+            const result = e.target?.result as string;
+            resolve(result);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        originalFileName = file.name;
+      } catch (error) {
+        console.error("Error reading file:", error);
+        toast.error("Failed to read file");
+        return;
+      }
+    }
+
+    // Use ref so we always apply to the latest state (avoids stale closure when
+    // saving from the Preview tab after a tab switch)
+    const currentDocs = retirementPlanDocumentsRef.current;
+    const updatedDocuments = currentDocs.map((doc) =>
+      doc.id === docId
+        ? {
+            ...doc,
+            name: title,
+            shortDescription: description,
+            ...(fileData && { file: fileData }),
+            ...(originalFileName && { originalFileName: originalFileName }),
+            ...(category !== undefined && { category: category as BenefitsCategory }),
+          }
+        : doc,
+    );
+
+    onDocumentsChange("retirementPlanDocuments", updatedDocuments);
+    toast.success("Document updated successfully");
+    refreshDocuments();
+  };
+
+  const handleDownload = async (documentId: string, fileName: string) => {
+    const doc = retirementPlanDocumentsRef.current.find(
+      (d) => d.id === documentId,
+    );
+    if (!doc || !doc.file) {
+      toast.error("Document not found or file is missing");
+      return;
+    }
+
+    try {
+      if (doc.file.startsWith("data:")) {
+        const response = await fetch(doc.file);
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download =
+          fileName || doc.originalFileName || doc.name || "document";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      } else if (doc.file.startsWith("/api/")) {
+        const response = await fetch(doc.file);
+        if (!response.ok) {
+          toast.error("Failed to download document");
+          return;
+        }
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download =
+          fileName || doc.originalFileName || doc.name || "document";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      } else {
+        const link = document.createElement("a");
+        link.href = doc.file;
+        link.download =
+          fileName || doc.originalFileName || doc.name || "document";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    } catch (error) {
+      console.error("Error downloading document:", error);
+      toast.error("An error occurred while downloading the document");
+    }
+  };
+
+  const handlePreview = async (
+    documentIdOrDoc: string | RetirementDocumentItem,
+    title?: string,
+  ) => {
+    let documentId: string;
+    let documentTitle: string;
+
+    if (typeof documentIdOrDoc === "string") {
+      documentId = documentIdOrDoc;
+      documentTitle = title || "Document";
+    } else {
+      documentId = documentIdOrDoc.meta?.id || documentIdOrDoc.id;
+      documentTitle = documentIdOrDoc.title;
+    }
+
+    setIsLoadingPreview(true);
+    setPreviewOpen(true);
+
+    try {
+      const doc = retirementPlanDocumentsRef.current.find(
+        (d) => d.id === documentId,
+      );
+      if (!doc || !doc.file) {
+        toast.error("Document not found");
+        setPreviewOpen(false);
+        return;
+      }
+
+      let blob: Blob;
+      if (doc.file.startsWith("data:")) {
+        const response = await fetch(doc.file);
+        blob = await response.blob();
+      } else if (doc.file.startsWith("/api/")) {
+        const response = await fetch(doc.file);
+        if (!response.ok) {
+          toast.error("Failed to load document preview");
+          setPreviewOpen(false);
+          return;
+        }
+        blob = await response.blob();
+      } else {
+        const response = await fetch(doc.file);
+        blob = await response.blob();
+      }
+
+      const blobUrl = URL.createObjectURL(blob);
+      setPreviewDocument({ id: documentId, title: documentTitle, blobUrl });
+    } catch (error) {
+      console.error("Preview error:", error);
+      toast.error("Failed to load document preview");
+      setPreviewOpen(false);
+    } finally {
+      setIsLoadingPreview(false);
+    }
+  };
+
+  const getDocumentType = (doc: DocumentsModuleDocument) => {
+    return doc.type || "Document";
+  };
+
+  const refreshDocuments = () => {
+    // Force re-render by updating state
+    onDocumentsChange("retirementPlanDocuments", [
+      ...retirementPlanDocumentsRef.current,
+    ]);
+  };
+
+  const handleEditFromList = (documentId: string, title: string) => {
+    // Switch to preview tab and trigger edit for the document
+    setActiveTab("preview");
+    // The edit will be triggered automatically when the document is rendered in preview mode
+    setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent("editDocument", {
+          detail: { documentId },
+        }),
+      );
+    }, 100);
+  };
 
   return (
-    <div className="space-y-4">
-      {editingDocument && (
-        <div ref={editSectionRef as any}>
-          <DocumentsUploadSection
-            documents={retirementPlanDocuments}
-            onDocumentsChange={(docs) =>
-              onDocumentsChange("retirementPlanDocuments", docs)
-            }
-            title="Edit Plan Document"
-            description="Update the document name, description, or replace the file"
-            editingDocument={editingDocument}
-            onSaveEdit={handleSaveEditedDocument}
-            onCancelEdit={handleCancelEdit}
+    <div className="space-y-6 max-w-4xl mx-auto">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="upload">Upload</TabsTrigger>
+          <TabsTrigger value="list" disabled={isUploading}>List</TabsTrigger>
+          <TabsTrigger value="preview" disabled={isUploading}>Preview</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="upload" className="mt-4">
+          <ComplianceDocumentsUpload
             clientId={clientId}
+            initialDocuments={retirementPlanDocuments}
+            onDocumentsChange={(docs) => {
+              const deduped = dedupeDocumentsById(docs);
+              if (deduped.length > retirementPlanDocuments.length) {
+                setActiveTab("list");
+              }
+              onDocumentsChange("retirementPlanDocuments", deduped);
+            }}
+            onUploadingChange={setIsUploading}
+            brandColor={primaryColor}
+            accentColor={secondaryColor}
+            showPreview={false}
+            showInfoCard={true}
+            language={selectedLanguage}
+            onLanguageChange={setSelectedLanguage}
+            compact={true}
           />
-        </div>
-      )}
+        </TabsContent>
 
-      {!editingDocument && (
-        <DocumentsUploadSection
-          documents={retirementPlanDocuments}
-          onDocumentsChange={(docs) =>
-            onDocumentsChange("retirementPlanDocuments", docs)
-          }
-          title="Upload Plan Documents"
-          description="Add as many plan documents or forms as you like. Employees will see them in the Benefits Hub."
-          clientId={clientId}
-        />
-      )}
+        <TabsContent value="list" className="mt-6">
+          <Alert className="mb-6 border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30">
+            <AlertTitle className="text-sm font-semibold text-blue-800 dark:text-blue-300">
+              Plan Documents Overview
+            </AlertTitle>
+            <AlertDescription className="text-xs text-blue-700 dark:text-blue-400">
+              Review all uploaded plan documents, forms, and notices below. Use the column headers to sort, and expand rows to preview or edit. Documents with missing categories will need to be assigned before proceeding.
+            </AlertDescription>
+          </Alert>
+          <DocumentListTab
+            selectedPlan="current-plan"
+            isLoading={false}
+            documents={sortedDocuments}
+            sortColumn={sortColumn}
+            sortDirection={sortDirection}
+            onSort={handleSort}
+            onPreview={(id, title) => handleEditFromList(id, title)}
+            getDocumentType={getDocumentType}
+            onDelete={(id, name) => handleDeleteClick(id, name)}
+            onDownload={(id, name) => handleDownload(id, name)}
+            compact
+            hideUploadedTime
+            showActionTooltips
+            showDirectEditDelete
+            onEdit={(id, title, updates) => {
+              if (updates?.category !== undefined) {
+                const docIndex = retirementPlanDocumentsRef.current.findIndex(
+                  (d) => d.id === id,
+                );
+                if (docIndex !== -1) {
+                  const newDocs = [...retirementPlanDocumentsRef.current];
+                  newDocs[docIndex] = {
+                    ...newDocs[docIndex],
+                    category: updates.category as BenefitsCategory,
+                  };
+                  onDocumentsChange("retirementPlanDocuments", newDocs);
+                  const isPersistedMongoId =
+                    typeof id === "string" && /^[0-9a-fA-F]{24}$/.test(id);
+                  if (isPersistedMongoId && clientId) {
+                    void fetch(`/api/documents/${id}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ category: updates.category }),
+                    }).then(async (res) => {
+                      if (!res.ok) {
+                        const err = await res.json().catch(() => ({}));
+                        console.error("Failed to persist document category:", err);
+                        toast.error("Could not save category to server");
+                      }
+                    });
+                  }
+                  toast.success("Category updated");
+                }
+              } else {
+                handleEditFromList(id, title);
+              }
+            }}
+            availableCategories={[
+              "Retirement",
+              "Group Health",
+              "Group Life",
+              "Other Benefits",
+            ]}
+          />
+        </TabsContent>
 
-      {retirementPlanDocuments.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="w-5 h-5 text-accent-blue" />
-              Plan Documents Preview
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Language Switcher */}
-            {documentsPreview.filter((doc) => doc.language === "EN").length > 0 &&
-              documentsPreview.filter((doc) => doc.language === "ES").length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {(["EN", "ES"] as const).map((lang) => {
-                    const hasDocs = documentsPreview.some((doc) => doc.language === lang);
-                    if (!hasDocs) return null;
-                    const isActive = activeLanguage === lang;
-                    return (
-                      <button
-                        key={lang}
-                        type="button"
-                        onClick={() => setActiveLanguage(lang)}
-                        className={`rounded-full px-5 py-2 text-[16px] leading-tight font-red-hat font-semibold border transition-colors ${
-                          isActive
-                            ? "bg-[#002B5B] text-white border-[#002B5B]"
-                            : "bg-white text-[#002B5B] border-[#D1D5DB] hover:bg-gray-50 dark:bg-gray-700 dark:text-accent-blue-light dark:border-gray-600 dark:hover:bg-gray-600"
-                        }`}
-                      >
-                        {lang === "EN" ? "ENGLISH" : "ESPAÑOL"}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
+        <TabsContent value="preview" className="mt-6 pb-24">
+          {/* Language Switcher */}
+          {availableLanguages.length > 1 && (
+            <div className="mb-6 flex flex-wrap gap-2">
+              {availableLanguages.map((lang) => {
+                const isActive = previewLanguage === lang;
+                return (
+                  <button
+                    key={lang}
+                    type="button"
+                    onClick={() => {
+                      setPreviewLanguage(lang);
+                    }}
+                    className={`rounded-full px-5 py-2 text-[16px] leading-tight font-red-hat font-semibold border transition-colors ${
+                      isActive
+                        ? "bg-[#002B5B] text-white border-[#002B5B]"
+                        : "bg-white text-[#002B5B] border-[#D1D5DB] hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600"
+                    }`}
+                    style={
+                      isActive
+                        ? {
+                            backgroundColor: primaryColor,
+                            borderColor: primaryColor,
+                          }
+                        : {}
+                    }
+                  >
+                    {lang === "EN" ? "ENGLISH" : "ESPAÑOL"}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
-            <RetirementDocumentsAccordion
-              mode="editable"
-              retirementDocs={documentsPreview}
+          {/* Category Filter Tabs - only benefit categories (no All Docs as category; Preview mimics hub) */}
+          <div className="mb-8 flex flex-wrap gap-2 border-b pb-4">
+            {previewCategories.map((cat) => {
+              const isActive = activeCategory === cat;
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setActiveCategory(cat)}
+                  className={`px-4 py-2 text-[14px] font-semibold transition-all relative ${
+                    isActive
+                      ? "text-accent-blue dark:text-accent-blue"
+                      : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                  }`}
+                >
+                  {cat === "Other Benefits" ? "Other" : cat}
+                  {isActive && (
+                    <div className="absolute bottom-[-17px] left-0 right-0 h-[3px] rounded-t-full bg-accent-blue" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {retirementDocs.length === 0 ? (
+            <div className="flex items-center justify-center py-20">
+              <p className="text-gray-600 text-lg dark:text-gray-400">
+                No documents found.
+              </p>
+            </div>
+          ) : (
+            <DocumentPreviewTab
+              selectedPlan="current-plan"
+              isLoading={false}
+              documents={retirementDocs}
+              onDelete={handleDeleteClick}
+              onDownload={handleDownload}
+              onDocumentsChange={refreshDocuments}
+              showWizardNextHint={true}
+              onSaveEdit={handleSaveEdit}
               brandColor={primaryColor}
               accentColor={secondaryColor}
-              language={activeLanguage}
-              onLanguageChange={setActiveLanguage}
-              onEdit={handleEditPreviewDoc}
-              hideHeader
-              showMetadata
-              onOrderChange={(reorderedDocs) => {
-                const orderMap = new Map<string, number>();
-                reorderedDocs.forEach((doc, index) => {
-                  const docId = doc.meta?.id || doc.id;
-                  orderMap.set(docId, index);
-                });
-
-                const sortedDocs = [...retirementPlanDocuments].sort(
-                  (a, b) => {
-                    const orderA = orderMap.get(a.id) ?? Infinity;
-                    const orderB = orderMap.get(b.id) ?? Infinity;
-                    return orderA - orderB;
-                  },
-                );
-
-                onDocumentsChange("retirementPlanDocuments", sortedDocs);
-              }}
             />
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </TabsContent>
+      </Tabs>
+
+      {/* Document Preview Modal */}
+      <DocumentPreviewModal
+        isOpen={previewOpen}
+        onClose={() => {
+          setPreviewOpen(false);
+          setPreviewDocument(null);
+        }}
+        document={previewDocument}
+        isLoading={isLoadingPreview}
+      />
+
+      {/* Delete confirmation dialog */}
+      <ConfirmDialog
+        open={!!deleteConfirm}
+        onOpenChange={(open) => {
+          if (!open) setDeleteConfirm(null);
+        }}
+        onConfirm={confirmDelete}
+        title="Delete document?"
+        description={
+          deleteConfirm
+            ? `Are you sure you want to delete "${deleteConfirm.title}"? This action cannot be undone.`
+            : ""
+        }
+        confirmText="Delete"
+        variant="destructive"
+      />
     </div>
   );
 }
@@ -1830,20 +2282,13 @@ export default function EditClientPage() {
 
             {/* ── Tab 4: Documents ── */}
             <TabsContent value="documents" className="space-y-6 mt-0">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-xl">Compliance Documents</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <EditComplianceDocumentsSection
-                    documentsData={documentsData}
-                    companyData={companyData}
-                    onDocumentsChange={handleDocumentsChange}
-                    validationErrors={getValidationErrors()}
-                    clientId={clientId}
-                  />
-                </CardContent>
-              </Card>
+              <EditComplianceDocumentsSection
+                documentsData={documentsData}
+                companyData={companyData}
+                onDocumentsChange={handleDocumentsChange}
+                validationErrors={getValidationErrors()}
+                clientId={clientId}
+              />
             </TabsContent>
 
             {/* ── Tab 5: Disclaimers ── */}
