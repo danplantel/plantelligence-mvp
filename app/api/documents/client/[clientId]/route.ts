@@ -53,11 +53,17 @@ export async function GET(
     const includeArchived =
       request.nextUrl.searchParams.get("includeArchived") === "1";
 
-    // Fetch documents for this client only (never cross clientId). Hub lists omit soft-archived unless requested.
+    // Fetch documents for this client only (never cross clientId). Hub lists omit
+    // soft-archived unless requested.
+    //
+    // IMPORTANT: do NOT use `archivedAt: null` in the Prisma MongoDB where clause —
+    // it omits rows where the field is missing AND, due to a Prisma MongoDB quirk,
+    // also omits rows where it is explicitly `null` (verified: returns 0 for a doc
+    // with archivedAt = null). Filter active docs in JS instead (same pattern as
+    // GET /api/documents and the portal documents section).
     const documents = await prisma.document.findMany({
       where: {
         clientId: clientId,
-        ...(!includeArchived ? { archivedAt: null } : {}),
       },
       select: {
         id: true,
