@@ -68,6 +68,11 @@ interface ComplianceDocumentsUploadProps {
   filterDocuments?: (doc: Document) => boolean;
   /** When true, uncategorized uploads block secondary actions and hide “Skip for now” (3b.2). */
   strictCategoryEnforcement?: boolean;
+  /** When true, the red "Uncategorized Documents Review List" (per-document
+   *  "Select category" dropdowns) is hidden and uncategorized documents never
+   *  block saving. Used in Edit Client > Documents, where categories are
+   *  already preserved from upload. */
+  hideCategoryReview?: boolean;
   /**
    * Wizard Step 3b: tighter info/dropzone; parent lays out at half width (`lg:grid-cols-2`).
    */
@@ -98,6 +103,7 @@ export function ComplianceDocumentsUpload({
   fixedCategory,
   filterDocuments,
   strictCategoryEnforcement = false,
+  hideCategoryReview = false,
   compact = false,
   onDocumentsAdded,
   onUploadingChange,
@@ -301,6 +307,7 @@ export function ComplianceDocumentsUpload({
   }, [retirementPlanDocuments]);
 
   const allDocumentsCategorized =
+    hideCategoryReview ||
     uncategorizedDocuments.length === 0 ||
     (!strictCategoryEnforcement && hasSkippedCategorization);
 
@@ -663,7 +670,11 @@ export function ComplianceDocumentsUpload({
       const missingCategory = retirementPlanDocuments.filter(
         (d) => !d.category?.trim(),
       );
-      if (missingCategory.length > 0 && !hasSkippedCategorization) {
+      if (
+        !hideCategoryReview &&
+        missingCategory.length > 0 &&
+        !hasSkippedCategorization
+      ) {
         return;
       }
 
@@ -771,6 +782,7 @@ export function ComplianceDocumentsUpload({
     isWizardControlled,
     showSaveButton,
     hasSkippedCategorization,
+    hideCategoryReview,
   ]);
 
   // Expose save function to parent component.
@@ -800,7 +812,11 @@ export function ComplianceDocumentsUpload({
     const missingCategory = docs.filter(
       (d) => !d.category?.trim(),
     );
-    if (missingCategory.length > 0 && !hasSkippedCategorization) {
+    if (
+      !hideCategoryReview &&
+      missingCategory.length > 0 &&
+      !hasSkippedCategorization
+    ) {
       toast.error("Assign a category to every document before saving.");
       isSavingRef.current = false;
       return;
@@ -1181,7 +1197,9 @@ export function ComplianceDocumentsUpload({
         </Alert>
       )}
 
-      {mixedCategoryBanner && uncategorizedDocuments.length > 0 && (
+      {!hideCategoryReview &&
+        mixedCategoryBanner &&
+        uncategorizedDocuments.length > 0 && (
         <Alert className="border-amber-200 bg-amber-50 text-amber-950 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-200">
           <AlertCircle className="h-4 w-4 text-amber-700 dark:text-amber-400" />
           <AlertTitle className="text-amber-900 font-semibold dark:text-amber-200">
@@ -1195,7 +1213,7 @@ export function ComplianceDocumentsUpload({
       )}
 
       {/* Uncategorized Documents Review List */}
-      {!allDocumentsCategorized && (
+      {!hideCategoryReview && !allDocumentsCategorized && (
         <div className="rounded-lg border border-red-200 bg-red-50/60 dark:border-red-800 dark:bg-red-900/20 overflow-hidden">
           <div className="px-4 py-3 border-b border-red-200 dark:border-red-800">
             <div className="flex items-center justify-between gap-4">

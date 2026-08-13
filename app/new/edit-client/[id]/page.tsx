@@ -1014,6 +1014,7 @@ function EditComplianceDocumentsSection({
         <TabsContent value="upload" className="mt-4">
           <ComplianceDocumentsUpload
             clientId={clientId}
+            hideCategoryReview
             initialDocuments={retirementPlanDocuments}
             onDocumentsChange={(docs) => {
               const deduped = dedupeDocumentsById(docs);
