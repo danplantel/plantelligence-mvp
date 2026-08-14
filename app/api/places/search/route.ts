@@ -32,6 +32,20 @@ const ADDRESS_TYPES = new Set([
   "address",
 ]);
 
+/**
+ * True when a place's address components indicate the United States.
+ * `components=country:us` already restricts autocomplete to the US, so places
+ * without a country component are treated as US (no data to contradict it).
+ */
+function isUsAddress(place: any): boolean {
+  const components = place?.address_components || [];
+  const country = components.find(
+    (c: any) => Array.isArray(c.types) && c.types.includes("country"),
+  );
+  if (!country) return true;
+  return String(country.short_name).toUpperCase() === "US";
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -49,10 +63,12 @@ export async function GET(request: NextRequest) {
     // 1. Places Autocomplete (types=address) — purpose-built for address entry,
     // returns street-address predictions as the user types (Text Search is
     // business/POI-biased and drops most raw address queries).
+    // `components=country:us` restricts the autocomplete suggestions to the
+    // United States (meetings are US-only, so no international addresses).
     const autocompleteRes = await fetch(
       `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
         query,
-      )}&types=address&key=${apiKey}`,
+      )}&types=address&components=country:us&key=${apiKey}`,
     );
     if (!autocompleteRes.ok) {
       throw new Error(`Google Places API error: ${autocompleteRes.status}`);
@@ -98,7 +114,10 @@ export async function GET(request: NextRequest) {
       }
 
       const types: string[] = place?.types || [];
-      const isAddress = place && types.some((t) => ADDRESS_TYPES.has(t));
+      const isAddress =
+        place &&
+        types.some((t) => ADDRESS_TYPES.has(t)) &&
+        isUsAddress(place);
 
       if (isAddress) {
         results.push({

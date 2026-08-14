@@ -1114,9 +1114,6 @@ export default function MeetingsPage() {
                 <div className="space-y-2 md:col-span-2">
                   <Label>Location <span className="text-red-500">*</span></Label>
                   <AddressSearch value={formData.address} onChange={(v) => handleInputChange("address", v)} onLocationSelect={handleLocationSelect} />
-                  {formData.address && (
-                    <p className="text-xs text-muted-foreground">{formData.address}, {formData.city}, {formData.state} {formData.zip}</p>
-                  )}
                 </div>
               )}
             </div>

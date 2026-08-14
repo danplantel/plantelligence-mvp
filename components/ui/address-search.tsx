@@ -54,6 +54,9 @@ export function AddressSearch({
   const [searchTerm, setSearchTerm] = useState(value);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  /** When true, the current text is a just-selected address — skip auto-search
+   *  and don't reopen the dropdown. Cleared as soon as the user types again. */
+  const suppressSearchRef = useRef(false);
 
   // Debounce search term to avoid too many API calls
   const debouncedSearchTerm = useDebounce(searchTerm, 500); // 500ms delay
@@ -97,9 +100,11 @@ export function AddressSearch({
     }
   }, []);
 
-  // Trigger search when debounced search term changes
+  // Trigger search when debounced search term changes.
+  // A just-selected address is suppressed so the dropdown doesn't reopen after
+  // picking a place.
   useEffect(() => {
-    if (debouncedSearchTerm.length >= 3) {
+    if (debouncedSearchTerm.length >= 3 && !suppressSearchRef.current) {
       setIsOpen(true);
       searchPlaces(debouncedSearchTerm);
     } else {
@@ -111,12 +116,14 @@ export function AddressSearch({
   // Handle input change (debounced search will trigger automatically)
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
+    // The user is typing again — re-enable searching and show the dropdown.
+    suppressSearchRef.current = false;
     setSearchTerm(newValue);
     onChange(newValue);
 
-    // Show loading state immediately if length >= 3
     if (newValue.length >= 3) {
       setIsLoading(true);
+      setIsOpen(true);
     } else {
       setIsOpen(false);
       setSuggestions([]);
@@ -126,9 +133,12 @@ export function AddressSearch({
   // Handle place selection
   const handlePlaceSelect = (place: PlaceResult) => {
     const address = place.formatted_address;
+    suppressSearchRef.current = true;
     setSearchTerm(address);
     onChange(address);
     setIsOpen(false);
+    setSuggestions([]);
+    setIsLoading(false);
 
     // Parse address components (guard against results without full details)
     const components = place.address_components || [];
@@ -169,7 +179,9 @@ export function AddressSearch({
           disabled={disabled}
           className="pl-10"
           onFocus={() => {
-            if (suggestions.length > 0) {
+            // Only reopen while actively searching — a just-selected address
+            // should stay as a closed, committed value.
+            if (suggestions.length > 0 && !suppressSearchRef.current) {
               setIsOpen(true);
             }
           }}
