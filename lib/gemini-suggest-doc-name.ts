@@ -105,9 +105,15 @@ export async function suggestDocumentName(
 
     const data = await response.json();
 
-    // If the response includes the structured result, return it
-    if (data.display_title !== undefined) {
-      return data as SuggestNameResult;
+    // If the response includes the structured result, return it — but always
+    // normalize display_title to a plain string so a malformed payload (object
+    // or JSON-encoded string) can never leak the raw JSON into a name field.
+    if (data && typeof data === "object" && data.display_title !== undefined) {
+      return {
+        ...(data as SuggestNameResult),
+        display_title:
+          typeof data.display_title === "string" ? data.display_title : "",
+      };
     }
 
     // Fallback: if the old format is returned (just suggestedName), map it

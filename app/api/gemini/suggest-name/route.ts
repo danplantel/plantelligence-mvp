@@ -202,7 +202,7 @@ export async function POST(request: NextRequest) {
       availableDocumentTypes,
     } = body;
 
-    const model = "gemini-2.5-flash-lite";
+    const model = "gemini-3.5-flash";
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`;
 
     // Build the user prompt with the input values substituted into the template format
@@ -247,7 +247,10 @@ ${JSON.stringify(availableDocumentTypes || {})}`;
       body: JSON.stringify({
         system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
         contents: [{ parts }],
-        generationConfig: { temperature: 0.2, maxOutputTokens: 1024 },
+        // Force structured JSON output and give the model enough tokens for the
+        // full payload so it never returns truncated/prose responses that the
+        // JSON parser then fails on.
+        generationConfig: { temperature: 0.2, maxOutputTokens: 4096, responseMimeType: "application/json" },
       }),
     });
 
@@ -311,7 +314,9 @@ ${JSON.stringify(availableDocumentTypes || {})}`;
         } catch {
           console.error("[gemini-api] Failed to parse JSON from response:", jsonStr.substring(0, 300));
           return NextResponse.json({
-            display_title: rawText.substring(0, 75).trim(),
+            // Never surface raw Gemini prose as a title — the upload flow keeps
+            // the original filename as the fallback document name instead.
+            display_title: "",
             description: "",
             canonical_document_type: null,
             display_document_type: "",
@@ -337,7 +342,7 @@ ${JSON.stringify(availableDocumentTypes || {})}`;
       } else {
         console.error("[gemini-api] No JSON found in response:", jsonStr.substring(0, 300));
         return NextResponse.json({
-          display_title: rawText.substring(0, 75).trim(),
+          display_title: "",
           description: "",
           canonical_document_type: null,
           display_document_type: "",
@@ -364,7 +369,7 @@ ${JSON.stringify(availableDocumentTypes || {})}`;
 
     // Validate required fields
     const validated = {
-      display_title: result.display_title || rawText.substring(0, 75).trim() || "",
+      display_title: result.display_title || "",
       description: result.description || "",
       canonical_document_type: result.canonical_document_type ?? null,
       display_document_type: result.display_document_type || "",

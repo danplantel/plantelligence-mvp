@@ -630,11 +630,28 @@ export function DocumentsUploadSection({
             if (suggestedResults.length === newDocuments.length) {
               let applied = 0;
               for (let i = 0; i < newDocuments.length; i++) {
-                const title = suggestedResults[i]?.display_title?.trim();
+                // Defensive: tolerate both a parsed object and a raw JSON string
+                // response, and only ever apply a plain, non-empty title string.
+                // This guarantees the review name field never shows the raw JSON
+                // payload (e.g. {"display_title": "..."}) as the document name.
+                const rawItem = suggestedResults[i] as unknown;
+                const parsed =
+                  typeof rawItem === "string"
+                    ? (() => {
+                        try {
+                          return JSON.parse(rawItem) as Record<string, unknown>;
+                        } catch {
+                          return null;
+                        }
+                      })()
+                    : (rawItem as Record<string, unknown> | null | undefined);
+                const candidate = parsed?.display_title;
+                const title = typeof candidate === "string" ? candidate.trim() : "";
                 if (title) {
                   newDocuments[i] = {
                     ...newDocuments[i],
-                    name: title,
+                    // Keep within the 60-char field limit used elsewhere in this form.
+                    name: title.slice(0, 60),
                   };
                   applied++;
                 }

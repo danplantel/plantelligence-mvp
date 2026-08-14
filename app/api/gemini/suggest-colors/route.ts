@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const model = "gemini-2.5-flash-lite";
+    const model = "gemini-3.5-flash";
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`;
 
     const userPrompt = `organization_name:
