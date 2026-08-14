@@ -202,7 +202,7 @@ export async function POST(request: NextRequest) {
       availableDocumentTypes,
     } = body;
 
-    const model = "gemini-3.5-flash";
+    const model = "gemini-3.5-flash-lite";
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`;
 
     // Build the user prompt with the input values substituted into the template format
