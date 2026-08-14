@@ -58,38 +58,53 @@ export function BenefitsStep4() {
         }
     }, [planId]);
 
-    // Initial load from API for existing plan documents
+    // Initial load from API for existing plan documents.
+    // ALWAYS re-fetch on mount (per plan) so documents uploaded from other
+    // screens (e.g. the Documents page) are reflected here, instead of trusting
+    // stale persisted step4 state. Any store docs that were added in this
+    // session but not yet persisted (temp IDs) are merged back in so in-wizard
+    // uploads are never dropped.
     useEffect(() => {
         const loadPlanDocuments = async () => {
             if (isInitialized.current || !planId) return;
 
-            // If we already have data in the store, use it and don't re-fetch unless force refresh needed
-            if (stepData.step4?.documents && stepData.step4.documents.length > 0) {
-                setDocuments(stepData.step4.documents);
-                isInitialized.current = true;
-                return;
-            }
-
             setIsLoading(true);
             try {
                 const rows = await fetchPlanDocumentsForClient(planId);
-                if (rows.length > 0) {
-                    const convertedDocs = await Promise.all(
-                        (rows as any[]).map((doc: any, index: number) =>
-                            convertToDocumentFormat(
-                                {
-                                    ...doc,
-                                    name: doc.title,
-                                    fileUrl: doc.fileUrl,
-                                    storageKey: doc.storageKey,
-                                },
-                                index,
-                            ),
+                const convertedDocs = await Promise.all(
+                    (rows as any[]).map((doc: any, index: number) =>
+                        convertToDocumentFormat(
+                            {
+                                ...doc,
+                                name: doc.title,
+                                fileUrl: doc.fileUrl,
+                                storageKey: doc.storageKey,
+                            },
+                            index,
                         ),
+                    ),
+                );
+
+                const storeDocs = (stepData.step4?.documents || []) as any[];
+                const apiIds = new Set(convertedDocs.map((d) => String(d.id)));
+                const isTempId = (id: unknown) => {
+                    const s = String(id ?? "");
+                    return (
+                        s.startsWith("temp-") ||
+                        s.startsWith("doc-") ||
+                        s.startsWith("plan-doc-") ||
+                        s.startsWith("optional-doc-")
                     );
-                    setDocuments(convertedDocs);
-                    saveStepData(4, { documents: convertedDocs });
-                }
+                };
+                // Preserve only unpersisted in-session docs (temp IDs) — real-ID
+                // rows missing from the API belong to another plan or were deleted.
+                const unpersisted = storeDocs.filter(
+                    (d) => isTempId((d as any).id) && !apiIds.has(String((d as any).id)),
+                );
+                const merged = [...convertedDocs, ...unpersisted];
+
+                setDocuments(merged);
+                saveStepData(4, { documents: merged });
             } catch (error) {
                 console.error("Error loading documents:", error);
                 toast.error("Failed to load existing documents");
