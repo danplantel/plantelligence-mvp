@@ -25,17 +25,19 @@ interface AddressSearchProps {
 
 interface PlaceResult {
   formatted_address: string;
-  address_components: Array<{
+  /** May be empty when the API only returns a prediction (no Place Details). */
+  address_components?: Array<{
     long_name: string;
     short_name: string;
     types: string[];
   }>;
-  geometry: {
+  /** May be null when the API only returns a prediction (no Place Details). */
+  geometry?: {
     location: {
       lat: number;
       lng: number;
     };
-  };
+  } | null;
 }
 
 export function AddressSearch({
@@ -128,8 +130,8 @@ export function AddressSearch({
     onChange(address);
     setIsOpen(false);
 
-    // Parse address components
-    const components = place.address_components;
+    // Parse address components (guard against results without full details)
+    const components = place.address_components || [];
     const city =
       components.find((c) => c.types.includes("locality"))?.long_name || "";
     const state =
@@ -144,8 +146,8 @@ export function AddressSearch({
         city,
         state,
         zip,
-        lat: place.geometry.location.lat,
-        lng: place.geometry.location.lng,
+        lat: place.geometry?.location?.lat,
+        lng: place.geometry?.location?.lng,
       });
     }
   };

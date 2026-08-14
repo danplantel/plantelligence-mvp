@@ -2,6 +2,36 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 
+/**
+ * Non-business place types that represent physical addresses / locations.
+ * Places Autocomplete with `types=address` already biases predictions to
+ * addresses; this set is a defensive guard against the rare POI that slips
+ * through (and keeps the "addresses, not businesses" intent).
+ */
+const ADDRESS_TYPES = new Set([
+  "street_address",
+  "premise",
+  "subpremise",
+  "route",
+  "intersection",
+  "neighborhood",
+  "sublocality",
+  "sublocality_level_1",
+  "sublocality_level_2",
+  "sublocality_level_3",
+  "sublocality_level_4",
+  "locality",
+  "administrative_area_level_1",
+  "administrative_area_level_2",
+  "administrative_area_level_3",
+  "administrative_area_level_4",
+  "postal_code",
+  "country",
+  "political",
+  "geocode",
+  "address",
+]);
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -16,40 +46,93 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Google Places API key not configured" }, { status: 500 });
     }
 
-    // Use Google Places API Text Search
-    const response = await fetch(
-      `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${apiKey}`
+    // 1. Places Autocomplete (types=address) — purpose-built for address entry,
+    // returns street-address predictions as the user types (Text Search is
+    // business/POI-biased and drops most raw address queries).
+    const autocompleteRes = await fetch(
+      `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
+        query,
+      )}&types=address&key=${apiKey}`,
+    );
+    if (!autocompleteRes.ok) {
+      throw new Error(`Google Places API error: ${autocompleteRes.status}`);
+    }
+    const autocompleteData = await autocompleteRes.json();
+    if (
+      autocompleteData.status !== "OK" &&
+      autocompleteData.status !== "ZERO_RESULTS"
+    ) {
+      throw new Error(`Google Places API error: ${autocompleteData.status}`);
+    }
+
+    const predictions = (autocompleteData.predictions || []).slice(0, 5);
+    console.log(
+      `[places-search] autocomplete status=${autocompleteData.status} predictions=${predictions.length} query="${query}"`,
     );
 
-    if (!response.ok) {
-      throw new Error(`Google Places API error: ${response.status}`);
+    const results: any[] = [];
+
+    for (const prediction of predictions) {
+      let place: any = null;
+      try {
+        // 2. Enrich with full details (formatted_address, address_components,
+        //    geometry) so the client can parse city/state/zip and capture lat/lng.
+        const detailsRes = await fetch(
+          `https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(
+            prediction.place_id,
+          )}&fields=formatted_address,address_components,geometry&key=${apiKey}`,
+        );
+        const detailsData = await detailsRes.json();
+        if (detailsData.status === "OK" && detailsData.result) {
+          place = detailsData.result;
+        } else {
+          console.warn(
+            `[places-search] details skipped place_id=${prediction.place_id} status=${detailsData.status}`,
+          );
+        }
+      } catch (err) {
+        console.warn(
+          `[places-search] details failed place_id=${prediction.place_id}`,
+          err instanceof Error ? err.message : err,
+        );
+      }
+
+      const types: string[] = place?.types || [];
+      const isAddress = place && types.some((t) => ADDRESS_TYPES.has(t));
+
+      if (isAddress) {
+        results.push({
+          formatted_address: place.formatted_address,
+          address_components: place.address_components || [],
+          geometry: place.geometry || null,
+          place_id: prediction.place_id,
+        });
+      } else {
+        // Fallback: the autocomplete prediction description is already a valid
+        // address string — return it so address results always appear even if
+        // Place Details is unavailable (missing permission/quota on the key).
+        results.push({
+          formatted_address:
+            prediction.description ||
+            prediction.structured_formatting?.main_text ||
+            "",
+          address_components: [],
+          geometry: null,
+          place_id: prediction.place_id,
+        });
+      }
     }
 
-    const data = await response.json();
-
-    if (data.status !== "OK" && data.status !== "ZERO_RESULTS") {
-      throw new Error(`Google Places API error: ${data.status}`);
-    }
-
-    // Filter results to only include addresses (not businesses)
-    const addressResults = data.results.filter((place: any) => {
-      return place.types.includes('street_address') || 
-             place.types.includes('premise') || 
-             place.types.includes('subpremise') ||
-             place.types.includes('route');
-    });
-
+    console.log(`[places-search] returning ${results.length} result(s)`);
     return NextResponse.json({
-      results: addressResults.slice(0, 5), // Limit to 5 results
-      status: data.status
+      results,
+      status: autocompleteData.status,
     });
-
   } catch (error) {
     console.error("Error searching places:", error);
     return NextResponse.json(
       { error: "Failed to search places", details: error instanceof Error ? error.message : "Unknown error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
-
