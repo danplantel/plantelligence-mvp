@@ -341,9 +341,15 @@ export function validateManualColors(
   return { primary: primarySafety, secondary: secondarySafety, warnings };
 }
 
-// ── Multi-set extraction (Logo / Website / AI) ──────────────────────────────
+// ── AI suggestion extraction (3 suggestions from logo + website) ─────────────
 
-export type ColorSetId = "logo" | "website" | "ai";
+export type ColorSetId = "ai-1" | "ai-2" | "ai-3";
+
+/** Ordered AI suggestion ids used to render the three generated sets. */
+const AI_SET_IDS: ColorSetId[] = ["ai-1", "ai-2", "ai-3"];
+
+/** Ordered UI labels for the three generated AI suggestions. */
+const AI_SET_LABELS = ["Suggestion #1", "Suggestion #2", "Suggestion #3"];
 
 export interface ColorSetSuggestion {
   id: ColorSetId;
@@ -386,41 +392,98 @@ function finalizePair(primary: string, secondary: string): RawColorPair {
 }
 
 /**
- * Deterministic fallback for the AI set when the AI call is unavailable:
- * prefer the website colors, then the logo, and ensure the two colors are
- * visually distinct.
+ * Fallback palette used when the AI call is unavailable. These are distinct,
+ * corporate-safe pairs chosen to produce three clearly different options.
  */
-function deterministicBlend(
+const FALLBACK_PAIRS: RawColorPair[] = [
+  { primary: "#1F3A60", secondary: "#3A6EA5" },
+  { primary: "#0F6D66", secondary: "#E5A100" },
+  { primary: "#2C5F2D", secondary: "#D71E28" },
+];
+
+/**
+ * Build up to three deterministic color suggestions from the logo and website
+ * extractions. Used as a fallback when the AI endpoint is unavailable so the
+ * user still gets three distinct options.
+ */
+function buildDeterministicSuggestions(
   logo: RawColorPair | null,
   website: RawColorPair | null,
-): RawColorPair {
-  const primary = website?.primary || logo?.primary || "#1F3A60";
-  let secondary = website?.secondary || logo?.secondary || "#3A6EA5";
+): RawColorPair[] {
+  const cross =
+    logo || website
+      ? {
+          primary: website?.primary || logo?.primary || "#1F3A60",
+          secondary: logo?.secondary || website?.secondary || "#3A6EA5",
+        }
+      : null;
+  const crossSwapped =
+    logo || website
+      ? {
+          primary: logo?.primary || website?.primary || "#1F3A60",
+          secondary: website?.secondary || logo?.secondary || "#3A6EA5",
+        }
+      : null;
 
-  if (
-    !secondary ||
-    secondary.toUpperCase() === primary.toUpperCase() ||
-    deltaE(primary, secondary) < 5
-  ) {
-    const alternates = [logo?.secondary, website?.secondary, "#3A6EA5"];
-    secondary =
-      alternates.find(
-        (c) =>
-          c &&
-          c.toUpperCase() !== primary.toUpperCase() &&
-          deltaE(primary, c) >= 5,
-      ) || "#3A6EA5";
+  const candidates: Array<RawColorPair | null> = [
+    website,
+    logo,
+    cross,
+    crossSwapped,
+    ...FALLBACK_PAIRS,
+  ];
+
+  const suggestions: RawColorPair[] = [];
+  const usedPrimaries: string[] = [];
+
+  const tryPush = (candidate: RawColorPair | null | undefined): boolean => {
+    if (!candidate) return false;
+    const pair = finalizePair(candidate.primary, candidate.secondary);
+    const primary = pair.primary?.toUpperCase();
+    const secondary = pair.secondary?.toUpperCase();
+    if (!primary || !secondary) return false;
+    if (primary === secondary) return false;
+    // Keep each suggestion's primary perceptually distinct from the others.
+    if (usedPrimaries.some((used) => deltaE(used, primary) < 5)) return false;
+    usedPrimaries.push(primary);
+    suggestions.push(pair);
+    return true;
+  };
+
+  for (const candidate of candidates) {
+    tryPush(candidate);
+    if (suggestions.length === 3) break;
   }
 
-  return { primary, secondary };
+  // The palette guarantees three distinct primaries even if the extractions
+  // overlap with each other or with the fallback palette.
+  for (const fallback of FALLBACK_PAIRS) {
+    if (suggestions.length === 3) break;
+    tryPush(fallback);
+  }
+
+  // Absolute safety net (should never be reached with the distinct palette).
+  let i = 0;
+  while (suggestions.length < 3) {
+    const fallback = FALLBACK_PAIRS[i % FALLBACK_PAIRS.length];
+    suggestions.push(finalizePair(fallback.primary, fallback.secondary));
+    i++;
+  }
+
+  return suggestions.slice(0, 3);
 }
 
 /**
- * Extract three independent brand color sets so the user can choose:
- *   - "logo"    — colors from the logo image only
- *   - "website" — colors from the live website only
- *   - "ai"      — Gemini suggestion combining logo + website + org name,
- *                 falling back to a deterministic blend when AI fails
+ * Extract three AI brand color suggestions built from the logo and website
+ * extractions so the user can choose the direction that best fits their brand:
+ *   - "ai-1" — "Suggestion #1"
+ *   - "ai-2" — "Suggestion #2"
+ *   - "ai-3" — "Suggestion #3"
+ *
+ * The logo and website are still extracted first, but their raw colors are now
+ * inputs to the AI rather than selectable options themselves. When the AI is
+ * unavailable, three deterministic suggestions are generated from the same
+ * logo + website inputs.
  */
 export async function extractColorSets(
   logoDataUrl: string | null | undefined,
@@ -429,48 +492,18 @@ export async function extractColorSets(
 ): Promise<ColorSetSuggestion[]> {
   const sets: ColorSetSuggestion[] = [];
 
-  // ── 1. Logo set ─────────────────────────────────────────────────────────
+  // ── 1. Logo extraction (input for AI) ───────────────────────────────────
   let logoColors: RawColorPair | null = null;
   if (logoDataUrl) {
     try {
       const raw = await extractColorsFromImage(logoDataUrl);
       logoColors = finalizePair(raw.primary, raw.secondary);
-      sets.push({
-        id: "logo",
-        label: "From Logo",
-        primary: logoColors.primary,
-        secondary: logoColors.secondary,
-        confidence: "medium",
-        warnings: [],
-        available: true,
-        previewUrl: logoDataUrl,
-      });
     } catch {
-      sets.push({
-        id: "logo",
-        label: "From Logo",
-        primary: "",
-        secondary: "",
-        confidence: "low",
-        warnings: ["Logo color extraction failed"],
-        available: false,
-        unavailableReason: "Could not extract colors from the logo",
-      });
+      // Keep null — the AI (or fallback) will work with whatever is available.
     }
-  } else {
-    sets.push({
-      id: "logo",
-      label: "From Logo",
-      primary: "",
-      secondary: "",
-      confidence: "low",
-      warnings: [],
-      available: false,
-      unavailableReason: "No logo available",
-    });
   }
 
-  // ── 2. Website set ──────────────────────────────────────────────────────
+  // ── 2. Website extraction (input for AI) ────────────────────────────────
   let websiteColors: RawColorPair | null = null;
   if (websiteUrl?.trim()) {
     try {
@@ -483,77 +516,20 @@ export async function extractColorSets(
       if (res.ok) {
         const json: SiteColorResponse = await res.json();
         if (json.success && json.data?.primary) {
-          const siteSecondary = json.data.secondary || "";
-          websiteColors = finalizePair(json.data.primary, siteSecondary);
-          const warnings: string[] = [];
-          if (json.data.weakExtraction) {
-            warnings.push("Website extraction was weak");
-          }
-          if (!siteSecondary) {
-            warnings.push("Only one brand color found on the website");
-          }
-          sets.push({
-            id: "website",
-            label: "From Website",
-            primary: websiteColors.primary,
-            secondary: websiteColors.secondary,
-            confidence: json.data.weakExtraction ? "low" : "medium",
-            warnings,
-            available: true,
-            sourceUrl: websiteUrl.trim(),
-          });
-        } else {
-          sets.push({
-            id: "website",
-            label: "From Website",
-            primary: "",
-            secondary: "",
-            confidence: "low",
-            warnings: ["Website extraction returned no colors"],
-            available: false,
-            unavailableReason: "No brand colors found on the website",
-          });
+          websiteColors = finalizePair(
+            json.data.primary,
+            json.data.secondary || "",
+          );
         }
-      } else {
-        sets.push({
-          id: "website",
-          label: "From Website",
-          primary: "",
-          secondary: "",
-          confidence: "low",
-          warnings: ["Website extraction failed"],
-          available: false,
-          unavailableReason: "The website could not be reached",
-        });
       }
     } catch {
-      sets.push({
-        id: "website",
-        label: "From Website",
-        primary: "",
-        secondary: "",
-        confidence: "low",
-        warnings: ["Website extraction failed"],
-        available: false,
-        unavailableReason: "The website could not be reached",
-      });
+      // Keep null — the AI (or fallback) will work with whatever is available.
     }
-  } else {
-    sets.push({
-      id: "website",
-      label: "From Website",
-      primary: "",
-      secondary: "",
-      confidence: "low",
-      warnings: [],
-      available: false,
-      unavailableReason: "No website URL",
-    });
   }
 
-  // ── 3. AI set ───────────────────────────────────────────────────────────
+  // ── 3. Three AI suggestions ─────────────────────────────────────────────
   if (logoColors || websiteColors) {
-    let aiColors: RawColorPair | null = null;
+    let suggestions: RawColorPair[] | null = null;
     let usedFallback = false;
 
     try {
@@ -571,41 +547,56 @@ export async function extractColorSets(
 
       if (res.ok) {
         const json = await res.json();
-        if (json?.primary && json?.secondary) {
-          aiColors = { primary: json.primary, secondary: json.secondary };
+        const parsed = Array.isArray(json?.suggestions)
+          ? json.suggestions
+          : [];
+        if (parsed.length === 3) {
+          const valid = parsed.every(
+            (item: { primary?: unknown; secondary?: unknown }) =>
+              item?.primary && item?.secondary,
+          );
+          if (valid) {
+            suggestions = parsed.map(
+              (item: { primary: string; secondary: string }) =>
+                finalizePair(item.primary, item.secondary),
+            );
+          }
         }
       }
     } catch {
-      // fall through to deterministic blend
+      // fall through to deterministic suggestions
     }
 
-    if (!aiColors) {
-      aiColors = deterministicBlend(logoColors, websiteColors);
+    if (!suggestions || suggestions.length !== 3) {
+      suggestions = buildDeterministicSuggestions(logoColors, websiteColors);
       usedFallback = true;
     }
 
-    const finalized = finalizePair(aiColors.primary, aiColors.secondary);
-    sets.push({
-      id: "ai",
-      label: "AI Suggestion",
-      primary: finalized.primary,
-      secondary: finalized.secondary,
-      confidence: usedFallback ? "low" : "high",
-      warnings: usedFallback
-        ? ["AI unavailable — used a blend of logo & website colors"]
-        : [],
-      available: true,
+    suggestions.forEach((pair, index) => {
+      sets.push({
+        id: AI_SET_IDS[index],
+        label: AI_SET_LABELS[index],
+        primary: pair.primary,
+        secondary: pair.secondary,
+        confidence: usedFallback ? "low" : "high",
+        warnings: usedFallback
+          ? ["AI unavailable — generated three options from logo & website colors"]
+          : [],
+        available: true,
+      });
     });
   } else {
-    sets.push({
-      id: "ai",
-      label: "AI Suggestion",
-      primary: "",
-      secondary: "",
-      confidence: "low",
-      warnings: [],
-      available: false,
-      unavailableReason: "Needs a logo or website",
+    AI_SET_IDS.forEach((id, index) => {
+      sets.push({
+        id,
+        label: AI_SET_LABELS[index],
+        primary: "",
+        secondary: "",
+        confidence: "low",
+        warnings: [],
+        available: false,
+        unavailableReason: "Needs a logo or website",
+      });
     });
   }
 

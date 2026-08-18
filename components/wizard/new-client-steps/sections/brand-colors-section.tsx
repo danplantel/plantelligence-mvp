@@ -13,7 +13,6 @@ import {
   ArrowLeftRight,
   Loader2,
   Globe,
-  Image as ImageIcon,
   Info,
   Search,
   Sparkles,
@@ -21,9 +20,7 @@ import {
 import {
   extractColorSets,
   type ColorSetSuggestion,
-  type ExtractionConfidence,
 } from "@/lib/brand-color-extraction";
-import { getPresetName } from "@/lib/color-utils";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -46,20 +43,10 @@ interface BrandColorsSectionProps {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-const confidenceConfig: Record<
-  ExtractionConfidence,
-  { label: string; color: string }
-> = {
-  high: { label: "High confidence", color: "text-green-600 dark:text-green-400" },
-  medium: { label: "Medium confidence", color: "text-blue-600 dark:text-blue-400" },
-  low: { label: "Low confidence", color: "text-amber-600 dark:text-amber-400" },
-  "needs-review": { label: "Needs review", color: "text-red-600 dark:text-red-400" },
-};
-
-const setIcons: Record<ColorSetSuggestion["id"], typeof ImageIcon> = {
-  logo: ImageIcon,
-  website: Globe,
-  ai: Sparkles,
+const setIcons: Record<ColorSetSuggestion["id"], typeof Sparkles> = {
+  "ai-1": Sparkles,
+  "ai-2": Sparkles,
+  "ai-3": Sparkles,
 };
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -109,11 +96,6 @@ export function BrandColorsSection({
     onSecondaryChange(set.secondary);
   };
 
-  const primaryPresetName = primaryColor ? getPresetName(primaryColor) : null;
-  const secondaryPresetName = secondaryColor
-    ? getPresetName(secondaryColor)
-    : null;
-
   const isFieldInvalid = (field: string): boolean => {
     return (
       errorFields.includes(field) ||
@@ -121,16 +103,13 @@ export function BrandColorsSection({
     );
   };
 
-  const renderSwatch = (label: string, hex: string) => (
+  const renderSwatch = (hex: string) => (
     <div className="flex items-center gap-2">
       <span
         className="w-6 h-6 rounded border border-gray-300 dark:border-gray-600 shrink-0"
         style={{ background: hex }}
       />
       <span className="font-mono text-xs">{hex}</span>
-      <span className="text-xs text-muted-foreground truncate">
-        {getPresetName(hex) || label}
-      </span>
     </div>
   );
 
@@ -145,10 +124,9 @@ export function BrandColorsSection({
           )}
         </CardTitle>
         <p className="text-sm text-muted-foreground dark:text-gray-400">
-          Click <strong>Extract Colors</strong> to generate three brand color
-          sets — from your <b>logo</b>, your <b>website</b>, and an{" "}
-          <b>AI suggestion</b>. Select the set you want, or fine-tune the colors
-          manually below.
+          Click <strong>Extract Colors</strong> to generate three AI brand color
+          suggestions based on your <b>logo</b> and <b>website</b>. Select the
+          suggestion you want, or fine-tune the colors manually below.
         </p>
       </CardHeader>
       <CardContent>
@@ -179,7 +157,7 @@ export function BrandColorsSection({
           <div className="mb-4 p-3 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20">
             <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-400">
               <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Extracting brand colors from logo, website & AI…</span>
+              <span>Generating three AI color suggestions from your logo & website…</span>
             </div>
           </div>
         )}
@@ -200,7 +178,6 @@ export function BrandColorsSection({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {colorSets.map((set) => {
                 const Icon = setIcons[set.id];
-                const conf = confidenceConfig[set.confidence];
                 const isSelected = selectedSetId === set.id;
 
                 return (
@@ -243,17 +220,14 @@ export function BrandColorsSection({
                     )}
                     {set.available ? (
                       <div className="space-y-2">
-                        {renderSwatch("Primary", set.primary)}
+                        {renderSwatch(set.primary)}
                         {set.secondary ? (
-                          renderSwatch("Secondary", set.secondary)
+                          renderSwatch(set.secondary)
                         ) : (
                           <p className="text-xs text-muted-foreground">
                             No distinct secondary color found
                           </p>
                         )}
-                        <span className={`text-xs ${conf.color}`}>
-                          {conf.label}
-                        </span>
                       </div>
                     ) : (
                       <p className="text-xs text-muted-foreground">
@@ -291,11 +265,6 @@ export function BrandColorsSection({
           <div className="space-y-3 relative">
             <Label className="dark:text-gray-300 flex items-center gap-2">
               Primary Color <span className="text-red-500">*</span>
-              {primaryPresetName && (
-                <span className="text-xs font-normal text-muted-foreground bg-muted dark:bg-gray-700 px-2 py-0.5 rounded-full">
-                  {primaryPresetName}
-                </span>
-              )}
             </Label>
             <div className="flex items-center space-x-3">
               <button
@@ -354,11 +323,6 @@ export function BrandColorsSection({
           <div className="space-y-3 relative">
             <Label className="dark:text-gray-300 flex items-center gap-2">
               Secondary Color <span className="text-red-500">*</span>
-              {secondaryPresetName && (
-                <span className="text-xs font-normal text-muted-foreground bg-muted dark:bg-gray-700 px-2 py-0.5 rounded-full">
-                  {secondaryPresetName}
-                </span>
-              )}
             </Label>
             <div className="flex items-center space-x-3">
               <button

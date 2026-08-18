@@ -4,15 +4,16 @@ const API_KEY = process.env.GEMINI_API_KEY || "";
 
 const SYSTEM_PROMPT = `You are a brand color strategist for a financial services platform.
 
-Given color extractions from an organization's logo and website, recommend the single best primary and secondary brand color pair.
+Given color extractions from an organization's logo and website, recommend THREE distinct primary and secondary brand color pairs. Each pair is a different, viable brand direction so the user can choose the option that best fits their brand.
 
 Rules:
-- The colors must be corporate-appropriate and work on white backgrounds.
-- The primary color should be the strongest, most recognizable brand color (commonly used for buttons, headers, and emphasis).
+- All colors must be corporate-appropriate and work on white backgrounds.
+- For each pair, the primary color should be the strongest, most recognizable brand color (commonly used for buttons, headers, and emphasis).
 - The secondary color should complement the primary (used for accents and links) and must be clearly distinct from the primary.
+- The three pairs must be clearly different from one another (different primary hues and overall directions).
 - Prefer the organization's actual brand hues. Do NOT pick gray, white, or black unless the brand genuinely uses them as its primary identity.
 - Return valid JSON ONLY, with no markdown fences or commentary, in exactly this shape:
-{"primary":"#RRGGBB","secondary":"#RRGGBB"}`;
+{"suggestions":[{"primary":"#RRGGBB","secondary":"#RRGGBB"},{"primary":"#RRGGBB","secondary":"#RRGGBB"},{"primary":"#RRGGBB","secondary":"#RRGGBB"}]}`;
 
 function isValidHex(value: unknown): value is string {
   return typeof value === "string" && /^#?[0-9a-fA-F]{6}$/.test(value.trim());
@@ -21,6 +22,43 @@ function isValidHex(value: unknown): value is string {
 function normalizeHex(value: unknown): string {
   const v = String(value ?? "").trim();
   return v.startsWith("#") ? v.toUpperCase() : `#${v.toUpperCase()}`;
+}
+
+interface ColorPair {
+  primary: string;
+  secondary: string;
+}
+
+function parseSuggestions(parsed: unknown): ColorPair[] | null {
+  const raw = Array.isArray((parsed as { suggestions?: unknown })?.suggestions)
+    ? (parsed as { suggestions: unknown[] }).suggestions
+    : null;
+  if (!raw || raw.length !== 3) return null;
+
+  const suggestions: ColorPair[] = [];
+  const seen = new Set<string>();
+
+  for (const item of raw) {
+    const record = item as {
+      primary?: unknown;
+      secondary?: unknown;
+      primaryColor?: unknown;
+      secondaryColor?: unknown;
+    };
+    const rawPrimary = record?.primary ?? record?.primaryColor;
+    const rawSecondary = record?.secondary ?? record?.secondaryColor;
+    if (!isValidHex(rawPrimary) || !isValidHex(rawSecondary)) return null;
+
+    const primary = normalizeHex(rawPrimary);
+    const secondary = normalizeHex(rawSecondary);
+    if (primary === secondary) return null;
+    if (seen.has(primary)) return null;
+    seen.add(primary);
+
+    suggestions.push({ primary, secondary });
+  }
+
+  return suggestions;
 }
 
 export async function POST(request: NextRequest) {
@@ -78,7 +116,7 @@ ${JSON.stringify(logo)}
 website_colors:
 ${JSON.stringify(website)}
 
-Recommend the primary and secondary brand colors.`;
+Recommend three distinct primary and secondary brand color pairs.`;
 
     const response = await fetch(url, {
       method: "POST",
@@ -119,27 +157,15 @@ Recommend the primary and secondary brand colors.`;
       parsed = JSON.parse(block[0]);
     }
 
-    const rawPrimary = parsed?.primary ?? parsed?.primaryColor;
-    const rawSecondary = parsed?.secondary ?? parsed?.secondaryColor;
-
-    if (!isValidHex(rawPrimary) || !isValidHex(rawSecondary)) {
+    const suggestions = parseSuggestions(parsed);
+    if (!suggestions) {
       return NextResponse.json(
-        { error: "Invalid colors returned by AI" },
+        { error: "AI did not return three distinct color suggestions" },
         { status: 502 },
       );
     }
 
-    const primary = normalizeHex(rawPrimary);
-    const secondary = normalizeHex(rawSecondary);
-
-    if (primary === secondary) {
-      return NextResponse.json(
-        { error: "AI returned identical primary and secondary colors" },
-        { status: 502 },
-      );
-    }
-
-    return NextResponse.json({ primary, secondary });
+    return NextResponse.json({ suggestions });
   } catch (error: any) {
     return NextResponse.json(
       { error: error?.message || "Internal server error" },
