@@ -764,7 +764,7 @@ export function DocumentsUploadSection({
     // Enforce batch limit
     if (files.length > MAX_BATCH_FILE_COUNT) {
       toast.error(
-        `You can upload up to ${MAX_BATCH_FILE_COUNT} files at once. ${files.length} files were selected.`,
+        `You can only upload up to ${MAX_BATCH_FILE_COUNT} documents at a time. You selected ${files.length}. Please upload ${MAX_BATCH_FILE_COUNT} or fewer.`,
       );
       return;
     }
