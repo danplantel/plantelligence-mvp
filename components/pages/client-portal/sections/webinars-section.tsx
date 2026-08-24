@@ -6,6 +6,7 @@ import {
   ArrowUpRight,
   Calendar,
   Clock,
+  Languages,
   MapPin,
   MessageCircle,
   X,
@@ -253,32 +254,35 @@ export function UpcomingWebinarCard({
           {webinar.date && (
             <div className="flex items-center gap-2.5 text-sm text-gray-700">
               <Calendar className="w-4 h-4 shrink-0" style={{ color: accentColor }} />
+              <span className="w-[88px] shrink-0 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Date</span>
               <span className="font-medium">{webinar.date}</span>
             </div>
           )}
           {timeLabel && (
             <div className="flex items-center gap-2.5 text-sm text-gray-700">
               <Clock className="w-4 h-4 shrink-0" style={{ color: accentColor }} />
-              <span>{timeLabel}</span>
+              <span className="w-[88px] shrink-0 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Start Time</span>
+              <span className="font-medium">{timeLabel}</span>
             </div>
           )}
           {hasDuration && (
             <div className="flex items-center gap-2.5 text-sm text-gray-700">
               <Clock className="w-4 h-4 shrink-0" style={{ color: accentColor }} />
-              <span>{webinar.duration}</span>
+              <span className="w-[88px] shrink-0 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Duration</span>
+              <span className="font-medium">{webinar.duration}</span>
             </div>
           )}
           {hasMeetingFormat && (
             <div className="flex items-center gap-2.5 text-sm text-gray-700">
               <MapPin className="w-4 h-4 shrink-0" style={{ color: accentColor }} />
+              <span className="w-[88px] shrink-0 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Format</span>
               <span>{hasPlatform ? `${webinar.meetingFormat} · ${webinar.platform}` : webinar.meetingFormat}</span>
             </div>
           )}
           {hasLanguage && (
             <div className="flex items-center gap-2.5 text-sm text-gray-700">
-              <span className="inline-flex items-center justify-center w-4 h-4 shrink-0 rounded-full text-[10px] font-bold uppercase" style={{ color: accentColor, backgroundColor: accentColor + "18" }}>
-                {webinar.language === "Spanish" ? "ES" : "EN"}
-              </span>
+              <Languages className="w-4 h-4 shrink-0" style={{ color: accentColor }} />
+              <span className="w-[88px] shrink-0 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Language</span>
               <span>{webinar.language}</span>
             </div>
           )}
@@ -299,7 +303,7 @@ export function UpcomingWebinarCard({
               href={replayHref}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold uppercase tracking-wide text-white rounded-lg transition-opacity hover:opacity-90"
+              className="flex w-full items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold uppercase tracking-wide text-white rounded-lg transition-opacity hover:opacity-90"
               style={{ backgroundColor: accentColor }}
             >
               <Clock className="w-4 h-4" />
@@ -313,7 +317,7 @@ export function UpcomingWebinarCard({
             href={registerHref}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold uppercase tracking-wide text-white rounded-lg transition-opacity hover:opacity-90"
+            className="flex w-full items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold uppercase tracking-wide text-white rounded-lg transition-opacity hover:opacity-90"
             style={{ backgroundColor: accentColor }}
           >
             <ArrowUpRight className="w-4 h-4" />
@@ -322,7 +326,7 @@ export function UpcomingWebinarCard({
         ) : (
           <button
             disabled
-            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold uppercase tracking-wide text-white rounded-lg opacity-50 cursor-not-allowed"
+            className="flex w-full items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold uppercase tracking-wide text-white rounded-lg opacity-50 cursor-not-allowed"
             style={{ backgroundColor: accentColor }}
           >
             <ArrowUpRight className="w-4 h-4" />

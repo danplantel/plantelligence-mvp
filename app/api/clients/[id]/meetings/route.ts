@@ -36,6 +36,8 @@ function serializePlanMeeting(m: Meeting) {
     city: m.city,
     state: m.state,
     zip: m.zip,
+    language: m.language,
+    benefitsCategory: m.benefitsCategory,
   };
 }
 
