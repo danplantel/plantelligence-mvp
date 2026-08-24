@@ -221,7 +221,7 @@ function hasMeaningfulMeetingChanges(formData: MeetingFormData, editingMeetingId
   return keysToCheck.some((key) => formData[key] !== DEFAULT_MEETING_FORM_DATA[key]);
 }
 
-const FORMATS = ["Virtual", "In-Person"];
+const FORMATS = ["Virtual", "In-Person", "Virtual & In-Person"];
 
 const PLATFORMS = [
   { value: "Zoom", label: "Zoom" },
@@ -453,7 +453,7 @@ const TIMEZONE_OPTIONS = [
   { value: "Pacific/Honolulu", label: "Hawaii Time (HT)" },
 ];
 
-const formatIcons = { Virtual: Video, "In-Person": MapPin };
+const formatIcons = { Virtual: Video, "In-Person": MapPin, "Virtual & In-Person": Link };
 
 const statusColors: Record<string, string> = {
   Upcoming: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-700/50",
@@ -903,8 +903,8 @@ export default function MeetingsPage() {
     if (!formData.format) newErrors.format = true;
     if (formData.format === "Virtual" && !formData.platform) newErrors.platform = true;
     if (formData.format === "Virtual" && formData.platform === "Other" && !formData.customPlatform.trim()) newErrors.customPlatform = true;
-    if (formData.format === "In-Person" && !formData.address) newErrors.address = true;
-    if (!resolveRsvpUrl(formData)) newErrors.meetingLink = true;
+    if ((formData.format === "In-Person" || formData.format === "Virtual & In-Person") && !formData.address) newErrors.address = true;
+    if ((formData.format === "Virtual" || formData.format === "Virtual & In-Person") && !resolveRsvpUrl(formData)) newErrors.meetingLink = true;
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -1149,7 +1149,7 @@ export default function MeetingsPage() {
                           <div className="space-y-1"><div className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><Calendar className="h-3 w-3 shrink-0" /><span className="font-medium uppercase tracking-wider">Date</span></div><div className="text-xs font-semibold pl-[18px]">{meetingDate}</div><div className="text-[11px] text-muted-foreground pl-[18px]">{formatTime12h(meeting.time)}{meeting.timezone && <span className="text-[10px] ml-1 opacity-75">({getTimezoneAbbr(meeting.timezone)})</span>}</div></div>
                           <div className="space-y-1"><div className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><Clock className="h-3 w-3 shrink-0" /><span className="font-medium uppercase tracking-wider">Duration</span></div><div className="text-xs font-semibold pl-[18px]">{meeting.duration}</div></div>
                           <div className="space-y-1"><div className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><Users className="h-3 w-3 shrink-0" /><span className="font-medium uppercase tracking-wider">Attendees</span></div><div className="text-xs font-semibold pl-[18px]">{meeting.attendees}{meeting.maxAttendees && ` / ${meeting.maxAttendees}`}</div></div>
-                          <div className="space-y-1 min-w-0"><div className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><FormatIcon className="h-3 w-3 shrink-0" /><span className="font-medium uppercase tracking-wider truncate">{meeting.format === "Virtual" && meeting.platform ? meeting.platform : meeting.format}</span></div>{meeting.format === "Virtual" && meeting.meetingLink && <a href={normalizeUrl(meeting.meetingLink || meeting.meetingUrl)} target="_blank" rel="noopener noreferrer" className="text-xs font-medium pl-[18px] text-primary/80 truncate hover:underline">View link &rarr;</a>}{meeting.format === "Virtual" && !meeting.meetingLink && <div className="text-xs font-medium pl-[18px] text-muted-foreground truncate">No link</div>}{meeting.format === "In-Person" && meeting.address && <div className="text-xs font-semibold pl-[18px] truncate">{meeting.city}, {meeting.state}</div>}{meeting.format === "In-Person" && !meeting.address && <div className="text-xs font-medium pl-[18px] text-muted-foreground">TBA</div>}</div>
+                          <div className="space-y-1 min-w-0"><div className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><FormatIcon className="h-3 w-3 shrink-0" /><span className="font-medium uppercase tracking-wider truncate">{meeting.format === "Virtual" && meeting.platform ? meeting.platform : meeting.format}</span></div>{meeting.format !== "In-Person" && meeting.meetingLink && <a href={normalizeUrl(meeting.meetingLink || meeting.meetingUrl)} target="_blank" rel="noopener noreferrer" className="text-xs font-medium pl-[18px] text-primary/80 truncate hover:underline">View link &rarr;</a>}{meeting.format !== "In-Person" && !meeting.meetingLink && <div className="text-xs font-medium pl-[18px] text-muted-foreground truncate">No link</div>}{(meeting.format === "In-Person" || meeting.format === "Virtual & In-Person") && meeting.address && <div className="text-xs font-semibold pl-[18px] truncate">{meeting.city}, {meeting.state}</div>}{(meeting.format === "In-Person" || meeting.format === "Virtual & In-Person") && !meeting.address && <div className="text-xs font-medium pl-[18px] text-muted-foreground">TBA</div>}</div>
                         </div>
                         <div className="flex items-center gap-1.5 pt-2.5 border-t border-border/50 mt-auto bg-muted/30 -mx-4 -mb-4 px-4 pb-3 rounded-b-xl"><Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" /><span className="text-[11px] font-medium text-muted-foreground/70 shrink-0">Client</span><span className="text-xs font-semibold truncate">{meeting.client}</span></div>
                       </div>
@@ -1379,8 +1379,8 @@ export default function MeetingsPage() {
                 </div>
               )}
 
-              {/* Address (In-Person) */}
-              {formData.format === "In-Person" && (
+              {/* Address (In-Person / Virtual & In-Person) */}
+              {(formData.format === "In-Person" || formData.format === "Virtual & In-Person") && (
                 <div className="space-y-2 md:col-span-2">
                   <Label>Location <span className="text-red-500">*</span></Label>
                   <AddressSearch value={formData.address} onChange={(v) => handleInputChange("address", v)} onLocationSelect={handleLocationSelect} />
@@ -1388,12 +1388,14 @@ export default function MeetingsPage() {
               )}
             </div>
 
-            {/* RSVP Link */}
-            <div className="space-y-2">
-              <Label>Meeting Link <span className="text-red-500">*</span></Label>
-              <Input value={formData.meetingLink} onChange={(e) => handleInputChange("meetingLink", e.target.value)}
-                placeholder="https://" className={errors.meetingLink ? "border-red-500" : ""} />
-            </div>
+            {/* RSVP Link — shown only when a format that uses a link is selected */}
+            {(formData.format === "Virtual" || formData.format === "Virtual & In-Person") && (
+              <div className="space-y-2">
+                <Label>Meeting Link <span className="text-red-500">*</span></Label>
+                <Input value={formData.meetingLink} onChange={(e) => handleInputChange("meetingLink", e.target.value)}
+                  placeholder="https://" className={errors.meetingLink ? "border-red-500" : ""} />
+              </div>
+            )}
 
             {/* Description */}
             <div className="space-y-2">
@@ -1652,14 +1654,14 @@ export default function MeetingsPage() {
                   </Select>
                 </div>
 
-                {/* Link (Virtual) or Location (In-Person) */}
-                {formData.format === "Virtual" && (
+                {/* Link (Virtual / Virtual & In-Person) or Location (In-Person / Virtual & In-Person) */}
+                {(formData.format === "Virtual" || formData.format === "Virtual & In-Person") && (
                   <div className="space-y-2">
                     <Label>Meeting Link</Label>
                     <Input value={formData.meetingLink} onChange={(e) => handleInputChange("meetingLink", e.target.value)} placeholder="https://" />
                   </div>
                 )}
-                {formData.format === "In-Person" && (
+                {(formData.format === "In-Person" || formData.format === "Virtual & In-Person") && (
                   <div className="space-y-2">
                     <Label>Location</Label>
                     <AddressSearch value={formData.address} onChange={(v) => handleInputChange("address", v)} onLocationSelect={handleLocationSelect} />
