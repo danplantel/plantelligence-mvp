@@ -244,6 +244,10 @@ const TIME_OPTIONS = Array.from({ length: 96 }, (_, i) => {
   return { value, label };
 });
 
+/** Pixel height of one time row (py-1.5 + text-sm line-height) and how many rows show. */
+const TIME_ROW_HEIGHT = 32;
+const TIME_VISIBLE_ROWS = 5;
+
 const parseLocalDate = (dateStr: string): Date => {
   if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
     const [year, month, day] = dateStr.split("-").map(Number);
@@ -360,6 +364,77 @@ const deriveEndTimeFields = (time24: string, durationText: string) => {
   const endTime = addMinutesToTime(time24, minutes);
   const fields = timeToFields(endTime);
   return { endTime, endHour: fields.hour, endMinute: fields.minute, endAmpm: fields.ampm, duration: formatMeetingDuration(minutes) };
+};
+
+/** Parse a user-typed time into "HH:MM" (24h) or null.
+ *  Accepts "1:30pm", "1:30 pm", "1:30p", "13:30", "1330", "130pm", "2pm", "2 pm", "1:30". */
+const parseTimeInput = (text: string): string | null => {
+  const raw = text.trim().toLowerCase();
+  if (!raw) return null;
+  let ampm: "am" | "pm" | null = null;
+  let body = raw;
+  const ampmMatch = raw.match(/([ap])\.?m?\.?\s*$/);
+  if (ampmMatch) {
+    ampm = ampmMatch[1] === "a" ? "am" : "pm";
+    body = raw.slice(0, ampmMatch.index).replace(/\s+$/, "").trim();
+  }
+  // "H:mm" — with am/pm treated as 12-hour, without as 24-hour.
+  const colon = body.match(/^(\d{1,2}):(\d{1,2})$/);
+  if (colon) {
+    let hour = parseInt(colon[1], 10);
+    const minute = parseInt(colon[2], 10);
+    if (minute > 59) return null;
+    if (ampm) {
+      if (hour < 1 || hour > 12) return null;
+      hour = ampm === "pm" ? (hour === 12 ? 12 : hour + 12) : hour === 12 ? 0 : hour;
+    } else if (hour > 23) {
+      return null;
+    }
+    return `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
+  }
+  // Military "Hmm" (3-4 digits): 1330, 900, or "130pm".
+  const military = body.match(/^(\d{3,4})$/);
+  if (military) {
+    const digits = military[1];
+    let hour = parseInt(digits.slice(0, -2), 10);
+    const minute = parseInt(digits.slice(-2), 10);
+    if (minute > 59) return null;
+    if (ampm) {
+      if (hour < 1 || hour > 12) return null;
+      hour = ampm === "pm" ? (hour === 12 ? 12 : hour + 12) : hour === 12 ? 0 : hour;
+    } else if (hour > 23) {
+      return null;
+    }
+    return `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
+  }
+  // "H" + am/pm: 2pm, 12am
+  const hourOnly = body.match(/^(\d{1,2})$/);
+  if (hourOnly && ampm) {
+    let hour = parseInt(hourOnly[1], 10);
+    if (hour < 1 || hour > 12) return null;
+    hour = ampm === "pm" ? (hour === 12 ? 12 : hour + 12) : hour === 12 ? 0 : hour;
+    return `${hour.toString().padStart(2, "0")}:00`;
+  }
+  return null;
+};
+
+/** Index (within `options`) of the option closest to a "HH:MM" value; -1 if no value. */
+const indexOfClosestInList = (value: string, options: typeof TIME_OPTIONS): number => {
+  if (!value) return -1;
+  const [h, m] = value.split(":").map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return -1;
+  const target = h * 60 + m;
+  let best = -1;
+  let bestDiff = Infinity;
+  options.forEach((opt, i) => {
+    const [oh, om] = opt.value.split(":").map(Number);
+    const diff = Math.abs((oh * 60 + om) - target);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = i;
+    }
+  });
+  return best;
 };
 
 /** Ensure a URL has a scheme so it opens as an absolute link (e.g. "google.com" → "https://google.com"). */
@@ -562,6 +637,8 @@ export default function MeetingsPage() {
   const [tempMinute, setTempMinute] = useState("");
   const [tempAmpm, setTempAmpm] = useState("");
   const [endTimePickerOpen, setEndTimePickerOpen] = useState(false);
+  const [startTimeText, setStartTimeText] = useState("");
+  const [endTimeText, setEndTimeText] = useState("");
   const [errors, setErrors] = useState<Record<string, boolean>>({});
   const [timeConflictWarning, setTimeConflictWarning] = useState<string>("");
   const [hasConfirmedConflict, setHasConfirmedConflict] = useState(false);
@@ -726,6 +803,90 @@ export default function MeetingsPage() {
     setFormData((prev) => ({ ...prev, address: location.address, city: location.city, state: location.state, zip: location.zip }));
     if (errors.address) setErrors((prev) => ({ ...prev, address: false }));
   };
+  const applyStartTime = (value: string) => {
+    const fields = timeToFields(value);
+    setFormData((prev) => ({
+      ...prev,
+      time: value,
+      hour: fields.hour,
+      minute: fields.minute,
+      ampm: fields.ampm,
+      duration: formatMeetingDuration(minutesBetweenTimes(value, prev.endTime)),
+    }));
+    if (errors.time) setErrors((prev) => ({ ...prev, time: false }));
+    if (errors.duration) setErrors((prev) => ({ ...prev, duration: false }));
+  };
+
+  const applyEndTime = (value: string) => {
+    const fields = timeToFields(value);
+    setFormData((prev) => ({
+      ...prev,
+      endTime: value,
+      endHour: fields.hour,
+      endMinute: fields.minute,
+      endAmpm: fields.ampm,
+      duration: formatMeetingDuration(minutesBetweenTimes(prev.time, value)),
+    }));
+    if (errors.endTime) setErrors((prev) => ({ ...prev, endTime: false }));
+    if (errors.duration) setErrors((prev) => ({ ...prev, duration: false }));
+  };
+
+  const handleStartTimeTextChange = (value: string) => {
+    setStartTimeText(value);
+    const parsed = parseTimeInput(value);
+    if (parsed) applyStartTime(parsed);
+  };
+
+  const handleStartTimeBlur = () => {
+    if (!parseTimeInput(startTimeText)) {
+      setStartTimeText(formData.time ? formatTimeAbbrev(formData.time) : "");
+    }
+  };
+
+  const handleEndTimeTextChange = (value: string) => {
+    setEndTimeText(value);
+    const parsed = parseTimeInput(value);
+    if (parsed) applyEndTime(parsed);
+  };
+
+  const handleEndTimeBlur = () => {
+    if (!parseTimeInput(endTimeText)) {
+      setEndTimeText(formData.endTime ? formatTimeAbbrev(formData.endTime) : "");
+    }
+  };
+  // Scroll refs + highlight state for the Start/End time picker lists.
+  const startTimeListRef = useRef<HTMLDivElement | null>(null);
+  const endTimeListRef = useRef<HTMLDivElement | null>(null);
+
+  const startTimeHighlightIndex = useMemo(() => {
+    const parsed = parseTimeInput(startTimeText) || formData.time;
+    return indexOfClosestInList(parsed, TIME_OPTIONS);
+  }, [startTimeText, formData.time]);
+
+  const endTimeOptions = useMemo(
+    () => TIME_OPTIONS.filter((opt) => !formData.time || opt.value > formData.time),
+    [formData.time],
+  );
+  const endTimeHighlightIndex = useMemo(() => {
+    const parsed = parseTimeInput(endTimeText) || formData.endTime;
+    return indexOfClosestInList(parsed, endTimeOptions);
+  }, [endTimeText, formData.endTime, endTimeOptions]);
+
+  // Keep the highlighted slot centered as the 3rd of 5 visible rows.
+  useEffect(() => {
+    if (!timePickerOpen || startTimeHighlightIndex < 0 || !startTimeListRef.current) return;
+    startTimeListRef.current.scrollTop = Math.max(
+      0,
+      startTimeHighlightIndex * TIME_ROW_HEIGHT - ((TIME_VISIBLE_ROWS - 1) / 2) * TIME_ROW_HEIGHT,
+    );
+  }, [timePickerOpen, startTimeHighlightIndex]);
+  useEffect(() => {
+    if (!endTimePickerOpen || endTimeHighlightIndex < 0 || !endTimeListRef.current) return;
+    endTimeListRef.current.scrollTop = Math.max(
+      0,
+      endTimeHighlightIndex * TIME_ROW_HEIGHT - ((TIME_VISIBLE_ROWS - 1) / 2) * TIME_ROW_HEIGHT,
+    );
+  }, [endTimePickerOpen, endTimeHighlightIndex]);
   const validateForm = () => {
     const newErrors: Record<string, boolean> = {};
     if (!formData.meetingType) newErrors.meetingType = true;
@@ -760,6 +921,8 @@ export default function MeetingsPage() {
         clientId: plan?.id ?? prev.clientId,
       };
     });
+    setStartTimeText("");
+    setEndTimeText("");
     setErrors({});
     setTimeConflictWarning("");
     setHasConfirmedConflict(false);
@@ -777,7 +940,7 @@ export default function MeetingsPage() {
       const result = await response.json();
       if (response.ok) {
         toast.success(isEditing ? "Meeting updated successfully!" : "Meeting created successfully!");
-        if (isEditing) { setFormData({ ...DEFAULT_MEETING_FORM_DATA, meetingType: formData.meetingType, client: formData.client, clientId: formData.clientId }); setErrors({}); setTimeConflictWarning(""); setHasConfirmedConflict(false); setEditingMeetingId(null); setMeetingModalOpen(false); }
+        if (isEditing) { setFormData({ ...DEFAULT_MEETING_FORM_DATA, meetingType: formData.meetingType, client: formData.client, clientId: formData.clientId }); setStartTimeText(""); setEndTimeText(""); setErrors({}); setTimeConflictWarning(""); setHasConfirmedConflict(false); setEditingMeetingId(null); setMeetingModalOpen(false); }
         else { createdMeetingData.current = { ...formData }; resetMeetingForm(); setMeetingModalOpen(false); setPostSaveView("created"); setPostSaveDialogOpen(true); }
         await fetchMeetings();
       } else toast.error(result.error || `Failed to ${isEditing ? "update" : "create"} meeting`);
@@ -861,6 +1024,8 @@ export default function MeetingsPage() {
       description: meeting.description || "", address: meeting.address || "", city: meeting.city || "", state: meeting.state || "", zip: meeting.zip || "",
       language: meeting.language || "", benefitsCategory: meeting.benefitsCategory || "", customBenefitsCategory: meeting.customBenefitsCategory || ""
     });
+    setStartTimeText(formatTimeAbbrev(meeting.time || ""));
+    setEndTimeText(formatTimeAbbrev(end.endTime || ""));
     setEditingMeetingId(meeting.id); setHasConfirmedConflict(false); setMeetingModalOpen(true);
     toast.success("Meeting data loaded for editing. Make your changes and submit to update.");
   };
@@ -878,13 +1043,15 @@ export default function MeetingsPage() {
       description: meeting.description || "", address: meeting.address || "", city: meeting.city || "", state: meeting.state || "", zip: meeting.zip || "",
       language: meeting.language || "", benefitsCategory: meeting.benefitsCategory || "", customBenefitsCategory: meeting.customBenefitsCategory || ""
     });
+    setStartTimeText(formatTimeAbbrev(meeting.time || ""));
+    setEndTimeText(formatTimeAbbrev(end.endTime || ""));
     setEditingMeetingId(null); setHasConfirmedConflict(false); setMeetingModalOpen(true);
     if (meeting.date && meeting.time) { const hasConflict = checkTimeConflict(meeting.date, meeting.time, meeting.address || "", meeting.format); if (hasConflict) toast.warning("Meeting duplicated. \u26A0\uFE0F Time conflict detected - please choose a different time or confirm to proceed.", { duration: 5000 }); else toast.success("Meeting duplicated successfully. Review the details and submit."); }
     else toast.success("Meeting duplicated successfully. Review the details and submit.");
   };
   const handleCancelEdit = () => {
     setFormData({ meetingType: "", customMeetingType: "", client: "", clientId: "", date: "", time: "", hour: "", minute: "", ampm: "", endTime: "", endHour: "", endMinute: "", endAmpm: "", timezone: "America/New_York", duration: "", customDuration: "", format: "", platform: "", customPlatform: "", meetingUrl: "", meetingLink: "", maxAttendees: "", description: "", address: "", city: "", state: "", zip: "", language: "", benefitsCategory: "", customBenefitsCategory: "" });
-    setErrors({}); setTimeConflictWarning(""); setHasConfirmedConflict(false); setEditingMeetingId(null); setMeetingModalOpen(false);
+    setStartTimeText(""); setEndTimeText(""); setErrors({}); setTimeConflictWarning(""); setHasConfirmedConflict(false); setEditingMeetingId(null); setMeetingModalOpen(false);
     toast.info("Edit cancelled. Form reset to create new meeting.");
   };
   // Earliest selectable meeting date: tomorrow (disable today and all past days).
@@ -1045,39 +1212,42 @@ export default function MeetingsPage() {
               <div className="space-y-2">
                 <Label>Start Time <span className="text-red-500">*</span></Label>
                 <Popover open={timePickerOpen} onOpenChange={setTimePickerOpen}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className={`w-full justify-start text-left font-normal ${!formData.time && "text-muted-foreground"} ${errors.time ? "border-red-500" : ""} dark:bg-gray-800`}>
-                      <Clock className="mr-2 h-4 w-4" />
-                      {formData.time ? formatTimeAbbrev(formData.time) : "Select start time"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-56 p-1" align="start">
+                  <div className="relative">
+                    <Input
+                      value={startTimeText}
+                      onChange={(e) => handleStartTimeTextChange(e.target.value)}
+                      onBlur={handleStartTimeBlur}
+                      onFocus={() => setTimePickerOpen(true)}
+                      onKeyDown={(e) => { if (e.key === "Enter") setTimePickerOpen(false); }}
+                      placeholder="e.g. 1:30pm"
+                      className={`pr-9 ${errors.time ? "border-red-500 focus:border-red-500 focus:ring-red-500/20" : ""} dark:bg-gray-800`}
+                    />
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label="Pick start time"
+                        onClick={(e) => { e.preventDefault(); setTimePickerOpen(true); }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground"
+                      >
+                        <Clock className="h-4 w-4" />
+                      </button>
+                    </PopoverTrigger>
+                  </div>
+                  <PopoverContent className="w-56 p-1" align="end" side="bottom">
                     <div
-                      className="max-h-72 overflow-y-auto overscroll-contain pr-1 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-track]:bg-transparent"
+                      ref={startTimeListRef}
+                      className="max-h-[160px] overflow-y-auto overscroll-contain pr-1 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-track]:bg-transparent"
                       style={{ scrollbarWidth: "thin" }}
                       onWheel={(e) => e.stopPropagation()}
                     >
-                      {TIME_OPTIONS.map((opt) => {
-                        const selected = formData.time === opt.value;
+                      {TIME_OPTIONS.map((opt, index) => {
+                        const isHighlighted = startTimeHighlightIndex === index;
                         return (
                           <button
                             key={opt.value}
                             type="button"
-                            onClick={() => {
-                              const fields = timeToFields(opt.value);
-                              setFormData((prev) => ({
-                                ...prev,
-                                time: opt.value,
-                                hour: fields.hour,
-                                minute: fields.minute,
-                                ampm: fields.ampm,
-                                duration: formatMeetingDuration(minutesBetweenTimes(opt.value, prev.endTime)),
-                              }));
-                              if (errors.time) setErrors((prev) => ({ ...prev, time: false }));
-                              if (errors.duration) setErrors((prev) => ({ ...prev, duration: false }));
-                              setTimePickerOpen(false);
-                            }}
-                            className={`w-full rounded-md px-3 py-1.5 text-left text-sm transition-colors ${selected ? "bg-accent-blue/10 text-accent-blue font-medium" : "hover:bg-muted"}`}
+                            onClick={() => { applyStartTime(opt.value); setStartTimeText(opt.label); setTimePickerOpen(false); }}
+                            className={`w-full rounded-md px-3 py-1.5 text-left text-sm transition-colors ${isHighlighted ? "bg-accent-blue/20 text-accent-blue font-medium" : "hover:bg-muted"}`}
                           >
                             {opt.label}
                           </button>
@@ -1092,40 +1262,45 @@ export default function MeetingsPage() {
               <div className="space-y-2">
                 <Label>End Time <span className="text-red-500">*</span></Label>
                 <Popover open={endTimePickerOpen} onOpenChange={setEndTimePickerOpen}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" disabled={!formData.time} className={`w-full justify-start text-left font-normal ${!formData.endTime && "text-muted-foreground"} ${errors.endTime ? "border-red-500" : ""} dark:bg-gray-800`}>
-                      <Clock className="mr-2 h-4 w-4" />
-                      {formData.endTime ? formatTimeAbbrev(formData.endTime) : "Select end time"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-64 p-1" align="start">
+                  <div className="relative">
+                    <Input
+                      value={endTimeText}
+                      onChange={(e) => handleEndTimeTextChange(e.target.value)}
+                      onBlur={handleEndTimeBlur}
+                      onFocus={() => { if (formData.time) setEndTimePickerOpen(true); }}
+                      onKeyDown={(e) => { if (e.key === "Enter") setEndTimePickerOpen(false); }}
+                      placeholder="e.g. 2:00pm"
+                      disabled={!formData.time}
+                      className={`pr-9 ${errors.endTime ? "border-red-500 focus:border-red-500 focus:ring-red-500/20" : ""} dark:bg-gray-800`}
+                    />
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label="Pick end time"
+                        disabled={!formData.time}
+                        onClick={(e) => { e.preventDefault(); if (formData.time) setEndTimePickerOpen(true); }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Clock className="h-4 w-4" />
+                      </button>
+                    </PopoverTrigger>
+                  </div>
+                  <PopoverContent className="w-64 p-1" align="end" side="bottom">
                     <div
-                      className="max-h-72 overflow-y-auto overscroll-contain pr-1 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-track]:bg-transparent"
+                      ref={endTimeListRef}
+                      className="max-h-[160px] overflow-y-auto overscroll-contain pr-1 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-track]:bg-transparent"
                       style={{ scrollbarWidth: "thin" }}
                       onWheel={(e) => e.stopPropagation()}
                     >
-                      {TIME_OPTIONS.filter((opt) => !formData.time || opt.value > formData.time).map((opt) => {
-                        const selected = formData.endTime === opt.value;
+                      {endTimeOptions.map((opt, index) => {
+                        const isHighlighted = endTimeHighlightIndex === index;
                         const durationLabel = formatMeetingDuration(minutesBetweenTimes(formData.time, opt.value));
                         return (
                           <button
                             key={opt.value}
                             type="button"
-                            onClick={() => {
-                              const fields = timeToFields(opt.value);
-                              setFormData((prev) => ({
-                                ...prev,
-                                endTime: opt.value,
-                                endHour: fields.hour,
-                                endMinute: fields.minute,
-                                endAmpm: fields.ampm,
-                                duration: formatMeetingDuration(minutesBetweenTimes(prev.time, opt.value)),
-                              }));
-                              if (errors.endTime) setErrors((prev) => ({ ...prev, endTime: false }));
-                              if (errors.duration) setErrors((prev) => ({ ...prev, duration: false }));
-                              setEndTimePickerOpen(false);
-                            }}
-                            className={`w-full flex items-center justify-between gap-2 rounded-md px-3 py-1.5 text-left text-sm transition-colors ${selected ? "bg-accent-blue/10 text-accent-blue font-medium" : "hover:bg-muted"}`}
+                            onClick={() => { applyEndTime(opt.value); setEndTimeText(opt.label); setEndTimePickerOpen(false); }}
+                            className={`w-full flex items-center justify-between gap-2 rounded-md px-3 py-1.5 text-left text-sm transition-colors ${isHighlighted ? "bg-accent-blue/20 text-accent-blue font-medium" : "hover:bg-muted"}`}
                           >
                             <span>{opt.label}</span>
                             {durationLabel && (
@@ -1326,6 +1501,8 @@ export default function MeetingsPage() {
                       customBenefitsCategory: snap.customBenefitsCategory || "",
                     } : {}),
                   });
+                  setStartTimeText("");
+                  setEndTimeText("");
                   setPostSaveView("duplicate");
                 }}>
                   Yes, duplicate
