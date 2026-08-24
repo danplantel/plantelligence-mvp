@@ -79,6 +79,9 @@ interface DocumentsUploadSectionProps {
   compactDropzone?: boolean;
   /** Called when upload state changes (true = uploading in progress). */
   onUploadingChange?: (isUploading: boolean) => void;
+  /** Reports how many newly-uploaded documents are still awaiting the
+   *  confirmation checkbox in the review step (0 = none pending). */
+  onPendingReviewCountChange?: (count: number) => void;
 }
 
 export function DocumentsUploadSection({
@@ -96,6 +99,7 @@ export function DocumentsUploadSection({
   onBulkCategoryAssignmentHint,
   compactDropzone = false,
   onUploadingChange,
+  onPendingReviewCountChange,
 }: DocumentsUploadSectionProps) {
   const [currentDocumentName, setCurrentDocumentName] = useState("");
   const [currentDocumentDescription, setCurrentDocumentDescription] =
@@ -143,6 +147,24 @@ export function DocumentsUploadSection({
   const [failedBatchFiles, setFailedBatchFiles] = useState<File[]>([]);
   const cancelUploadRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Stable ref so the effect below always reports to the latest callback.
+  const onPendingReviewCountChangeRef = useRef(onPendingReviewCountChange);
+  onPendingReviewCountChangeRef.current = onPendingReviewCountChange;
+
+  // Report how many newly-uploaded documents are still waiting for the
+  // "I confirm these documents are accurate..." checkbox. The edit-client
+  // Save Changes flow uses this to block saving until uploads are confirmed.
+  useEffect(() => {
+    const pending =
+      isReviewing && !confirmedReview ? reviewDocuments.length : 0;
+    onPendingReviewCountChangeRef.current?.(pending);
+    // Reset on unmount (e.g. switching away from the Documents tab) so a
+    // discarded review can't leave a stale block on Save Changes.
+    return () => {
+      onPendingReviewCountChangeRef.current?.(0);
+    };
+  }, [isReviewing, confirmedReview, reviewDocuments.length]);
 
   const isAutoCategorized = useMemo(() => {
     return (

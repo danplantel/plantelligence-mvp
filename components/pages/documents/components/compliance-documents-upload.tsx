@@ -82,6 +82,9 @@ interface ComplianceDocumentsUploadProps {
   onDocumentsAdded?: () => void;
   /** Called when upload state changes (true = uploading in progress). */
   onUploadingChange?: (isUploading: boolean) => void;
+  /** Reports how many newly-uploaded documents are still awaiting the
+   *  confirmation checkbox in the review step (0 = none pending). */
+  onPendingReviewCountChange?: (count: number) => void;
 }
 
 export function ComplianceDocumentsUpload({
@@ -107,6 +110,7 @@ export function ComplianceDocumentsUpload({
   compact = false,
   onDocumentsAdded,
   onUploadingChange,
+  onPendingReviewCountChange,
 }: ComplianceDocumentsUploadProps) {
   // Parents often pass inline `onDocumentsChange` (new identity each render). Stabilize for
   // effect deps and always invoke the latest callback via a ref to avoid notify → sync → fetch loops.
@@ -1306,6 +1310,7 @@ export function ComplianceDocumentsUpload({
                 : undefined
             }
             onUploadingChange={onUploadingChange}
+            onPendingReviewCountChange={onPendingReviewCountChange}
           />
         </div>
       )}
@@ -1335,6 +1340,7 @@ export function ComplianceDocumentsUpload({
               : undefined
           }
           onUploadingChange={onUploadingChange}
+          onPendingReviewCountChange={onPendingReviewCountChange}
         />
       )}
 

@@ -585,12 +585,16 @@ function EditComplianceDocumentsSection({
   onDocumentsChange,
   validationErrors = {},
   clientId,
+  onPendingReviewCountChange,
 }: {
   documentsData: ComplianceDocumentsData;
   companyData: CompanyBasicsData;
   onDocumentsChange: (field: keyof ComplianceDocumentsData, value: any) => void;
   validationErrors?: Record<string, string[]>;
   clientId?: string;
+  /** Reports how many newly-uploaded documents are still awaiting the
+   *  confirmation checkbox in the review step (0 = none pending). */
+  onPendingReviewCountChange?: (count: number) => void;
 }) {
   const retirementPlanDocuments = documentsData.retirementPlanDocuments || [];
   const primaryColor = companyData.primaryColor || "#002B5B";
@@ -1035,6 +1039,7 @@ function EditComplianceDocumentsSection({
             language={selectedLanguage}
             onLanguageChange={setSelectedLanguage}
             compact={true}
+            onPendingReviewCountChange={onPendingReviewCountChange}
           />
         </TabsContent>
 
@@ -1275,6 +1280,9 @@ export default function EditClientPage() {
   const [isPreviewLayoutModalOpen, setIsPreviewLayoutModalOpen] =
     useState(false);
   const [isAddContactModalOpen, setIsAddContactModalOpen] = useState(false);
+  // Number of newly-uploaded documents still awaiting the "I confirm these
+  // documents are accurate..." checkbox. Blocks Save Changes until confirmed.
+  const [pendingDocumentUploads, setPendingDocumentUploads] = useState(0);
 
   const handleAddContactForCategory = useCallback(
     (category: BenefitsCategory) => {
@@ -1679,6 +1687,16 @@ export default function EditClientPage() {
   }, []);
 
   const handleSaveClick = () => {
+    // Block saving while newly-uploaded documents haven't been confirmed via
+    // the "I confirm these documents are accurate..." checkbox in the
+    // Documents tab.
+    if (pendingDocumentUploads > 0) {
+      toast.error("Confirm your document uploads before saving.", {
+        description:
+          "Please check the \u201cI confirm these documents are accurate, authorized for use, and ready to publish to this Benefits Hub.\u201d checkbox in the Documents tab, then add the documents before saving.",
+      });
+      return;
+    }
     // If the disclaimer was edited, require confirmation before saving so the
     // user can confirm the Client/Plan disclaimer will be updated.
     if (disclaimerEditedRef.current) {
@@ -1689,6 +1707,15 @@ export default function EditClientPage() {
   };
 
   const handleConfirmDisclaimerSave = async () => {
+    // Same guard as handleSaveClick — the disclaimer confirmation dialog can
+    // otherwise bypass the document-confirmation requirement.
+    if (pendingDocumentUploads > 0) {
+      toast.error("Confirm your document uploads before saving.", {
+        description:
+          "Please check the \u201cI confirm these documents are accurate, authorized for use, and ready to publish to this Benefits Hub.\u201d checkbox in the Documents tab, then add the documents before saving.",
+      });
+      return;
+    }
     setIsSavingDisclaimer(true);
     try {
       const ok = await handleSave();
@@ -2305,6 +2332,7 @@ export default function EditClientPage() {
                 onDocumentsChange={handleDocumentsChange}
                 validationErrors={getValidationErrors()}
                 clientId={clientId}
+                onPendingReviewCountChange={setPendingDocumentUploads}
               />
             </TabsContent>
 
