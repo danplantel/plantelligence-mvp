@@ -57,6 +57,9 @@ export function AddressSearch({
   /** When true, the current text is a just-selected address — skip auto-search
    *  and don't reopen the dropdown. Cleared as soon as the user types again. */
   const suppressSearchRef = useRef(false);
+  /** When true, the user has typed into the field — prevents the dropdown from
+   *  auto-opening on mount with a pre-filled value (e.g. editing a meeting). */
+  const hasTypedRef = useRef(false);
 
   // Debounce search term to avoid too many API calls
   const debouncedSearchTerm = useDebounce(searchTerm, 500); // 500ms delay
@@ -104,7 +107,11 @@ export function AddressSearch({
   // A just-selected address is suppressed so the dropdown doesn't reopen after
   // picking a place.
   useEffect(() => {
-    if (debouncedSearchTerm.length >= 3 && !suppressSearchRef.current) {
+    if (
+      debouncedSearchTerm.length >= 3 &&
+      !suppressSearchRef.current &&
+      hasTypedRef.current
+    ) {
       setIsOpen(true);
       searchPlaces(debouncedSearchTerm);
     } else {
@@ -116,7 +123,8 @@ export function AddressSearch({
   // Handle input change (debounced search will trigger automatically)
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
-    // The user is typing again — re-enable searching and show the dropdown.
+    // The user is typing — enable searching and show the dropdown.
+    hasTypedRef.current = true;
     suppressSearchRef.current = false;
     setSearchTerm(newValue);
     onChange(newValue);

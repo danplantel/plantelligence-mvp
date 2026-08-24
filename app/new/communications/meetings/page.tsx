@@ -1013,8 +1013,13 @@ export default function MeetingsPage() {
   const handleEditMeeting = (meeting: Meeting) => {
     const [hour24, minute] = meeting.time.split(":"); const h24 = parseInt(hour24);
     const end = deriveEndTimeFields(meeting.time || "", meeting.duration || "");
+    // A meeting type that isn't one of the preset types was entered via the
+    // "Custom" option — on edit, select "Custom" and pre-fill the custom name.
+    const isCustomType = !MEETING_TYPES.some((t) => t.value === meeting.meetingType);
     setFormData({
-      meetingType: meeting.meetingType || "", customMeetingType: "", client: meeting.client || "", clientId: resolveClientIdForMeeting(meeting),
+      meetingType: isCustomType ? "Custom" : (meeting.meetingType || ""),
+      customMeetingType: isCustomType ? (meeting.meetingType || "") : "",
+      client: meeting.client || "", clientId: resolveClientIdForMeeting(meeting),
       date: meeting.date || "", time: meeting.time || "",
       hour: (h24 === 0 ? 12 : h24 > 12 ? h24 - 12 : h24).toString(), minute: minute || "00", ampm: h24 >= 12 ? "PM" : "AM",
       endTime: end.endTime, endHour: end.endHour, endMinute: end.endMinute, endAmpm: end.endAmpm,
@@ -1032,8 +1037,13 @@ export default function MeetingsPage() {
   const handleDuplicateMeeting = (meeting: Meeting) => {
     const [hour24, minute] = meeting.time.split(":"); const h24 = parseInt(hour24);
     const end = deriveEndTimeFields(meeting.time || "", meeting.duration || "");
+    // A meeting type that isn't one of the preset types was entered via the
+    // "Custom" option — on duplicate, select "Custom" and pre-fill the custom name.
+    const isCustomType = !MEETING_TYPES.some((t) => t.value === meeting.meetingType);
     setFormData({
-      meetingType: meeting.meetingType || "", customMeetingType: "", client: meeting.client || "", clientId: resolveClientIdForMeeting(meeting),
+      meetingType: isCustomType ? "Custom" : (meeting.meetingType || ""),
+      customMeetingType: isCustomType ? (meeting.meetingType || "") : "",
+      client: meeting.client || "", clientId: resolveClientIdForMeeting(meeting),
       date: meeting.date || "", time: meeting.time || "",
       hour: (h24 === 0 ? 12 : h24 > 12 ? h24 - 12 : h24).toString(), minute: minute || "00", ampm: h24 >= 12 ? "PM" : "AM",
       endTime: end.endTime, endHour: end.endHour, endMinute: end.endMinute, endAmpm: end.endAmpm,
