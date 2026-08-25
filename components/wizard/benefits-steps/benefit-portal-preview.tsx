@@ -48,6 +48,7 @@ export function BenefitPortalPreview({ mobile, brandColor: brandColorOverride, s
     const { stepData } = useBenefitsWizardStore();
     const [userName, setUserName] = useState<string | null>(null);
     const [userDesignations, setUserDesignations] = useState<string[]>([]);
+    const [userPrimaryCategories, setUserPrimaryCategories] = useState<string[]>([]);
     useEffect(() => {
         let cancelled = false;
         fetch("/api/profile", { credentials: "same-origin" })
@@ -60,6 +61,11 @@ export function BenefitPortalPreview({ mobile, brandColor: brandColorOverride, s
                         ? (data as any).designations
                         : ((data as any)?.user?.designations || []),
                 );
+                setUserPrimaryCategories(
+                    Array.isArray((data as any)?.primaryServiceCategories)
+                        ? (data as any).primaryServiceCategories
+                        : [],
+                );
             })
             .catch(() => {});
         return () => { cancelled = true; };
@@ -69,6 +75,18 @@ export function BenefitPortalPreview({ mobile, brandColor: brandColorOverride, s
     const step4Data = stepData.step4;
 
     const category = step1Data?.benefitCategory || "Retirement";
+
+    // Whether the current benefit category is one of the advisor's primary service categories.
+    // Gates User.designations so they only show for categories the user actually serves.
+    const isCategoryPrimary = useMemo(() => {
+        const cat = category === "Custom" ? "Company / Plan Sponsor" : category;
+        const norm = (s: string) => (s || "").toLowerCase().trim().replace(/\s+/g, " ");
+        return userPrimaryCategories.some(
+            (pc) =>
+                norm(String(pc)) === norm(cat) ||
+                (norm(String(pc)) === "other" && norm(cat) === "company / plan sponsor"),
+        );
+    }, [category, userPrimaryCategories]);
 
     // Build a clientData-like object for resolving background images (matches retirement/page.tsx)
     const previewClientData = useMemo(() => ({
@@ -376,7 +394,7 @@ export function BenefitPortalPreview({ mobile, brandColor: brandColorOverride, s
                                 || DEFAULT_WELCOME_BG,
                             secondaryBannerImg: step1Data?.brandImages?.header?.url,
                         } as any}
-                        customDesignations={userDesignations}
+                        customDesignations={isCategoryPrimary ? userDesignations : []}
                         customClosing={step1Data?.signatureMode === "custom" ? (step1Data.customClosing || "Custom closing message") : undefined}
                         customSignature={
                             step1Data?.signatureMode === "custom"

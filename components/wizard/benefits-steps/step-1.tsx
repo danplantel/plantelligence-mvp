@@ -883,78 +883,99 @@ export function BenefitsStep1() {
     saveStepData(3, next);
   }, [currentStepData.benefitCategory, currentStepData.categoryBenefitByApi, saveStepData]);
 
-  // Load persisted Benefit Logo (partnerLogo) and Benefit Description (shortDescription) for the
-  // current category into step1 when entering the flow, so previously saved values are retained
-  // (e.g. deep-link re-entry sets planId/category but never loads the logo or description).
-  // Reads the Benefit table (source of truth) via categoryBenefitByApi — NOT the stale legacy
-  // employeePortalPreview JSON. Runs once per category (step1.benefitFieldsLoadedCategories) so
-  // in-session edits are never clobbered.
+  // Load persisted Benefit Logo (partnerLogo), Benefit Description (shortDescription) and header
+  // background for the current category into step1 when entering the flow, so previously saved
+  // values are retained (e.g. deep-link re-entry sets planId/category but never loads the logo).
+  //
+  // Source of truth is the `Benefit` table (categoryBenefitByApi) — NOT the stale legacy
+  // employeePortalPreview JSON. Additionally, when the category is one of the advisor's
+  // primaryServiceCategories, the Benefit Logo and Background Header Image default from the User
+  // profile (User.advisorLogoUrl → companyLogo, User.backgroundImage → brandImages.header)
+  // whenever the benefit row doesn't already provide them. Runs once per category
+  // (step1.benefitFieldsLoadedCategories) so in-session edits are never clobbered.
   useEffect(() => {
     const cat = currentStepData.benefitCategory;
     if (!cat) return;
 
     const loadedCats = currentStepData.benefitFieldsLoadedCategories ?? [];
     if (loadedCats.includes(cat)) return;
-    // Wait for the Benefit-table fetch to settle before deciding what to pre-fill.
+    // Wait for the Benefit-table fetch AND the user profile to resolve so the pre-fill decision
+    // (including the User-profile logo/header fallback) is final.
     if (currentStepData.categoryBenefitByApi === undefined) return;
+    if (profileData === undefined) return;
 
-    // Source of truth is the Benefit table (categoryBenefitByApi), NOT the stale legacy
-    // employeePortalPreview JSON. Missing = no row (deleted) → stay blank.
     const apiCat = cat === "Custom" ? "Company / Plan Sponsor" : cat;
     const benefit =
       currentStepData.categoryBenefitByApi[normalizeApiCategory(apiCat)] ?? null;
-    if (!benefit) {
-      // No Benefit row exists for this category (e.g. it was deleted). Clear any stale
-      // benefit content persisted from a previous session (logo, description, header,
-      // contact, video, journey) so the wizard starts blank instead of showing the last
-      // benefit the user created. Runs once per category on entry.
-      const cleared: BenefitsStep1Data = {
-        ...currentStepData,
-        benefitTitle: "",
-        shortDescription: "",
-        contactId: "",
-        companyLogo: null,
-        innerHeaderImage: null,
-        brandImages: {
-          header: null,
-          thumbnail: null,
-          secondaryBanner: null,
-          favicon: null,
-        },
-        planVideo: undefined,
-        planVideoFileName: undefined,
-        journeyHeader: undefined,
-        journeySubtitle: undefined,
-        journeyBodyText: undefined,
-        insurancePlanId: "",
-        insuranceLoginUrl: "",
-        insuranceBackgroundImage: "",
-        insuranceContainerBlockOpacity: undefined,
-        benefitFieldsLoadedCategories: [...loadedCats, cat],
-      };
-      saveStepData(1, cleared);
-      return;
-    }
 
-    const savedLogo = benefit?.partnerLogo;
-    const savedDescription = benefit?.shortDescription;
+    // User-profile defaults for the advisor's primary service categories.
+    const profile = (profileData as any) || {};
+    const primaryCats: string[] = Array.isArray(profile.primaryServiceCategories)
+      ? profile.primaryServiceCategories
+      : [];
+    // "Other" in primaryServiceCategories maps to the "Company / Plan Sponsor" benefit hub.
+    const isPrimary = primaryCats.some(
+      (pc) =>
+        normalizeApiCategory(String(pc)) === normalizeApiCategory(apiCat) ||
+        (normalizeApiCategory(String(pc)) === "other" &&
+          normalizeApiCategory(apiCat) === "company / plan sponsor"),
+    );
+    // Read the advisor's branding from wherever it is stored: top-level User fields
+    // (advisorLogoUrl / backgroundImage) first, then the wizard branding / profile-derived
+    // values (advisorLogo, advisorBackgroundImage, wizardSessions branding/userSetup).
+    const wizardBranding = profile.wizardSessions?.[0]?.branding || {};
+    const wizardUserSetup = profile.wizardSessions?.[0]?.userSetup || {};
+    const userLogo = isPrimary
+      ? (profile.advisorLogoUrl ||
+          profile.advisorLogo ||
+          wizardBranding.logo ||
+          null)
+      : null;
+    const userHeader = isPrimary
+      ? (profile.backgroundImage ||
+          profile.advisorBackgroundImage ||
+          wizardBranding.backgroundImage ||
+          wizardUserSetup.backgroundImage ||
+          null)
+      : null;
+
+    // Benefit-table row wins; the User profile is the fallback for logo/header only.
+    const savedLogo = benefit?.partnerLogo || userLogo;
+    const savedDescription = benefit?.shortDescription || "";
     const savedHeaderImage =
-      benefit?.backgroundImage || benefit?.image || null;
-    if (!savedLogo && !savedDescription && !savedHeaderImage) {
-      // Row exists but has no pre-fillable content — mark loaded so we don't re-run and
-      // leave the wizard blank (don't keep stale persisted values).
-      const next: BenefitsStep1Data = {
-        ...currentStepData,
-        benefitFieldsLoadedCategories: [...loadedCats, cat],
-      };
-      saveStepData(1, next);
-      return;
-    }
+      (benefit?.backgroundImage || benefit?.image) || userHeader;
 
     const next: BenefitsStep1Data = {
       ...currentStepData,
       benefitFieldsLoadedCategories: [...loadedCats, cat],
     };
+
+    // When there is no Benefit row (deleted / never created), clear stale persisted content from
+    // a previous benefit so it never resurfaces — the User-profile values above then re-seed the
+    // logo/header for primary categories.
+    if (!benefit) {
+      next.benefitTitle = "";
+      next.shortDescription = "";
+      next.contactId = "";
+      next.companyLogo = null;
+      next.innerHeaderImage = null;
+      next.brandImages = {
+        header: null,
+        thumbnail: null,
+        secondaryBanner: null,
+        favicon: null,
+      };
+      next.planVideo = undefined;
+      next.planVideoFileName = undefined;
+      next.journeyHeader = undefined;
+      next.journeySubtitle = undefined;
+      next.journeyBodyText = undefined;
+      next.insurancePlanId = "";
+      next.insuranceLoginUrl = "";
+      next.insuranceBackgroundImage = "";
+      next.insuranceContainerBlockOpacity = undefined;
+    }
+
     if (savedDescription) {
       next.shortDescription = savedDescription;
     }
@@ -989,8 +1010,9 @@ export function BenefitsStep1() {
         },
       };
     }
+
     saveStepData(1, next);
-  }, [currentStepData.benefitCategory, currentStepData.categoryBenefitByApi, saveStepData]);
+  }, [currentStepData.benefitCategory, currentStepData.categoryBenefitByApi, profileData, saveStepData]);
 
   // Conversion helpers
   const convertBrandImageToLogo = (
@@ -1165,6 +1187,27 @@ export function BenefitsStep1() {
 
     return baseData;
   };
+
+  // Whether the currently selected benefit category is one of the advisor's primary service
+  // categories — gates the "Your Designations" section so User.designations only show for
+  // categories the user actually serves (pre-population by User.primaryServiceCategories).
+  const isCurrentCategoryPrimary = useMemo(() => {
+    const cat = currentStepData.benefitCategory;
+    if (!cat) return false;
+    const primaryCats: string[] = Array.isArray(
+      (profileData as any)?.primaryServiceCategories,
+    )
+      ? (profileData as any).primaryServiceCategories
+      : [];
+    if (primaryCats.length === 0) return false;
+    const apiCat = cat === "Custom" ? "Company / Plan Sponsor" : cat;
+    return primaryCats.some(
+      (pc) =>
+        normalizeApiCategory(String(pc)) === normalizeApiCategory(apiCat) ||
+        (normalizeApiCategory(String(pc)) === "other" &&
+          normalizeApiCategory(apiCat) === "company / plan sponsor"),
+    );
+  }, [currentStepData.benefitCategory, profileData]);
 
   const getCategoryStatus = (catId: string) => {
     const selectedPlan =
@@ -1552,19 +1595,49 @@ export function BenefitsStep1() {
     const existingBenefit =
       currentStepData.categoryBenefitByApi?.[normalizeApiCategory(normalizedCategory)] ?? null;
 
+    // User-profile branding fallback for primary service categories (row still wins).
+    const profile = (profileData as any) || {};
+    const primaryCats: string[] = Array.isArray(profile.primaryServiceCategories)
+      ? profile.primaryServiceCategories
+      : [];
+    const isPrimary = primaryCats.some(
+      (pc) =>
+        normalizeApiCategory(String(pc)) === normalizeApiCategory(normalizedCategory) ||
+        (normalizeApiCategory(String(pc)) === "other" &&
+          normalizeApiCategory(normalizedCategory) === "company / plan sponsor"),
+    );
+    const wizardBranding = profile.wizardSessions?.[0]?.branding || {};
+    const wizardUserSetup = profile.wizardSessions?.[0]?.userSetup || {};
+    const userLogo = isPrimary
+      ? (profile.advisorLogoUrl ||
+          profile.advisorLogo ||
+          wizardBranding.logo ||
+          null)
+      : null;
+    const userHeader = isPrimary
+      ? (profile.backgroundImage ||
+          profile.advisorBackgroundImage ||
+          wizardBranding.backgroundImage ||
+          wizardUserSetup.backgroundImage ||
+          null)
+      : null;
+
+    // Build a clean per-category state: every benefit-scoped field comes from the selected
+    // category's OWN Benefit row (or is reset), so switching categories never carries over
+    // another category's title/copy/images/journey/insurance/signature/video/help cards/hero
+    // overlay. Logo & header fall back to the User profile for primary service categories.
     let newData: BenefitsStep1Data = {
       ...currentStepData,
       benefitCategory: normalizedCategory,
       contactId: existingBenefit?.contactId || "",
       benefitTitle: existingBenefit?.title || benefitCategory,
       shortDescription: existingBenefit?.shortDescription || "",
-      // Always start with a clean slate — never pre-populate planVideo from previous sessions
-      planVideo: undefined,
-      planVideoFileName: undefined,
-      // Reset or load images for the new category
-      companyLogo: existingBenefit?.partnerLogo
+      planVideo: existingBenefit?.planVideo || undefined,
+      planVideoFileName: existingBenefit?.planVideoFileName || undefined,
+      planVideoRemoved: false,
+      companyLogo: (existingBenefit?.partnerLogo || userLogo)
         ? ({
-            url: existingBenefit.partnerLogo,
+            url: existingBenefit?.partnerLogo || userLogo,
             fileName: "logo.png",
             fileSize: 0,
             width: 0,
@@ -1573,10 +1646,21 @@ export function BenefitsStep1() {
             warnings: [],
           } as CompanyLogoData)
         : null,
+      innerHeaderImage: existingBenefit?.innerHeaderImage
+        ? ({
+            url: existingBenefit.innerHeaderImage,
+            fileName: "inner-header.png",
+            fileSize: 0,
+            width: 0,
+            height: 0,
+            hasTransparency: false,
+            warnings: [],
+          } as CompanyLogoData)
+        : null,
       brandImages: {
-        header: existingBenefit?.image
+        header: (existingBenefit?.backgroundImage || existingBenefit?.image || userHeader)
           ? ({
-              url: existingBenefit.image,
+              url: existingBenefit?.backgroundImage || existingBenefit?.image || userHeader,
               fileName: "background.png",
               fileSize: 0,
               width: 0,
@@ -1590,6 +1674,29 @@ export function BenefitsStep1() {
         secondaryBanner: null,
         favicon: null,
       },
+      helpCards: existingBenefit?.helpCards || undefined,
+      insurancePlanId: existingBenefit?.insurancePlanId || "",
+      insuranceLoginUrl: existingBenefit?.insuranceLoginUrl || "",
+      insuranceBackgroundImage: existingBenefit?.insuranceBackgroundImage || "",
+      insuranceContainerBlockOpacity: existingBenefit?.insuranceContainerBlockOpacity ?? 0.8,
+      journeyHeader: existingBenefit?.journeyHeader || "",
+      journeySubtitle: existingBenefit?.journeySubtitle || "",
+      journeyBodyText: existingBenefit?.journeyBodyText || "",
+      signatureMode: existingBenefit?.signatureMode || "user",
+      customClosing: existingBenefit?.customClosing || "",
+      customSignatureName: existingBenefit?.customSignatureName || "",
+      customSignatureCompany: existingBenefit?.customSignatureCompany || "",
+      customClosingBold: existingBenefit?.customClosingBold ?? true,
+      customClosingItalic: existingBenefit?.customClosingItalic ?? false,
+      customSignatureNameBold: existingBenefit?.customSignatureNameBold ?? false,
+      customSignatureNameItalic: existingBenefit?.customSignatureNameItalic ?? false,
+      customSignatureCompanyBold: existingBenefit?.customSignatureCompanyBold ?? false,
+      customSignatureCompanyItalic: existingBenefit?.customSignatureCompanyItalic ?? true,
+      heroBackgroundOpacity: existingBenefit?.heroBackgroundOpacity ?? 1.0,
+      heroContainerBlockOpacity: existingBenefit?.heroContainerBlockOpacity ?? 0.67,
+      heroContainerInverted: existingBenefit?.heroContainerInverted ?? false,
+      heroBackgroundInverted: existingBenefit?.heroBackgroundInverted ?? false,
+      heroUseGradient: existingBenefit?.heroUseGradient ?? false,
     };
 
     // Always prefill contact when category changes to ensure correct primary contact is selected
@@ -2756,8 +2863,10 @@ export function BenefitsStep1() {
                     </div>
                   )}
 
-                  {/* User's Designations */}
-                  {profileData?.designations && profileData.designations.length > 0 && (
+                  {/* User's Designations — only for the advisor's primary service categories */}
+                  {isCurrentCategoryPrimary &&
+                    profileData?.designations &&
+                    profileData.designations.length > 0 && (
                     <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
                       <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">
                         Your Designations

@@ -57,9 +57,6 @@ export function PrimaryServiceCategoriesSelect({
       {label != null && (
         <label className="block font-medium text-sm">{label}</label>
       )}
-      {helperText != null && (
-        <p className="text-sm text-muted-foreground">{helperText}</p>
-      )}
       <div className="space-y-2">
         {options.map((option) => {
           const isSelected = selectedValues.includes(option);

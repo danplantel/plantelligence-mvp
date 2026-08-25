@@ -490,6 +490,33 @@ export default function SettingsPage() {
       const { saveStepDataToServer } = useOnboardingWizardStore.getState();
       const ok = await saveStepDataToServer("userSetup", data);
       if (!ok) throw new Error("Failed to save user setup");
+
+      // Persist Primary Service Categories to the User record. WizardUserSetup has no
+      // primaryServiceCategories column (it was removed from the model), so a plain
+      // userSetup save silently drops them. `/api/profile` is the authoritative source
+      // that reads `User.primaryServiceCategories` — mirror the Branding tab's dual-write.
+      const userId = userProfile?.id || cachedProfile?.id;
+      if (userId && Array.isArray(data.primaryServiceCategories)) {
+        try {
+          const categoriesRes = await fetch("/api/profile", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              id: userId,
+              primaryServiceCategories: data.primaryServiceCategories,
+            }),
+          });
+          if (!categoriesRes.ok) {
+            console.warn(
+              "Failed to persist primaryServiceCategories to User record",
+              categoriesRes.status,
+            );
+          }
+        } catch (categoriesError) {
+          console.error("Error persisting primaryServiceCategories:", categoriesError);
+        }
+      }
+
       invalidateProfileCache();
       userSetupForm.reset(data, { keepDirtyValues: false });
       setInitialUserSetup(JSON.parse(JSON.stringify(data)));
@@ -538,6 +565,9 @@ export default function SettingsPage() {
             primaryColor: data.primaryColor || undefined,
             secondaryColor: data.secondaryColor || undefined,
             subdomain: data.subdomain || undefined,
+            // Persist the background to the User record too, so the benefits wizard can
+            // pre-populate the Background Header Image from User.backgroundImage.
+            backgroundImage: data.backgroundImage || undefined,
           }),
         });
 
