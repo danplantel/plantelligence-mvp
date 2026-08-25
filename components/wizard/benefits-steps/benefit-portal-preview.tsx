@@ -483,7 +483,7 @@ export function BenefitPortalPreview({ mobile, brandColor: brandColorOverride, s
                         }
                         backgroundImage={step1Data?.insuranceBackgroundImage || undefined}
                         containerBlockOpacity={step1Data?.insuranceContainerBlockOpacity ?? 0.8}
-                        planIdLabel={step1Data?.insurancePlanId ? `PLAN ID: ${step1Data.insurancePlanId}` : "PLAN ID: [Not Set]"}
+                        planIdLabel={step1Data?.insurancePlanId ? `PLAN / GROUP ID: ${step1Data.insurancePlanId}` : undefined}
                         buttonLabel="REGISTER OR LOGIN HERE"
                         onPlanIdClick={() => handleEdit("insurance", "planId")}
                     />

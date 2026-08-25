@@ -55,7 +55,12 @@ export function PortalMaterialsHero({
   const epp = (clientData as any)?.employeePortalPreview as Record<string, unknown> | undefined;
 
   // Plan ID label: prop override → context → default
-  const resolvedPlanIdLabel = planIdLabelProp ?? (epp?.insurancePlanId ? `PLAN ID: ${epp.insurancePlanId}` : undefined);
+  const resolvedPlanIdLabel = planIdLabelProp || (epp?.insurancePlanId ? `PLAN / GROUP ID: ${epp.insurancePlanId}` : undefined);
+  // Hide the Plan / Group ID section when there's no value (or only the
+  // "[Not Set]" placeholder).
+  const hasPlanId = Boolean(
+    resolvedPlanIdLabel && !resolvedPlanIdLabel.includes("[Not Set]"),
+  );
 
   // Login URL: prop override → context → no button
   const insuranceLoginUrl = epp?.insuranceLoginUrl as string | undefined;
@@ -108,24 +113,26 @@ export function PortalMaterialsHero({
                 {cardHeading}
               </h3>
 
-              <div className="my-6 text-center">
-                <div
-                  className={`relative inline-block ${onPlanIdClick ? "cursor-pointer group" : ""}`}
-                  onClick={(e) => { e.stopPropagation(); onPlanIdClick?.(); }}
-                  onMouseEnter={() => onPlanIdClick && setHoveredField("planId")}
-                  onMouseLeave={() => onPlanIdClick && setHoveredField(null)}
-                >
-                  {onPlanIdClick && hoveredField === "planId" && <EditPencil />}
-                  <span className="inline-block rounded-lg bg-black/60 px-4 py-2 font-red-hat text-[16px] leading-tight font-semibold text-[#b78e42] backdrop-blur-sm">
-                    {resolvedPlanIdLabel}
-                  </span>
+              {hasPlanId && (
+                <div className="my-6 text-center">
+                  <div
+                    className={`relative inline-block ${onPlanIdClick ? "cursor-pointer group" : ""}`}
+                    onClick={(e) => { e.stopPropagation(); onPlanIdClick?.(); }}
+                    onMouseEnter={() => onPlanIdClick && setHoveredField("planId")}
+                    onMouseLeave={() => onPlanIdClick && setHoveredField(null)}
+                  >
+                    {onPlanIdClick && hoveredField === "planId" && <EditPencil />}
+                    <span className="inline-block rounded-lg bg-black/60 px-4 py-2 font-red-hat text-[16px] leading-tight font-semibold text-[#b78e42] backdrop-blur-sm">
+                      {resolvedPlanIdLabel}
+                    </span>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <Button
                 size="lg"
                 onClick={resolvedOnButtonClick}
-                className="mb-6 flex h-auto w-full items-center justify-center gap-2 px-6 py-3 text-[16px] leading-tight font-red-hat text-white hover:opacity-90"
+                className="my-4 flex h-auto w-full items-center justify-center gap-2 px-6 py-3 text-[16px] leading-tight font-red-hat text-white hover:opacity-90"
                 style={{ background: brandColor }}
               >
                 {buttonLabel}

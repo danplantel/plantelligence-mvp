@@ -990,7 +990,7 @@ export function BenefitsEditorPanel({
                         </div>
 
                         <div className="space-y-2">
-                            <Label className="text-xs font-bold text-foreground">Plan ID #</Label>
+                            <Label className="text-xs font-bold text-foreground">Plan / Group ID</Label>
                             <Input
                                 value={step1Data.insurancePlanId || ""}
                                 onMouseDown={() => focusPreviewField("insurancePlanId")}
@@ -1010,7 +1010,7 @@ export function BenefitsEditorPanel({
                             />
                             <div className="flex items-center justify-between">
                                 <p className="text-[11px] text-muted-foreground">
-                                    This appears as &ldquo;PLAN ID: [value]&rdquo; on the Insurance Benefits card.
+                                    This appears as &ldquo;PLAN / GROUP ID: [value]&rdquo; on the Insurance Benefits card.
                                 </p>
                                 <span className="text-[11px] text-muted-foreground tabular-nums">
                                     {(step1Data.insurancePlanId || "").replace(/-/g, "").length}/12
