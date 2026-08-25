@@ -347,11 +347,31 @@ export function PortalWelcomeBanner({
       data-bg-src={backgroundSrc || "(none)"}
       data-bg-category={category || "(none)"}
     >
+      {/* Guaranteed edge-to-edge background layer. Rendered as an <img> with
+          object-cover (in addition to the CSS background) so the header background
+          ALWAYS fills the banner — some R2-proxied images render at natural size
+          as a CSS background, leaving the navy color visible on the sides. */}
+      {backgroundSrc && (
+        <img
+          src={backgroundSrc}
+          alt=""
+          aria-hidden
+          className="portal-welcome-bg-img absolute inset-0 h-full w-full object-cover"
+          style={{
+            objectPosition: desktopHeroBackgroundPosition
+              ? `${desktopHeroBackgroundPosition.x}% ${desktopHeroBackgroundPosition.y}%`
+              : "center",
+          }}
+        />
+      )}
       {mobileHeroBackgroundPosition && (
         <style>{`
           @media (max-width: 640px) {
             #portal-welcome-banner {
               background-position: ${mobileHeroBackgroundPosition.x}% ${mobileHeroBackgroundPosition.y}% !important;
+            }
+            #portal-welcome-banner .portal-welcome-bg-img {
+              object-position: ${mobileHeroBackgroundPosition.x}% ${mobileHeroBackgroundPosition.y}% !important;
             }
           }
         `}</style>

@@ -554,12 +554,16 @@ export default function SettingsPage() {
       if (!ok) throw new Error("Failed to save branding");
 
       try {
+        // When the user deletes the background, data.backgroundImage is "" — it MUST
+        // be sent as an empty string so Prisma clears User.backgroundImage. Sending
+        // `undefined` would cause JSON.stringify to drop the key, leaving the stale
+        // R2 key in the DB (which then re-pre-populates the benefits header).
         const updateResponse = await fetch("/api/profile/update-profile", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            advisorLogo: data.logo,
-            advisorLogoUrl: data.logo,
+            advisorLogo: data.logo || "",
+            advisorLogoUrl: data.logo || "",
             organizationName: data.organizationName || undefined,
             website: data.website || undefined,
             primaryColor: data.primaryColor || undefined,
@@ -567,7 +571,8 @@ export default function SettingsPage() {
             subdomain: data.subdomain || undefined,
             // Persist the background to the User record too, so the benefits wizard can
             // pre-populate the Background Header Image from User.backgroundImage.
-            backgroundImage: data.backgroundImage || undefined,
+            // Empty string (not undefined) so a removal actually clears the column.
+            backgroundImage: data.backgroundImage || "",
           }),
         });
 
@@ -576,6 +581,27 @@ export default function SettingsPage() {
         }
       } catch (profileError) {
         console.error("Error updating user profile:", profileError);
+      }
+
+      // When the branding background is removed, also clear the wizard userSetup
+      // background (advisorBackgroundImage) — otherwise the /api/profile fallback
+      // chain (`profile.backgroundImage || advisorBackgroundImage || …`) in the
+      // benefits wizard would still pre-populate a stale R2 background on refresh.
+      // Merge with the store's current userSetup so no other fields are lost.
+      if (!data.backgroundImage) {
+        try {
+          const { saveStepDataToServer: saveUserSetup } =
+            useOnboardingWizardStore.getState();
+          const currentUserSetup = {
+            ...(useOnboardingWizardStore.getState().stepData?.userSetup || {}),
+            ...userSetupForm.getValues(),
+            backgroundImage: "",
+            backgroundFileName: "",
+          };
+          await saveUserSetup("userSetup", currentUserSetup);
+        } catch (setupError) {
+          console.error("Error clearing userSetup background:", setupError);
+        }
       }
 
       invalidateProfileCache();
