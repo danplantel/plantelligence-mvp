@@ -955,7 +955,8 @@ export function BenefitsStep1() {
     // a previous benefit so it never resurfaces — the User-profile values above then re-seed the
     // logo/header for primary categories.
     if (!benefit) {
-      next.benefitTitle = "";
+      // Default the Display Title to the Benefit Category name so Messaging is not empty.
+      next.benefitTitle = cat;
       next.shortDescription = "";
       // NOTE: contactId (Key Contact selection) is deliberately NOT cleared here — it is
       // managed by the contact-prefill effect / prefillContact, so clearing it on a different
