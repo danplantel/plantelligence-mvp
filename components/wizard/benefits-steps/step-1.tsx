@@ -100,6 +100,7 @@ import {
   normalizeBenefitsCategoryForCompleteness,
 } from "@/lib/benefit-completeness";
 import { convertToDocumentFormat } from "@/lib/compliance-document-utils";
+import { mergeOnboardingAdvisorContactsIntoKeyContacts } from "@/lib/seed-onboarding-advisor-contacts";
 import { BenefitsDocumentsSection } from "./benefits-documents-section";
 /** Wizard order — matches accordion below (Branding → Messaging → Contacts → Documents). */
 const BENEFIT_SETUP_SECTION_ORDER = [
@@ -956,7 +957,9 @@ export function BenefitsStep1() {
     if (!benefit) {
       next.benefitTitle = "";
       next.shortDescription = "";
-      next.contactId = "";
+      // NOTE: contactId (Key Contact selection) is deliberately NOT cleared here — it is
+      // managed by the contact-prefill effect / prefillContact, so clearing it on a different
+      // render would wipe the pre-selected Primary Contact for every category.
       next.companyLogo = null;
       next.innerHeaderImage = null;
       next.brandImages = {
@@ -1100,6 +1103,18 @@ export function BenefitsStep1() {
           : apiPlan.keyContacts.contacts || [];
       }
 
+      // Ensure the advisor (User) is available as a Key Contact for EVERY primary service
+      // category — even when the plan's keyContacts predate a category the user added later
+      // (e.g. Group Life added via Settings after the plan was created). Without this, that
+      // category has no contact to pre-select in the Primary Contact dropdown.
+      if (profileData) {
+        contactsToSet = mergeOnboardingAdvisorContactsIntoKeyContacts(
+          contactsToSet,
+          (profileData as any)?.primaryServiceCategories,
+          profileData as any,
+        );
+      }
+
       if (contactsToSet.length > 0) {
         setSelectedPlanContacts(contactsToSet);
 
@@ -1119,7 +1134,7 @@ export function BenefitsStep1() {
     } else {
       setSelectedPlanContacts([]);
     }
-  }, [currentStepData.planId, plans, currentStepData.benefitCategory]);
+  }, [currentStepData.planId, plans, currentStepData.benefitCategory, profileData]);
 
   const prefillContact = (
     category: string,
