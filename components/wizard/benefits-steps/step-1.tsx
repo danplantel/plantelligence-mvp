@@ -2366,14 +2366,7 @@ export function BenefitsStep1() {
               <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-gray-50/50 group border-b bg-gray-50/30 dark:hover:bg-gray-700/40 dark:bg-gray-800 dark:border-gray-700">
                 <div className="flex items-center justify-between w-full pr-4 text-left">
                   <div className="flex items-center gap-3">
-                    <div
-                      className={cn(
-                        "p-2 rounded-lg transition-colors",
-                        currentCompleteness?.sections.branding
-                          ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400"
-                          : "bg-teal-50 text-[#23919C] dark:bg-teal-900/30 dark:text-teal-400",
-                      )}
-                    >
+                    <div className="p-2 rounded-lg transition-colors bg-teal-50 text-accent-blue dark:bg-teal-900/30 dark:text-teal-400">
                       <ImageIcon className="w-5 h-5" />
                     </div>
                     <div>
@@ -2483,14 +2476,7 @@ export function BenefitsStep1() {
               <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-gray-50/50 group border-b bg-gray-50/30 dark:hover:bg-gray-700/40 dark:bg-gray-800 dark:border-gray-700">
                 <div className="flex items-center justify-between w-full pr-4 text-left">
                   <div className="flex items-center gap-3">
-                    <div
-                      className={cn(
-                        "p-2 rounded-lg transition-colors",
-                        currentCompleteness?.sections.messaging
-                          ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400"
-                          : "bg-teal-50 text-[#23919C] dark:bg-teal-900/30 dark:text-teal-400",
-                      )}
-                    >
+                    <div className="p-2 rounded-lg transition-colors bg-teal-50 text-accent-blue dark:bg-teal-900/30 dark:text-teal-400">
                       <Layout className="w-5 h-5" />
                     </div>
                     <div>
@@ -2694,14 +2680,7 @@ export function BenefitsStep1() {
               <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-gray-50/50 group border-b bg-gray-50/30 dark:hover:bg-gray-700/40 dark:bg-gray-800 dark:border-gray-700">
                 <div className="flex items-center justify-between w-full pr-4 text-left">
                   <div className="flex items-center gap-3">
-                    <div
-                      className={cn(
-                        "p-2 rounded-lg transition-colors",
-                        currentCompleteness?.sections.contacts
-                          ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400"
-                          : "bg-teal-50 text-[#23919C] dark:bg-teal-900/30 dark:text-teal-400",
-                      )}
-                    >
+                    <div className="p-2 rounded-lg transition-colors bg-teal-50 text-accent-blue dark:bg-teal-900/30 dark:text-teal-400">
                       <Mail className="w-5 h-5" />
                     </div>
                     <div>
@@ -2904,14 +2883,7 @@ export function BenefitsStep1() {
               <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-gray-50/50 group border-b bg-gray-50/30 dark:hover:bg-gray-700/40 dark:bg-gray-800 dark:border-gray-700">
                 <div className="flex items-center justify-between w-full pr-4 text-left">
                   <div className="flex items-center gap-3">
-                    <div
-                      className={cn(
-                        "p-2 rounded-lg transition-colors",
-                        currentCompleteness?.sections.documents
-                          ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400"
-                          : "bg-teal-50 text-[#23919C] dark:bg-teal-900/30 dark:text-teal-400",
-                      )}
-                    >
+                    <div className="p-2 rounded-lg transition-colors bg-teal-50 text-accent-blue dark:bg-teal-900/30 dark:text-teal-400">
                       <FileText className="w-5 h-5" />
                     </div>
                     <div>
