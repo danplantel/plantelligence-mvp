@@ -788,6 +788,16 @@ export function BenefitsStep1() {
   const normalizeApiCategory = (raw: string) =>
     (raw || "").toLowerCase().trim().replace(/\s+/g, " ");
 
+  /** Resolve the client/plan company name (Company / Plan Sponsor name) from the
+   *  selected plan, falling back to the plans list by planId so it populates even
+   *  before the full plan detail has finished loading. */
+  const getSelectedCompanyName = (): string => {
+    const plan =
+      currentStepData?.selectedPlan ||
+      plans.find((p) => p.id === currentStepData?.planId);
+    return ((plan as any)?.companyName || "").trim();
+  };
+
   /** Default Intro Headline: "Welcome to [Organization Name]" for the advisor's own
    *  primary service categories, otherwise "Welcome to [Company Name]" (the plan/client).
    *  The name is truncated so the headline stays within the 35-char Intro Headline max. */
@@ -809,9 +819,7 @@ export function BenefitsStep1() {
       (profileData as any)?.user?.organizationName ||
       ""
     ).trim();
-    const companyName = (
-      currentStepData?.selectedPlan?.companyName || ""
-    ).trim();
+    const companyName = getSelectedCompanyName();
     const name = isPrimary ? orgName : companyName;
     const prefix = "Welcome to ";
     if (!name) return `${prefix}Your Benefits Hub!`;
@@ -820,6 +828,26 @@ export function BenefitsStep1() {
     const trimmed =
       name.length > maxNameLen ? name.slice(0, maxNameLen) : name;
     return `${prefix}${trimmed}!`;
+  };
+
+  /** Default Intro Message: a personalized welcome that fills in the
+   *  Company (Plan Sponsor) Name (the plan/client) and the Organization Name
+   *  (the advisor) in the placeholder spots. Kept ≤ 450 chars (Intro Message max). */
+  const getDefaultIntroMessage = (): string => {
+    const companyName = getSelectedCompanyName();
+    const orgName = (
+      (profileData as any)?.organizationName ||
+      (profileData as any)?.user?.organizationName ||
+      ""
+    ).trim();
+    const company = companyName || "your company";
+    const org = orgName || "your organization";
+    return (
+      `We consider it a privilege to have been selected by ${company} to represent you and your retirement plan. ` +
+      `Whether you're just beginning your savings journey or already building toward retirement, ` +
+      `${org} shares your company's commitment to educating you about the importance and long-term value of ` +
+      `participating in this valuable retirement benefit.`
+    ).slice(0, 450);
   };
 
   useEffect(() => {
@@ -992,7 +1020,7 @@ export function BenefitsStep1() {
     if (!benefit) {
       // Default the Intro Headline to "Welcome to [Org/Company]" so Messaging is not empty.
       next.benefitTitle = getDefaultIntroHeadline(cat);
-      next.shortDescription = "";
+      next.shortDescription = getDefaultIntroMessage();
       // NOTE: contactId (Key Contact selection) is deliberately NOT cleared here — it is
       // managed by the contact-prefill effect / prefillContact, so clearing it on a different
       // render would wipe the pre-selected Primary Contact for every category.
@@ -1681,7 +1709,7 @@ export function BenefitsStep1() {
       benefitCategory: normalizedCategory,
       contactId: existingBenefit?.contactId || "",
       benefitTitle: existingBenefit?.title || getDefaultIntroHeadline(benefitCategory),
-      shortDescription: existingBenefit?.shortDescription || "",
+      shortDescription: existingBenefit?.shortDescription || getDefaultIntroMessage(),
       planVideo: existingBenefit?.planVideo || undefined,
       planVideoFileName: existingBenefit?.planVideoFileName || undefined,
       planVideoRemoved: false,
