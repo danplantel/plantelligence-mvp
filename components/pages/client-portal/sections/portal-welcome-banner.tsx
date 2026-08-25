@@ -377,6 +377,15 @@ export function PortalWelcomeBanner({
         `}</style>
       )}
 
+      {/* Background darken/lighten overlay — controlled by "Background Opacity".
+          Painted above the CSS background AND the object-cover <img> layer, but
+          below the content (z-10). */}
+      <div
+        className="absolute inset-0 z-[1]"
+        style={backgroundOverlayStyle}
+        aria-hidden
+      />
+
       {/* Benefit Hub Header (for all Categories) */}
       <div
         className="relative z-10 flex flex-col justify-center mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-12 lg:py-20"

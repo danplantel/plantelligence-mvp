@@ -88,11 +88,29 @@ export function BenefitPortalPreview({ mobile, brandColor: brandColorOverride, s
         );
     }, [category, userPrimaryCategories]);
 
-    // Build a clientData-like object for resolving background images (matches retirement/page.tsx)
+    // Build a clientData-like object for resolving background images (matches retirement/page.tsx).
+    // The live editor settings (heroBackgroundOpacity etc.) are overlaid onto the plan's
+    // employeePortalPreview so the Background Opacity slider takes effect immediately in the
+    // preview instead of being shadowed by stale persisted plan data.
     const previewClientData = useMemo(() => ({
         secondaryBannerImg: step1Data?.brandImages?.header?.url,
-        employeePortalPreview: step1Data?.selectedPlan?.employeePortalPreview,
-    }), [step1Data?.brandImages?.header?.url, step1Data?.selectedPlan?.employeePortalPreview]);
+        employeePortalPreview: {
+            ...(step1Data?.selectedPlan?.employeePortalPreview || {}),
+            heroBackgroundOpacity: step1Data?.heroBackgroundOpacity,
+            heroContainerBlockOpacity: step1Data?.heroContainerBlockOpacity,
+            heroContainerInverted: step1Data?.heroContainerInverted,
+            heroBackgroundInverted: step1Data?.heroBackgroundInverted,
+            heroUseGradient: step1Data?.heroUseGradient,
+        },
+    }), [
+        step1Data?.brandImages?.header?.url,
+        step1Data?.selectedPlan?.employeePortalPreview,
+        step1Data?.heroBackgroundOpacity,
+        step1Data?.heroContainerBlockOpacity,
+        step1Data?.heroContainerInverted,
+        step1Data?.heroBackgroundInverted,
+        step1Data?.heroUseGradient,
+    ]);
 
     const categoryHeroBg = useMemo(
         () => getCategoryHeroBackgroundUrl(previewClientData as any),
