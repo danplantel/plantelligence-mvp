@@ -325,6 +325,13 @@ export function BenefitsEditorPanel({
             onClose={onClose}
             editorScrollContainerRef={editorScrollContainerRef}
             variant={variant}
+            headerBadge={
+                step1Data?.benefitCategory ? (
+                    <span className="inline-flex items-center rounded-md bg-accent-blue/10 px-2 py-0.5 text-xs font-semibold text-accent-blue">
+                        {step1Data.benefitCategory}
+                    </span>
+                ) : undefined
+            }
         >
             <div className="flex flex-col gap-12 p-6 pb-20">
                 {/* Branding Section */}

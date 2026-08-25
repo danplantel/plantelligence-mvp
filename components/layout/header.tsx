@@ -22,9 +22,27 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
   const { title } = usePageTitleContext();
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  // When the benefits "Editing Panel" (step 5 editor) is open, hide the page
+  // title / step title so it doesn't overlap the editor overlay.
+  const [editorOpen, setEditorOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    const handleEditorStateChange = (event: any) => {
+      setEditorOpen(!!event?.detail?.isOpen);
+    };
+    window.addEventListener(
+      "step5EditorStateChange" as any,
+      handleEditorStateChange,
+    );
+    return () =>
+      window.removeEventListener(
+        "step5EditorStateChange" as any,
+        handleEditorStateChange,
+      );
   }, []);
 
   useEffect(() => {
@@ -45,6 +63,13 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
 
   return (
     <div className="fixed top-0 left-0 right-0 z-50 bg-background border-b border-border">
+      {/* When the Editing Panel is open, center the Stepper to the FULL header
+          (ignoring the sidebar offset) so it stays centered and visible. */}
+      {editorOpen && stepper && (
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center">
+          {stepper}
+        </div>
+      )}
       <nav
         className={cn(
           "flex items-center px-10 transition-all duration-200",
@@ -57,10 +82,10 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
           marginLeft: "var(--sidebar-width, 18rem)",
         }}
       >
-        {/* Left: Title + Step Title */}
+        {/* Left: Title + Step Title (hidden while the Editing Panel is open) */}
         <div className="flex items-center gap-2 flex-[1] min-w-0">
-          {title && <h1 className="text-xl font-semibold dark:text-white truncate">{title}</h1>}
-          {stepTitle && (
+          {!editorOpen && title && <h1 className="text-xl font-semibold dark:text-white truncate">{title}</h1>}
+          {!editorOpen && stepTitle && (
             <>
               <span className="text-xl text-muted-foreground/40 dark:text-gray-600">/</span>
               <span className="text-sm font-medium text-muted-foreground truncate">{stepTitle}</span>
@@ -80,7 +105,7 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
             stepper ? "flex-shrink-0" : "flex-[3]",
           )}
         >
-          {stepper ? stepper : <div id="header-tabs-portal" className="w-full" />}
+          {stepper && !editorOpen ? stepper : <div id="header-tabs-portal" className="w-full" />}
         </div>
 
         {/* Right: Actions */}

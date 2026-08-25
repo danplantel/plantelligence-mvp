@@ -39,6 +39,8 @@ interface EditorPanelWrapperProps {
   variant?: 'fixed' | 'inline';
   /** Optional top offset for fixed variant (e.g. to clear page headers) */
   topOffset?: number;
+  /** Optional extra content rendered to the right of the "Editing Panel" title (e.g. the benefit category badge) */
+  headerBadge?: React.ReactNode;
 }
 
 export function EditorPanelWrapper({
@@ -51,6 +53,7 @@ export function EditorPanelWrapper({
   footer,
   variant = 'fixed',
   topOffset = 0,
+  headerBadge,
 }: EditorPanelWrapperProps) {
   if (!isOpen && !isAnimating) return null;
 
@@ -78,9 +81,12 @@ export function EditorPanelWrapper({
           <Label className="text-xs uppercase text-muted-foreground tracking-wide font-medium dark:text-gray-400">
             Plan Branding & Messaging
           </Label>
-          <Label className="text-lg font-semibold text-foreground mt-1 dark:text-gray-100">
-            Editing Panel
-          </Label>
+          <div className="flex items-center gap-2 mt-1">
+            <Label className="text-lg font-semibold text-foreground dark:text-gray-100">
+              Editing Panel
+            </Label>
+            {headerBadge}
+          </div>
         </div>
         <Button variant="ghost" size="icon" onClick={onClose} className="dark:text-gray-300 dark:hover:bg-gray-800">
           <X className="w-5 h-5" />
