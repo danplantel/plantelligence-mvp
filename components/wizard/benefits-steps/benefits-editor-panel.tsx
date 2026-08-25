@@ -467,18 +467,31 @@ export function BenefitsEditorPanel({
                     <SectionHeader number={2} title="Benefit Messaging" />
                     <div className="space-y-6">
                         <div className="space-y-2">
-                            <Label className="text-xs font-bold text-foreground">Display Title</Label>
+                            <Label className="text-xs font-bold text-foreground">Intro Headline</Label>
                             <Input
                                 value={step1Data.benefitTitle || ""}
                                 onChange={(e) => saveStepData(1, { ...step1Data, benefitTitle: e.target.value })}
                                 onFocus={() => focusPreviewField("benefitTitle")}
                                 placeholder="e.g. 401(k) Retirement Plan"
                                 className="h-11 shadow-sm border-muted"
-                                maxLength={24}
+                                maxLength={35}
                             />
+                            <div className="flex justify-end">
+                                <span
+                                    className={`text-[11px] tabular-nums ${
+                                        (step1Data.benefitTitle || "").length >= 33
+                                            ? "text-red-500"
+                                            : (step1Data.benefitTitle || "").length < 10
+                                                ? "text-amber-500"
+                                                : "text-green-600"
+                                    }`}
+                                >
+                                    {(step1Data.benefitTitle || "").length}/35
+                                </span>
+                            </div>
                         </div>
                         <div className="space-y-2">
-                            <Label className="text-xs font-bold text-foreground">Benefit Description</Label>
+                            <Label className="text-xs font-bold text-foreground">Intro Message</Label>
                             <Textarea
                                 value={step1Data.shortDescription || ""}
                                 onChange={(e) => saveStepData(1, { ...step1Data, shortDescription: e.target.value })}

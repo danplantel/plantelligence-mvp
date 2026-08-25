@@ -787,6 +787,41 @@ export function BenefitsStep1() {
   const benefitApiLoadedPlanRef = useRef<string | null>(null);
   const normalizeApiCategory = (raw: string) =>
     (raw || "").toLowerCase().trim().replace(/\s+/g, " ");
+
+  /** Default Intro Headline: "Welcome to [Organization Name]" for the advisor's own
+   *  primary service categories, otherwise "Welcome to [Company Name]" (the plan/client).
+   *  The name is truncated so the headline stays within the 35-char Intro Headline max. */
+  const getDefaultIntroHeadline = (category: string): string => {
+    const primaryCats: string[] = Array.isArray(
+      (profileData as any)?.primaryServiceCategories,
+    )
+      ? (profileData as any).primaryServiceCategories
+      : [];
+    const apiCat = category === "Custom" ? "Company / Plan Sponsor" : category;
+    const isPrimary = primaryCats.some(
+      (pc) =>
+        normalizeApiCategory(String(pc)) === normalizeApiCategory(apiCat) ||
+        (normalizeApiCategory(String(pc)) === "other" &&
+          normalizeApiCategory(apiCat) === "company / plan sponsor"),
+    );
+    const orgName = (
+      (profileData as any)?.organizationName ||
+      (profileData as any)?.user?.organizationName ||
+      ""
+    ).trim();
+    const companyName = (
+      currentStepData?.selectedPlan?.companyName || ""
+    ).trim();
+    const name = isPrimary ? orgName : companyName;
+    const prefix = "Welcome to ";
+    if (!name) return `${prefix}Your Benefits Hub!`;
+    // Leave room for the trailing "!" so the headline stays ≤ 35 chars.
+    const maxNameLen = 35 - prefix.length - 1;
+    const trimmed =
+      name.length > maxNameLen ? name.slice(0, maxNameLen) : name;
+    return `${prefix}${trimmed}!`;
+  };
+
   useEffect(() => {
     const planId = currentStepData.planId;
     if (!planId?.trim()) return;
@@ -955,8 +990,8 @@ export function BenefitsStep1() {
     // a previous benefit so it never resurfaces — the User-profile values above then re-seed the
     // logo/header for primary categories.
     if (!benefit) {
-      // Default the Display Title to the Benefit Category name so Messaging is not empty.
-      next.benefitTitle = cat;
+      // Default the Intro Headline to "Welcome to [Org/Company]" so Messaging is not empty.
+      next.benefitTitle = getDefaultIntroHeadline(cat);
       next.shortDescription = "";
       // NOTE: contactId (Key Contact selection) is deliberately NOT cleared here — it is
       // managed by the contact-prefill effect / prefillContact, so clearing it on a different
@@ -1078,8 +1113,7 @@ export function BenefitsStep1() {
   ): BenefitsStep1Data => {
     return {
       ...baseData,
-      benefitTitle:
-        baseData.benefitTitle || (category === "Custom" ? "" : category),
+      benefitTitle: baseData.benefitTitle || getDefaultIntroHeadline(category),
       contactId: contact.id,
     };
   };
@@ -1646,7 +1680,7 @@ export function BenefitsStep1() {
       ...currentStepData,
       benefitCategory: normalizedCategory,
       contactId: existingBenefit?.contactId || "",
-      benefitTitle: existingBenefit?.title || benefitCategory,
+      benefitTitle: existingBenefit?.title || getDefaultIntroHeadline(benefitCategory),
       shortDescription: existingBenefit?.shortDescription || "",
       planVideo: existingBenefit?.planVideo || undefined,
       planVideoFileName: existingBenefit?.planVideoFileName || undefined,
@@ -2523,7 +2557,7 @@ export function BenefitsStep1() {
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label className="text-sm font-bold text-gray-700 dark:text-gray-100">
-                      Display Title <span className="text-red-500">*</span>
+                      Intro Headline <span className="text-red-500">*</span>
                     </Label>
                     <Input
                       value={currentStepData.benefitTitle}
@@ -2535,7 +2569,7 @@ export function BenefitsStep1() {
                       }
                       placeholder={`e.g., 401(k) Retirement Plan`}
                       className="h-11 border-gray-200 dark:border-gray-600"
-                      maxLength={24}
+                      maxLength={35}
                     />
                     <div className="flex justify-between items-center">
                       <p className="text-[10px] text-gray-400 italic">
@@ -2546,21 +2580,21 @@ export function BenefitsStep1() {
                       <span
                         className={cn(
                           "text-[10px] font-bold",
-                          (currentStepData.benefitTitle?.length || 0) >= 22
+                          (currentStepData.benefitTitle?.length || 0) >= 33
                             ? "text-red-500"
                             : (currentStepData.benefitTitle?.length || 0) < 10
                               ? "text-amber-500"
                               : "text-green-500",
                         )}
                       >
-                        {currentStepData.benefitTitle?.length || 0} / 24
+                        {currentStepData.benefitTitle?.length || 0} / 35
                         characters
                       </span>
                     </div>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-bold text-gray-700 dark:text-gray-100">
-                      Benefit Description <span className="text-red-500">*</span>
+                      Intro Message <span className="text-red-500">*</span>
                     </Label>
                     <Textarea
                       value={currentStepData.shortDescription || ""}
@@ -2572,7 +2606,7 @@ export function BenefitsStep1() {
                       }
                       placeholder="Provide a high-level overview of this benefit for employees..."
                       className="min-h-[120px] border-gray-200 dark:border-gray-600 resize-none"
-                      maxLength={120}
+                      maxLength={450}
                     />
                     <div className="flex justify-between items-center">
                       <p className="text-[10px] text-gray-400">
@@ -2581,12 +2615,14 @@ export function BenefitsStep1() {
                       <span
                         className={cn(
                           "text-[10px] font-bold",
-                          (currentStepData.shortDescription?.length || 0) >= 110
+                          (currentStepData.shortDescription?.length || 0) >= 440
                             ? "text-red-500"
-                            : "text-green-500",
+                            : (currentStepData.shortDescription?.length || 0) < 100
+                              ? "text-amber-500"
+                              : "text-green-500",
                         )}
                       >
-                        {currentStepData.shortDescription?.length || 0} / 120
+                        {currentStepData.shortDescription?.length || 0} / 450
                         characters
                       </span>
                     </div>
