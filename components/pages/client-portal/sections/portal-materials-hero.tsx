@@ -36,7 +36,6 @@ export function PortalMaterialsHero({
   brandColor = "#1F3A60",
   backgroundImage: backgroundImageProp,
   containerBlockOpacity = 0.8,
-  heading = "Insurance Benefits Access & Materials",
   cardHeading = "Group Health Insurance Account Access",
   planIdLabel: planIdLabelProp,
   buttonLabel = "REGISTER OR LOGIN HERE",
@@ -87,8 +86,8 @@ export function PortalMaterialsHero({
   );
 
   return (
-    <section className="relative h-[750px] overflow-hidden">
-      <div className="absolute inset-0 h-[750px]">
+    <section className="relative h-[500px] overflow-hidden">
+      <div className="absolute inset-0 h-[500px]">
         <Image
           src={resolvedBackgroundImage}
           alt="Professional team in office environment"
@@ -99,13 +98,8 @@ export function PortalMaterialsHero({
         <div className="absolute inset-0" style={{ backgroundColor: `rgba(0, 0, 0, ${containerBlockOpacity})` }} />
       </div>
 
-      <div className="relative z-10 flex h-[750px] flex-col items-center justify-center">
+      <div className="relative z-10 flex h-[500px] flex-col items-center justify-center">
         <div className="mx-auto w-full max-w-8xl">
-          <div className="mb-8 text-center text-white">
-            <h1 className="font-dm-serif text-3xl leading-tight sm:text-4xl lg:text-[64px]">
-              {heading}
-            </h1>
-          </div>
 
           <div className="mx-auto max-w-2xl">
             <div className="rounded-2xl border border-white bg-white/10 p-8 backdrop-blur-lg">

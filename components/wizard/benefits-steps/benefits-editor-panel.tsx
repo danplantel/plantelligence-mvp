@@ -924,7 +924,8 @@ export function BenefitsEditorPanel({
                         ))}
                     </Accordion>
                 </div>
-                {/* Insurance Benefits Access & Materials Section */}
+
+                {/* Benefit Access & Materials Section */}
                 <div
                     ref={sectionsRef.insurance}
                     className={cn(
@@ -932,7 +933,7 @@ export function BenefitsEditorPanel({
                         highlightedSection === "insurance" ? "ring-2 ring-blue-500/50 scale-[1.01] shadow-lg p-4 -m-4 bg-white dark:bg-gray-800" : ""
                     )}
                 >
-                    <SectionHeader number={5} title="Insurance Benefits Access & Materials" />
+                    <SectionHeader number={5} title="Benefit Access & Materials" />
                     <p className="text-[13px] text-muted-foreground mb-6">
                         Configure the plan ID and login button shown in the Insurance Benefits Access & Materials section.
                     </p>
