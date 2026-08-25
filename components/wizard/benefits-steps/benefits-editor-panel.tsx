@@ -990,7 +990,7 @@ export function BenefitsEditorPanel({
                         </div>
 
                         <div className="space-y-2">
-                            <Label className="text-xs font-bold text-foreground">Plan ID # <span className="text-red-500">*</span></Label>
+                            <Label className="text-xs font-bold text-foreground">Plan ID #</Label>
                             <Input
                                 value={step1Data.insurancePlanId || ""}
                                 onMouseDown={() => focusPreviewField("insurancePlanId")}
