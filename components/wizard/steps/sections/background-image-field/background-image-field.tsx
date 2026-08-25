@@ -7,9 +7,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { Image as ImageIcon, Info } from "lucide-react";
 import { InfoDialog } from "@/components/ui/info-dialog";
+import { BrandImageUpload } from "@/components/ui/brand-image-upload";
+import type { BrandImageData } from "@/types/new-client-wizard";
 
 interface BackgroundImageFieldProps {
   value: string;
@@ -42,6 +43,25 @@ export function BackgroundImageField({
 }: BackgroundImageFieldProps) {
   const [infoDialogOpen, setInfoDialogOpen] = useState(false);
 
+  // Mirror Step 1's "Background Header Image (Hero)" upload: BrandImageUpload
+  // WITHOUT the universal crop editor passes the ORIGINAL image back as a data
+  // URL (only compressed in place when >200KB), so the background keeps its
+  // original resolution — no 500×500 canvas export.
+  const currentImage: BrandImageData | undefined = value
+    ? {
+        url: value,
+        originalUrl: value,
+        previewUrl: previewDataUrl || undefined,
+        fileName: fileName || "background.png",
+        fileSize: 0,
+        width: 0,
+        height: 0,
+        recommendedSize: "1920 px—1080 px",
+        status: "ok",
+        warnings: [],
+      }
+    : undefined;
+
   const infoButton = (
     <button
       type="button"
@@ -53,30 +73,30 @@ export function BackgroundImageField({
     </button>
   );
 
-  const modal = (
-    <UniversalImageEditorModal
-      type="custom"
-      icon={<ImageIcon className="w-4 h-4" />}
-      value={value}
-      fileName={fileName}
-      previewDataUrl={previewDataUrl}
-      onChange={(value, fileName, headshotData) => {
-        // Use the DataURL preview passed back from the modal so preview works
-        // with R2 keys (the stored value may be an R2 key, not a data URL).
-        const previewDataUrl: string | undefined =
-          (headshotData as any)?.previewDataUrl;
-        const previewSrc =
-          previewDataUrl ||
-          (value?.startsWith("data:") ? value : undefined);
-        onChange(value, fileName, previewSrc);
+  const field = (
+    <BrandImageUpload
+      slotKey="header"
+      slot={{
+        title: "Background Header Image (Hero)",
+        description:
+          "This image displays in the header background of your Employee Benefits Hub. Upload a wide hero image for best results.",
+        recommendedSize: "1920 px—1080 px",
+        defaultPhoteButton: false,
+        required: false,
+        accept: ".png,.jpg,.jpeg",
+        previewAspectRatio: 2.75,
+        previewLabel: "Hero preview (2.75:1)",
       }}
-      onRemove={onRemove}
-      placeholder="Upload Background Image"
-      modalTitle="Background Image"
-      modalDescription="Upload a background image. Adjust and fit it into the preview dimensions for best results."
-      saveButtonText="Save Background Image"
-      autoSizeOnOpen={true}
-      destructive={destructive}
+      currentImage={currentImage}
+      onImageChange={(imageData) => {
+        // BrandImageUpload passes the ORIGINAL image as a data URL — same as
+        // Step 1's Header Background. Pass it through to the form/preview.
+        onChange(imageData.url, imageData.fileName || fileName, imageData.url);
+      }}
+      onImageRemove={onRemove}
+      hideButtons={true}
+      maxFileSize={10}
+      previewObjectFit="cover"
     />
   );
 
@@ -97,7 +117,7 @@ export function BackgroundImageField({
               Upload a background image that will appear behind your content.
             </p>
           </CardHeader>
-          <CardContent className="pt-0">{modal}</CardContent>
+          <CardContent className="pt-0">{field}</CardContent>
         </Card>
       ) : (
         <div>
@@ -105,7 +125,15 @@ export function BackgroundImageField({
             Background Image (Optional)
             {infoButton}
           </label>
-          {modal}
+          <div
+            className={
+              destructive
+                ? "rounded-lg ring-2 ring-red-500/60 ring-offset-2"
+                : ""
+            }
+          >
+            {field}
+          </div>
         </div>
       )}
       <InfoDialog
