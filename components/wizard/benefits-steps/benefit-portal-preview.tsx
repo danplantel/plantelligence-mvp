@@ -90,13 +90,17 @@ export function BenefitPortalPreview({ mobile, brandColor: brandColorOverride, s
         || step1Data?.selectedPlan?.secondaryColor
         || "#6B7280";
 
-    // ── Resolve per-category benefit from persisted data (used for FAQs, planVideo, etc.) ──
+    // ── Resolve per-category benefit from the `Benefit` table (source of truth) ──
+    // Used for FAQs, planVideo, supportContacts, etc. We intentionally do NOT fall back to the
+    // stale legacy employeePortalPreview.benefits JSON, which survives Benefit-row deletion and
+    // would otherwise resurface the last benefit the user created.
     const categoryBenefit = useMemo(() => {
-        const benefits = (step1Data?.selectedPlan as any)?.employeePortalPreview?.benefits ?? [];
-        return benefits.find((b: any) =>
-            (b.category || "").toLowerCase() === category.toLowerCase(),
-        );
-    }, [step1Data?.selectedPlan, category]);
+        const byCategory = step1Data?.categoryBenefitByApi;
+        if (!byCategory) return undefined;
+        const norm = (s: string) => (s || "").toLowerCase().trim().replace(/\s+/g, " ");
+        const apiCat = category === "Custom" ? "Company / Plan Sponsor" : category;
+        return byCategory[norm(apiCat)] ?? undefined;
+    }, [step1Data?.categoryBenefitByApi, category]);
 
     // ── Plan Video: wizard-in-progress first, then persisted (unless explicitly removed), then localStorage fallback ──
     // R2 keys are stored raw; preview uses the admin-authenticated /api/r2/object endpoint

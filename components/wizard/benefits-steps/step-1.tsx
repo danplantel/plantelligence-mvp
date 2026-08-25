@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import useSWR from "swr";
+import { fetchProfileOnce } from "@/lib/fetch-profile";
 import {
   getBenefitsHubAbsoluteUrl,
   getBenefitsHubPath,
@@ -108,11 +109,11 @@ const BENEFIT_SETUP_SECTION_ORDER = [
   { key: "documents" as const, label: "Documents" },
 ];
 
-const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
-
 export function BenefitsStep1() {
   const { stepData, saveStepData } = useBenefitsWizardStore();
-  const { data: profileData } = useSWR("/api/profile", jsonFetcher, {
+  // Use fetchProfileOnce (single-flight + TTL) so this coalesces with the layout
+  // header's profile fetch — one /api/profile request for the whole page.
+  const { data: profileData } = useSWR("/api/profile", fetchProfileOnce, {
     keepPreviousData: true,
     dedupingInterval: 60_000,
     revalidateOnFocus: false,
@@ -353,9 +354,19 @@ export function BenefitsStep1() {
 
     const merged = { ...basePlan };
 
+    // Base benefits come from the `Benefit` table (source of truth) once loaded, so
+    // completeness + category status reflect DB truth instead of the stale legacy
+    // employeePortalPreview JSON (which survives Benefit-row deletion).
+    const dbBenefits =
+      currentStepData.categoryBenefitByApi !== undefined
+        ? Object.values(currentStepData.categoryBenefitByApi).filter(
+            (b): b is any => b != null,
+          )
+        : null;
+
     // Sync current wizard state to employeePortalPreview.benefits
     if (currentStepData.benefitCategory) {
-      const benefits = merged.employeePortalPreview?.benefits || [];
+      const benefits = dbBenefits !== null ? dbBenefits : (merged.employeePortalPreview?.benefits || []);
       const canonicalCategory = normalizeBenefitsCategoryForCompleteness(
         currentStepData.benefitCategory,
       );
@@ -472,7 +483,12 @@ export function BenefitsStep1() {
     }
   }, [currentStepData.benefitCategory, currentCompleteness?.isComplete]);
 
-  // Debounced auto-save to database (also saves isEnabled from benefitVisibility toggles)
+  // Debounced auto-save to database (also saves isEnabled from benefitVisibility toggles).
+  // Only writes to the dedicated Benefit API, and only when the benefit draft fields have
+  // actually changed since the last save. `categoryPortalVisibility` is intentionally NOT
+  // written here — the explicit publish/hide toggle handler persists it, so merely opening
+  // this page never triggers a PUT to /api/clients.
+  const lastAutoSavedPayloadRef = useRef<string | null>(null);
   useEffect(() => {
     if (
       !getMergedClientData ||
@@ -482,73 +498,65 @@ export function BenefitsStep1() {
 
     const timer = setTimeout(async () => {
       try {
-        // Derive categoryPortalVisibility from benefitVisibility toggles
-        // so the portal header filter (which checks both sources) works correctly.
-        const visibility = currentStepData.benefitVisibility ?? {};
-        const categoryPortalVisibility: Record<string, boolean> = {
-          Retirement: visibility["Retirement"] !== false,
-          "Group Health": visibility["Group Health"] !== false,
-          "Group Life": visibility["Group Life"] !== false,
-          Other: visibility["Custom"] !== false,
-        };
+        if (!currentStepData.benefitCategory) return;
 
-        const apiCalls: Promise<any>[] = [
-          // Save categoryPortalVisibility (client-level) via the main client API
-          fetch(`/api/clients/${currentStepData.planId}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ categoryPortalVisibility }),
-          }),
-        ];
+        const category = currentStepData.benefitCategory === "Custom"
+          ? "Company / Plan Sponsor"
+          : currentStepData.benefitCategory;
 
-        // Save insurance fields + header background + isEnabled per-category via the
-        // new Benefit API, so the visibility toggle takes effect on the portal
-        // immediately without requiring the entire wizard to be completed.
-        if (currentStepData.benefitCategory) {
-          const category = currentStepData.benefitCategory === "Custom"
-            ? "Company / Plan Sponsor"
+        const visKey =
+          currentStepData.benefitCategory === "Company / Plan Sponsor"
+            ? "Custom"
             : currentStepData.benefitCategory;
+        const isEnabled =
+          (currentStepData.benefitVisibility ?? {})[visKey] !== false;
 
-          const visKey =
-            currentStepData.benefitCategory === "Company / Plan Sponsor"
-              ? "Custom"
-              : currentStepData.benefitCategory;
-          const isEnabled =
-            (currentStepData.benefitVisibility ?? {})[visKey] !== false;
+        const payload = {
+          isEnabled,
+          // Persist brand logo + description so they survive page refreshes
+          // and are available whenever the wizard is re-entered.
+          partnerLogo: currentStepData.companyLogo?.url || null,
+          shortDescription: currentStepData.shortDescription || null,
+          insurancePlanId: currentStepData.insurancePlanId || "",
+          insuranceLoginUrl: currentStepData.insuranceLoginUrl || "",
+          insuranceBackgroundImage: currentStepData.insuranceBackgroundImage || "",
+          insuranceContainerBlockOpacity: currentStepData.insuranceContainerBlockOpacity ?? 0.8,
+          // Header background image (uploaded in the Branding section) — the
+          // Benefit row stores this as `backgroundImage` (legacy: `image`).
+          backgroundImage: currentStepData.brandImages?.header?.url || null,
+          // Plan video (uploaded in Step 2 Editor Panel). Must be included
+          // so the dual-write doesn't wipe the video from employeePortalPreview.
+          planVideo: currentStepData.planVideo || null,
+          planVideoFileName: currentStepData.planVideoFileName || null,
+          // Journey section overrides (Section 2 & 3 in the editor panel).
+          // Persist so the live portal page shows these values even before
+          // the wizard is completed.
+          journeyHeader: currentStepData.journeyHeader || null,
+          journeySubtitle: currentStepData.journeySubtitle || null,
+          journeyBodyText: currentStepData.journeyBodyText || null,
+        };
+        const payloadKey = JSON.stringify(payload);
 
-          apiCalls.push(
-            fetch(`/api/clients/${currentStepData.planId}/benefits/${encodeURIComponent(category)}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                isEnabled,
-                // Persist brand logo + description so they survive page refreshes
-                // and are available whenever the wizard is re-entered.
-                partnerLogo: currentStepData.companyLogo?.url || null,
-                shortDescription: currentStepData.shortDescription || null,
-                insurancePlanId: currentStepData.insurancePlanId || "",
-                insuranceLoginUrl: currentStepData.insuranceLoginUrl || "",
-                insuranceBackgroundImage: currentStepData.insuranceBackgroundImage || "",
-                insuranceContainerBlockOpacity: currentStepData.insuranceContainerBlockOpacity ?? 0.8,
-                // Header background image (uploaded in the Branding section) — the
-                // Benefit row stores this as `backgroundImage` (legacy: `image`).
-                backgroundImage: currentStepData.brandImages?.header?.url || null,
-                // Plan video (uploaded in Step 2 Editor Panel). Must be included
-                // so the dual-write doesn't wipe the video from employeePortalPreview.
-                planVideo: currentStepData.planVideo || null,
-                planVideoFileName: currentStepData.planVideoFileName || null,
-                // Journey section overrides (Section 2 & 3 in the editor panel).
-                // Persist so the live portal page shows these values even before
-                // the wizard is completed.
-                journeyHeader: currentStepData.journeyHeader || null,
-                journeySubtitle: currentStepData.journeySubtitle || null,
-                journeyBodyText: currentStepData.journeyBodyText || null,
-              }),
-            }),
-          );
+        // First run records the rehydration baseline WITHOUT writing; subsequent runs only
+        // write when the draft actually changed. This removes the flurry of duplicate
+        // auto-save PUTs that fired on page load.
+        if (lastAutoSavedPayloadRef.current === null) {
+          lastAutoSavedPayloadRef.current = payloadKey;
+          return;
         }
+        if (lastAutoSavedPayloadRef.current === payloadKey) return;
+        lastAutoSavedPayloadRef.current = payloadKey;
 
-        await Promise.all(apiCalls);
+        // NOTE: `?updateOnly=1` — this debounced draft auto-save must NEVER create
+        // a Benefit row, only update one that already exists. Otherwise merely
+        // opening this page would re-create Benefit rows the user deleted from the
+        // database. New rows are created only by explicit actions (publish/hide
+        // toggle, FAQ save, editor save).
+        await fetch(`/api/clients/${currentStepData.planId}/benefits/${encodeURIComponent(category)}?updateOnly=1`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
       } catch (error) {
         console.error("Auto-save error:", error);
       }
@@ -557,19 +565,18 @@ export function BenefitsStep1() {
     return () => clearTimeout(timer);
   }, [getMergedClientData, currentStepData.planId, currentStepData.benefitCategory]);
 
-  // Fetch user's primary service categories for initial visibility defaults
+  // Derive user's primary service categories from the shared /api/profile SWR fetch
+  // (deduped — no separate manual fetch that would duplicate the request).
   useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch("/api/profile", { credentials: "same-origin" });
-        const data = await res.json();
-        const cats: string[] = (data as any)?.primaryServiceCategories ?? [];
-        if (cats.length > 0) setPrimaryServiceCategories(cats);
-      } catch { /* non-critical */ }
-    })();
-  }, []);
+    const cats: string[] = (profileData as any)?.primaryServiceCategories ?? [];
+    if (cats.length > 0) setPrimaryServiceCategories(cats);
+  }, [profileData]);
 
+  // Guard so React StrictMode (dev double-invoke) doesn't fetch the plans list twice.
+  const plansFetchStartedRef = useRef(false);
   useEffect(() => {
+    if (plansFetchStartedRef.current) return;
+    plansFetchStartedRef.current = true;
     async function fetchPlans() {
       try {
         // Include Draft — most in-progress setups are not Active yet; Archived stays out of the picker.
@@ -648,10 +655,14 @@ export function BenefitsStep1() {
 
   // Portal deep link sets planId + benefitCategory before `selectedPlan` exists — fetch full client so
   // completeness, contacts, and merged preview data work without re-picking the plan in the dropdown.
+  // Guarded so React StrictMode (dev double-invoke) doesn't fetch the same client twice.
+  const fullPlanFetchRef = useRef<string | null>(null);
   useEffect(() => {
     const planId = currentStepData.planId;
     if (!planId?.trim() || plans.length === 0) return;
     if (currentStepData.selectedPlan?.id === planId) return;
+    if (fullPlanFetchRef.current === planId) return;
+    fullPlanFetchRef.current = planId;
 
     let cancelled = false;
     (async () => {
@@ -766,26 +777,84 @@ export function BenefitsStep1() {
     saveStepData,
   ]);
 
+  // ── Source benefit content from the `Benefit` table (source of truth) ──
+  // Fetch all Benefit rows for the selected plan and store them keyed by normalized category.
+  // The pre-fill effects below and the Step 2 preview read this instead of the stale legacy
+  // employeePortalPreview.benefits JSON — which survives Benefit-row deletion and would
+  // otherwise resurface the last benefit the user created. A category with no row is simply
+  // absent from the map, so the wizard stays blank until a benefit is explicitly created.
+  const benefitApiLoadedPlanRef = useRef<string | null>(null);
+  const normalizeApiCategory = (raw: string) =>
+    (raw || "").toLowerCase().trim().replace(/\s+/g, " ");
+  useEffect(() => {
+    const planId = currentStepData.planId;
+    if (!planId?.trim()) return;
+    if (benefitApiLoadedPlanRef.current === planId) return;
+    benefitApiLoadedPlanRef.current = planId;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/clients/${planId}/benefits`);
+        const data = await res.json();
+        if (cancelled || !data?.success) return;
+        const rows: any[] = Array.isArray(data.benefits) ? data.benefits : [];
+        const byCategory: Record<string, any | null> = {};
+        for (const row of rows) {
+          const key = normalizeApiCategory(String(row?.category ?? ""));
+          if (key) byCategory[key] = row;
+        }
+        const latest = useBenefitsWizardStore.getState().stepData.step1;
+        if (!latest || latest.planId !== planId) return;
+        saveStepData(1, { ...latest, categoryBenefitByApi: byCategory });
+      } catch (err) {
+        console.error("Failed to load Benefit rows:", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentStepData.planId, saveStepData]);
+
   // Load persisted Step 3 support contacts (and FAQs) for the current category into the
   // wizard store when entering the flow, so previously saved selections are retained.
   // Tracks loaded categories (step3.supportContactsLoadedCategories) so this never
   // clobbers in-session edits or removals on re-render.
   useEffect(() => {
     const cat = currentStepData.benefitCategory;
-    if (!cat || !getMergedClientData) return;
+    if (!cat) return;
 
     const latest = useBenefitsWizardStore.getState().stepData.step3;
     const loadedCats = latest?.supportContactsLoadedCategories ?? [];
     if (loadedCats.includes(cat)) return;
+    // Wait for the Benefit-table fetch to settle before deciding what to pre-fill.
+    if (currentStepData.categoryBenefitByApi === undefined) return;
 
-    const benefits = getMergedClientData.employeePortalPreview?.benefits || [];
-    const catKey = normalizeBenefitsCategoryForCompleteness(cat);
-    const benefit = benefits.find((b: any) => {
-      const bKey = normalizeBenefitsCategoryForCompleteness(
-        String(b?.category ?? ""),
-      );
-      return bKey === catKey;
-    });
+    // Source of truth is the Benefit table (categoryBenefitByApi), NOT the stale legacy
+    // employeePortalPreview JSON. Missing = no row (deleted) → clear any stale persisted
+    // contacts/FAQs so the wizard doesn't show the last benefit's data.
+    const apiCat = cat === "Custom" ? "Company / Plan Sponsor" : cat;
+    const benefit =
+      currentStepData.categoryBenefitByApi[normalizeApiCategory(apiCat)] ?? null;
+
+    if (!benefit) {
+      const cleared: BenefitsStep3Data = {
+        ...(latest || {
+          faqs: [],
+          supportContacts: [],
+          currentSubStep: "a" as const,
+        }),
+        faqs: [],
+        faqsByCategory: {
+          ...(latest?.faqsByCategory ?? {}),
+          [cat]: [],
+        },
+        supportContacts: [],
+        supportContactsLoadedCategories: [...loadedCats, cat],
+      };
+      saveStepData(3, cleared);
+      return;
+    }
 
     const savedSupportContacts = Array.isArray(benefit?.supportContacts)
       ? benefit.supportContacts
@@ -801,7 +870,7 @@ export function BenefitsStep1() {
         supportContacts: [],
         currentSubStep: "a" as const,
       }),
-      supportContacts: savedSupportContacts ?? latest?.supportContacts ?? [],
+      supportContacts: savedSupportContacts ?? [],
       supportContactsLoadedCategories: [...loadedCats, cat],
     };
     if (savedFaqs) {
@@ -812,37 +881,75 @@ export function BenefitsStep1() {
       };
     }
     saveStepData(3, next);
-  }, [currentStepData.benefitCategory, getMergedClientData, saveStepData]);
+  }, [currentStepData.benefitCategory, currentStepData.categoryBenefitByApi, saveStepData]);
 
   // Load persisted Benefit Logo (partnerLogo) and Benefit Description (shortDescription) for the
   // current category into step1 when entering the flow, so previously saved values are retained
   // (e.g. deep-link re-entry sets planId/category but never loads the logo or description).
-  // Reads the RAW plan benefit — NOT getMergedClientData, which overwrites these fields with the
-  // current (possibly empty) wizard values. Runs once per category
-  // (step1.benefitFieldsLoadedCategories) so in-session edits are never clobbered.
+  // Reads the Benefit table (source of truth) via categoryBenefitByApi — NOT the stale legacy
+  // employeePortalPreview JSON. Runs once per category (step1.benefitFieldsLoadedCategories) so
+  // in-session edits are never clobbered.
   useEffect(() => {
     const cat = currentStepData.benefitCategory;
-    const rawPlan = currentStepData.selectedPlan;
-    if (!cat || !rawPlan) return;
+    if (!cat) return;
 
     const loadedCats = currentStepData.benefitFieldsLoadedCategories ?? [];
     if (loadedCats.includes(cat)) return;
+    // Wait for the Benefit-table fetch to settle before deciding what to pre-fill.
+    if (currentStepData.categoryBenefitByApi === undefined) return;
 
-    const benefits = rawPlan.employeePortalPreview?.benefits || [];
-    const catKey = normalizeBenefitsCategoryForCompleteness(cat);
-    const benefit = benefits.find((b: any) => {
-      const bKey = normalizeBenefitsCategoryForCompleteness(
-        String(b?.category ?? ""),
-      );
-      return bKey === catKey;
-    });
-    if (!benefit) return;
+    // Source of truth is the Benefit table (categoryBenefitByApi), NOT the stale legacy
+    // employeePortalPreview JSON. Missing = no row (deleted) → stay blank.
+    const apiCat = cat === "Custom" ? "Company / Plan Sponsor" : cat;
+    const benefit =
+      currentStepData.categoryBenefitByApi[normalizeApiCategory(apiCat)] ?? null;
+    if (!benefit) {
+      // No Benefit row exists for this category (e.g. it was deleted). Clear any stale
+      // benefit content persisted from a previous session (logo, description, header,
+      // contact, video, journey) so the wizard starts blank instead of showing the last
+      // benefit the user created. Runs once per category on entry.
+      const cleared: BenefitsStep1Data = {
+        ...currentStepData,
+        benefitTitle: "",
+        shortDescription: "",
+        contactId: "",
+        companyLogo: null,
+        innerHeaderImage: null,
+        brandImages: {
+          header: null,
+          thumbnail: null,
+          secondaryBanner: null,
+          favicon: null,
+        },
+        planVideo: undefined,
+        planVideoFileName: undefined,
+        journeyHeader: undefined,
+        journeySubtitle: undefined,
+        journeyBodyText: undefined,
+        insurancePlanId: "",
+        insuranceLoginUrl: "",
+        insuranceBackgroundImage: "",
+        insuranceContainerBlockOpacity: undefined,
+        benefitFieldsLoadedCategories: [...loadedCats, cat],
+      };
+      saveStepData(1, cleared);
+      return;
+    }
 
     const savedLogo = benefit?.partnerLogo;
     const savedDescription = benefit?.shortDescription;
     const savedHeaderImage =
       benefit?.backgroundImage || benefit?.image || null;
-    if (!savedLogo && !savedDescription && !savedHeaderImage) return;
+    if (!savedLogo && !savedDescription && !savedHeaderImage) {
+      // Row exists but has no pre-fillable content — mark loaded so we don't re-run and
+      // leave the wizard blank (don't keep stale persisted values).
+      const next: BenefitsStep1Data = {
+        ...currentStepData,
+        benefitFieldsLoadedCategories: [...loadedCats, cat],
+      };
+      saveStepData(1, next);
+      return;
+    }
 
     const next: BenefitsStep1Data = {
       ...currentStepData,
@@ -883,7 +990,7 @@ export function BenefitsStep1() {
       };
     }
     saveStepData(1, next);
-  }, [currentStepData.benefitCategory, currentStepData.selectedPlan, saveStepData]);
+  }, [currentStepData.benefitCategory, currentStepData.categoryBenefitByApi, saveStepData]);
 
   // Conversion helpers
   const convertBrandImageToLogo = (
@@ -1086,15 +1193,11 @@ export function BenefitsStep1() {
       dataForCompleteness,
     );
 
-    // Check if benefit exists in employeePortalPreview (original or merged)
-    const benefits = dataForCompleteness.employeePortalPreview?.benefits || [];
-    const catKey = normalizeBenefitsCategoryForCompleteness(catId);
-    const existingBenefit = benefits.find((b: any) => {
-      const bKey = normalizeBenefitsCategoryForCompleteness(
-        String(b?.category ?? ""),
-      );
-      return bKey === catKey;
-    });
+    // Check if the benefit exists in the `Benefit` table (source of truth). Do NOT use the
+    // stale legacy employeePortalPreview JSON, which survives Benefit-row deletion.
+    const dbCat = catId === "Custom" ? "Company / Plan Sponsor" : catId;
+    const existingBenefit =
+      currentStepData.categoryBenefitByApi?.[normalizeApiCategory(dbCat)] ?? null;
 
     // For logo, prioritize local edits if currently editing
     const isCurrentlyBeingEdited = currentStepData.benefitCategory === catId;
@@ -1444,17 +1547,10 @@ export function BenefitsStep1() {
   const handleCategoryChange = (benefitCategory: string) => {
     // Normalize "Custom" → "Company / Plan Sponsor" so it matches DB and portal
     const normalizedCategory = benefitCategory === "Custom" ? "Company / Plan Sponsor" : benefitCategory;
-    const selectedPlan =
-      currentStepData.selectedPlan ||
-      plans.find((p) => p.id === currentStepData.planId);
-    const benefits = selectedPlan?.employeePortalPreview?.benefits || [];
-    const catKey = normalizeBenefitsCategoryForCompleteness(normalizedCategory);
-    const existingBenefit = benefits.find((b: any) => {
-      const bKey = normalizeBenefitsCategoryForCompleteness(
-        String(b?.category ?? ""),
-      );
-      return bKey === catKey;
-    });
+    // Pre-fill from the `Benefit` table (source of truth), NOT the stale legacy
+    // employeePortalPreview JSON (which survives Benefit-row deletion).
+    const existingBenefit =
+      currentStepData.categoryBenefitByApi?.[normalizeApiCategory(normalizedCategory)] ?? null;
 
     let newData: BenefitsStep1Data = {
       ...currentStepData,

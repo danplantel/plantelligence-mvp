@@ -87,6 +87,11 @@ export interface BenefitsStep1Data {
     /** Categories for which benefit fields (logo, short description) have been loaded from the
      *  persisted benefit on entry, so re-entry doesn't clobber in-session edits. */
     benefitFieldsLoadedCategories?: string[];
+    /** Benefit-table rows for this client keyed by normalized category (source of truth), fetched
+     *  from GET /api/clients/{planId}/benefits. A category missing from this map means no Benefit
+     *  row exists (e.g. it was deleted) so the wizard must NOT pre-fill content from the stale
+     *  legacy employeePortalPreview.benefits JSON. */
+    categoryBenefitByApi?: Record<string, any | null>;
 }
 
 export interface FAQItem {
@@ -297,6 +302,8 @@ export const useBenefitsWizardStore = create<BenefitsWizardState>()(
                         const s1 = { ...sd.step1 };
                         // Don't persist selectedPlan — will be re-fetched from API on rehydration
                         delete s1.selectedPlan;
+                        // Re-fetch Benefit-table rows on rehydration so the wizard reflects DB truth
+                        delete (s1 as any).categoryBenefitByApi;
                         // Reset loaded-categories tracking so effects re-run on rehydration
                         // and re-load partnerLogo / shortDescription from the API
                         s1.benefitFieldsLoadedCategories = [];

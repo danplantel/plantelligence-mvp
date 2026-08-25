@@ -143,6 +143,28 @@ export async function PUT(
     const category = params.category;
     const body = await request.json();
 
+    // Draft auto-save (Benefits Step 1) passes `?updateOnly=1`: it must only ever
+    // update an EXISTING Benefit row, never create one. Otherwise merely visiting
+    // the Benefits page would re-create Benefit rows the user has deleted (the
+    // upsert below would insert a fresh row for every category). Only explicit
+    // user actions (publish/hide toggle, FAQ save, editor save) may create a row.
+    const updateOnly = request.nextUrl.searchParams.get("updateOnly") === "1";
+    if (updateOnly) {
+      const existing = await prisma.benefit.findUnique({
+        where: {
+          clientId_category: { clientId, category },
+        },
+        select: { id: true },
+      });
+      if (!existing) {
+        return NextResponse.json({
+          success: true,
+          benefit: null,
+          skipped: true,
+        });
+      }
+    }
+
     // Upsert the Benefit row
     const benefit = await prisma.benefit.upsert({
       where: {
