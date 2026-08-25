@@ -322,7 +322,12 @@ export function PortalWelcomeBanner({
   const persistedImage = catBenefit?.image;
   const wizardImage = wizardStep1Data?.brandImages?.header?.url;
   const wizardMatch = wizardStep1Data?.benefitCategory && category && wizardStep1Data.benefitCategory === category ? wizardImage : undefined;
-  const backgroundSrc = persistedImage || wizardMatch || categoryDefaultBg;
+  // Resolve R2 keys (org/...) to the same-origin proxy so a header background
+  // pre-populated from the User profile in Step 1 displays correctly.
+  const backgroundSrc = toNextImageSrc(
+    persistedImage || wizardMatch || categoryDefaultBg,
+    categoryDefaultBg,
+  );
 
   return (
     <section

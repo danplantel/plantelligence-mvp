@@ -2469,6 +2469,7 @@ export function BenefitsStep1() {
                       }
                       hideButtons={true}
                       maxFileSize={10}
+                      previewObjectFit="cover"
                     />
                   </div>
                 </div>

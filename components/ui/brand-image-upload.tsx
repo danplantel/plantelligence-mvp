@@ -50,6 +50,12 @@ interface BrandImageUploadProps {
   isHighlighted?: boolean;
   /** Called when any interactive element inside the upload area gains focus */
   onFocus?: () => void;
+  /**
+   * Object-fit for the thumbnail preview. Defaults to "contain" (shows the whole
+   * image, appropriate for logos). Use "cover" for full-bleed assets (e.g. a hero
+   * header background) so the preview fills the box exactly like the rendered banner.
+   */
+  previewObjectFit?: React.CSSProperties["objectFit"];
 }
 
 export function BrandImageUpload({
@@ -72,6 +78,7 @@ export function BrandImageUpload({
   isHighlighted = false,
   universalModalCustomConfig = {},
   onFocus,
+  previewObjectFit = "contain",
 }: BrandImageUploadProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -410,7 +417,9 @@ export function BrandImageUpload({
                       className={`max-h-full max-w-full ${
                         universalModalType === "headshot"
                           ? "h-full w-full object-cover rounded-full"
-                          : "object-contain"
+                          : previewObjectFit === "cover"
+                            ? "object-cover"
+                            : "object-contain"
                       }`}
                     />
                   ) : isStoredR2Key ? (

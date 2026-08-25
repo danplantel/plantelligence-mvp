@@ -22,6 +22,7 @@ import { v4 as uuidv4 } from "uuid";
 import { BannerOverlaySettingsCard } from "@/components/wizard/new-client-steps/sections/components/banner-overlay-settings-card";
 import { HeroBackgroundCard, type HeroSegmentMode } from "@/components/wizard/new-client-steps/sections/components/hero-background-card";
 import { uploadFileToR2 } from "@/lib/upload-to-r2";
+import { toNextImageSrc } from "@/lib/branding-image-url";
 
 export const DEFAULT_HELP_CARDS: HelpCardData[] = [
     {
@@ -78,6 +79,15 @@ export function BenefitsEditorPanel({
     const { stepData, saveStepData } = useBenefitsWizardStore();
     const step1Data = (stepData.step1 || {}) as BenefitsStep1Data;
     const step3Data = (stepData.step3 || { faqs: [], supportContacts: [] }) as BenefitsStep3Data;
+
+    // Resolve R2 keys (org/...) to the same-origin proxy so a header background that was
+    // pre-populated from the User profile in Step 1 displays correctly in the editor.
+    const resolvedHeaderUrl = step1Data.brandImages?.header?.url
+        ? toNextImageSrc(
+              step1Data.brandImages.header.url,
+              step1Data.brandImages.header.url,
+          )
+        : null;
 
     // ── Hero Background segment mode & position state ──
     const [heroSegmentMode, setHeroSegmentMode] = useState<HeroSegmentMode>("edit");
@@ -360,7 +370,18 @@ export function BenefitsEditorPanel({
                         <div className="space-y-4" onMouseDownCapture={() => focusPreviewField("brandImagesHeader")}>
                             <Label className="text-xs font-bold text-foreground">Header Background</Label>
                             <HeroBackgroundCard
-                                heroImageData={step1Data.brandImages?.header || null}
+                                heroImageData={
+                                    step1Data.brandImages?.header
+                                        ? {
+                                              ...step1Data.brandImages.header,
+                                              previewUrl:
+                                                  resolvedHeaderUrl ?? undefined,
+                                              url:
+                                                  resolvedHeaderUrl ??
+                                                  step1Data.brandImages.header.url,
+                                          }
+                                        : null
+                                }
                                 onImageChange={handleBackgroundImageChange}
                                 onImageRemove={() => saveStepData(1, {
                                     ...step1Data,

@@ -119,6 +119,10 @@ export function HeroBackgroundCard({
           onFileSelect={onFileSelect}
           maxFileSize={15}
           onFocus={onFieldFocus}
+          // The hero header background is full-bleed in the banner (background-size: cover).
+          // Mirror that in the editor thumbnail so the image fills the preview box instead of
+          // leaving gaps on the sides (common for pre-populated square/narrow profile images).
+          previewObjectFit="cover"
         />
       ) : segmentMode === "desktop" ? (
         /* ── Desktop tab: reposition canvas ── */
