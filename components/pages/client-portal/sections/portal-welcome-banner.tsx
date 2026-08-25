@@ -12,6 +12,16 @@ import {
 } from "@/lib/portal-category-hero-background";
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
 
+/** Per-category default Inner Header Images (right column of the welcome banner),
+ *  used when no custom Inner Header Image is set. */
+const CATEGORY_DEFAULT_INNER_IMAGES: Record<string, string> = {
+  Retirement: "/benefits-hub-default-inner-images/retirement_image.jpg",
+  "Group Health": "/benefits-hub-default-inner-images/health_image.jpg",
+  "Group Life": "/benefits-hub-default-inner-images/life_image.jpg",
+  "Company / Plan Sponsor": "/benefits-hub-default-inner-images/wellness_image.jpg",
+  Custom: "/benefits-hub-default-inner-images/wellness_image.jpg",
+};
+
 interface PortalWelcomeBannerProps {
   /** Click handler for the benefit portal title (headline). Opens the editor. */
   onTitleClick?: () => void;
@@ -239,23 +249,17 @@ export function PortalWelcomeBanner({
     autoOrganizationName ||
     "Company Name";
 
-  // Right-side Benefits Logo: customImage override → categoryBenefit.partnerLogo (per-category, set in Step 1) → companyLogo (top-level) → null
-  const benefitsLogoUrl =
-    customImage ||
-    categoryBenefit?.partnerLogo ||
-    clientData?.companyLogo?.trim() ||
-    null;
-
-  const benefitsLogoAlt =
-    customImageAlt ||
-    `${clientData?.companyName || "Company"} Benefits Logo`;
-
   // Inner Header Image (right column, full height):
-  // customInnerHeaderImage override → categoryBenefit.innerHeaderImage (per-category) → null
+  // customInnerHeaderImage override → categoryBenefit.innerHeaderImage (per-category) →
+  // category default inner image (from /benefits-hub-default-inner-images) matched to the
+  // current benefit category. The default images replace the company logo in this slot.
+  const categoryDefaultInnerImage =
+    CATEGORY_DEFAULT_INNER_IMAGES[category || ""] ||
+    CATEGORY_DEFAULT_INNER_IMAGES["Retirement"];
   const innerHeaderImageUrl =
     customInnerHeaderImage ||
     categoryBenefit?.innerHeaderImage ||
-    null;
+    categoryDefaultInnerImage;
 
   // Background image: prioritize the wizard Editor Panel upload (Step 2) over
   // the API's backgroundImg. Falls back to DEFAULT_WELCOME_BG when no custom
@@ -485,7 +489,7 @@ export function PortalWelcomeBanner({
               </div>
             </div>
 
-            {/* RIGHT: Inner Header Image */}
+            {/* RIGHT: Inner Header Image — custom image → category default image */}
             <div className="order-1 lg:order-2 relative">
               {innerHeaderImageUrl ? (
                 <img
@@ -493,14 +497,6 @@ export function PortalWelcomeBanner({
                   alt=""
                   className="absolute inset-0 h-full w-full object-cover"
                 />
-              ) : benefitsLogoUrl ? (
-                <div className="relative flex items-center justify-center h-full min-h-[200px]">
-                  <BrandingImage
-                    src={benefitsLogoUrl}
-                    alt={benefitsLogoAlt}
-                    className="h-auto max-h-40 w-auto max-w-full object-contain border-0 outline-0"
-                  />
-                </div>
               ) : (
                 <div className="relative flex min-h-[200px] w-full items-center justify-center">
                   <span className={`text-sm font-semibold tracking-wider ${
