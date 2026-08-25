@@ -257,37 +257,53 @@ export function BenefitsStep2() {
     // Total fixed vertical space: header + toggle button bar + bottom nav
     const totalFixedHeight = HEADER_HEIGHT + barHeight + BOTTOM_NAV_HEIGHT;
 
-    // Resolve plan-level company logo for the portal header
-    const planCompanyLogo = typeof step1Data?.selectedPlan?.companyLogo === 'object'
-        ? (step1Data?.selectedPlan?.companyLogo as any)?.url
-        : step1Data?.selectedPlan?.companyLogo;
-
-    const togglePreviewMode = () => {
-        setPreviewMode((prev) => (prev === "desktop" ? "mobile" : "desktop"));
-    };
-
-    // Fetch plan data for brand colors when selectedPlan is missing (e.g. on
-    // refresh before the step-1 effect has loaded it).
-    const [planBrandColor, setPlanBrandColor] = useState<string | null>(null);
+    // Resolve the plan/company logo for the portal header (the client's company
+    // logo — NOT the benefit provider logo). The wizard store deliberately does
+    // NOT persist selectedPlan (see benefits-wizard-store partialize), so a
+    // reload that lands directly on Step 2 leaves the store without a logo.
+    // Fetch the plan here (authoritative) and fall back to the store's
+    // selectedPlan set during Step 1.
+    const [planDetails, setPlanDetails] = useState<any>(null);
     useEffect(() => {
-        if (!step1Data?.planId) return;
+        if (!step1Data?.planId) {
+            setPlanDetails(null);
+            return;
+        }
+        // Reset before fetching so switching plans never shows the previous logo
+        setPlanDetails(null);
         let cancelled = false;
         fetch(`/api/clients/${step1Data.planId}`)
             .then((r) => r.json())
             .then((result) => {
                 if (cancelled || !result?.data) return;
-                setPlanBrandColor(result.data.brandColor || null);
+                setPlanDetails(result.data);
             })
             .catch(() => {});
         return () => { cancelled = true; };
     }, [step1Data?.planId]);
 
+    const resolveCompanyLogo = (p: any): string | undefined => {
+        if (!p) return undefined;
+        return typeof p.companyLogo === "object"
+            ? (p.companyLogo as any)?.url
+            : p.companyLogo || undefined;
+    };
+    const planCompanyLogo =
+        resolveCompanyLogo(planDetails)
+        || resolveCompanyLogo(step1Data?.selectedPlan)
+        || undefined;
+
+    const togglePreviewMode = () => {
+        setPreviewMode((prev) => (prev === "desktop" ? "mobile" : "desktop"));
+    };
+
     const brandColor =
-        step1Data?.selectedPlan?.brandColor
-        || planBrandColor
+        planDetails?.brandColor
+        || step1Data?.selectedPlan?.brandColor
         || "#1F3A60";
     const secondaryColor =
-        step1Data?.selectedPlan?.secondaryColor
+        planDetails?.secondaryColor
+        || step1Data?.selectedPlan?.secondaryColor
         || "#6B7280";
 
     return (
