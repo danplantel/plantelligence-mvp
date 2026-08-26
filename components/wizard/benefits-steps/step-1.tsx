@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { fetchProfileOnce } from "@/lib/fetch-profile";
 import {
@@ -23,6 +24,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { persistPlanSelection, getRecentPlanIds } from "@/lib/plan-selector-storage";
+import { storePendingDraftSelection } from "@/lib/draft-utils";
 import {
   Select,
   SelectContent,
@@ -136,6 +138,9 @@ export function BenefitsStep1() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [activeAccordions, setActiveAccordions] = useState<string[]>([]);
   const [togglingCategories, setTogglingCategories] = useState<Record<string, boolean>>({});
+  const router = useRouter();
+  const [draftDialogOpen, setDraftDialogOpen] = useState(false);
+  const [draftPlanName, setDraftPlanName] = useState("");
 
   // Plan search bar state
   const [planSearchOpen, setPlanSearchOpen] = useState(false);
@@ -177,6 +182,27 @@ export function BenefitsStep1() {
     if (!id || plans.length === 0) return "";
     return plans.some((p) => p.id === id) ? id : "";
   }, [currentStepData.planId, plans]);
+
+  /** Whether the currently selected plan is a Draft (in progress). Draft benefit hubs
+   *  are forced Hidden so the advisor explicitly publishes each category from the wizard. */
+  const isSelectedPlanDraft = useMemo(() => {
+    const plan =
+      currentStepData.selectedPlan ||
+      plans.find((p) => p.id === currentStepData.planId);
+    return (plan as any)?.status === "Draft";
+  }, [currentStepData.selectedPlan, currentStepData.planId, plans]);
+
+  // Show the "Draft plan" dialog whenever a Draft plan is selected (via the plan
+  // picker or deep-link rehydration). Benefits cannot be created for Drafts — the
+  // advisor must finish setting up the plan first.
+  useEffect(() => {
+    if (!isSelectedPlanDraft || !resolvedPlanId) return;
+    const plan =
+      currentStepData.selectedPlan ||
+      plans.find((p) => p.id === resolvedPlanId);
+    setDraftPlanName(((plan as any)?.companyName || "").trim() || "This");
+    setDraftDialogOpen(true);
+  }, [isSelectedPlanDraft, resolvedPlanId, currentStepData.selectedPlan, plans]);
 
   /** Plans recently selected across any module (via plan-selector-storage). */
   const recentPlans = useMemo(() => {
@@ -724,6 +750,21 @@ export function BenefitsStep1() {
             ...latest,
             planId,
             selectedPlan: fullPlan,
+            // Draft plans must never inherit a stale all-visible benefitVisibility (the
+            // new-client wizard defaults drafts to all-visible at the API level). Force
+            // every hub Hidden when a Draft is loaded so the advisor explicitly publishes
+            // each category from the wizard. Active plans keep their saved visibility.
+            ...((fullPlan as any)?.status === "Draft"
+              ? {
+                  benefitVisibility: {
+                    Retirement: false,
+                    "Group Health": false,
+                    "Group Life": false,
+                    Custom: false,
+                    "Company / Plan Sponsor": false,
+                  },
+                }
+              : {}),
             insuranceBackgroundImage:
               fullPlanEpp.insuranceBackgroundImage ||
               latest.insuranceBackgroundImage ||
@@ -1582,6 +1623,18 @@ export function BenefitsStep1() {
             visibilityFromPlan["Custom"] ?? false;
         }
 
+        // Draft plans are still in progress — the wizard must never show their
+        // benefit hubs as Published. Drafts saved from the new-client wizard can
+        // carry an all-visible categoryPortalVisibility (Step 5 default), so force
+        // every category Hidden until the plan is completed (status becomes Active).
+        if ((fullPlan as any)?.status === "Draft") {
+          visibilityFromPlan["Retirement"] = false;
+          visibilityFromPlan["Group Health"] = false;
+          visibilityFromPlan["Group Life"] = false;
+          visibilityFromPlan["Custom"] = false;
+          visibilityFromPlan["Company / Plan Sponsor"] = false;
+        }
+
         // Sync insurance fields from the persisted plan data into step1Data
         // so that previously saved insuranceBackgroundImage, insurancePlanId,
         // and insuranceLoginUrl are available in the wizard store.
@@ -1663,6 +1716,39 @@ export function BenefitsStep1() {
       setLoading(false);
       setPlanLoading(false);
     }
+  };
+
+  /** Continue the Draft setup — hands off to the new-client wizard with this draft
+   *  pre-loaded so the advisor can finish configuring the plan before creating Benefits. */
+  const handleDraftContinue = () => {
+    setDraftDialogOpen(false);
+    if (resolvedPlanId) {
+      storePendingDraftSelection(resolvedPlanId);
+      router.push("/new/new-client");
+    }
+  };
+
+  /** Cancel — revert Step 1 to a clean state with no plan selected. */
+  const handleDraftCancel = () => {
+    setDraftDialogOpen(false);
+    saveStepData(1, {
+      ...currentStepData,
+      planId: "",
+      selectedPlan: null,
+      benefitCategory: "",
+      contactId: "",
+      benefitTitle: "",
+      shortDescription: "",
+      companyLogo: null,
+      benefitVisibility: {},
+      brandImages: {
+        header: null,
+        thumbnail: null,
+        secondaryBanner: null,
+        favicon: null,
+      },
+    });
+    setSelectedPlanContacts([]);
   };
 
   const handleCategoryChange = (benefitCategory: string) => {
@@ -2318,7 +2404,12 @@ export function BenefitsStep1() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     {["Retirement", "Group Health", "Group Life", "Custom"].map((cat) => {
                       const visibility = currentStepData.benefitVisibility ?? {};
-                      const isPublished = visibility[cat] !== false;
+                      // Draft plans default every hub to Hidden; an explicitly persisted
+                      // `true` (from a publish toggle) is still honored so publishing works.
+                      const isPublished =
+                        isSelectedPlanDraft && visibility[cat] !== true
+                          ? false
+                          : visibility[cat] !== false;
                       const isToggling = togglingCategories[cat] === true;
                       return (
                         <div
@@ -3119,6 +3210,31 @@ export function BenefitsStep1() {
               Cancel
             </Button>
             <Button onClick={handleFormSubmit}>Create Contact</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Draft plan guard — Benefits cannot be created for a plan still in Draft status. */}
+      <Dialog
+        open={draftDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) handleDraftCancel();
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Draft Plan</DialogTitle>
+            <DialogDescription>
+              {draftPlanName} plan is still a Draft. Creating a Benefit for this
+              plan isn&rsquo;t allowed for Drafts. Continue the setup to finish
+              this plan first.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleDraftCancel}>
+              Cancel
+            </Button>
+            <Button onClick={handleDraftContinue}>Continue Setup</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
