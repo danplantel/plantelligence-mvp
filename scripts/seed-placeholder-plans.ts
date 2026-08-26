@@ -8,6 +8,40 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+/** All-hidden portal visibility — seeded plans start with every hub hidden so the
+ *  advisor explicitly publishes each benefit category from the Benefits wizard.
+ *  Mirrors `HIDDEN_CATEGORY_PORTAL_VISIBILITY` in lib/portal-category-visibility.ts. */
+const HIDDEN_CATEGORY_PORTAL_VISIBILITY: Record<string, boolean> = {
+  Retirement: false,
+  "Group Life": false,
+  "Group Health": false,
+  Other: false,
+};
+
+/** Default 4 benefit hubs, all disabled, so the portal + Benefits wizard reflect
+ *  them as Hidden until the advisor explicitly publishes each one. */
+const DEFAULT_HIDDEN_BENEFITS = [
+  { id: "retirement", category: "Retirement", title: "Retirement Plan Benefits", isEnabled: false },
+  { id: "health", category: "Group Health", title: "Health Insurance", isEnabled: false },
+  { id: "life", category: "Group Life", title: "Life Insurance", isEnabled: false },
+  { id: "wellness", category: "Company / Plan Sponsor", title: "Wellness Programs", isEnabled: false },
+];
+
+/** Force every benefit hub hidden on a preview payload (preserves other fields).
+ *  When no benefits exist yet, seed the 4 default hubs as hidden. */
+function withHiddenBenefits(previewData: any): any {
+  const base =
+    previewData && typeof previewData === "object" && !Array.isArray(previewData)
+      ? { ...previewData }
+      : {};
+  const existing = Array.isArray(previewData?.benefits) ? previewData.benefits : [];
+  const benefits =
+    existing.length > 0
+      ? existing.map((b: any) => ({ ...b, isEnabled: false }))
+      : DEFAULT_HIDDEN_BENEFITS;
+  return { ...base, benefits };
+}
+
 const PLACEHOLDER_PLANS = [
   { companyName: "Acme Corp", planType: "401(k)", brandColor: "#1F3A60", secondaryColor: "#6B7280" },
   { companyName: "Blue Ridge Industries", planType: "403(b)", brandColor: "#1e40af", secondaryColor: "#6b7280" },
@@ -57,6 +91,17 @@ async function main() {
     });
 
     if (existing) {
+      // Re-runs also enforce the hidden-by-default benefit visibility on previously
+      // seeded placeholder plans, so every seed plan starts with all hubs hidden.
+      await prisma.client.update({
+        where: { id: existing.id },
+        data: {
+          categoryPortalVisibility: { ...HIDDEN_CATEGORY_PORTAL_VISIBILITY },
+          employeePortalPreview: withHiddenBenefits(
+            (existing as any).employeePortalPreview,
+          ),
+        },
+      });
       console.log(`  ⏭  Skipping "${plan.companyName}" — already exists (ID: ${existing.id})`);
       skipped++;
       continue;
@@ -72,7 +117,10 @@ async function main() {
         secondaryColor: plan.secondaryColor,
         keyContacts: { contacts: [] },
         currentStep: 5,
-        employeePortalPreview: {
+        // Newly created plans default ALL benefit hubs to hidden — the advisor
+        // publishes each category explicitly from the Benefits wizard.
+        categoryPortalVisibility: { ...HIDDEN_CATEGORY_PORTAL_VISIBILITY },
+        employeePortalPreview: withHiddenBenefits({
           portalTitle: `${plan.companyName} Benefits Hub`,
           portalDescription: `Welcome to the ${plan.companyName} Benefits Hub. Manage your benefits, view documents, and stay informed.`,
           showWelcomeStatement: true,
@@ -81,7 +129,7 @@ async function main() {
           showMeetings: true,
           showVideos: true,
           heroVideo: null,
-        } as any,
+        }),
       },
     });
 
