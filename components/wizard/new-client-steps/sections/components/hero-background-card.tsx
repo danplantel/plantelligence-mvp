@@ -31,6 +31,8 @@ interface HeroBackgroundCardProps {
   onMobilePositionChange: (position: MobileHeroPosition) => void;
   /** Called when any interactive element inside the upload area gains focus */
   onFieldFocus?: () => void;
+  /** When true, shows a loading overlay on the upload area (e.g. while an R2 upload is in flight). */
+  isUploading?: boolean;
 }
 
 export function HeroBackgroundCard({
@@ -47,6 +49,7 @@ export function HeroBackgroundCard({
   mobilePosition,
   onMobilePositionChange,
   onFieldFocus,
+  isUploading = false,
 }: HeroBackgroundCardProps) {
   // Resolve the image URL for the canvas preview
   const imageUrl = heroImageData?.previewUrl || heroImageData?.url || undefined;
@@ -119,6 +122,7 @@ export function HeroBackgroundCard({
           onFileSelect={onFileSelect}
           maxFileSize={15}
           onFocus={onFieldFocus}
+          isUploading={isUploading}
           // The hero header background is full-bleed in the banner (background-size: cover).
           // Mirror that in the editor thumbnail so the image fills the preview box instead of
           // leaving gaps on the sides (common for pre-populated square/narrow profile images).

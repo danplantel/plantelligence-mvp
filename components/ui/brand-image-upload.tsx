@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { X, Upload, AlertTriangle, Plus, Edit2 } from "lucide-react";
+import { X, Upload, AlertTriangle, Plus, Edit2, Loader2 } from "lucide-react";
 import { BrandImageData } from "@/types/new-client-wizard";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
@@ -58,6 +58,8 @@ interface BrandImageUploadProps {
   previewObjectFit?: React.CSSProperties["objectFit"];
   /** Optional action rendered on the right side of the header/title row. */
   headerAction?: React.ReactNode;
+  /** When true, shows a loading overlay on the upload area (e.g. while an R2 upload is in flight). */
+  isUploading?: boolean;
 }
 
 export function BrandImageUpload({
@@ -82,6 +84,7 @@ export function BrandImageUpload({
   onFocus,
   previewObjectFit = "contain",
   headerAction,
+  isUploading = false,
 }: BrandImageUploadProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -328,7 +331,6 @@ export function BrandImageUpload({
         <div className="flex-1">
           <h4 className="font-medium text-sm dark:text-gray-100">
             {slot.title}
-            {slot.required && <span className="text-red-500 ml-0.5">*</span>}
           </h4>
           {editableDescription ? (
             <div className="mt-1">
@@ -391,7 +393,7 @@ export function BrandImageUpload({
       </div>
 
       <div
-        className={`border-2 border-dashed rounded-lg p-4 text-center transition-all duration-300 ${isDragOver
+        className={`relative overflow-hidden border-2 border-dashed rounded-lg p-4 text-center transition-all duration-300 ${isDragOver
           ? "border-accent-blue bg-accent-blue/5"
           : isHighlighted
             ? "border-blue-500/50 bg-white dark:bg-gray-800 scale-[1.02] shadow-sm"
@@ -402,6 +404,11 @@ export function BrandImageUpload({
         onDrop={handleDrop}
         onMouseDown={() => onFocus?.()}
       >
+        {isUploading && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 dark:bg-gray-900/70 rounded-lg backdrop-blur-[1px]">
+            <Loader2 className="w-6 h-6 animate-spin text-accent-blue" />
+          </div>
+        )}
         {currentImage ? (
           <div className="w-full">
             <div className="relative flex flex-col md:flex-row items-center gap-4 p-4 rounded-xl bg-muted/20 border border-gray-200 dark:border-gray-700">

@@ -9,6 +9,7 @@ export function useThumbnailImage() {
     useState<BrandImageData | null>(null);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [isThumbnailHighlighted, setIsThumbnailHighlighted] = useState(false);
+  const [isThumbnailUploading, setIsThumbnailUploading] = useState(false);
   const thumbnailHighlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleBrandImagesChange = useCallback(
@@ -26,13 +27,29 @@ export function useThumbnailImage() {
 
   const handleThumbnailImageChange = useCallback(
     async (imageData: BrandImageData) => {
-      // Upload the thumbnail to R2 (if a draft exists) so it survives a page
-      // refresh / draft-continue, matching how the Company Logo and step-1's
-      // brand images are persisted. Base64 data URLs are ephemeral — the
-      // persistent R2 key resolves to a proxy URL on reload.
-      let image = imageData;
       const draftClientId = useNewClientWizardStore.getState().draftClientId;
-      if (draftClientId && imageData.url?.startsWith("data:")) {
+      const isDataUrl = !!imageData.url?.startsWith("data:");
+
+      // 1) Persist the data URL immediately (with previewUrl) so the thumbnail
+      //    renders right away instead of waiting for the R2 upload.
+      const displayImage: BrandImageData = isDataUrl
+        ? { ...imageData, previewUrl: imageData.url }
+        : imageData;
+      const updatedBrandImages: BrandImagesData = {
+        ...(stepData.companyBasics?.brandImages || {
+          header: null,
+          thumbnail: null,
+          secondaryBanner: null,
+          favicon: null,
+        }),
+        thumbnail: displayImage,
+      };
+      handleBrandImagesChange(updatedBrandImages);
+
+      // 2) Upload to R2 in the background and swap in the persistent key once
+      //    done (so the image survives a refresh / draft-continue).
+      if (draftClientId && isDataUrl) {
+        setIsThumbnailUploading(true);
         try {
           const { uploadBrandingToR2 } = await import("@/lib/branding-r2");
           const r2Key = await uploadBrandingToR2({
@@ -41,21 +58,31 @@ export function useThumbnailImage() {
             clientId: draftClientId,
             slot: "thumbnail",
           });
-          if (r2Key) image = { ...imageData, url: r2Key };
+          if (r2Key) {
+            const state = useNewClientWizardStore.getState();
+            const latest = state.stepData.companyBasics;
+            if (latest) {
+              const persisted: BrandImagesData = {
+                ...(latest.brandImages || {
+                  header: null,
+                  thumbnail: null,
+                  secondaryBanner: null,
+                  favicon: null,
+                }),
+                thumbnail: { ...displayImage, url: r2Key },
+              };
+              state.saveStepDataLocally("companyBasics", {
+                ...latest,
+                brandImages: persisted,
+              });
+            }
+          }
         } catch (_) {
-          // Keep the original data URL if the upload fails.
+          // Keep the data URL if the upload fails.
+        } finally {
+          setIsThumbnailUploading(false);
         }
       }
-      const updatedBrandImages = {
-        ...(stepData.companyBasics?.brandImages || {
-          header: null,
-          thumbnail: null,
-          secondaryBanner: null,
-          favicon: null,
-        }),
-        thumbnail: image,
-      };
-      handleBrandImagesChange(updatedBrandImages);
     },
     [stepData.companyBasics?.brandImages, handleBrandImagesChange],
   );
@@ -99,6 +126,8 @@ export function useThumbnailImage() {
     setGalleryOpen,
     isThumbnailHighlighted,
     setIsThumbnailHighlighted,
+    isThumbnailUploading,
+    setIsThumbnailUploading,
     thumbnailHighlightTimeoutRef,
     handleThumbnailImageChange,
     handleThumbnailImageRemove,

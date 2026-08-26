@@ -14,6 +14,8 @@ interface ThumbnailSectionEditorProps {
   onFileSelect: (imageData: BrandImageData) => void;
   /** Called when any interactive element inside the upload area gains focus */
   onFieldFocus?: () => void;
+  /** When true, shows a loading overlay on the upload area (e.g. while an R2 upload is in flight). */
+  isUploading?: boolean;
 }
 
 export function ThumbnailSectionEditor({
@@ -25,6 +27,7 @@ export function ThumbnailSectionEditor({
   onEditClick,
   onFileSelect,
   onFieldFocus,
+  isUploading = false,
 }: ThumbnailSectionEditorProps) {
   return (
     <div className="pt-6 border-t border-border dark:border-gray-700">
@@ -64,6 +67,7 @@ export function ThumbnailSectionEditor({
           onFileSelect={onFileSelect}
           isHighlighted={isHighlighted}
           onFocus={onFieldFocus}
+          isUploading={isUploading}
         />
       </div>
     </div>

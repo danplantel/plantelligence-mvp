@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { BannerPreviewSection } from "../banner-preview-section";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ImageIcon, Settings, Image as ImageIcon2 } from "lucide-react";
+import { ImageIcon, Settings, Image as ImageIcon2, Loader2 } from "lucide-react";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import { deleteFromR2 } from "@/lib/upload-to-r2";
 import { BannerOverlaySettingsCard } from "./banner-overlay-settings-card";
@@ -145,6 +145,8 @@ export function BannerSectionEditor({
   const [isHeroModalOpen, setIsHeroModalOpen] = useState(false);
   const [pendingHeroImageData, setPendingHeroImageData] = useState<BrandImageData | null>(null);
   const lastHeroModalStateRef = useRef<{ isOpen: boolean; pendingData: BrandImageData | null } | null>(null);
+  const [isHeroUploading, setIsHeroUploading] = useState(false);
+  const [isLogoUploading, setIsLogoUploading] = useState(false);
 
   // Derive hero image data from store
   const heroImageData = storeCompanyBasics?.brandImages?.header ?? null;
@@ -155,13 +157,23 @@ export function BannerSectionEditor({
     const current = store.stepData.companyBasics;
     if (!current) return;
 
-    // Upload the hero background to R2 (if a draft exists) so it survives a
-    // page refresh / draft-continue, matching how the Company Logo and step-1's
-    // brand images are persisted. Base64 data URLs are ephemeral — the
-    // persistent R2 key resolves to a proxy URL on reload.
-    let image = imageData;
     const draftClientId = store.draftClientId;
-    if (draftClientId && imageData.url?.startsWith("data:")) {
+    const isDataUrl = !!imageData.url?.startsWith("data:");
+
+    // 1) Persist the data URL immediately (with previewUrl) so the hero
+    //    background renders right away instead of waiting for the R2 upload.
+    const displayImage: BrandImageData = isDataUrl
+      ? { ...imageData, previewUrl: imageData.url }
+      : imageData;
+    store.saveStepDataLocally("companyBasics", {
+      ...current,
+      brandImages: { ...(current.brandImages || {}), header: displayImage },
+    });
+
+    // 2) Upload to R2 in the background and swap in the persistent key once
+    //    done (so the image survives a refresh / draft-continue).
+    if (draftClientId && isDataUrl) {
+      setIsHeroUploading(true);
       try {
         const { uploadBrandingToR2 } = await import("@/lib/branding-r2");
         const r2Key = await uploadBrandingToR2({
@@ -170,21 +182,27 @@ export function BannerSectionEditor({
           clientId: draftClientId,
           slot: "background",
         });
-        if (r2Key) image = { ...imageData, url: r2Key };
+        if (r2Key) {
+          const latest = useNewClientWizardStore.getState().stepData.companyBasics;
+          if (latest) {
+            const persisted = {
+              ...(latest.brandImages || {}),
+              header: { ...displayImage, url: r2Key },
+            };
+            useNewClientWizardStore
+              .getState()
+              .saveStepDataLocally("companyBasics", {
+                ...latest,
+                brandImages: persisted,
+              });
+          }
+        }
       } catch (_) {
-        // Keep the original data URL if the upload fails.
+        // Keep the data URL if the upload fails.
+      } finally {
+        setIsHeroUploading(false);
       }
     }
-
-    const updatedBrandImages = {
-      ...(current.brandImages || {}),
-      header: image,
-    };
-
-    store.saveStepDataLocally("companyBasics", {
-      ...current,
-      brandImages: updatedBrandImages,
-    });
   };
 
   const handleHeroBackgroundImageRemove = () => {
@@ -308,7 +326,10 @@ export function BannerSectionEditor({
     <div data-section-id="banner" className="space-y-4">
       {/* Company Logo Editor at the very top — self-contained
           UniversalImageEditorModal matching Step 1. */}
-      <Card className="dark:bg-gray-800" onMouseDown={() => onFieldFocus?.()}>
+      <Card
+        className="dark:bg-gray-800 relative overflow-hidden"
+        onMouseDown={() => onFieldFocus?.()}
+      >
         <CardHeader>
           <CardTitle className="flex items-center gap-2 dark:text-gray-100">
             <ImageIcon className="w-5 h-5 text-accent-blue" />
@@ -319,26 +340,40 @@ export function BannerSectionEditor({
             Accepted formats: PNG, JPG, WebP, SVG. Max file size: 15 MB.
           </p>
         </CardHeader>
-        <CardContent>
+        <CardContent className="relative">
+          {isLogoUploading && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 dark:bg-gray-900/70 rounded-b-xl backdrop-blur-[1px]">
+              <Loader2 className="w-6 h-6 animate-spin text-accent-blue" />
+            </div>
+          )}
           <UniversalImageEditorModal
             type="logo"
             icon={<ImageIcon className="w-4 h-4" />}
+            onUploadStateChange={setIsLogoUploading}
             value={
               useNewClientWizardStore.getState().stepData.companyBasics
                 ?.companyLogo?.url || ""
+            }
+            previewDataUrl={
+              useNewClientWizardStore.getState().stepData.companyBasics
+                ?.companyLogo?.previewUrl
             }
             fileName={
               useNewClientWizardStore.getState().stepData.companyBasics
                 ?.companyLogo?.fileName || ""
             }
-            onChange={async (value, fileName) => {
+            onChange={async (value, fileName, headshotData) => {
               const store = useNewClientWizardStore.getState();
               const current = store.stepData.companyBasics;
               if (!current) return;
+              const previewDataUrl = (
+                headshotData as { previewDataUrl?: string } | undefined
+              )?.previewDataUrl;
               store.saveStepDataLocally("companyBasics", {
                 ...current,
                 companyLogo: {
                   url: value,
+                  previewUrl: previewDataUrl,
                   fileName: fileName,
                   fileSize: 0,
                   width: 0,
@@ -403,6 +438,7 @@ export function BannerSectionEditor({
               onCompanyDataChange("mobileHeroBackgroundPosition", pos);
             }}
             onFieldFocus={onFieldFocus}
+            isUploading={isHeroUploading}
           />
         </CardContent>
       </Card>

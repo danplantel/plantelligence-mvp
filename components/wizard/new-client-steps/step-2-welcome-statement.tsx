@@ -802,7 +802,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
     [modalStates.pendingLogoData, handleLogoImageChange, modalStates],
   );
 
-  const handleThumbnailModalSave = async (
+  const handleThumbnailModalSave = (
     value: string,
     fileName: string,
     cropData?: import("@/components/ui/simple-image-editor-modal").CropMetadata,
@@ -813,49 +813,83 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
       thumbnailImage.setPendingThumbnailData(null);
       return;
     }
-    // Upload to R2 (if a draft exists) so the thumbnail survives a refresh /
-    // draft-continue, matching the Company Logo behavior. Base64 data URLs are
-    // ephemeral; the persistent R2 key resolves to a proxy URL on reload.
-    let thumbnailUrl = value;
     const draftClientId = useNewClientWizardStore.getState().draftClientId;
-    if (draftClientId && value.startsWith("data:")) {
-      try {
-        const { uploadBrandingToR2 } = await import("@/lib/branding-r2");
-        const r2Key = await uploadBrandingToR2({
-          dataUrlOrFile: value,
-          fileName: fileName || "thumbnail.png",
-          clientId: draftClientId,
-          slot: "thumbnail",
-        });
-        if (r2Key) thumbnailUrl = r2Key;
-      } catch (_) {
-        // Keep the original data URL if the upload fails.
-      }
-    }
+    const isDataUrl = value.startsWith("data:");
+
+    // 1) Persist the data URL immediately (with previewUrl) so the thumbnail
+    //    renders right away instead of waiting for the R2 upload.
     const img = new Image();
     img.onload = () => {
       const warnings: string[] = [];
       const recWidth = 900;
       const recHeight = 900;
       if (img.width < recWidth || img.height < recHeight) warnings.push("Below recommended size (900×900 px). May appear blurry.");
+      const displayImage: BrandImageData = {
+        ...pendingData,
+        url: value,
+        previewUrl: isDataUrl ? value : undefined,
+        originalUrl: cropData?.originalImage || pendingData.originalUrl || value,
+        fileName,
+        width: img.width,
+        height: img.height,
+        status: (warnings.length > 0 ? "warning" : "ok") as "ok" | "warning" | "error",
+        warnings,
+        cropData: cropData,
+      };
       const updatedBrandImages = {
         ...(stepData.companyBasics?.brandImages || { header: null, thumbnail: null, secondaryBanner: null, favicon: null }),
-        thumbnail: { ...pendingData, url: thumbnailUrl, originalUrl: cropData?.originalImage || pendingData.originalUrl || value, fileName, width: img.width, height: img.height, status: (warnings.length > 0 ? "warning" : "ok") as "ok" | "warning" | "error", warnings, cropData: cropData },
+        thumbnail: displayImage,
       };
       if (stepData.companyBasics) saveStepDataLocally("companyBasics", { ...stepData.companyBasics, brandImages: updatedBrandImages });
       thumbnailImage.setIsThumbnailModalOpen(false);
       thumbnailImage.setPendingThumbnailData(null);
     };
     img.onerror = () => {
+      const displayImage: BrandImageData = {
+        ...pendingData,
+        url: value,
+        previewUrl: isDataUrl ? value : undefined,
+        originalUrl: cropData?.originalImage || pendingData.originalUrl || value,
+        fileName,
+        cropData: cropData,
+      };
       const updatedBrandImages = {
         ...(stepData.companyBasics?.brandImages || { header: null, thumbnail: null, secondaryBanner: null, favicon: null }),
-        thumbnail: { ...pendingData, url: thumbnailUrl, originalUrl: cropData?.originalImage || pendingData.originalUrl || value, fileName, cropData: cropData },
+        thumbnail: displayImage,
       };
       if (stepData.companyBasics) saveStepDataLocally("companyBasics", { ...stepData.companyBasics, brandImages: updatedBrandImages });
       thumbnailImage.setIsThumbnailModalOpen(false);
       thumbnailImage.setPendingThumbnailData(null);
     };
     img.src = value;
+
+    // 2) Upload to R2 in the background and swap in the persistent key once
+    //    done (so the image survives a refresh / draft-continue).
+    if (draftClientId && isDataUrl) {
+      thumbnailImage.setIsThumbnailUploading(true);
+      void import("@/lib/branding-r2")
+        .then(async ({ uploadBrandingToR2 }) => {
+          const r2Key = await uploadBrandingToR2({
+            dataUrlOrFile: value,
+            fileName: fileName || "thumbnail.png",
+            clientId: draftClientId,
+            slot: "thumbnail",
+          });
+          if (r2Key) {
+            const state = useNewClientWizardStore.getState();
+            const latest = state.stepData.companyBasics;
+            if (latest) {
+              const latestBrandImages = latest.brandImages || { header: null, thumbnail: null, secondaryBanner: null, favicon: null };
+              const persisted = { ...latestBrandImages, thumbnail: { ...latestBrandImages.thumbnail, url: r2Key } };
+              state.saveStepDataLocally("companyBasics", { ...latest, brandImages: persisted });
+            }
+          }
+        })
+        .catch(() => {
+          // Keep the data URL if the upload fails.
+        })
+        .finally(() => thumbnailImage.setIsThumbnailUploading(false));
+    }
   };
 
   const totalFixedHeight = HEADER_HEIGHT + barHeight + BOTTOM_NAV_HEIGHT;
@@ -1070,6 +1104,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
                 <ThumbnailSectionEditor
                   currentImage={stepData.companyBasics?.brandImages?.thumbnail || undefined}
                   isHighlighted={thumbnailImage.isThumbnailHighlighted}
+                  isUploading={thumbnailImage.isThumbnailUploading}
                   onImageChange={thumbnailImage.handleThumbnailImageChange} onImageRemove={thumbnailImage.handleThumbnailImageRemove}
                   onDefaultPhotoClick={() => thumbnailImage.setGalleryOpen(true)}
                   onEditClick={thumbnailImage.handleThumbnailEditClick} onFileSelect={thumbnailImage.handleThumbnailFileSelect}

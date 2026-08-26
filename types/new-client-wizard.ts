@@ -18,6 +18,8 @@ export interface CompanyLogoData {
   // True original image source used for "Reset" in editor modals.
   // Prefer storing as a URL; can temporarily be base64 during editing sessions.
   originalUrl?: string;
+  /** Data URL for instant preview display before the R2-backed url resolves */
+  previewUrl?: string;
   fileName: string;
   fileSize: number;
   width: number;

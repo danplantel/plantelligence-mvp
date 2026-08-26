@@ -214,6 +214,8 @@ interface UniversalImageEditorModalProps {
    * (e.g. from a previous upload or the editor crop output).
    */
   previewDataUrl?: string;
+  /** Fired when the modal starts/finishes uploading the edited image to R2. */
+  onUploadStateChange?: (uploading: boolean) => void;
 }
 
 async function validateImage(
@@ -295,6 +297,7 @@ export function UniversalImageEditorModal({
   hidePerfectMessage = false,
   forceCircularGuidelines = false,
   previewDataUrl,
+  onUploadStateChange,
 }: UniversalImageEditorModalProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1794,6 +1797,7 @@ export function UniversalImageEditorModal({
 
         // Upload to R2 for all image types (headshot, logo, custom/background), store only key in DB
         if (type === "headshot" || type === "logo" || type === "custom") {
+          onUploadStateChange?.(true);
           try {
             const res = await fetch(croppedPreview);
             const blob = await res.blob();
@@ -1826,6 +1830,8 @@ export function UniversalImageEditorModal({
             }
           } catch (err) {
             console.warn(`[${type}] R2 upload failed, falling back to inline`, err);
+          } finally {
+            onUploadStateChange?.(false);
           }
         }
 
