@@ -697,12 +697,29 @@ export function BrandImagesSection({
               : 300
           }
           guidelinePadding={20}
+          canvasOverlay={
+            pendingImageData.slotKey === "secondaryBanner" ? (
+              // Centered "News & Events" block — same as NewsEventsHeader — overlaid
+              // on the crop canvas so the title position can be previewed while cropping.
+              // Sized smaller than the crop guideline so it reads like the header title
+              // badge rather than spanning the whole canvas.
+              <div className="absolute inset-0 flex items-center justify-center px-4 sm:px-6">
+                <div className="bg-black/60 backdrop-blur-sm rounded-xl w-full max-w-[430px] px-4 py-3 sm:px-5 sm:py-4">
+                  <h1 className="font-dm-serif text-white text-xl sm:text-2xl text-center leading-tight">
+                    News & Events
+                  </h1>
+                </div>
+              </div>
+            ) : undefined
+          }
         />
       )}
 
       {/* News & Events Header Preview Dialog */}
       <Dialog open={newsEventsPreviewOpen} onOpenChange={setNewsEventsPreviewOpen}>
-        <DialogContent className="max-w-4xl p-0 overflow-hidden">
+        {/* `portal-root` forces Light Mode regardless of the dashboard dark theme —
+            the preview must look like the (always-light) employee portal. */}
+        <DialogContent className="portal-root max-w-4xl p-0 overflow-hidden">
           <DialogHeader className="sr-only">
             <DialogTitle>News & Events Header Preview</DialogTitle>
           </DialogHeader>
@@ -773,8 +790,9 @@ export function BrandImagesSection({
             {/* Edit controls bar */}
             <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-gray-200 bg-gray-50 shrink-0">
               <Button
+                className="bg-gray-700 text-white hover:bg-gray-800"
                 type="button"
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={() => {
                   const currentImage = brandImages?.secondaryBanner;

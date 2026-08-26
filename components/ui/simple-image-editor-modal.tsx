@@ -44,6 +44,10 @@ interface SimpleImageEditorModalProps {
   guidelinesTitle?: string;
   guidelinesContent?: ReactNode;
   disabled?: boolean;
+  /** Optional overlay rendered centered on top of the crop canvas (e.g. a
+   *  News & Events header title mockup). Non-interactive (pointer-events: none)
+   *  so it never blocks dragging/scaling the image beneath it. */
+  canvasOverlay?: ReactNode;
 }
 
 export function SimpleImageEditorModal({
@@ -70,6 +74,7 @@ export function SimpleImageEditorModal({
   guidelinesTitle,
   guidelinesContent,
   disabled = false,
+  canvasOverlay,
 }: SimpleImageEditorModalProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1471,13 +1476,14 @@ export function SimpleImageEditorModal({
                     <div
                       style={{
                         background: `
-                          repeating-conic-gradient(#f0f0f0 0% 25%, #ffffff 0% 50%) 
+                          repeating-conic-gradient(#f0f0f0 0% 25%, #ffffff 0% 50%)
                           50% / 20px 20px
                         `,
                         padding: "2px",
                         width: `${canvasWidth}px`,
                         height: `${canvasHeight}px`,
                         display: "inline-block",
+                        position: "relative",
                       }}
                     >
                       <canvas
@@ -1491,6 +1497,11 @@ export function SimpleImageEditorModal({
                           maxHeight: "100%",
                         }}
                       />
+                      {canvasOverlay && (
+                        <div className="absolute inset-0 pointer-events-none">
+                          {canvasOverlay}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : (
