@@ -46,6 +46,16 @@ export function FirstContactPrompt({ onContinue, onSomeoneElseSelect }: FirstCon
     return companyName;
   }, [companyName]);
 
+  // English possessive grammar: if the name already ends in "s", add only an
+  // apostrophe ("Jones'" / "Ace Properties'"), otherwise add "'s" ("Acme Corp's").
+  const possessiveName = useMemo(() => {
+    if (!displayName) return displayName;
+    const lastChar = displayName.charAt(displayName.length - 1);
+    return lastChar.toLowerCase() === "s"
+      ? `${displayName}'`
+      : `${displayName}'s`;
+  }, [displayName]);
+
   return (
     <div className="flex flex-col items-center justify-center text-center space-y-3 py-2">
       {/* Company Logo above header */}
@@ -63,11 +73,11 @@ export function FirstContactPrompt({ onContinue, onSomeoneElseSelect }: FirstCon
       <div className="space-y-2 max-w-xl">
         <h2 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-gray-100 leading-tight">
           Who{'\''}s the main point of contact for{" "}
-          <span className="text-accent-blue">{displayName}</span>{" "}
+          <span className="text-accent-blue">{possessiveName}</span>{" "}
           benefits plan?
         </h2>
         <p className="py-4 text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto">
-          Start by selecting who manages the benefits plan. Choose <strong>Company / Plan Sponsor</strong> for an internal contact like an HR manager, or choose <strong>Someone Else</strong> for a third-party administrator, advisor, or external benefits contact.
+          Select an option below to continue.
         </p>
       </div>
 
@@ -107,7 +117,7 @@ export function FirstContactPrompt({ onContinue, onSomeoneElseSelect }: FirstCon
               Company / Plan Sponsor
             </h3>
             <p className={cn("text-xs", isSomeoneElseExpanded ? "text-muted-foreground" : "text-gray-100")}>
-              Main point of contact
+              Internal contact, like an HR manager
             </p>
           </div>
 
@@ -164,7 +174,7 @@ export function FirstContactPrompt({ onContinue, onSomeoneElseSelect }: FirstCon
                 Someone Else
               </h3>
               <p className={cn("text-xs", isSomeoneElseExpanded ? "text-gray-100" : "text-muted-foreground")}>
-                3rd party or external contact
+                Third-party administrator, advisor, or external contact
               </p>
             </div>
 
