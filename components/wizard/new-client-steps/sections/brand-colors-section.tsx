@@ -161,7 +161,7 @@ export function BrandColorsSection({
             {!logoDataUrl && !websiteUrl?.trim() && (
               <p className="text-xs text-muted-foreground mt-1.5">
                 <Info className="w-3 h-3 inline mr-1" />
-                Upload a logo or enter a company website above to enable color
+                Upload a logo and enter a company website above to enable color
                 extraction.
               </p>
             )}
