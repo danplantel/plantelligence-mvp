@@ -48,6 +48,11 @@ interface SimpleImageEditorModalProps {
    *  News & Events header title mockup). Non-interactive (pointer-events: none)
    *  so it never blocks dragging/scaling the image beneath it. */
   canvasOverlay?: ReactNode;
+  /** Multiplier for the exported crop resolution (e.g. 3 exports at 3x the
+   *  guideline size). The on-screen canvas stays at canvasWidth/canvasHeight
+   *  for editing, but the saved image is rendered at higher resolution so large
+   *  placements (e.g. a full-screen hero) don't look grainy. */
+  exportScale?: number;
 }
 
 export function SimpleImageEditorModal({
@@ -75,6 +80,7 @@ export function SimpleImageEditorModal({
   guidelinesContent,
   disabled = false,
   canvasOverlay,
+  exportScale = 1,
 }: SimpleImageEditorModalProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1021,10 +1027,14 @@ export function SimpleImageEditorModal({
     canvas.discardActiveObject();
     canvas.renderAll();
 
+    // Export multiplier: keeps the editing canvas small (no zoomed-in display)
+    // while rendering the saved crop at higher resolution.
+    const exportMult = Math.max(1, exportScale || 1);
+
     // Create a new canvas for cropping to guideline bounds
     const cropCanvas = document.createElement("canvas");
-    cropCanvas.width = guidelineWidth;
-    cropCanvas.height = guidelineHeight;
+    cropCanvas.width = Math.round(guidelineWidth * exportMult);
+    cropCanvas.height = Math.round(guidelineHeight * exportMult);
     const cropCtx = cropCanvas.getContext("2d");
 
     if (cropCtx) {
@@ -1032,7 +1042,7 @@ export function SimpleImageEditorModal({
       const fullCanvasData = canvas.toDataURL({
         format: "png",
         quality: 1,
-        multiplier: 1,
+        multiplier: exportMult,
       });
 
       const img = new Image();
@@ -1041,14 +1051,14 @@ export function SimpleImageEditorModal({
           // Draw only the guideline area from the full canvas
           cropCtx.drawImage(
             img,
-            outerLeft,
-            outerTop,
-            guidelineWidth,
-            guidelineHeight,
+            outerLeft * exportMult,
+            outerTop * exportMult,
+            guidelineWidth * exportMult,
+            guidelineHeight * exportMult,
             0,
             0,
-            guidelineWidth,
-            guidelineHeight,
+            guidelineWidth * exportMult,
+            guidelineHeight * exportMult,
           );
 
           const croppedPreview = cropCanvas.toDataURL("image/png");
@@ -1090,7 +1100,7 @@ export function SimpleImageEditorModal({
         const dataURL = canvas.toDataURL({
           format: "png",
           quality: 0.95,
-          multiplier: 1,
+          multiplier: exportMult,
         });
 
         // Restore controls and guidelines

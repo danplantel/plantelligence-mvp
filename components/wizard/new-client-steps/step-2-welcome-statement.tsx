@@ -1379,6 +1379,9 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
           saveButtonText="Save Background"
           canvasWidth={640} canvasHeight={600}
           guidelineWidth={580} guidelineHeight={240} guidelinePadding={20}
+          // Export the crop at 3x resolution so the full-screen hero stays crisp,
+          // while keeping the editing canvas small (no zoomed-in display).
+          exportScale={3}
         />
       )}
     </div>
