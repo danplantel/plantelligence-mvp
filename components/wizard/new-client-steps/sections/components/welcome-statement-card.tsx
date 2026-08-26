@@ -95,7 +95,9 @@ export function WelcomeStatementCard({
     <div className="space-y-3">
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label className="dark:text-gray-300">Banner Headline</Label>
+          <Label className="dark:text-gray-300">
+            Banner Headline <span className="text-red-500">*</span>
+          </Label>
           {onCompanyNameEdit && (
             <div
               ref={bannerTitleCardRef}
@@ -124,44 +126,37 @@ export function WelcomeStatementCard({
           onChange={(e) => onHeadlineChange?.(e.target.value)}
           onFocus={() => onFieldFocus?.()}
           data-field="headline"
+          maxLength={60}
           destructive={errorFields.includes("headline")}
         />
+        <p className="text-xs text-muted-foreground dark:text-gray-400">
+          {welcomeData?.headline?.length || 0}/60 characters
+        </p>
       </div>
-      <div className="space-y-2">
+      <div className="space-y-2 mt-2">
         <div className="flex items-center justify-between">
           <div className="flex flex-wrap items-center gap-2">
             <Label className="dark:text-gray-300">
               Welcome Message <span className="text-red-500">*</span>
             </Label>
-            {effectiveDefaultBodyText && (
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="useDefaultBody"
-                  checked={currentUseDefaultBody}
-                  onCheckedChange={(checked) =>
-                    onToggleDefaultBody?.(Boolean(checked))
-                  }
-                />
-                <Label
-                  htmlFor="useDefaultBody"
-                  className="text-sm cursor-pointer dark:text-gray-300"
-                >
-                  Use default
-                </Label>
-              </div>
-            )}
           </div>
-          <div className="flex items-center gap-2">
-            <span
-              className={`text-xs ${(welcomeData?.bodyText?.length || 0) >= 250 &&
-                (welcomeData?.bodyText?.length || 0) <= 500
-                ? "text-muted-foreground dark:text-gray-400"
-                : "text-muted-foreground dark:text-gray-400"
-                }`}
-            >
-              {welcomeData?.bodyText?.length || 0}/500 characters
-            </span>
-          </div>
+          {effectiveDefaultBodyText && (
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="useDefaultBody"
+                checked={currentUseDefaultBody}
+                onCheckedChange={(checked) =>
+                  onToggleDefaultBody?.(Boolean(checked))
+                }
+              />
+              <Label
+                htmlFor="useDefaultBody"
+                className="text-sm cursor-pointer dark:text-gray-300"
+              >
+                Use default
+              </Label>
+            </div>
+          )}
         </div>
         <Textarea
           ref={textareaRef}
@@ -198,8 +193,17 @@ export function WelcomeStatementCard({
             isUserInputRef.current = true;
           }}
           onChange={(e) => {
-            // Update value
-            onBodyChange(e.target.value);
+            const value = e.target.value;
+            if (currentUseDefaultBody) {
+              // User manually edited the Welcome Message — unselect "Use default".
+              // Call the toggle FIRST because some parents clear the body on uncheck;
+              // then re-apply the typed value so the user's edit is preserved.
+              onToggleDefaultBody?.(false);
+              onBodyChange(value);
+            } else {
+              // Update value
+              onBodyChange(value);
+            }
           }}
           onMouseUp={(e) => {
             // Save cursor position after mouse selection
@@ -207,7 +211,7 @@ export function WelcomeStatementCard({
             cursorPositionRef.current = textarea.selectionStart;
             isUserInputRef.current = false; // Mouse click is not typing
           }}
-          rows={5}
+          rows={10}
           maxLength={500}
           placeholder="This is the introduction on your Employee Benefits Hub"
           data-field="bodyText"
@@ -215,6 +219,9 @@ export function WelcomeStatementCard({
           className={`transition-all duration-500 ease-in-out origin-center ${isWelcomeBodyHighlighted ? "bg-white ring-2 ring-accent-blue/40 rounded-lg scale-[1.02] shadow-sm dark:bg-gray-800" : ""
             }`}
         />
+        <p className="text-xs text-muted-foreground dark:text-gray-400">
+          {welcomeData?.bodyText?.length || 0}/500 characters
+        </p>
       </div>
     </div>
   );

@@ -1056,7 +1056,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
               <div ref={heroContentRef}>
                 <Card className="dark:bg-gray-800">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm dark:text-gray-100">Welcome Message</CardTitle>
+                  <CardTitle className="text-sm dark:text-gray-100">Hero Content</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <WelcomeStatementCard
