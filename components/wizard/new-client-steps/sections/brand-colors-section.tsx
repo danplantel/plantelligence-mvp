@@ -71,11 +71,15 @@ export function BrandColorsSection({
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractionError, setExtractionError] = useState<string | null>(null);
   const [selectedSetId, setSelectedSetId] = useState<string | null>(null);
+  // Tracks whether the user has clicked "Extract Colors" — switches the header
+  // description to the "here are your suggestions" copy once extraction starts.
+  const [hasExtracted, setHasExtracted] = useState(false);
 
   const handleExtract = useCallback(async () => {
     if (!logoDataUrl && !websiteUrl?.trim()) return;
 
     setIsExtracting(true);
+    setHasExtracted(true);
     setExtractionError(null);
     setSelectedSetId(null);
 
@@ -103,8 +107,13 @@ export function BrandColorsSection({
     );
   };
 
-  const renderSwatch = (hex: string) => (
+  const renderSwatch = (hex: string, label?: string) => (
     <div className="flex items-center gap-2">
+      {label && (
+        <span className="w-20 shrink-0 text-[11px] font-medium text-muted-foreground">
+          {label}
+        </span>
+      )}
       <span
         className="w-6 h-6 rounded border border-gray-300 dark:border-gray-600 shrink-0"
         style={{ background: hex }}
@@ -124,9 +133,16 @@ export function BrandColorsSection({
           )}
         </CardTitle>
         <p className="text-sm text-muted-foreground dark:text-gray-400">
-          Click <strong>Extract Colors</strong> to generate three AI brand color
-          suggestions based on your <b>logo</b> and <b>website</b>. Select the
-          suggestion you want, or fine-tune the colors manually below.
+          {hasExtracted ? (
+            "Here are three color suggestions based on your logo and website. Select one, or fine-tune manually below."
+          ) : (
+            <>
+              Click <strong>Extract Colors</strong> to generate three AI brand
+              color suggestions based on your <b>logo</b> and <b>website</b>.
+              Select the suggestion you want, or fine-tune the colors manually
+              below.
+            </>
+          )}
         </p>
       </CardHeader>
       <CardContent>
@@ -220,9 +236,9 @@ export function BrandColorsSection({
                     )}
                     {set.available ? (
                       <div className="space-y-2">
-                        {renderSwatch(set.primary)}
+                        {renderSwatch(set.primary, "Primary")}
                         {set.secondary ? (
-                          renderSwatch(set.secondary)
+                          renderSwatch(set.secondary, "Secondary")
                         ) : (
                           <p className="text-xs text-muted-foreground">
                             No distinct secondary color found
@@ -239,22 +255,28 @@ export function BrandColorsSection({
               })}
             </div>
 
-            <div className="mt-3 flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleExtract}
-                className="inline-flex items-center gap-1.5 text-xs"
-              >
-                <Search className="w-3.5 h-3.5" />
-                Re-extract Colors
-              </Button>
-              {selectedSetId && (
-                <span className="text-xs text-muted-foreground">
-                  Applied: {colorSets.find((s) => s.id === selectedSetId)?.label}
-                </span>
-              )}
+            <div className="mt-3">
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExtract}
+                  className="inline-flex items-center gap-1.5 text-xs"
+                >
+                  <Search className="w-3.5 h-3.5" />
+                  Re-extract Colors
+                </Button>
+                {selectedSetId && (
+                  <span className="text-xs text-muted-foreground">
+                    Applied: {colorSets.find((s) => s.id === selectedSetId)?.label}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1.5">
+                Re-runs extraction to generate fresh suggestions from your logo
+                and website.
+              </p>
             </div>
           </div>
         )}
