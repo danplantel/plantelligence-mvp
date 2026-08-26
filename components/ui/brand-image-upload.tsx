@@ -56,6 +56,8 @@ interface BrandImageUploadProps {
    * header background) so the preview fills the box exactly like the rendered banner.
    */
   previewObjectFit?: React.CSSProperties["objectFit"];
+  /** Optional action rendered on the right side of the header/title row. */
+  headerAction?: React.ReactNode;
 }
 
 export function BrandImageUpload({
@@ -79,6 +81,7 @@ export function BrandImageUpload({
   universalModalCustomConfig = {},
   onFocus,
   previewObjectFit = "contain",
+  headerAction,
 }: BrandImageUploadProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -384,6 +387,7 @@ export function BrandImageUpload({
             )
           )}
         </div>
+        {headerAction}
       </div>
 
       <div

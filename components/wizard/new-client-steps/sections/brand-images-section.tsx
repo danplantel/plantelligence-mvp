@@ -459,19 +459,21 @@ export function BrandImagesSection({
                     handleFileSelectForEdit(slot.key, imageData);
                   }
                 }}
+                headerAction={
+                  isSecondaryBanner && currentImage ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setNewsEventsPreviewOpen(true)}
+                      className="shrink-0"
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      Preview in News & Events Header
+                    </Button>
+                  ) : undefined
+                }
               />
-              {isSecondaryBanner && currentImage && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setNewsEventsPreviewOpen(true)}
-                  className="w-full"
-                >
-                  <Eye className="w-4 h-4 mr-2" />
-                  Preview in News & Events Header
-                </Button>
-              )}
             </div>
           );
         })}
