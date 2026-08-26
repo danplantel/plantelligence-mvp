@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { FileText, Pencil } from "lucide-react";
 import type { WelcomeStatementData } from "@/types/new-client-wizard";
 
@@ -129,7 +130,16 @@ export function WelcomeStatementCard({
           maxLength={60}
           destructive={errorFields.includes("headline")}
         />
-        <p className="text-xs text-muted-foreground dark:text-gray-400">
+        <p
+          className={cn(
+            "text-xs",
+            (welcomeData?.headline?.length || 0) >= 58
+              ? "text-red-500 dark:text-red-400 font-bold"
+              : (welcomeData?.headline?.length || 0) < 10
+                ? "text-amber-600 dark:text-amber-400"
+                : "text-green-600 dark:text-green-400",
+          )}
+        >
           {welcomeData?.headline?.length || 0}/60 characters
         </p>
       </div>
@@ -219,7 +229,16 @@ export function WelcomeStatementCard({
           className={`transition-all duration-500 ease-in-out origin-center ${isWelcomeBodyHighlighted ? "bg-white ring-2 ring-accent-blue/40 rounded-lg scale-[1.02] shadow-sm dark:bg-gray-800" : ""
             }`}
         />
-        <p className="text-xs text-muted-foreground dark:text-gray-400">
+        <p
+          className={cn(
+            "text-xs",
+            (welcomeData?.bodyText?.length || 0) >= 495
+              ? "text-red-500 dark:text-red-400 font-bold"
+              : (welcomeData?.bodyText?.length || 0) < 100
+                ? "text-amber-600 dark:text-amber-400"
+                : "text-green-600 dark:text-green-400",
+          )}
+        >
           {welcomeData?.bodyText?.length || 0}/500 characters
         </p>
       </div>

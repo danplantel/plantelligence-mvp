@@ -165,7 +165,10 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
         thumbnailImgName: cb?.brandImages?.thumbnail?.fileName || "",
         disclaimers: "",
         heroTitle: cb?.heroTitle,
-        heroDescription: cb?.heroDescription || defaultWelcomeBodyText,
+        // Use nullish coalescing (not `||`) so an explicitly-cleared `""` (e.g. after
+        // unchecking "Use default") is respected by the hero preview instead of
+        // falling back to the default welcome text.
+        heroDescription: cb?.heroDescription ?? defaultWelcomeBodyText,
         heroOverlayOpacity: cb?.heroOverlayOpacity,
         heroBackgroundOpacity: cb?.heroBackgroundOpacity,
         heroContainerOpacity: cb?.heroContainerOpacity,
@@ -1001,6 +1004,13 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
         isAnimating={editorState.isEditorAnimating}
         editorScrollContainerRef={editorScrollContainerRef}
         onClose={editorState.handleCloseEditor}
+        headerBadge={
+          stepData.companyBasics?.companyName?.trim() ? (
+            <span className="inline-flex items-center rounded-md bg-accent-blue/10 px-2 py-0.5 text-xs font-semibold text-accent-blue">
+              {stepData.companyBasics.companyName}
+            </span>
+          ) : undefined
+        }
         sections={[
           {
             title: "Images",

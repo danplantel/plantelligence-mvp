@@ -251,7 +251,7 @@ export function useMissionData() {
   const headlineCharCount = missionHeadlineLocal.length;
   const bodyCharCount = missionBodyLocal.length;
   const isHeadlineValid = headlineCharCount <= 60;
-  const isBodyValid = bodyCharCount >= 250 && bodyCharCount <= 2000;
+  const isBodyValid = bodyCharCount >= 250 && bodyCharCount <= 800;
 
   return {
     missionHeadline: missionHeadlineLocal,

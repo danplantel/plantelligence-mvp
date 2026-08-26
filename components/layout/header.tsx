@@ -22,8 +22,11 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
   const { title } = usePageTitleContext();
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  // When the benefits "Editing Panel" (step 5 editor) is open, hide the page
-  // title / step title so it doesn't overlap the editor overlay.
+  // When an "Editing Panel" is open (Create Benefits step 5 editor via
+  // step5EditorStateChange, or Create Plan step 2 editor via
+  // step2EditorStateChange), hide the page title / step title so it doesn't
+  // overlap the editor overlay, and center the Stepper over the full header —
+  // matching how the Create Benefits wizard behaves.
   const [editorOpen, setEditorOpen] = useState(false);
 
   useEffect(() => {
@@ -38,11 +41,20 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
       "step5EditorStateChange" as any,
       handleEditorStateChange,
     );
-    return () =>
+    window.addEventListener(
+      "step2EditorStateChange" as any,
+      handleEditorStateChange,
+    );
+    return () => {
       window.removeEventListener(
         "step5EditorStateChange" as any,
         handleEditorStateChange,
       );
+      window.removeEventListener(
+        "step2EditorStateChange" as any,
+        handleEditorStateChange,
+      );
+    };
   }, []);
 
   useEffect(() => {

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Sparkles, FileText } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormError } from "@/components/ui/form-error";
+import { cn } from "@/lib/utils";
 
 interface MissionStatementFieldsProps {
   missionHeadline: string;
@@ -138,7 +139,16 @@ export function MissionStatementFields({
             )}
             {!errorFields.includes("missionHeadline") &&
               headlineCharCount > 0 && (
-                <p className="text-xs text-muted-foreground mt-1 dark:text-gray-400">
+                <p
+                  className={cn(
+                    "text-xs mt-1",
+                    headlineCharCount >= 58
+                      ? "text-red-500 dark:text-red-400 font-bold"
+                      : headlineCharCount < 10
+                        ? "text-amber-600 dark:text-amber-400"
+                        : "text-green-600 dark:text-green-400",
+                  )}
+                >
                   {headlineCharCount}/60 characters
                 </p>
               )}
@@ -167,7 +177,7 @@ export function MissionStatementFields({
               onChange={(e) => onBodyChange(e.target.value)}
               onFocus={() => onFieldFocus?.()}
               rows={6}
-              maxLength={600}
+              maxLength={800}
               placeholder="Share the bigger mission behind your organization..."
               data-field="missionBody"
               destructive={errorFields.includes("missionBody")}
@@ -184,14 +194,23 @@ export function MissionStatementFields({
                     : !isBodyValid
                       ? bodyCharCount < 250
                         ? "Mission Statement must be at least 250 characters"
-                        : "Mission Statement must be 600 characters or less"
+                        : "Mission Statement must be 800 characters or less"
                       : undefined
                 }
               />
             )}
             {!errorFields.includes("missionBody") && bodyCharCount > 0 && (
-              <p className="text-xs text-muted-foreground mt-1 dark:text-gray-400">
-                {bodyCharCount}/600 characters
+              <p
+                className={cn(
+                  "text-xs mt-1",
+                  bodyCharCount >= 795
+                    ? "text-red-500 dark:text-red-400 font-bold"
+                    : bodyCharCount < 250
+                      ? "text-amber-600 dark:text-amber-400"
+                      : "text-green-600 dark:text-green-400",
+                )}
+              >
+                {bodyCharCount}/800 characters
                 {bodyCharCount < 250 && (
                   <span className="text-amber-600 ml-2 dark:text-amber-400">
                     (minimum 250 characters)
