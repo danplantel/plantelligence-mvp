@@ -329,7 +329,7 @@ export function PortalHero({
 
           {/* Content layer - text without opacity */}
           <div
-            className="text-content p-4 text-center flex flex-col items-center justify-center relative z-10"
+            className="text-content p-4 text-center flex flex-col items-center justify-center relative z-10 w-full max-w-full min-w-0"
             style={{
               color: containerInverted ? "#020617" : brandColor,
             }}
@@ -453,7 +453,7 @@ export function PortalHero({
                           />
                         </div>
                       )}
-                    <p className="text-content font-red-hat text-base leading-relaxed whitespace-pre-line text-inherit">
+                    <p className="text-content font-red-hat text-lg leading-relaxed whitespace-pre-line break-words text-inherit w-full max-w-full">
                       {description}
                     </p>
                   </div>
