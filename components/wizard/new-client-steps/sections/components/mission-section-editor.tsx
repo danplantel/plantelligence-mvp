@@ -50,7 +50,7 @@ export function MissionSectionEditor({
   return (
     <div
       data-section-id="mission"
-      className="pt-6 border-t border-border dark:border-gray-700"
+      className="mt-4 rounded-xl border border-[#efefef] dark:border-[#1c1c1c] bg-card dark:bg-gray-800 text-card-foreground p-6"
     >
 
       {/* Form fields below the preview */}

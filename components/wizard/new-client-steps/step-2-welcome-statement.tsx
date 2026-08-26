@@ -1065,7 +1065,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
         }
         sections={[
           {
-            title: "Images",
+            title: "Hero Section",
             content: (
               <div>
                 <BannerSectionEditor
@@ -1101,6 +1101,54 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
                   }}
                   onFieldFocus={() => focusPreviewField("banner")}
                 />
+                <div ref={heroContentRef} className="mt-4">
+                  <Card className="dark:bg-gray-800">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm dark:text-gray-100">Hero Content</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <WelcomeStatementCard
+                        welcomeData={{
+                          headline: stepData.companyBasics?.heroTitle || welcomeData.headline || "",
+                          bodyText: stepData.companyBasics?.heroDescription || welcomeData.bodyText || "",
+                          isAIGenerated: false,
+                        }}
+                        companyName={stepData.companyBasics?.companyName || "Company Name"}
+                        errorFields={errorFields}
+                        useDefaultBody={useDefaultWelcomeMessage}
+                        onToggleDefaultBody={(checked) => {
+                          setUseDefaultWelcomeMessage(checked);
+                          if (checked) {
+                            handleCompanyDataChange("heroDescription", defaultWelcomeBodyText);
+                            updateField("bodyText", defaultWelcomeBodyText);
+                          } else {
+                            handleCompanyDataChange("heroDescription", "");
+                            updateField("bodyText", "");
+                          }
+                        }}
+                        defaultBodyText={defaultWelcomeBodyText}
+                        onHeadlineChange={(value) => {
+                          handleCompanyDataChange("heroTitle", value);
+                          updateField("headline", value);
+                        }}
+                        onBodyChange={(value) => {
+                          handleCompanyDataChange("heroDescription", value);
+                          updateField("bodyText", value);
+                        }}
+                        bannerTitleCardRef={bannerTitleCardRef}
+                        isBannerTitleHighlighted={isBannerTitleHighlighted}
+                        onFieldFocus={() => focusPreviewField("banner")}
+                      />
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            ),
+          },
+          {
+            title: "Mission Statement",
+            content: (
+              <div>
                 <ThumbnailSectionEditor
                   currentImage={stepData.companyBasics?.brandImages?.thumbnail || undefined}
                   isHighlighted={thumbnailImage.isThumbnailHighlighted}
@@ -1110,59 +1158,6 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
                   onEditClick={thumbnailImage.handleThumbnailEditClick} onFileSelect={thumbnailImage.handleThumbnailFileSelect}
                   onFieldFocus={() => focusPreviewField("banner")}
                 />
-              </div>
-            ),
-          },
-          {
-            title: "Hero Content",
-            content: (
-              <div ref={heroContentRef}>
-                <Card className="dark:bg-gray-800">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm dark:text-gray-100">Hero Content</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <WelcomeStatementCard
-                    welcomeData={{
-                      headline: stepData.companyBasics?.heroTitle || welcomeData.headline || "",
-                      bodyText: stepData.companyBasics?.heroDescription || welcomeData.bodyText || "",
-                      isAIGenerated: false,
-                    }}
-                    companyName={stepData.companyBasics?.companyName || "Company Name"}
-                    errorFields={errorFields}
-                    useDefaultBody={useDefaultWelcomeMessage}
-                    onToggleDefaultBody={(checked) => {
-                      setUseDefaultWelcomeMessage(checked);
-                      if (checked) {
-                        handleCompanyDataChange("heroDescription", defaultWelcomeBodyText);
-                        updateField("bodyText", defaultWelcomeBodyText);
-                      } else {
-                        handleCompanyDataChange("heroDescription", "");
-                        updateField("bodyText", "");
-                      }
-                    }}
-                    defaultBodyText={defaultWelcomeBodyText}
-                    onHeadlineChange={(value) => {
-                      handleCompanyDataChange("heroTitle", value);
-                      updateField("headline", value);
-                    }}
-                    onBodyChange={(value) => {
-                      handleCompanyDataChange("heroDescription", value);
-                      updateField("bodyText", value);
-                    }}
-                    bannerTitleCardRef={bannerTitleCardRef}
-                    isBannerTitleHighlighted={isBannerTitleHighlighted}
-                    onFieldFocus={() => focusPreviewField("banner")}
-                  />
-                </CardContent>
-              </Card>
-              </div>
-            ),
-          },
-          {
-            title: "Company Mission Statement",
-            content: (
-              <div>
                 <MissionSectionEditor
                   missionHeadline={missionData.missionHeadline} missionBody={missionData.missionBody}
                   defaultBodyText={missionData.defaultMissionBody}
