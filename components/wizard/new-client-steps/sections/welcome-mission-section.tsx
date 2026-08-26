@@ -49,9 +49,6 @@ interface WelcomeMissionSectionProps {
   onGenerateMissionBody?: () => void;
   missionGenerationLimitReached?: boolean;
   errorFields?: string[];
-  useDefaultHeadline?: boolean;
-  onToggleDefaultHeadline?: (checked: boolean) => void;
-  defaultHeadline?: string;
 }
 
 export function WelcomeMissionSection({
@@ -76,9 +73,6 @@ export function WelcomeMissionSection({
   onGenerateMissionBody,
   missionGenerationLimitReached,
   errorFields = [],
-  useDefaultHeadline = false,
-  onToggleDefaultHeadline,
-  defaultHeadline,
 }: WelcomeMissionSectionProps) {
   // Company Mission Statement uses its own independent data
   const missionHeadline = companyData.missionHeadline ?? "";
@@ -239,23 +233,6 @@ export function WelcomeMissionSection({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Label className="dark:text-gray-300">Mission Headline *</Label>
-                  {onToggleDefaultHeadline && defaultHeadline && (
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="useDefaultHeadline"
-                        checked={useDefaultHeadline}
-                        onCheckedChange={(checked) =>
-                          onToggleDefaultHeadline(Boolean(checked))
-                        }
-                      />
-                      <Label
-                        htmlFor="useDefaultHeadline"
-                        className="text-sm cursor-pointer dark:text-gray-300"
-                      >
-                        Use default
-                      </Label>
-                    </div>
-                  )}
                 </div>
                 {onGenerateMissionHeadline && (
                   <Button

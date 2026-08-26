@@ -5,8 +5,6 @@ import {
   DEFAULT_MISSION_BODY_TEMPLATE,
 } from "../../constants/welcome-statements";
 
-const defaultHeadline = "Here to Support You - Today and Every Day.";
-
 export function useMissionData() {
   const { stepData, saveStepDataLocally } = useNewClientWizardStore();
   // The plan/company name from Step 1 (Company Basics) is used to fill the
@@ -32,7 +30,6 @@ export function useMissionData() {
   const missionCyclePositionRef = useRef(0);
   const missionTrackerInitializedRef = useRef(false);
 
-  const [useDefaultHeadline, setUseDefaultHeadline] = useState(true);
   const [useDefaultBody, setUseDefaultBody] = useState(false);
 
   // Initialize mission generation tracker
@@ -62,14 +59,6 @@ export function useMissionData() {
     stepData.companyBasics?.missionHeadline,
     stepData.companyBasics?.missionBody,
   ]);
-
-  // Handle default headline initialization
-  useEffect(() => {
-    const currentHeadline = stepData.companyBasics?.missionHeadline;
-    if (useDefaultHeadline && (!currentHeadline || currentHeadline.trim() === "")) {
-      handleHeadlineChange(defaultHeadline);
-    }
-  }, []);
 
   // Handle default body initialization — populate the Mission Statement with
   // the default text (filled with the plan's Company Name). This runs on mount
@@ -132,9 +121,6 @@ export function useMissionData() {
         missionHeadline: value,
       });
     }
-    if (useDefaultHeadline && value !== defaultHeadline) {
-      setUseDefaultHeadline(false);
-    }
   };
 
   const handleBodyChange = (value: string) => {
@@ -158,21 +144,6 @@ export function useMissionData() {
     }
     if (useDefaultBody && value !== defaultMissionBody) {
       setUseDefaultBody(false);
-    }
-  };
-
-  const handleUseDefaultHeadline = (checked: boolean) => {
-    setUseDefaultHeadline(checked);
-    if (checked) {
-      if (stepData.companyBasics) {
-        saveStepDataLocally("companyBasics", {
-          ...stepData.companyBasics,
-          missionHeadline: defaultHeadline,
-        });
-      }
-    } else {
-      // Clear the headline when unchecked
-      handleHeadlineChange("");
     }
   };
 
@@ -257,7 +228,6 @@ export function useMissionData() {
     missionHeadline: missionHeadlineLocal,
     missionBody: missionBodyLocal,
     defaultMissionBody,
-    useDefaultHeadline,
     useDefaultBody,
     headlineCharCount,
     bodyCharCount,
@@ -265,7 +235,6 @@ export function useMissionData() {
     isBodyValid,
     handleHeadlineChange,
     handleBodyChange,
-    handleUseDefaultHeadline,
     handleUseDefaultBody,
     handleGenerateMissionHeadline,
     handleGenerateMissionBody,

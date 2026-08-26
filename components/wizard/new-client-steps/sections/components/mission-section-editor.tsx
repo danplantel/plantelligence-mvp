@@ -5,9 +5,7 @@ import { MissionStatementFields } from "../mission-statement-fields";
 interface MissionSectionEditorProps {
   missionHeadline: string;
   missionBody: string;
-  defaultHeadline: string;
   defaultBodyText: string;
-  useDefaultHeadline: boolean;
   useDefaultBody: boolean;
   headlineCharCount: number;
   bodyCharCount: number;
@@ -18,7 +16,6 @@ interface MissionSectionEditorProps {
   bodyTextRef: React.RefObject<HTMLTextAreaElement>;
   onHeadlineChange: (value: string) => void;
   onBodyChange: (value: string) => void;
-  onUseDefaultHeadlineChange: (checked: boolean) => void;
   onUseDefaultBodyChange: (checked: boolean) => void;
   onGenerateMissionHeadline: () => void;
   onGenerateMissionBody: () => void;
@@ -32,9 +29,7 @@ interface MissionSectionEditorProps {
 export function MissionSectionEditor({
   missionHeadline,
   missionBody,
-  defaultHeadline,
   defaultBodyText,
-  useDefaultHeadline,
   useDefaultBody,
   headlineCharCount,
   bodyCharCount,
@@ -45,7 +40,6 @@ export function MissionSectionEditor({
   bodyTextRef,
   onHeadlineChange,
   onBodyChange,
-  onUseDefaultHeadlineChange,
   onUseDefaultBodyChange,
   onGenerateMissionHeadline,
   onGenerateMissionBody,
@@ -63,9 +57,7 @@ export function MissionSectionEditor({
       <MissionStatementFields
         missionHeadline={missionHeadline}
         missionBody={missionBody}
-        defaultHeadline={defaultHeadline}
         defaultBodyText={defaultBodyText}
-        useDefaultHeadline={useDefaultHeadline}
         useDefaultBody={useDefaultBody}
         headlineCharCount={headlineCharCount}
         bodyCharCount={bodyCharCount}
@@ -77,7 +69,6 @@ export function MissionSectionEditor({
         showUseDefault={true}
         onHeadlineChange={onHeadlineChange}
         onBodyChange={onBodyChange}
-        onUseDefaultHeadlineChange={onUseDefaultHeadlineChange}
         onUseDefaultBodyChange={onUseDefaultBodyChange}
         onGenerateMissionHeadline={onGenerateMissionHeadline}
         onGenerateMissionBody={onGenerateMissionBody}

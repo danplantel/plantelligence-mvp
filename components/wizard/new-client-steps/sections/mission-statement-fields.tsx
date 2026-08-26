@@ -4,7 +4,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Sparkles, FileText } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,9 +13,7 @@ import { cn } from "@/lib/utils";
 interface MissionStatementFieldsProps {
   missionHeadline: string;
   missionBody: string;
-  defaultHeadline: string;
   defaultBodyText: string;
-  useDefaultHeadline: boolean;
   useDefaultBody: boolean;
   headlineCharCount: number;
   bodyCharCount: number;
@@ -27,7 +24,6 @@ interface MissionStatementFieldsProps {
   bodyTextRef: React.RefObject<HTMLTextAreaElement>;
   onHeadlineChange: (value: string) => void;
   onBodyChange: (value: string) => void;
-  onUseDefaultHeadlineChange: (checked: boolean) => void;
   onUseDefaultBodyChange: (checked: boolean) => void;
   // Optional AI generation handlers (only for edit-client page)
   onGenerateMissionHeadline?: () => void;
@@ -44,9 +40,7 @@ interface MissionStatementFieldsProps {
 export function MissionStatementFields({
   missionHeadline,
   missionBody,
-  defaultHeadline,
   defaultBodyText,
-  useDefaultHeadline,
   useDefaultBody,
   headlineCharCount,
   bodyCharCount,
@@ -57,7 +51,6 @@ export function MissionStatementFields({
   bodyTextRef,
   onHeadlineChange,
   onBodyChange,
-  onUseDefaultHeadlineChange,
   onUseDefaultBodyChange,
   onGenerateMissionHeadline,
   onGenerateMissionBody,
@@ -79,44 +72,16 @@ export function MissionStatementFields({
             className={`space-y-2`}
           >
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Label className="font-bold dark:text-gray-300">Mission Headline *</Label>
-                {onUseDefaultHeadlineChange && defaultHeadline && (
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="useDefaultHeadline"
-                      checked={useDefaultHeadline}
-                      onCheckedChange={(checked) =>
-                        onUseDefaultHeadlineChange(Boolean(checked))
-                      }
-                    />
-                    <Label
-                      htmlFor="useDefaultHeadline"
-                      className="text-sm cursor-pointer dark:text-gray-300"
-                    >
-                      Use default
-                    </Label>
-                  </div>
-                )}
-              </div>
-              {onGenerateMissionHeadline && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={onGenerateMissionHeadline}
-                  className="flex items-center gap-2 h-7 text-xs"
-                >
-                  <Sparkles className="w-3 h-3" />
-                  Generate with AI
-                </Button>
-              )}
+              <Label className="font-bold dark:text-gray-300">
+                Mission Headline <span className="text-red-500">*</span>
+              </Label>
             </div>
             <Input
               ref={headlineRef}
               value={missionHeadline}
               onChange={(e) => onHeadlineChange(e.target.value)}
               onFocus={() => onFieldFocus?.()}
+              required
               maxLength={60}
               placeholder="Write a short, one-sentence mission headline that supports the Company Mission Statement."
               data-field="missionHeadline"
@@ -137,11 +102,11 @@ export function MissionStatementFields({
                 }
               />
             )}
-            {!errorFields.includes("missionHeadline") &&
-              headlineCharCount > 0 && (
+            <div className="flex items-center justify-between gap-2 mt-1">
+              {!errorFields.includes("missionHeadline") && headlineCharCount > 0 ? (
                 <p
                   className={cn(
-                    "text-xs mt-1",
+                    "text-xs",
                     headlineCharCount >= 58
                       ? "text-red-500 dark:text-red-400 font-bold"
                       : headlineCharCount < 10
@@ -151,32 +116,36 @@ export function MissionStatementFields({
                 >
                   {headlineCharCount}/60 characters
                 </p>
-              )}
-          </div>
-          <div
-            className={`space-y-2`}
-          >
-            <div className="flex items-center justify-between">
-              <Label className="font-bold dark:text-gray-300">Mission Statement *</Label>
-              {onGenerateMissionBody && (
+              ) : null}
+              {onGenerateMissionHeadline && (
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={onGenerateMissionBody}
-                  className="flex items-center gap-1.5 h-7 text-xs whitespace-nowrap"
+                  onClick={onGenerateMissionHeadline}
+                  className="flex items-center gap-2 h-7 text-xs"
                 >
                   <Sparkles className="w-3 h-3" />
                   Generate with AI
                 </Button>
               )}
             </div>
+          </div>
+          <div
+            className={`space-y-2`}
+          >
+            <div className="flex items-center justify-between">
+              <Label className="font-bold dark:text-gray-300">
+                Mission Statement <span className="text-red-500">*</span>
+              </Label>
+            </div>
             <Textarea
               ref={bodyTextRef}
               value={missionBody}
               onChange={(e) => onBodyChange(e.target.value)}
               onFocus={() => onFieldFocus?.()}
-              rows={6}
+              required
+              rows={12}
               maxLength={800}
               placeholder="Share the bigger mission behind your organization..."
               data-field="missionBody"
@@ -199,25 +168,39 @@ export function MissionStatementFields({
                 }
               />
             )}
-            {!errorFields.includes("missionBody") && bodyCharCount > 0 && (
-              <p
-                className={cn(
-                  "text-xs mt-1",
-                  bodyCharCount >= 795
-                    ? "text-red-500 dark:text-red-400 font-bold"
-                    : bodyCharCount < 250
-                      ? "text-amber-600 dark:text-amber-400"
-                      : "text-green-600 dark:text-green-400",
-                )}
-              >
-                {bodyCharCount}/800 characters
-                {bodyCharCount < 250 && (
-                  <span className="text-amber-600 ml-2 dark:text-amber-400">
-                    (minimum 250 characters)
-                  </span>
-                )}
-              </p>
-            )}
+            <div className="flex items-center justify-between gap-2 mt-1">
+              {!errorFields.includes("missionBody") && bodyCharCount > 0 ? (
+                <p
+                  className={cn(
+                    "text-xs",
+                    bodyCharCount >= 795
+                      ? "text-red-500 dark:text-red-400 font-bold"
+                      : bodyCharCount < 250
+                        ? "text-amber-600 dark:text-amber-400"
+                        : "text-green-600 dark:text-green-400",
+                  )}
+                >
+                  {bodyCharCount}/800 characters
+                  {bodyCharCount < 250 && (
+                    <span className="text-amber-600 ml-2 dark:text-amber-400">
+                      (minimum 250 characters)
+                    </span>
+                  )}
+                </p>
+              ) : null}
+              {onGenerateMissionBody && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={onGenerateMissionBody}
+                  className="flex items-center gap-1.5 h-7 text-xs whitespace-nowrap"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  Generate with AI
+                </Button>
+              )}
+            </div>
           </div>
         </div>
         {missionGenerationLimitReached && (

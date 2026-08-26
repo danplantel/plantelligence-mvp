@@ -1388,14 +1388,10 @@ export default function EditClientPage() {
     (companyData as any).heroDescription === defaultWelcomeMessage,
   );
 
-  const defaultHeadline = "Together, We Build a Stronger Future.";
   const defaultBodyText =
     WELCOME_BODY_PRESETS[0]?.bodyText ||
     "When people are supported, great things happen. This hub was created to help you understand and take advantage of the opportunities available to you as a team member. From everyday resources to long-term planning tools, everything you need is right here.";
 
-  const [useDefaultHeadline, setUseDefaultHeadline] = useState(
-    !missionHeadline || missionHeadline === defaultHeadline,
-  );
   const [useDefaultBody, setUseDefaultBody] = useState(
     !missionBody || missionBody === defaultBodyText,
   );
@@ -1506,13 +1502,6 @@ export default function EditClientPage() {
     handleWelcomeChange(field, value);
   };
 
-  const handleUseDefaultHeadline = (checked: boolean) => {
-    setUseDefaultHeadline(checked);
-    if (checked) {
-      handleInputChange("missionHeadline", defaultHeadline);
-    }
-  };
-
   const handleUseDefaultBody = (checked: boolean) => {
     setUseDefaultBody(checked);
     if (checked) {
@@ -1610,9 +1599,6 @@ export default function EditClientPage() {
 
   const handleHeadlineChange = (value: string) => {
     handleInputChange("missionHeadline", value);
-    if (useDefaultHeadline && value !== defaultHeadline) {
-      setUseDefaultHeadline(false);
-    }
   };
 
   const handleBodyChange = (value: string) => {
@@ -1629,9 +1615,6 @@ export default function EditClientPage() {
     const preset = MISSION_STATEMENT_PRESETS[randomIndex];
     if (preset) {
       handleInputChange("missionHeadline", preset.headline);
-      if (useDefaultHeadline) {
-        setUseDefaultHeadline(false);
-      }
     }
   };
 
@@ -2229,15 +2212,12 @@ export default function EditClientPage() {
                 clientId={clientId}
                 missionHeadline={missionHeadline}
                 missionBody={missionBody}
-                defaultHeadline={defaultHeadline}
                 defaultBodyText={defaultBodyText}
-                useDefaultHeadline={useDefaultHeadline}
                 useDefaultBody={useDefaultBody}
                 headlineRef={headlineRef}
                 bodyTextRef={bodyTextRef}
                 handleHeadlineChange={handleHeadlineChange}
                 handleBodyChange={handleBodyChange}
-                handleUseDefaultHeadline={handleUseDefaultHeadline}
                 handleUseDefaultBody={handleUseDefaultBody}
                 handleGenerateMissionHeadline={handleGenerateMissionHeadline}
                 handleGenerateMissionBody={handleGenerateMissionBody}

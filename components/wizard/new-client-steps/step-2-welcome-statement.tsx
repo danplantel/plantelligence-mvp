@@ -33,7 +33,6 @@ import { Smartphone, Monitor } from "lucide-react";
 import { PortalHeader } from "@/components/pages/client-portal/sections/portal-header";
 import { ClientPortal } from "@/components/pages/client-portal/client-portal";
 
-const defaultHeadline = "Here to Support You - Today and Every Day.";
 const defaultWelcomeBodyText =
   "This website was created as your central source for exploring and taking advantage of your company benefits. Our goal is to make it easy for you to stay informed, engaged, and confident in the resources available to you.\n\nWhether you're just getting started or continuing your journey, this site is here to help you make the most of everything our company has to offer.";
 
@@ -1112,13 +1111,13 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
               <div>
                 <MissionSectionEditor
                   missionHeadline={missionData.missionHeadline} missionBody={missionData.missionBody}
-                  defaultHeadline={defaultHeadline} defaultBodyText={missionData.defaultMissionBody}
-                  useDefaultHeadline={missionData.useDefaultHeadline} useDefaultBody={missionData.useDefaultBody}
+                  defaultBodyText={missionData.defaultMissionBody}
+                  useDefaultBody={missionData.useDefaultBody}
                   headlineCharCount={missionData.headlineCharCount} bodyCharCount={missionData.bodyCharCount}
                   isHeadlineValid={missionData.isHeadlineValid} isBodyValid={missionData.isBodyValid}
                   errorFields={errorFields} headlineRef={headlineRef} bodyTextRef={bodyTextRef}
                   onHeadlineChange={missionData.handleHeadlineChange} onBodyChange={missionData.handleBodyChange}
-                  onUseDefaultHeadlineChange={missionData.handleUseDefaultHeadline} onUseDefaultBodyChange={missionData.handleUseDefaultBody}
+                  onUseDefaultBodyChange={missionData.handleUseDefaultBody}
                   onGenerateMissionHeadline={missionData.handleGenerateMissionHeadline} onGenerateMissionBody={missionData.handleGenerateMissionBody}
                   thumbnailImgUrl={stepData.companyBasics?.brandImages?.thumbnail?.url}
                   onFieldFocus={() => focusPreviewField("mission")}

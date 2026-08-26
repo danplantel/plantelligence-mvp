@@ -176,15 +176,12 @@ interface EditPlanPreviewSectionProps {
   // Mission statement props
   missionHeadline: string;
   missionBody: string;
-  defaultHeadline: string;
   defaultBodyText: string;
-  useDefaultHeadline: boolean;
   useDefaultBody: boolean;
   headlineRef: React.RefObject<HTMLInputElement | null>;
   bodyTextRef: React.RefObject<HTMLTextAreaElement | null>;
   handleHeadlineChange: (value: string) => void;
   handleBodyChange: (value: string) => void;
-  handleUseDefaultHeadline: (checked: boolean) => void;
   handleUseDefaultBody: (checked: boolean) => void;
   handleGenerateMissionHeadline: () => void;
   handleGenerateMissionBody: () => void;
@@ -209,15 +206,12 @@ export function EditPlanPreviewSection({
   clientId,
   missionHeadline,
   missionBody,
-  defaultHeadline,
   defaultBodyText,
-  useDefaultHeadline,
   useDefaultBody,
   headlineRef,
   bodyTextRef,
   handleHeadlineChange,
   handleBodyChange,
-  handleUseDefaultHeadline,
   handleUseDefaultBody,
   handleGenerateMissionHeadline,
   handleGenerateMissionBody,
@@ -680,9 +674,7 @@ export function EditPlanPreviewSection({
             <MissionStatementFields
               missionHeadline={missionHeadline}
               missionBody={missionBody}
-              defaultHeadline={defaultHeadline}
               defaultBodyText={defaultBodyText}
-              useDefaultHeadline={useDefaultHeadline}
               useDefaultBody={useDefaultBody}
               headlineCharCount={headlineCharCount}
               bodyCharCount={bodyCharCount}
@@ -693,7 +685,6 @@ export function EditPlanPreviewSection({
               bodyTextRef={bodyTextRef as any}
               onHeadlineChange={handleHeadlineChange}
               onBodyChange={handleBodyChange}
-              onUseDefaultHeadlineChange={handleUseDefaultHeadline}
               onUseDefaultBodyChange={handleUseDefaultBody}
               onGenerateMissionHeadline={handleGenerateMissionHeadline}
               onGenerateMissionBody={handleGenerateMissionBody}
