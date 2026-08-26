@@ -103,9 +103,14 @@ export function BrandImageUpload({
   const { url: displayUrl } = useBrandingImageUrl(storedLogoUrl);
   // Never fall back to raw org/… keys in <img src> — the browser resolves them as /new/org/… (404).
   const isStoredR2Key = toR2BrandingKey(storedLogoUrl) != null;
-  // Use previewUrl (data URL from the editor) for instant display — no R2 proxy round-trip needed.
-  const previewSrc = currentImage?.previewUrl
-    ?? (isStoredR2Key
+  // Use previewUrl (data URL from the editor) for instant display — no R2 proxy
+  // round-trip needed. NOTE: use `||` (not `??`) — the persist layer may strip
+  // the large base64 previewUrl to "" (localStorage quota), and `??` would keep
+  // that empty string and render a broken <img>, whereas `||` falls back to the
+  // resolved R2 proxy / data URL so the image still displays after refresh.
+  const previewSrc =
+    currentImage?.previewUrl ||
+    (isStoredR2Key
       ? displayUrl ?? undefined
       : displayUrl ?? storedLogoUrl ?? undefined);
 

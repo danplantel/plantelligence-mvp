@@ -2396,6 +2396,8 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
                     cleanedStepData.companyBasics.companyLogo.url,
                     120_000,
                   ),
+                  previewUrl: "",
+                  originalUrl: "",
                   cropData: stripOriginalFromCropData(
                     cleanedStepData.companyBasics.companyLogo.cropData,
                   ),
@@ -2422,6 +2424,11 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
                           cleanedStepData.companyBasics.brandImages.header.url,
                           10_000,
                         ),
+                        previewUrl: "",
+                        originalUrl: "",
+                        cropData: stripOriginalFromCropData(
+                          cleanedStepData.companyBasics.brandImages.header.cropData,
+                        ),
                       }
                     : undefined,
                   thumbnail: cleanedStepData.companyBasics.brandImages.thumbnail
@@ -2430,6 +2437,11 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
                         url: keepSmallDataUrl(
                           cleanedStepData.companyBasics.brandImages.thumbnail.url,
                           10_000,
+                        ),
+                        previewUrl: "",
+                        originalUrl: "",
+                        cropData: stripOriginalFromCropData(
+                          cleanedStepData.companyBasics.brandImages.thumbnail.cropData,
                         ),
                       }
                     : undefined,
@@ -2442,6 +2454,11 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
                           cleanedStepData.companyBasics.brandImages.secondaryBanner.url,
                           10_000,
                         ),
+                        previewUrl: "",
+                        originalUrl: "",
+                        cropData: stripOriginalFromCropData(
+                          cleanedStepData.companyBasics.brandImages.secondaryBanner.cropData,
+                        ),
                       }
                     : undefined,
                   favicon: cleanedStepData.companyBasics.brandImages.favicon
@@ -2451,6 +2468,11 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
                           cleanedStepData.companyBasics.brandImages.favicon.url,
                           10_000,
                         ),
+                        previewUrl: "",
+                        originalUrl: "",
+                        cropData: stripOriginalFromCropData(
+                          cleanedStepData.companyBasics.brandImages.favicon.cropData,
+                        ),
                       }
                     : undefined,
                   logo: cleanedStepData.companyBasics.brandImages.logo
@@ -2459,6 +2481,11 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
                         url: keepSmallDataUrl(
                           cleanedStepData.companyBasics.brandImages.logo.url,
                           10_000,
+                        ),
+                        previewUrl: "",
+                        originalUrl: "",
+                        cropData: stripOriginalFromCropData(
+                          cleanedStepData.companyBasics.brandImages.logo.cropData,
                         ),
                       }
                     : undefined,
