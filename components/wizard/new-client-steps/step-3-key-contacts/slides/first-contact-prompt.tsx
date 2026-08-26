@@ -60,7 +60,7 @@ export function FirstContactPrompt({ onContinue, onSomeoneElseSelect }: FirstCon
     <div className="flex flex-col items-center justify-center text-center space-y-3 py-2">
       {/* Company Logo above header */}
       {companyLogo?.trim() ? (
-        <div className="mb-1">
+        <div className="mb-1 dark:bg-gray-200 dark:p-2 dark:rounded-full">
           <BrandingImage
             src={companyLogo}
             alt={`${displayName} logo`}
