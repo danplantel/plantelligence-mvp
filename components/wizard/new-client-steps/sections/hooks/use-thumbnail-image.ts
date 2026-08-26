@@ -25,7 +25,27 @@ export function useThumbnailImage() {
   );
 
   const handleThumbnailImageChange = useCallback(
-    (imageData: BrandImageData) => {
+    async (imageData: BrandImageData) => {
+      // Upload the thumbnail to R2 (if a draft exists) so it survives a page
+      // refresh / draft-continue, matching how the Company Logo and step-1's
+      // brand images are persisted. Base64 data URLs are ephemeral — the
+      // persistent R2 key resolves to a proxy URL on reload.
+      let image = imageData;
+      const draftClientId = useNewClientWizardStore.getState().draftClientId;
+      if (draftClientId && imageData.url?.startsWith("data:")) {
+        try {
+          const { uploadBrandingToR2 } = await import("@/lib/branding-r2");
+          const r2Key = await uploadBrandingToR2({
+            dataUrlOrFile: imageData.url,
+            fileName: imageData.fileName || "thumbnail.png",
+            clientId: draftClientId,
+            slot: "thumbnail",
+          });
+          if (r2Key) image = { ...imageData, url: r2Key };
+        } catch (_) {
+          // Keep the original data URL if the upload fails.
+        }
+      }
       const updatedBrandImages = {
         ...(stepData.companyBasics?.brandImages || {
           header: null,
@@ -33,7 +53,7 @@ export function useThumbnailImage() {
           secondaryBanner: null,
           favicon: null,
         }),
-        thumbnail: imageData,
+        thumbnail: image,
       };
       handleBrandImagesChange(updatedBrandImages);
     },

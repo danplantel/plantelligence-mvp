@@ -802,7 +802,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
     [modalStates.pendingLogoData, handleLogoImageChange, modalStates],
   );
 
-  const handleThumbnailModalSave = (
+  const handleThumbnailModalSave = async (
     value: string,
     fileName: string,
     cropData?: import("@/components/ui/simple-image-editor-modal").CropMetadata,
@@ -813,6 +813,25 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
       thumbnailImage.setPendingThumbnailData(null);
       return;
     }
+    // Upload to R2 (if a draft exists) so the thumbnail survives a refresh /
+    // draft-continue, matching the Company Logo behavior. Base64 data URLs are
+    // ephemeral; the persistent R2 key resolves to a proxy URL on reload.
+    let thumbnailUrl = value;
+    const draftClientId = useNewClientWizardStore.getState().draftClientId;
+    if (draftClientId && value.startsWith("data:")) {
+      try {
+        const { uploadBrandingToR2 } = await import("@/lib/branding-r2");
+        const r2Key = await uploadBrandingToR2({
+          dataUrlOrFile: value,
+          fileName: fileName || "thumbnail.png",
+          clientId: draftClientId,
+          slot: "thumbnail",
+        });
+        if (r2Key) thumbnailUrl = r2Key;
+      } catch (_) {
+        // Keep the original data URL if the upload fails.
+      }
+    }
     const img = new Image();
     img.onload = () => {
       const warnings: string[] = [];
@@ -821,7 +840,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
       if (img.width < recWidth || img.height < recHeight) warnings.push("Below recommended size (900×900 px). May appear blurry.");
       const updatedBrandImages = {
         ...(stepData.companyBasics?.brandImages || { header: null, thumbnail: null, secondaryBanner: null, favicon: null }),
-        thumbnail: { ...pendingData, url: value, originalUrl: cropData?.originalImage || pendingData.originalUrl || value, fileName, width: img.width, height: img.height, status: (warnings.length > 0 ? "warning" : "ok") as "ok" | "warning" | "error", warnings, cropData: cropData },
+        thumbnail: { ...pendingData, url: thumbnailUrl, originalUrl: cropData?.originalImage || pendingData.originalUrl || value, fileName, width: img.width, height: img.height, status: (warnings.length > 0 ? "warning" : "ok") as "ok" | "warning" | "error", warnings, cropData: cropData },
       };
       if (stepData.companyBasics) saveStepDataLocally("companyBasics", { ...stepData.companyBasics, brandImages: updatedBrandImages });
       thumbnailImage.setIsThumbnailModalOpen(false);
@@ -830,7 +849,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
     img.onerror = () => {
       const updatedBrandImages = {
         ...(stepData.companyBasics?.brandImages || { header: null, thumbnail: null, secondaryBanner: null, favicon: null }),
-        thumbnail: { ...pendingData, url: value, originalUrl: cropData?.originalImage || pendingData.originalUrl || value, fileName, cropData: cropData },
+        thumbnail: { ...pendingData, url: thumbnailUrl, originalUrl: cropData?.originalImage || pendingData.originalUrl || value, fileName, cropData: cropData },
       };
       if (stepData.companyBasics) saveStepDataLocally("companyBasics", { ...stepData.companyBasics, brandImages: updatedBrandImages });
       thumbnailImage.setIsThumbnailModalOpen(false);
