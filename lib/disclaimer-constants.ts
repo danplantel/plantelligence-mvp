@@ -26,8 +26,8 @@ export const FLYER_CATEGORY_DISCLAIMERS: Record<string, string> = {
 };
 
 /** Default flyer footer disclaimer for a benefit category, or null if none is mapped. */
-export function getFlyerCategoryDisclaimer(category?: string | null): string | null {
-  return category ? (FLYER_CATEGORY_DISCLAIMERS[category] ?? null) : null;
+export function getFlyerCategoryDisclaimer(category: string): string | null {
+  return FLYER_CATEGORY_DISCLAIMERS[category] ?? null;
 }
 
 /**

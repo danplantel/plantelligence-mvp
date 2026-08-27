@@ -153,20 +153,23 @@ interface FlyerTemplateDefaults {
   subtitle: string;
   body: string;
   topic?: string;
+  category: string;
 }
 
 const MEETING_TEMPLATE_DEFAULTS: Record<string, FlyerTemplateDefaults> = {
   "MeetingTemplate1": { 
     headline: "Transform Your Tomorrow: {#ffcb0a}Unlock the Full Potential of your 401(k)!{/}", 
     subtitle: "Join Our Retirement Plan Advisory Team To Discover How To Maximize Your Retirement Benefits", 
-    body: "Mark your calendar for this upcoming benefits event." },
+    body: "Mark your calendar for this upcoming benefits event.", 
+    category: "Retirement" },
 };
 
 const MEETING_TEMPLATE_DEFAULTS_ES: Record<string, FlyerTemplateDefaults> = {
   "MeetingTemplate1": { 
     headline: "Transforme Su Mañana: {#ffcb0a}Descubra Cómo Maximizar Sus Beneficios de Jubilación!{/}", 
     subtitle: "Únase a Nuestro Equipo de Asesoría de Planes de Jubilación para Descubrir Cómo Maximizar Sus Beneficios de Jubilación", 
-    body: "Marque su calendario para este próximo evento de beneficios."},
+    body: "Marque su calendario para este próximo evento de beneficios.",
+    category: "Retirement" },
 };
 
 const TOPICAL_TEMPLATE_DEFAULTS: Record<string, FlyerTemplateDefaults> = {
@@ -174,17 +177,20 @@ const TOPICAL_TEMPLATE_DEFAULTS: Record<string, FlyerTemplateDefaults> = {
     headline: "MISSING", 
     subtitle: "Retirement Savings From Former Employer", 
     body: "Whether you've moved to a new job or are between opportunities, how you manage your savings now will shape your future retirement. /n **PLEASE CONTACT US TO BE RE-UNITED WITH YOUR MONEY**", 
-    topic: "Retirement Savings From Former Employer" },
+    topic: "Retirement Savings From Former Employer",
+    category: "Retirement" },
   "TopicalTemplate2": { 
     headline: "Don't Leave This Unfinished.", 
     subtitle: "Do you have a beneficiary listed for your retirement account?",
     body: "People often forget to:/n- Add a beneficiary/n- Update an existing one/n- Review after major life events", 
-    topic: "Beneficiary Designation" },
+    topic: "Beneficiary Designation",
+    category: "Retirement" },
   "TopicalTemplate3": { 
     headline: "Invest in Yourself: /n Start Your Retirement Journey Today!", 
     subtitle: "Whether you're just starting your journey or looking to enhance your existing retirement strategy, every contribution counts.",
     body: "- **It's Easy & Convenient**. Your contribution is automatically deducted from your pay and deposited into your account./n- **Employer Matching Contributions.** Take advantage of potential employer matching contributions\u2014it's like getting free money to boost your retirement savings even further.*/n- **Tax-Deferred Savings.** Money is put into your retirement account before federal (and most state) taxes. That means you don't pay taxes on it until you take the money out./n- **You're in Control.** Decide your contribution amount and investment strategy. Not sure how to invest? Our team at Waypoint Financial Advisors is here for you./n/n If you have any questions regarding your retirement future or how to get started in the plan, visit us by scanning the QR code below or call us at 877-757-3263. Para ayuda en español acerca del plan 401k, por favor llame al 877-757-3263", 
-    topic: "Start Your Retirement Journey" },
+    topic: "Start Your Retirement Journey",
+    category: "Retirement" },
 };
 
 const TOPICAL_TEMPLATE_DEFAULTS_ES: Record<string, FlyerTemplateDefaults> = {
@@ -192,17 +198,20 @@ const TOPICAL_TEMPLATE_DEFAULTS_ES: Record<string, FlyerTemplateDefaults> = {
     headline: "FALTANTE", 
     subtitle: "Ahorros para la Jubilación de Su ex Empleador", 
     body: "Ya sea que haya cambiado de trabajo o se encuentre entre oportunidades, la manera en que administre sus ahorros hoy definira su jubilación futura. /n **POR FAVOR, CONTÁCTENOS PARA RECUPERAR SU DINERO**", 
-    topic: "Ahorros para la Jubilación de Su Ex Empleador" },
+    topic: "Ahorros para la Jubilación de Su Ex Empleador",
+    category: "Retirement" },
   "TopicalTemplate2": { 
     headline: "No Dejes Esto Sin Terminar.", 
     subtitle: "¿Tiene un beneficiario designado para su cuenta de jubilación?", 
     body: "Las personas a menudo olvidan:/n- Agregar un beneficiario/n- Actualizar uno existente/n- Revisar después de eventos importantes de la vida", 
-    topic: "Designación de Beneficiario" },
+    topic: "Designación de Beneficiario",
+    category: "Retirement" },
   "TopicalTemplate3": { 
     headline: "Invierta en Usted Mismo: /n ¡Comience Hoy Su Viaje de Jubilación!", 
     subtitle: "Ya sea que recién esté comenzando su viaje o buscando mejorar su estrategia de jubilación existente, cada contribución cuenta.",     
     body: "- Es Fácil y Conveniente. Su contribución se deduce automáticamente de su pago y se deposita en su cuenta./n- Contribuciones de Igualación del Empleador. Aproveche las posibles contribuciones de igualación del empleador\u2014es como obtener dinero gratis para impulsar aún más sus ahorros de jubilación.*/n- Ahorros con Impuestos Diferidos. El dinero se coloca en su cuenta de jubilación antes de los impuestos federales (y la mayoría estatales). Eso significa que no paga impuestos hasta que retire el dinero./n- Usted Tiene el Control. Decida su monto de contribución y estrategia de inversión. ¿No sabe cómo invertir? Nuestro equipo en Waypoint Financial Advisors está aquí para usted./nSi tiene alguna pregunta sobre su futuro de jubilación o cómo comenzar en el plan, visítenos escaneando el código QR a continuación o llámenos al 877-757-3263.", 
-    topic: "Comience Su Viaje de Jubilación" },
+    topic: "Comience Su Viaje de Jubilación",
+    category: "Retirement" },
 };
 
 /** Flyer templates that support an optional custom header image. */
@@ -554,16 +563,22 @@ export default function MarketingAssetModal({
     }
   }, [open, assetType, editingAsset]);
 
-  // Keep the flyer footer disclaimer synced to the selected benefit category.
-  // Runs when the category is chosen (Step 1) or restored when editing a saved
-  // flyer, so the footer always reflects the category's compliance text.
+  // Keep the flyer footer disclaimer synced to the benefit category.
+  // Uses the explicit category selection, falling back to the selected
+  // template's declared category when "All Benefits" is chosen, so the footer
+  // always reflects a category's compliance text (never the original default).
   useEffect(() => {
     if (resolvedType !== "flyer") return;
-    const categoryDisclaimer = getFlyerCategoryDisclaimer(flyerCategory);
+    const dict = flyerLanguage === "es"
+      ? (flyerMode === "meeting" ? MEETING_TEMPLATE_DEFAULTS_ES : TOPICAL_TEMPLATE_DEFAULTS_ES)
+      : (flyerMode === "meeting" ? MEETING_TEMPLATE_DEFAULTS : TOPICAL_TEMPLATE_DEFAULTS);
+    const defaults = dict[flyerTemplate];
+    const effectiveCategory = flyerCategory || defaults?.category || "";
+    const categoryDisclaimer = getFlyerCategoryDisclaimer(effectiveCategory);
     if (categoryDisclaimer) {
       setDisclaimerText(categoryDisclaimer);
     }
-  }, [resolvedType, flyerCategory]);
+  }, [resolvedType, flyerCategory, flyerTemplate, flyerMode, flyerLanguage]);
 
   // Apply initial values when opening for edit (after reset above)
   useEffect(() => {
@@ -1045,8 +1060,12 @@ export default function MarketingAssetModal({
                 onChange={(e) => {
                   const category = e.target.value;
                   setFlyerCategory(category);
-                  // Auto-populate the flyer footer disclaimer to match the selected benefit category.
-                  setDisclaimerText(getFlyerCategoryDisclaimer(category) || DEFAULT_DISCLAIMER);
+                  if (category) {
+                    // Auto-populate the flyer footer disclaimer to match the selected benefit category.
+                    setDisclaimerText(getFlyerCategoryDisclaimer(category) || DEFAULT_DISCLAIMER);
+                  }
+                  // "All Benefits" (empty) lets the sync effect fall back to the
+                  // selected template's category so the footer doesn't revert.
                 }}
               >
                 <option value="">All Benefits</option>
@@ -1190,7 +1209,6 @@ export default function MarketingAssetModal({
                       planLogo,
                       organizationLogo,
                       disclaimerText,
-                      benefitsCategory: flyerCategory,
                       flyerSubtitle: defaults ? processText(defaults.subtitle) : "",
                       flyerTemplate: templateId as FlyerTemplateId,
                       flyerLanguage,
@@ -2187,7 +2205,6 @@ export default function MarketingAssetModal({
                         buttonColor={buttonColor}
                         bgImage={resolvedType === "news-post" ? selectedBgImage : undefined}
                         postCategory={postCategory}
-                        flyerCategory={flyerCategory}
                         previewMode="mobile"
                       />
                     </div>
@@ -2227,7 +2244,6 @@ export default function MarketingAssetModal({
                   buttonColor={buttonColor}
                   bgImage={resolvedType === "news-post" ? selectedBgImage : undefined}
                   postCategory={postCategory}
-                  flyerCategory={flyerCategory}
                   previewMode={previewMode}
                 />
               )}
@@ -2670,7 +2686,6 @@ function PreviewPane({
   buttonColor,
   bgImage,
   postCategory,
-  flyerCategory,
   previewMode,
 }: {
   assetType: AssetType;
@@ -2703,7 +2718,6 @@ function PreviewPane({
   buttonColor?: string;
   bgImage?: string;
   postCategory?: string;
-  flyerCategory?: string;
   previewMode?: "desktop" | "mobile";
 }) {
   const isMobile = previewMode === "mobile";
@@ -2820,7 +2834,6 @@ function PreviewPane({
           flyerSubtitle={flyerSubtitle}
           flyerTemplate={flyerTemplate as FlyerTemplateId}
           flyerLanguage={flyerLanguage}
-          benefitsCategory={flyerCategory}
         />
       );
     case "portal-notice":

@@ -848,7 +848,6 @@ function MarketingAssetListAccordionItem({
                               planName: companyName ?? "",
                               planLogo: planLogo,
                               organizationLogo: advisorLogoUrl,
-                              benefitsCategory: (d.flyerCategory as string) || "",
                               disclaimerText,
                               flyerImage,
                               flyerQrUrl,

@@ -1,7 +1,6 @@
 "use client";
 
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
-import { getFlyerCategoryDisclaimer } from "@/lib/disclaimer-constants";
 
 export type FlyerTemplateId = "TopicalTemplate1" | "TopicalTemplate2" | "TopicalTemplate3" | "MeetingTemplate1";
 
@@ -325,14 +324,8 @@ export function renderBodyParts(
 const FLYER_DISCLAIMER_DEFAULT =
   "Securities and advisory services offered through LPL Financial, a registered investment advisor, Member FINRA/SIPC.";
 
-function FlyerDisclaimer({ text, benefitsCategory }: { text?: string; benefitsCategory?: string }) {
-  const categoryText = getFlyerCategoryDisclaimer(benefitsCategory);
-  // The footer should reflect the selected benefit category. Only let the
-  // standard default disclaimer win when there is no category text to show.
-  const isDefault =
-    !text ||
-    text.startsWith("Securities and advisory services offered through");
-  const resolved = (isDefault ? categoryText || text : text) || FLYER_DISCLAIMER_DEFAULT;
+function FlyerDisclaimer({ text }: { text?: string }) {
+  const resolved = text || FLYER_DISCLAIMER_DEFAULT;
   const lines = wrapSingleLine(resolved, 118).slice(0, 2);
   const lineHeight = 11;
   const startY = 808 - ((lines.length - 1) * lineHeight) / 2;
@@ -699,7 +692,7 @@ export function TopicalTemplate1(allProps: FlyerPreviewProps & { sid?: string; s
       />
 
       {/* Disclaimer section below footer */}
-      <FlyerDisclaimer text={disclaimerText} benefitsCategory={templateBenefitsCategory} />
+      <FlyerDisclaimer text={disclaimerText} />
 
       {/* Powered by PLANtelligence */}
       <text x="306" y={834} textAnchor="middle" fill="#c1c1c1" fontSize="10" fontWeight="400" letterSpacing="1">
@@ -836,7 +829,7 @@ export function TopicalTemplate2(allProps: FlyerPreviewProps & { sid?: string; s
       />
 
       {/* Disclaimer section below footer */}
-      <FlyerDisclaimer text={disclaimerText} benefitsCategory={templateBenefitsCategory} />
+      <FlyerDisclaimer text={disclaimerText} />
 
       {/* Powered by PLANtelligence */}
       <text x="306" y={834} textAnchor="middle" fill="#c1c1c1" fontSize="10" fontWeight="400" letterSpacing="1">
@@ -954,7 +947,7 @@ export function TopicalTemplate3(allProps: FlyerPreviewProps & { sid?: string; s
       />
 
       {/* Disclaimer section below footer */}
-      <FlyerDisclaimer text={disclaimerText} benefitsCategory={templateBenefitsCategory} />
+      <FlyerDisclaimer text={disclaimerText} />
 
       {/* Powered by PLANtelligence */}
       <text x="306" y={834} textAnchor="middle" fill="#c1c1c1" fontSize="10" fontWeight="400" letterSpacing="1">
@@ -1092,7 +1085,7 @@ export function MeetingTemplate1(allProps: FlyerPreviewProps & { sid?: string; s
       />
 
       {/* Disclaimer section below footer */}
-      <FlyerDisclaimer text={disclaimerText} benefitsCategory={templateBenefitsCategory} />
+      <FlyerDisclaimer text={disclaimerText} />
 
       {/* Powered by PLANtelligence */}
       <text x="306" y={834} textAnchor="middle" fill="#c1c1c1" fontSize="10" fontWeight="400" letterSpacing="1">
