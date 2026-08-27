@@ -45,6 +45,25 @@ export async function GET(request: NextRequest) {
           select: { id: true, userId: true },
         });
 
+    // Resolve which wizard session to exclude from the draft "taken" check.
+    // The client may pass an explicit sessionId; if not (or if it's not a valid
+    // Mongo ObjectID), fall back to the user's most recent active (incomplete)
+    // wizard session — i.e. the current draft being edited — so the user's own
+    // NewClientCompanyBasics row never flags its own URL as taken.
+    const requestedSessionId = (searchParams.get('sessionId') || '').trim();
+    let excludeSessionId = /^[a-f0-9]{24}$/i.test(requestedSessionId)
+      ? requestedSessionId
+      : '';
+
+    if (!excludeSessionId) {
+      const activeSession = await prisma.newClientWizardSession.findFirst({
+        where: { userId, completed: false },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true },
+      });
+      if (activeSession) excludeSessionId = activeSession.id;
+    }
+
     // In-progress drafts: check other wizard sessions for the same user that
     // already claim this portal URL.
     const existingDraft = existingClient
@@ -54,7 +73,7 @@ export async function GET(request: NextRequest) {
             portalUrl: sanitized,
             session: {
               userId,
-              id: { not: (searchParams.get('sessionId') || '') },
+              ...(excludeSessionId ? { id: { not: excludeSessionId } } : {}),
             },
           },
           select: { id: true },

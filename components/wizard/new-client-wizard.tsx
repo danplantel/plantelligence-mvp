@@ -167,6 +167,12 @@ export function NewClientWizard({
       if (step === 3 && isStep3bForm) {
         await (window as any).__step3bFlushFormToStore?.();
       }
+      // Flush step-1 local state to the store before validation (same pattern as
+      // step3b) so the wizard validates the current filled fields, not a stale /
+      // incomplete snapshot — e.g. after navigating back from a later step.
+      if (step === 1) {
+        await (window as any).__step1FlushFormToStore?.();
+      }
       const { stepData: dataAfterFlush } = useNewClientWizardStore.getState();
       const validationResult = await validateNewClientCurrentStepV2(step, dataAfterFlush);
 
@@ -298,8 +304,42 @@ export function NewClientWizard({
             toast.error("Please complete all required fields");
           }
         } else {
-          // For other steps, show generic error message
-          toast.error("Please complete all required fields");
+          // For other steps, surface the specific missing fields when they're
+          // known so the user (and debugging) can see exactly what failed
+          // instead of a generic message.
+          const stepFieldLabels: Record<string, string> = {
+            companyName: "Company Name",
+            companyWebsite: "Company Website",
+            planType: "Plan Type",
+            portalUrl: "Portal URL",
+            primaryColor: "Primary Color",
+            secondaryColor: "Secondary Color",
+            organizationType: "Organization Type",
+            missionHeadline: "Mission Headline",
+            missionBody: "Mission Statement",
+            heroHeaderUrl: "Background Header Image",
+            heroTitle: "Hero Title",
+            heroDescription: "Hero Description",
+            headline: "Headline",
+            bodyText: "Body Text",
+            companyBasics: "Company Basics",
+          };
+          const missingFields = Array.from(
+            new Set(
+              (validationResult.errorFields || []).map(
+                (f: string) => stepFieldLabels[f] || f,
+              ),
+            ),
+          );
+          if (missingFields.length > 0) {
+            toast.error("Please complete the following fields:", {
+              description: missingFields.join(", "),
+              duration: 6000,
+            });
+          } else {
+            // For other steps, show generic error message
+            toast.error("Please complete all required fields");
+          }
         }
         return;
       }

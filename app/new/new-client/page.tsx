@@ -233,6 +233,40 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
     // Re-seed advisor defaults for any empty fields (safe — only fills empty).
     await seedAdvisorDefaultsFromProfile();
 
+    // Ensure the store knows which draft Client row it's editing. When resuming
+    // via localStorage rehydration the persisted snapshot can lack draftClientId
+    // (e.g. the Client row was created by autosave after the last persist), which
+    // makes saveAsDraft treat this draft as a brand-new plan and wrongly show the
+    // "Plan name already in use" dialog for the user's own draft. Resolve the id
+    // from the server by company name when missing.
+    const resumeState = useNewClientWizardStore.getState();
+    if (!resumeState.draftClientId) {
+      const companyName = resumeState.stepData.companyBasics?.companyName?.trim();
+      if (companyName) {
+        try {
+          const clientsRes = await fetch(
+            `/api/clients?status=Draft&search=${encodeURIComponent(
+              companyName,
+            )}&limit=10`,
+          );
+          if (clientsRes.ok) {
+            const clientsJson = await clientsRes.json();
+            const clientsList: any[] = clientsJson?.data || [];
+            const nameLower = companyName.toLowerCase();
+            const match = clientsList.find(
+              (c: any) =>
+                String(c?.companyName || "").trim().toLowerCase() === nameLower,
+            );
+            if (match?.id) {
+              useNewClientWizardStore.setState({ draftClientId: match.id });
+            }
+          }
+        } catch {
+          // Non-blocking — save-draft's same-name draft fallback will still work.
+        }
+      }
+    }
+
     // Navigate to the correct step based on URL param or the saved currentStep.
     const params = new URLSearchParams(
       typeof window !== "undefined" ? window.location.search : "",

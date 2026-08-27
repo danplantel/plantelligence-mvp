@@ -29,6 +29,10 @@ const getFieldFromError = (message: string): string[] => {
   if (message.includes("companyName")) fields.push("companyName");
   if (message.includes("companyWebsite")) fields.push("companyWebsite");
   if (message.includes("organizationType")) fields.push("organizationType");
+  if (message.includes("planType")) fields.push("planType");
+  if (message.includes("portalUrl")) fields.push("portalUrl");
+  if (message.includes("primaryColor")) fields.push("primaryColor");
+  if (message.includes("secondaryColor")) fields.push("secondaryColor");
   if (message.includes("headline")) fields.push("headline");
   if (message.includes("bodyText")) fields.push("bodyText");
   if (message.includes("missionHeadline")) fields.push("missionHeadline");

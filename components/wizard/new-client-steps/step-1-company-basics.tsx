@@ -129,6 +129,53 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
     normalizedInitialWelcomeData,
   );
 
+  // Always hold the latest local companyData so the wizard's Next handler can
+  // flush it to the store right before validation.
+  const companyDataRef = useRef(companyData);
+  companyDataRef.current = companyData;
+
+  // Expose a flush callback so handleNextWithScroll can persist step-1's local
+  // state into the store BEFORE validating. Without this, after navigating back
+  // from a later step the wizard validates a stale/incomplete store snapshot and
+  // wrongly reports missing required fields. Mirrors the step-3b flush pattern.
+  useEffect(() => {
+    (window as any).__step1FlushFormToStore = async () => {
+      let data = companyDataRef.current;
+      // Fallback: if the Portal URL is empty but a company name exists, derive
+      // the slug exactly like the UI's placeholder/preview do. This guarantees
+      // step-1 validation never fails on a field that visually appears filled
+      // (the preview shows a derived slug even when the stored value is empty).
+      if (!(data.portalUrl || "").trim() && (data.companyName || "").trim()) {
+        const slug = (data.companyName as string)
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9-]/g, "-")
+          .replace(/-+/g, "-")
+          .replace(/^-+|-+$/g, "")
+          .slice(0, 30);
+        if (slug) {
+          data = { ...data, portalUrl: slug };
+        }
+      }
+      const {
+        isPrimaryColorPickerOpen,
+        isSecondaryColorPickerOpen,
+        ...dataToSave
+      } = data;
+      // Merge over the current store value so step-2-owned fields (heroTitle,
+      // heroDescription, overlay settings, etc.) are preserved.
+      const currentStore =
+        useNewClientWizardStore.getState().stepData.companyBasics || {};
+      await saveStepDataLocally("companyBasics", {
+        ...currentStore,
+        ...dataToSave,
+      });
+    };
+    return () => {
+      delete (window as any).__step1FlushFormToStore;
+    };
+  }, [saveStepDataLocally]);
+
   const companyNameRef = useRef<HTMLInputElement>(null);
   const companyWebsiteRef = useRef<HTMLInputElement>(null);
   const [logoPreviewDataUrl, setLogoPreviewDataUrl] = useState<string | undefined>(undefined);
@@ -224,6 +271,29 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
       cancelled = true;
     };
   }, []);
+
+  // Auto-populate the Portal URL from the company name whenever the company
+  // name is present but the Portal URL is empty. The onChange handler covers
+  // the case where the user types the company name; this effect covers values
+  // loaded from the store / draft (e.g. after navigating back to step 1 or
+  // resuming), where the field could otherwise LOOK filled (placeholder /
+  // preview show a derived slug) while the underlying value is empty — which
+  // made step-1 validation wrongly fail on a "filled out" form.
+  useEffect(() => {
+    if (portalUrlManuallyEditedRef.current) return;
+    const companyName = (companyData.companyName || "").trim();
+    const currentPortalUrl = (companyData.portalUrl || "").trim();
+    if (!companyName || currentPortalUrl) return;
+    const slug = companyName
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 30);
+    if (slug) {
+      updateField("portalUrl", slug);
+    }
+  }, [companyData.companyName, companyData.portalUrl]);
 
   // Field-level validation state
   const [fieldErrors, setFieldErrors] = useState<Record<string, string | null>>({});
