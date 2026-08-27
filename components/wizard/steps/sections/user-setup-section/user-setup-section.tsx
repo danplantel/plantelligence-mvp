@@ -21,6 +21,7 @@ import {
 } from "@/components/wizard/steps/sections/user-setup-section/user-setup-section.funcs";
 import { EmailChangeSection } from "@/components/pages/settings/email-change-section";
 import { PasswordChangeSection } from "@/components/pages/settings/password-change-section";
+import { GoogleAccountSection } from "@/components/pages/settings/google-account-section";
 import { PrimaryServiceCategoriesSelect } from "@/components/ui/primary-service-categories-select";
 import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
 import { deleteFromR2 } from "@/lib/upload-to-r2";
@@ -37,6 +38,8 @@ interface UserSetupSectionProps {
   showPrimaryServiceCategories?: boolean;
   /** When true, replaces the plain email input with a verified email-change flow (Settings page). */
   emailChangeMode?: boolean;
+  /** Auth provider (e.g. "google", "credentials") — Google accounts have no password to change. */
+  authProvider?: string;
 }
 
 export function UserSetupSection({
@@ -46,6 +49,7 @@ export function UserSetupSection({
   hideCard = false,
   showPrimaryServiceCategories = false,
   emailChangeMode = false,
+  authProvider,
 }: UserSetupSectionProps) {
   const {
     name,
@@ -211,8 +215,13 @@ export function UserSetupSection({
         </div>
       )}
 
-      {/* Change Password (only in settings mode) */}
-      {emailChangeMode && <PasswordChangeSection />}
+      {/* Change Password / Google account (only in settings mode) */}
+      {emailChangeMode &&
+        (authProvider === "google" ? (
+          <GoogleAccountSection />
+        ) : (
+          <PasswordChangeSection />
+        ))}
 
       <div className="space-y-2">
         <label className="block font-medium text-sm text-left">

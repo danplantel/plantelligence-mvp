@@ -895,6 +895,7 @@ export default function SettingsPage() {
               isSaving={isSaving}
               userSetupForm={userSetupForm}
               onSave={noopSave}
+              authProvider={userProfile?.provider}
             />
 
             {/* ── Delete Profile Section ── */}

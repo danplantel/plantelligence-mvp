@@ -11,6 +11,8 @@ interface ProfileSettingsSectionProps {
   isSaving: boolean;
   userSetupForm: any;
   onSave: () => Promise<void> | void;
+  /** Auth provider (e.g. "google") — Google accounts have no password to change. */
+  authProvider?: string;
 }
 
 export function ProfileSettingsSection({
@@ -18,6 +20,7 @@ export function ProfileSettingsSection({
   isSaving,
   userSetupForm,
   onSave,
+  authProvider,
 }: ProfileSettingsSectionProps) {
   return (
     <Card>
@@ -55,6 +58,7 @@ export function ProfileSettingsSection({
               hideCard={true}
               showPrimaryServiceCategories={true}
               emailChangeMode={true}
+              authProvider={authProvider}
             />
           </FormProvider>
         )}
