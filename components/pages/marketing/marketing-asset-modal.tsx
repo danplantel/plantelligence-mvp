@@ -204,6 +204,24 @@ const TOPICAL_TEMPLATE_DEFAULTS_ES: Record<string, FlyerTemplateDefaults> = {
     topic: "Comience Su Viaje de Jubilación" },
 };
 
+/** Category-specific flyer footer disclaimer text, keyed by benefit category. */
+const FLYER_CATEGORY_DISCLAIMERS: Record<string, string> = {
+  Retirement:
+    "For educational and informational purposes only. Not intended as ERISA, tax, legal or investment advice. Investment advice specific to your needs must be obtained separately. Official plan documents govern.",
+  "Group Health":
+    "For educational and informational purposes only. Not intended as medical, tax, legal or insurance advice. Official plan documents and insurance policies govern.",
+  "Group Life":
+    "For educational and informational purposes only. Not intended as insurance, tax or legal advice. Official plan documents and insurance policies govern.",
+  "Other":
+    "For educational and informational purposes only. Not intended as ERISA, tax, legal, investment, insurance or medical advice. Official plan documents and insurance policies govern."
+
+};
+
+/** Default flyer footer disclaimer for a benefit category, or null if none is mapped. */
+function getFlyerCategoryDisclaimer(category: string): string | null {
+  return FLYER_CATEGORY_DISCLAIMERS[category] ?? null;
+}
+
 /** Flyer templates that support an optional custom header image. */
 const CUSTOM_FLYER_IMAGE_TEMPLATES = ["TopicalTemplate1", "TopicalTemplate2", "TopicalTemplate3", "MeetingTemplate1"];
 
@@ -502,7 +520,11 @@ export default function MarketingAssetModal({
         setFlyerImageHeight((d.flyerImageHeight as number) || null);
         setFlyerQrUrl((d.flyerQrUrl as string) || "");
         setFlyerQrDataUrl((d.flyerQrDataUrl as string) || "");
-        setDisclaimerText((d.disclaimerText as string) || DEFAULT_DISCLAIMER);
+        setDisclaimerText(
+          (d.disclaimerText as string) ||
+          getFlyerCategoryDisclaimer((d.flyerCategory as string) || "") ||
+          DEFAULT_DISCLAIMER,
+        );
       }
     } else {
       // ── Create mode: reset all fields ──
@@ -1026,7 +1048,12 @@ export default function MarketingAssetModal({
               <select
                 className="flex h-9 w-full rounded-md border border-input bg-white dark:bg-gray-800 px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 value={flyerCategory}
-                onChange={(e) => setFlyerCategory(e.target.value)}
+                onChange={(e) => {
+                  const category = e.target.value;
+                  setFlyerCategory(category);
+                  // Auto-populate the flyer footer disclaimer to match the selected benefit category.
+                  setDisclaimerText(getFlyerCategoryDisclaimer(category) || DEFAULT_DISCLAIMER);
+                }}
               >
                 <option value="">All Benefits</option>
                 <option value="Retirement">Retirement</option>
@@ -1527,14 +1554,14 @@ export default function MarketingAssetModal({
               Disclaimer text
               <span className="text-red-500 ml-0.5">*</span>
             </Label>
-            <span className="text-[11px] text-muted-foreground tabular-nums">{disclaimerText.length}/120</span>
+            <span className="text-[11px] text-muted-foreground tabular-nums">{disclaimerText.length}/250</span>
           </div>
           <Textarea
             id="disclaimer"
             rows={2}
             value={disclaimerText}
             onChange={(e) => setDisclaimerText(e.target.value)}
-            maxLength={120}
+            maxLength={250}
             className="dark:bg-gray-800"
           />
           <p className="text-[11px] text-muted-foreground">Leave empty for default disclaimer</p>

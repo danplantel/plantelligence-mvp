@@ -320,6 +320,27 @@ export function renderBodyParts(
   return elements;
 }
 
+// ── Flyer footer disclaimer — wraps long category-specific text onto up to two centered lines ──
+const FLYER_DISCLAIMER_DEFAULT =
+  "Securities and advisory services offered through LPL Financial, a registered investment advisor, Member FINRA/SIPC.";
+
+function FlyerDisclaimer({ text }: { text?: string }) {
+  const resolved = text || FLYER_DISCLAIMER_DEFAULT;
+  const lines = wrapSingleLine(resolved, 118).slice(0, 2);
+  const lineHeight = 11;
+  const startY = 808 - ((lines.length - 1) * lineHeight) / 2;
+  return (
+    <>
+      <rect x="0" y="792" width="612" height="28" fill="#f8f8f8" />
+      {lines.map((line, i) => (
+        <text key={i} x="306" y={startY + i * lineHeight} textAnchor="middle" fill="#111" fontSize="9" fontWeight="700">
+          {line}
+        </text>
+      ))}
+    </>
+  );
+}
+
 // ── Shared dark footer with yellow text + curved arrow + QR ──
 // Used by all 4 templates. footerY = top of footer rect.
 function DarkFooter({
@@ -671,10 +692,7 @@ export function TopicalTemplate1(allProps: FlyerPreviewProps & { sid?: string; s
       />
 
       {/* Disclaimer section below footer */}
-      <rect x="0" y="792" width="612" height="28" fill="#f8f8f8" />
-      <text x="306" y={808} textAnchor="middle" fill="#111" fontSize="9" fontWeight="700">
-        {disclaimerText || "Securities and advisory services offered through LPL Financial, a registered investment advisor, Member FINRA/SIPC."}
-      </text>
+      <FlyerDisclaimer text={disclaimerText} />
 
       {/* Powered by PLANtelligence */}
       <text x="306" y={834} textAnchor="middle" fill="#c1c1c1" fontSize="10" fontWeight="400" letterSpacing="1">
@@ -811,10 +829,7 @@ export function TopicalTemplate2(allProps: FlyerPreviewProps & { sid?: string; s
       />
 
       {/* Disclaimer section below footer */}
-      <rect x="0" y="792" width="612" height="28" fill="#f8f8f8" />
-      <text x="306" y={808} textAnchor="middle" fill="#111" fontSize="9" fontWeight="700">
-        {disclaimerText || "Securities and advisory services offered through LPL Financial, a registered investment advisor, Member FINRA/SIPC."}
-      </text>
+      <FlyerDisclaimer text={disclaimerText} />
 
       {/* Powered by PLANtelligence */}
       <text x="306" y={834} textAnchor="middle" fill="#c1c1c1" fontSize="10" fontWeight="400" letterSpacing="1">
@@ -932,10 +947,7 @@ export function TopicalTemplate3(allProps: FlyerPreviewProps & { sid?: string; s
       />
 
       {/* Disclaimer section below footer */}
-      <rect x="0" y="792" width="612" height="28" fill="#f8f8f8" />
-      <text x="306" y={808} textAnchor="middle" fill="#111" fontSize="9" fontWeight="700">
-        {disclaimerText || "Securities and advisory services offered through LPL Financial, a registered investment advisor, Member FINRA/SIPC."}
-      </text>
+      <FlyerDisclaimer text={disclaimerText} />
 
       {/* Powered by PLANtelligence */}
       <text x="306" y={834} textAnchor="middle" fill="#c1c1c1" fontSize="10" fontWeight="400" letterSpacing="1">
@@ -1073,10 +1085,7 @@ export function MeetingTemplate1(allProps: FlyerPreviewProps & { sid?: string; s
       />
 
       {/* Disclaimer section below footer */}
-      <rect x="0" y="792" width="612" height="28" fill="#f8f8f8" />
-      <text x="306" y={808} textAnchor="middle" fill="#111" fontSize="9" fontWeight="700">
-        {disclaimerText || "Securities and advisory services offered through LPL Financial, a registered investment advisor, Member FINRA/SIPC."}
-      </text>
+      <FlyerDisclaimer text={disclaimerText} />
 
       {/* Powered by PLANtelligence */}
       <text x="306" y={834} textAnchor="middle" fill="#c1c1c1" fontSize="10" fontWeight="400" letterSpacing="1">
