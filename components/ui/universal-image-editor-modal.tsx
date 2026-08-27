@@ -485,62 +485,11 @@ export function UniversalImageEditorModal({
     if (externalOnClose) externalOnClose();
   };
 
-  // Calculate responsive canvas dimensions based on viewport
-  useEffect(() => {
-    const calculateCanvasDimensions = () => {
-      const viewportWidth =
-        typeof window !== "undefined" ? window.innerWidth : 1200;
-      const viewportHeight =
-        typeof window !== "undefined" ? window.innerHeight : 800;
-
-      // Calculate available space for canvas (2/3 of modal width minus padding)
-      const modalWidth = Math.min(viewportWidth * 0.95, 1280);
-      const canvasAreaWidth = modalWidth * 0.67;
-      const availableWidth = Math.min(
-        canvasAreaWidth * 0.9,
-        canvasMode === "compact" ? 700 : config.canvasWidth,
-      );
-
-      const availableHeight = Math.min(
-        (viewportHeight * 0.95 - 80) * 0.85,
-        canvasMode === "compact" ? 300 : config.canvasHeight,
-      );
-
-      // Maintain aspect ratio
-      const baseWidth = canvasMode === "compact" ? 700 : config.canvasWidth;
-      const baseHeight = canvasMode === "compact" ? 300 : config.canvasHeight;
-      const aspectRatio = baseWidth / baseHeight;
-      let newWidth = availableWidth;
-      let newHeight = availableWidth / aspectRatio;
-
-      // If height exceeds available space, recalculate based on height
-      if (newHeight > availableHeight) {
-        newHeight = availableHeight;
-        newWidth = availableHeight * aspectRatio;
-      }
-
-      // Ensure minimum size for usability
-      const minSize = 250;
-      if (newWidth < minSize || newHeight < minSize) {
-        if (aspectRatio >= 1) {
-          newWidth = minSize;
-          newHeight = minSize / aspectRatio;
-        } else {
-          newHeight = minSize;
-          newWidth = minSize * aspectRatio;
-        }
-      }
-
-      setResponsiveCanvasWidth(Math.round(newWidth));
-      setResponsiveCanvasHeight(Math.round(newHeight));
-    };
-
-    calculateCanvasDimensions();
-    window.addEventListener("resize", calculateCanvasDimensions);
-
-    return () =>
-      window.removeEventListener("resize", calculateCanvasDimensions);
-  }, [config.canvasWidth, config.canvasHeight, canvasMode]);
+  // Canvas dimensions are fixed to the type's configured size (set by the
+  // canvas-mode detection effect below). We intentionally do NOT size the canvas
+  // from the viewport / window.resize — browser zoom changes innerWidth/innerHeight,
+  // which re-ran this calc and produced stale dimensions that positioned the image
+  // off-center on re-open.
 
   // Set imageSrc when modal opens. R2 keys use same-origin /api/r2/object so Fabric avoids CORS failures on presigned R2 URLs.
   useEffect(() => {
@@ -2497,8 +2446,8 @@ export function UniversalImageEditorModal({
                           50% / 20px 20px
                         `,
                           padding: "2px",
-                          width: canvasMode === "compact" ? "700px" : "600px",
-                          height: canvasMode === "compact" ? "300px" : "550px",
+                          width: `${responsiveCanvasWidth}px`,
+                          height: `${responsiveCanvasHeight}px`,
                           display: "inline-block",
                         }}
                       >
