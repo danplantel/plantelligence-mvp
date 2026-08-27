@@ -4,6 +4,7 @@ import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import prisma from "./prisma";
+import { sendSignInNotificationEmail } from "@/lib/email";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -196,17 +197,26 @@ export const authOptions: NextAuthOptions = {
           await prisma.user.create({
             data: newUser,
           });
-        } else if (existUser.provider !== (account?.provider as any)) {
-          console.log(
-            `[signIn callback] Updating provider for ${user.email}: ${existUser.provider} → ${account?.provider}`,
-          );
-          await prisma.user.update({
-            where: { id: existUser.id },
-            data: {
-              provider: (account?.provider as any) || "credentials",
-              name: existUser.name || user?.name || "",
-            },
-          });
+        } else {
+          // Existing user — send a sign-in notification email (best-effort).
+          try {
+            await sendSignInNotificationEmail(user.email, user?.name || existUser.name || undefined);
+          } catch (emailErr) {
+            console.error("[signIn callback] Failed to send sign-in notification email:", emailErr);
+          }
+
+          if (existUser.provider !== (account?.provider as any)) {
+            console.log(
+              `[signIn callback] Updating provider for ${user.email}: ${existUser.provider} → ${account?.provider}`,
+            );
+            await prisma.user.update({
+              where: { id: existUser.id },
+              data: {
+                provider: (account?.provider as any) || "credentials",
+                name: existUser.name || user?.name || "",
+              },
+            });
+          }
         }
 
         return true;
