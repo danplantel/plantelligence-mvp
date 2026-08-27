@@ -89,6 +89,7 @@ import {
   BrandImagesData,
 } from "@/types/new-client-wizard";
 import { BrandImageUpload } from "@/components/ui/brand-image-upload";
+import { BrandImagesSection } from "@/components/wizard/new-client-steps/sections/brand-images-section";
 import { BrandingImage } from "@/components/ui/branding-image";
 import {
   formatPhoneNumber,
@@ -1985,10 +1986,15 @@ export function BenefitsStep1() {
     });
   };
 
-  const handleBackgroundImageChange = (imageData: BrandImageData) => {
+  // Updates the plan's brandImages (header/hero) from the shared BrandImagesSection
+  // (matching the new-client wizard Step 1 "Background Image" slot: crop + set image).
+  const handleBrandImagesChange = (brandImages: BrandImagesData) => {
     saveStepData(1, {
       ...currentStepData,
-      brandImages: { ...currentStepData.brandImages, header: imageData },
+      brandImages: {
+        ...brandImages,
+        header: brandImages.header ?? null,
+      },
     });
   };
 
@@ -2594,35 +2600,23 @@ export function BenefitsStep1() {
                     />
                   </div>
                   <div className="space-y-4">
-                    <BrandImageUpload
-                      slotKey="header"
-                      slot={{
-                        title: "Background Header Image (Hero)",
-                        description:
-                          "This image displays in the header background of your Employee Benefits Hub. Upload a wide hero image for best results. If not uploading a picture, the Square Thumbnail will be used.",
-                        recommendedSize: "1920 px—1080 px",
-                        defaultPhoteButton: true,
-                        required: true,
-                        accept: ".png,.jpg,.jpeg",
-                        previewAspectRatio: 2.75,
-                        previewLabel: "Hero preview (2.75:1)",
-                      }}
-                      currentImage={
-                        currentStepData.brandImages?.header || undefined
+                    {/* Shared BrandImagesSection — the same component the
+                        new-client wizard Step 1 uses for its "Background Image"
+                        slot, so this hero field gets the identical crop + set
+                        image behavior (SimpleImageEditorModal crop, default-photo
+                        gallery, auto-crop on select). */}
+                    <BrandImagesSection
+                      brandImages={
+                        currentStepData.brandImages || {
+                          header: null,
+                          thumbnail: null,
+                          secondaryBanner: null,
+                          favicon: null,
+                        }
                       }
-                      onImageChange={handleBackgroundImageChange}
-                      onImageRemove={() =>
-                        saveStepData(1, {
-                          ...currentStepData,
-                          brandImages: {
-                            ...currentStepData.brandImages,
-                            header: null,
-                          },
-                        })
-                      }
-                      hideButtons={true}
-                      maxFileSize={10}
-                      previewObjectFit="cover"
+                      onBrandImagesChange={handleBrandImagesChange}
+                      visibleSlots={["header"]}
+                      errorFields={[]}
                     />
                   </div>
                 </div>
