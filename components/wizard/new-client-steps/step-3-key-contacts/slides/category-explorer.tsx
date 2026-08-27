@@ -499,7 +499,7 @@ export function CategoryExplorer({
       {/* Header */}
       <div className="text-center space-y-2 max-w-2xl">
         <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
-          Do employees need different contacts for specific benefits?
+          Add contacts for specific benefit categories.
         </h2>
         <p className="text-sm text-gray-500 dark:text-gray-100">
           {contacts.length <= 1
