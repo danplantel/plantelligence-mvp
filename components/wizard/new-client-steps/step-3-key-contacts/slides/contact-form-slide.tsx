@@ -1184,11 +1184,13 @@ export function ContactFormSlide({
     <div className="flex flex-col items-center space-y-4 py-2">
       {/* Company Logo above header */}
       {defaultCompanyLogo?.trim() && (
-        <BrandingImage
-          src={defaultCompanyLogo}
-          alt="Company logo"
-          className="w-12 h-12 object-contain mx-auto"
-        />
+        <div className="dark:bg-white dark:p-2 dark:rounded-full">
+          <BrandingImage
+            src={defaultCompanyLogo}
+            alt="Company logo"
+            className="w-12 h-12 object-contain mx-auto"
+          />
+        </div>
       )}
 
       {/* Header - compact */}
@@ -1201,11 +1203,6 @@ export function ContactFormSlide({
               : `Add a ${categoryLabel} contact`}
           </h2>
         </div>
-        <p className="text-xs text-gray-500 dark:text-gray-200">
-          {isGuided
-            ? "Employees will see this person on their Benefits Team page."
-            : `Enter contact details for ${categoryLabel}.`}
-        </p>
       </div>
 
       {/* Form + Preview: side-by-side on large screens */}

@@ -487,11 +487,13 @@ export function CategoryExplorer({
     <div className="flex flex-col items-center space-y-6 py-4">
       {/* Company Logo above header */}
       {stepData?.companyBasics?.companyLogo?.url?.trim() && (
-        <BrandingImage
-          src={stepData.companyBasics.companyLogo.url}
-          alt="Company logo"
-          className="w-12 h-12 object-contain mx-auto"
-        />
+        <div className="dark:bg-white dark:p-2 dark:rounded-full">
+          <BrandingImage
+            src={stepData.companyBasics.companyLogo.url}
+            alt="Company logo"
+            className="w-12 h-12 object-contain mx-auto"
+          />
+        </div>
       )}
 
       {/* Header */}
