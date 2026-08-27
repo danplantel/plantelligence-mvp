@@ -26,6 +26,7 @@ import {
 import { X, Eye, Calendar, Clock, MapPin, QrCode, Loader2, Image as ImageIcon } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { formatUsDate } from "@/lib/date";
+import { getFlyerCategoryDisclaimer } from "@/lib/disclaimer-constants";
 import { cn } from "@/lib/utils";
 import {
   FlyerPreview,
@@ -203,24 +204,6 @@ const TOPICAL_TEMPLATE_DEFAULTS_ES: Record<string, FlyerTemplateDefaults> = {
     body: "- Es Fácil y Conveniente. Su contribución se deduce automáticamente de su pago y se deposita en su cuenta./n- Contribuciones de Igualación del Empleador. Aproveche las posibles contribuciones de igualación del empleador\u2014es como obtener dinero gratis para impulsar aún más sus ahorros de jubilación.*/n- Ahorros con Impuestos Diferidos. El dinero se coloca en su cuenta de jubilación antes de los impuestos federales (y la mayoría estatales). Eso significa que no paga impuestos hasta que retire el dinero./n- Usted Tiene el Control. Decida su monto de contribución y estrategia de inversión. ¿No sabe cómo invertir? Nuestro equipo en Waypoint Financial Advisors está aquí para usted./nSi tiene alguna pregunta sobre su futuro de jubilación o cómo comenzar en el plan, visítenos escaneando el código QR a continuación o llámenos al 877-757-3263.", 
     topic: "Comience Su Viaje de Jubilación" },
 };
-
-/** Category-specific flyer footer disclaimer text, keyed by benefit category. */
-const FLYER_CATEGORY_DISCLAIMERS: Record<string, string> = {
-  Retirement:
-    "For educational and informational purposes only. Not intended as ERISA, tax, legal or investment advice. Investment advice specific to your needs must be obtained separately. Official plan documents govern.",
-  "Group Health":
-    "For educational and informational purposes only. Not intended as medical, tax, legal or insurance advice. Official plan documents and insurance policies govern.",
-  "Group Life":
-    "For educational and informational purposes only. Not intended as insurance, tax or legal advice. Official plan documents and insurance policies govern.",
-  "Other":
-    "For educational and informational purposes only. Not intended as ERISA, tax, legal, investment, insurance or medical advice. Official plan documents and insurance policies govern."
-
-};
-
-/** Default flyer footer disclaimer for a benefit category, or null if none is mapped. */
-function getFlyerCategoryDisclaimer(category: string): string | null {
-  return FLYER_CATEGORY_DISCLAIMERS[category] ?? null;
-}
 
 /** Flyer templates that support an optional custom header image. */
 const CUSTOM_FLYER_IMAGE_TEMPLATES = ["TopicalTemplate1", "TopicalTemplate2", "TopicalTemplate3", "MeetingTemplate1"];
@@ -570,6 +553,17 @@ export default function MarketingAssetModal({
       setPortalElement(null);
     }
   }, [open, assetType, editingAsset]);
+
+  // Keep the flyer footer disclaimer synced to the selected benefit category.
+  // Runs when the category is chosen (Step 1) or restored when editing a saved
+  // flyer, so the footer always reflects the category's compliance text.
+  useEffect(() => {
+    if (resolvedType !== "flyer") return;
+    const categoryDisclaimer = getFlyerCategoryDisclaimer(flyerCategory);
+    if (categoryDisclaimer) {
+      setDisclaimerText(categoryDisclaimer);
+    }
+  }, [resolvedType, flyerCategory]);
 
   // Apply initial values when opening for edit (after reset above)
   useEffect(() => {
@@ -1196,6 +1190,7 @@ export default function MarketingAssetModal({
                       planLogo,
                       organizationLogo,
                       disclaimerText,
+                      benefitsCategory: flyerCategory,
                       flyerSubtitle: defaults ? processText(defaults.subtitle) : "",
                       flyerTemplate: templateId as FlyerTemplateId,
                       flyerLanguage,
@@ -2192,6 +2187,7 @@ export default function MarketingAssetModal({
                         buttonColor={buttonColor}
                         bgImage={resolvedType === "news-post" ? selectedBgImage : undefined}
                         postCategory={postCategory}
+                        flyerCategory={flyerCategory}
                         previewMode="mobile"
                       />
                     </div>
@@ -2231,6 +2227,7 @@ export default function MarketingAssetModal({
                   buttonColor={buttonColor}
                   bgImage={resolvedType === "news-post" ? selectedBgImage : undefined}
                   postCategory={postCategory}
+                  flyerCategory={flyerCategory}
                   previewMode={previewMode}
                 />
               )}
@@ -2673,6 +2670,7 @@ function PreviewPane({
   buttonColor,
   bgImage,
   postCategory,
+  flyerCategory,
   previewMode,
 }: {
   assetType: AssetType;
@@ -2705,6 +2703,7 @@ function PreviewPane({
   buttonColor?: string;
   bgImage?: string;
   postCategory?: string;
+  flyerCategory?: string;
   previewMode?: "desktop" | "mobile";
 }) {
   const isMobile = previewMode === "mobile";
@@ -2821,6 +2820,7 @@ function PreviewPane({
           flyerSubtitle={flyerSubtitle}
           flyerTemplate={flyerTemplate as FlyerTemplateId}
           flyerLanguage={flyerLanguage}
+          benefitsCategory={flyerCategory}
         />
       );
     case "portal-notice":

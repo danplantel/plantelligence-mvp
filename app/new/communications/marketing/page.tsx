@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Clock, Loader2, Trash2, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getFlyerCategoryDisclaimer } from "@/lib/disclaimer-constants";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import MarketingAssetModal, {
@@ -823,7 +824,15 @@ function MarketingAssetListAccordionItem({
                             const flyerImagePosition = (d.flyerImagePosition as { x: number; y: number }) || { x: 50, y: 50 };
                             const flyerImageWidth = (d.flyerImageWidth as number) || null;
                             const flyerImageHeight = (d.flyerImageHeight as number) || null;
-                            const disclaimerText = (d.disclaimerText as string) || "";
+                            const savedDisclaimer = (d.disclaimerText as string) || "";
+                            const categoryDisclaimer = getFlyerCategoryDisclaimer((d.flyerCategory as string) || "") || "";
+                            // Use the category's default footer text unless the advisor saved a custom
+                            // disclaimer that differs from the standard default (e.g. legacy flyers
+                            // created before category-specific footers existed).
+                            const disclaimerText =
+                              savedDisclaimer && !savedDisclaimer.startsWith("Securities and advisory services offered through")
+                                ? savedDisclaimer
+                                : (categoryDisclaimer || savedDisclaimer);
                             const flyerLanguage = ((d.flyerLanguage as "en" | "es") || "en");
 
                             // Ensure the QR image is inlined as a data URL so it survives
@@ -839,6 +848,7 @@ function MarketingAssetListAccordionItem({
                               planName: companyName ?? "",
                               planLogo: planLogo,
                               organizationLogo: advisorLogoUrl,
+                              benefitsCategory: (d.flyerCategory as string) || "",
                               disclaimerText,
                               flyerImage,
                               flyerQrUrl,

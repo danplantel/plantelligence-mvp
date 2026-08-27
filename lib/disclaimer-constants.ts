@@ -11,6 +11,26 @@ PlanTelligence®, [Organization Name], and [Company Name] are separate and unaff
 © 2026 PlanTelligence®. All rights reserved.`;
 
 /**
+ * Flyer footer disclaimer text per benefit category, used by the Marketing
+ * asset modal and the marketing page's flyer PDF/thumbnail generation.
+ */
+export const FLYER_CATEGORY_DISCLAIMERS: Record<string, string> = {
+  Retirement:
+    "For educational and informational purposes only. Not intended as ERISA, tax, legal or investment advice. Investment advice specific to your needs must be obtained separately. Official plan documents govern.",
+  "Group Health":
+    "For educational and informational purposes only. Not intended as medical, tax, legal or insurance advice. Official plan documents and insurance policies govern.",
+  "Group Life":
+    "For educational and informational purposes only. Not intended as insurance, tax or legal advice. Official plan documents and insurance policies govern.",
+  "Other":
+    "For educational and informational purposes only. Not intended as ERISA, tax, legal, investment, insurance or medical advice. Official plan documents and insurance policies govern.",
+};
+
+/** Default flyer footer disclaimer for a benefit category, or null if none is mapped. */
+export function getFlyerCategoryDisclaimer(category?: string | null): string | null {
+  return category ? (FLYER_CATEGORY_DISCLAIMERS[category] ?? null) : null;
+}
+
+/**
  * Builds the default disclosures text with `[Organization Name]` resolved.
  *
  * `[Organization Name]` is always replaced with `orgName`. `[Company Name]` is only
