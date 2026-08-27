@@ -1,12 +1,42 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { FormProvider } from "react-hook-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Palette } from "lucide-react";
 import { toFabricImageLoadUrl } from "@/lib/branding-image-url";
 import { BrandingSetupCard } from "@/components/wizard/steps/sections/branding-setup-card/branding-setup-card";
 import { BrandColorsSection } from "@/components/wizard/new-client-steps/sections/brand-colors-section";
+import { BrandImagesSection } from "@/components/wizard/new-client-steps/sections/brand-images-section";
+import type { BrandImagesData, BrandImageData } from "@/types/new-client-wizard";
+import { deleteFromR2 } from "@/lib/upload-to-r2";
+
+// Upload a (cropped) background data URL to R2 at the advisor scope, matching the
+// existing settings persistence model where backgroundImage is an R2 storage key.
+async function uploadBackgroundToR2(
+  dataUrl: string,
+  fileName: string,
+): Promise<string | null> {
+  try {
+    const { uploadFileToR2 } = await import("@/lib/upload-to-r2");
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    const mime = dataUrl.startsWith("data:image/png")
+      ? "image/png"
+      : "image/jpeg";
+    const name = fileName || "background.jpg";
+    const file = new File([blob], name, { type: mime });
+    return await uploadFileToR2({
+      file,
+      purpose: "upload",
+      subPath: "advisor/background",
+      fileName: name,
+    });
+  } catch (error) {
+    console.error("Failed to upload background image to R2:", error);
+    return null;
+  }
+}
 
 interface BrandingSettingsSectionProps {
   isLoading: boolean;
@@ -38,6 +68,85 @@ export function BrandingSettingsSection({
   const website: string = watchedBranding?.website || "";
   const primaryColor: string = watchedBranding?.primaryColor || "";
   const secondaryColor: string = watchedBranding?.secondaryColor || "";
+  const backgroundImage: string = watchedBranding?.backgroundImage || "";
+  const backgroundFileName: string =
+    watchedBranding?.backgroundFileName || "";
+
+  // Full header image data driving the shared BrandImagesSection (matches the
+  // new-client wizard Step 1 "Background Image" slot: crop + set image).
+  const [headerImage, setHeaderImage] = useState<BrandImageData | null>(null);
+
+  // Rebuild headerImage from the form value whenever it changes externally
+  // (initial load, Reset, or the wizard sync effect). Keeps the shared section
+  // in sync with the persisted R2 key / filename.
+  useEffect(() => {
+    setHeaderImage((prev) => {
+      const currentUrl = prev?.url || "";
+      if (currentUrl === backgroundImage) return prev;
+      if (!backgroundImage) return null;
+      return {
+        url: backgroundImage,
+        fileName: backgroundFileName,
+        fileSize: 0,
+        width: 0,
+        height: 0,
+        recommendedSize: "1920×1080 px",
+        status: "ok",
+        warnings: [],
+      };
+    });
+  }, [backgroundImage, backgroundFileName]);
+
+  const handleBrandImagesChange = useCallback(
+    async (brandImages: BrandImagesData) => {
+      const header = brandImages.header;
+      if (!header) {
+        // Removed — clear the form fields and drop the R2 object if one exists.
+        const persistedKey = brandingForm.getValues(
+          "backgroundImage",
+        ) as string;
+        setHeaderImage(null);
+        brandingForm.setValue("backgroundImage", "", {
+          shouldDirty: true,
+          shouldTouch: true,
+        });
+        brandingForm.setValue("backgroundFileName", "", {
+          shouldDirty: true,
+          shouldTouch: true,
+        });
+        if (persistedKey) {
+          deleteFromR2(persistedKey).catch(() => {});
+        }
+        return;
+      }
+
+      // Upload the (cropped) data URL to R2 and persist the storage key,
+      // mirroring how the new-client wizard persists header brand images.
+      let storedUrl = header.url;
+      if (header.url.startsWith("data:")) {
+        const r2Key = await uploadBackgroundToR2(header.url, header.fileName);
+        if (r2Key) storedUrl = r2Key;
+      }
+
+      const next: BrandImageData = {
+        ...header,
+        url: storedUrl,
+        previewUrl: header.url.startsWith("data:")
+          ? header.url
+          : header.previewUrl,
+      };
+      setHeaderImage(next);
+      brandingForm.setValue("backgroundImage", storedUrl, {
+        shouldDirty: true,
+        shouldTouch: true,
+      });
+      brandingForm.setValue("backgroundFileName", header.fileName, {
+        shouldDirty: true,
+        shouldTouch: true,
+      });
+    },
+    [brandingForm],
+  );
 
   // BrandColorsSection loads the logo via Image() and can consume any reachable
   // URL. R2 keys (the persisted form value) are mapped to the same-origin proxy
@@ -47,7 +156,8 @@ export function BrandingSettingsSection({
     logoPreviewDataUrl || (logo ? toFabricImageLoadUrl(logo) : undefined);
 
   return (
-    <Card>
+    <>
+      <Card>
       <CardHeader className="border-b">
         <div>
           <CardTitle className="flex items-center gap-2">
@@ -112,6 +222,7 @@ export function BrandingSettingsSection({
                   setLogoPreviewDataUrl(dataUrl)
                 }
                 hideCard={true}
+                hideBackgroundImage
                 // Colors are managed by the dedicated BrandColorsSection
                 // below (same "Extract Colors" flow as the new-client wizard),
                 // so hide the card's built-in color pickers and don't
@@ -151,5 +262,20 @@ export function BrandingSettingsSection({
         )}
       </CardContent>
     </Card>
+
+    {!isLoading && (
+      <BrandImagesSection
+        brandImages={{
+          header: headerImage,
+          thumbnail: null,
+          secondaryBanner: null,
+          favicon: null,
+        }}
+        onBrandImagesChange={handleBrandImagesChange}
+        visibleSlots={["header"]}
+        errorFields={[]}
+      />
+    )}
+    </>
   );
 }
