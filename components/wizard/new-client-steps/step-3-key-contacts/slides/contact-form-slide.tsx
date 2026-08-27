@@ -1071,13 +1071,25 @@ export function ContactFormSlide({
 
     // Email is optional — only validate the format when a value is provided
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (email.trim() && !emailRegex.test(email.trim())) {
+    const phoneDigits = phone.replace(/\D/g, "");
+    const emailValid = emailRegex.test(email.trim());
+    const phoneValid = phoneDigits.length >= 10;
+
+    // Validate phone format when a value is provided
+    if (phone.trim() && !phoneValid) {
+      errors.push("phone");
+    }
+
+    // Validate email format when a value is provided
+    if (email.trim() && !emailValid) {
       errors.push("email");
     }
 
-    // Phone is required — must contain 10 digits
-    if (phone.replace(/\D/g, "").length < 10) {
-      errors.push("phone");
+    // At least one of Phone or Email is required — the user can choose either
+    // contact method (or provide both), instead of requiring one specific field.
+    if (!phoneValid && !emailValid) {
+      if (!phoneValid) errors.push("phone");
+      if (!emailValid) errors.push("email");
     }
 
     // Custom Benefits is required when category is "Other Benefits"
@@ -1422,8 +1434,13 @@ export function ContactFormSlide({
             )}
 
             <div className="space-y-1" data-field="phone">
+              {/* Note explaining the either/or contact-method requirement */}
+              <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                Provide at least one of the following so employees can reach
+                this contact: <b>Phone or Email.</b>
+              </p>
               <Label className="dark:text-gray-300 text-xs font-medium">
-                Phone <span className="text-red-500">*</span>
+                Phone
               </Label>
               <div className="flex gap-2">
                 <div className="flex-1">
@@ -1452,7 +1469,21 @@ export function ContactFormSlide({
                           const filtered = store.errorFields.filter(
                             (f) => f !== "phone" && !/_phone$/.test(f),
                           );
-                          if (filtered.length !== store.errorFields.length) {
+                          // A complete phone number also satisfies the
+                          // "at least one of Phone or Email" requirement,
+                          // so clear any email error too.
+                          if (digits.length >= 10) {
+                            const filteredEmail = filtered.filter(
+                              (f) => f !== "email",
+                            );
+                            if (
+                              filteredEmail.length !== store.errorFields.length
+                            ) {
+                              store.setErrorFields(filteredEmail);
+                            }
+                          } else if (
+                            filtered.length !== store.errorFields.length
+                          ) {
                             store.setErrorFields(filtered);
                           }
                         }
@@ -1480,7 +1511,9 @@ export function ContactFormSlide({
                 </div>
               </div>
               {hasError("phone") && (
-                <p className="text-[10px] text-red-500">Phone number is required</p>
+                <p className="text-[10px] text-red-500">
+                  Enter a valid phone number
+                </p>
               )}
             </div>
 
@@ -1492,7 +1525,29 @@ export function ContactFormSlide({
                 ref={emailRef}
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setEmail(value);
+                  // Clear the email error while typing. Once the email looks
+                  // valid it also satisfies the "at least one of Phone or
+                  // Email" requirement, so clear any phone error too — the red
+                  // border disappears as soon as a contact method is in place.
+                  const store = useNewClientWizardStore.getState();
+                  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                  const filtered = store.errorFields.filter((f) => {
+                    if (f === "email") return false;
+                    if (
+                      emailRegex.test(value.trim()) &&
+                      (f === "phone" || /_phone$/.test(f))
+                    ) {
+                      return false;
+                    }
+                    return true;
+                  });
+                  if (filtered.length !== store.errorFields.length) {
+                    store.setErrorFields(filtered);
+                  }
+                }}
                 placeholder="e.g. john@company.com"
                 className={cn("h-8 text-sm", hasError("email") && "border-red-500")}
               />

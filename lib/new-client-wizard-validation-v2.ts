@@ -762,36 +762,40 @@ export const validateNewClientCurrentStepV2 = async (step: number, stepData: any
               }
             }
 
-            // Email validation
-            if (!contact.email || contact.email.trim() === "") {
+            // At least one of Email or Phone is required — the user can choose
+            // either contact method (or provide both). Each is format-validated
+            // only when a value is provided.
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            const emailValue = (contact.email || "").trim();
+            const phoneDigits = (contact.phone || "").replace(/\D/g, "");
+            const emailValid = emailRegex.test(emailValue);
+            const phoneValid = phoneDigits.length >= 10;
+            const hasContactMethod = emailValid || phoneValid;
+
+            const pushContactError = (field: string) => {
               step3Errors.push({
-                field: `email`,
+                field,
                 contactId: contactId,
                 contactName: contactIdentifier,
               });
               step3Errors.push({
-                field: `contact_${contactId}_email`,
+                field: `contact_${contactId}_${field}`,
                 contactId: contactId,
                 contactName: contactIdentifier,
               });
+            };
+
+            // When neither contact method is present, require one of them.
+            if (!hasContactMethod) {
+              pushContactError("email");
+              pushContactError("phone");
             } else {
-              // Validate email format
-              const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-              if (!emailRegex.test(contact.email)) {
-                step3Errors.push({
-                  field: `email`,
-                  contactId: contactId,
-                  contactName: contactIdentifier,
-                });
-                step3Errors.push({
-                  field: `contact_${contactId}_email`,
-                  contactId: contactId,
-                  contactName: contactIdentifier,
-                });
+              // Format-only checks for whichever values were provided.
+              if (emailValue && !emailValid) pushContactError("email");
+              if ((contact.phone || "").trim() && !phoneValid) {
+                pushContactError("phone");
               }
             }
-
-            // Phone is optional — no required validation.
 
             // Scheduling URL is required when the "Schedule Appt." CTA is enabled
             const enableContactButton = contact.enableContactButton === true;
