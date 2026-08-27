@@ -104,7 +104,7 @@ const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
 export function ClientsListDashboardPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchDebounce] = useDebounceValue(searchQuery, 300);
-  const [sortColumn, setSortColumn] = useState<SortColumn>("status");
+  const [sortColumn, setSortColumn] = useState<SortColumn>("updatedAt");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
