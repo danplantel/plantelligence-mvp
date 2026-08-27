@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { completeWizardOnboarding } from "@/lib/wizard-completion";
 import prisma from "@/lib/prisma";
+import { sendSignUpConfirmationEmail } from "@/lib/email";
 
 export async function POST(request: NextRequest) {
   try {
@@ -84,7 +85,7 @@ export async function POST(request: NextRequest) {
     // Verify the user exists before attempting completion
     const existingUser = await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { id: true, email: true },
+      select: { id: true, email: true, name: true },
     });
     
     if (!existingUser) {
@@ -106,6 +107,14 @@ export async function POST(request: NextRequest) {
     });
     
     console.log("✅ Wizard completion result:", completionResult);
+
+    // Send the sign-up confirmation email after the onboarding wizard completes
+    // (best-effort — never blocks the completion response).
+    try {
+      await sendSignUpConfirmationEmail(existingUser.email, existingUser.name ?? undefined);
+    } catch (emailErr) {
+      console.error("Failed to send sign-up confirmation email:", emailErr);
+    }
 
     // Check if user wants to be saved as a contact for future plans
     if (finalData?.userSetup?.saveAsContact) {

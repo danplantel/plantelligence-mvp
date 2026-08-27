@@ -40,6 +40,7 @@ export async function POST(request: Request) {
         password: hashedPassword,
       },
     });
+
     // if (!process.env.JWT_SECRET) {
     //     throw new Error("JWT_SECRET is not defined.");
     // }
