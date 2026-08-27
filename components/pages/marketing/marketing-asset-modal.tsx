@@ -308,6 +308,14 @@ export default function MarketingAssetModal({
   const [qrGenerating, setQrGenerating] = useState(false);
   const [qrResult, setQrResult] = useState<QrCodeResult | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  // Compliance attestation — required before a flyer can be saved/published.
+  const [showAttestation, setShowAttestation] = useState(false);
+  const [attestationChecked, setAttestationChecked] = useState({
+    accuracy: false,
+    compliance: false,
+    authorization: false,
+  });
+  const attestationConfirmedRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const flyerPreviewRef = useRef<HTMLDivElement>(null);
   const [assetStatus, setAssetStatus] = useState<MarketingAssetStatus>("Draft");
@@ -837,6 +845,16 @@ export default function MarketingAssetModal({
       }
     }
 
+    // Flyers require a compliance attestation before saving/publishing.
+    if (resolvedType === "flyer") {
+      if (!attestationConfirmedRef.current) {
+        setAttestationChecked({ accuracy: false, compliance: false, authorization: false });
+        setShowAttestation(true);
+        return;
+      }
+      attestationConfirmedRef.current = false; // one-time per save action
+    }
+
     setIsSaving(true);
 
     let resolvedQrDataUrl = flyerQrDataUrl;
@@ -967,6 +985,13 @@ export default function MarketingAssetModal({
 
     setIsSaving(false);
     onOpenChange(false);
+  };
+
+  /** Confirm the compliance attestation and proceed with saving. */
+  const handleAttestApprove = async () => {
+    attestationConfirmedRef.current = true;
+    setShowAttestation(false);
+    await handleSave();
   };
 
   // ── Shared form sections used by both the normal view and Portal Notice Slide 2 ──
@@ -1918,6 +1943,7 @@ export default function MarketingAssetModal({
   );
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className={cn("max-w-6xl p-0 flex flex-col max-h-[95vh] [&>button.absolute]:hidden", previewOnly && "max-w-3xl")}>
         {/* Fixed header */}
@@ -2312,6 +2338,94 @@ export default function MarketingAssetModal({
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* Review & Compliance Attestation — required before saving/publishing a flyer */}
+    <Dialog open={showAttestation} onOpenChange={setShowAttestation}>
+      <DialogContent className="sm:max-w-lg z-[60]">
+        <DialogTitle className="text-lg font-semibold">Review & Compliance Attestation</DialogTitle>
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Before publishing or downloading this material, please review and confirm the following:
+          </p>
+
+          {/* Accuracy & Disclosures */}
+          <label className="flex items-start gap-3 text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={attestationChecked.accuracy}
+              onChange={(e) => setAttestationChecked((c) => ({ ...c, accuracy: e.target.checked }))}
+              className="mt-0.5 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+            />
+            <span>
+              <span className="font-semibold">Accuracy & Disclosures</span>
+              <span className="block text-muted-foreground mt-0.5">
+                I have reviewed the final material and confirm that, to the best of my knowledge,
+                the information and disclosures are accurate, current, and appropriate for the
+                intended audience.
+              </span>
+            </span>
+          </label>
+
+          {/* Compliance Approval */}
+          <label className="flex items-start gap-3 text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={attestationChecked.compliance}
+              onChange={(e) => setAttestationChecked((c) => ({ ...c, compliance: e.target.checked }))}
+              className="mt-0.5 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+            />
+            <span>
+              <span className="font-semibold">Compliance Approval</span>
+              <span className="block text-muted-foreground mt-0.5">
+                I confirm that I have obtained any review or approval required by my organization
+                and any applicable compliance, legal, broker-dealer, RIA, insurance carrier, plan
+                sponsor, HR, or other required approval process.
+              </span>
+            </span>
+          </label>
+
+          {/* Authorization */}
+          <label className="flex items-start gap-3 text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={attestationChecked.authorization}
+              onChange={(e) => setAttestationChecked((c) => ({ ...c, authorization: e.target.checked }))}
+              className="mt-0.5 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+            />
+            <span>
+              <span className="font-semibold">Authorization</span>
+              <span className="block text-muted-foreground mt-0.5">
+                I confirm that I am authorized to approve and distribute this material on behalf
+                of my organization.
+              </span>
+            </span>
+          </label>
+
+          <p className="text-xs text-muted-foreground">
+            By selecting Approve & Publish, I certify the statements above and acknowledge that
+            I am responsible for following my organization{"'"}s applicable review, approval, and
+            distribution requirements.
+          </p>
+        </div>
+
+        <div className="flex items-center justify-end gap-3 mt-6">
+          <Button variant="outline" onClick={() => setShowAttestation(false)}>
+            Back to Review
+          </Button>
+          <Button
+            onClick={handleAttestApprove}
+            disabled={
+              !attestationChecked.accuracy ||
+              !attestationChecked.compliance ||
+              !attestationChecked.authorization
+            }
+          >
+            Approve & Publish
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 
