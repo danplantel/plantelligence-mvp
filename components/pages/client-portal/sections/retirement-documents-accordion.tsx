@@ -20,7 +20,6 @@ import {
   X,
   Save,
   XCircle,
-  Upload,
   ChevronDown,
 } from "lucide-react";
 import {
@@ -765,7 +764,7 @@ function SortableCard({
         <CardContent className="flex min-h-[320px] h-full flex-col items-center px-6 pt-1 pb-8 text-center relative overflow-hidden">
           {/* Top row — drag handle, category badge right next to it (left-aligned),
               and Edit/Delete actions pushed to the right. */}
-          <div className="w-full mb-5 flex items-center gap-2 min-w-0">
+          <div className="w-full mt-2 mb-5 flex items-center gap-2 min-w-0">
             <div
               {...listeners}
               {...attributes}
@@ -804,11 +803,11 @@ function SortableCard({
                     e.stopPropagation();
                     doc.onDelete?.();
                   }}
-                  className="h-7 w-7 rounded-full flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                  className="h-7 w-7 rounded-full flex items-center justify-center text-red-600 hover:text-red-700 hover:bg-red-50 transition-colors"
                   aria-label="Delete document"
                   title="Delete document"
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <Trash2 className="h-3.5 w-3.5" />
                 </button>
               )}
             </div>
@@ -817,58 +816,8 @@ function SortableCard({
           {isEditing ? (
             <>
               <div className="w-full mb-4">
-                <label className="text-xs text-gray-600 font-medium mb-2 block">
-                  PDF File
-                </label>
-                <div
-                  className="border-2 border-dashed rounded-md p-4 cursor-pointer hover:border-gray-400 transition-colors"
-                  style={{
-                    borderColor: editFile ? accentColor : `${brandColor}40`,
-                    backgroundColor: editFile
-                      ? `${accentColor}0F`
-                      : "transparent",
-                  }}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".pdf,application/pdf"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                  />
-                  <div className="flex flex-col items-center justify-center">
-                    {editFile ? (
-                      <>
-                        <FileText
-                          className="h-8 w-8 mb-2"
-                          style={{ color: accentColor }}
-                        />
-                        <p
-                          className="text-xs font-medium text-center truncate w-full"
-                          style={{ color: brandColor }}
-                        >
-                          {editFile.name}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {(editFile.size / 1024 / 1024).toFixed(2)} MB
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="h-8 w-8 mb-2 text-gray-400" />
-                        <p className="text-xs text-gray-600 text-center">
-                          Click to upload PDF
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">PDF only</p>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="w-full mb-4">
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs text-gray-600 font-medium">
+                  <label className="text-xs text-gray-600 font-bold">
                     Category
                   </label>
                 </div>
@@ -876,7 +825,7 @@ function SortableCard({
                   value={editCategory}
                   onValueChange={(value) => setEditCategory(value as BenefitsCategory)}
                 >
-                  <SelectTrigger className="w-full h-8 text-xs">
+                  <SelectTrigger className="w-full h-8 text-xs !bg-white dark:!bg-white !text-gray-900 dark:!text-gray-900 !border-gray-300 dark:!border-gray-300">
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
@@ -889,20 +838,10 @@ function SortableCard({
                 </Select>
               </div>
               <div className="w-full mb-2">
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs text-gray-600 font-medium">
+                <div className="mb-1 text-left">
+                  <label className="text-xs text-gray-600 font-bold">
                     Title
                   </label>
-                  <span
-                    className={`text-xs ${editTitle.length > 85
-                      ? "text-red-500"
-                      : editTitle.length > 75
-                        ? "text-amber-500"
-                        : "text-gray-500"
-                      }`}
-                  >
-                    {editTitle.length}/85
-                  </span>
                 </div>
                 <Input
                   value={editTitle}
@@ -912,29 +851,28 @@ function SortableCard({
                     }
                   }}
                   maxLength={85}
-                  className={`text-center text-sm font-semibold ${editTitle.length > 85
+                  className={`text-xs !bg-white dark:!bg-white !text-gray-900 dark:!text-gray-900 !border-gray-300 dark:!border-gray-300 ${editTitle.length > 85
                     ? "border-red-500 focus:border-red-500"
                     : ""
                     }`}
-                  style={{ fontFamily: '"DM Serif Display", serif' }}
                   autoFocus
                 />
+                <span
+                  className={`mt-1 block text-right text-xs ${editTitle.length > 85
+                    ? "text-red-500"
+                    : editTitle.length > 75
+                      ? "text-amber-500"
+                      : "text-gray-500"
+                    }`}
+                >
+                  {editTitle.length}/85
+                </span>
               </div>
               <div className="w-full mb-4">
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs text-gray-600 font-medium">
+                <div className="mb-1 text-left">
+                  <label className="text-xs text-gray-600 font-bold">
                     Description
                   </label>
-                  <span
-                    className={`text-xs ${editDescription.length > 160
-                      ? "text-red-500"
-                      : editDescription.length > 150
-                        ? "text-amber-500"
-                        : "text-gray-500"
-                      }`}
-                  >
-                    {editDescription.length}/160
-                  </span>
                 </div>
                 <Textarea
                   value={editDescription}
@@ -945,11 +883,21 @@ function SortableCard({
                   }}
                   maxLength={160}
                   rows={2}
-                  className={`text-center text-xs ${editDescription.length > 160
+                  className={`text-xs !bg-white dark:!bg-white !text-gray-900 dark:!text-gray-900 !border-gray-300 dark:!border-gray-300 ${editDescription.length > 160
                     ? "border-red-500 focus:border-red-500"
                     : ""
                     }`}
                 />
+                <span
+                  className={`mt-1 block text-right text-xs ${editDescription.length > 160
+                    ? "text-red-500"
+                    : editDescription.length > 150
+                      ? "text-amber-500"
+                      : "text-gray-500"
+                    }`}
+                >
+                  {editDescription.length}/160
+                </span>
               </div>
             </>
           ) : (
@@ -998,25 +946,27 @@ function SortableCard({
           )}
 
           <div className="mt-auto flex w-full gap-2 min-w-0">
-            <Button
-              className="flex-1 flex items-center justify-center gap-2 text-xs font-semibold transition-all duration-200 hover:scale-105 min-w-0 overflow-hidden text-white"
-              style={{
-                backgroundColor: brandColor,
-                borderColor: brandColor,
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = accentColor;
-                e.currentTarget.style.borderColor = accentColor;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = brandColor;
-                e.currentTarget.style.borderColor = brandColor;
-              }}
-              onClick={() => onPreview(doc)}
-            >
-              <Download className="h-3 w-3 flex-shrink-0" />
-              <span className="truncate">VIEW/DOWNLOAD</span>
-            </Button>
+            {!isEditing && (
+              <Button
+                className="flex-1 flex items-center justify-center gap-2 text-xs font-semibold transition-all duration-200 hover:scale-105 min-w-0 overflow-hidden text-white"
+                style={{
+                  backgroundColor: brandColor,
+                  borderColor: brandColor,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = accentColor;
+                  e.currentTarget.style.borderColor = accentColor;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = brandColor;
+                  e.currentTarget.style.borderColor = brandColor;
+                }}
+                onClick={() => onPreview(doc)}
+              >
+                <Download className="h-3 w-3 flex-shrink-0" />
+                <span className="truncate">VIEW</span>
+              </Button>
+            )}
 
             {showMetadata &&
               !isEditing &&
@@ -1077,20 +1027,21 @@ function SortableCard({
               <>
                 <Button
                   variant="outline"
-                  className="flex-1 flex items-center justify-center gap-2 text-xs font-semibold transition-all duration-200 hover:scale-105 min-w-0 overflow-hidden"
+                  className="flex-1 flex items-center justify-center gap-2 text-xs font-semibold transition-all duration-200 hover:scale-105 min-w-0 overflow-hidden text-white"
                   style={{
-                    borderColor: brandColor,
-                    color: brandColor,
+                    backgroundColor: "var(--accent-blue)",
+                    borderColor: "var(--accent-blue)",
+                    color: "#ffffff",
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = accentColor;
-                    e.currentTarget.style.borderColor = accentColor;
+                    e.currentTarget.style.backgroundColor = "var(--accent-blue)";
+                    e.currentTarget.style.borderColor = "var(--accent-blue)";
                     e.currentTarget.style.color = "#ffffff";
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = "transparent";
-                    e.currentTarget.style.borderColor = brandColor;
-                    e.currentTarget.style.color = brandColor;
+                    e.currentTarget.style.backgroundColor = "var(--accent-blue)";
+                    e.currentTarget.style.borderColor = "var(--accent-blue)";
+                    e.currentTarget.style.color = "#ffffff";
                   }}
                   onClick={handleSave}
                   disabled={
@@ -1104,7 +1055,7 @@ function SortableCard({
                 </Button>
                 <Button
                   variant="outline"
-                  className="flex-1 flex items-center justify-center gap-2 text-xs font-semibold transition-all duration-200 hover:scale-105 min-w-0 overflow-hidden"
+                  className="bg-gray-200 flex-1 flex items-center justify-center gap-2 text-xs font-semibold transition-all duration-200 hover:scale-105 min-w-0 overflow-hidden"
                   onClick={handleCancel}
                 >
                   <XCircle className="h-3 w-3 flex-shrink-0" />
@@ -1415,10 +1366,10 @@ export function DocsGrid({
                     e.stopPropagation();
                     doc.onDelete?.();
                   }}
-                  className="absolute top-2 right-2 p-1 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-600 dark:text-gray-500 dark:hover:text-red-400 transition-colors"
+                  className="absolute top-2 right-2 p-1 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 hover:text-red-700 dark:text-red-400 transition-colors"
                   aria-label="Delete document"
                 >
-                  <X className="h-4 w-4" />
+                  <Trash2 className="h-4 w-4" />
                 </button>
               )}
               {isDraggable && (
@@ -1431,68 +1382,6 @@ export function DocsGrid({
               )}
               {isEditing ? (
                 <>
-                  <div className="w-full mb-4">
-                    <label className="text-xs text-gray-600 font-medium mb-2 block dark:text-gray-300">
-                      PDF File
-                    </label>
-                    <div
-                      className="border-2 border-dashed rounded-md p-4 cursor-pointer hover:border-gray-400 dark:hover:border-gray-500 transition-colors dark:border-gray-600"
-                      style={{
-                        borderColor: editFiles.get(doc.id)
-                          ? accentColor
-                          : `${brandColor}40`,
-                        backgroundColor: editFiles.get(doc.id)
-                          ? `${accentColor}0F`
-                          : "transparent",
-                      }}
-                      onClick={() => {
-                        const inputRef = fileInputRefs.current.get(doc.id);
-                        inputRef?.click();
-                      }}
-                    >
-                      <input
-                        ref={setFileInputRef(doc.id)}
-                        type="file"
-                        accept=".pdf,application/pdf"
-                        onChange={handleFileSelect(doc.id)}
-                        className="hidden"
-                      />
-                      <div className="flex flex-col items-center justify-center">
-                        {editFiles.get(doc.id) ? (
-                          <>
-                            <FileText
-                              className="h-8 w-8 mb-2"
-                              style={{ color: accentColor }}
-                            />
-                            <p
-                              className="text-xs font-medium text-center truncate w-full"
-                              style={{ color: brandColor }}
-                            >
-                              {editFiles.get(doc.id)!.name}
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1 dark:text-gray-400">
-                              {(
-                                editFiles.get(doc.id)!.size /
-                                1024 /
-                                1024
-                              ).toFixed(2)}{" "}
-                              MB
-                            </p>
-                          </>
-                        ) : (
-                          <>
-                            <Upload className="h-8 w-8 mb-2 text-gray-400 dark:text-gray-500" />
-                            <p className="text-xs text-gray-600 text-center dark:text-gray-300">
-                              Click to upload PDF
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1 dark:text-gray-400">
-                              PDF only
-                            </p>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
                   <div className="w-full mb-4">
                     <div className="flex items-center justify-between mb-1">
                       <label className="text-xs text-gray-600 font-medium dark:text-gray-300">
@@ -1509,7 +1398,7 @@ export function DocsGrid({
                         });
                       }}
                     >
-                      <SelectTrigger className="w-full h-8 text-xs dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600">
+                      <SelectTrigger className="w-full h-8 text-xs !bg-white dark:!bg-white !text-gray-900 dark:!text-gray-900 !border-gray-300 dark:!border-gray-300">
                         <SelectValue placeholder="Select category" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1522,20 +1411,10 @@ export function DocsGrid({
                     </Select>
                   </div>
                   <div className="w-full mb-2">
-                    <div className="flex items-center justify-between mb-1">
+                    <div className="mb-1 text-left">
                       <label className="text-xs text-gray-600 font-medium dark:text-gray-300">
                         Title
                       </label>
-                      <span
-                        className={`text-xs ${(editTitles.get(doc.id) || "").length > 85
-                          ? "text-red-500"
-                          : (editTitles.get(doc.id) || "").length > 75
-                            ? "text-amber-500"
-                            : "text-gray-500 dark:text-gray-400"
-                          }`}
-                      >
-                        {(editTitles.get(doc.id) || "").length}/85
-                      </span>
                     </div>
                     <Input
                       value={editTitles.get(doc.id) || ""}
@@ -1549,29 +1428,29 @@ export function DocsGrid({
                         }
                       }}
                       maxLength={85}
-                      className={`text-center text-sm font-semibold dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 ${(editTitles.get(doc.id) || "").length > 85
+                      className={`text-center text-sm font-semibold !bg-white dark:!bg-white !text-gray-900 dark:!text-gray-900 !border-gray-300 dark:!border-gray-300 ${(editTitles.get(doc.id) || "").length > 85
                         ? "border-red-500 focus:border-red-500"
                         : ""
                         }`}
                       style={{ fontFamily: '"DM Serif Display", serif' }}
                       autoFocus
                     />
+                    <span
+                      className={`mt-1 block text-right text-xs ${(editTitles.get(doc.id) || "").length > 85
+                        ? "text-red-500"
+                        : (editTitles.get(doc.id) || "").length > 75
+                          ? "text-amber-500"
+                          : "text-gray-500 dark:text-gray-400"
+                        }`}
+                    >
+                      {(editTitles.get(doc.id) || "").length}/85
+                    </span>
                   </div>
                   <div className="w-full mb-4">
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-xs text-gray-600 font-medium dark:text-gray-300">
+                    <div className="mb-1 text-left">
+                      <label className="text-xs text-gray-600 font-semibold dark:text-gray-300">
                         Description
                       </label>
-                      <span
-                        className={`text-xs ${(editDescriptions.get(doc.id) || "").length > 200
-                          ? "text-red-500"
-                          : (editDescriptions.get(doc.id) || "").length > 180
-                            ? "text-amber-500"
-                            : "text-gray-500 dark:text-gray-400"
-                          }`}
-                      >
-                        {(editDescriptions.get(doc.id) || "").length}/200
-                      </span>
                     </div>
                     <Textarea
                       value={editDescriptions.get(doc.id) || ""}
@@ -1586,11 +1465,21 @@ export function DocsGrid({
                       }}
                       maxLength={200}
                       rows={2}
-                      className={`text-center text-xs dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 ${(editDescriptions.get(doc.id) || "").length > 200
+                      className={`text-center text-xs !bg-white dark:!bg-white !text-gray-900 dark:!text-gray-900 !border-gray-300 dark:!border-gray-300 ${(editDescriptions.get(doc.id) || "").length > 200
                         ? "border-red-500 focus:border-red-500"
                         : ""
                         }`}
                     />
+                    <span
+                      className={`mt-1 block text-right text-xs ${(editDescriptions.get(doc.id) || "").length > 200
+                        ? "text-red-500"
+                        : (editDescriptions.get(doc.id) || "").length > 180
+                          ? "text-amber-500"
+                          : "text-gray-500 dark:text-gray-400"
+                        }`}
+                    >
+                      {(editDescriptions.get(doc.id) || "").length}/200
+                    </span>
                   </div>
                 </>
               ) : (
@@ -1655,25 +1544,27 @@ export function DocsGrid({
               )}
 
               <div className="mt-auto flex w-full gap-2 min-w-0">
-                <Button
-                  className="flex-1 flex items-center justify-center gap-2 text-[14px] leading-tight font-red-hat font-semibold tracking-wide transition-all duration-200 hover:scale-105 min-w-0 overflow-hidden text-white"
-                  style={{
-                    backgroundColor: brandColor,
-                    borderColor: brandColor,
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = accentColor;
-                    e.currentTarget.style.borderColor = accentColor;
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = brandColor;
-                    e.currentTarget.style.borderColor = brandColor;
-                  }}
-                  onClick={() => onPreview(doc)}
-                >
-                  <Download className="h-3 w-3" />
-                  VIEW/DOWNLOAD
-                </Button>
+                {!isEditing && (
+                  <Button
+                    className="flex-1 flex items-center justify-center gap-2 text-[14px] leading-tight font-red-hat font-semibold tracking-wide transition-all duration-200 hover:scale-105 min-w-0 overflow-hidden text-white"
+                    style={{
+                      backgroundColor: brandColor,
+                      borderColor: brandColor,
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = accentColor;
+                      e.currentTarget.style.borderColor = accentColor;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = brandColor;
+                      e.currentTarget.style.borderColor = brandColor;
+                    }}
+                    onClick={() => onPreview(doc)}
+                  >
+                    <Download className="h-3 w-3" />
+                    VIEW/DOWNLOAD
+                  </Button>
+                )}
                 {showMetadata &&
                   !isEditing &&
                   (onEdit || onStartEdit || doc.onEdit || doc.onDelete) && (
@@ -1723,20 +1614,21 @@ export function DocsGrid({
                   <>
                     <Button
                       variant="outline"
-                      className="flex-1 flex items-center justify-center gap-2 text-xs font-semibold transition-all duration-200 hover:scale-105 min-w-0 overflow-hidden"
+                      className="flex-1 flex items-center justify-center gap-2 text-xs font-semibold transition-all duration-200 hover:scale-105 min-w-0 overflow-hidden text-white"
                       style={{
-                        borderColor: brandColor,
-                        color: brandColor,
+                        backgroundColor: "var(--accent-blue)",
+                        borderColor: "var(--accent-blue)",
+                        color: "#ffffff",
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = accentColor;
-                        e.currentTarget.style.borderColor = accentColor;
+                        e.currentTarget.style.backgroundColor = "var(--accent-blue)";
+                        e.currentTarget.style.borderColor = "var(--accent-blue)";
                         e.currentTarget.style.color = "#ffffff";
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = "transparent";
-                        e.currentTarget.style.borderColor = brandColor;
-                        e.currentTarget.style.color = brandColor;
+                        e.currentTarget.style.backgroundColor = "var(--accent-blue)";
+                        e.currentTarget.style.borderColor = "var(--accent-blue)";
+                        e.currentTarget.style.color = "#ffffff";
                       }}
                       onClick={() => {
                         const title = editTitles.get(doc.id) || "";
