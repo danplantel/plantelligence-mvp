@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { sendPasswordChangedConfirmationEmail } from "@/lib/email";
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
@@ -43,7 +44,7 @@ export async function POST(request: Request) {
     // Fetch user with password hash
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { password: true },
+      select: { password: true, email: true, name: true },
     });
 
     if (!user) {
@@ -68,6 +69,13 @@ export async function POST(request: Request) {
       where: { id: userId },
       data: { password: hashedPassword },
     });
+
+    // Send the password-changed confirmation email (best-effort).
+    try {
+      await sendPasswordChangedConfirmationEmail(user.email, user.name ?? undefined);
+    } catch (emailErr) {
+      console.error("Failed to send password-changed confirmation email:", emailErr);
+    }
 
     return NextResponse.json({
       success: true,
