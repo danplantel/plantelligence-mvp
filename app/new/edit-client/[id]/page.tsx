@@ -130,6 +130,39 @@ const formatContactPhone = (phone?: string): string => {
   return `(${national.slice(0, 3)})-${national.slice(3, 6)}-${national.slice(6, 10)}`;
 };
 
+// Accordion metadata for each benefit category (icons used in the trigger header).
+const CATEGORY_ACCORDIONS: {
+  id: BenefitsCategory;
+  label: string;
+  value: string;
+  icon: React.ReactNode;
+}[] = [
+  {
+    id: "Retirement" as BenefitsCategory,
+    label: "Retirement",
+    value: "retirement",
+    icon: <Building2 className="w-5 h-5 text-accent-blue" />,
+  },
+  {
+    id: "Group Health" as BenefitsCategory,
+    label: "Group Health",
+    value: "group-health",
+    icon: <Shield className="w-5 h-5 text-accent-blue" />,
+  },
+  {
+    id: "Group Life" as BenefitsCategory,
+    label: "Group Life",
+    value: "group-life",
+    icon: <Heart className="w-5 h-5 text-accent-blue" />,
+  },
+  {
+    id: "Other Benefits" as BenefitsCategory,
+    label: "Other Benefits",
+    value: "other-benefits",
+    icon: <Gift className="w-5 h-5 text-accent-blue" />,
+  },
+];
+
 // ── Compact contact row (replaces KeyContactsSection dropdown) ──
 function ContactRow({
   contact,
@@ -1051,6 +1084,34 @@ function EditKeyContactsSection({
 
   const externalContacts = contacts.filter(isExternalContact);
 
+  // Accordions that have at least one contact are open by default — applied once
+  // when the contacts data finishes loading, then left to the user to manage.
+  const [openAccordions, setOpenAccordions] = useState<string[]>([]);
+  const accordionsInitializedRef = useRef(false);
+  useEffect(() => {
+    if (accordionsInitializedRef.current) return;
+    if (contacts.length === 0) return;
+    accordionsInitializedRef.current = true;
+    const hasCategory = (id: BenefitsCategory) =>
+      contacts.some(
+        (c) => c.benefitsCategories?.includes(id) || c.benefitsCategory === id
+      );
+    const defaults: string[] = [];
+    if (hasCategory("Company / Plan Sponsor")) defaults.push("company-plan-sponsor");
+    CATEGORY_ACCORDIONS.forEach((cat) => {
+      if (hasCategory(cat.id)) defaults.push(cat.value);
+    });
+    const hasExternal = contacts.some(
+      (c) =>
+        c.contactType === "team_support" ||
+        (c.role === "Other" && c.roleOther === "External HR / Administrator") ||
+        (c.role as string) === "External HR / Administrator"
+    );
+    if (hasExternal) defaults.push("external-hr");
+    setOpenAccordions(defaults);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contacts]);
+
   // The overall primary contact (isPrimaryOverall or legacy isPrimary), falling
   // back to the first contact so the section always has something to show.
   const primaryContact =
@@ -1203,7 +1264,12 @@ function EditKeyContactsSection({
       </div>
 
       {/* Per-category accordions */}
-      <Accordion type="multiple" className="space-y-3">
+      <Accordion
+        type="multiple"
+        className="space-y-3"
+        value={openAccordions}
+        onValueChange={setOpenAccordions}
+      >
         {/* Company / Plan Sponsor accordion — lists its contacts (the primary
             contact populates this section when it's a Company / Plan Sponsor). */}
         <AccordionItem
@@ -1211,12 +1277,20 @@ function EditKeyContactsSection({
           className="border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 overflow-hidden"
         >
           <AccordionTrigger className="px-4 py-3 hover:no-underline bg-gray-50/80 dark:bg-gray-800/80 data-[state=open]:bg-gray-50/80 dark:data-[state=open]:bg-gray-800/80">
-            <div className="flex items-center gap-2 flex-1">
-              <Building2 className="w-5 h-5 text-accent-blue" />
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              {companyData.companyLogo?.url ? (
+                <BrandingImage
+                  src={companyData.companyLogo?.url}
+                  alt="Company logo"
+                  className="w-7 h-7 object-contain rounded-sm shrink-0"
+                />
+              ) : (
+                <Building2 className="w-5 h-5 text-accent-blue shrink-0" />
+              )}
               <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                 {companyPlanSponsorContacts.length}
               </Badge>
-              <span className="text-base font-semibold">Company / Plan Sponsor</span>
+              <span className="text-base font-semibold truncate">Company / Plan Sponsor</span>
             </div>
             <Button
               size="sm"
@@ -1250,12 +1324,7 @@ function EditKeyContactsSection({
             )}
           </AccordionContent>
         </AccordionItem>
-        {([
-          { id: "Retirement" as BenefitsCategory, label: "Retirement", icon: <Building2 className="w-5 h-5 text-accent-blue" />, value: "retirement" },
-          { id: "Group Health" as BenefitsCategory, label: "Group Health", icon: <Shield className="w-5 h-5 text-accent-blue" />, value: "group-health" },
-          { id: "Group Life" as BenefitsCategory, label: "Group Life", icon: <Heart className="w-5 h-5 text-accent-blue" />, value: "group-life" },
-          { id: "Other Benefits" as BenefitsCategory, label: "Other Benefits", icon: <Gift className="w-5 h-5 text-accent-blue" />, value: "other-benefits" },
-        ]).map((category) => {
+        {CATEGORY_ACCORDIONS.map((category) => {
           const categoryContacts = contacts.filter((c) =>
             c.benefitsCategories?.includes(category.id) ||
             c.benefitsCategory === category.id
