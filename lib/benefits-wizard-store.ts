@@ -117,10 +117,6 @@ export interface BenefitsStep3Data {
     /** Per-category FAQ storage keyed by benefitCategory (e.g. "Retirement", "Group Health", "Group Life", "Custom").
      *  Persisted across wizard step navigations so manual additions are not lost. */
     faqsByCategory?: Record<string, FAQItem[]>;
-    /** Optional "retirement adds" FAQ list — managed in a separate accordion in
-     *  Step 3 (Retirement category only). Kept distinct from faqsByCategory so
-     *  the main list stays focused on the core questions. */
-    optionalRetirementFaqs?: FAQItem[];
     /** Categories for which support contacts have been loaded from the persisted benefit.
      *  Prevents re-loading from clobbering in-session edits/removals on re-render. */
     supportContactsLoadedCategories?: string[];

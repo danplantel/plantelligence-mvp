@@ -74,16 +74,8 @@ export default function RetirementPage() {
   const clientDataRef = useRef(clientData);
   clientDataRef.current = clientData;
 
-  // The last 3 default Retirement FAQs are managed in a separate "Optional
-  // retirement adds" accordion (wizard Step 3) — keep them out of the main list.
-  const OPTIONAL_RETIREMENT_IDS = new Set(
-    DEFAULT_FAQS["Retirement"].slice(-3).map((f) => f.id),
-  );
-
   // Extract FAQs for this category from the benefit data.
   // Falls back to Retirement-specific defaults when no custom FAQs are saved yet.
-  // Splits the combined list into the main FAQs and the "optional retirement
-  // adds" so FAQSection can render them as two separate accordions.
   const faqsForCategory = useMemo(() => {
     const faqs = benefitData?.faqs;
     let list: DynamicFAQItem[] | undefined;
@@ -100,11 +92,7 @@ export default function RetirementPage() {
         list = defaults as DynamicFAQItem[];
       }
     }
-    if (!list) return { main: undefined, optional: undefined };
-    return {
-      main: list.filter((f: any) => !OPTIONAL_RETIREMENT_IDS.has(f.id)),
-      optional: list.filter((f: any) => OPTIONAL_RETIREMENT_IDS.has(f.id)),
-    };
+    return list;
   }, [benefitData]);
 
   // Resolve support contacts from the benefit's supportContacts (selected in wizard Step 3).
@@ -218,8 +206,7 @@ export default function RetirementPage() {
         <FAQSection
           brandColor={brandColor}
           secondaryColor={secondaryColor}
-          faqs={faqsForCategory?.main}
-          optionalFaqs={faqsForCategory?.optional}
+          faqs={faqsForCategory}
           contacts={supportContactsForFAQ}
         />
 

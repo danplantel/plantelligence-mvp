@@ -31,7 +31,6 @@ import {
   Save,
   Loader2,
   Eye,
-  Sparkles,
 } from "lucide-react";
 import { KeyContact } from "@/types/new-client-wizard";
 import { v4 as uuidv4 } from "uuid";
@@ -61,19 +60,11 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
-/** The last 3 Retirement default FAQs — these are managed in the separate
- *  "Optional retirement adds" accordion (Retirement category only) and are
- *  therefore excluded from the main FAQ list. */
-const OPTIONAL_RETIREMENT_FAQ_IDS = new Set(
-  DEFAULT_FAQS.Retirement.slice(-3).map((f) => f.id),
-);
-
 export function BenefitsStep3() {
   const { stepData, saveStepData } = useBenefitsWizardStore();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [savePending, setSavePending] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [optionalExpandedId, setOptionalExpandedId] = useState<string | null>(null);
   const step1Data = stepData.step1;
   const currentStep3Data = stepData.step3 || {
     faqs: [],
@@ -133,17 +124,25 @@ export function BenefitsStep3() {
     return useBenefitsWizardStore.getState().stepData.step3?.faqsByCategory ?? {};
   };
 
-  // Derive the correct FAQ list for the current benefit category — computed on every render.
-  // For Retirement, the last 3 default questions live in the separate "Optional
-  // retirement adds" accordion, so they are excluded from the main list here.
+  // Derive the correct FAQ list for the current benefit category — computed on
+  // every render. Retirement defaults are shown as a single combined list.
   const resolvedFaqs = ((): FAQItem[] => {
     const cat = step1Data?.benefitCategory;
     if (!cat) return [];
     const saved = readFaqsByCategory()[cat];
     let list: FAQItem[] =
       saved && saved.length > 0 ? saved : (DEFAULT_FAQS[cat] ?? []);
+    // Merge any leftover "optional retirement adds" that an earlier build of
+    // this wizard persisted separately, so no existing FAQ edits are lost now
+    // that the split accordion has been reverted.
     if (cat === "Retirement") {
-      list = list.filter((f) => !OPTIONAL_RETIREMENT_FAQ_IDS.has(f.id));
+      const leftover = (useBenefitsWizardStore.getState().stepData.step3 as any)
+        ?.optionalRetirementFaqs as FAQItem[] | undefined;
+      if (Array.isArray(leftover) && leftover.length > 0) {
+        const ids = new Set(list.map((f) => f.id));
+        const missing = leftover.filter((f) => !ids.has(f.id));
+        if (missing.length > 0) list = [...list, ...missing];
+      }
     }
     return list;
   })();
@@ -193,71 +192,6 @@ export function BenefitsStep3() {
     setExpandedId(expandedId === id ? null : id);
   };
 
-  // ── Optional retirement adds — Retirement category only ──
-  const isRetirementCategory = step1Data?.benefitCategory === "Retirement";
-
-  // Optional FAQ list — persisted in step3.optionalRetirementFaqs; falls back
-  // to the last 3 Retirement defaults (or splits them out of the combined list
-  // loaded from the database so prior edits survive on a fresh browser).
-  // An explicitly persisted (even emptied) list is respected as-is, so the
-  // Preview and Save buttons only include optional adds that actually remain.
-  const optionalRetirementFaqs = ((): FAQItem[] => {
-    if (!isRetirementCategory) return [];
-    const stored =
-      useBenefitsWizardStore.getState().stepData.step3?.optionalRetirementFaqs;
-    if (Array.isArray(stored)) return stored;
-    const combined = readFaqsByCategory()["Retirement"];
-    if (combined && combined.length > 0) {
-      const optional = combined.filter((f) =>
-        OPTIONAL_RETIREMENT_FAQ_IDS.has(f.id),
-      );
-      if (optional.length > 0) return optional;
-    }
-    return DEFAULT_FAQS.Retirement.slice(-3);
-  })();
-
-  const persistOptionalFaqs = (next: FAQItem[]) => {
-    const latestStep3 =
-      useBenefitsWizardStore.getState().stepData.step3 || {
-        faqs: [],
-        supportContacts: [],
-        currentSubStep: "a",
-      };
-    saveStepData(3, { ...latestStep3, optionalRetirementFaqs: next });
-  };
-
-  const updateOptionalFaq = (id: string, updates: Partial<FAQItem>) => {
-    persistOptionalFaqs(
-      optionalRetirementFaqs.map((faq) =>
-        faq.id === id ? { ...faq, ...updates } : faq,
-      ),
-    );
-  };
-
-  const addOptionalFaq = () => {
-    const id = uuidv4();
-    const newFaq: FAQItem = {
-      id,
-      question: "New Question?",
-      answer: "Provide an answer here.",
-      linkLabel: "Learn More",
-      linkHref: "#",
-      enabled: true,
-    };
-    persistOptionalFaqs([newFaq, ...optionalRetirementFaqs]);
-    setOptionalExpandedId(id);
-  };
-
-  const removeOptionalFaq = (id: string) => {
-    persistOptionalFaqs(
-      optionalRetirementFaqs.filter((faq) => faq.id !== id),
-    );
-  };
-
-  const toggleOptionalExpand = (id: string) => {
-    setOptionalExpandedId(optionalExpandedId === id ? null : id);
-  };
-
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -278,20 +212,6 @@ export function BenefitsStep3() {
     }
   };
 
-  const handleOptionalDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (over && active.id !== over.id) {
-      const oldIndex = optionalRetirementFaqs.findIndex(
-        (f) => f.id === active.id,
-      );
-      const newIndex = optionalRetirementFaqs.findIndex(
-        (f) => f.id === over.id,
-      );
-      const newFaqs = arrayMove(optionalRetirementFaqs, oldIndex, newIndex);
-      persistOptionalFaqs(newFaqs);
-    }
-  };
-
   // Save FAQs to the server immediately (draft persist) via the new Benefit API
   const handleSaveFaqs = async () => {
     const planId = step1Data?.planId;
@@ -308,11 +228,7 @@ export function BenefitsStep3() {
         ? "Company / Plan Sponsor"
         : benefitCategory;
 
-      // Retirement: persist the combined list (main + optional adds) so the
-      // portal shows all FAQs even though they're edited in two accordions.
-      const faqsToSave = isRetirementCategory
-        ? [...resolvedFaqs, ...optionalRetirementFaqs]
-        : resolvedFaqs;
+      const faqsToSave = resolvedFaqs;
 
       const updateRes = await fetch(
         `/api/clients/${planId}/benefits/${encodeURIComponent(category)}`,
@@ -387,21 +303,6 @@ export function BenefitsStep3() {
         linkHref: f.linkHref && f.linkHref !== "#" ? f.linkHref : undefined,
       })),
     [resolvedFaqs],
-  );
-
-  // Optional retirement adds are rendered in their own accordion in the FAQ
-  // preview (mirroring the FAQSection "Optional retirement adds" group).
-  const previewOptionalFaqs: DynamicFAQItem[] = useMemo(() =>
-    optionalRetirementFaqs
-      .filter(f => f.enabled && f.question && f.answer)
-      .map(f => ({
-        id: f.id,
-        question: f.question,
-        answer: f.answer,
-        linkLabel: f.linkLabel || undefined,
-        linkHref: f.linkHref && f.linkHref !== "#" ? f.linkHref : undefined,
-      })),
-    [optionalRetirementFaqs],
   );
 
   const previewContacts: FAQContact[] | undefined = useMemo(() => {
@@ -633,69 +534,6 @@ export function BenefitsStep3() {
           </CardContent>
         </Card>
 
-        {/* Optional Retirement Adds — Retirement category only */}
-        {isRetirementCategory && (
-          <Card className="border-none shadow-md overflow-hidden bg-card">
-            <CardHeader className="py-2 border-b bg-gray-50/50 dark:bg-gray-800 dark:border-gray-700">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-accent-blue" />
-                  <div>
-                    <CardTitle className="text-lg font-bold text-foreground">
-                      Optional retirement adds
-                    </CardTitle>
-                    <CardDescription className="text-xs text-muted-foreground">
-                      Only if you want more depth:
-                    </CardDescription>
-                  </div>
-                </div>
-                <Button
-                  onClick={addOptionalFaq}
-                  variant="outline"
-                  size="sm"
-                  className="h-8 gap-1 px-3 text-xs font-semibold"
-                >
-                  <Plus className="w-4 h-4" /> Add Question
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="p-3">
-              {optionalRetirementFaqs.length === 0 ? (
-                <div className="text-center py-6 bg-gray-50 rounded-lg border border-dashed border-gray-200 dark:bg-gray-800/50 dark:border-gray-700">
-                  <Sparkles className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-1" />
-                  <p className="text-xs text-muted-foreground">
-                    No optional questions added yet.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <DndContext
-                    sensors={sensors}
-                    collisionDetection={closestCenter}
-                    onDragEnd={handleOptionalDragEnd}
-                  >
-                    <SortableContext
-                      items={optionalRetirementFaqs.map((f) => f.id)}
-                      strategy={verticalListSortingStrategy}
-                    >
-                      {optionalRetirementFaqs.map((faq, index) => (
-                        <SortableFaqItem
-                          key={faq.id}
-                          faq={faq}
-                          index={index}
-                          expandedId={optionalExpandedId}
-                          toggleExpand={toggleOptionalExpand}
-                          updateFaq={updateOptionalFaq}
-                          removeFaq={removeOptionalFaq}
-                        />
-                      ))}
-                    </SortableContext>
-                  </DndContext>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
       </div>
 
       {/* FAQ Preview Modal */}
@@ -708,13 +546,12 @@ export function BenefitsStep3() {
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto px-1">
-            {previewFaqs.length > 0 || previewOptionalFaqs.length > 0 ? (
+            {previewFaqs.length > 0 ? (
               <div>
                 <FAQSection
                   brandColor={brandColor}
                   secondaryColor={secondaryColor}
                   faqs={previewFaqs}
-                  optionalFaqs={previewOptionalFaqs}
                   contacts={previewContacts}
                 />
               </div>
