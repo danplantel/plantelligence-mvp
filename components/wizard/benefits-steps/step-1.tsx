@@ -789,8 +789,14 @@ export function BenefitsStep1() {
                 secondaryBanner: null,
                 favicon: null,
               }),
+              // When a benefit category is already active, the per-category header
+              // (set by the pre-fill effect from the Benefit row / User profile)
+              // wins — never override it with the plan-level background, which
+              // otherwise resurfaced a stale image across all categories.
               header:
-                planBackground ?? latest.brandImages?.header ?? null,
+                latest.benefitCategory
+                  ? latest.brandImages?.header ?? null
+                  : planBackground ?? latest.brandImages?.header ?? null,
             },
           });
         } else {
@@ -1117,6 +1123,20 @@ export function BenefitsStep1() {
           status: "ok" as const,
           warnings: [],
         },
+      };
+    } else {
+      // No benefit-specific background AND no User-profile header — clear any stale
+      // header that was injected earlier (e.g. the plan-level `planBackground` from
+      // handlePlanChange / the full-plan-fetch effect, or a stale localStorage value)
+      // so an old uploaded image never resurfaces for a category without its own.
+      next.brandImages = {
+        ...(next.brandImages || {
+          header: null,
+          thumbnail: null,
+          secondaryBanner: null,
+          favicon: null,
+        }),
+        header: null,
       };
     }
 

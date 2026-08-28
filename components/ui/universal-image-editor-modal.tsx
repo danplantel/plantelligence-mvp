@@ -1681,7 +1681,9 @@ export function UniversalImageEditorModal({
     const newFileName =
       (type === "headshot"
         ? "headshot"
-        : originalFileName.replace(/\.[^/.]+$/, "")) + "_cropped" + extension;
+        : type === "logo"
+          ? "company_logo"
+          : originalFileName.replace(/\.[^/.]+$/, "")) + "_cropped" + extension;
 
     const originalImageWidth = activeObject.width || 1;
     const originalImageHeight = activeObject.height || 1;
@@ -2359,7 +2361,13 @@ export function UniversalImageEditorModal({
                     ? fileName
                       ? fileName.replace(/-cropped\.\w+$/, (m) => m.replace("-cropped", ""))
                       : "Headshot"
-                    : (fileName || `${placeholder} uploaded`).replace(/(\.\w+)$/, "-cropped$1")}
+                    : (fileName || `${placeholder} uploaded`).replace(
+                        /(\.\w+)$/,
+                        (match, ext) =>
+                          (fileName || "").endsWith(`_cropped${ext}`)
+                            ? match
+                            : `-cropped${ext}`,
+                      )}
                 </p>
 
                 <button
