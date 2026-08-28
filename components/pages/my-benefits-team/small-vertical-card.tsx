@@ -151,7 +151,7 @@ export function SmallVerticalCard({
 
   const resolvedCardCompany = contact.companyName || companyName;
   const displayCompanyText =
-    resolvedCardCompany || (showPlaceholders ? "[Company Name]" : "");
+    resolvedCardCompany || (showPlaceholders ? "[Company / Organization]" : "");
 
   const hasAvatarImage = Boolean(contact.headshot || contact.teamImage);
   const showHeadshotPlaceholder = showPlaceholders && !hasAvatarImage;
@@ -271,6 +271,15 @@ export function SmallVerticalCard({
                 className="w-auto object-contain transition-all duration-200"
                 style={{ height: "100%" }}
               />
+            )}
+            {/* Preview-only placeholder so the wizard's Portal Preview shows
+                what's expected when no contact company logo has been uploaded. */}
+            {showPlaceholders && !(contact.companyLogo || contact.logo) && (
+              <div className="w-full h-full flex items-center justify-center rounded bg-gray-50 border border-dashed border-gray-200 px-2">
+                <span className="text-[10px] text-gray-400 font-medium text-center leading-tight">
+                  [Upload Company Logo]
+                </span>
+              </div>
             )}
           </div>
 

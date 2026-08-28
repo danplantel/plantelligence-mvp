@@ -107,11 +107,6 @@ export function ContactFormFields({
                 />
               </div>
             </div>
-            {!hideHeadshotPreview && headshot && (
-              <div className="-mt-2 h-16 w-16 rounded-full border border-gray-200 overflow-hidden dark:border-gray-600">
-                <Headshot src={headshot} alt="Headshot preview" />
-              </div>
-            )}
           </div>
         </div>
       )}
