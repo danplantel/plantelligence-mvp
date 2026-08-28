@@ -180,15 +180,9 @@ function BenefitsPageInner() {
     if (currentStep === 2) {
       const step1Data = useBenefitsWizardStore.getState().stepData.step1;
 
-      // Validate Insurance fields: Plan ID and Login URL are required
-      if (
-        !step1Data?.insurancePlanId?.trim()
-      ) {
-        toast.error("Plan ID is required", {
-          description: "Please enter a Plan ID in Section 5 (Insurance Benefits Access & Materials).",
-        });
-        return;
-      }
+      // Validate Insurance fields: only the Login URL is required. The Plan /
+      // Group ID is optional — the editor panel shows it without a required
+      // marker, so it must not block moving to the next step.
       if (
         !step1Data?.insuranceLoginUrl?.trim()
       ) {
