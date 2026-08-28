@@ -341,11 +341,12 @@ function EditKeyContactsSection({
   // Contact pending deletion (awaiting confirmation dialog)
   const [deleteContact, setDeleteContact] = useState<KeyContact | null>(null);
 
-  // Count contacts per benefit category (for the grid summary)
-  const companyContactCount = contacts.filter((c) =>
+  // Company / Plan Sponsor contacts — listed in their own accordion. The primary
+  // contact populates this section whenever it's a Company / Plan Sponsor contact.
+  const companyPlanSponsorContacts = contacts.filter((c) =>
     c.benefitsCategories?.includes("Company / Plan Sponsor") ||
     c.benefitsCategory === "Company / Plan Sponsor"
-  ).length;
+  );
 
   // Determine which contacts are external
   const isExternalContact = (c: KeyContact) =>
@@ -441,41 +442,52 @@ function EditKeyContactsSection({
         )}
       </div>
 
-      {/* Compact Company / Plan Sponsor section */}
-      <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-        <div className="flex items-center gap-4">
-          {companyData.companyLogo?.url && (
-            <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 flex items-center justify-center shrink-0">
-              <BrandingImage
-                src={companyData.companyLogo.url}
-                alt="Company Logo"
-                className="w-10 h-10 object-contain"
-              />
-            </div>
-          )}
-          <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-              Company / Plan Sponsor
-            </h3>
-            <p className="text-xs text-muted-foreground">
-              {companyContactCount === 0
-                ? "Contact(s) needed"
-                : `${companyContactCount} ${companyContactCount === 1 ? "contact" : "contacts"} added`}
-            </p>
-          </div>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => onAddContactForCategory("Company / Plan Sponsor")}
-          >
-            <Plus className="w-3.5 h-3.5 mr-1" />
-            Add
-          </Button>
-        </div>
-      </div>
-
       {/* Per-category accordions */}
       <Accordion type="multiple" className="space-y-3">
+        {/* Company / Plan Sponsor accordion — lists its contacts (the primary
+            contact populates this section when it's a Company / Plan Sponsor). */}
+        <AccordionItem
+          value="company-plan-sponsor"
+          className="border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 overflow-hidden"
+        >
+          <AccordionTrigger className="px-4 py-3 hover:no-underline bg-gray-50/80 dark:bg-gray-800/80 data-[state=open]:bg-gray-50/80 dark:data-[state=open]:bg-gray-800/80">
+            <div className="flex items-center gap-2 flex-1">
+              <Building2 className="w-5 h-5 text-accent-blue" />
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                {companyPlanSponsorContacts.length}
+              </Badge>
+              <span className="text-base font-semibold">Company / Plan Sponsor</span>
+            </div>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="mr-2"
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddContactForCategory("Company / Plan Sponsor");
+              }}
+            >
+              <Plus className="w-3.5 h-3.5 mr-1" />
+              Add
+            </Button>
+          </AccordionTrigger>
+          <AccordionContent className="px-4 pt-2 pb-3">
+            {companyPlanSponsorContacts.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-4">
+                No Company / Plan Sponsor contacts assigned. Click &ldquo;Add&rdquo; to create one.
+              </p>
+            ) : (
+              companyPlanSponsorContacts.map((contact) => (
+                <ContactRow
+                  key={contact.id}
+                  contact={contact}
+                  onEdit={() => handleOpenEdit(contact)}
+                  onDelete={() => handleDeleteContact(contact)}
+                />
+              ))
+            )}
+          </AccordionContent>
+        </AccordionItem>
         {([
           { id: "Retirement" as BenefitsCategory, label: "Retirement", icon: <Building2 className="w-5 h-5 text-accent-blue" />, value: "retirement" },
           { id: "Group Health" as BenefitsCategory, label: "Group Health", icon: <Shield className="w-5 h-5 text-accent-blue" />, value: "group-health" },
