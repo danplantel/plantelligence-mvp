@@ -273,6 +273,7 @@ function BenefitsPageInner() {
           journeyHeader: step1Data?.journeyHeader,
           journeySubtitle: step1Data?.journeySubtitle,
           journeyBodyText: step1Data?.journeyBodyText,
+          helpCards: step1Data?.helpCards,
         },
         step1Data?.benefitCategory,
         { saveMode: true },
@@ -563,6 +564,42 @@ function BenefitsPageInner() {
 
       const updateResult = await updateResponse.json();
       if (!updateResult.success) throw new Error(updateResult.error || "Failed to update client");
+
+      // Persist the edited benefit (including "How Can We Help You Today?" help
+      // cards) to the Benefit row so the live Benefits Hub pages show it. The
+      // client PUT above only writes employeePortalPreview; the live Hub pages
+      // read the Benefit row first. Non-blocking — completion already succeeded.
+      const benefitCategory =
+        step1Data?.benefitCategory === "Custom"
+          ? "Company / Plan Sponsor"
+          : step1Data?.benefitCategory;
+      if (benefitCategory) {
+        await fetch(
+          `/api/clients/${planId}/benefits/${encodeURIComponent(benefitCategory)}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: step1Data?.benefitTitle || benefitCategory,
+              shortDescription: step1Data?.shortDescription || null,
+              partnerLogo: step1Data?.companyLogo?.url || null,
+              backgroundImage: step1Data?.brandImages?.header?.url || null,
+              innerHeaderImage: step1Data?.innerHeaderImage?.url || null,
+              planVideo: step1Data?.planVideo || null,
+              planVideoFileName: step1Data?.planVideoFileName || null,
+              journeyHeader: step1Data?.journeyHeader || null,
+              journeySubtitle: step1Data?.journeySubtitle || null,
+              journeyBodyText: step1Data?.journeyBodyText || null,
+              insurancePlanId: step1Data?.insurancePlanId || "",
+              insuranceLoginUrl: step1Data?.insuranceLoginUrl || "",
+              insuranceBackgroundImage: step1Data?.insuranceBackgroundImage || "",
+              insuranceContainerBlockOpacity:
+                step1Data?.insuranceContainerBlockOpacity ?? null,
+              helpCards: step1Data?.helpCards || null,
+            }),
+          },
+        ).catch(() => {});
+      }
 
       // Notify any open portal views that benefits have changed (triggers re-fetch in ClientPortalProvider)
       if (typeof window !== "undefined") {

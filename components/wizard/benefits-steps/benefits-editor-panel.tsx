@@ -11,7 +11,7 @@ import { BrandImageUpload } from "@/components/ui/brand-image-upload";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { ImageIcon, Layout, Mail, HelpCircle, CheckCircle2, Circle, Pencil, Plus, Search, ChevronsUpDown, Trash2, GripVertical, Settings, Video, Upload } from "lucide-react";
+import { ImageIcon, Layout, Mail, HelpCircle, CheckCircle2, Circle, Pencil, Search, ChevronsUpDown, Trash2, GripVertical, Settings, Video, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { SupportContact, FAQItem, BenefitsStep1Data, BenefitsStep3Data } from "@/lib/benefits-wizard-store";
@@ -53,6 +53,12 @@ export const DEFAULT_HELP_CARDS: HelpCardData[] = [
         cta: "",
     },
 ];
+
+/** Help card "paragraph" length limits — a single paragraph (not multiple) with
+ *  min/max character bounds keeps the "How Can We Help You Today?" cards a
+ *  consistent height on the portal. */
+const HELP_CARD_PARAGRAPH_MIN = 40;
+const HELP_CARD_PARAGRAPH_MAX = 220;
 
 interface BenefitsEditorPanelProps {
     isOpen: boolean;
@@ -283,29 +289,13 @@ export function BenefitsEditorPanel({
         saveStepData(1, { ...step1Data, helpCards: updated });
     };
 
-    const addParagraph = (cardId: string) => {
+    // A help card has exactly one paragraph — stored as a single-element array so
+    // HelpCardData (paragraphs: string[]) stays unchanged while the UI (and card
+    // heights on the portal) remain consistent.
+    const updateCardParagraph = (cardId: string, value: string) => {
         const updated = helpCards.map((c) =>
-            c.id === cardId ? { ...c, paragraphs: [...c.paragraphs, ""] } : c
+            c.id === cardId ? { ...c, paragraphs: [value] } : c
         );
-        saveStepData(1, { ...step1Data, helpCards: updated });
-    };
-
-    const updateParagraph = (cardId: string, idx: number, value: string) => {
-        const updated = helpCards.map((c) => {
-            if (c.id !== cardId) return c;
-            const newParagraphs = [...c.paragraphs];
-            newParagraphs[idx] = value;
-            return { ...c, paragraphs: newParagraphs };
-        });
-        saveStepData(1, { ...step1Data, helpCards: updated });
-    };
-
-    const removeParagraph = (cardId: string, idx: number) => {
-        const updated = helpCards.map((c) => {
-            if (c.id !== cardId) return c;
-            const newParagraphs = c.paragraphs.filter((_, i) => i !== idx);
-            return { ...c, paragraphs: newParagraphs };
-        });
         saveStepData(1, { ...step1Data, helpCards: updated });
     };
 
@@ -856,40 +846,27 @@ export function BenefitsEditorPanel({
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <div className="flex items-center justify-between">
-                                            <Label className="text-[11px] font-bold text-muted-foreground uppercase">
-                                                Paragraphs
-                                            </Label>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-7 text-[11px] text-blue-600"
-                                                onClick={() => addParagraph(card.id)}
-                                            >
-                                                <Plus className="w-3 h-3 mr-1" /> Add
-                                            </Button>
+                                        <Label className="text-[11px] font-bold text-muted-foreground uppercase">
+                                            Paragraph
+                                        </Label>
+                                        <Textarea
+                                            value={card.paragraphs[0] ?? ""}
+                                            onChange={(e) => updateCardParagraph(card.id, e.target.value)}
+                                            onFocus={() => focusPreviewField("helpCards")}
+                                            className="min-h-[80px] text-sm"
+                                            placeholder="Enter the card description..."
+                                            maxLength={HELP_CARD_PARAGRAPH_MAX}
+                                        />
+                                        <div className="flex flex-wrap items-center justify-between gap-1">
+                                            <span className="text-[11px] text-muted-foreground tabular-nums">
+                                                {(card.paragraphs[0] ?? "").length} / {HELP_CARD_PARAGRAPH_MAX} characters
+                                            </span>
+                                            {(card.paragraphs[0] ?? "").trim().length < HELP_CARD_PARAGRAPH_MIN && (
+                                                <span className="text-[11px] text-amber-600">
+                                                    Minimum {HELP_CARD_PARAGRAPH_MIN} characters
+                                                </span>
+                                            )}
                                         </div>
-                                        {card.paragraphs.map((p, idx) => (
-                                            <div key={idx} className="flex gap-2 items-start">
-                                                <Textarea
-                                                    value={p}
-                                                    onChange={(e) => updateParagraph(card.id, idx, e.target.value)}
-                                                    onFocus={() => focusPreviewField("helpCards")}
-                                                    className="min-h-[60px] text-sm flex-1"
-                                                    placeholder={`Paragraph ${idx + 1}`}
-                                                />
-                                                {card.paragraphs.length > 1 && (
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-8 w-8 flex-shrink-0 text-muted-foreground hover:text-destructive"
-                                                        onClick={() => removeParagraph(card.id, idx)}
-                                                    >
-                                                        <Trash2 className="w-3.5 h-3.5" />
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        ))}
                                     </div>
                                     <div className="space-y-2">
                                         <Label className="text-[11px] font-bold text-muted-foreground uppercase">

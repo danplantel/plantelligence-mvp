@@ -633,6 +633,9 @@ export function BenefitsStep1() {
           journeyHeader: currentStepData.journeyHeader || null,
           journeySubtitle: currentStepData.journeySubtitle || null,
           journeyBodyText: currentStepData.journeyBodyText || null,
+          // "How Can We Help You Today?" cards (Section 4 in the Step 2 editor).
+          // Persist so the live Benefits Hub pages show the wizard's cards.
+          helpCards: currentStepData.helpCards || null,
         };
         const payloadKey = JSON.stringify(payload);
 

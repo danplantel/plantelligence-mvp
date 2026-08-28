@@ -190,6 +190,7 @@ export default function HealthInsurancePage() {
           brandColor={brandColor}
           secondaryColor={secondaryColor}
           clientId={clientId}
+          cards={(benefitData as any)?.helpCards ?? undefined}
         />
 
         <FAQSection brandColor={brandColor} secondaryColor={secondaryColor} faqs={faqsForCategory} contacts={supportContactsForFAQ} />

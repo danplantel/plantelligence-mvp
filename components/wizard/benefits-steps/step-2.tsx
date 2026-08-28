@@ -293,6 +293,44 @@ export function BenefitsStep2() {
         || resolveCompanyLogo(step1Data?.selectedPlan)
         || undefined;
 
+    // Auto-save the "How Can We Help You Today?" cards (Section 4) to the Benefit
+    // row so the live Benefits Hub pages reflect edits even before the wizard is
+    // completed. (The Step 1 auto-save only runs while Step 1 is mounted, so Step
+    // 2 needs its own. `updateOnly=1` keeps it from creating stray Benefit rows.)
+    useEffect(() => {
+        const planId = step1Data?.planId;
+        const categoryRaw = step1Data?.benefitCategory;
+        const helpCards = step1Data?.helpCards;
+        if (
+            !planId ||
+            !categoryRaw ||
+            !Array.isArray(helpCards) ||
+            helpCards.length === 0
+        )
+            return;
+
+        const timer = setTimeout(async () => {
+            try {
+                const category =
+                    categoryRaw === "Custom"
+                        ? "Company / Plan Sponsor"
+                        : categoryRaw;
+                await fetch(
+                    `/api/clients/${planId}/benefits/${encodeURIComponent(category)}?updateOnly=1`,
+                    {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ helpCards }),
+                    },
+                );
+            } catch (error) {
+                console.error("Help cards auto-save error:", error);
+            }
+        }, 600);
+
+        return () => clearTimeout(timer);
+    }, [step1Data?.helpCards, step1Data?.planId, step1Data?.benefitCategory]);
+
     const togglePreviewMode = () => {
         setPreviewMode((prev) => (prev === "desktop" ? "mobile" : "desktop"));
     };

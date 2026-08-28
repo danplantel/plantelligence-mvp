@@ -182,5 +182,7 @@ export function mergeUserBenefitWithHubDefaults(
     ...(p.journeyHeader ? { journeyHeader: p.journeyHeader } : {}),
     ...(p.journeySubtitle ? { journeySubtitle: p.journeySubtitle } : {}),
     ...(p.journeyBodyText ? { journeyBodyText: p.journeyBodyText } : {}),
+    // Preserve "How Can We Help You Today?" cards from wizard Step 2 Section 4
+    ...(p.helpCards ? { helpCards: p.helpCards } : {}),
   };
 }

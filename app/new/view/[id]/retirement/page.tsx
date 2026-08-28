@@ -201,6 +201,7 @@ export default function RetirementPage() {
           brandColor={brandColor}
           secondaryColor={secondaryColor}
           clientId={clientId}
+          cards={(benefitData as any)?.helpCards ?? undefined}
         />
 
         <FAQSection
