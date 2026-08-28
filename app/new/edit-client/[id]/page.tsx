@@ -133,10 +133,14 @@ const formatContactPhone = (phone?: string): string => {
 // ── Compact contact row (replaces KeyContactsSection dropdown) ──
 function ContactRow({
   contact,
+  isPrimary,
+  onTogglePrimary,
   onEdit,
   onDelete,
 }: {
   contact: KeyContact;
+  isPrimary?: boolean;
+  onTogglePrimary?: () => void;
   onEdit: () => void;
   onDelete?: () => void;
 }) {
@@ -160,8 +164,19 @@ function ContactRow({
 
       {/* All contact info on one row */}
       <div className="flex-1 min-w-0 flex items-center gap-3 overflow-hidden">
-        <span className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
-          {displayName}
+        <span className="font-medium text-sm text-gray-900 dark:text-gray-100 flex items-center gap-1.5 min-w-0">
+          {isPrimary && (
+            <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500 shrink-0" />
+          )}
+          <span className="truncate">{displayName}</span>
+          {isPrimary && (
+            <Badge
+              variant="secondary"
+              className="text-[9px] px-1.5 py-0 font-semibold shrink-0 bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/40"
+            >
+              Primary
+            </Badge>
+          )}
         </span>
         {role && (
           <span className="text-xs text-muted-foreground truncate hidden md:inline">
@@ -183,6 +198,21 @@ function ContactRow({
       </div>
 
       <div className="flex items-center gap-1 shrink-0">
+        {onTogglePrimary && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className={`h-8 w-8 p-0 shrink-0 ${
+              isPrimary
+                ? "text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-500/10"
+                : "text-muted-foreground hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10"
+            }`}
+            onClick={onTogglePrimary}
+            title={isPrimary ? "Remove as primary" : "Mark as primary"}
+          >
+            <Star className={cn("w-3.5 h-3.5", isPrimary && "fill-amber-500")} />
+          </Button>
+        )}
         <Button
           size="sm"
           variant="ghost"
@@ -1072,6 +1102,70 @@ function EditKeyContactsSection({
     setDeleteContact(null);
   };
 
+  // Toggle a contact as the primary for its category(ies) — one primary per
+  // category. Clicking the star on an already-primary contact unselects it,
+  // and promoting a contact demotes any other contacts sharing a category.
+  const handleTogglePrimary = (contact: KeyContact) => {
+    const wasAlreadyPrimary = !!(contact.isPrimaryOverall || contact.isPrimary);
+    const promotedCats: BenefitsCategory[] =
+      contact.benefitsCategories ||
+      (contact.benefitsCategory ? [contact.benefitsCategory] : []);
+    const isExternal = isExternalContact(contact);
+
+    const updatedContacts = contacts.map((c) => {
+      if (c.id === contact.id) {
+        return {
+          ...c,
+          isPrimaryOverall: !wasAlreadyPrimary,
+          isPrimary: !wasAlreadyPrimary,
+          isPrimaryForCategory: !wasAlreadyPrimary,
+          isPrimaryByCategory: promotedCats.length
+            ? promotedCats.reduce((acc, cat) => {
+                acc[cat] = !wasAlreadyPrimary;
+                return acc;
+              }, {} as Record<BenefitsCategory, boolean>)
+            : c.isPrimaryByCategory,
+        };
+      }
+      const cCats: BenefitsCategory[] =
+        c.benefitsCategories ||
+        (c.benefitsCategory ? [c.benefitsCategory] : []);
+      const sharesCategory =
+        (!isExternal && promotedCats.some((cat) => cCats.includes(cat))) ||
+        (isExternal && isExternalContact(c));
+      if (sharesCategory && !wasAlreadyPrimary) {
+        const sharedCats = cCats.filter((cat) => promotedCats.includes(cat));
+        return {
+          ...c,
+          isPrimaryOverall: false,
+          isPrimary: false,
+          isPrimaryForCategory: false,
+          isPrimaryByCategory: c.isPrimaryByCategory
+            ? {
+                ...c.isPrimaryByCategory,
+                ...sharedCats.reduce((acc, cat) => {
+                  acc[cat] = false;
+                  return acc;
+                }, {} as Record<BenefitsCategory, boolean>),
+              }
+            : c.isPrimaryByCategory,
+        };
+      }
+      return c;
+    });
+
+    onContactsChange(updatedContacts);
+    const displayName =
+      contact.firstName || contact.lastName
+        ? `${contact.firstName || ""} ${contact.lastName || ""}`.trim()
+        : contact.name || "Unnamed Contact";
+    toast.success(
+      wasAlreadyPrimary
+        ? `"${displayName}" removed as primary`
+        : `"${displayName}" set as primary`
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Primary Contact — always visible (no accordion) */}
@@ -1097,6 +1191,7 @@ function EditKeyContactsSection({
         {primaryContact ? (
           <ContactRow
             contact={primaryContact}
+            isPrimary
             onEdit={() => handleOpenEdit(primaryContact)}
             onDelete={() => handleDeleteContact(primaryContact)}
           />
@@ -1146,6 +1241,8 @@ function EditKeyContactsSection({
                 <ContactRow
                   key={contact.id}
                   contact={contact}
+                  isPrimary={!!(contact.isPrimaryOverall || contact.isPrimary)}
+                  onTogglePrimary={() => handleTogglePrimary(contact)}
                   onEdit={() => handleOpenEdit(contact)}
                   onDelete={() => handleDeleteContact(contact)}
                 />
@@ -1200,6 +1297,8 @@ function EditKeyContactsSection({
                     <ContactRow
                       key={contact.id}
                       contact={contact}
+                      isPrimary={!!(contact.isPrimaryOverall || contact.isPrimary)}
+                      onTogglePrimary={() => handleTogglePrimary(contact)}
                       onEdit={() => handleOpenEdit(contact)}
                       onDelete={() => handleDeleteContact(contact)}
                     />
@@ -1270,6 +1369,8 @@ function EditKeyContactsSection({
                 <ContactRow
                   key={contact.id}
                   contact={contact}
+                  isPrimary={!!(contact.isPrimaryOverall || contact.isPrimary)}
+                  onTogglePrimary={() => handleTogglePrimary(contact)}
                   onEdit={() => handleOpenEdit(contact)}
                   onDelete={() => handleDeleteContact(contact)}
                 />
