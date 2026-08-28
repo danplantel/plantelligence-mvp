@@ -61,6 +61,14 @@ const CATEGORY_ICON: Record<string, React.ComponentType<{ className?: string }>>
   "Third Party Contact": Users,
 };
 
+/** Format a 10-digit phone as (XXX)-XXX-XXXX (e.g. 3333333333 → (333)-333-3333). */
+const formatContactPhone = (phone?: string): string => {
+  const digits = (phone || "").replace(/\D/g, "");
+  const national = digits.length > 10 ? digits.slice(1) : digits;
+  if (national.length !== 10) return phone || "";
+  return `(${national.slice(0, 3)})-${national.slice(3, 6)}-${national.slice(6, 10)}`;
+};
+
 // ==================== Component ====================
 
 export function CategoryExplorer({
@@ -532,13 +540,7 @@ export function CategoryExplorer({
               const companyName = contact.companyName || contact.organization || "";
               const email = contact.email || "";
               const phone = contact.phone || "";
-              const formattedPhone = phone
-                ? (() => {
-                    const digits = phone.replace(/\D/g, "");
-                    const national = digits.length > 10 ? digits.slice(1) : digits;
-                    return `(${national.slice(0, 3)}) ${national.slice(3, 6)}-${national.slice(6, 10)}`;
-                  })()
-                : "";
+              const formattedPhone = formatContactPhone(phone);
 
               return (
                 <div
@@ -733,13 +735,7 @@ export function CategoryExplorer({
                       const companyName = contact.companyName || contact.organization || "";
                       const email = contact.email || "";
                       const phone = contact.phone || "";
-                      const formattedPhone = phone
-                        ? (() => {
-                            const digits = phone.replace(/\D/g, "");
-                            const national = digits.length > 10 ? digits.slice(1) : digits;
-                            return `(${national.slice(0, 3)}) ${national.slice(3, 6)}-${national.slice(6, 10)}`;
-                          })()
-                        : "";
+                      const formattedPhone = formatContactPhone(phone);
 
                       return (
                         <div

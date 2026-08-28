@@ -122,6 +122,14 @@ import { DisclaimerUpdateConfirmDialog } from "@/components/pages/settings/discl
 // Helper Components
 // ============================================================================
 
+/** Format a 10-digit phone as (XXX)-XXX-XXXX (e.g. 3333333333 → (333)-333-3333). */
+const formatContactPhone = (phone?: string): string => {
+  const digits = (phone || "").replace(/\D/g, "");
+  const national = digits.length > 10 ? digits.slice(1) : digits;
+  if (national.length !== 10) return phone || "";
+  return `(${national.slice(0, 3)})-${national.slice(3, 6)}-${national.slice(6, 10)}`;
+};
+
 // ── Compact contact row (replaces KeyContactsSection dropdown) ──
 function ContactRow({
   contact,
@@ -169,7 +177,7 @@ function ContactRow({
         {contact.phone && (
           <span className="text-xs text-muted-foreground flex items-center gap-1 shrink-0">
             <Phone className="w-3 h-3 shrink-0" />
-            <span className="truncate">{contact.phone}</span>
+            <span className="truncate">{formatContactPhone(contact.phone)}</span>
           </span>
         )}
       </div>
