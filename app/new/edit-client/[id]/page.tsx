@@ -34,6 +34,7 @@ import {
   Phone,
   Star,
   Image as ImageIcon,
+  Trash2,
 } from "lucide-react";
 import {
   EditClientHeader,
@@ -117,9 +118,11 @@ import { DisclaimerUpdateConfirmDialog } from "@/components/pages/settings/discl
 function ContactRow({
   contact,
   onEdit,
+  onDelete,
 }: {
   contact: KeyContact;
   onEdit: () => void;
+  onDelete?: () => void;
 }) {
   const displayName =
     contact.firstName || contact.lastName
@@ -163,14 +166,28 @@ function ContactRow({
         )}
       </div>
 
-      <Button
-        size="sm"
-        variant="ghost"
-        className="h-8 w-8 p-0 shrink-0"
-        onClick={onEdit}
-      >
-        <Pencil className="w-3.5 h-3.5" />
-      </Button>
+      <div className="flex items-center gap-1 shrink-0">
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-8 w-8 p-0 shrink-0"
+          onClick={onEdit}
+          title="Edit contact"
+        >
+          <Pencil className="w-3.5 h-3.5" />
+        </Button>
+        {onDelete && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 w-8 p-0 shrink-0 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
+            onClick={onDelete}
+            title="Delete contact"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
@@ -321,6 +338,8 @@ function EditKeyContactsSection({
 }) {
   const [editingContact, setEditingContact] = useState<KeyContact | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  // Contact pending deletion (awaiting confirmation dialog)
+  const [deleteContact, setDeleteContact] = useState<KeyContact | null>(null);
 
   // Count contacts per benefit category (for the grid summary)
   const companyContactCount = contacts.filter((c) =>
@@ -372,6 +391,21 @@ function EditKeyContactsSection({
     );
   };
 
+  const handleDeleteContact = (contact: KeyContact) => {
+    setDeleteContact(contact);
+  };
+
+  const confirmDeleteContact = () => {
+    if (!deleteContact) return;
+    const displayName =
+      deleteContact.firstName || deleteContact.lastName
+        ? `${deleteContact.firstName || ""} ${deleteContact.lastName || ""}`.trim()
+        : deleteContact.name || "Unnamed Contact";
+    onContactsChange(contacts.filter((c) => c.id !== deleteContact.id));
+    toast.success(`"${displayName}" deleted`);
+    setDeleteContact(null);
+  };
+
   return (
     <div className="space-y-6">
       {/* Primary Contact — always visible (no accordion) */}
@@ -398,6 +432,7 @@ function EditKeyContactsSection({
           <ContactRow
             contact={primaryContact}
             onEdit={() => handleOpenEdit(primaryContact)}
+            onDelete={() => handleDeleteContact(primaryContact)}
           />
         ) : (
           <p className="text-xs text-muted-foreground text-center py-4">
@@ -489,6 +524,7 @@ function EditKeyContactsSection({
                       key={contact.id}
                       contact={contact}
                       onEdit={() => handleOpenEdit(contact)}
+                      onDelete={() => handleDeleteContact(contact)}
                     />
                   ))
                 )}
@@ -558,6 +594,7 @@ function EditKeyContactsSection({
                   key={contact.id}
                   contact={contact}
                   onEdit={() => handleOpenEdit(contact)}
+                  onDelete={() => handleDeleteContact(contact)}
                 />
               ))
             )}
@@ -571,6 +608,27 @@ function EditKeyContactsSection({
         onOpenChange={setIsEditModalOpen}
         contact={editingContact}
         onSave={handleSaveContact}
+      />
+
+      {/* Delete Contact confirmation dialog */}
+      <ConfirmDialog
+        open={!!deleteContact}
+        onOpenChange={(open) => {
+          if (!open) setDeleteContact(null);
+        }}
+        onConfirm={confirmDeleteContact}
+        title="Delete contact?"
+        description={
+          deleteContact
+            ? `Are you sure you want to delete "${
+                deleteContact.firstName || deleteContact.lastName
+                  ? `${deleteContact.firstName || ""} ${deleteContact.lastName || ""}`.trim()
+                  : deleteContact.name || "Unnamed Contact"
+              }"? This action cannot be undone.`
+            : ""
+        }
+        confirmText="Delete"
+        variant="destructive"
       />
     </div>
   );
