@@ -83,6 +83,9 @@ function FAQAccordionGroup({
             >
               <span
                 className="text-base uppercase font-red-hat font-semibold transition-colors duration-200"
+                style={{
+                  color: isOpen ? brandColor : "#ffffff",
+                }}
               >
                 {item.question}
               </span>
