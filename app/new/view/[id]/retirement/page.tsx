@@ -74,22 +74,37 @@ export default function RetirementPage() {
   const clientDataRef = useRef(clientData);
   clientDataRef.current = clientData;
 
+  // The last 3 default Retirement FAQs are managed in a separate "Optional
+  // retirement adds" accordion (wizard Step 3) — keep them out of the main list.
+  const OPTIONAL_RETIREMENT_IDS = new Set(
+    DEFAULT_FAQS["Retirement"].slice(-3).map((f) => f.id),
+  );
+
   // Extract FAQs for this category from the benefit data.
   // Falls back to Retirement-specific defaults when no custom FAQs are saved yet.
+  // Splits the combined list into the main FAQs and the "optional retirement
+  // adds" so FAQSection can render them as two separate accordions.
   const faqsForCategory = useMemo(() => {
     const faqs = benefitData?.faqs;
+    let list: DynamicFAQItem[] | undefined;
     if (faqs && Array.isArray(faqs)) {
       const enabled = faqs.filter(
         (f: any) => f.enabled !== false,
       ) as DynamicFAQItem[];
-      if (enabled.length > 0) return enabled;
+      if (enabled.length > 0) list = enabled;
     }
     // Fall back to default Retirement FAQs when no custom ones are saved
-    const defaults = DEFAULT_FAQS["Retirement"];
-    if (defaults && defaults.length > 0) {
-      return defaults as DynamicFAQItem[];
+    if (!list) {
+      const defaults = DEFAULT_FAQS["Retirement"];
+      if (defaults && defaults.length > 0) {
+        list = defaults as DynamicFAQItem[];
+      }
     }
-    return undefined;
+    if (!list) return { main: undefined, optional: undefined };
+    return {
+      main: list.filter((f: any) => !OPTIONAL_RETIREMENT_IDS.has(f.id)),
+      optional: list.filter((f: any) => OPTIONAL_RETIREMENT_IDS.has(f.id)),
+    };
   }, [benefitData]);
 
   // Resolve support contacts from the benefit's supportContacts (selected in wizard Step 3).
@@ -200,7 +215,13 @@ export default function RetirementPage() {
           clientId={clientId}
         />
 
-        <FAQSection brandColor={brandColor} secondaryColor={secondaryColor} faqs={faqsForCategory} contacts={supportContactsForFAQ} />
+        <FAQSection
+          brandColor={brandColor}
+          secondaryColor={secondaryColor}
+          faqs={faqsForCategory?.main}
+          optionalFaqs={faqsForCategory?.optional}
+          contacts={supportContactsForFAQ}
+        />
 
         <PortalMaterialsHero brandColor={brandColor} cardHeading="Retirement Plan Account Access" category="Retirement" />
 

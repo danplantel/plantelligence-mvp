@@ -26,6 +26,9 @@ interface FAQSectionProps {
   brandColor?: string;
   secondaryColor?: string;
   faqs?: DynamicFAQItem[];
+  /** Optional "retirement adds" FAQs — rendered in their own separate accordion
+   *  below the main FAQ list (e.g. the wizard Step 3 optional retirement adds). */
+  optionalFaqs?: DynamicFAQItem[];
   contacts?: FAQContact[];
 }
 
@@ -47,19 +50,109 @@ function normalizeHref(href: string): string {
   return `https://${trimmed}`;
 }
 
+/** Renders a group of accordion FAQ items with an independent open state. */
+function FAQAccordionGroup({
+  items,
+  openIndex,
+  onToggle,
+  brandColor,
+  secondaryColor,
+}: {
+  items: DynamicFAQItem[];
+  openIndex: number | null;
+  onToggle: (index: number) => void;
+  brandColor: string;
+  secondaryColor: string;
+}) {
+  return (
+    <div className="space-y-3">
+      {items.map((item, index) => {
+        const isOpen = openIndex === index;
+
+        return (
+          <div
+            key={item.id || index}
+            className="border border-gray-200 rounded-lg overflow-hidden transition-shadow duration-200 hover:shadow-sm"
+          >
+            <button
+              onClick={() => onToggle(index)}
+              className="w-full px-5 py-4 text-left flex items-center justify-between gap-4 bg-white hover:bg-gray-50/50 transition-colors duration-200"
+              style={{
+                  backgroundColor: isOpen ? secondaryColor : brandColor,
+                }}
+            >
+              <span
+                className="text-base uppercase font-red-hat font-semibold transition-colors duration-200"
+              >
+                {item.question}
+              </span>
+              <ChevronDown
+                className="h-5 w-5 flex-shrink-0 transition-all duration-300"
+                style={{
+                  color: isOpen ? brandColor : "#ffffff",
+                  transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
+                }}
+              />
+            </button>
+
+            <div
+              className="grid transition-[grid-template-rows,opacity] duration-300 ease-in-out"
+              style={{
+                gridTemplateRows: isOpen ? "1fr" : "0fr",
+              }}
+            >
+              <div className="overflow-hidden">
+                <div
+                  className="px-5 pb-4 transition-opacity duration-300"
+                  style={{
+                    opacity: isOpen ? 1 : 0,
+                  }}
+                >
+                  <p className="text-base font-red-hat leading-relaxed text-gray-600">
+                    {item.answer}
+                  </p>
+                  {item.linkLabel && item.linkHref && (
+                    <a
+                      href={normalizeHref(item.linkHref)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block mt-3 text-sm font-semibold transition-colors duration-200 hover:underline"
+                      style={{ color: secondaryColor }}
+                    >
+                      {item.linkLabel} ↗
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function FAQSection({
   brandColor = "#1F3A60",
   secondaryColor = "#6B7280",
   faqs,
+  optionalFaqs,
   contacts,
 }: FAQSectionProps) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [openOptionalIndex, setOpenOptionalIndex] = useState<number | null>(null);
 
   const items =
     faqs?.filter((faq) => faq.question && faq.answer) ?? [];
+  const optionalItems =
+    optionalFaqs?.filter((faq) => faq.question && faq.answer) ?? [];
 
   const toggleItem = (index: number) => {
     setOpenIndex((prev) => (prev === index ? null : index));
+  };
+
+  const toggleOptionalItem = (index: number) => {
+    setOpenOptionalIndex((prev) => (prev === index ? null : index));
   };
 
   return (
@@ -74,71 +167,35 @@ export function FAQSection({
           </h2>
         </div>
 
-        <div className="space-y-3">
-          {items.map((item, index) => {
-            const isOpen = openIndex === index;
+        <FAQAccordionGroup
+          items={items}
+          openIndex={openIndex}
+          onToggle={toggleItem}
+          brandColor={brandColor}
+          secondaryColor={secondaryColor}
+        />
 
-            return (
-              <div
-                key={item.id || index}
-                className="border border-gray-200 rounded-lg overflow-hidden transition-shadow duration-200 hover:shadow-sm"
+        {/* Optional retirement adds — rendered as a separate accordion below the
+            main FAQs whenever the caller supplies optional questions. */}
+        {optionalItems.length > 0 && (
+          <div className="mt-12">
+            <div className="mb-6">
+              <h3
+                className="text-2xl font-dm-serif mb-1"
+                style={{ color: brandColor }}
               >
-                <button
-                  onClick={() => toggleItem(index)}
-                  className="w-full px-5 py-4 text-left flex items-center justify-between gap-4 bg-white hover:bg-gray-50/50 transition-colors duration-200"
-                >
-                  <span
-                    className="text-base font-red-hat font-semibold transition-colors duration-200"
-                    style={{
-                      color: isOpen ? brandColor : secondaryColor,
-                    }}
-                  >
-                    {item.question}
-                  </span>
-                  <ChevronDown
-                    className="h-5 w-5 flex-shrink-0 transition-all duration-300"
-                    style={{
-                      color: isOpen ? brandColor : "#9CA3AF",
-                      transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
-                    }}
-                  />
-                </button>
-
-                <div
-                  className="grid transition-[grid-template-rows,opacity] duration-300 ease-in-out"
-                  style={{
-                    gridTemplateRows: isOpen ? "1fr" : "0fr",
-                  }}
-                >
-                  <div className="overflow-hidden">
-                    <div
-                      className="px-5 pb-4 transition-opacity duration-300"
-                      style={{
-                        opacity: isOpen ? 1 : 0,
-                      }}
-                    >
-                      <p className="text-base font-red-hat leading-relaxed text-gray-600">
-                        {item.answer}
-                      </p>
-                      {item.linkLabel && item.linkHref && (
-                        <a
-                          href={normalizeHref(item.linkHref)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-block mt-3 text-sm font-semibold transition-colors duration-200 hover:underline"
-                          style={{ color: secondaryColor }}
-                        >
-                          {item.linkLabel} ↗
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
+                Optional retirement adds (Only if you want more depth)
+              </h3>
+            </div>
+            <FAQAccordionGroup
+              items={optionalItems}
+              openIndex={openOptionalIndex}
+              onToggle={toggleOptionalItem}
+              brandColor={brandColor}
+              secondaryColor={secondaryColor}
+            />
+          </div>
+        )}
       </div>
     </section>
   );
