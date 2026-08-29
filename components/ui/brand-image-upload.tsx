@@ -9,6 +9,13 @@ import { BrandImageData } from "@/types/new-client-wizard";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { toR2BrandingKey } from "@/lib/branding-image-url";
+import {
+  isZipFile,
+  extractImagesFromZip,
+  revokeZipImagePreviews,
+  type ExtractedImage,
+} from "@/lib/zip-image-extract";
+import { ZipImagePickerModal } from "@/components/ui/zip-image-picker-modal";
 
 interface BrandImageUploadProps {
   slotKey: string;
@@ -93,6 +100,10 @@ export function BrandImageUpload({
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedDescription, setEditedDescription] = useState(slot.description);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [isZipPickerOpen, setIsZipPickerOpen] = useState(false);
+  const [pendingZipImages, setPendingZipImages] = useState<
+    ExtractedImage[] | null
+  >(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const lastModalStateRef = useRef<{
     isOpen: boolean;
@@ -123,7 +134,7 @@ export function BrandImageUpload({
     }
   }, [slot.description, isEditingDescription]);
 
-  const handleFileSelect = (file: File) => {
+  const processImageFile = (file: File) => {
     const allowedTypes = new Set([
       "image/png",
       "image/jpeg",
@@ -136,7 +147,7 @@ export function BrandImageUpload({
     if (!file.type || !allowedTypes.has(file.type)) {
       const fallbackImage = file.type?.startsWith("image/");
       if (!fallbackImage) {
-        alert(`Unsupported format. Please upload image files (PNG, JPG, JPEG, or WebP).`);
+        alert(`Unsupported file. Please upload an image (PNG, JPG, JPEG, WebP, or SVG), or a .zip folder of images.`);
         return;
       }
     }
@@ -215,6 +226,36 @@ export function BrandImageUpload({
     };
 
     reader.readAsDataURL(file);
+  };
+
+  // When a .zip is dropped/selected, extract the images in the browser and use
+  // the single image directly (or open a thumbnail picker for multiple).
+  const handleFileSelect = async (file: File) => {
+    if (isZipFile(file)) {
+      try {
+        const extracted = await extractImagesFromZip(file);
+        if (extracted.length === 1) {
+          processImageFile(extracted[0].file);
+          return;
+        }
+        setPendingZipImages(extracted);
+        setIsZipPickerOpen(true);
+        return;
+      } catch (err) {
+        alert((err as Error).message || "Could not read that .zip file.");
+        return;
+      }
+    }
+    processImageFile(file);
+  };
+
+  const handleZipImageSelected = (image: ExtractedImage) => {
+    setIsZipPickerOpen(false);
+    setPendingZipImages((prev) => {
+      if (prev) revokeZipImagePreviews(prev);
+      return null;
+    });
+    processImageFile(image.file);
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -516,7 +557,7 @@ export function BrandImageUpload({
       <input
         ref={(el) => (fileInputRef.current = el)}
         type="file"
-        accept={slot.accept}
+        accept={`${slot.accept},.zip`}
         onChange={handleFileInputChange}
         className="hidden"
       />
@@ -537,6 +578,20 @@ export function BrandImageUpload({
           hidePerfectMessage={hidePerfectMessage || isEditMode}
         />
       )}
+
+      {/* ZIP image picker — shown when a dropped .zip contains multiple images */}
+      <ZipImagePickerModal
+        open={isZipPickerOpen}
+        images={pendingZipImages ?? []}
+        onSelect={handleZipImageSelected}
+        onClose={() => {
+          setIsZipPickerOpen(false);
+          setPendingZipImages((prev) => {
+            if (prev) revokeZipImagePreviews(prev);
+            return null;
+          });
+        }}
+      />
     </div>
   );
 }

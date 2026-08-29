@@ -21,6 +21,13 @@ import { uploadFileToR2 } from "@/lib/upload-to-r2";
 import { isR2BrandingKey, toR2BrandingKey, toFabricImageLoadUrl } from "@/lib/branding-image-url";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { Headshot } from "@/components/ui/headshot";
+import {
+  isZipFile,
+  extractImagesFromZip,
+  revokeZipImagePreviews,
+  type ExtractedImage,
+} from "@/lib/zip-image-extract";
+import { ZipImagePickerModal } from "@/components/ui/zip-image-picker-modal";
 
 // Types for different use cases
 export type ImageEditorType = "headshot" | "logo" | "normalizer" | "custom";
@@ -343,6 +350,10 @@ export function UniversalImageEditorModal({
   const [previews, setPreviews] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isZipPickerOpen, setIsZipPickerOpen] = useState(false);
+  const [pendingZipImages, setPendingZipImages] = useState<
+    ExtractedImage[] | null
+  >(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -568,13 +579,7 @@ export function UniversalImageEditorModal({
     return { minScale, maxScale, scaleBase };
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Clear the input value to prevent re-triggering
-    e.target.value = "";
-
+  const processImageFile = async (file: File) => {
     setError(null);
     setIsLoading(true);
 
@@ -595,8 +600,6 @@ export function UniversalImageEditorModal({
     reader.onload = () => {
       const dataURL = reader.result as string;
 
-      // Logging: New file uploaded
-
       setImageSrc(dataURL);
       setOriginalImageSrc(dataURL);
       generateWarnings(dataURL);
@@ -605,6 +608,48 @@ export function UniversalImageEditorModal({
       setIsLoading(false);
     };
     reader.readAsDataURL(file);
+  };
+
+  // When a .zip is dropped/selected, extract the images in the browser and use
+  // the single image directly (or open a thumbnail picker for multiple).
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Clear the input value to prevent re-triggering
+    e.target.value = "";
+
+    setError(null);
+    setIsLoading(true);
+
+    if (isZipFile(file)) {
+      try {
+        const extracted = await extractImagesFromZip(file);
+        if (extracted.length === 1) {
+          await processImageFile(extracted[0].file);
+          return;
+        }
+        setPendingZipImages(extracted);
+        setIsZipPickerOpen(true);
+        setIsLoading(false);
+        return;
+      } catch (err) {
+        setError((err as Error).message || "Could not read that .zip file.");
+        setIsLoading(false);
+        return;
+      }
+    }
+
+    await processImageFile(file);
+  };
+
+  const handleZipImageSelect = async (image: ExtractedImage) => {
+    setIsZipPickerOpen(false);
+    setPendingZipImages((prev) => {
+      if (prev) revokeZipImagePreviews(prev);
+      return null;
+    });
+    await processImageFile(image.file);
   };
 
   // Generate previews based on configuration
@@ -2308,7 +2353,7 @@ export function UniversalImageEditorModal({
         type="file"
         ref={inputRef}
         hidden
-        accept={config.acceptedTypes.join(",")}
+        accept={[...config.acceptedTypes, ".zip"].join(",")}
         onChange={handleFileChange}
       />
 
@@ -2995,6 +3040,20 @@ export function UniversalImageEditorModal({
           </div>,
           document.body,
         )}
+
+        {/* ZIP image picker — shown when a dropped .zip contains multiple images */}
+        <ZipImagePickerModal
+          open={isZipPickerOpen}
+          images={pendingZipImages ?? []}
+          onSelect={handleZipImageSelect}
+          onClose={() => {
+            setIsZipPickerOpen(false);
+            setPendingZipImages((prev) => {
+              if (prev) revokeZipImagePreviews(prev);
+              return null;
+            });
+          }}
+        />
     </div>
   );
 }
