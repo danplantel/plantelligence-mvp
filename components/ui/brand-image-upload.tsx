@@ -13,9 +13,10 @@ import {
   isZipFile,
   extractImagesFromZip,
   revokeZipImagePreviews,
+  type ExtractedFile,
   type ExtractedImage,
 } from "@/lib/zip-image-extract";
-import { ZipImagePickerModal } from "@/components/ui/zip-image-picker-modal";
+import { ZipFilePickerModal } from "@/components/ui/zip-file-picker-modal";
 
 interface BrandImageUploadProps {
   slotKey: string;
@@ -249,7 +250,7 @@ export function BrandImageUpload({
     processImageFile(file);
   };
 
-  const handleZipImageSelected = (image: ExtractedImage) => {
+  const handleZipImageSelected = (image: ExtractedFile) => {
     setIsZipPickerOpen(false);
     setPendingZipImages((prev) => {
       if (prev) revokeZipImagePreviews(prev);
@@ -582,11 +583,15 @@ export function BrandImageUpload({
         />
       )}
 
-      {/* ZIP image picker — shown when a dropped .zip contains multiple images */}
-      <ZipImagePickerModal
+      {/* ZIP file picker — shown when a dropped .zip contains multiple images */}
+      <ZipFilePickerModal
         open={isZipPickerOpen}
-        images={pendingZipImages ?? []}
-        onSelect={handleZipImageSelected}
+        files={pendingZipImages ?? []}
+        multiple={false}
+        onSelect={(files) => {
+          const f = files[0];
+          if (f) handleZipImageSelected(f);
+        }}
         onClose={() => {
           setIsZipPickerOpen(false);
           setPendingZipImages((prev) => {

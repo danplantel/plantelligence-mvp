@@ -25,9 +25,10 @@ import {
   isZipFile,
   extractImagesFromZip,
   revokeZipImagePreviews,
+  type ExtractedFile,
   type ExtractedImage,
 } from "@/lib/zip-image-extract";
-import { ZipImagePickerModal } from "@/components/ui/zip-image-picker-modal";
+import { ZipFilePickerModal } from "@/components/ui/zip-file-picker-modal";
 
 // Types for different use cases
 export type ImageEditorType = "headshot" | "logo" | "normalizer" | "custom";
@@ -667,7 +668,7 @@ export function UniversalImageEditorModal({
     }
   };
 
-  const handleZipImageSelect = async (image: ExtractedImage) => {
+  const handleZipImageSelect = async (image: ExtractedFile) => {
     setIsZipPickerOpen(false);
     setPendingZipImages((prev) => {
       if (prev) revokeZipImagePreviews(prev);
@@ -3073,11 +3074,15 @@ export function UniversalImageEditorModal({
           document.body,
         )}
 
-        {/* ZIP image picker — shown when a dropped .zip contains multiple images */}
-        <ZipImagePickerModal
+        {/* ZIP file picker — shown when a dropped .zip contains multiple images */}
+        <ZipFilePickerModal
           open={isZipPickerOpen}
-          images={pendingZipImages ?? []}
-          onSelect={handleZipImageSelect}
+          files={pendingZipImages ?? []}
+          multiple={false}
+          onSelect={(files) => {
+            const f = files[0];
+            if (f) void handleZipImageSelect(f);
+          }}
           onClose={() => {
             setIsZipPickerOpen(false);
             setPendingZipImages((prev) => {

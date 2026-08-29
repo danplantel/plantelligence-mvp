@@ -42,6 +42,12 @@ import {
 import { uploadFileToR2 } from "@/lib/upload-to-r2";
 import { CheckCircle2, Loader2, AlertCircle, Circle, Sparkles } from "lucide-react";
 import { toCanonicalCategory } from "@/lib/r2";
+import {
+  isZipFile,
+  extractFilesFromZip,
+  type ExtractedFile,
+} from "@/lib/zip-image-extract";
+import { ZipFilePickerModal } from "@/components/ui/zip-file-picker-modal";
 import { suggestDocumentNamesBatch } from "@/lib/gemini-suggest-doc-name";
 import {
   computeBulkCategoryAssignmentHint,
@@ -133,6 +139,10 @@ export function DocumentsUploadSection({
   const [isReviewing, setIsReviewing] = useState(false);
   const [confirmedReview, setConfirmedReview] = useState(false);
   const [isAnalyzingNames, setIsAnalyzingNames] = useState(false);
+  const [isZipPickerOpen, setIsZipPickerOpen] = useState(false);
+  const [pendingZipFiles, setPendingZipFiles] = useState<
+    ExtractedFile[] | null
+  >(null);
   const [uploadProgress, setUploadProgress] = useState<{
     total: number;
     completed: number;
@@ -761,10 +771,10 @@ export function DocumentsUploadSection({
     }
   };
 
-  const handleFilesSelected = (files: File[]) => {
+  // Routes an already-expanded list of files through the existing upload flow
+  // (single-file analyze, category dialog, or direct batch add).
+  const processSelectedFiles = (files: File[]) => {
     if (files.length === 0) return;
-    // Prevent new file selections while an upload or review is in progress
-    if (isUploading || isReviewing || isAnalyzingNames) return;
 
     if (editingDocument) {
       processFile(files[0]);
@@ -800,6 +810,48 @@ export function DocumentsUploadSection({
     }
 
     void addDocumentsFromFiles(files);
+  };
+
+  const handleFilesSelected = async (files: File[]) => {
+    if (files.length === 0) return;
+    // Prevent new file selections while an upload or review is in progress
+    if (isUploading || isReviewing || isAnalyzingNames) return;
+
+    // If any .zip was dropped, extract its PDF/DOC/DOCX files and show a picker
+    // (with thumbnails/icons) so the user chooses which ones to import.
+    if (files.some((f) => isZipFile(f))) {
+      const extracted: ExtractedFile[] = [];
+      for (const f of files) {
+        if (isZipFile(f)) {
+          try {
+            const list = await extractFilesFromZip(f, [".pdf", ".doc", ".docx"]);
+            extracted.push(...list);
+          } catch (err) {
+            toast.error((err as Error).message || "Could not read that .zip file.");
+          }
+        } else {
+          extracted.push({
+            file: f,
+            fileName: f.name,
+            width: 0,
+            height: 0,
+            size: f.size,
+          });
+        }
+      }
+      if (extracted.length === 0) return;
+      setPendingZipFiles(extracted);
+      setIsZipPickerOpen(true);
+      return;
+    }
+
+    processSelectedFiles(files);
+  };
+
+  const handleZipFilesPicked = (chosen: ExtractedFile[]) => {
+    setIsZipPickerOpen(false);
+    setPendingZipFiles(null);
+    processSelectedFiles(chosen.map((c) => c.file));
   };
 
   const handleAddDocument = async () => {
@@ -1522,6 +1574,9 @@ export function DocumentsUploadSection({
                     </Button>
                   )}
                 </div>
+                <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-2">
+                  Tip: you can also drop a .zip folder of PDFs &mdash; we'll extract them for you.
+                </p>
               </div>
 
               <input
@@ -1529,7 +1584,7 @@ export function DocumentsUploadSection({
                 id="document-file"
                 type="file"
                 className="hidden"
-                accept={pdfOnly ? ".pdf" : ".pdf,.doc,.docx"}
+                accept={pdfOnly ? ".pdf,.zip" : ".pdf,.doc,.docx,.zip"}
                 multiple
                 onChange={handleFileSelect}
               />
@@ -1888,6 +1943,20 @@ export function DocumentsUploadSection({
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+
+      {/* ZIP file picker — shown when a dropped .zip contains documents */}
+      <ZipFilePickerModal
+        open={isZipPickerOpen}
+        files={pendingZipFiles ?? []}
+        multiple
+        title="Choose documents from the .zip"
+        description="That .zip folder contains these files. Select the ones you'd like to upload."
+        onSelect={handleZipFilesPicked}
+        onClose={() => {
+          setIsZipPickerOpen(false);
+          setPendingZipFiles(null);
+        }}
+      />
     </Card>
 );
 }
