@@ -13,7 +13,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-import { getCategoryPortalVisibility } from "@/lib/portal-category-visibility";
+import {
+  getCategoryPortalVisibility,
+  syncBenefitsWithCategoryVisibility,
+} from "@/lib/portal-category-visibility";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { toR2BrandingKey } from "@/lib/branding-image-url";
@@ -64,6 +67,15 @@ export function PortalHeader({
   benefits: benefitsFromStep5,
 }: PortalHeaderProps) {
   const visibility = getCategoryPortalVisibility(categoryPortalVisibilityRaw);
+  // A category made Visible via Portal Visibility can still have a matching
+  // benefit in employeePortalPreview.benefits carrying a stale isEnabled:false
+  // (e.g. the wizard preview reads selectedPlan.employeePortalPreview, which is
+  // not re-synced when the advisor publishes a category from Step 1). Sync the
+  // two so a Visible category's nav link always renders.
+  const syncedBenefits = syncBenefitsWithCategoryVisibility(
+    benefitsFromStep5,
+    visibility,
+  );
   const benefitsNavItems: { label: string; path: string }[] = [
     { label: "Retirement", path: "/retirement" },
     { label: "Health Insurance", path: "/health-insurance" },
@@ -72,8 +84,8 @@ export function PortalHeader({
   ].filter((item) => {
     if (visibility[BENEFITS_NAV_TO_VISIBILITY_KEY[item.label]] === false) return false;
     const benefitId = BENEFITS_NAV_TO_BENEFIT_ID[item.label];
-    if (benefitId && Array.isArray(benefitsFromStep5) && benefitsFromStep5.length > 0) {
-      const benefit = benefitsFromStep5.find((b) => (b.id || "") === benefitId);
+    if (benefitId && Array.isArray(syncedBenefits) && syncedBenefits.length > 0) {
+      const benefit = syncedBenefits.find((b) => (b.id || "") === benefitId);
       if (benefit && benefit.isEnabled === false) return false;
     }
     return true;

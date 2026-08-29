@@ -14,7 +14,11 @@ import {
 } from "@/types/new-client-wizard";
 import { getBenefitCompleteness } from "@/lib/benefit-completeness";
 import { IncompleteBenefitDialog } from "./incomplete-benefit-dialog";
-import { isCategoryVisibleInPortal } from "@/lib/portal-category-visibility";
+import {
+  getCategoryPortalVisibility,
+  isCategoryVisibleInPortal,
+  syncBenefitsWithCategoryVisibility,
+} from "@/lib/portal-category-visibility";
 import { mergeUserBenefitWithHubDefaults } from "@/lib/hub-benefit-defaults";
 import { BrandingImage } from "@/components/ui/branding-image";
 
@@ -185,9 +189,24 @@ export function PortalBenefits({
     return { ...b, ...filled };
   });
 
+  // Sync isEnabled with category visibility so a Visible category's benefit card
+  // isn't hidden by a stale isEnabled:false in employeePortalPreview.benefits
+  // (same root cause as the PortalHeader nav links). Publishing a category via
+  // Portal Visibility updates categoryPortalVisibility, but the benefits array can
+  // still carry the previous isEnabled:false until a benefit write re-syncs it.
+  const visibility = getCategoryPortalVisibility(categoryPortalVisibility);
+  const syncedBenefits = syncBenefitsWithCategoryVisibility(
+    mergedBenefits as {
+      category?: string;
+      title?: string;
+      isEnabled?: boolean;
+    }[],
+    visibility,
+  );
+
   // Determine visible benefits based on isEnabled and portal visibility
   // Incomplete benefits are shown as placeholder cards rather than being hidden
-  const displayBenefits = (mergedBenefits as Benefit[])
+  const displayBenefits = (syncedBenefits as Benefit[])
     .filter((benefit) => {
       // 0. Portal visibility: hide if category is hidden
       const category = (benefit.category || benefit.title || "") as string;
