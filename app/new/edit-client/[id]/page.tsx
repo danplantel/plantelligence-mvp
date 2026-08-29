@@ -1743,48 +1743,135 @@ function EditComplianceDocumentsSection({
     file?: File,
     category?: BenefitsCategory,
   ) => {
-    // If file is provided, convert it to base64
+    const currentDocs = retirementPlanDocumentsRef.current;
+    const targetDoc = currentDocs.find((d) => d.id === docId);
+
+    // Detect a benefit category change so we can hop the Preview tab to the new
+    // category's inner tab and confirm the move with a success toast.
+    const categoryChanged =
+      category !== undefined && category !== targetDoc?.category;
+    const validTabCategory =
+      categoryChanged &&
+      benefitCategories.includes(category as BenefitsCategory);
+
+    // Replacement file: prefer R2 (mirrors compliance-documents-upload), falling
+    // back to base64 so the preview still works when R2 isn't configured.
     let fileData: string | undefined;
     let originalFileName: string | undefined;
+    let storageKey: string | undefined;
 
     if (file) {
-      try {
-        const reader = new FileReader();
-        fileData = await new Promise<string>((resolve, reject) => {
-          reader.onload = (e) => {
-            const result = e.target?.result as string;
-            resolve(result);
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-        originalFileName = file.name;
-      } catch (error) {
-        console.error("Error reading file:", error);
-        toast.error("Failed to read file");
-        return;
+      if (clientId) {
+        try {
+          const { uploadFileToR2 } = await import("@/lib/upload-to-r2");
+          const key = await uploadFileToR2({
+            file,
+            purpose: "document",
+            clientId,
+            fileName: file.name,
+            category: category ?? targetDoc?.category ?? undefined,
+          });
+          if (key) {
+            storageKey = key;
+            fileData = "r2:stored";
+            originalFileName = file.name;
+          }
+        } catch (err) {
+          console.error("R2 upload failed, falling back to base64:", err);
+        }
+      }
+      if (!storageKey) {
+        try {
+          const reader = new FileReader();
+          fileData = await new Promise<string>((resolve, reject) => {
+            reader.onload = (e) => {
+              const result = e.target?.result as string;
+              resolve(result);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+          originalFileName = file.name;
+        } catch (error) {
+          console.error("Error reading file:", error);
+          toast.error("Failed to read file");
+          return;
+        }
       }
     }
 
     // Use ref so we always apply to the latest state (avoids stale closure when
     // saving from the Preview tab after a tab switch)
-    const currentDocs = retirementPlanDocumentsRef.current;
     const updatedDocuments = currentDocs.map((doc) =>
       doc.id === docId
         ? {
             ...doc,
             name: title,
             shortDescription: description,
-            ...(fileData && { file: fileData }),
-            ...(originalFileName && { originalFileName: originalFileName }),
+            ...(fileData !== undefined && { file: fileData }),
+            ...(originalFileName !== undefined && { originalFileName }),
+            ...(storageKey !== undefined && { storageKey }),
             ...(category !== undefined && { category: category as BenefitsCategory }),
           }
         : doc,
     );
 
+    // Persist to the server so the edit survives a page refresh. Only persisted
+    // (Mongo) documents can be PATCHed individually; temp documents (doc-*,
+    // plan-doc-*, etc.) are saved when the client is saved via Save Changes.
+    const isPersistedMongoId =
+      typeof docId === "string" &&
+      /^[0-9a-fA-F]{24}$/.test(docId) &&
+      !docId.startsWith("doc-") &&
+      !docId.startsWith("plan-doc-") &&
+      !docId.startsWith("optional-doc-") &&
+      !docId.startsWith("temp-");
+
+    if (isPersistedMongoId) {
+      try {
+        const body: Record<string, unknown> = {
+          title,
+          shortDescription: description,
+        };
+        if (category !== undefined) {
+          body.category = category;
+        }
+        if (storageKey) {
+          body.storageKey = storageKey;
+          body.fileName = originalFileName;
+        }
+        const res = await fetch(`/api/documents/${docId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          console.error("Failed to persist document edit:", err);
+          toast.error("Failed to save document to the server");
+          return;
+        }
+      } catch (err) {
+        console.error("Failed to persist document edit:", err);
+        toast.error("Failed to save document to the server");
+        return;
+      }
+    }
+
+    // Apply the edit locally + Preview-tab navigation + success toast only AFTER
+    // the server save has completed. This keeps the card (and its Save spinner)
+    // visible in its current category until the save finishes — otherwise the doc
+    // moves categories in local state while the tab is still on the old category,
+    // producing a brief empty Preview list and hiding the spinner.
     onDocumentsChange("retirementPlanDocuments", updatedDocuments);
-    toast.success("Document updated successfully");
-    refreshDocuments();
+    if (validTabCategory && category) {
+      setActiveCategory(category as BenefitsCategory);
+    }
+    toast.success(
+      validTabCategory
+        ? `Document updated & moved to ${category}`
+        : "Document updated successfully",
+    );
   };
 
   const handleDownload = async (documentId: string, fileName: string) => {

@@ -12,6 +12,7 @@ import {
   Minus,
   Plus,
   Pencil,
+  Loader2,
   GripVertical,
   Building,
   Calendar,
@@ -141,7 +142,7 @@ interface RetirementDocumentsAccordionProps {
     description: string,
     file?: File,
     category?: BenefitsCategory,
-  ) => void;
+  ) => void | Promise<void>;
   onCancelEdit?: () => void;
   // Language selection (controlled from parent)
   language?: RetirementDocumentLanguage;
@@ -653,7 +654,7 @@ function SortableCard({
     description: string,
     file?: File,
     category?: BenefitsCategory,
-  ) => void;
+  ) => void | Promise<void>;
   onCancelEdit?: () => void;
 }) {
   const {
@@ -678,6 +679,7 @@ function SortableCard({
   const [editFile, setEditFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const wasEditingRef = useRef(false);
+  const [isSaving, setIsSaving] = useState(false);
   const persistedMongoId = isPersistedMongoDocumentId(doc.id);
 
   useEffect(() => {
@@ -702,7 +704,7 @@ function SortableCard({
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (onSaveEdit) {
       if (editTitle.trim().length === 0) {
         alert("Title cannot be empty");
@@ -717,13 +719,20 @@ function SortableCard({
         return;
       }
 
-      onSaveEdit(
-        doc.id,
-        editTitle.trim(),
-        editDescription.trim(),
-        editFile || undefined,
-        editCategory,
-      );
+      setIsSaving(true);
+      try {
+        await onSaveEdit(
+          doc.id,
+          editTitle.trim(),
+          editDescription.trim(),
+          editFile || undefined,
+          editCategory,
+        );
+      } catch (err) {
+        console.error("Error saving document:", err);
+      } finally {
+        setIsSaving(false);
+      }
     }
   };
 
@@ -1045,18 +1054,24 @@ function SortableCard({
                   }}
                   onClick={handleSave}
                   disabled={
+                    isSaving ||
                     !editTitle.trim() ||
                     editTitle.length > 85 ||
                     editDescription.length > 160
                   }
                 >
-                  <Save className="h-3 w-3 flex-shrink-0" />
-                  <span className="truncate">SAVE</span>
+                  {isSaving ? (
+                    <Loader2 className="h-3 w-3 flex-shrink-0 animate-spin" />
+                  ) : (
+                    <Save className="h-3 w-3 flex-shrink-0" />
+                  )}
+                  <span className="truncate">{isSaving ? "SAVING..." : "SAVE"}</span>
                 </Button>
                 <Button
                   variant="outline"
                   className="bg-gray-200 flex-1 flex items-center justify-center gap-2 text-xs font-semibold transition-all duration-200 hover:scale-105 min-w-0 overflow-hidden"
                   onClick={handleCancel}
+                  disabled={isSaving}
                 >
                   <XCircle className="h-3 w-3 flex-shrink-0" />
                   <span className="truncate">CANCEL</span>
@@ -1111,7 +1126,7 @@ interface DocsGridProps {
     description: string,
     file?: File,
     category?: BenefitsCategory,
-  ) => void;
+  ) => void | Promise<void>;
   onCancelEdit?: () => void;
 }
 
@@ -1250,7 +1265,7 @@ export function DocsGrid({
     }
   };
 
-  const handleSaveEdit = (
+  const handleSaveEdit = async (
     docId: string,
     title: string,
     description: string,
@@ -1270,15 +1285,21 @@ export function DocsGrid({
       return;
     }
     if (onSaveEdit) {
-      // Use the file parameter if provided, otherwise get from editFiles Map
+      // Use the file parameter if provided, otherwise get from editFiles Map.
+      // Await so the card stays in edit mode (Save spinner visible) until the
+      // underlying save completes.
       const fileToSave = file || editFiles.get(docId);
-      onSaveEdit(
-        docId,
-        title.trim(),
-        description.trim(),
-        fileToSave || undefined,
-        category,
-      );
+      try {
+        await onSaveEdit(
+          docId,
+          title.trim(),
+          description.trim(),
+          fileToSave || undefined,
+          category,
+        );
+      } catch (err) {
+        console.error("Error saving document:", err);
+      }
     }
     setLocalEditingDocId(null);
     setEditFiles((prev) => {
