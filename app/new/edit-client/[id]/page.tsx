@@ -1550,6 +1550,27 @@ function EditComplianceDocumentsSection({
   const [activeCategory, setActiveCategory] =
     useState<BenefitsCategory>("Retirement");
 
+  // Ref for the preview cards container — used to replay the fade/slide animation
+  // in place when the active category changes (no remount, so DocumentPreviewTab
+  // keeps its state like the dismissed overview banner).
+  const previewCardsRef = useRef<HTMLDivElement>(null);
+  const lastAnimatedCategoryRef = useRef(activeCategory);
+
+  // Replay the fade + slide-up animation on inner category switches.
+  useEffect(() => {
+    if (activeCategory === lastAnimatedCategoryRef.current) return;
+    lastAnimatedCategoryRef.current = activeCategory;
+    const el = previewCardsRef.current;
+    if (!el) return;
+    el.animate(
+      [
+        { opacity: 0, transform: "translateY(12px)" },
+        { opacity: 1, transform: "translateY(0)" },
+      ],
+      { duration: 350, easing: "ease-out", fill: "both" },
+    );
+  }, [activeCategory]);
+
   // Preview tab: only benefit categories (no "All Docs" - hub preview shows by category)
   const benefitCategories: BenefitsCategory[] = [
     "Retirement",
@@ -2106,7 +2127,7 @@ function EditComplianceDocumentsSection({
           />
         </TabsContent>
 
-        <TabsContent value="preview" className="mt-6 pb-24">
+        <TabsContent value="preview" className="mt-6 pb-24 animate-fade-in-up">
           {/* Language Switcher */}
           {availableLanguages.length > 1 && (
             <div className="mb-6 flex flex-wrap gap-2">
@@ -2164,26 +2185,28 @@ function EditComplianceDocumentsSection({
             })}
           </div>
 
-          {retirementDocs.length === 0 ? (
-            <div className="flex items-center justify-center py-20">
-              <p className="text-gray-600 text-lg dark:text-gray-400">
-                No documents found.
-              </p>
-            </div>
-          ) : (
-            <DocumentPreviewTab
-              selectedPlan="current-plan"
-              isLoading={false}
-              documents={retirementDocs}
-              onDelete={handleDeleteClick}
-              onDownload={handleDownload}
-              onDocumentsChange={refreshDocuments}
-              showWizardNextHint={true}
-              onSaveEdit={handleSaveEdit}
-              brandColor={primaryColor}
-              accentColor={secondaryColor}
-            />
-          )}
+          <div ref={previewCardsRef}>
+            {retirementDocs.length === 0 ? (
+              <div className="flex items-center justify-center py-20">
+                <p className="text-gray-600 text-lg dark:text-gray-400">
+                  No documents found.
+                </p>
+              </div>
+            ) : (
+              <DocumentPreviewTab
+                selectedPlan="current-plan"
+                isLoading={false}
+                documents={retirementDocs}
+                onDelete={handleDeleteClick}
+                onDownload={handleDownload}
+                onDocumentsChange={refreshDocuments}
+                showWizardNextHint={true}
+                onSaveEdit={handleSaveEdit}
+                brandColor={primaryColor}
+                accentColor={secondaryColor}
+              />
+            )}
+          </div>
         </TabsContent>
       </Tabs>
 
