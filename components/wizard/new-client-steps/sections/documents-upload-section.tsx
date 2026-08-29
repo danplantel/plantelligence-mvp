@@ -1575,7 +1575,7 @@ export function DocumentsUploadSection({
                   )}
                 </div>
                 <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-2">
-                  Tip: you can also drop a .zip folder of PDFs &mdash; we'll extract them for you.
+                  Tip: you can also drop a .zip folder of PDFs &mdash; we&rsquo;ll extract them for you.
                 </p>
               </div>
 
