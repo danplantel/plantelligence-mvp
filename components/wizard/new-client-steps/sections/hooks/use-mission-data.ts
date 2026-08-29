@@ -1,16 +1,18 @@
 import { useState, useEffect, useRef } from "react";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
-import {
-  MISSION_STATEMENT_PRESETS,
-  DEFAULT_MISSION_BODY_TEMPLATE,
-} from "../../constants/welcome-statements";
+import { MISSION_STATEMENT_PRESETS } from "../../constants/welcome-statements";
 
 export function useMissionData() {
   const { stepData, saveStepDataLocally } = useNewClientWizardStore();
   // The plan/company name from Step 1 (Company Basics) is used to fill the
-  // {{COMPANY_NAME}} placeholder in the default Mission Statement body.
+  // {{COMPANY_NAME}} placeholders in the default Mission content. Both the
+  // Mission Headline and Mission Statement default to MISSION_STATEMENT_PRESETS[0].
   const companyName = stepData.companyBasics?.companyName || "";
-  const defaultMissionBody = DEFAULT_MISSION_BODY_TEMPLATE.replace(
+  const defaultMissionHeadline = MISSION_STATEMENT_PRESETS[0].headline.replace(
+    /\{\{COMPANY_NAME\}\}/g,
+    companyName || "our company",
+  );
+  const defaultMissionBody = MISSION_STATEMENT_PRESETS[0].bodyText.replace(
     /\{\{COMPANY_NAME\}\}/g,
     companyName || "our company",
   );
@@ -69,13 +71,31 @@ export function useMissionData() {
     const currentBody = stepData.companyBasics?.missionBody;
     const isDefaultTemplate =
       !!currentBody &&
-      currentBody.trim().startsWith("At ") &&
-      currentBody.includes("this employee benefits portal is one way");
+      (currentBody === defaultMissionBody ||
+        currentBody ===
+          MISSION_STATEMENT_PRESETS[0].bodyText.replace(
+            /\{\{COMPANY_NAME\}\}/g,
+            "our company",
+          ) ||
+        (currentBody.trim().startsWith("At ") &&
+          currentBody.includes("this employee benefits portal is one way")));
     if (!currentBody || currentBody.trim() === "" || isDefaultTemplate) {
       handleBodyChange(defaultMissionBody);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultMissionBody]);
+
+  // Handle default headline initialization — populate the Mission Headline with
+  // the default headline from MISSION_STATEMENT_PRESETS[0]. This runs on mount
+  // (and whenever the company name changes) but only touches the field when it
+  // is empty, so a custom headline the user typed is never overwritten.
+  useEffect(() => {
+    const currentHeadline = stepData.companyBasics?.missionHeadline;
+    if (!currentHeadline || currentHeadline.trim() === "") {
+      handleHeadlineChange(defaultMissionHeadline);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultMissionHeadline]);
 
   // No auto-syncing of default toggles based on content emptiness to avoid frustration when clearing fields
 
@@ -151,8 +171,11 @@ export function useMissionData() {
     setUseDefaultBody(checked);
     if (checked) {
       if (stepData.companyBasics) {
+        // Using the default applies MISSION_STATEMENT_PRESETS[0] for both
+        // the Mission Headline and the Mission Statement.
         saveStepDataLocally("companyBasics", {
           ...stepData.companyBasics,
+          missionHeadline: defaultMissionHeadline,
           missionBody: defaultMissionBody,
         });
       }
@@ -227,6 +250,7 @@ export function useMissionData() {
   return {
     missionHeadline: missionHeadlineLocal,
     missionBody: missionBodyLocal,
+    defaultMissionHeadline,
     defaultMissionBody,
     useDefaultBody,
     headlineCharCount,

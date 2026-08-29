@@ -2409,7 +2409,7 @@ export default function EditClientPage() {
   );
 
   const defaultBodyText =
-    WELCOME_BODY_PRESETS[0]?.bodyText ||
+    MISSION_STATEMENT_PRESETS[0]?.bodyText ||
     "When people are supported, great things happen. This hub was created to help you understand and take advantage of the opportunities available to you as a team member. From everyday resources to long-term planning tools, everything you need is right here.";
 
   const [useDefaultBody, setUseDefaultBody] = useState(

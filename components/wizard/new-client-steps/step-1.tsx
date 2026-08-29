@@ -20,9 +20,8 @@ const defaultWelcomeBody = WELCOME_BODY_PRESETS[0]?.bodyText || "";
 export function NewClientStep1() {
   const { stepData, saveStepDataLocally } = useNewClientWizardStore();
 
-  // Original mission body template
-  const originalMissionBodyTemplate =
-    "At <COMPANY_NAME>, this employee benefits portal is one way we show our commitment to supporting you—in work, in life, and beyond. It reflects our foundation of integrity, service, and care by making it easier to access the resources, tools, and information you need. As we continue to grow and evolve, this portal reinforces our promise to invest in your well-being and success every step of the way.";
+  // Default Mission content comes from MISSION_STATEMENT_PRESETS[0].
+  const originalMissionBodyTemplate = MISSION_STATEMENT_PRESETS[0].bodyText;
 
   const [companyData, setCompanyData] = useState<CompanyData>({
     companyName: "",
@@ -31,8 +30,7 @@ export function NewClientStep1() {
     logoFileName: "",
     brandColor: "#1F3A60",
     secondaryColor: "#6B7280",
-    missionHeadline:
-      "We care about people. We value teamwork. We deliver results.",
+    missionHeadline: MISSION_STATEMENT_PRESETS[0].headline,
     missionBody: originalMissionBodyTemplate,
     isColorPickerOpen: false,
     isSecondaryColorPickerOpen: false,
@@ -283,13 +281,13 @@ export function NewClientStep1() {
     setCompanyData((prev) => {
       const newData = { ...prev, [field]: value };
 
-      // If company name changes, update the mission body to replace <COMPANY_NAME>
+      // If company name changes, update the mission body to replace {{COMPANY_NAME}}
       if (field === "companyName") {
         // Only auto-replace if user hasn't manually edited the mission body
         if (!isMissionBodyEdited) {
           if (value) {
             newData.missionBody = originalMissionBodyTemplate.replace(
-              /<COMPANY_NAME>/g,
+              /\{\{COMPANY_NAME\}\}/g,
               value,
             );
           } else {
