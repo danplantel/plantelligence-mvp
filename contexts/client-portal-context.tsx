@@ -38,8 +38,19 @@ interface ClientData {
   updatedAt: string;
 }
 
+export interface ClientPortalProfile {
+  name: string;
+  designations: string[];
+  organizationName: string;
+  email: string;
+}
+
 interface ClientPortalContextType {
   clientData: ClientData | null;
+  /** The advisor's own profile (name, designations, organization name, email) —
+      fetched alongside the client so the welcome banner's signature fields all
+      render at the same time instead of populating after first paint. */
+  profile: ClientPortalProfile | null;
   loading: boolean;
   error: string | null;
   refetch: () => Promise<void>;
@@ -47,6 +58,7 @@ interface ClientPortalContextType {
 
 const ClientPortalContext = createContext<ClientPortalContextType>({
   clientData: null,
+  profile: null,
   loading: true,
   error: null,
   refetch: async () => {},
@@ -69,13 +81,13 @@ export function ClientPortalProvider({
   const clientId = params.id as string;
 
   const [clientData, setClientData] = useState<ClientData | null>(null);
+  const [profile, setProfile] = useState<ClientPortalProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchClient = useCallback(async (silent = false) => {
     if (!clientId) return;
     try {
-      if (!silent) setLoading(true);
       const url = silent
         ? `/api/clients/${clientId}?t=${Date.now()}&forPortal=1`
         : `/api/clients/${clientId}?forPortal=1`;
@@ -106,14 +118,44 @@ export function ClientPortalProvider({
     } catch (err) {
       console.error("Error fetching client:", err);
       setError("Failed to load client data");
-    } finally {
-      if (!silent) setLoading(false);
     }
   }, [clientId]);
 
+  const fetchProfile = useCallback(async () => {
+    try {
+      const response = await fetch("/api/profile", { credentials: "same-origin" });
+      if (!response.ok) return;
+      const data = await response.json();
+      setProfile({
+        name: (data as any)?.name || (data as any)?.user?.name || "",
+        designations: Array.isArray((data as any)?.designations)
+          ? (data as any).designations
+          : ((data as any)?.user?.designations || []),
+        organizationName:
+          (data as any)?.organizationName || (data as any)?.user?.organizationName || "",
+        email: (data as any)?.email || (data as any)?.user?.email || "",
+      });
+    } catch {
+      // non-blocking — profile stays null and the banner falls back gracefully
+    }
+  }, []);
+
+  // Initial load — fetch the client and the advisor profile together, and only
+  // replace the skeleton once BOTH resolve so the welcome banner's signature
+  // fields (name, designations, company) all render at the same time.
   useEffect(() => {
-    fetchClient(false);
-  }, [fetchClient]);
+    if (!clientId) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      await Promise.allSettled([fetchClient(false), fetchProfile()]);
+      if (!cancelled) setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [clientId, fetchClient, fetchProfile]);
 
   const refetch = useCallback(() => fetchClient(true), [fetchClient]);
 
@@ -210,7 +252,7 @@ export function ClientPortalProvider({
   }
 
   return (
-    <ClientPortalContext.Provider value={{ clientData, loading, error, refetch }}>
+    <ClientPortalContext.Provider value={{ clientData, profile, loading, error, refetch }}>
       {children}
     </ClientPortalContext.Provider>
   );

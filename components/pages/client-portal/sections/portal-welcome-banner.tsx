@@ -55,6 +55,18 @@ interface PortalWelcomeBannerProps {
   customSignatureCompany?: string;
   /** User's professional designations (e.g. CFP, AIF) shown after the signature name. */
   customDesignations?: string[];
+  /**
+   * Advisor profile (name, designations, organization name, email). When provided
+   * (e.g. fetched alongside the client data by the parent), the signature fields
+   * render immediately instead of the banner fetching /api/profile itself (which
+   * would resolve after first paint and pop the designations/company in late).
+   */
+  profile?: {
+    name?: string;
+    designations?: string[];
+    organizationName?: string;
+    email?: string;
+  } | null;
   customImage?: string; // Override right-side Benefits Logo
   customImageAlt?: string;
   /** Inner Header Image — full-height image for the right column of the hero section */
@@ -90,6 +102,7 @@ export function PortalWelcomeBanner({
   customSignature,
   customSignatureCompany,
   customDesignations,
+  profile,
   customImage,
   customImageAlt,
   customInnerHeaderImage,
@@ -115,6 +128,9 @@ export function PortalWelcomeBanner({
   const [autoOrganizationName, setAutoOrganizationName] = useState<string>("");
   const [autoEmail, setAutoEmail] = useState<string>("");
   useEffect(() => {
+    // The parent supplies profile data (fetched alongside the client) — skip the
+    // extra /api/profile request so the signature fields don't populate late.
+    if (profile !== undefined) return;
     let cancelled = false;
     fetch("/api/profile", { credentials: "same-origin" })
       .then((r) => r.json())
@@ -137,10 +153,14 @@ export function PortalWelcomeBanner({
       })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, []);
+  }, [profile]);
 
   const effectiveDesignations =
-    customDesignations !== undefined ? customDesignations : autoDesignations;
+    customDesignations !== undefined
+      ? customDesignations
+      : (profile?.designations ?? autoDesignations);
+  const effectiveOrganizationName = profile?.organizationName ?? autoOrganizationName;
+  const effectiveEmail = profile?.email ?? autoEmail;
 
   // Look up per-category benefit data from employeePortalPreview (saved by Step 1)
   const categoryBenefit = useMemo(() => {
@@ -204,9 +224,9 @@ export function PortalWelcomeBanner({
   // Compare by email — the key contact linked to the advisor account will
   // have the same email as the profile.
   const isPrimaryContactLoggedInUser = !!(
-    autoEmail &&
+    effectiveEmail &&
     primaryContact &&
-    ((primaryContact as any).email?.toLowerCase() === autoEmail.toLowerCase())
+    ((primaryContact as any).email?.toLowerCase() === effectiveEmail.toLowerCase())
   );
 
   const companyName = clientData?.companyName?.trim() || "Waypoint";
@@ -241,9 +261,9 @@ export function PortalWelcomeBanner({
     // mode) or the primary contact matches the logged-in user's email,
     // use the user's organization name from their profile.
     (customSignature || isPrimaryContactLoggedInUser
-      ? autoOrganizationName
+      ? effectiveOrganizationName
       : primaryContact?.companyName) ||
-    autoOrganizationName ||
+    effectiveOrganizationName ||
     "Company Name";
 
   // Inner Header Image (right column, full height):

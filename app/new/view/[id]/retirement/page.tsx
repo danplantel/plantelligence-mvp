@@ -36,7 +36,7 @@ const RETIREMENT_FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1454496522488-7a8e488e8606?w=800&q=80";
 
 export default function RetirementPage() {
-  const { clientData } = useClientPortal();
+  const { clientData, profile } = useClientPortal();
   const params = useParams();
   const clientId = params.id as string;
   const [retirementDocs, setRetirementDocs] = useState<
@@ -181,6 +181,7 @@ export default function RetirementPage() {
       <main className="w-full">
         <PortalWelcomeBanner
           clientData={clientData}
+          profile={profile}
           brandColor={brandColor}
           secondaryColor={secondaryColor}
           customHeadline={benefitData?.title}

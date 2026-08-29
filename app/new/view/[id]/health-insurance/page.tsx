@@ -35,7 +35,7 @@ const HEALTH_INSURANCE_FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800&q=80";
 
 export default function HealthInsurancePage() {
-  const { clientData } = useClientPortal();
+  const { clientData, profile } = useClientPortal();
   const params = useParams();
   const clientId = params.id as string;
   const [healthDocs, setHealthDocs] = useState<RetirementDocumentItem[]>([]);
@@ -171,6 +171,7 @@ export default function HealthInsurancePage() {
       <main className="w-full">
         <PortalWelcomeBanner
           clientData={clientData}
+          profile={profile}
           brandColor={brandColor}
           customHeadline={benefitData?.title}
           customDescription={benefitData?.shortDescription ?? undefined}

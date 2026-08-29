@@ -35,7 +35,7 @@ const LIFE_INSURANCE_FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1511895426328-dc8714191300?w=800&q=80";
 
 export default function LifeInsurancePage() {
-  const { clientData } = useClientPortal();
+  const { clientData, profile } = useClientPortal();
   const params = useParams();
   const clientId = params.id as string;
   const [lifeDocs, setLifeDocs] = useState<RetirementDocumentItem[]>([]);
@@ -171,6 +171,7 @@ export default function LifeInsurancePage() {
       <main className="w-full">
         <PortalWelcomeBanner
           clientData={clientData}
+          profile={profile}
           brandColor={brandColor}
           secondaryColor={secondaryColor}
           customHeadline={benefitData?.title}

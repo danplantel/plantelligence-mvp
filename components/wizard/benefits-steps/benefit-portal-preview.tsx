@@ -49,6 +49,8 @@ export function BenefitPortalPreview({ mobile, brandColor: brandColorOverride, s
     const [userName, setUserName] = useState<string | null>(null);
     const [userDesignations, setUserDesignations] = useState<string[]>([]);
     const [userPrimaryCategories, setUserPrimaryCategories] = useState<string[]>([]);
+    const [userOrganizationName, setUserOrganizationName] = useState<string>("");
+    const [userEmail, setUserEmail] = useState<string>("");
     useEffect(() => {
         let cancelled = false;
         fetch("/api/profile", { credentials: "same-origin" })
@@ -65,6 +67,12 @@ export function BenefitPortalPreview({ mobile, brandColor: brandColorOverride, s
                     Array.isArray((data as any)?.primaryServiceCategories)
                         ? (data as any).primaryServiceCategories
                         : [],
+                );
+                setUserOrganizationName(
+                    (data as any)?.organizationName || (data as any)?.user?.organizationName || "",
+                );
+                setUserEmail(
+                    (data as any)?.email || (data as any)?.user?.email || "",
                 );
             })
             .catch(() => {});
@@ -412,6 +420,12 @@ export function BenefitPortalPreview({ mobile, brandColor: brandColorOverride, s
                                 || DEFAULT_WELCOME_BG,
                             secondaryBannerImg: step1Data?.brandImages?.header?.url,
                         } as any}
+                        profile={{
+                            name: userName ?? undefined,
+                            designations: userDesignations,
+                            organizationName: userOrganizationName,
+                            email: userEmail,
+                        }}
                         customDesignations={isCategoryPrimary ? userDesignations : []}
                         customClosing={step1Data?.signatureMode === "custom" ? (step1Data.customClosing || "Custom closing message") : undefined}
                         customSignature={

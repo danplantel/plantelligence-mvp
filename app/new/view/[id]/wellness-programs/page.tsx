@@ -35,7 +35,7 @@ const WELLNESS_FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=1600&q=80";
 
 export default function WellnessProgramsPage() {
-  const { clientData } = useClientPortal();
+  const { clientData, profile } = useClientPortal();
   const params = useParams();
   const clientId = params.id as string;
   const [wellnessDocs, setWellnessDocs] = useState<RetirementDocumentItem[]>([]);
@@ -171,6 +171,7 @@ export default function WellnessProgramsPage() {
       <main className="w-full">
         <PortalWelcomeBanner
           clientData={clientData}
+          profile={profile}
           brandColor={brandColor}
           secondaryColor={secondaryColor}
           customHeadline={benefitData?.title}
