@@ -228,9 +228,10 @@ export function PortalWelcomeBanner({
   const signatureName =
     customSignature ||
     (primaryContact
-      ? `${primaryContact.fullName || primaryContact.name || "Ty G. Rogers"}${primaryContact.title ? ` ${primaryContact.title}` : ""
-      }`
-      : "Ty G. Rogers Managing Partner");
+      ? [primaryContact.fullName || primaryContact.name, primaryContact.title]
+          .filter((part) => !!part && part.trim() !== "")
+          .join(" · ")
+      : "");
 
   // If the key contact is the logged-in user, use their organization name
   // from the profile. Otherwise, use the contact's own company name.
@@ -491,8 +492,12 @@ export function PortalWelcomeBanner({
               {/* Closing & Signature */}
               <div className="pt-5">
                 <p className={`text-lg font-red-hat ${customClosingBold ? "font-bold" : "font-normal"} ${customClosingItalic ? "italic" : ""}`}>{closing}</p>
+
+                {/* Horizontal Line */}
+                <div className="border-t border[#999] mt-2 opacity-20"></div>
+              
                 <div className="mt-2 space-y-1">
-                  <p className={`text-base font-red-hat font-normal ${
+                  <p className={`text-base font-red-hat font-bold ${
                     effectiveContainerInverted ? "text-gray-900" : "text-white"
                   } ${customSignatureNameBold ? "font-bold" : ""} ${customSignatureNameItalic ? "italic" : ""}`}>
                     {signatureName}
