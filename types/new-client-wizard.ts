@@ -274,6 +274,8 @@ export interface Benefit {
   description: string;
   partnerLogo?: string;
   image?: string;
+  /** Right column image displayed full-height in the hub hero section (Inner Header Image). */
+  innerHeaderImage?: string | null;
   buttonText?: string;
   href?: string;
   category?: BenefitsCategory;

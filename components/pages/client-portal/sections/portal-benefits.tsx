@@ -20,6 +20,7 @@ import {
   syncBenefitsWithCategoryVisibility,
 } from "@/lib/portal-category-visibility";
 import { mergeUserBenefitWithHubDefaults } from "@/lib/hub-benefit-defaults";
+import { getCategoryDefaultInnerImageUrl } from "@/lib/portal-category-hero-background";
 import { BrandingImage } from "@/components/ui/branding-image";
 
 interface PortalBenefitsProps {
@@ -293,6 +294,16 @@ export function PortalBenefits({
               ? getBenefitCompleteness(category, completenessInput)
               : { isComplete: true, missingInfo: [] };
 
+            // The top image of each Benefit Card is the Benefit Hub's Inner
+            // Header Image — the same image shown in the right column of that
+            // hub's welcome banner: custom per-category image first, then the
+            // per-category default placeholder image, then the legacy card image.
+            const cardImage =
+              benefit.innerHeaderImage ||
+              getCategoryDefaultInnerImageUrl(category) ||
+              benefit.image ||
+              "";
+
             const fadeUp = {
               hidden: { opacity: 0, y: 200 },
               visible: { opacity: 1, y: 0 },
@@ -362,9 +373,9 @@ export function PortalBenefits({
                       }
                     }}
                   >
-                    {/* Image Section - Top */}
+                    {/* Image Section - Top (Benefit Hub Inner Header Image) */}
                     <img
-                      src={benefit.image || ""}
+                      src={cardImage}
                       alt={benefit.title}
                       className="w-full h-[180px] sm:h-[200px] shrink-0 object-cover block rounded-t-xl relative bottom-4"
                     />

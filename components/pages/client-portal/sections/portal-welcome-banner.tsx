@@ -8,19 +8,10 @@ import { isR2BrandingKey, toNextImageSrc } from "@/lib/branding-image-url";
 import {
   DEFAULT_WELCOME_BG,
   CATEGORY_DEFAULT_BGS,
+  CATEGORY_DEFAULT_INNER_IMAGES,
   getPortalWelcomeBackgroundUrl,
 } from "@/lib/portal-category-hero-background";
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
-
-/** Per-category default Inner Header Images (right column of the welcome banner),
- *  used when no custom Inner Header Image is set. */
-const CATEGORY_DEFAULT_INNER_IMAGES: Record<string, string> = {
-  Retirement: "/benefits-hub-default-inner-images/retirement_image.jpg",
-  "Group Health": "/benefits-hub-default-inner-images/health_image.jpg",
-  "Group Life": "/benefits-hub-default-inner-images/life_image.jpg",
-  "Company / Plan Sponsor": "/benefits-hub-default-inner-images/wellness_image.jpg",
-  Custom: "/benefits-hub-default-inner-images/wellness_image.jpg",
-};
 
 interface PortalWelcomeBannerProps {
   /** Click handler for the benefit portal title (headline). Opens the editor. */

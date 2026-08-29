@@ -16,6 +16,31 @@ export const CATEGORY_DEFAULT_BGS: Record<string, string> = {
   "Company / Plan Sponsor": "/benefit-hub-default-bg/benefits-hub-default-bg-04.jpg",
 };
 
+/**
+ * Per-category default Inner Header Images (right column of the hub welcome banner),
+ * used when no custom Inner Header Image is set. Shared between the hub welcome
+ * banner (portal-welcome-banner) and the benefit cards (portal-benefits) so both
+ * show the same per-hub image.
+ */
+export const CATEGORY_DEFAULT_INNER_IMAGES: Record<string, string> = {
+  Retirement: "/benefits-hub-default-inner-images/retirement_image.jpg",
+  "Group Health": "/benefits-hub-default-inner-images/health_image.jpg",
+  "Group Life": "/benefits-hub-default-inner-images/life_image.jpg",
+  "Company / Plan Sponsor": "/benefits-hub-default-inner-images/wellness_image.jpg",
+  Custom: "/benefits-hub-default-inner-images/wellness_image.jpg",
+};
+
+/** Resolve the default Inner Header Image for a benefit category (safe fallback to Retirement). */
+export function getCategoryDefaultInnerImageUrl(
+  category: string | null | undefined,
+): string {
+  const c = (category || "").trim();
+  return (
+    CATEGORY_DEFAULT_INNER_IMAGES[c] ||
+    CATEGORY_DEFAULT_INNER_IMAGES["Retirement"]
+  );
+}
+
 function onboardingBgFromClient(clientData: {
   employeePortalPreview?: any;
 } | null): string {
