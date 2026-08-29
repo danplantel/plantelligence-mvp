@@ -472,7 +472,7 @@ function DefaultLayout({
       {/* ---------- PRIMARY CONTACT BLOCK ---------- */}
       {showPrimary && primaryContact && (
         <PrimaryContactCard
-          contact={primaryContact}
+          contact={{ ...primaryContact, cardBackgroundColor: "#ffffffea" }}
           brandColor={brandColor}
           secondaryColor={secondaryColor}
           appointmentLink={appointmentLink}
