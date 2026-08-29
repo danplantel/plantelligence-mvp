@@ -41,7 +41,10 @@ export default async function middleware(req: NextRequest) {
   // The subdomain→advisor lookup is delegated to /api/resolve-subdomain
   // (Node.js runtime) because Prisma cannot run in Edge middleware.
   if (subdomain) {
-    if (pathname.startsWith("/new/view/")) {
+    if (
+      pathname.startsWith("/new/view/") ||
+      pathname.startsWith("/api/r2/object")
+    ) {
       try {
         const resolveUrl = new URL("/api/resolve-subdomain", req.url);
         resolveUrl.searchParams.set("subdomain", subdomain);
@@ -89,6 +92,13 @@ export default async function middleware(req: NextRequest) {
   });
 
   if (!token) {
+    // /api/r2/object handles its own auth (session or verified-subdomain
+    // x-advisor-id). Don't redirect image requests to sign-in — the route
+    // returns 401 JSON instead, keeping the public portal's images working
+    // when the subdomain middleware has set x-advisor-id.
+    if (pathname.startsWith("/api/r2/object")) {
+      return response;
+    }
     const signInUrl = new URL("/signin", req.url);
     signInUrl.searchParams.set("callbackUrl", req.url);
     return NextResponse.redirect(signInUrl);
@@ -121,5 +131,6 @@ export const config = {
     "/dashboard/:path*",
     "/new/:path*",
     "/onboarding/:path*",
+    "/api/r2/object",
   ],
 };

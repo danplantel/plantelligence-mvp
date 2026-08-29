@@ -12,8 +12,15 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(request: NextRequest) {
   try {
+    // Public subdomain portals have no session, so the middleware sets
+    // x-advisor-id for verified subdomains (same trust model as
+    // GET /api/clients?forPortal=1). Without this, R2-keyed portal images
+    // (e.g. a Settings background pre-populated into the benefits wizard and
+    // rendered by the welcome banner) 401 on the employee portal.
+    const portalAdvisorId = request.headers.get("x-advisor-id") || undefined;
     const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    const ownerId = portalAdvisorId || session?.user?.id || null;
+    if (!ownerId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -33,7 +40,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const expectedPrefix = `org/${session.user.id}/`;
+    const expectedPrefix = `org/${ownerId}/`;
     if (!key.startsWith(expectedPrefix)) {
       return NextResponse.json(
         { error: "Access denied to this object" },
@@ -46,7 +53,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Object not found" }, { status: 404 });
     }
 
-    return new Response(result.body, {
+    return new Response(result.body as unknown as BodyInit, {
       status: 200,
       headers: {
         "Content-Type": result.contentType,

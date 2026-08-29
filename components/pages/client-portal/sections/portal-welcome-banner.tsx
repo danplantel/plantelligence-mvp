@@ -4,7 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { BrandingImage } from "@/components/ui/branding-image";
-import { isR2BrandingKey, toNextImageSrc } from "@/lib/branding-image-url";
+import {
+  getBrandingSignedUrl,
+  isR2BrandingKey,
+  toNextImageSrc,
+  toR2BrandingKey,
+} from "@/lib/branding-image-url";
 import {
   DEFAULT_WELCOME_BG,
   CATEGORY_DEFAULT_BGS,
@@ -247,10 +252,14 @@ export function PortalWelcomeBanner({
   const categoryDefaultInnerImage =
     CATEGORY_DEFAULT_INNER_IMAGES[category || ""] ||
     CATEGORY_DEFAULT_INNER_IMAGES["Retirement"];
-  const innerHeaderImageUrl =
+  // Resolve R2 keys (org/...) to a loadable URL so a stored key (e.g. the inner
+  // header image) never renders as a broken relative URL.
+  const innerHeaderImageUrl = toNextImageSrc(
     customInnerHeaderImage ||
-    categoryBenefit?.innerHeaderImage ||
-    categoryDefaultInnerImage;
+      categoryBenefit?.innerHeaderImage ||
+      categoryDefaultInnerImage,
+    categoryDefaultInnerImage,
+  );
 
   // Background image: prioritize the wizard Editor Panel upload (Step 2) over
   // the API's backgroundImg. Falls back to DEFAULT_WELCOME_BG when no custom
@@ -317,10 +326,34 @@ export function PortalWelcomeBanner({
   const persistedImage = catBenefit?.image;
   const wizardImage = wizardStep1Data?.brandImages?.header?.url;
   const wizardMatch = wizardStep1Data?.benefitCategory && category && wizardStep1Data.benefitCategory === category ? wizardImage : undefined;
-  // Resolve R2 keys (org/...) to the same-origin proxy so a header background
-  // pre-populated from the User profile in Step 1 displays correctly.
+  const backgroundRawForBanner = persistedImage || wizardMatch || "";
+
+  // The Settings background (and a step-1 pre-populated header) is stored as an
+  // R2 key. The same-origin /api/r2/object proxy requires a session, so on the
+  // advisor's logged-in preview we resolve the key to a presigned URL client-side
+  // — this is why a step-1 data-URL upload renders but a Settings R2 key didn't.
+  const [resolvedBackgroundUrl, setResolvedBackgroundUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const raw = backgroundRawForBanner;
+    if (!raw || !isR2BrandingKey(raw)) {
+      setResolvedBackgroundUrl(null);
+      return;
+    }
+    const key = toR2BrandingKey(raw);
+    if (!key) return;
+    getBrandingSignedUrl(key)
+      .then((url) => {
+        if (!cancelled) setResolvedBackgroundUrl(url);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [backgroundRawForBanner]);
+
   const backgroundSrc = toNextImageSrc(
-    persistedImage || wizardMatch || categoryDefaultBg,
+    resolvedBackgroundUrl || backgroundRawForBanner || categoryDefaultBg,
     categoryDefaultBg,
   );
 

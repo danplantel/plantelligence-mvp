@@ -14,7 +14,10 @@ import {
   filterContactsByPortalVisibility,
 } from "@/lib/portal-category-visibility";
 import { resolvePersistedDocumentCategory } from "@/lib/document-category";
-import { normalizeClientBrandingKeysForResponse } from "@/lib/branding-image-url";
+import {
+  normalizeClientBrandingKeysForResponse,
+  toR2BrandingKey,
+} from "@/lib/branding-image-url";
 import { getPresignedReadUrl, isR2Configured } from "@/lib/r2";
 
 /**
@@ -217,36 +220,73 @@ export async function GET(
       clientId,
     );
 
-    // Generate presigned URLs for plan videos so portal viewers (employees)
-    // can play them. Portal pages cannot call the authenticated Benefit API
-    // directly, so we must sign R2 keys here using the dual-written
-    // employeePortalPreview.benefits data.
+    // Generate presigned URLs for R2-backed portal media (plan videos + branding
+    // images) so public portal viewers (subdomain, no session) can load them.
+    // Portal pages cannot use the authenticated /api/r2/object proxy or the
+    // logged-in Benefit API directly, so we sign R2 keys here using the
+    // dual-written employeePortalPreview.benefits data. This also fixes the
+    // welcome-banner background when an advisor uploads a new background in
+    // Settings (stored as an R2 key) — without signing it would 401 on the
+    // public portal.
     if (forPortal && isR2Configured()) {
-      const extractKey = (v: string): string | null => {
-        if (!v || v.startsWith("http")) return null;
+      const signR2Value = async (value: unknown): Promise<string | null> => {
+        if (value == null || value === "") return null;
+        const s = String(value).trim();
+        if (s.startsWith("data:") || /^https?:\/\//i.test(s)) return null;
+        const key = toR2BrandingKey(s);
+        if (!key) return null;
         try {
-          const u = new URL(v, "http://localhost");
-          const k = u.searchParams.get("key");
-          if (k) return k;
-        } catch { /* not a URL, treat as raw key */ }
-        return v;
+          // 24h so a long-lived portal session doesn't hit an expired URL.
+          return await getPresignedReadUrl({
+            key,
+            expiresInSeconds: 24 * 60 * 60,
+          });
+        } catch {
+          return null;
+        }
       };
+
+      const BENEFIT_SIGN_FIELDS = [
+        "planVideo",
+        "image",
+        "backgroundImage",
+        "innerHeaderImage",
+        "partnerLogo",
+      ] as const;
 
       const ep = (dataPayload as any).employeePortalPreview;
       if (ep?.benefits && Array.isArray(ep.benefits)) {
         const benefitsWithUrls = await Promise.all(
           ep.benefits.map(async (b: any) => {
-            const rawKey = b.planVideo ? extractKey(String(b.planVideo)) : null;
-            if (rawKey) {
-              try {
-                const url = await getPresignedReadUrl({ key: rawKey });
-                if (url) return { ...b, planVideo: url };
-              } catch { /* keep original if signing fails */ }
+            let next = b;
+            for (const field of BENEFIT_SIGN_FIELDS) {
+              const raw = b?.[field];
+              if (raw == null || raw === "") continue;
+              const url = await signR2Value(raw);
+              if (url) next = { ...next, [field]: url };
             }
-            return b;
-          })
+            return next;
+          }),
         );
-        (dataPayload as any).employeePortalPreview = { ...ep, benefits: benefitsWithUrls };
+        (dataPayload as any).employeePortalPreview = {
+          ...ep,
+          benefits: benefitsWithUrls,
+        };
+      }
+
+      // Client-level branding fields (logo, hero backgrounds, thumbnail…).
+      const CLIENT_SIGN_FIELDS = [
+        "companyLogo",
+        "backgroundImg",
+        "secondaryBannerImg",
+        "thumbnailImg",
+        "faviconImg",
+      ] as const;
+      for (const field of CLIENT_SIGN_FIELDS) {
+        const raw = (dataPayload as any)?.[field];
+        if (raw == null || raw === "") continue;
+        const url = await signR2Value(raw);
+        if (url) (dataPayload as any)[field] = url;
       }
     }
 

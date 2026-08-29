@@ -177,7 +177,19 @@ export function BrandImageUpload({
           if (base64String.length > 200000) { // Compress if > 200KB
             try {
               const { compressImage } = await import("@/lib/image-compression");
-              const compressedUrl = await compressImage(base64String, { maxWidth: 1600, maxHeight: 1600, quality: 0.8 });
+              // For full-bleed slots (hero header background, inner header image,
+              // etc.) never downscale below the slot's recommended size and use a
+              // higher JPEG quality — the old flat 1600px cap + q0.8 left large
+              // heroes pixelated/grainy when stretched to fill the banner.
+              const isFullBleed = recWidth >= 1600 || recHeight >= 1080;
+              const cap = isFullBleed
+                ? Math.max(2560, recWidth, recHeight)
+                : Math.max(1600, recWidth, recHeight);
+              const compressedUrl = await compressImage(base64String, {
+                maxWidth: cap,
+                maxHeight: cap,
+                quality: isFullBleed ? 0.92 : 0.8,
+              });
               brandImageData.url = compressedUrl;
             } catch (err) {
               console.warn("Image compression failed, using original", err);

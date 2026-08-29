@@ -680,6 +680,16 @@ export function BrandImagesSection({
               ? 600
               : 500
           }
+          // Full-bleed slots (hero header background, secondary banner) must
+          // export at high resolution. The editing canvas is small (~580px
+          // guideline), so without exportScale the saved crop is ~580px and
+          // looks grainy when stretched across a full-screen banner.
+          exportScale={
+            pendingImageData.slotKey === "header" ||
+            pendingImageData.slotKey === "secondaryBanner"
+              ? 3.5
+              : 1
+          }
           guidelineWidth={
             pendingImageData.slotKey === "thumbnail"
               ? 400
