@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { toR2BrandingKey } from "@/lib/branding-image-url";
+import type { BrandImagesData } from "@/types/new-client-wizard";
 
 /**
  * Module-level cache for preview DataURLs keyed by R2 object key.
@@ -30,6 +31,35 @@ function getCachedPreviewDataUrl(value: string | null | undefined): string | und
   const r2Key = toR2BrandingKey(value);
   return r2Key ? previewDataUrlCache.get(r2Key) : undefined;
 }
+
+// Upload the (cropped) background data URL to R2 and return the storage key —
+// mirrors the Settings Branding flow so the onboarding step-3 background uses the
+// same high-resolution pipeline (BrandImagesSection / BrandImageUpload) as the
+// benefits wizard step-1 and Settings.
+async function uploadBackgroundToR2(
+  dataUrl: string,
+  fileName: string,
+): Promise<string | null> {
+  try {
+    const { uploadFileToR2 } = await import("@/lib/upload-to-r2");
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    const mime = dataUrl.startsWith("data:image/png")
+      ? "image/png"
+      : "image/jpeg";
+    const name = fileName || "background.jpg";
+    const file = new File([blob], name, { type: mime });
+    return await uploadFileToR2({
+      file,
+      purpose: "upload",
+      subPath: "advisor/background",
+      fileName: name,
+    });
+  } catch (error) {
+    console.error("Failed to upload background image to R2:", error);
+    return null;
+  }
+}
 import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
@@ -37,7 +67,7 @@ import { brandingSchema } from "@/lib/wizard-validation";
 import { BrandingSetupCard } from "../sections/branding-setup-card/branding-setup-card";
 import { AvatarGeneratorCard } from "../sections/avatar-generator-card/avatar-generator-card";
 import { BrandColorsSection } from "@/components/wizard/new-client-steps/sections/brand-colors-section";
-import { BackgroundImageField } from "@/components/wizard/steps/sections/background-image-field/background-image-field";
+import { BrandImagesSection } from "@/components/wizard/new-client-steps/sections/brand-images-section";
 import { deleteFromR2 } from "@/lib/upload-to-r2";
 import {
    createDataSetters,
@@ -411,6 +441,34 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
     await saveStepDataToServer("branding", brandingData);
   };
 
+  // Background upload via the shared BrandImagesSection — the exact same
+  // high-resolution pipeline used by Settings Branding and benefits step-1
+  // (BrandImageUpload + SimpleImageEditorModal with exportScale). Uploads the
+  // cropped data URL to R2, then persists the R2 key.
+  const handleBrandImagesChange = async (brandImages: BrandImagesData) => {
+    const header = brandImages.header;
+    if (!header) {
+      // Removed — clear the background and drop the R2 object.
+      if (backgroundImage) {
+        await deleteFromR2(backgroundImage).catch(() => {});
+      }
+      await handleBackgroundFieldChange("", "", "");
+      return;
+    }
+
+    let storedUrl = header.url;
+    if (header.url.startsWith("data:")) {
+      const r2Key = await uploadBackgroundToR2(header.url, header.fileName);
+      if (r2Key) storedUrl = r2Key;
+    }
+
+    // Use the modal's data-URL preview for immediate display + caching.
+    const previewSrc =
+      header.previewUrl ||
+      (header.url.startsWith("data:") ? header.url : backgroundPreviewDataUrl);
+    await handleBackgroundFieldChange(storedUrl, header.fileName, previewSrc);
+  };
+
   return (
     <FormProvider {...methods}>
       <div className="space-y-4">
@@ -695,22 +753,30 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
         </div>
 
         <div className="w-full">
-          <BackgroundImageField
-            asCard
-            value={backgroundImage}
-            fileName={backgroundFileName}
-            previewDataUrl={backgroundPreviewDataUrl}
-            onChange={(value, fileName, previewSrc) => {
-              const nextPreview = previewSrc || backgroundPreviewDataUrl;
-              handleBackgroundFieldChange(value, fileName, nextPreview);
+          {/* Shared BrandImagesSection — the exact same Background Image upload
+              used by Settings Branding and the benefits wizard step-1 (high-res
+              export via SimpleImageEditorModal + BrandImageUpload compression). */}
+          <BrandImagesSection
+            brandImages={{
+              header: backgroundImage
+                ? {
+                    url: backgroundImage,
+                    fileName: backgroundFileName,
+                    fileSize: 0,
+                    width: 0,
+                    height: 0,
+                    recommendedSize: "1920×1080 px",
+                    status: "ok",
+                    warnings: [],
+                  }
+                : null,
+              thumbnail: null,
+              secondaryBanner: null,
+              favicon: null,
             }}
-            onRemove={async () => {
-              if (backgroundImage) {
-                await deleteFromR2(backgroundImage);
-              }
-              await handleBackgroundFieldChange("", "", "");
-            }}
-            destructive={errorFields.includes("backgroundImage")}
+            onBrandImagesChange={handleBrandImagesChange}
+            visibleSlots={["header"]}
+            errorFields={errorFields}
           />
         </div>
 
