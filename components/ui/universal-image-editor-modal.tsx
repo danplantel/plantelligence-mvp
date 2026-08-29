@@ -354,6 +354,7 @@ export function UniversalImageEditorModal({
   const [pendingZipImages, setPendingZipImages] = useState<
     ExtractedImage[] | null
   >(null);
+  const [isDragOver, setIsDragOver] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -610,15 +611,10 @@ export function UniversalImageEditorModal({
     reader.readAsDataURL(file);
   };
 
-  // When a .zip is dropped/selected, extract the images in the browser and use
-  // the single image directly (or open a thumbnail picker for multiple).
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Clear the input value to prevent re-triggering
-    e.target.value = "";
-
+  // Shared entry point for the file picker AND drag-and-drop. Handles .zip
+  // extraction (auto-pick single, thumbnail picker for multiple) and routes the
+  // resulting image through the existing validation → crop → save flow.
+  const handleFile = async (file: File) => {
     setError(null);
     setIsLoading(true);
 
@@ -641,6 +637,34 @@ export function UniversalImageEditorModal({
     }
 
     await processImageFile(file);
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Clear the input value to prevent re-triggering
+    e.target.value = "";
+    await handleFile(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      void handleFile(file);
+    }
   };
 
   const handleZipImageSelect = async (image: ExtractedImage) => {
@@ -2357,14 +2381,19 @@ export function UniversalImageEditorModal({
         onChange={handleFileChange}
       />
 
-      {/* BrandImageUpload-style trigger */}
+      {/* BrandImageUpload-style trigger — click to browse OR drag & drop */}
       <div
         onClick={() => !value && inputRef.current?.click()}
-        className={`border-2 border-dashed rounded-lg p-4 text-center transition-all duration-300 cursor-pointer ${destructive
-          ? "border-red-500"
-          : value
-            ? "border-accent-blue bg-[#23919C]/5"
-            : "border-gray-300 hover:border-gray-400"
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        className={`border-2 border-dashed rounded-lg p-4 text-center transition-all duration-300 cursor-pointer ${isDragOver
+          ? "border-accent-blue bg-accent-blue/10"
+          : destructive
+            ? "border-red-500"
+            : value
+              ? "border-accent-blue bg-[#23919C]/5"
+              : "border-gray-300 hover:border-gray-400"
           }`}
       >
         {value ? (
@@ -2449,6 +2478,9 @@ export function UniversalImageEditorModal({
               <p className="text-sm text-gray-600">No file selected</p>
               <p className="text-xs text-gray-500">
                 Recommended: {(config as any).recommendedDisplaySize?.width ?? config.previewSizes.rectangular?.width ?? 300}×{(config as any).recommendedDisplaySize?.height ?? config.previewSizes.rectangular?.height ?? 250} • Accepted: {config.acceptedTypes.join(", ").toUpperCase().replace("JPG", "JPG")} • Max 15 MB
+              </p>
+              <p className="text-xs text-accent-blue mt-1">
+                Drag & drop an image (or a .zip) here, or choose a file below
               </p>
             </div>
             <button

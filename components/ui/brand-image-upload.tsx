@@ -526,6 +526,9 @@ export function BrandImageUpload({
                 Max
                 {maxFileSize} MB
               </p>
+              <p className="text-xs text-accent-blue mt-1">
+                Drag & drop an image (or a .zip) here, or choose a file below
+              </p>
             </div>
             <Button
               type="button"
