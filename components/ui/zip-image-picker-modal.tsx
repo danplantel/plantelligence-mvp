@@ -56,9 +56,16 @@ export function ZipImagePickerModal({
                   className="max-h-full max-w-full object-contain"
                 />
               </div>
-              <span className="text-xs text-neutral-600 dark:text-gray-300 truncate text-center">
-                {img.fileName}
-              </span>
+              <div className="text-center">
+                <span className="block text-xs text-neutral-600 dark:text-gray-300 truncate">
+                  {img.fileName}
+                </span>
+                {img.width > 0 && img.height > 0 && (
+                  <span className="block text-[10px] text-neutral-400 dark:text-gray-500">
+                    {img.width} × {img.height} px
+                  </span>
+                )}
+              </div>
             </button>
           ))}
         </div>

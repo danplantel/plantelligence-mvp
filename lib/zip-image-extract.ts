@@ -4,6 +4,9 @@ export interface ExtractedImage {
   file: File;
   fileName: string;
   previewUrl: string;
+  /** Natural pixel dimensions of the image (0 when it can't be decoded). */
+  width: number;
+  height: number;
 }
 
 const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp", ".svg"]);
@@ -37,6 +40,22 @@ function mimeForExtension(ext: string): string {
   if (ext === ".webp") return "image/webp";
   if (ext === ".png") return "image/png";
   return "image/jpeg";
+}
+
+/** Loads the natural dimensions of an image (0,0 if it can't be decoded). */
+function getImageDimensions(
+  previewUrl: string,
+): Promise<{ width: number; height: number }> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () =>
+      resolve({
+        width: img.naturalWidth || 0,
+        height: img.naturalHeight || 0,
+      });
+    img.onerror = () => resolve({ width: 0, height: 0 });
+    img.src = previewUrl;
+  });
 }
 
 /**
@@ -78,21 +97,26 @@ export async function extractImagesFromZip(
     );
   }
 
-  const images: ExtractedImage[] = [];
-  for (const name of names) {
-    const data = entries[name];
-    const base = name.replace(/\\/g, "/").split("/").pop() || "image";
-    const ext = getExtension(base);
-    const mime = mimeForExtension(ext);
-    const fileObj = new File([new Blob([data], { type: mime })], base, {
-      type: mime,
-    });
-    images.push({
-      file: fileObj,
-      fileName: base,
-      previewUrl: URL.createObjectURL(fileObj),
-    });
-  }
+  const images: ExtractedImage[] = await Promise.all(
+    names.map(async (name) => {
+      const data = entries[name];
+      const base = name.replace(/\\/g, "/").split("/").pop() || "image";
+      const ext = getExtension(base);
+      const mime = mimeForExtension(ext);
+      const fileObj = new File([new Blob([data], { type: mime })], base, {
+        type: mime,
+      });
+      const previewUrl = URL.createObjectURL(fileObj);
+      const dims = await getImageDimensions(previewUrl);
+      return {
+        file: fileObj,
+        fileName: base,
+        previewUrl,
+        width: dims.width,
+        height: dims.height,
+      } as ExtractedImage;
+    }),
+  );
 
   if (images.length === 0) {
     throw new Error(
