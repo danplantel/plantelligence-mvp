@@ -550,14 +550,18 @@ export default function SettingsPage() {
         subdomain: data.subdomain || "",
       };
 
-      const ok = await saveStepDataToServer("branding", brandingPayload);
-      if (!ok) throw new Error("Failed to save branding");
-
+      // Persist branding fields (logo, colors, background) to the User record
+      // FIRST — User.backgroundImage is what the benefits wizard step-1
+      // pre-populates the Background Header Image from. This must not be blocked
+      // by the wizard-session save below, which can reject (e.g. validateBranding
+      // requires `subdomain`) and previously aborted the whole save — leaving the
+      // background un-saved and un-pre-populated.
+      //
+      // When the user deletes the background, data.backgroundImage is "" — it MUST
+      // be sent as an empty string so Prisma clears User.backgroundImage. Sending
+      // `undefined` would cause JSON.stringify to drop the key, leaving the stale
+      // R2 key in the DB (which then re-pre-populates the benefits header).
       try {
-        // When the user deletes the background, data.backgroundImage is "" — it MUST
-        // be sent as an empty string so Prisma clears User.backgroundImage. Sending
-        // `undefined` would cause JSON.stringify to drop the key, leaving the stale
-        // R2 key in the DB (which then re-pre-populates the benefits header).
         const updateResponse = await fetch("/api/profile/update-profile", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -569,18 +573,29 @@ export default function SettingsPage() {
             primaryColor: data.primaryColor || undefined,
             secondaryColor: data.secondaryColor || undefined,
             subdomain: data.subdomain || undefined,
-            // Persist the background to the User record too, so the benefits wizard can
-            // pre-populate the Background Header Image from User.backgroundImage.
-            // Empty string (not undefined) so a removal actually clears the column.
             backgroundImage: data.backgroundImage || "",
           }),
         });
 
         if (!updateResponse.ok) {
-          console.warn("Failed to update user profile with branding fields");
+          console.warn(
+            "Failed to update user profile with branding fields",
+            updateResponse.status,
+          );
         }
       } catch (profileError) {
         console.error("Error updating user profile:", profileError);
+      }
+
+      // Best-effort wizard-session save (logo, colors, subdomain, etc.). A
+      // validation failure here must not prevent the User-record save above.
+      try {
+        const ok = await saveStepDataToServer("branding", brandingPayload);
+        if (!ok) {
+          console.warn("Failed to save branding to wizard session");
+        }
+      } catch (brandingError) {
+        console.error("Error saving branding to wizard session:", brandingError);
       }
 
       // When the branding background is removed, also clear the wizard userSetup
