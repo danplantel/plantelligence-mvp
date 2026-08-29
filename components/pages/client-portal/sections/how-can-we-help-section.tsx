@@ -23,6 +23,9 @@ interface HowCanWeHelpSectionProps {
   onCardEdit?: (cardId: string) => void;
 }
 
+// Fallback cards shown before the advisor has created any "How Can We Help You
+// Today?" cards. CTAs are intentionally empty so no CTA button renders until the
+// advisor actually configures one — matching DEFAULT_HELP_CARDS in the editor.
 const HELP_CARDS: HelpCardData[] = [
   {
     id: "access-account",
@@ -31,7 +34,7 @@ const HELP_CARDS: HelpCardData[] = [
       "View your balances, plan documents, and investment details all in one place.",
       "Take charge of your retirement plan and stay on top of your progress anytime.",
     ],
-    cta: "ACCESS ACCOUNT →",
+    cta: "",
   },
   {
     id: "financial-planning",
@@ -40,8 +43,7 @@ const HELP_CARDS: HelpCardData[] = [
       "Exclusive Benefits for [Company Name] Plan Participants",
       "Elevate your financial journey with personalized planning through [Advisor Name]—a comprehensive service seamlessly integrated with your retirement benefits.",
     ],
-    cta: "START PLANNING →",
-    href: "/financial-planning",
+    cta: "",
   },
   {
     id: "rollovers",
@@ -50,8 +52,7 @@ const HELP_CARDS: HelpCardData[] = [
     paragraphs: [
       "Understand your options for managing the savings you've built. The decision you make now can have a lasting impact on your retirement lifestyle.",
     ],
-    cta: "LEARN MORE →",
-    href: "/rollovers-distributions",
+    cta: "",
   },
 ];
 
