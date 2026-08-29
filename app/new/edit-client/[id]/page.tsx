@@ -89,10 +89,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { PRIMARY_SERVICE_CATEGORY_OPTIONS } from "@/lib/service-categories";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import {
-  WELCOME_BODY_PRESETS,
-  MISSION_STATEMENT_PRESETS,
-} from "@/components/wizard/new-client-steps/constants/welcome-statements";
+import { MISSION_STATEMENT_PRESETS } from "@/components/wizard/new-client-steps/constants/welcome-statements";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import type {
   CompanyBasicsData,
@@ -2400,7 +2397,7 @@ export default function EditClientPage() {
   const missionBody = (companyData as any).missionBody || "";
 
   const defaultWelcomeMessage =
-    WELCOME_BODY_PRESETS[0]?.bodyText ||
+    MISSION_STATEMENT_PRESETS[0]?.bodyText ||
     "This website was created as your central source for exploring and taking advantage of your company benefits. Our goal is to make it easy for you to stay informed, engaged, and confident in the resources available to you.\n\nWhether you're just getting started or continuing your journey, this site is here to help you make the most of everything our company has to offer.";
 
   const [useDefaultWelcomeMessage, setUseDefaultWelcomeMessage] = useState(

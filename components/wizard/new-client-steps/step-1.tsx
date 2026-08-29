@@ -4,10 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import { CompanyInformationSection, KeyContactsSection } from "./sections";
 import { WelcomeMissionSection } from "./sections/welcome-mission-section";
-import {
-  WELCOME_BODY_PRESETS,
-  MISSION_STATEMENT_PRESETS,
-} from "./constants/welcome-statements";
+import { MISSION_STATEMENT_PRESETS } from "./constants/welcome-statements";
 import {
   CompanyData,
   KeyContact,
@@ -15,7 +12,7 @@ import {
 } from "@/types/new-client-wizard";
 
 type CompanyBasicsSubStep = "branding" | "welcomeMission";
-const defaultWelcomeBody = WELCOME_BODY_PRESETS[0]?.bodyText || "";
+const defaultWelcomeBody = MISSION_STATEMENT_PRESETS[0]?.bodyText || "";
 
 export function NewClientStep1() {
   const { stepData, saveStepDataLocally } = useNewClientWizardStore();
@@ -239,8 +236,8 @@ export function NewClientStep1() {
 
   useEffect(() => {
     if (trackerInitializedRef.current) return;
-    const allIndexes = WELCOME_BODY_PRESETS.map((_, index) => index);
-    const initialMatchIndex = WELCOME_BODY_PRESETS.findIndex(
+    const allIndexes = MISSION_STATEMENT_PRESETS.map((_, index) => index);
+    const initialMatchIndex = MISSION_STATEMENT_PRESETS.findIndex(
       (statement) => statement.bodyText === (welcomeData.bodyText || ""),
     );
 
@@ -380,7 +377,7 @@ export function NewClientStep1() {
   };
 
   const applyPredefinedStatement = (index: number) => {
-    const statement = WELCOME_BODY_PRESETS[index];
+    const statement = MISSION_STATEMENT_PRESETS[index];
     if (!statement) return;
     updateWelcomeField("bodyText", statement.bodyText);
     updateWelcomeField("isAIGenerated", true);

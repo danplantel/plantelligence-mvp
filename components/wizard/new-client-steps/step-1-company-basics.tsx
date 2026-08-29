@@ -22,10 +22,7 @@ import {
   WelcomeStatementData,
 } from "@/types/new-client-wizard";
 import { WelcomeMissionSection } from "./sections/welcome-mission-section";
-import {
-  WELCOME_BODY_PRESETS,
-  MISSION_STATEMENT_PRESETS,
-} from "./constants/welcome-statements";
+import { MISSION_STATEMENT_PRESETS } from "./constants/welcome-statements";
 
 type CompanyBasicsSubStep = "branding" | "welcomeMission";
 
@@ -35,7 +32,7 @@ const defaultBrandImages: BrandImagesData = {
   secondaryBanner: null,
   favicon: null,
 };
-const defaultWelcomeBody = WELCOME_BODY_PRESETS[0]?.bodyText || "";
+const defaultWelcomeBody = MISSION_STATEMENT_PRESETS[0]?.bodyText || "";
 
 const normalizeCompanyBasicsData = (
   data?: Partial<CompanyBasicsData>,
@@ -387,8 +384,8 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
 
   useEffect(() => {
     if (trackerInitializedRef.current) return;
-    const allIndexes = WELCOME_BODY_PRESETS.map((_, index) => index);
-    const initialMatchIndex = WELCOME_BODY_PRESETS.findIndex(
+    const allIndexes = MISSION_STATEMENT_PRESETS.map((_, index) => index);
+    const initialMatchIndex = MISSION_STATEMENT_PRESETS.findIndex(
       (statement) => statement.bodyText === (welcomeData.bodyText || ""),
     );
 
@@ -485,7 +482,7 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
   };
 
   const applyPredefinedStatement = (index: number) => {
-    const statement = WELCOME_BODY_PRESETS[index];
+    const statement = MISSION_STATEMENT_PRESETS[index];
     if (!statement) return;
     updateWelcomeField("bodyText", statement.bodyText);
     updateWelcomeField("isAIGenerated", true);

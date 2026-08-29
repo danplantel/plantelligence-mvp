@@ -75,10 +75,16 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
 
   return (
     <div className="fixed top-0 left-0 right-0 z-50 bg-background border-b border-border">
-      {/* When the Editing Panel is open, center the Stepper to the FULL header
-          (ignoring the sidebar offset) so it stays centered and visible. */}
+      {/* When the Editing Panel is open, align the Stepper to the start of the
+          visible header (immediately to the right of the fixed overlay editor,
+          which covers the sidebar area). Keeping it shrink-wrapped and left of
+          the action buttons prevents it from overlapping the Light/Dark toggle
+          or UserNav, at any browser zoom level. */}
       {editorOpen && stepper && (
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center">
+        <div
+          className="absolute top-1/2 -translate-y-1/2 flex items-center"
+          style={{ left: "calc(var(--sidebar-width, 18rem) + 2.5rem)" }}
+        >
           {stepper}
         </div>
       )}
