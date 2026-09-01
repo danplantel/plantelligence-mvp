@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
+// Reads request.url (query params) on every request — must stay dynamic.
+export const dynamic = "force-dynamic";
+
 // ── GET /api/marketing/assets/public?clientId=xxx[&type=xxx] ──
 // Public endpoint — no auth required. Returns Published assets (portal-notice, pop-up, news-post).
 

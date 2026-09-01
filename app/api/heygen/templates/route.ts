@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import axios from "axios";
 import { HEYGEN_API_KEY } from "@/constants/app";
 
+// This route calls the external HeyGen API on every request, so it must never
+// be statically evaluated at build time (which would also log the API error).
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/heygen/templates
  * Returns list of available HeyGen templates
