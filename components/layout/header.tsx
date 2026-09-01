@@ -8,6 +8,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useTheme } from "next-themes";
 import { Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { UserNav } from "./user-nav";
 
 interface HeaderProps {
   /** Optional stepper component to render centered in the header */
@@ -129,6 +130,7 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
         <div className="flex items-center justify-end gap-2 flex-[1] min-w-0">
           {/* Notifications UI — hidden for now; will be re-added later. */}
           {/* <DocumentExpirationNotifications /> */}
+          <UserNav />
           {mounted && (
             <Button
               variant="ghost"
