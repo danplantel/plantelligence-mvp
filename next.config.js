@@ -1,4 +1,21 @@
 /** @type {import('next').NextConfig} */
+
+// ── Build / incremental builds ──────────────────────────────────────────────
+// package.json's "build" script clears .next before every build:
+//   node -e "require('fs').rmSync('.next',{recursive:true,force:true})" && next build
+// This avoids a Next.js 14 incremental-build bug where, after deleting or
+// renaming source files, the trace collector fails with:
+//   Error: ENOENT ... .next/server/pages/_error.js.nft.json
+//
+// To KEEP / START INCREMENTAL (faster) builds instead:
+//   1. Change package.json "build" back to just:   "next build"
+//   2. Subsequent builds will reuse .next and be faster.
+//   3. If you hit the _error.js.nft.json ENOENT error again, delete .next once
+//      (e.g. `rm -rf .next` on macOS/Linux, `rd /s /q .next` on Windows) and rebuild.
+//
+// NOTE: don't "work around" that error by removing experimental.outputFileTracingIncludes
+// below — it is required to include ./chromium-bin/** in the output trace so the
+// Chromium binaries ship to Vercel for /api/extract-site-colors.
 const nextConfig = {
   // chroma-js is a pure ESM package that needs to be transpiled by Next.js
   // for the production build to correctly handle its default export.
