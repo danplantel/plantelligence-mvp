@@ -79,7 +79,7 @@
 - `duplicate-plan-name-dialog.tsx` — `new-client-wizard`
 
 ### `ui/` — core primitives (all kept)
-Everything not listed under DEAD/ORPHAN below. Notably: `button`, `card`, `input`, `label`, `badge`, `select`, `dropdown-menu`, `popover`, `calendar`, `checkbox`, `skeleton`, `accordion`, `dialog`, `alert-dialog`, `alert`, `tabs`, `switch`, `radio-group`, `tooltip`, `scroll-area`, `textarea`, `sheet`, `separator`, `toaster`, `toast`, `sonner`, `use-toast`, `form`, `confirm-dialog`, `confirmation-dialog`, `navigate-away-warning-dialog`, `resume-or-new-plan-dialog`, `address-search`, `branding-image`, `headshot`, `monogram-avatar`, `universal-image-editor-modal`, `simple-image-editor-modal`, `modalGallery`, `color-picker`, `brand-image-upload`, `upload-input`, `drag-drop-upload`, `multi-file-upload`, `zip-file-picker-modal`, `info-block`, `info-dialog`, `form-error`, `loading-button`, `loading-overlay`, `progress`, `multi-select-dropdown`, `primary-service-categories-select`, `keyContactsModal`, `dashboard-nav`, `dashboard-panels`, `marketing-panel`, `meetings-panel`, `meeting-item`, `insights-panel`, `quick-actions`, `reset-onboarding-button`, `document-preview-modal`.
+Everything not listed under DEAD/ORPHAN below. Notably: `button`, `card`, `input`, `label`, `badge`, `select`, `dropdown-menu`, `popover`, `calendar`, `checkbox`, `skeleton`, `accordion`, `dialog`, `alert-dialog`, `alert`, `tabs`, `switch`, `radio-group`, `tooltip`, `scroll-area`, `textarea`, `sheet`, `separator`, `toaster`, `toast`, `sonner`, `use-toast`, `form`, `confirm-dialog`, `confirmation-dialog`, `navigate-away-warning-dialog`, `resume-or-new-plan-dialog`, `address-search`, `branding-image`, `headshot`, `monogram-avatar`, `universal-image-editor-modal`, `simple-image-editor-modal`, `modalGallery`, `color-picker`, `brand-image-upload`, `upload-input`, `drag-drop-upload`, `multi-file-upload`, `zip-file-picker-modal`, `info-block`, `info-dialog`, `form-error`, `loading-button`, `loading-overlay`, `progress`, `multi-select-dropdown`, `primary-service-categories-select`, `keyContactsModal`, `dashboard-nav`, `dashboard-panels`, `resources-panel`, `marketing-panel`, `meetings-panel`, `meeting-item`, `insights-panel`, `quick-actions`, `reset-onboarding-button`, `document-preview-modal`.
 
 ---
 
@@ -134,7 +134,9 @@ Everything not listed under DEAD/ORPHAN below. Notably: `button`, `card`, `input
 - `universal-wizard.tsx`, `draft-selection-modal.tsx`, `validated-wizard-step.tsx`, `video-steps/template-editor.tsx`
 
 ### `ui/`
-- `dashboard-nav-simple.tsx`, `progress-steps.tsx`, `save-preview-modal.tsx`, `universal-image-editor-examples.tsx`, `simple-drag-drop-upload.tsx`, `resources-panel.tsx`
+- `dashboard-nav-simple.tsx`, `progress-steps.tsx`, `save-preview-modal.tsx`, `universal-image-editor-examples.tsx`, `simple-drag-drop-upload.tsx`
+
+> ⚠️ **Correction (2026-09-01):** `resources-panel.tsx` was initially listed as an orphan here, but it is **kept** — `ui/dashboard-panels.tsx` (KEEP, used by `/new/dashboard`) renders `<ResourcesPanel />` via a relative import. Do not delete it.
 
 ---
 
