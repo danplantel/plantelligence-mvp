@@ -26,7 +26,7 @@ import {
   resolveDefaultDisclosuresText,
   ensurePlanTelligenceTrademark,
 } from "@/lib/disclaimer-constants";
-import { Footer } from "@/components/footer";
+import { Footer } from "@/components/layout/footer";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Eye,

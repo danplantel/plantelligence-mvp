@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import { BannerPreviewSection } from "../sections/banner-preview-section";
-import { Footer } from "@/components/footer";
+import { Footer } from "@/components/layout/footer";
 import { useModalStates } from "../sections/hooks/use-modal-states";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import type {

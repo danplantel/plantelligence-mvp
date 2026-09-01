@@ -17,7 +17,7 @@ import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import Link from "next/link";
-import GoogleSignInButton from "../google-auth-button";
+import GoogleSignInButton from "./google-auth-button";
 import { useFormWithLoading } from "@/hooks/useFormWithLoading";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { Eye, EyeOff } from "lucide-react";

@@ -3,7 +3,7 @@
 import { useParams, usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { PortalHeader } from "@/components/pages/client-portal/sections/portal-header";
-import { Footer } from "@/components/footer";
+import { Footer } from "@/components/layout/footer";
 import {
   ClientPortalProvider,
   useClientPortal,

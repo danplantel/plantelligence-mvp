@@ -3,8 +3,8 @@
 import { useState, useRef, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { Button } from "./ui/button";
-import { Icons } from "./icons";
+import { Button } from "../ui/button";
+import { Icons } from "../icons";
 import { motion } from "framer-motion";
 
 export default function GoogleSignInButton() {
