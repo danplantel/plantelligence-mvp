@@ -42,6 +42,7 @@
 
 ### `layout/`
 - `new-layout-client.tsx`, `new-sidebar.tsx`, `header.tsx` (all used by `/new/layout.tsx` → `NewLayoutClient`)
+- `user-nav.tsx` — rendered by `header.tsx` via relative `./user-nav` (profile avatar, name, title, logout)
 - `providers.tsx` — root layout
 
 ### `meetings/`
@@ -115,7 +116,7 @@ Everything not listed under DEAD/ORPHAN below. Notably: `button`, `card`, `input
 - `index.ts` (barrel — exports only the orphans above)
 
 ### `layout/`
-- `user-nav.tsx`, `mobile-sidebar.tsx`, `document-expiration-notifications.tsx`, `ThemeToggle/**`
+- `mobile-sidebar.tsx`, `document-expiration-notifications.tsx`, `ThemeToggle/**`
 
 ### `guards/`
 - `onboarding-page-guard.tsx` (and `index.ts` — see DEAD section for `onboarding-guard.tsx`)

@@ -1,19 +1,19 @@
 /** @type {import('next').NextConfig} */
 
 // ── Build / incremental builds ──────────────────────────────────────────────
-// package.json's "build" script clears .next before every build:
-//   node -e "require('fs').rmSync('.next',{recursive:true,force:true})" && next build
-// This avoids a Next.js 14 incremental-build bug where, after deleting or
-// renaming source files, the trace collector fails with:
-//   Error: ENOENT ... .next/server/pages/_error.js.nft.json
+// INCREMENTAL BUILDS ARE ENABLED: package.json's "build" script is just `next build`,
+// so subsequent builds reuse .next and are faster.
 //
-// To KEEP / START INCREMENTAL (faster) builds instead:
-//   1. Change package.json "build" back to just:   "next build"
-//   2. Subsequent builds will reuse .next and be faster.
-//   3. If you hit the _error.js.nft.json ENOENT error again, delete .next once
-//      (e.g. `rm -rf .next` on macOS/Linux, `rd /s /q .next` on Windows) and rebuild.
+// Known issue: Next.js 14 can leave .next in a broken state after deleting or
+// renaming source files, producing errors like:
+//   - Error: ENOENT ... .next/server/pages/_error.js.nft.json
+//   - PageNotFoundError: Cannot find module for page: /_document (or /_error, /api/auth/[...nextauth])
+// If you hit any of these, delete .next once and rebuild:
+//   `rm -rf .next` (macOS/Linux)   |   `rd /s /q .next` (Windows)
+// If they become frequent, consider also making sure no stale `next dev`/`next build`
+// node processes are running (they lock .next files).
 //
-// NOTE: don't "work around" that error by removing experimental.outputFileTracingIncludes
+// NOTE: don't "work around" these errors by removing experimental.outputFileTracingIncludes
 // below — it is required to include ./chromium-bin/** in the output trace so the
 // Chromium binaries ship to Vercel for /api/extract-site-colors.
 const nextConfig = {
