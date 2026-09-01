@@ -15,7 +15,7 @@ import {
   IPlanFormData,
   SectionPreview,
   TouchedFields,
-} from "../..";
+} from "../../shared";
 
 interface InvestmentsSectionProps {
   formData: IPlanFormData;

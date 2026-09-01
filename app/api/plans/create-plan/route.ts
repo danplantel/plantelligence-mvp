@@ -1,4 +1,4 @@
-import { IPlanFormData } from "@/components/pages/create-dashboard";
+import { IPlanFormData } from "@/components/pages/create-dashboard/shared";
 import { SYNTHESIA_TEMPLATE_ID } from "@/constants/app";
 import { authOptions } from "@/lib/auth-options";
 import prisma from "@/lib/prisma";

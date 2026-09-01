@@ -8,8 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ContributionProps } from ".";
-import { ErrorMessage } from "../..";
+import { ContributionProps, ErrorMessage } from "../../shared";
 
 const FixedAmount = (props: ContributionProps) => {
   const {
