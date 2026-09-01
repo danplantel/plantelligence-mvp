@@ -1,7 +1,6 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { UserNav } from "./user-nav";
 // Notifications UI — hidden for now; will be re-added later.
 // import { DocumentExpirationNotifications } from "./document-expiration-notifications";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
@@ -145,7 +144,6 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
               )}
             </Button>
           )}
-          <UserNav />
         </div>
       </nav>
 
