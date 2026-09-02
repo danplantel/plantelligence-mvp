@@ -226,55 +226,58 @@ export function useEditClient() {
             };
           };
 
-          // Build brandImages from either brandImages JSON field or individual image fields
-          let brandImagesData: any = null;
-          if (result.data.brandImages) {
-            // Use brandImages JSON field if it exists
-            brandImagesData = {
-              header: processBrandImage(result.data.brandImages.header),
-              thumbnail: processBrandImage(result.data.brandImages.thumbnail),
-              secondaryBanner: processBrandImage(result.data.brandImages.secondaryBanner),
-              favicon: processBrandImage(result.data.brandImages.favicon),
-              _meta: result.data.brandImages._meta || {},
-            };
-          } else {
-            // Fallback: build from individual image fields
-            brandImagesData = {
-              header: result.data.backgroundImg ? {
-                url: result.data.backgroundImg,
-                fileName: result.data.backgroundImgName || "",
-                fileSize: calculateBase64FileSize(result.data.backgroundImg),
-                width: 0,
-                height: 0,
-                warnings: []
-              } : null,
-              thumbnail: result.data.thumbnailImg ? {
-                url: result.data.thumbnailImg,
-                fileName: result.data.thumbnailImgName || "",
-                fileSize: calculateBase64FileSize(result.data.thumbnailImg),
-                width: 0,
-                height: 0,
-                warnings: []
-              } : null,
-              secondaryBanner: result.data.secondaryBannerImg ? {
-                url: result.data.secondaryBannerImg,
-                fileName: result.data.secondaryBannerImgName || "",
-                fileSize: calculateBase64FileSize(result.data.secondaryBannerImg),
-                width: 0,
-                height: 0,
-                warnings: []
-              } : null,
-              favicon: result.data.faviconImg ? {
-                url: result.data.faviconImg,
-                fileName: result.data.faviconImgName || "",
-                fileSize: calculateBase64FileSize(result.data.faviconImg),
-                width: 0,
-                height: 0,
-                warnings: []
-              } : null,
-              _meta: {},
-            };
-          }
+          // Build brandImages by merging the brandImages JSON field with the legacy
+          // top-level image fields (backgroundImg, thumbnailImg, …). The wizard
+          // stores hero/branding on the top-level Client fields, while legacy rows
+          // can carry a brandImages JSON — so prefer whichever slot has a value and
+          // fall back to the other so the Branding editor always populates (e.g. the
+          // Step-1 hero background never appears blank after loading Edit Client).
+          const jsonBrandImages = result.data.brandImages as any;
+          const buildFromLegacy = (
+            url: string | undefined,
+            name: string | undefined,
+          ) =>
+            url
+              ? {
+                  url,
+                  fileName: name || "",
+                  fileSize: calculateBase64FileSize(url),
+                  width: 0,
+                  height: 0,
+                  warnings: [],
+                }
+              : null;
+          // Treat a JSON slot as absent when it has no usable URL so the legacy
+          // top-level field can still fill it in.
+          const jsonSlot = (slot: any) => {
+            const p = processBrandImage(slot);
+            return p && (p.url || "").trim() ? p : null;
+          };
+
+          const brandImagesData: any = {
+            header:
+              jsonSlot(jsonBrandImages?.header) ??
+              buildFromLegacy(
+                result.data.backgroundImg,
+                result.data.backgroundImgName,
+              ),
+            thumbnail:
+              jsonSlot(jsonBrandImages?.thumbnail) ??
+              buildFromLegacy(
+                result.data.thumbnailImg,
+                result.data.thumbnailImgName,
+              ),
+            secondaryBanner:
+              jsonSlot(jsonBrandImages?.secondaryBanner) ??
+              buildFromLegacy(
+                result.data.secondaryBannerImg,
+                result.data.secondaryBannerImgName,
+              ),
+            favicon:
+              jsonSlot(jsonBrandImages?.favicon) ??
+              buildFromLegacy(result.data.faviconImg, result.data.faviconImgName),
+            _meta: jsonBrandImages?._meta || {},
+          };
 
           // Extract heroTitle and heroDescription from brandImages._meta or direct fields
           const heroTitle = result.data.heroTitle || brandImagesData?._meta?.heroTitle;
@@ -282,15 +285,7 @@ export function useEditClient() {
 
           // Add heroTitle and heroDescription to brandImages._meta if they exist
           if (heroTitle || heroDescription) {
-            if (!brandImagesData) {
-              brandImagesData = {
-                header: null,
-                thumbnail: null,
-                secondaryBanner: null,
-                favicon: null,
-                _meta: {},
-              };
-            }
+            // brandImagesData is always built above (JSON + legacy merge).
             if (!brandImagesData._meta) {
               brandImagesData._meta = {};
             }

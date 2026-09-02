@@ -11,6 +11,7 @@ import {
   isR2Configured,
   buildBrandingKey,
   putObjectBuffer,
+  getObjectFromR2,
 } from "@/lib/r2";
 import { resolvePersistedDocumentCategory } from "@/lib/document-category";
 import { getOnboardingAdvisorBackgroundImage } from "@/lib/wizard-onboarding-background";
@@ -424,70 +425,118 @@ export async function POST(request: NextRequest) {
           disclaimersData: disclaimersData,
         });
 
-        // Upload base64 branding to R2 and update client with keys
+        // Upload base64 branding to R2 and update client with keys.
+        // Robustly "materializes" every brand image (logo, background/hero header,
+        // thumbnail, secondary banner, favicon) under the FINAL plan id so the hero
+        // picked in wizard Step 1 always survives publishing:
+        //   - data: URLs              → upload to R2 under this plan
+        //   - org/ keys under this plan → keep as-is
+        //   - org/ keys under the pre-publish DRAFT plan → copy the object into this
+        //     plan (the draft Client row is deleted below, so a draft-scoped key
+        //     would otherwise be fragile)
+        //   - https / other non-org URLs → kept as stored
         if (isR2Configured()) {
           const orgId = session.user.id;
           const planId = client.id;
           const brandingUpdate: Record<string, string | null> = {};
-          const uploadSlot = async (
-            dataUrl: string | null | undefined,
+
+          const rehomeImage = async (
+            source: string | null | undefined,
             slot: string,
             fileName: string
           ): Promise<string | null> => {
-            if (!dataUrl || isR2Key(dataUrl)) return null;
-            const parsed = base64DataUrlToBuffer(dataUrl);
-            if (!parsed) return null;
-            const key = buildBrandingKey({ orgId, planId, slot, fileName });
-            const ok = await putObjectBuffer({
-              key,
-              body: parsed.buffer,
-              contentType: parsed.contentType,
-            });
-            return ok ? key : null;
+            if (!source) return null;
+            if (source.startsWith("data:")) {
+              const parsed = base64DataUrlToBuffer(source);
+              if (!parsed) return null;
+              const key = buildBrandingKey({ orgId, planId, slot, fileName });
+              const ok = await putObjectBuffer({
+                key,
+                body: parsed.buffer,
+                contentType: parsed.contentType,
+              });
+              return ok ? key : null;
+            }
+            if (!isR2Key(source)) return source; // https://… or other URL — keep
+            // Already under the final plan → nothing to do.
+            if (source.startsWith(`org/${orgId}/plans/${planId}/`)) return source;
+            // R2 key under a different plan (e.g. the pre-publish Draft) → copy the
+            // bytes into this plan so the final Client owns a stable key.
+            try {
+              const obj = await getObjectFromR2(source);
+              if (!obj) return source; // source object missing — keep (harmless)
+              const key = buildBrandingKey({ orgId, planId, slot, fileName });
+              const ok = await putObjectBuffer({
+                key,
+                body: obj.body,
+                contentType: obj.contentType,
+              });
+              return ok ? key : source;
+            } catch {
+              return source;
+            }
           };
-          if (logoVal && !isR2Key(logoVal)) {
-            const key = await uploadSlot(
-              logoVal,
-              "logo",
-              companyBasics.logoFileName || "logo.png"
-            );
-            if (key) brandingUpdate.companyLogo = key;
-          }
+
+          // Overwrite the created value only when the re-homed key is present and
+          // differs — never wipe an already-stored value with null.
+          const persistIfChanged = async (
+            field: string,
+            created: string | null | undefined,
+            rehomed: string | null | undefined
+          ) => {
+            if (!rehomed || rehomed === created) return;
+            brandingUpdate[field] = rehomed;
+          };
+
           const headerData = brandImgs?.header;
           const thumbnailData = brandImgs?.thumbnail;
-          if ((headerData?.url || thumbnailData?.url) && !backgroundImgCreate) {
-            const url = headerData?.url ?? thumbnailData?.url;
-            const key = await uploadSlot(
-              url,
-              "header",
-              headerData?.fileName || thumbnailData?.fileName || "header.jpg"
-            );
-            if (key) brandingUpdate.backgroundImg = key;
-          }
-          if (thumbnailData?.url && !thumbnailImgCreate) {
-            const key = await uploadSlot(
-              thumbnailData.url,
-              "thumbnail",
-              thumbnailData.fileName || "thumbnail.jpg"
-            );
-            if (key) brandingUpdate.thumbnailImg = key;
-          }
-          if (brandImgs?.secondaryBanner?.url && !secondaryBannerImgCreate) {
-            const key = await uploadSlot(
-              brandImgs.secondaryBanner.url,
-              "secondaryBanner",
-              brandImgs.secondaryBanner.fileName || "banner.jpg"
-            );
-            if (key) brandingUpdate.secondaryBannerImg = key;
-          }
-          if (brandImgs?.favicon?.url && !faviconImgCreate) {
-            const key = await uploadSlot(
-              brandImgs.favicon.url,
-              "favicon",
-              brandImgs.favicon.fileName || "favicon.ico"
-            );
-            if (key) brandingUpdate.faviconImg = key;
-          }
+
+          // Hero background: the header slot (Step 1 "Background Image"), falling
+          // back to the thumbnail for parity with the create-time derivation.
+          const heroSource = headerData?.url ?? thumbnailData?.url;
+          const heroFileName =
+            headerData?.fileName || thumbnailData?.fileName || "hero.jpg";
+          const heroKey = await rehomeImage(
+            heroSource,
+            "background",
+            heroFileName
+          );
+          await persistIfChanged("backgroundImg", backgroundImgCreate, heroKey);
+
+          const thumbKey = await rehomeImage(
+            thumbnailData?.url,
+            "thumbnail",
+            thumbnailData?.fileName || "thumbnail.jpg"
+          );
+          await persistIfChanged("thumbnailImg", thumbnailImgCreate, thumbKey);
+
+          const bannerKey = await rehomeImage(
+            brandImgs?.secondaryBanner?.url,
+            "secondaryBanner",
+            brandImgs?.secondaryBanner?.fileName || "banner.jpg"
+          );
+          await persistIfChanged(
+            "secondaryBannerImg",
+            secondaryBannerImgCreate,
+            bannerKey
+          );
+
+          const faviconKey = await rehomeImage(
+            brandImgs?.favicon?.url,
+            "favicon",
+            brandImgs?.favicon?.fileName || "favicon.png"
+          );
+          await persistIfChanged("faviconImg", faviconImgCreate, faviconKey);
+
+          // Logo: re-home as well (it may be an R2 key under the draft plan or a
+          // data URL that needs uploading under this plan id).
+          const logoKey = await rehomeImage(
+            companyBasics.companyLogo,
+            "logo",
+            companyBasics.logoFileName || "logo.png"
+          );
+          await persistIfChanged("companyLogo", companyLogoCreate, logoKey);
+
           if (Object.keys(brandingUpdate).length > 0) {
             await (prisma.client as any).update({
               where: { id: client.id },
