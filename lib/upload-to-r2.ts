@@ -4,18 +4,31 @@ import { verifyR2ObjectReadableViaApp } from "@/lib/r2-read-verify";
 /** Server-side PutObject fallback (same bucket as /api/r2/object) for small advisor uploads. */
 const MAX_SERVER_FALLBACK_BYTES = 15 * 1024 * 1024;
 
+/** Server-side (same-origin) upload — no browser→R2 CORS preflight. */
 async function uploadThroughAppServer(
   file: File,
-  subPath: string | undefined,
-  fileName: string,
-  contentType: string,
+  params: {
+    purpose: PresignPurpose;
+    subPath?: string;
+    clientId?: string;
+    fileName: string;
+    contentType: string;
+    slot?: string;
+    category?: string;
+    type?: string;
+  },
 ): Promise<string | null> {
   if (file.size > MAX_SERVER_FALLBACK_BYTES) return null;
   const form = new FormData();
   form.append("file", file);
-  form.append("fileName", fileName);
-  form.append("contentType", contentType);
-  form.append("subPath", subPath?.trim() || "misc");
+  form.append("fileName", params.fileName);
+  form.append("contentType", params.contentType);
+  form.append("purpose", params.purpose);
+  if (params.subPath?.trim()) form.append("subPath", params.subPath.trim());
+  if (params.clientId) form.append("clientId", params.clientId);
+  if (params.slot) form.append("slot", params.slot);
+  if (params.category) form.append("category", params.category);
+  if (params.type) form.append("type", params.type);
   const res = await fetch("/api/r2/upload-direct", {
     method: "POST",
     body: form,
@@ -23,7 +36,7 @@ async function uploadThroughAppServer(
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    console.error("[upload-to-r2] Server fallback failed", res.status, text);
+    console.error("[upload-to-r2] Server upload failed", res.status, text);
     return null;
   }
   const data = (await res.json()) as { key?: string };
@@ -99,6 +112,23 @@ export async function uploadFileToR2(options: UploadToR2Options): Promise<string
 
   const contentType = file.type || "application/pdf";
 
+  // Branding images (logo/background/thumbnail/banner/favicon) are uploaded
+  // through the SAME-ORIGIN server route. A direct browser PUT to the R2
+  // presigned URL is cross-origin and gets blocked by the bucket CORS policy
+  // (e.g. on www.plantel.pro), which silently broke every background/logo upload.
+  if (purpose === "branding") {
+    const viaServer = await uploadThroughAppServer(file, {
+      purpose,
+      clientId,
+      fileName,
+      contentType,
+      slot,
+    });
+    if (viaServer) return viaServer;
+    // Server upload unavailable (e.g. R2 not configured, body too large) — fall
+    // through to the presigned flow below, which returns null on a 503.
+  }
+
   const presignRes = await fetch("/api/r2/presign-upload", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -149,16 +179,17 @@ export async function uploadFileToR2(options: UploadToR2Options): Promise<string
     if (!putRes.ok) {
       const errBody = await putRes.text().catch(() => "");
       console.error("[upload-to-r2] PUT failed", putRes.status, errBody);
-      if (
-        purpose === "upload" &&
-        file.size <= MAX_SERVER_FALLBACK_BYTES
-      ) {
-        const viaServer = await uploadThroughAppServer(
-          file,
+      if (file.size <= MAX_SERVER_FALLBACK_BYTES) {
+        const viaServer = await uploadThroughAppServer(file, {
+          purpose,
           subPath,
+          clientId,
           fileName,
           contentType,
-        );
+          slot,
+          category,
+          type,
+        });
         if (viaServer) return viaServer;
       }
       throw new Error(`Upload to R2 failed: ${putRes.status}`);
@@ -176,12 +207,16 @@ export async function uploadFileToR2(options: UploadToR2Options): Promise<string
         "[upload-to-r2] Presigned PUT ok but object not readable; using server upload",
         key,
       );
-      const viaServer = await uploadThroughAppServer(
-        file,
+      const viaServer = await uploadThroughAppServer(file, {
+        purpose,
         subPath,
+        clientId,
         fileName,
         contentType,
-      );
+        slot,
+        category,
+        type,
+      });
       if (viaServer) return viaServer;
     }
   }
