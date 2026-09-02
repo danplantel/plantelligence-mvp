@@ -36,8 +36,8 @@ export default function ResetPasswordPage() {
             <img
               src={
                 themeMode === "dark" || themeMode === "system"
-                  ? "/pt_web_dark.png"
-                  : "/pt_web_light.png"
+                  ? "plantelligence-logos/pt_web_dark.png"
+                  : "plantelligence-logos/pt_web_light.png"
               }
               className="w-[220px] rounded-xl"
               alt="PlanTelligence"
