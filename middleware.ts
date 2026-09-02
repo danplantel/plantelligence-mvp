@@ -162,8 +162,13 @@ export default async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    // Catch-all so the middleware also runs on the root-level portal routes
-    // (/{slug} and /{slug}/…) while skipping Next.js internals.
-    "/((?!_next/|favicon.ico).*)",
+    // Catch-all for app + portal routes (root-level /{slug} and /{slug}/…),
+    // skipping Next.js internals and ALL /api/* paths. If /api/* were matched,
+    // the middleware's own internal fetch to /api/resolve-subdomain (and the
+    // portal's /api/clients/... calls) would be re-intercepted and rewritten to
+    // the HTML not-found page, breaking JSON responses.
+    "/((?!_next/|favicon.ico|api/).*)",
+    // /api/r2/object must still run through middleware for subdomain image serving.
+    "/api/r2/object",
   ],
 };
