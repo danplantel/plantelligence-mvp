@@ -1446,8 +1446,8 @@ export const ViewPlanVideo = () => {
                     <img
                       src={
                         themeMode === "dark" || themeMode === "system"
-                          ? "plantelligence-logos/pt_web_dark.png"
-                          : "plantelligence-logos/pt_web_light.png"
+                          ? "/plantelligence-logos/pt_web_dark.png"
+                          : "/plantelligence-logos/pt_web_light.png"
                       }
                       className="w-[200px]"
                       alt="PlanTelligence"

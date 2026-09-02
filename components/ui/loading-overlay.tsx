@@ -47,7 +47,7 @@ export function LoadingOverlay({
         {/* Plantelligence Logo — responds to light/dark mode */}
         {!hideLogo && (
           <img
-            src={themeMode === "dark" ? "plantelligence-logos/pt_web_dark.png" : "plantelligence-logos/pt_web_light.png"}
+            src={themeMode === "dark" ? "/plantelligence-logos/pt_web_dark.png" : "/plantelligence-logos/pt_web_light.png"}
             alt="PlanTelligence"
             className="object-contain h-10 mb-2"
           />

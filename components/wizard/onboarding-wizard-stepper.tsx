@@ -153,8 +153,8 @@ export function OnboardingWizardStepper({
            <img
              src={
                themeMode === "dark" || themeMode === "system"
-                 ? "plantelligence-logos/pt_icon_dark.png"
-                 : "plantelligence-logos/pt_icon_light.png"
+                 ? "/plantelligence-logos/pt_icon_dark.png"
+                 : "/plantelligence-logos/pt_icon_light.png"
              }
              className="w-[20px]"
              alt="PlanTelligence"

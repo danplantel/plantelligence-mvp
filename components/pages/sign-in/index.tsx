@@ -36,8 +36,8 @@ const SignIn = () => {
             <img
               src={
                 themeMode === "dark"
-                  ? "plantelligence-logos/pt_web_dark.png"
-                  : "plantelligence-logos/pt_web_light.png"
+                  ? "/plantelligence-logos/pt_web_dark.png"
+                  : "/plantelligence-logos/pt_web_light.png"
               }
               className="w-[220px] rounded-xl"
               alt="PlanTelligence"
