@@ -112,21 +112,29 @@ export async function uploadFileToR2(options: UploadToR2Options): Promise<string
 
   const contentType = file.type || "application/pdf";
 
-  // Branding images (logo/background/thumbnail/banner/favicon) are uploaded
-  // through the SAME-ORIGIN server route. A direct browser PUT to the R2
-  // presigned URL is cross-origin and gets blocked by the bucket CORS policy
-  // (e.g. on www.plantel.pro), which silently broke every background/logo upload.
-  if (purpose === "branding") {
+  // Small images (branding backgrounds/logos, advisor headshots/company logos,
+  // thumbnails, banners, small documents) are uploaded through the SAME-ORIGIN
+  // server route FIRST — it is CORS-free and deterministic. A direct browser PUT
+  // to the R2 presigned URL is cross-origin and gets blocked by the bucket CORS
+  // policy on www.plantel.pro (No 'Access-Control-Allow-Origin'), so we avoid it
+  // whenever we can relay through the server. The relay is capped conservatively
+  // below common platform body-size limits (~4.5 MB on Vercel); anything larger
+  // falls through to the presigned direct-upload path below.
+  const SERVER_UPLOAD_MAX = 4 * 1024 * 1024;
+  if (file.size <= SERVER_UPLOAD_MAX) {
     const viaServer = await uploadThroughAppServer(file, {
       purpose,
+      subPath,
       clientId,
       fileName,
       contentType,
       slot,
+      category,
+      type,
     });
     if (viaServer) return viaServer;
-    // Server upload unavailable (e.g. R2 not configured, body too large) — fall
-    // through to the presigned flow below, which returns null on a 503.
+    // Server upload unavailable (e.g. R2 not configured, transient failure) —
+    // fall through to the presigned flow below, which returns null on a 503.
   }
 
   const presignRes = await fetch("/api/r2/presign-upload", {
