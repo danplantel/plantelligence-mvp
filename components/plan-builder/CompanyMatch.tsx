@@ -8,7 +8,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ContributionProps, ErrorMessage } from "../../shared";
+import { ContributionProps } from "@/types/plan-builder";
+import { ErrorMessage } from "./error-message";
 
 const CompanyMatch = (props: ContributionProps) => {
   const {

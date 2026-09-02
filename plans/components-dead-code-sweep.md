@@ -140,28 +140,23 @@ Everything not listed under DEAD/ORPHAN below. Notably: `button`, `card`, `input
 
 ---
 
-## COMPLEX — refactor before deleting: `pages/create-dashboard`
+## COMPLEX — ✅ DONE (2026-09-01): `pages/create-dashboard` refactored and removed
 
-The video wizard (`/new/video`) and one API route **reuse parts** of `pages/create-dashboard`, so it cannot be blanket-deleted:
+The legacy `pages/create-dashboard` folder has been fully refactored and deleted. Surviving shared code was relocated (most of the dead form had already been removed earlier):
 
-- **KEEP (reused by kept code):**
-  - `Section/EmployerContributionsSection/CompanyMatch.tsx`, `HarborDetails.tsx`, `FixedAmount.tsx`, `ProfitSharing.tsx` — imported by `wizard/video-steps/step-3/step-3a.tsx`
-  - `Section/InvestmentsSection/index.tsx` — exports `listAdditionalFeatures`, imported by `wizard/video-steps/step-4/step-4b.tsx`
-  - `index.tsx` — **only for its exported types** (`IPlanFormData`, `Errors`, `TouchedFields`, `SectionPreview`, …) imported by `api/plans/create-plan` **and** by `Section/InvestmentsSection/index.tsx` via `../..`
-- **DEAD (only used by the old `app/create-new-plan` form):**
-  - `branding-preview.tsx`, `logo-resize-preview.tsx`, `section-animation.tsx`, `modal/CustomAvatarModal.tsx`
-  - `Section/BrandingSection/**`, `Section/PlanDetailSection/**`, `Section/Resources/**`
-  - `Section/EmployerContributionsSection/{index.tsx, EmployerContributionsReview.tsx, EmployerContributionsPreview.tsx}`
-  - `Section/InvestmentsSection/{InvestmentsPreview.tsx, InvestmentsReview.tsx}` *(verify — if `Section/InvestmentsSection/index.tsx` imports them, they are transitively KEEP)*
+- **Types** (`IPlanFormData`, `Errors`, `TouchedFields`, `SectionPreview`, `ContributionProps`, `ContributionType`, `PlanType`, `EnrollmentMethod`, `PlanFeature`, `CustomAvatarFields`) → `types/plan-builder.ts`
+- **`ErrorMessage`** component → `components/plan-builder/error-message.tsx`
+- **Option lists** (`listQDIAOptions`, `listAdditionalFeatures`) → `components/plan-builder/constants.ts`
+- **Contribution components** (`CompanyMatch`, `HarborDetails`, `FixedAmount`, `ProfitSharing`) → `components/plan-builder/`
 
-**Recommended approach:** extract the shared types (`IPlanFormData` et al.) into `types/` and move the 5 reused contribution components + `listAdditionalFeatures` into a shared location (e.g. `wizard/video-steps/` or `components/plan-builder/`), then delete the rest of `pages/create-dashboard`. Also note `index.tsx` imports `ProfileData` from the dead `../my-profile`, so `my-profile` cannot be removed until `create-dashboard/index.tsx` is refactored.
+Consumers updated: `wizard/video-steps/step-3a.tsx`, `step-4a.tsx`, `step-4b.tsx`, `api/plans/create-plan/route.ts`. The `InvestmentsSection` component (unused) and the old `shared.tsx` were deleted with the folder. Verified with `npx tsc --noEmit`.
 
 ---
 
 ## Execution checklist (safe order)
 
 1. Apply the app-folder cleanup from [`app-cleanup-plan.md`](app-cleanup-plan.md) first.
-2. Refactor `pages/create-dashboard` (extract shared types/components).
+2. ~~Refactor `pages/create-dashboard`~~ ✅ done (2026-09-01) — see COMPLEX section above.
 3. Delete all **DEAD** items (safe after step 1).
 4. Delete all **ORPHAN** items (safe at any time; they have no importers).
 5. Run `npx tsc --noEmit` and `npm run build` to catch any missed references (e.g. type-only imports, dynamic `import()`, relative paths the sweep may have missed).

@@ -1,4 +1,4 @@
-// Shared types + helpers extracted from the legacy create-dashboard form
+// Shared types extracted from the legacy create-dashboard form
 // (components/pages/create-dashboard/index.tsx). These are reused by:
 //   - the video wizard (/new/video): wizard/video-steps/step-3a.tsx,
 //     step-4a.tsx, step-4b.tsx
@@ -183,9 +183,4 @@ export interface ContributionProps {
     field: string,
     value: string,
   ) => void;
-}
-
-export function ErrorMessage({ error }: { error: string | undefined }) {
-  if (!error) return null;
-  return <p className="text-sm text-red-500 mt-1">{error}</p>;
 }

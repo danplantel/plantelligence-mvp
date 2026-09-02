@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useVideoWizardStore } from "@/lib/video-wizard-store";
-import { listAdditionalFeatures } from "@/components/pages/create-dashboard/Section/InvestmentsSection";
+import { listAdditionalFeatures } from "@/components/plan-builder/constants";
 
 interface VideoStep4bProps {}
 

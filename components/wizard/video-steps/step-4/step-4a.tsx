@@ -16,7 +16,7 @@ import {
 import {
   listQDIAOptions,
   listAdditionalFeatures,
-} from "@/components/pages/create-dashboard/Section/InvestmentsSection";
+} from "@/components/plan-builder/constants";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface VideoStep4aProps {

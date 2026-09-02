@@ -6,10 +6,10 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Check, Plus, ChevronDown } from "lucide-react";
-import CompanyMatch from "@/components/pages/create-dashboard/Section/EmployerContributionsSection/CompanyMatch";
-import HarborDetails from "@/components/pages/create-dashboard/Section/EmployerContributionsSection/HarborDetails";
-import FixedAmount from "@/components/pages/create-dashboard/Section/EmployerContributionsSection/FixedAmount";
-import ProfitSharing from "@/components/pages/create-dashboard/Section/EmployerContributionsSection/ProfitSharing";
+import CompanyMatch from "@/components/plan-builder/CompanyMatch";
+import HarborDetails from "@/components/plan-builder/HarborDetails";
+import FixedAmount from "@/components/plan-builder/FixedAmount";
+import ProfitSharing from "@/components/plan-builder/ProfitSharing";
 
 type ContributionType =
   | "companyMatch"
