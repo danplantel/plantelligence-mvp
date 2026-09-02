@@ -20,6 +20,7 @@ import {
 import {
   extractColorSets,
   type ColorSetSuggestion,
+  type SiteTechInfo,
 } from "@/lib/brand-color-extraction";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -71,6 +72,8 @@ export function BrandColorsSection({
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractionError, setExtractionError] = useState<string | null>(null);
   const [selectedSetId, setSelectedSetId] = useState<string | null>(null);
+  // Detected website technology returned by the extraction (for debugging/rollout).
+  const [siteType, setSiteType] = useState<SiteTechInfo | null>(null);
   // Tracks whether the user has clicked "Extract Colors" — switches the header
   // description to the "here are your suggestions" copy once extraction starts.
   const [hasExtracted, setHasExtracted] = useState(false);
@@ -82,9 +85,15 @@ export function BrandColorsSection({
     setHasExtracted(true);
     setExtractionError(null);
     setSelectedSetId(null);
+    setSiteType(null);
 
     try {
-      const sets = await extractColorSets(logoDataUrl, websiteUrl, organizationName);
+      const sets = await extractColorSets(
+        logoDataUrl,
+        websiteUrl,
+        organizationName,
+        setSiteType,
+      );
       setColorSets(sets);
     } catch (err: any) {
       setExtractionError(err?.message || "Failed to extract colors");
@@ -191,6 +200,19 @@ export function BrandColorsSection({
         {/* ── Color Set Selection ───────────────────────────────────────── */}
         {colorSets.length > 0 && !isExtracting && (
           <div className="mb-4">
+            {siteType && (
+              <p className="mb-3 text-xs text-muted-foreground dark:text-gray-400 flex items-center gap-1.5">
+                <Globe className="w-3.5 h-3.5 shrink-0" />
+                <span>Detected site:</span>
+                <span className="font-medium text-foreground dark:text-gray-200">
+                  {siteType.label}
+                </span>
+                <span className="text-muted-foreground/70">
+                  ({siteType.category}
+                  {siteType.confidence !== "high" ? ` · ${siteType.confidence}` : ""})
+                </span>
+              </p>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {colorSets.map((set) => {
                 const Icon = setIcons[set.id];

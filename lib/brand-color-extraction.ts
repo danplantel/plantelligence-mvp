@@ -34,6 +34,15 @@ export type ExtractionSource = "logo" | "website" | "both-agree" | "manual" | "a
 
 export type ExtractionConfidence = "high" | "medium" | "low" | "needs-review";
 
+/** Website technology detection returned by /api/extract-site-colors. */
+export interface SiteTechInfo {
+  category: "cms" | "js-framework" | "static" | "blocked";
+  framework: string;
+  label: string;
+  confidence: "high" | "medium" | "low";
+  signals: string[];
+}
+
 export interface SiteColorResponse {
   success: boolean;
   data?: {
@@ -49,6 +58,10 @@ export interface SiteColorResponse {
     confidence: number;
     weakExtraction: boolean;
     url: string;
+    /** Detected website technology (category + framework), for debugging/rollout. */
+    detectedType?: SiteTechInfo | null;
+    /** True when the site appears to block automated access. */
+    blocked?: boolean;
   };
   error?: string;
   details?: string;
@@ -489,6 +502,7 @@ export async function extractColorSets(
   logoDataUrl: string | null | undefined,
   websiteUrl: string | undefined,
   organizationName?: string,
+  onSiteTypeDetected?: (info: SiteTechInfo | null) => void,
 ): Promise<ColorSetSuggestion[]> {
   const sets: ColorSetSuggestion[] = [];
 
@@ -515,11 +529,16 @@ export async function extractColorSets(
 
       if (res.ok) {
         const json: SiteColorResponse = await res.json();
-        if (json.success && json.data?.primary) {
-          websiteColors = finalizePair(
-            json.data.primary,
-            json.data.secondary || "",
-          );
+        if (json.success && json.data) {
+          // Surface the detected site tech for debugging/rollout (even when the
+          // scan produced no colors — e.g. blocked or dark/neutral sites).
+          onSiteTypeDetected?.(json.data.detectedType ?? null);
+          if (json.data.primary) {
+            websiteColors = finalizePair(
+              json.data.primary,
+              json.data.secondary || "",
+            );
+          }
         }
       }
     } catch {

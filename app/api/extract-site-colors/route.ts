@@ -23,6 +23,11 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import type { Browser, LaunchOptions } from "puppeteer-core";
+import {
+  detectSiteTech,
+  mergeDetections,
+  type SiteTechDetection,
+} from "@/lib/site-tech-detection";
 
 const isVercel = !!process.env.VERCEL;
 
@@ -109,6 +114,10 @@ interface SiteExtractionResult {
   confidence: number; // 0–1
   weakExtraction: boolean;
   url: string;
+  /** Detected website technology (category + framework), for diagnostics/rollout. */
+  detectedType?: SiteTechDetection | null;
+  /** True when the site appears to block automated access (challenge page). */
+  blocked?: boolean;
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -129,10 +138,46 @@ function isNeutralHex(hex: string): boolean {
   return false;
 }
 
+interface RawSiteResponse {
+  ok: boolean;
+  status: number;
+  html: string;
+  headers: Record<string, string>;
+  /** Final URL after following redirects (used to resolve relative stylesheets). */
+  finalUrl: string;
+}
+
 /**
- * Fetch the target site's HTML + same-origin stylesheets and extract the
- * platform's declared brand palette (Elementor --e-global-color-* tokens).
+ * Fetch the target site's raw HTML + response headers once. Used both for
+ * technology detection and (via fetchPlatformGlobalColors) token extraction, so
+ * the route only performs a single HTML request.
+ */
+async function fetchRawSite(url: string): Promise<RawSiteResponse> {
+  try {
+    const res = await fetch(url, { redirect: "follow" });
+    const headers: Record<string, string> = {};
+    res.headers.forEach((value, key) => {
+      headers[key] = value;
+    });
+    const html = await res.text();
+    return {
+      ok: res.ok,
+      status: res.status,
+      html,
+      headers,
+      finalUrl: res.url || url,
+    };
+  } catch {
+    return { ok: false, status: 0, html: "", headers: {}, finalUrl: url };
+  }
+}
+
+/**
+ * Extract the platform's declared brand palette (e.g. Elementor
+ * --e-global-color-* tokens) from the site's HTML + same-origin stylesheets.
  * Runs server-side with Node fetch, avoiding the browser CORS / CSSOM quirks.
+ * When `htmlOverride` is provided (the route already fetched it for detection)
+ * the site is not fetched again.
  *
  * Elementor's declared "primary" is often black/gray/white (a neutral), so we
  * promote its "secondary" to primary and its "accent" to secondary — matching
@@ -140,6 +185,8 @@ function isNeutralHex(hex: string): boolean {
  */
 async function fetchPlatformGlobalColors(
   url: string,
+  htmlOverride?: string,
+  baseUrl?: string,
 ): Promise<{ primary: string | null; secondary: string | null; colors: string[] }> {
   const colors: string[] = [];
   let primary: string | null = null;
@@ -158,11 +205,16 @@ async function fetchPlatformGlobalColors(
   const tokenRe =
     /--e-global-color-([a-z0-9-]+)\s*:\s*(#[0-9a-fA-F]{3,8})/g;
 
-  try {
-    const htmlRes = await fetch(url, { redirect: "follow" });
-    if (htmlRes.ok) {
-      const html = await htmlRes.text();
+  const resolveBase = baseUrl || url;
 
+  try {
+    let html = htmlOverride || "";
+    if (!htmlOverride) {
+      const htmlRes = await fetch(url, { redirect: "follow" });
+      if (htmlRes.ok) html = await htmlRes.text();
+    }
+
+    if (html) {
       // Inline <style> / server-rendered CSS in the HTML.
       let m: RegExpExecArray | null;
       while ((m = tokenRe.exec(html)) !== null) register(m[1], m[2]);
@@ -174,7 +226,7 @@ async function fetchPlatformGlobalColors(
       let lm: RegExpExecArray | null;
       while ((lm = linkRe.exec(html)) !== null) {
         try {
-          sheetUrls.add(new URL(lm[1], url).href);
+          sheetUrls.add(new URL(lm[1], resolveBase).href);
         } catch {}
       }
 
@@ -700,6 +752,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Detect the site's technology stack from its raw HTML + headers BEFORE
+    // launching the browser so navigation/extraction can be tailored to the
+    // site type (e.g. extra hydration time for JS frameworks).
+    const rawSite = await fetchRawSite(url);
+    const serverDetection = detectSiteTech(
+      rawSite.html,
+      rawSite.headers,
+      rawSite.finalUrl,
+    );
+    console.log(
+      `Site tech detection for ${url}: ${serverDetection.framework} (${serverDetection.category}, confidence=${serverDetection.confidence})`,
+    );
+
     let browser: Browser | null = null;
     let page = null;
 
@@ -747,8 +812,13 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Small extra wait for any late style computations
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Allow late styles/hydration to settle. JS frameworks (Next/Nuxt/
+      // SvelteKit/etc.) need extra time to hydrate before computed styles
+      // reflect the real brand palette.
+      const isJsFramework = serverDetection.category === "js-framework";
+      await new Promise((resolve) =>
+        setTimeout(resolve, isJsFramework ? 2500 : 1200),
+      );
 
       // Run extraction script in page context
       const extracted = (await page.evaluate(buildExtractionScript())) as {
@@ -761,8 +831,19 @@ export async function POST(request: NextRequest) {
       const pagePlatformPrimary = extracted?.platformPrimary || null;
       const pagePlatformSecondary = extracted?.platformSecondary || null;
 
+      // Confirm detection from the rendered DOM — client-side frameworks can
+      // inject markers (e.g. __NEXT_DATA__) that aren't in the raw server HTML.
+      const pageHtml = await page.content();
+      const pageDetection = detectSiteTech(pageHtml, {}, url);
+      const detectedType = mergeDetections(serverDetection, pageDetection);
+
       // Server-side platform color detection (reliable; no CORS/CSSOM quirks).
-      const platform = await fetchPlatformGlobalColors(url);
+      // Reuses the HTML fetched for detection to avoid a second request.
+      const platform = await fetchPlatformGlobalColors(
+        url,
+        rawSite.html,
+        rawSite.finalUrl,
+      );
       const platformPrimary = platform.primary || pagePlatformPrimary;
       const platformSecondary =
         platform.secondary || pagePlatformSecondary;
@@ -787,6 +868,8 @@ export async function POST(request: NextRequest) {
         platformSecondary,
       );
       result.url = url;
+      result.detectedType = detectedType;
+      result.blocked = detectedType.category === "blocked";
 
       return NextResponse.json({
         success: true,
