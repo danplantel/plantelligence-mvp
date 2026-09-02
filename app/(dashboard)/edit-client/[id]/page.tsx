@@ -2835,7 +2835,7 @@ export default function EditClientPage() {
                 is rendered by the Header component. */}
             {headerPortalTarget &&
               createPortal(
-                <TabsList className="w-full justify-center gap-1 bg-transparent p-0 border-b rounded-none flex-nowrap h-auto min-h-fit overflow-x-auto">
+                <TabsList className="w-full justify-center gap-1 bg-transparent dark:bg-transparent p-0 border-b rounded-none flex-nowrap h-auto min-h-fit overflow-x-auto">
                   {EDIT_TABS.map((tab) => (
                     <TabsTrigger
                       key={tab.id}
