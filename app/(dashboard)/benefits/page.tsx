@@ -596,6 +596,13 @@ function BenefitsPageInner() {
               insuranceContainerBlockOpacity:
                 step1Data?.insuranceContainerBlockOpacity ?? null,
               helpCards: step1Data?.helpCards || null,
+              // Persist Step 3 FAQs + support contacts to the Benefit row (the
+              // source read by the wizard's Step 1 pre-population and by the live
+              // hub pages) — they were previously only written to the legacy
+              // employeePortalPreview JSON, so a fresh session couldn't restore
+              // them and Step 3 required re-selecting the support contact.
+              faqs: step3Data?.faqs ?? null,
+              supportContacts: step3Data?.supportContacts ?? null,
             }),
           },
         ).catch(() => {});

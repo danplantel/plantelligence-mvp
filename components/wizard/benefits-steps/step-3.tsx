@@ -256,6 +256,18 @@ export function BenefitsStep3() {
     }
   };
 
+  // Stamp which plan + benefit category the selected support contacts belong to.
+  // A page refresh resets `supportContactsLoadedCategories` to [], so this context
+  // lets the Step 1 pre-population effect treat this selection as a legitimate draft
+  // for THIS benefit and never clear it.
+  const supportContactsContext =
+    step1Data?.planId && step1Data?.benefitCategory
+      ? {
+          supportContactsPlanId: step1Data.planId,
+          supportContactsCategory: step1Data.benefitCategory,
+        }
+      : {};
+
   // Handle Contact changes
   const toggleContact = (contactId: string) => {
     const existing = currentStep3Data.supportContacts.find(
@@ -265,7 +277,11 @@ export function BenefitsStep3() {
       const newContacts = currentStep3Data.supportContacts.filter(
         (sc) => sc.contactId !== contactId,
       );
-      saveStepData(3, { ...currentStep3Data, supportContacts: newContacts });
+      saveStepData(3, {
+        ...currentStep3Data,
+        ...supportContactsContext,
+        supportContacts: newContacts,
+      });
     } else {
       const contact = planContacts.find((c) => c.id === contactId);
       const newContact: SupportContact = {
@@ -276,6 +292,7 @@ export function BenefitsStep3() {
       };
       saveStepData(3, {
         ...currentStep3Data,
+        ...supportContactsContext,
         supportContacts: [...currentStep3Data.supportContacts, newContact],
       });
     }
@@ -288,7 +305,11 @@ export function BenefitsStep3() {
     const newContacts = currentStep3Data.supportContacts.map((sc) =>
       sc.contactId === contactId ? { ...sc, ...updates } : sc,
     );
-    saveStepData(3, { ...currentStep3Data, supportContacts: newContacts });
+    saveStepData(3, {
+      ...currentStep3Data,
+      ...supportContactsContext,
+      supportContacts: newContacts,
+    });
   };
 
   // Map FAQs and contacts for preview

@@ -120,6 +120,13 @@ export interface BenefitsStep3Data {
     /** Categories for which support contacts have been loaded from the persisted benefit.
      *  Prevents re-loading from clobbering in-session edits/removals on re-render. */
     supportContactsLoadedCategories?: string[];
+    /** The plan + benefit category whose `supportContacts` this step3 state currently holds.
+     *  Stamped whenever support contacts are initialized (Step 1) or edited (Step 3) so a page
+     *  refresh — which resets `supportContactsLoadedCategories` to [] — can tell a legitimate
+     *  draft for THIS benefit from stale data left over from another plan/category, and never
+     *  clobbers the persisted draft with Benefit-row data (or an empty clear). */
+    supportContactsPlanId?: string;
+    supportContactsCategory?: string;
 }
 
 export interface BenefitsStep4Data {

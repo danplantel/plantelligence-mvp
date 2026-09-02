@@ -1008,9 +1008,24 @@ export function BenefitsStep1() {
   // clobbers in-session edits or removals on re-render.
   useEffect(() => {
     const cat = currentStepData.benefitCategory;
-    if (!cat) return;
+    const planId = currentStepData.planId;
+    if (!cat || !planId) return;
 
     const latest = useBenefitsWizardStore.getState().stepData.step3;
+
+    // The wizard store is the draft source of truth (persisted to localStorage on
+    // every save). Once Step 3 support contacts have been initialized for THIS
+    // plan + category, never re-run: a page refresh rehydrates step3 (resetting
+    // supportContactsLoadedCategories to [] via partialize) and must NOT clobber
+    // the user's persisted draft with Benefit-row data — or clear it to [] when
+    // the Benefit row hasn't been published yet.
+    if (
+      latest?.supportContactsPlanId === planId &&
+      latest?.supportContactsCategory === cat
+    ) {
+      return;
+    }
+
     const loadedCats = latest?.supportContactsLoadedCategories ?? [];
     if (loadedCats.includes(cat)) return;
     // Wait for the Benefit-table fetch to settle before deciding what to pre-fill.
@@ -1037,6 +1052,8 @@ export function BenefitsStep1() {
         },
         supportContacts: [],
         supportContactsLoadedCategories: [...loadedCats, cat],
+        supportContactsPlanId: planId,
+        supportContactsCategory: cat,
       };
       saveStepData(3, cleared);
       return;
@@ -1058,6 +1075,8 @@ export function BenefitsStep1() {
       }),
       supportContacts: savedSupportContacts ?? [],
       supportContactsLoadedCategories: [...loadedCats, cat],
+      supportContactsPlanId: planId,
+      supportContactsCategory: cat,
     };
     if (savedFaqs) {
       next.faqs = savedFaqs;
@@ -1067,7 +1086,7 @@ export function BenefitsStep1() {
       };
     }
     saveStepData(3, next);
-  }, [currentStepData.benefitCategory, currentStepData.categoryBenefitByApi, saveStepData]);
+  }, [currentStepData.planId, currentStepData.benefitCategory, currentStepData.categoryBenefitByApi, saveStepData]);
 
   // Load persisted Benefit Logo (partnerLogo), Benefit Description (shortDescription) and header
   // background for the current category into step1 when entering the flow, so previously saved
