@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import axios from "axios";
 import prisma from "@/lib/prisma";
-import { ObjectId } from "bson";
+import { ObjectId } from "mongodb";
 import { HEYGEN_API_KEY } from "@/constants/app";
 
 interface TemplateVideoRequest {
