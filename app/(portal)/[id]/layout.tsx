@@ -92,6 +92,26 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Portal pages are always light-branded — they must NOT respond to the
+  // dashboard's dark-mode preference. The dashboard sets a global `.dark`
+  // class on <html> via next-themes, which activates every `dark:` utility in
+  // portal components. While a portal route is mounted, remove `.dark` so the
+  // whole portal stays light; restore it when leaving so the advisor's
+  // dashboard dark-mode setting is preserved.
+  useEffect(() => {
+    const root = document.documentElement;
+    const hadDark = root.classList.contains("dark");
+    const prevColorScheme = root.style.colorScheme;
+
+    root.classList.remove("dark");
+    root.style.colorScheme = "light";
+
+    return () => {
+      root.classList.toggle("dark", hadDark);
+      root.style.colorScheme = prevColorScheme;
+    };
+  }, []);
+
   const onClick = () => {
     window.location.href = `/edit-client/${clientId}`;
   };
