@@ -84,10 +84,10 @@ const Sidebar = memo(function Sidebar() {
   }, [currentStep, isOpen, pathname]);
 
   const srcImage =
-    themeMode === "dark" ? "/pt_web_dark.png" : "/pt_web_light.png";
+    themeMode === "dark" ? "plantelligence-logos/pt_web_dark.png" : "plantelligence-logos/pt_web_light.png";
 
   const iconImage =
-    themeMode === "dark" ? "/pt_icon_dark.png" : "/pt_icon_light.png";
+    themeMode === "dark" ? "plantelligence-logos/pt_icon_dark.png" : "plantelligence-logos/pt_icon_light.png";
 
   return (
     <nav

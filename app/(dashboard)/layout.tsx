@@ -1,4 +1,4 @@
-import { NewLayoutClient } from "@/components/layout/new-layout-client";
+import { NewLayoutClient } from "@/components/layout/layout-client";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {

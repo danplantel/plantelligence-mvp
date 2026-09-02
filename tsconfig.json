@@ -28,9 +28,6 @@
       ],
       "@video-steps/*": [
         "./lib/video-steps/*"
-      ],
-      "react": [
-        "./node_modules/@types/react"
       ]
     }
   },

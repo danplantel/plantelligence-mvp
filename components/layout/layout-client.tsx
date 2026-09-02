@@ -1,7 +1,7 @@
 "use client";
 
 import Header from "@/components/layout/header";
-import Sidebar from "@/components/layout/new-sidebar";
+import Sidebar from "@/components/layout/sidebar";
 import { usePathname } from "next/navigation";
 import { WizardStepper } from "@/components/wizard/wizard-stepper";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
