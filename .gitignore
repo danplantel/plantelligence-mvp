@@ -20,10 +20,15 @@
 *.pem
 *.swp
 
-# debug
+# debug / generated output (not meant to be committed)
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+ts-check.log
+tscheck.log
+ts-errors.txt
+/tailwind-output.css
 
 # local env files
 .env*.local
