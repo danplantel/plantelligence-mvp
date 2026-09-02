@@ -37,3 +37,7 @@ next-env.d.ts
 
 # chromium binaries (copied from node_modules during postinstall)
 chromium-bin/
+
+# package managers — pnpm is canonical (see packageManager in package.json)
+package-lock.json
+yarn.lock
