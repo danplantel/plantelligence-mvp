@@ -826,19 +826,30 @@ export function BenefitsStep1() {
             planId,
             selectedPlan: fullPlan,
             // Draft plans must never inherit a stale all-visible benefitVisibility (the
-            // new-client wizard defaults drafts to all-visible at the API level). Force
+            // new-client wizard defaults drafts to all-visible at the API level). Default
             // every hub Hidden when a Draft is loaded so the advisor explicitly publishes
-            // each category from the wizard. Active plans keep their saved visibility.
+            // each category — but MERGE with the store's persisted draft instead of
+            // overwriting it. `benefitVisibility` is persisted to localStorage on every
+            // save (including the Portal Visibility toggles), so a refresh/re-entry that
+            // re-fetches this plan must not wipe a category the advisor already explicitly
+            // published back to Hidden. Active plans keep their saved visibility.
             ...((fullPlan as any)?.status === "Draft"
-              ? {
-                  benefitVisibility: {
+              ? (() => {
+                  const draftHiddenDefault: Record<string, boolean> = {
                     Retirement: false,
                     "Group Health": false,
                     "Group Life": false,
                     Custom: false,
                     "Company / Plan Sponsor": false,
-                  },
-                }
+                  };
+                  // Only true (explicitly published) selections from the persisted draft
+                  // are honored; everything else stays Hidden by default for Draft plans.
+                  const draftVisibility = {
+                    ...draftHiddenDefault,
+                    ...(latest.benefitVisibility ?? {}),
+                  };
+                  return { benefitVisibility: draftVisibility };
+                })()
               : {}),
             insuranceBackgroundImage:
               fullPlanEpp.insuranceBackgroundImage ||
