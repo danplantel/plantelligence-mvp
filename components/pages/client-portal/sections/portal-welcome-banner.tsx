@@ -4,17 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { BrandingImage } from "@/components/ui/branding-image";
-import {
-  getBrandingSignedUrl,
-  isR2BrandingKey,
-  toNextImageSrc,
-  toR2BrandingKey,
-} from "@/lib/branding-image-url";
+import { toNextImageSrc } from "@/lib/branding-image-url";
 import {
   DEFAULT_WELCOME_BG,
   CATEGORY_DEFAULT_BGS,
   CATEGORY_DEFAULT_INNER_IMAGES,
-  getPortalWelcomeBackgroundUrl,
 } from "@/lib/portal-category-hero-background";
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
 
@@ -282,22 +276,7 @@ export function PortalWelcomeBanner({
     categoryDefaultInnerImage,
   );
 
-  // Background image: prioritize the wizard Editor Panel upload (Step 2) over
-  // the API's backgroundImg. Falls back to DEFAULT_WELCOME_BG when no custom
-  // image is available (the Unsplash beach photo).
   const wizardStep1Data = useBenefitsWizardStore((s) => s.stepData?.step1 as any);
-  const backgroundRaw =
-    wizardStep1Data?.brandImages?.header?.url
-    || clientData?.backgroundImg
-    || getPortalWelcomeBackgroundUrl(clientData ?? null);
-  const { url: backgroundResolved, loading: backgroundLoading } =
-    useBrandingImageUrl(backgroundRaw || null);
-  const isR2WelcomeBg = isR2BrandingKey(backgroundRaw);
-  const background = isR2WelcomeBg
-    ? backgroundResolved ?? undefined
-    : (backgroundResolved ?? backgroundRaw) || undefined;
-
-  const welcomeBannerImgSrc = background ?? (!isR2WelcomeBg ? backgroundRaw : undefined);
 
   // Handle description as string or array of paragraphs
   const descriptionParagraphs = Array.isArray(description)
@@ -336,47 +315,29 @@ export function PortalWelcomeBanner({
     </div>
   );
 
-  const heroImageSrc = toNextImageSrc(welcomeBannerImgSrc, DEFAULT_WELCOME_BG);
-
-  // Compute the default background image per category
+  // ── Full-bleed welcome banner background ────────────────────────────────
+  // Priority (matches the live hub): persisted per-category benefit image →
+  // the wizard Step 1 header image (when its category matches the one being
+  // previewed) → the per-category default hero image.
   const categoryDefaultBg = CATEGORY_DEFAULT_BGS[category || ""] || DEFAULT_WELCOME_BG;
-
-  // Resolve the full-bleed background image URL
   const benefits = clientData?.employeePortalPreview?.benefits ?? [];
   const catBenefit = benefits.find((b: any) => (b.category || "").toLowerCase() === (category || "").toLowerCase());
   const persistedImage = catBenefit?.image;
   const wizardImage = wizardStep1Data?.brandImages?.header?.url;
   const wizardMatch = wizardStep1Data?.benefitCategory && category && wizardStep1Data.benefitCategory === category ? wizardImage : undefined;
-  const backgroundRawForBanner = persistedImage || wizardMatch || "";
+  const backgroundRawForBanner = persistedImage || wizardMatch || categoryDefaultBg;
 
-  // The Settings background (and a step-1 pre-populated header) is stored as an
-  // R2 key. The same-origin /api/r2/object proxy requires a session, so on the
-  // advisor's logged-in preview we resolve the key to a presigned URL client-side
-  // — this is why a step-1 data-URL upload renders but a Settings R2 key didn't.
-  const [resolvedBackgroundUrl, setResolvedBackgroundUrl] = useState<string | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    const raw = backgroundRawForBanner;
-    if (!raw || !isR2BrandingKey(raw)) {
-      setResolvedBackgroundUrl(null);
-      return;
-    }
-    const key = toR2BrandingKey(raw);
-    if (!key) return;
-    getBrandingSignedUrl(key)
-      .then((url) => {
-        if (!cancelled) setResolvedBackgroundUrl(url);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [backgroundRawForBanner]);
-
-  const backgroundSrc = toNextImageSrc(
-    resolvedBackgroundUrl || backgroundRawForBanner || categoryDefaultBg,
-    categoryDefaultBg,
+  // R2 keys (org/...) are streamed through the same-origin /api/r2/object proxy
+  // (session-authenticated on the advisor dashboard, x-advisor-id on portal
+  // subdomains) rather than a presigned URL. Presigned R2 URLs can fail to render
+  // inside an <img> on production even when /api/r2/signed-url returns 200 (see
+  // useBrandingImageUrl) — which is why the same dev flow shows locally but not
+  // after deploy. The proxy returns the original full-quality bytes. Absolute
+  // URLs, data URLs, and local default assets pass through unchanged.
+  const { url: resolvedBannerBgUrl } = useBrandingImageUrl(
+    backgroundRawForBanner || null,
   );
+  const backgroundSrc = resolvedBannerBgUrl || backgroundRawForBanner || categoryDefaultBg;
 
   return (
     <section
