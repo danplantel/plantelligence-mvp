@@ -459,7 +459,7 @@ export function OnboardingWizard({
         });
 
         // Refresh the NextAuth JWT so the middleware onboarding gate sees
-        // onboardingComplete=true before the redirect to /new/dashboard
+        // onboardingComplete=true before the redirect to /dashboard
         // (otherwise the user would be bounced straight back to onboarding).
         try {
           await getSession();
@@ -470,7 +470,7 @@ export function OnboardingWizard({
         // Show success overlay with green checkmark for 3 seconds, then navigate
         setShowSuccessOverlay(true);
         setTimeout(() => {
-          window.location.href = "/new/dashboard";
+          window.location.href = "/dashboard";
         }, 3000);
       } else {
         const errorData = await response.json();

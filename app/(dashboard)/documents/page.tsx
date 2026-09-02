@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -535,8 +535,8 @@ export default function DocumentsPage() {
     if (selectedPlan) params.set("planId", selectedPlan);
     params.set("section", activeSection);
     const newURL = params.toString()
-      ? `/new/documents?${params.toString()}`
-      : "/new/documents";
+      ? `/documents?${params.toString()}`
+      : "/documents";
     router.replace(newURL);
   };
 
@@ -609,7 +609,7 @@ export default function DocumentsPage() {
     setExpandedRow("");
     const params = new URLSearchParams(window.location.search);
     params.set("planId", clientId);
-    router.replace(`/new/documents?${params.toString()}`);
+    router.replace(`/documents?${params.toString()}`);
   };
 
   const handleSort = (column: SortColumn) => {

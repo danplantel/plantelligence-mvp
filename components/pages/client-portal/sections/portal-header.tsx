@@ -113,7 +113,7 @@ export function PortalHeader({
   );
 
   const isActive = (path: string) => pathname?.includes(path);
-  const baseUrl = clientId ? `/new/view/${clientId}` : "";
+  const baseUrl = clientId ? `/${clientId}` : "";
   const isBenefitsActive = () =>
     [
       "/retirement",
@@ -130,7 +130,7 @@ export function PortalHeader({
   useEffect(() => {
     const raw = companyData?.companyLogo ?? null;
     if (!raw) return;
-    // Never assign raw org/… keys to Image() — resolves as /new/org/… and 404s.
+    // Never assign raw org/… keys to Image() — resolves as /org/… and 404s.
     const isR2 = toR2BrandingKey(raw) != null;
     const src = isR2 ? resolvedLogoUrl : (resolvedLogoUrl ?? raw);
     if (!src) return;

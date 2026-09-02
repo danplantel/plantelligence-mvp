@@ -20,14 +20,20 @@ export function NewLayoutClient({ children }: NewLayoutClientProps) {
     return <>{children}</>;
   }
 
-  // If it's view page, don't show header/sidebar
-  if (pathname.includes("/view/")) {
+  // Auth pages render standalone (no header/sidebar)
+  if (
+    pathname.startsWith("/signin") ||
+    pathname.startsWith("/signup") ||
+    pathname.startsWith("/forget") ||
+    pathname.startsWith("/reset-password") ||
+    pathname.startsWith("/verify-code")
+  ) {
     return <>{children}</>;
   }
 
   // Determine which wizard page we're on to show the correct stepper in header
-  const isNewClientPage = pathname === "/new/new-client";
-  const isBenefitsPage = pathname === "/new/benefits";
+  const isNewClientPage = pathname === "/new-client";
+  const isBenefitsPage = pathname === "/benefits";
 
   // Read new-client wizard state for the step title shown next to the page title
   const newClientSteps = useNewClientWizardStore((s) => s.steps);

@@ -53,7 +53,7 @@ export function DocumentsHeader({
           <RefreshCw className="mr-2 h-4 w-4" />
           Refresh
         </Button>
-        <Link href="/new/documents?tab=upload">
+        <Link href="/documents?tab=upload">
           <Button className="bg-accent-blue hover:bg-accent-blue/90 text-white">
             <Plus className="h-4 w-4 mr-2" />
             Upload Documents

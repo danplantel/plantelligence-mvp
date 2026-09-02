@@ -1,4 +1,4 @@
-// Shared option lists used by the video wizard (/new/video) investment
+// Shared option lists used by the video wizard (/video) investment
 // step (step-4a) and the investments & features preview (step-4b).
 // Extracted from the legacy create-dashboard form.
 

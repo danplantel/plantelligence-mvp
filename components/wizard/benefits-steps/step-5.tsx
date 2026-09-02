@@ -45,7 +45,7 @@ import {
  *
  * Persisted to the plan/client record via `PUT /api/clients/[id]` as a
  * `DisclaimersData` object: `{ byCategory: { ... } }`.
- * The portal layout at `app/new/view/[id]/layout.tsx` reads `byCategory`,
+ * The portal layout at `app/(portal)/[id]/layout.tsx` reads `byCategory`,
  * matches the current category, and renders inside `<Footer disclosuresText={…} />`.
  */
 

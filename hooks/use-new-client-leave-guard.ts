@@ -69,9 +69,9 @@ export function useNewClientLeaveGuard({
       const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
       if (next === current) return;
 
-      if (!window.location.pathname.startsWith("/new/new-client")) return;
+      if (!window.location.pathname.startsWith("/new-client")) return;
 
-      if (url.pathname.startsWith("/new/new-client")) return;
+      if (url.pathname.startsWith("/new-client")) return;
 
       e.preventDefault();
       e.stopPropagation();

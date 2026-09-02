@@ -56,7 +56,7 @@ export function MarketingPanel() {
         ) : (
           <div className="space-y-3 w-full">
             <Button variant="outline" className="w-full justify-start" asChild>
-              <a href="/new/marketing#portal">
+              <a href="/marketing#portal">
                 <FileText className="mr-2 size-6" />
                 Flyers & Posters
                 <Badge variant="secondary" className="ml-auto">
@@ -65,13 +65,13 @@ export function MarketingPanel() {
               </a>
             </Button>
             <Button variant="outline" className="w-full justify-start" asChild>
-              <a href="/new/marketing#announcements">
+              <a href="/marketing#announcements">
                 <Megaphone className="mr-2 size-6" />
                 Announcement Banners
               </a>
             </Button>
             <Button variant="outline" className="w-full justify-start" asChild>
-              <a href="/new/marketing#qr">
+              <a href="/marketing#qr">
                 <ExternalLink className="mr-2 size-6" />
                 QR Codes / Links
               </a>

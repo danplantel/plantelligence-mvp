@@ -52,7 +52,7 @@ export default function UserAuthForm() {
         email: data.email,
         password: data.password,
         callbackUrl:
-          callbackUrl && callbackUrl !== null ? callbackUrl : "/new/dashboard",
+          callbackUrl && callbackUrl !== null ? callbackUrl : "/dashboard",
       });
 
       if (result?.error) {
@@ -72,7 +72,7 @@ export default function UserAuthForm() {
         setError(errorMessages[result.error] || errorMessages.default);
       } else {
         window.location.href =
-          callbackUrl && callbackUrl !== null ? callbackUrl : "/new/dashboard";
+          callbackUrl && callbackUrl !== null ? callbackUrl : "/dashboard";
       }
     }, "Signing in...");
   };

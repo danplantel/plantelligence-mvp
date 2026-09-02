@@ -27,6 +27,35 @@ function extractSubdomain(host: string, rootDomain: string): string | null {
   return candidate;
 }
 
+// App routes that require auth + onboarding completion. Portal pages live at
+// the root-level /{slug} (the (portal) route group) and are excluded here.
+const APP_ROUTES = [
+  "/dashboard",
+  "/clients",
+  "/benefits",
+  "/settings",
+  "/documents",
+  "/communications",
+  "/new-client",
+  "/edit-client",
+  "/video",
+  "/videos",
+  "/onboarding",
+];
+
+// Public auth routes — never gated by the session/onboarding checks.
+const AUTH_ROUTES = [
+  "/signin",
+  "/signup",
+  "/forget",
+  "/reset-password",
+  "/verify-code",
+];
+
+function isPathOrChild(pathname: string, route: string): boolean {
+  return pathname === route || pathname.startsWith(`${route}/`);
+}
+
 export default async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const host = req.headers.get("host") || "";
@@ -36,91 +65,96 @@ export default async function middleware(req: NextRequest) {
   const response = NextResponse.next();
   response.headers.set("x-pathname", pathname);
 
-  // ── Subdomain portal routing ──────────────────────────────────────────
-  // Subdomains are ONLY valid for public portal paths (/new/view/*).
-  // The subdomain→advisor lookup is delegated to /api/resolve-subdomain
-  // (Node.js runtime) because Prisma cannot run in Edge middleware.
-  if (subdomain) {
-    if (
-      pathname.startsWith("/new/view/") ||
-      pathname.startsWith("/api/r2/object")
-    ) {
-      try {
-        const resolveUrl = new URL("/api/resolve-subdomain", req.url);
-        resolveUrl.searchParams.set("subdomain", subdomain);
-        const resolveRes = await fetch(resolveUrl.toString());
-
-        if (!resolveRes.ok) {
-          // Invalid subdomain — show the app's not-found page
-          return NextResponse.rewrite(new URL("/not-found", req.url));
-        }
-
-        const { userId } = await resolveRes.json();
-        response.headers.set("x-advisor-id", userId);
-        response.headers.set("x-root-domain", rootDomain);
-
-        // Public portal — no auth required
-        return response;
-      } catch (err) {
-        console.error("[middleware] subdomain lookup error:", err);
-        return NextResponse.rewrite(new URL("/not-found", req.url));
-      }
-    }
-
-    // Subdomain request to a non-portal path — show not-found page
-    return NextResponse.rewrite(new URL("/not-found", req.url));
+  // Let static/public assets through (e.g. /logo.png) — they're never an app
+  // or portal route. /api/r2/object image paths are exempt so subdomain image
+  // serving below can still attach x-advisor-id.
+  if (
+    !pathname.startsWith("/api/r2/object") &&
+    /\.[a-zA-Z0-9]+$/.test(pathname)
+  ) {
+    return response;
   }
 
-  // ── Block portal paths on the apex domain ─────────────────────────────
-  // /new/view/* pages are employee-facing portals and must only be accessed
-  // via a subdomain (e.g. waypoint.plantel.pro/new/view/gloomis). Visiting
-  // them directly on plantel.pro redirects to the dashboard.
-  if (pathname.startsWith("/new/view/")) {
-    // Development exception: allow /new/view/* on localhost so the portal
-    // can be previewed locally (mirrors the public subdomain behavior).
-    // All production routing rules remain unchanged.
+  // ── Subdomain portal routing ──────────────────────────────────────────
+  // Subdomains serve ONLY the public portal (root-level /{slug} and its
+  // sub-pages). Every non-API path is a portal page; /api/r2/object serves
+  // portal images. The subdomain→advisor lookup is delegated to
+  // /api/resolve-subdomain (Node.js runtime) because Prisma cannot run in
+  // Edge middleware.
+  if (subdomain) {
+    // Only the R2 image proxy is allowed on a subdomain; other API routes
+    // aren't portal pages.
+    if (
+      pathname.startsWith("/api/") &&
+      !pathname.startsWith("/api/r2/object")
+    ) {
+      return NextResponse.rewrite(new URL("/not-found", req.url));
+    }
+
+    try {
+      const resolveUrl = new URL("/api/resolve-subdomain", req.url);
+      resolveUrl.searchParams.set("subdomain", subdomain);
+      const resolveRes = await fetch(resolveUrl.toString());
+
+      if (!resolveRes.ok) {
+        // Invalid subdomain — show the app's not-found page
+        return NextResponse.rewrite(new URL("/not-found", req.url));
+      }
+
+      const { userId } = await resolveRes.json();
+      response.headers.set("x-advisor-id", userId);
+      response.headers.set("x-root-domain", rootDomain);
+      return response;
+    } catch (err) {
+      console.error("[middleware] subdomain lookup error:", err);
+      return NextResponse.rewrite(new URL("/not-found", req.url));
+    }
+  }
+
+  // ── Apex domain ────────────────────────────────────────────────────────
+  // Portal pages (root-level /{slug}) must only be accessed via a subdomain.
+  // Any apex path that isn't a known app/auth/api route is treated as a
+  // portal request and redirected to the dashboard.
+  const isAuthPath = AUTH_ROUTES.some((r) => isPathOrChild(pathname, r));
+  const isKnownPath =
+    pathname === "/" ||
+    pathname === "/not-found" ||
+    pathname.startsWith("/api/") ||
+    isAuthPath ||
+    APP_ROUTES.some((r) => isPathOrChild(pathname, r));
+
+  if (!isKnownPath) {
+    // Development exception: allow the portal to be previewed locally (e.g.
+    // the clients list Hub button opens http://localhost:3000/{slug}), mirroring
+    // the public subdomain behavior. Production stays subdomain-only.
     if (process.env.NODE_ENV === "development") {
       return response;
     }
-    return NextResponse.redirect(new URL("/new/dashboard", req.url));
+    return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
-  // ── Auth check for all other matched routes ────────────────────────────
-  const token = await getToken({
-    req,
-    secret: process.env.NEXTAUTH_SECRET,
-  });
+  // ── Auth + onboarding gate for app routes ──────────────────────────────
+  // /api/* and auth routes handle their own auth; only app routes need the
+  // session + onboarding check (the flag lives in the JWT, set/refreshed by
+  // the auth-options jwt callback).
+  const isAppPath = APP_ROUTES.some((r) => isPathOrChild(pathname, r));
+  if (isAppPath) {
+    const token = await getToken({
+      req,
+      secret: process.env.NEXTAUTH_SECRET,
+    });
 
-  if (!token) {
-    // /api/r2/object handles its own auth (session or verified-subdomain
-    // x-advisor-id). Don't redirect image requests to sign-in — the route
-    // returns 401 JSON instead, keeping the public portal's images working
-    // when the subdomain middleware has set x-advisor-id.
-    if (pathname.startsWith("/api/r2/object")) {
-      return response;
+    if (!token) {
+      const signInUrl = new URL("/signin", req.url);
+      signInUrl.searchParams.set("callbackUrl", req.url);
+      return NextResponse.redirect(signInUrl);
     }
-    const signInUrl = new URL("/signin", req.url);
-    signInUrl.searchParams.set("callbackUrl", req.url);
-    return NextResponse.redirect(signInUrl);
-  }
 
-  // ── Onboarding gate (server-side, replaces the client OnboardingGuard) ──
-  // The flag lives in the JWT (set/refreshed by the auth-options jwt
-  // callback), so this is a pure token read — no extra DB query and no
-  // client-side /api/onboarding-wizard/onboarding-status round-trip.
-  // Incomplete users are sent to /new/onboarding; /new/onboarding itself and
-  // the public /new/view/* portals are excluded.
-  const isNewArea = pathname === "/new" || pathname.startsWith("/new/");
-  const isOnboardingPage = pathname.startsWith("/new/onboarding");
-  const isPublicPortal = pathname.startsWith("/new/view/");
-
-  if (
-    isNewArea &&
-    !isOnboardingPage &&
-    !isPublicPortal &&
-    !(token as any).onboardingComplete
-  ) {
-    return NextResponse.redirect(new URL("/new/onboarding", req.url));
+    // Incomplete users are sent to /onboarding; /onboarding itself is excluded.
+    const isOnboardingPage = pathname.startsWith("/onboarding");
+    if (!isOnboardingPage && !(token as any).onboardingComplete) {
+      return NextResponse.redirect(new URL("/onboarding", req.url));
+    }
   }
 
   return response;
@@ -128,9 +162,8 @@ export default async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    "/dashboard/:path*",
-    "/new/:path*",
-    "/onboarding/:path*",
-    "/api/r2/object",
+    // Catch-all so the middleware also runs on the root-level portal routes
+    // (/{slug} and /{slug}/…) while skipping Next.js internals.
+    "/((?!_next/|favicon.ico).*)",
   ],
 };

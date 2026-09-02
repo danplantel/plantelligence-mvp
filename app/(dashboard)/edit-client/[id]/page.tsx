@@ -2782,7 +2782,7 @@ export default function EditClientPage() {
 
   if (loading) {
     return (
-      <EditClientLoading onBackClick={() => router.push("/new/clients")} />
+      <EditClientLoading onBackClick={() => router.push("/clients")} />
     );
   }
 
@@ -2790,7 +2790,7 @@ export default function EditClientPage() {
     return (
       <EditClientError
         error={error || "Client not found"}
-        onBackClick={() => router.push("/new/clients")}
+        onBackClick={() => router.push("/clients")}
       />
     );
   }
@@ -2817,7 +2817,7 @@ export default function EditClientPage() {
           <EditClientHeader
             clientStatus={clientStatus}
             onStatusChange={setClientStatus}
-            onBackClick={() => router.push("/new/clients")}
+            onBackClick={() => router.push("/clients")}
             hasClient={!!client}
             isFormValid={isFormValid()}
             clientId={clientId}
@@ -2986,7 +2986,7 @@ export default function EditClientPage() {
                     <span className="font-medium text-foreground dark:text-gray-200">
                       {userSubdomain || "your-org"}
                     </span>
-                    <span className="shrink-0">.plantel.pro/new/view/</span>
+                    <span className="shrink-0">.plantel.pro/</span>
                     <span className="font-medium text-foreground dark:text-gray-200">
                       {companyData.portalUrl ||
                         companyData.companyName
@@ -3646,7 +3646,7 @@ export default function EditClientPage() {
         <div className="mx-auto max-w-5xl px-4 py-4 flex justify-end gap-3">
           <Button
             variant="outline"
-            onClick={() => router.push("/new/clients")}
+            onClick={() => router.push("/clients")}
             disabled={saving}
           >
             Cancel

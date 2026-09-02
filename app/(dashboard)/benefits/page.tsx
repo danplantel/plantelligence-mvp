@@ -97,7 +97,7 @@ function BenefitsPageInner() {
   }, [currentStep]);
 
   /**
-   * Portal deep link: `/new/benefits?planId=<clientId>&category=<BenefitsCategory>`
+   * Portal deep link: `/benefits?planId=<clientId>&category=<BenefitsCategory>`
    *
    * When deep-link params exist they take priority over any persisted state —
    * re-apply after timeouts so persisted localStorage rehydration cannot

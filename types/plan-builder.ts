@@ -1,6 +1,6 @@
 // Shared types extracted from the legacy create-dashboard form
 // (components/pages/create-dashboard/index.tsx). These are reused by:
-//   - the video wizard (/new/video): wizard/video-steps/step-3a.tsx,
+//   - the video wizard (/video): wizard/video-steps/step-3a.tsx,
 //     step-4a.tsx, step-4b.tsx
 //   - app/api/plans/create-plan/route.ts (IPlanFormData)
 // The legacy 5-step form itself was removed as dead code.

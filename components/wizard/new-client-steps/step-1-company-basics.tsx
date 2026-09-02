@@ -945,7 +945,7 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
                 <span className="font-medium text-foreground dark:text-gray-200">
                   {userSubdomain || "your-org"}
                 </span>
-                <span className="shrink-0">.plantel.pro/new/view/</span>
+                <span className="shrink-0">.plantel.pro/</span>
                 <span className="font-medium text-foreground dark:text-gray-200">
                   {companyData.portalUrl ||
                     companyData.companyName

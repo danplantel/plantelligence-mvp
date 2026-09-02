@@ -10,7 +10,6 @@ import {
 } from "@/contexts/client-portal-context";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { PortalPlanHeader } from "@/components/pages/client-portal/sections/portal-plan-header";
 import { PortalPopUpOverlay } from "@/components/pages/client-portal/sections/portal-popup-overlay";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -81,21 +80,7 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
     session?.user?.organizationName ||
     clientData?.companyName ||
     "";
-  const basePath = clientId ? `/new/view/${clientId}` : "";
-
-  const planRoutes = basePath
-    ? [
-      `${basePath}/401k-plan-materials`,
-      `${basePath}/financial-planning`,
-      `${basePath}/rollovers-distributions`,
-      `${basePath}/meetings-announcements`,
-      `${basePath}/schedule-appointment`,
-    ]
-    : [];
-
-  const showPlanHeader = planRoutes.some(
-    (route) => pathname?.startsWith(route),
-  );
+  const basePath = clientId ? `/${clientId}` : "";
 
   useEffect(() => {
     const prev = sessionStorage.getItem("previousPage");
@@ -108,7 +93,7 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
   }, []);
 
   const onClick = () => {
-    window.location.href = `/new/edit-client/${clientId}`;
+    window.location.href = `/edit-client/${clientId}`;
   };
 
   // Determine current category from pathname
@@ -452,7 +437,7 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
         {previousPage && (
           <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50">
             <Button
-              onClick={() => (window.location.href = `/new/dashboard`)}
+              onClick={() => (window.location.href = `/dashboard`)}
               className="px-10 mr-3 py-4 text-lg bg-[#1F3A60] text-white font-semibold rounded-full shadow-xl hover:bg-[#2c4b80] hover:scale-105 transition-all duration-200"
             >
               ← Go back to dashboard
@@ -466,28 +451,16 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
             </Button>
           </div>
         )}
-        {showPlanHeader ? (
-          <PortalPlanHeader
-            companyData={{
-              companyLogo: clientData?.companyLogo,
-            }}
-            brandColor={brandColor}
-            secondaryColor={secondaryColor}
-            clientId={clientId}
-            appointmentLink={clientData?.appointmentLink}
-          />
-        ) : (
-          <PortalHeader
-            companyData={{
-              companyLogo: clientData?.companyLogo,
-            }}
-            brandColor={brandColor}
-            secondaryColor={secondaryColor}
-            clientId={clientId}
-            categoryPortalVisibility={(clientData as any)?.categoryPortalVisibility}
-            benefits={(clientData as any)?.employeePortalPreview?.benefits}
-          />
-        )}
+        <PortalHeader
+          companyData={{
+            companyLogo: clientData?.companyLogo,
+          }}
+          brandColor={brandColor}
+          secondaryColor={secondaryColor}
+          clientId={clientId}
+          categoryPortalVisibility={(clientData as any)?.categoryPortalVisibility}
+          benefits={(clientData as any)?.employeePortalPreview?.benefits}
+        />
       </div>
 
       <div

@@ -1151,7 +1151,7 @@ export const videos = [
 export const navItems: NavItem[] = [
   {
     title: "Dashboard",
-    href: "/new/dashboard",
+    href: "/dashboard",
     icon: "dashboard",
     label: "Dashboard",
   },
@@ -1163,72 +1163,72 @@ export const navItems: NavItem[] = [
     items: [
       {
         title: "View Plans",
-        href: "/new/clients",
+        href: "/clients",
         label: "All Plans",
       },
       {
         title: "Create Plan",
-        href: "/new/new-client",
+        href: "/new-client",
         label: "Create New Plan",
       },
     ],
   },
   {
     title: "Communications",
-    href: "/new/communications",
+    href: "/communications",
     icon: "megaphone",
     label: "Communications",
     items: [
       {
         title: "Meetings",
-        href: "/new/communications/meetings",
+        href: "/communications/meetings",
         label: "Meetings",
       },
       // {
       //   title: "Webinars & Replays",
-      //   href: "/new/communications/webinars",
+      //   href: "/communications/webinars",
       //   label: "Webinars & Replays",
       // },
       {
         title: "Marketing",
-        href: "/new/communications/marketing",
+        href: "/communications/marketing",
         label: "Marketing",
       },
     ],
   },
   {
     title: "Documents",
-    href: "/new/documents",
+    href: "/documents",
     icon: "fileText",
     label: "Documents",
   },
   // {
   //   title: "Video",
-  //   href: "/new/video",
+  //   href: "/video",
   //   icon: "play",
   //   label: "Video",
   //   items: [
   //     {
   //       title: "View Videos",
-  //       href: "/new/videos",
+  //       href: "/videos",
   //       label: "View Videos",
   //     },
   //     {
   //       title: "Create Video",
-  //       href: "/new/video",
+  //       href: "/video",
   //       label: "Create Video",
   //     },
   //   ],
   // },
   {
     title: "Create Benefits",
-    href: "/new/benefits",
+    href: "/benefits",
     icon: "wand-sparkles",
     label: "CreateBenefits",
   },
   {
     title: "Settings",
-    href: "/new/settings",
+    href: "/settings",
     icon: "settings",
     label: "Settings",
   },

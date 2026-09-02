@@ -1,4 +1,4 @@
-/** Shared with /new/meetings and plan-scoped edit-client form. */
+/** Shared with /communications/meetings and plan-scoped edit-client form. */
 
 export interface MeetingScheduleFormData {
   meetingType: string;
@@ -66,7 +66,7 @@ export function getTimezoneAbbr(timezone: string): string {
   return tzMap[timezone] || timezone.split("/")[1] || timezone;
 }
 
-/** Same list as `app/new/meetings/page.tsx` */
+/** Same list as `app/(dashboard)/communications/meetings/page.tsx` */
 export const TIMEZONE_OPTIONS = [
   { value: "America/New_York", label: "Eastern Time (ET)" },
   { value: "America/Chicago", label: "Central Time (CT)" },

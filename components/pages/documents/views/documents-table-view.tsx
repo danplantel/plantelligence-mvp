@@ -196,7 +196,7 @@ export function DocumentsTableView({
               return (
                 <TableRow key={document.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                   {/* text-xs matches the document-name size used on the
-                      View Documents list (/new/documents) for visual consistency. */}
+                      View Documents list (/documents) for visual consistency. */}
                   <TableCell className="font-medium text-xs text-gray-900 dark:text-gray-100">
                     <div className="flex items-center">
                       <FileText className={`${compact ? "h-3.5 w-3.5" : "h-4 w-4"} mr-2 text-gray-400 dark:text-gray-500`} />

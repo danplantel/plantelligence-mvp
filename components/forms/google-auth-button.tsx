@@ -49,7 +49,7 @@ export default function GoogleSignInButton() {
         variant="outline"
         type="button"
         onClick={() =>
-          signIn("google", { callbackUrl: callbackUrl ?? "/new/dashboard" })
+          signIn("google", { callbackUrl: callbackUrl ?? "/dashboard" })
         }
         style={{
           transition: "all 0.2s ease",

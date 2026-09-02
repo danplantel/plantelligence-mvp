@@ -397,7 +397,7 @@ export default function VideoPage() {
   };
 
   const handleCreateAnotherVideo = () => {
-    router.push("/new/dashboard");
+    router.push("/dashboard");
   };
 
   useEffect(() => {

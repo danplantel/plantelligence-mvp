@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { flushSync, createPortal } from "react-dom";
@@ -727,7 +727,7 @@ export default function MeetingsPage() {
     if (statusFilter !== "all") params.set("status", statusFilter);
     if (clientFilter !== "all") params.set("client", clientFilter);
     if (formData.clientId) params.set("planId", formData.clientId);
-    const newURL = params.toString() ? `/new/communications/meetings?${params.toString()}` : "/new/communications/meetings";
+    const newURL = params.toString() ? `/communications/meetings?${params.toString()}` : "/communications/meetings";
     router.replace(newURL);
   }, [statusFilter, clientFilter, formData.clientId, router]);
   useEffect(() => { updateURL(); }, [updateURL]);
@@ -739,7 +739,7 @@ export default function MeetingsPage() {
     if (errors.client) setErrors((prev) => ({ ...prev, client: false }));
     const params = new URLSearchParams(window.location.search);
     params.set("planId", clientId);
-    router.replace(`/new/communications/meetings?${params.toString()}`);
+    router.replace(`/communications/meetings?${params.toString()}`);
   };
   const handlePlanChange = (clientId: string) => { setSelectedPlan(clientId); handlePlanClientChange(clientId); };
   const handleInputChange = (field: keyof MeetingFormData, value: string) => {

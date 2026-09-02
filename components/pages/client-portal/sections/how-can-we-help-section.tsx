@@ -99,7 +99,7 @@ export function HowCanWeHelpSection({
   const resolvedCards = cards && cards.length > 0 ? cards : HELP_CARDS;
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: "-100px" });
-  const basePath = clientId ? `/new/view/${clientId}` : "";
+  const basePath = clientId ? `/${clientId}` : "";
   const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
 
   const EditPencil = () => (

@@ -310,7 +310,7 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
   // ── Stale-draft guard (non-blocking) ────────────────────────────────────
   // After initialization finishes, verify that any draftClientId still
   // references a live server-side draft.  If the draft was deleted from
-  // /new/clients (View Plans) while this page was loaded in another tab,
+  // /clients (View Plans) while this page was loaded in another tab,
   // or if the persist middleware re-wrote old state before the delete
   // handler's resetWizard() could clear it, force a clean start.
   // This runs OUTSIDE the initialization path so it never blocks
@@ -349,7 +349,7 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
   // ── Debounced server-side autosave ──────────────────────────────────────
   // When the user has entered a company name (the minimum data for a draft),
   // automatically create/update a client record with status "Draft" so it
-  // appears in the /new/clients (View Plans) list.  This runs independently
+  // appears in the /clients (View Plans) list.  This runs independently
   // of the per-input localStorage autosave in the step components.
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isAutosavingRef = useRef(false);
@@ -595,9 +595,9 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
                   <button
                     type="button"
                     onClick={() => {
-                      const resolvedUrl = successPortalUrl.startsWith("/new/view/")
+                      const resolvedUrl = successPortalUrl.startsWith("/")
                         ? (() => {
-                            const slug = successPortalUrl.replace("/new/view/", "");
+                            const slug = successPortalUrl.replace(/^\//, "");
                             return process.env.NODE_ENV === "development"
                               ? `${window.location.origin}${getBenefitsHubPath(slug)}`
                               : getBenefitsHubAbsoluteUrl(slug, userSubdomain);
@@ -605,7 +605,7 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
                         : successPortalUrl;
                       window.open(resolvedUrl, "_blank", "noopener,noreferrer");
                       setShowSuccessDialog(false);
-                      // window.location.href = "/new/clients";
+                      // window.location.href = "/clients";
                     }}
                     className="w-full py-3 px-4 rounded-xl bg-accent-blue text-white font-semibold hover:bg-accent-blue/90 transition-colors"
                   >
@@ -615,7 +615,7 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
                     type="button"
                     onClick={() => {
                       setShowSuccessDialog(false);
-                      router.push("/new/clients");
+                      router.push("/clients");
                     }}
                     className="w-full py-3 px-4 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                   >

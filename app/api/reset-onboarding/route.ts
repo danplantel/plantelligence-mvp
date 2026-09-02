@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
       message: deletePlansAndScopedData
         ? "Onboarding and plans reset successfully"
         : "Onboarding data reset successfully",
-      redirectUrl: "/new/onboarding",
+      redirectUrl: "/onboarding",
       deletePlansAndScopedData,
     });
   } catch (error) {

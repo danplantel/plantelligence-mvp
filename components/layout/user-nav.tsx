@@ -75,7 +75,7 @@ export function UserNav() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only load once on mount
 
-  // R2 keys are stored as "org/…"; raw <img src> on /new/… pages resolves to /new/org/… → 404.
+  // R2 keys are stored as "org/…"; raw <img src> on app pages resolves to /org/… → 404.
   const wizardUserSetup = profile?.wizardSessions?.[0]?.userSetup;
   const rawUserImage =
     profile?.wizardSessions?.[0]?.branding?.aiAvatar ||

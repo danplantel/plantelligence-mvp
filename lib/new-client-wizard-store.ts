@@ -1277,8 +1277,8 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
             // Store the portal URL so onComplete can show the success dialog
             set({
               completedPortalUrl: result.slug
-                ? `/new/view/${result.slug}`
-                : `/new/view/${result.clientId}`,
+                ? `/${result.slug}`
+                : `/${result.clientId}`,
             });
 
             // Invalidate the clients list SWR cache globally so any

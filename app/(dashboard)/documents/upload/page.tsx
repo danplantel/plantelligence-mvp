@@ -8,7 +8,7 @@ export default function DocumentsUploadPage() {
 
   // Redirect to main documents page with upload tab
   useEffect(() => {
-    router.replace("/new/documents?tab=upload");
+    router.replace("/documents?tab=upload");
   }, [router]);
 
   return null;

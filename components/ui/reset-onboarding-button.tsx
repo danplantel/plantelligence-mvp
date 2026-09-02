@@ -81,7 +81,7 @@ export function ResetOnboardingButton() {
       setOpen(false);
       setDeletePlansAndScopedData(false);
 
-      router.push(result.redirectUrl || "/new/onboarding");
+      router.push(result.redirectUrl || "/onboarding");
     } catch (error) {
       console.error("Error resetting onboarding:", error);
       toast.error("Failed to reset onboarding", {

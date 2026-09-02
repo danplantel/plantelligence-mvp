@@ -63,7 +63,7 @@ export function PortalBenefits({
   });
 
   const hasClientId = !!clientId;
-  const basePath = clientId ? `/new/view/${clientId}` : "#";
+  const basePath = clientId ? `/${clientId}` : "#";
 
   const completenessInput = completenessClientData ?? {
     keyContacts,

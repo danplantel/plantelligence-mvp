@@ -242,7 +242,7 @@ export async function POST(
       );
     }
 
-    /** Same shape as /new/meetings form submit */
+    /** Same shape as /communications/meetings form submit */
     const formLike: MeetingScheduleFormData = {
       meetingType: String(body.meetingType || ""),
       customMeetingType: String(body.customMeetingType || ""),

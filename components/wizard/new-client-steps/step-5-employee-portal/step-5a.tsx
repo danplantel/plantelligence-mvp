@@ -30,7 +30,7 @@ import { AlertCircle, Eye, FileText, Edit2, X } from "lucide-react";
  * New Client Step 5a – Home Page Footer Disclaimer
  *
  * The user creates exactly ONE disclaimer that appears in the Footer of the
- * **Home Page** (`app/new/view/[id]/page.tsx`). This is **not** a benefit
+ * **Home Page** (`app/(portal)/[id]/page.tsx`). This is **not** a benefit
  * category portal page (e.g. Retirement Plan) — it is the main client landing
  * page that employees see first.
  *

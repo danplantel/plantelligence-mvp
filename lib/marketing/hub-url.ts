@@ -1,6 +1,6 @@
 /**
  * Canonical Benefits Hub entry path (employee-facing portal root).
- * Must stay aligned with portal routing (e.g. portal-plan-header base path).
+ * Must stay aligned with portal routing (portal header base path).
  *
  * Accepts both MongoDB ObjectIds and human-readable slugs — the [id] view route
  * resolves both via dual lookup in GET /api/clients/[id].
@@ -11,7 +11,7 @@ export function getBenefitsHubPath(clientIdOrSlug: string): string {
   if (!id) {
     throw new Error("clientId is required for Benefits Hub URL");
   }
-  return `/new/view/${id}`;
+  return `/${id}`;
 }
 
 /**
@@ -28,9 +28,9 @@ export function getBenefitsHubPathFromSlug(slug: string): string {
  * external-facing portal link is needed.
  *
  * When a subdomain is provided (the advisor's User.subdomain), the URL is built
- * as: https://{subdomain}.{rootDomain}/new/view/{slug}
+ * as: https://{subdomain}.{rootDomain}/{slug}
  *
- * Example: https://waypoint.plantel.pro/new/view/gloomis
+ * Example: https://waypoint.plantel.pro/gloomis
  *
  * When no subdomain is provided (local dev or advisor hasn't set one), falls
  * back to NEXT_PUBLIC_APP_URL or NEXTAUTH_URL.
@@ -46,7 +46,7 @@ export function getBenefitsHubAbsoluteUrl(
     "plantel.pro";
 
   if (userSubdomain) {
-    // Production: https://waypoint.plantel.pro/new/view/gloomis
+    // Production: https://waypoint.plantel.pro/gloomis
     return `https://${userSubdomain}.${rootDomain}${path}`;
   }
 

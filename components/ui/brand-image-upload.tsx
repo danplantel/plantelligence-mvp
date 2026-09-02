@@ -113,7 +113,7 @@ export function BrandImageUpload({
 
   const storedLogoUrl = currentImage?.url ?? null;
   const { url: displayUrl } = useBrandingImageUrl(storedLogoUrl);
-  // Never fall back to raw org/… keys in <img src> — the browser resolves them as /new/org/… (404).
+  // Never fall back to raw org/… keys in <img src> — the browser resolves them as /org/… (404).
   const isStoredR2Key = toR2BrandingKey(storedLogoUrl) != null;
   // Use previewUrl (data URL from the editor) for instant display — no R2 proxy
   // round-trip needed. NOTE: use `||` (not `??`) — the persist layer may strip

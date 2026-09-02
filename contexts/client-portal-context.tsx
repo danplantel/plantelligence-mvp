@@ -105,7 +105,7 @@ export function ClientPortalProvider({
       const result = await response.json();
       if (result.success) {
         // Brokers only see portal data after session + ownership checks in GET /api/clients/[id].
-        // Draft plans must still preview at /new/view/[id] (wizard + flyers); Archived stays hidden.
+        // Draft plans must still preview at /[id] (wizard + flyers); Archived stays hidden.
         const s = String(result.data.status ?? "");
         if (s === "Archived") {
           setError("Client not found");

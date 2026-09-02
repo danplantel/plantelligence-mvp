@@ -42,7 +42,7 @@ export default function NotFoundPage() {
             </p>
 
             <Button
-              onClick={() => router.push(`/new/view/${clientId}`)}
+              onClick={() => router.push(`/${clientId}`)}
               className="h-[50px] rounded-md px-8 text-[16px] font-red-hat uppercase"
               style={{
                 backgroundColor: brandColor,

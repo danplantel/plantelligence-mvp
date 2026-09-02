@@ -122,7 +122,7 @@ export default function UserAuthForm() {
 
         if (result?.ok) {
           toast.success("Account created successfully");
-          router.push("/new/onboarding");
+          router.push("/onboarding");
         } else {
           toast.success("Account created successfully. Please sign in.");
           router.push("/signin");

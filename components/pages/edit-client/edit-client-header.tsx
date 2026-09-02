@@ -79,7 +79,7 @@ export function EditClientHeader({
       if (result.success) {
         toast.success("Client deleted successfully");
         setDeleteDialogOpen(false);
-        router.push("/new/clients");
+        router.push("/clients");
       } else {
         throw new Error(result.error || "Failed to delete client");
       }

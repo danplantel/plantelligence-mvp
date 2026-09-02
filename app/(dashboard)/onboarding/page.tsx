@@ -58,7 +58,7 @@ export default function OnboardingPage() {
           if (res.ok) {
             const json = await res.json();
             if (json.completed) {
-              router.push("/new/dashboard");
+              router.push("/dashboard");
               return;
             }
           } else {

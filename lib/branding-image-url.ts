@@ -9,7 +9,7 @@ const R2_KEY_PREFIX = "org/";
 /**
  * Strip BOM/whitespace and a single leading slash so stored values like "/org/…"
  * or "\uFEFForg/…" still resolve. Without this, `org/…` is requested as a relative
- * URL (e.g. /new/org/…) and returns 404.
+ * URL (e.g. /org/…) and returns 404.
  */
 export function normalizePotentialR2Key(value: string): string {
   return value.replace(/^\uFEFF/, "").trim().replace(/^\//, "");
@@ -17,7 +17,7 @@ export function normalizePotentialR2Key(value: string): string {
 
 /**
  * Returns the canonical R2 object key, or null if the string is not an org/ key.
- * Prefix is matched case-insensitively so `Org/...` still resolves (avoids relative URLs like /new/org/... → 404).
+ * Prefix is matched case-insensitively so `Org/...` still resolves (avoids relative URLs like /org/... → 404).
  */
 export function toR2BrandingKey(
   value: string | null | undefined,

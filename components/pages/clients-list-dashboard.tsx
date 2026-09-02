@@ -232,7 +232,7 @@ export function ClientsListDashboardPage() {
 
         // Clear the Create Plan wizard's localStorage data AND in-memory Zustand
         // state so the user doesn't see stale draft info if they navigate to
-        // /new/new-client afterwards.  The Zustand store is a module-level singleton
+        // /new-client afterwards.  The Zustand store is a module-level singleton
         // that survives client-side navigations — merely clearing localStorage is
         // not enough because persist.rehydrate() does not clear existing in-memory
         // state when storage is empty.
@@ -267,12 +267,12 @@ export function ClientsListDashboardPage() {
 
   const handleViewClient = (clientId: string) => {
     // If a slug is available (stored on the client object), prefer it
-    window.open(`/new/view/${clientId}`, "_blank");
+    window.open(`/${clientId}`, "_blank");
   };
 
   const handleEditClient = (clientId: string) => {
-    router.prefetch(`/new/edit-client/${clientId}`);
-    router.push(`/new/edit-client/${clientId}`);
+    router.prefetch(`/edit-client/${clientId}`);
+    router.push(`/edit-client/${clientId}`);
   };
 
   const handleFinishSetup = (client: Client) => {
@@ -284,7 +284,7 @@ export function ClientsListDashboardPage() {
         ? client.currentStep
         : null;
     router.push(
-      step != null ? `/new/new-client?step=${step}` : "/new/new-client",
+      step != null ? `/new-client?step=${step}` : "/new-client",
     );
   };
 
@@ -396,7 +396,7 @@ export function ClientsListDashboardPage() {
                   <RefreshCw className="mr-2 h-4 w-4" />
                   Refresh
                 </Button>
-                <Link href="/new/new-client">
+                <Link href="/new-client">
                   <Button size="sm">
                     <Plus className="mr-2 h-4 w-4" />
                     Create Plan
@@ -609,7 +609,7 @@ export function ClientsListDashboardPage() {
                               size="sm"
                               onClick={() =>
                                 router.push(
-                                  `/new/edit-client/${client.id}?tab=contacts`,
+                                  `/edit-client/${client.id}?tab=contacts`,
                                 )
                               }
                               className="text-sm hover:text-primary"
@@ -653,7 +653,7 @@ export function ClientsListDashboardPage() {
                                         const slug = client.slug || client.id;
                                         // In development, route to the localhost
                                         // version instead of the production subdomain
-                                        // URL (e.g. https://waypoint.plantel.pro/new/view/...).
+                                        // URL (e.g. https://waypoint.plantel.pro/...).
                                         const url =
                                           process.env.NODE_ENV === "development"
                                             ? `${window.location.origin}${getBenefitsHubPath(slug)}`
@@ -684,7 +684,7 @@ export function ClientsListDashboardPage() {
                                             company: client.companyName,
                                           });
                                         router.push(
-                                          `/new/documents?${searchParams.toString()}`,
+                                          `/documents?${searchParams.toString()}`,
                                         );
                                       }}
                                     >
@@ -709,7 +709,7 @@ export function ClientsListDashboardPage() {
                                             clientId: client.id,
                                           });
                                         router.push(
-                                          `/new/communications?${searchParams.toString()}`,
+                                          `/communications?${searchParams.toString()}`,
                                         );
                                       }}
                                     >

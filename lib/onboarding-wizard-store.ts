@@ -619,7 +619,7 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
         }).then(async response => {
           if (response.ok) {
             // Refresh the NextAuth JWT so the middleware onboarding gate sees
-            // onboardingComplete=true before the redirect to /new/dashboard
+            // onboardingComplete=true before the redirect to /dashboard
             // (otherwise the user would be bounced straight back to onboarding).
             try {
               await getSession();
@@ -627,7 +627,7 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
               // Best-effort; the jwt callback re-checks on the next session fetch.
             }
             // Redirect to new dashboard after completion
-            window.location.href = '/new/dashboard';
+            window.location.href = '/dashboard';
           } else {
             // Handle error response
             const errorData = await response.json();

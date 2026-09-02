@@ -1160,7 +1160,7 @@ export default function MarketingAssetModal({
                       // Client-side navigation to the meetings page pre-selected to
                       // this plan so the advisor can schedule the event without a
                       // full page refresh.
-                      router.push(`/new/communications/meetings?planId=${planId}`);
+                      router.push(`/communications/meetings?planId=${planId}`);
                     }}
                   >
                     <Calendar className="h-3.5 w-3.5" />

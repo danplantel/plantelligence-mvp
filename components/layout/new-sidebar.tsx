@@ -17,7 +17,7 @@ const Sidebar = memo(function Sidebar() {
   // Get currentStep from wizard store (only if on wizard page)
   const currentStep = useNewClientWizardStore((state) => {
     // Only get currentStep if we're on the new client wizard page
-    if (pathname?.includes("/new/client")) {
+    if (pathname?.includes("/new-client")) {
       return state.currentStep;
     }
     return null;

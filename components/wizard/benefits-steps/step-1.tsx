@@ -1964,7 +1964,7 @@ export function BenefitsStep1() {
     setDraftDialogOpen(false);
     if (resolvedPlanId) {
       storePendingDraftSelection(resolvedPlanId);
-      router.push("/new/new-client");
+      router.push("/new-client");
     }
   };
 

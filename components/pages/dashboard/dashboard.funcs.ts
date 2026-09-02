@@ -54,31 +54,31 @@ export const quickActions: QuickAction[] = [
   {
     icon: Plus,
     label: "Create Plan",
-    href: "/new/new-client",
+    href: "/new-client",
     description: "Set up a new branded benefits hub",
   },
   {
     icon: Settings,
     label: "View Plans",
-    href: "/new/clients",
+    href: "/clients",
     description: "Update & manage clients & prospects",
   },
   {
     icon: Calendar,
     label: "Create Meeting/Event",
-    href: "/new/communications/meetings",
+    href: "/communications/meetings",
     description: "Schedule webinars & sessions",
   },
   {
     icon: Upload,
     label: "Upload Documents",
-    href: "/new/documents",
+    href: "/documents",
     description: "Add compliance docs",
   },
   {
     icon: Megaphone,
     label: "Marketing",
-    href: "/new/communications/marketing",
+    href: "/communications/marketing",
     description: "Create flyers & announcements",
   },
 ];
