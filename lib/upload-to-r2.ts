@@ -168,13 +168,37 @@ export async function uploadFileToR2(options: UploadToR2Options): Promise<string
   }
 
   if (!putOk) {
-    const putRes = await fetch(uploadUrl, {
-      method: "PUT",
-      body: file,
-      headers: {
-        "Content-Type": contentType,
-      },
-    });
+    let putRes: Response | null = null;
+    try {
+      putRes = await fetch(uploadUrl, {
+        method: "PUT",
+        body: file,
+        headers: {
+          "Content-Type": contentType,
+        },
+      });
+    } catch (fetchErr) {
+      // The cross-origin PUT was rejected by the browser (CORS/network) before a
+      // response arrived — retry through the same-origin server route instead.
+      console.warn(
+        "[upload-to-r2] fetch PUT failed (CORS/network), trying server upload",
+        fetchErr,
+      );
+      if (file.size <= MAX_SERVER_FALLBACK_BYTES) {
+        const viaServer = await uploadThroughAppServer(file, {
+          purpose,
+          subPath,
+          clientId,
+          fileName,
+          contentType,
+          slot,
+          category,
+          type,
+        });
+        if (viaServer) return viaServer;
+      }
+      throw fetchErr;
+    }
 
     if (!putRes.ok) {
       const errBody = await putRes.text().catch(() => "");
