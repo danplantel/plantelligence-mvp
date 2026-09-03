@@ -572,13 +572,23 @@ export function SimpleImageEditorModal({
                 if (cropCtx) {
                   const img = new Image();
                   img.onload = () => {
+                    // Fabric exports the canvas at the device retina scale even at
+                    // multiplier 1, so the crop source rect must be scaled by the
+                    // actual exported size — otherwise the preview crop shifts and
+                    // clips whenever devicePixelRatio (browser zoom / HiDPI) ≠ 1.
+                    const fab = fabricCanvasRef.current;
+                    const logicalW = fab ? fab.getWidth() : 0;
+                    const srcScale =
+                      logicalW > 0 && img.naturalWidth > 0
+                        ? img.naturalWidth / logicalW
+                        : 1;
                     // Draw only the guideline area from the full canvas
                     cropCtx.drawImage(
                       img,
-                      outerLeft,
-                      outerTop,
-                      guidelineWidth,
-                      guidelineHeight,
+                      outerLeft * srcScale,
+                      outerTop * srcScale,
+                      guidelineWidth * srcScale,
+                      guidelineHeight * srcScale,
                       0,
                       0,
                       guidelineWidth,
@@ -691,13 +701,22 @@ export function SimpleImageEditorModal({
       if (cropCtx) {
         const img = new Image();
         img.onload = () => {
+          // Fabric exports the canvas at the device retina scale even at
+          // multiplier 1, so the crop source rect must be scaled by the actual
+          // exported size — otherwise the preview crop shifts and clips whenever
+          // devicePixelRatio (browser zoom / HiDPI) ≠ 1.
+          const logicalW = canvas.getWidth();
+          const srcScale =
+            logicalW > 0 && img.naturalWidth > 0
+              ? img.naturalWidth / logicalW
+              : 1;
           // Draw only the guideline area from the full canvas
           cropCtx.drawImage(
             img,
-            outerLeft,
-            outerTop,
-            guidelineWidth,
-            guidelineHeight,
+            outerLeft * srcScale,
+            outerTop * srcScale,
+            guidelineWidth * srcScale,
+            guidelineHeight * srcScale,
             0,
             0,
             guidelineWidth,
@@ -1048,13 +1067,22 @@ export function SimpleImageEditorModal({
       const img = new Image();
       img.onload = async () => {
         try {
+          // Fabric multiplies toDataURL() by the device retina scale on top of
+          // the export multiplier, so the crop source rect must be scaled by
+          // the actual exported size — otherwise the saved crop shifts and
+          // clips whenever devicePixelRatio (browser zoom / HiDPI) ≠ 1.
+          const logicalW = canvas.getWidth();
+          const srcScale =
+            img.naturalWidth > 0 && logicalW > 0
+              ? img.naturalWidth / (logicalW * exportMult)
+              : 1;
           // Draw only the guideline area from the full canvas
           cropCtx.drawImage(
             img,
-            outerLeft * exportMult,
-            outerTop * exportMult,
-            guidelineWidth * exportMult,
-            guidelineHeight * exportMult,
+            outerLeft * srcScale,
+            outerTop * srcScale,
+            guidelineWidth * srcScale,
+            guidelineHeight * srcScale,
             0,
             0,
             guidelineWidth * exportMult,
