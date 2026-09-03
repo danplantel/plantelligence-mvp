@@ -4,7 +4,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { ObjectId } from "mongodb";
 import { getPresignedReadUrl, isR2Configured } from "@/lib/r2";
-import { resolvePortalAdvisorId } from "@/lib/portal-access";
+import {
+  resolvePortalAdvisorId,
+  isLocalDevLoopback,
+} from "@/lib/portal-access";
 
 /**
  * Shared helper: resolve a client by ObjectId or slug.
@@ -20,45 +23,42 @@ async function resolveClient(
     ? await resolvePortalAdvisorId(request)
     : undefined;
 
-  let sessionUserId: string | undefined;
+  // Development-only localhost preview: no session and no subdomain, so the
+  // plan is resolved by id/slug alone (never enabled outside `next dev`).
+  const devPublic = forPortal && isLocalDevLoopback(request);
 
-  if (!portalAdvisorId) {
+  let ownerId: string | undefined = portalAdvisorId;
+  if (!ownerId) {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    if (session?.user?.id) {
+      ownerId = session.user.id;
+    } else if (!devPublic) {
       return [null, NextResponse.json({ error: "Unauthorized" }, { status: 401 })];
     }
-    sessionUserId = session.user.id;
   }
 
   const isObjectId = ObjectId.isValid(id);
   let client = null;
 
   if (isObjectId) {
-    client = await prisma.client.findUnique({ where: { id } });
+    client = ownerId
+      ? await prisma.client.findFirst({ where: { id, userId: ownerId } })
+      : await prisma.client.findUnique({ where: { id } });
   }
 
   if (!client) {
-    if (forPortal && portalAdvisorId) {
-      client = await prisma.client.findFirst({
-        where: { slug: id, userId: portalAdvisorId },
-      });
-    } else if (forPortal) {
-      client = await prisma.client.findFirst({
-        where: { slug: id, userId: sessionUserId },
-      });
-    } else {
-      client = await prisma.client.findFirst({
-        where: { slug: id, userId: sessionUserId },
-      });
-    }
+    const slugWhere: Record<string, unknown> = { slug: id };
+    if (ownerId) slugWhere.userId = ownerId;
+    client = await prisma.client.findFirst({ where: slugWhere });
   }
 
   if (!client) {
     return [null, NextResponse.json({ error: "Client not found" }, { status: 404 })];
   }
 
-  // Ownership check for authenticated requests (portal requests are pre-scoped)
-  if (!portalAdvisorId && client.userId !== sessionUserId) {
+  // Ownership check for session requests (portal requests are pre-scoped; the
+  // dev-local preview is intentionally open in development).
+  if (ownerId && client.userId !== ownerId) {
     return [null, NextResponse.json({ error: "Forbidden" }, { status: 403 })];
   }
 

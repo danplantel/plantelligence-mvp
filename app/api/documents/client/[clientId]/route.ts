@@ -3,7 +3,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { prisma } from "@/lib/prisma";
 import { compareDocumentCategoriesHubOrder } from "@/lib/document-category";
-import { resolvePortalAdvisorId } from "@/lib/portal-access";
+import {
+  resolvePortalAdvisorId,
+  isLocalDevLoopback,
+} from "@/lib/portal-access";
 
 export async function GET(
   request: NextRequest,
@@ -18,25 +21,29 @@ export async function GET(
       ? await resolvePortalAdvisorId(request)
       : undefined;
 
+    // Development-only localhost preview: no session and no subdomain, so the
+    // plan is resolved by id/slug alone (never enabled outside `next dev`).
+    const devPublic = forPortal && isLocalDevLoopback(request);
+
     let userId: string | undefined = portalAdvisorId;
     if (!userId) {
       const session = await getServerSession(authOptions);
-      if (!session?.user?.id) {
+      if (session?.user?.id) {
+        userId = session.user.id;
+      } else if (!devPublic) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
-      userId = session.user.id;
     }
 
     const clientIdParam = params.clientId;
 
     // Resolve clientId — it may be a slug (e.g. "g-loomis") rather than a
-    // MongoDB ObjectID. The lookup is scoped to the resolved owner (advisor on
-    // the public portal, session user on the dashboard) so no cross-tenant data
-    // leaks between plans.
+    // MongoDB ObjectID. When an owner is known the lookup is scoped to them so
+    // no cross-tenant data leaks between plans.
     const client = await prisma.client.findFirst({
       where: {
         OR: [{ id: clientIdParam }, { slug: clientIdParam }],
-        userId,
+        ...(userId ? { userId } : {}),
       },
       select: { id: true },
     });

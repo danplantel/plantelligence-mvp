@@ -3,7 +3,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { prisma } from "@/lib/prisma";
 import { getPresignedReadUrl, isR2Configured } from "@/lib/r2";
-import { resolvePortalAdvisorId } from "@/lib/portal-access";
+import {
+  resolvePortalAdvisorId,
+  isLocalDevLoopback,
+} from "@/lib/portal-access";
 
 export async function GET(
   request: NextRequest,
@@ -12,15 +15,20 @@ export async function GET(
   try {
     // Public portal: anonymous employees open documents directly on an advisor
     // subdomain (browser navigation to /api/documents/{id}/view), so resolve the
-    // owning advisor from the Host subdomain. Everything else requires a session.
+    // owning advisor from the Host subdomain. A session is preferred when one
+    // exists; a development-only localhost preview is the only other anonymous
+    // path (never enabled outside `next dev`).
     const portalAdvisorId = await resolvePortalAdvisorId(request, true);
     let ownerId: string | undefined = portalAdvisorId;
     if (!ownerId) {
       const session = await getServerSession(authOptions);
-      if (!session?.user?.id) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      if (session?.user?.id) {
+        ownerId = session.user.id;
       }
-      ownerId = session.user.id;
+    }
+    const devPublic = isLocalDevLoopback(request) && !ownerId;
+    if (!ownerId && !devPublic) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const documentId = params.id;
@@ -73,8 +81,9 @@ export async function GET(
     }
 
     // Check if the resolved owner (portal advisor or session user) owns this
-    // document (via its client). Cross-tenant documents are never served.
-    if (document.client.userId !== ownerId) {
+    // document (via its client). Cross-tenant documents are never served; the
+    // dev-local preview is intentionally open in development.
+    if (!devPublic && document.client.userId !== ownerId) {
       return NextResponse.json(
         { error: "You don't have permission to view this document" },
         { status: 403 }

@@ -3,7 +3,10 @@ import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { ObjectId } from "mongodb";
-import { resolvePortalAdvisorId } from "@/lib/portal-access";
+import {
+  resolvePortalAdvisorId,
+  isLocalDevLoopback,
+} from "@/lib/portal-access";
 import {
   processBase64Image,
   processBase64ImageWithCrop,
@@ -76,55 +79,47 @@ export async function GET(
       ? await resolvePortalAdvisorId(request)
       : undefined;
 
-    // Require auth unless this is a verified subdomain-portal request
-    if (!portalAdvisorId) {
+    // Resolve the owner used to scope lookups:
+    //  - public portal (advisor subdomain) → the advisor from x-advisor-id/Host
+    //  - dashboard / logged-in portal      → the session user
+    //  - development-only localhost preview → no owner (id/slug lookup is open)
+    const devPublic = forPortal && isLocalDevLoopback(request);
+    let ownerId: string | undefined = portalAdvisorId;
+    if (!ownerId) {
       const session = await getServerSession(authOptions);
-      if (!session?.user?.id) {
+      if (session?.user?.id) {
+        ownerId = session.user.id;
+      } else if (!devPublic) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
-      // Use session user for ownership checks below
-      (request as any).__userId = session.user.id;
     }
 
-    const sessionUserId: string | undefined =
-      portalAdvisorId || (request as any).__userId;
-
-    // Dual lookup: try ObjectId first, then slug
+    // Dual lookup: try ObjectId first, then slug. When an owner is known the
+    // lookup is scoped to them so no cross-tenant plan is ever returned.
     const isObjectId = ObjectId.isValid(clientId);
     let client = null;
 
     if (isObjectId) {
-      client = await prisma.client.findUnique({
-        where: { id: clientId },
-      });
+      client = ownerId
+        ? await prisma.client.findFirst({
+            where: { id: clientId, userId: ownerId },
+          })
+        : await prisma.client.findUnique({ where: { id: clientId } });
     }
 
     if (!client) {
-      if (forPortal && portalAdvisorId) {
-        // Subdomain-portal: scope the slug lookup to the advisor identified
-        // by the subdomain so waypoint.plantel.pro only shows that advisor's plans.
-        client = await prisma.client.findFirst({
-          where: { slug: clientId, userId: portalAdvisorId },
-        });
-      } else if (forPortal) {
-        // Legacy portal (no subdomain): use session user
-        client = await prisma.client.findFirst({
-          where: { slug: clientId, userId: sessionUserId },
-        });
-      } else {
-        client = await prisma.client.findFirst({
-          where: { slug: clientId, userId: sessionUserId },
-        });
-      }
+      const slugWhere: Record<string, unknown> = { slug: clientId };
+      if (ownerId) slugWhere.userId = ownerId;
+      client = await prisma.client.findFirst({ where: slugWhere });
     }
 
     if (!client) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
 
-    // Check ownership: subdomain-portal already scoped above; for other paths
-    // verify the session user owns this client.
-    if (!portalAdvisorId && client.userId !== sessionUserId) {
+    // Ownership check for session requests (subdomain-portal is pre-scoped and
+    // the dev-local preview is intentionally open in development).
+    if (ownerId && client.userId !== ownerId) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

@@ -56,3 +56,20 @@ export async function resolvePortalAdvisorId(
   }
   return undefined;
 }
+
+/**
+ * True when the request arrived over a loopback host in local development
+ * (`next dev`). Used to allow a *development-only* anonymous portal preview on
+ * plain `localhost`/`127.0.0.1` — mirroring the public subdomain flow without
+ * needing a hosts entry. Never true in production builds or on a real host.
+ */
+export function isLocalDevLoopback(request: NextRequest): boolean {
+  if (process.env.NODE_ENV !== "development") return false;
+  const host = (request.headers.get("host") || "").toLowerCase();
+  return (
+    host.startsWith("localhost") ||
+    host.startsWith("127.0.0.1") ||
+    host.startsWith("0.0.0.0") ||
+    host.startsWith("[::1]")
+  );
+}
