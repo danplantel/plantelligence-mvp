@@ -130,8 +130,14 @@ export function UserProfileSection({
             onChange={(e) => onCustomChange(e.target.value)}
             placeholder="Benefits marketplace, PEO, association..."
             className="min-h-20 text-start resize-none focus:ring-none"
+            destructive={errorFields.includes("customOrganization")}
             data-field="customOrganization"
           />
+          {errorFields.includes("customOrganization") && (
+            <p className="text-xs text-red-500 dark:text-red-400 mt-1">
+              Please describe your organization
+            </p>
+          )}
         </div>
       )}
     </>

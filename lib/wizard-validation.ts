@@ -14,7 +14,11 @@ const getFieldFromError = (message: string): string[] => {
   if (message.includes("logo")) fields.push("logo");
   if (message.includes("organizationName")) fields.push("organizationName");
   if (message.includes("website")) fields.push("website");
+  if (message.includes("customOrganization")) fields.push("customOrganization");
+  if (message.includes("customService")) fields.push("customService");
   if (message.includes("brandColor")) fields.push("brandColor");
+  if (message.includes("primaryColor")) fields.push("primaryColor");
+  if (message.includes("secondaryColor")) fields.push("secondaryColor");
   if (message.includes("subdomain")) fields.push("subdomain");
   if (message.includes("name")) fields.push("name");
   if (message.includes("email")) fields.push("email");
@@ -30,6 +34,10 @@ const getFieldFromError = (message: string): string[] => {
     if (message.includes("organization name")) return ["organizationName"];
     if (message.includes("website")) return ["website"];
     if (message.includes("mission")) return ["missionStatement"];
+    if (message.includes("primary color")) return ["primaryColor"];
+    if (message.includes("secondary color")) return ["secondaryColor"];
+    if (message.includes("describe your organization")) return ["customOrganization"];
+    if (message.includes("specify other benefits")) return ["customService"];
     if (message.includes("color")) return ["brandColor"];
     if (message.includes("subdomain")) return ["subdomain"];
     if (message.includes("branding") || message.includes("Branding")) return ["branding"];
@@ -315,6 +323,17 @@ export const validateCurrentStep = async (step: number, stepData: any) => {
         if (!teamSize?.teamSize || teamSize.teamSize === undefined) {
           step1Errors.push("teamSize");
         }
+
+        // "Other" organization type requires a description — the schema also
+        // enforces it, but surfacing the field name here lets errorFields
+        // highlight the exact "Describe Your Organization" textarea (matching
+        // the behavior of the other required Step 1 fields).
+        if (
+          clientProfile?.organizationType === OrganizationType.OTHER &&
+          !(clientProfile.customOrganization || "").trim()
+        ) {
+          step1Errors.push("customOrganization");
+        }
         
         if (step1Errors.length > 0) {
           throw new Error(`Please complete the following fields: ${step1Errors.join(", ")}`);
@@ -333,6 +352,16 @@ export const validateCurrentStep = async (step: number, stepData: any) => {
         // Services are required
         if (!stepData.services?.services || stepData.services.services.length === 0) {
           step2Errors.push("services");
+        }
+
+        // When "Other" is selected the custom description is required — the
+        // schema enforces this too, but pushing the field name here lets
+        // errorFields highlight the exact custom-benefits input.
+        if (
+          stepData.services?.services?.includes(ServiceType.OTHER) &&
+          !(stepData.services?.customService || "").trim()
+        ) {
+          step2Errors.push("customService");
         }
         
         if (step2Errors.length > 0) {
@@ -407,9 +436,30 @@ export const validateCurrentStep = async (step: number, stepData: any) => {
         if (!cleanBranding.website || cleanBranding.website.trim() === "") {
           step3Errors.push("website");
         }
-        // brandColor has been replaced by primaryColor/secondaryColor — no longer required
         if (!cleanBranding.subdomain || cleanBranding.subdomain.trim() === "") {
           step3Errors.push("subdomain");
+        }
+        // Brand colors are required — the legacy single brandColor field has been
+        // replaced by primaryColor/secondaryColor (rendered by the shared
+        // BrandColorsSection with required markers). Also validate hex format so a
+        // typed-in value that isn't a valid hex still blocks Next and surfaces the
+        // section's inline "valid hex color" error.
+        const hexColorRegex = /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/;
+        if (
+          !cleanBranding.primaryColor ||
+          cleanBranding.primaryColor.trim() === ""
+        ) {
+          step3Errors.push("primaryColor");
+        } else if (!hexColorRegex.test(cleanBranding.primaryColor.trim())) {
+          step3Errors.push("primaryColor");
+        }
+        if (
+          !cleanBranding.secondaryColor ||
+          cleanBranding.secondaryColor.trim() === ""
+        ) {
+          step3Errors.push("secondaryColor");
+        } else if (!hexColorRegex.test(cleanBranding.secondaryColor.trim())) {
+          step3Errors.push("secondaryColor");
         }
         
         if (step3Errors.length === 0) {

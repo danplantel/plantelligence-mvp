@@ -75,10 +75,18 @@ export function ServicesSection({
             }}
             placeholder="Enter custom benefits..."
             maxLength={50}
-            destructive={errorFields.includes("services")}
+            destructive={
+              errorFields.includes("services") ||
+              errorFields.includes("customService")
+            }
             className="w-full"
             data-field="customService"
           />
+          {errorFields.includes("customService") && (
+            <p className="text-xs text-red-500 dark:text-red-400">
+              Please specify your custom benefits
+            </p>
+          )}
           <div className="text-xs text-muted-foreground text-right">
             {customService.length}/50 characters
           </div>
