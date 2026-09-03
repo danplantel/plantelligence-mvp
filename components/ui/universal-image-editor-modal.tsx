@@ -1702,8 +1702,26 @@ export function UniversalImageEditorModal({
       cropHeight = Math.round(ch - (safePad + innerPad) * 2);
     }
 
+    // The crop rect above is expressed in Fabric logical (CSS) pixels, but the
+    // backing canvas Fabric renders into is scaled by the browser's
+    // devicePixelRatio (clamped to >= 1) at the moment the canvas is created.
+    // Browser zoom changes devicePixelRatio AND fires a window "resize", but
+    // Fabric does NOT resize its backing canvas on that event (its resize
+    // handler only recalculates the offset). Reading window.devicePixelRatio
+    // here at save time can therefore be stale relative to the actual backing
+    // canvas — e.g. zooming out below 100% yields a DPR < 1 that Fabric clamped
+    // to 1 when sizing the backing canvas — which shifts the source rect and
+    // produces an off-center crop that is "cut off" on the sides. The shift
+    // grows with the zoom level. Deriving the scale from the backing canvas
+    // itself guarantees the exported crop always matches the on-screen canvas
+    // at any browser zoom.
     const sourceCanvas = (canvas as any).lowerCanvasEl as HTMLCanvasElement;
-    const ratio = window.devicePixelRatio || 1;
+    const canvasWidth = canvas.getWidth();
+    const backingScale =
+      sourceCanvas && canvasWidth > 0 && sourceCanvas.width > 0
+        ? sourceCanvas.width / canvasWidth
+        : 1;
+    const ratio = backingScale || 1;
 
     const exportCanvas = document.createElement("canvas");
     const exportCtx = exportCanvas.getContext("2d")!;
