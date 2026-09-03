@@ -1072,10 +1072,15 @@ export function SimpleImageEditorModal({
           // the actual exported size — otherwise the saved crop shifts and
           // clips whenever devicePixelRatio (browser zoom / HiDPI) ≠ 1.
           const logicalW = canvas.getWidth();
+          // toDataURL() renders at logical × exportMult × retina, so the total
+          // source scale — including the export multiplier AND the device retina
+          // factor — is simply img.naturalWidth / logicalW. Scaling the crop
+          // source rect by this (and keeping the destination at exportMult)
+          // keeps the crop aligned at any browser zoom / HiDPI DPR.
           const srcScale =
             img.naturalWidth > 0 && logicalW > 0
-              ? img.naturalWidth / (logicalW * exportMult)
-              : 1;
+              ? img.naturalWidth / logicalW
+              : exportMult;
           // Draw only the guideline area from the full canvas
           cropCtx.drawImage(
             img,
