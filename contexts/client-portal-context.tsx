@@ -123,7 +123,12 @@ export function ClientPortalProvider({
 
   const fetchProfile = useCallback(async () => {
     try {
-      const response = await fetch("/api/profile", { credentials: "same-origin" });
+      // forPortal=1 returns a reduced public profile on an advisor subdomain so
+      // anonymous employees see the advisor's signature; on apex/localhost it
+      // falls back to the logged-in session profile.
+      const response = await fetch("/api/profile?forPortal=1", {
+        credentials: "same-origin",
+      });
       if (!response.ok) return;
       const data = await response.json();
       setProfile({

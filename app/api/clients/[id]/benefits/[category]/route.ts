@@ -5,10 +5,12 @@ import { authOptions } from "@/lib/auth-options";
 import { ObjectId } from "mongodb";
 import { getPresignedReadUrl, isR2Configured } from "@/lib/r2";
 import { getCategoryPortalVisibility } from "@/lib/portal-category-visibility";
+import { resolvePortalAdvisorId } from "@/lib/portal-access";
 
 /**
  * Shared helper: resolve a client by ObjectId or slug.
- * Supports both portal (forPortal + x-advisor-id) and authenticated access.
+ * Supports both portal (forPortal + x-advisor-id or Host subdomain) and
+ * authenticated access.
  */
 async function resolveClient(
   id: string,
@@ -16,7 +18,7 @@ async function resolveClient(
 ): Promise<[any, NextResponse | null]> {
   const forPortal = request.nextUrl.searchParams.get("forPortal") === "1";
   const portalAdvisorId = forPortal
-    ? (request.headers.get("x-advisor-id") || undefined)
+    ? await resolvePortalAdvisorId(request)
     : undefined;
 
   let sessionUserId: string | undefined;

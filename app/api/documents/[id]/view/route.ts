@@ -3,16 +3,24 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { prisma } from "@/lib/prisma";
 import { getPresignedReadUrl, isR2Configured } from "@/lib/r2";
+import { resolvePortalAdvisorId } from "@/lib/portal-access";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    // Check authentication
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Public portal: anonymous employees open documents directly on an advisor
+    // subdomain (browser navigation to /api/documents/{id}/view), so resolve the
+    // owning advisor from the Host subdomain. Everything else requires a session.
+    const portalAdvisorId = await resolvePortalAdvisorId(request, true);
+    let ownerId: string | undefined = portalAdvisorId;
+    if (!ownerId) {
+      const session = await getServerSession(authOptions);
+      if (!session?.user?.id) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      ownerId = session.user.id;
     }
 
     const documentId = params.id;
@@ -64,8 +72,9 @@ export async function GET(
       );
     }
 
-    // Check if user owns this document (via client)
-    if (document.client.userId !== session.user.id) {
+    // Check if the resolved owner (portal advisor or session user) owns this
+    // document (via its client). Cross-tenant documents are never served.
+    if (document.client.userId !== ownerId) {
       return NextResponse.json(
         { error: "You don't have permission to view this document" },
         { status: 403 }

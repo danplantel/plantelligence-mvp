@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { ObjectId } from "mongodb";
+import { resolvePortalAdvisorId } from "@/lib/portal-access";
 import {
   processBase64Image,
   processBase64ImageWithCrop,
@@ -66,11 +67,14 @@ export async function GET(
     let clientId = params.id;
     const forPortal = request.nextUrl.searchParams.get("forPortal") === "1";
 
-    // Subdomain-portal: the middleware attaches x-advisor-id when the request
-    // arrives via {subdomain}.plantel.pro. Use it to scope the slug lookup and
-    // skip the session auth check (portals are public).
-    const portalAdvisorId =
-      forPortal ? (request.headers.get("x-advisor-id") || undefined) : undefined;
+    // Public portal: identify the advisor that owns this plan so anonymous
+    // employees can load it. Middleware attaches x-advisor-id only on the page
+    // document and /api/r2/object, so the browser's JSON fetch is resolved via
+    // the Host subdomain here. When no advisor can be resolved (e.g. apex or
+    // local dev with no session) the session check below still applies.
+    const portalAdvisorId = forPortal
+      ? await resolvePortalAdvisorId(request)
+      : undefined;
 
     // Require auth unless this is a verified subdomain-portal request
     if (!portalAdvisorId) {

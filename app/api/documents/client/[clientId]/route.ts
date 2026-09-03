@@ -3,52 +3,48 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { prisma } from "@/lib/prisma";
 import { compareDocumentCategoriesHubOrder } from "@/lib/document-category";
-
-/** Returns true when the string looks like a MongoDB ObjectID (24 hex chars). */
-function isObjectId(v: string): boolean {
-  return /^[0-9a-fA-F]{24}$/.test(v);
-}
+import { resolvePortalAdvisorId } from "@/lib/portal-access";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { clientId: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Portal requests (employees, no session) scope the lookup to the advisor
+    // derived from x-advisor-id / the Host subdomain. All other requests fall
+    // back to the session user, so the dashboard stays login-required.
+    const forPortal = request.nextUrl.searchParams.get("forPortal") === "1";
+    const portalAdvisorId = forPortal
+      ? await resolvePortalAdvisorId(request)
+      : undefined;
+
+    let userId: string | undefined = portalAdvisorId;
+    if (!userId) {
+      const session = await getServerSession(authOptions);
+      if (!session?.user?.id) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      userId = session.user.id;
     }
 
     const clientIdParam = params.clientId;
 
-    // Resolve clientId — it may be a slug (e.g. "g-loomis") rather than a MongoDB ObjectID.
-    let clientId = clientIdParam;
-    if (!isObjectId(clientIdParam)) {
-      const slugMatch = await prisma.client.findFirst({
-        where: { slug: clientIdParam },
-        select: { id: true, userId: true },
-      });
-      if (!slugMatch) {
-        return NextResponse.json({ error: "Client not found" }, { status: 404 });
-      }
-      // Verify client belongs to user (slug resolution path)
-      if (slugMatch.userId !== session.user.id) {
-        return NextResponse.json({ error: "Client not found" }, { status: 404 });
-      }
-      clientId = slugMatch.id;
-    }
-
-    // Verify client belongs to user
+    // Resolve clientId — it may be a slug (e.g. "g-loomis") rather than a
+    // MongoDB ObjectID. The lookup is scoped to the resolved owner (advisor on
+    // the public portal, session user on the dashboard) so no cross-tenant data
+    // leaks between plans.
     const client = await prisma.client.findFirst({
       where: {
-        id: clientId,
-        userId: session.user.id,
+        OR: [{ id: clientIdParam }, { slug: clientIdParam }],
+        userId,
       },
+      select: { id: true },
     });
 
     if (!client) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
+    const clientId = client.id;
 
     const includeArchived =
       request.nextUrl.searchParams.get("includeArchived") === "1";

@@ -2,12 +2,52 @@
 
 import { authOptions } from '@/lib/auth-options';
 import { getServerSession } from 'next-auth';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { step2ServicesToCategories } from '@/lib/service-categories';
 import { getEffectiveWizardUserSetup } from '@/lib/effective-wizard-user-setup';
+import { resolvePortalAdvisorId } from '@/lib/portal-access';
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
+  const forPortal = request.nextUrl.searchParams.get('forPortal') === '1';
+
+  // Public portal: return only the advisor's public signature fields so the
+  // welcome banner renders for anonymous employees. Never expose the full
+  // profile (wizard sessions, compliance data, etc.) over the public subdomain.
+  if (forPortal) {
+    const portalAdvisorId = await resolvePortalAdvisorId(request);
+    if (portalAdvisorId) {
+      const publicUser = await prisma.user.findUnique({
+        where: { id: portalAdvisorId },
+        select: {
+          name: true,
+          email: true,
+          organizationName: true,
+          title: true,
+          headshot: true,
+          designations: true,
+        },
+      });
+      if (publicUser) {
+        const publicProfile = {
+          name: publicUser.name,
+          email: publicUser.email,
+          organizationName: publicUser.organizationName ?? '',
+          title: publicUser.title ?? '',
+          headshot: publicUser.headshot ?? null,
+          designations: publicUser.designations ?? [],
+        };
+        return NextResponse.json({
+          ...publicProfile,
+          // Some portal components read the profile under `.user.*`.
+          user: publicProfile,
+        });
+      }
+    }
+    // forPortal set but no resolvable advisor (e.g. apex/localhost preview while
+    // logged in) — fall through to the normal session flow below.
+  }
+
   const session = await getServerSession(authOptions);
   const userId = session?.user?.id;
 

@@ -3,13 +3,22 @@ import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { ObjectId } from "mongodb";
+import { resolvePortalAdvisorId } from "@/lib/portal-access";
 
 // GET all webinars
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Public portal (News & Events on an advisor subdomain) resolves the owning
+    // advisor from x-advisor-id / the Host subdomain; the dashboard
+    // (Communications → Webinars) requires the session as before.
+    const portalAdvisorId = await resolvePortalAdvisorId(request, true);
+    let userId: string | undefined = portalAdvisorId;
+    if (!userId) {
+      const session = await getServerSession(authOptions);
+      if (!session?.user?.id) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      userId = session.user.id;
     }
 
     // Use MongoDB aggregation to fetch webinars with client info
@@ -19,7 +28,7 @@ export async function GET(request: NextRequest) {
       pipeline: [
         {
           $match: {
-            userId: new ObjectId(session.user.id),
+            userId: new ObjectId(userId),
           },
         },
         {

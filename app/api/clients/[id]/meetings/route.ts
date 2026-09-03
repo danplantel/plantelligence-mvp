@@ -3,6 +3,7 @@ import type { Meeting } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
+import { resolvePortalAdvisorId } from "@/lib/portal-access";
 import { computeStartAtUtc, getMeetingSortInstantMs } from "@/lib/meeting-start-at";
 import type { MeetingScheduleFormData } from "@/lib/meetings/meeting-schedule-shared";
 import {
@@ -57,17 +58,29 @@ export async function GET(
   { params }: { params: { id: string } },
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const clientId = params.id;
     const forHub = request.nextUrl.searchParams.get("forHub") === "1";
     const includeArchived =
       request.nextUrl.searchParams.get("includeArchived") === "1";
 
-    const gate = await assertClientOwner(clientId, session.user.id);
+    // Public portal (News & Events on an advisor subdomain) resolves the owning
+    // advisor from x-advisor-id / the Host subdomain so anonymous employees can
+    // see meetings/webinars. Everything else (dashboard, apex/localhost) still
+    // requires the session.
+    const portalAdvisorId = forHub
+      ? await resolvePortalAdvisorId(request, true)
+      : undefined;
+
+    let userId: string | undefined = portalAdvisorId;
+    if (!userId) {
+      const session = await getServerSession(authOptions);
+      if (!session?.user?.id) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      userId = session.user.id;
+    }
+
+    const gate = await assertClientOwner(clientId, userId);
     if ("error" in gate) {
       return NextResponse.json(
         { error: gate.error },
@@ -89,7 +102,7 @@ export async function GET(
     } as const;
 
     const where: Record<string, unknown> = {
-      userId: session.user.id,
+      userId: userId as string,
       ...planScope,
     };
 

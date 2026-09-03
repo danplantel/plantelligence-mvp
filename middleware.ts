@@ -5,27 +5,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
-
-/**
- * Extract the tenant subdomain from a host header.
- *
- * Examples:
- *   "waypoint.plantel.pro"        → "waypoint"
- *   "www.waypoint.plantel.pro"    → "waypoint"  (www is stripped)
- *   "www.plantel.pro"             → null (www alone is treated as apex)
- *   "plantel.pro"                 → null (apex)
- *   "localhost:3000"              → null (local dev)
- */
-function extractSubdomain(host: string, rootDomain: string): string | null {
-  if (!host) return null;
-  if (host === rootDomain || host.startsWith("localhost")) return null;
-  const base = host.replace(`.${rootDomain}`, "");
-  const parts = base.split(".");
-  // Take the rightmost subdomain part (closest to the root domain).
-  const candidate = parts[parts.length - 1];
-  if (!candidate || candidate.includes(":") || candidate === "www") return null;
-  return candidate;
-}
+import { extractSubdomain } from "@/lib/portal-subdomain";
 
 // App routes that require auth + onboarding completion. Portal pages live at
 // the root-level /{slug} (the (portal) route group) and are excluded here.
