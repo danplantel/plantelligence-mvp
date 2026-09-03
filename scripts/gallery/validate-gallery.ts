@@ -102,7 +102,10 @@ function main(): void {
       } else {
         srcs.add(src);
       }
-      const rel = src.replace(/^\/+/, "");
+      // src is a public URL like "/gallery/<file>". IMAGES_DIR is already
+      // public/gallery, so strip the leading "/gallery/" prefix before joining.
+      const prefix = path.basename(IMAGES_DIR); // "gallery"
+      const rel = src.replace(/^\/+/, "").replace(new RegExp(`^${prefix}/`), "");
       if (!fs.existsSync(path.join(IMAGES_DIR, rel))) {
         errors.push(`${label} src points to missing file: ${src}`);
       }

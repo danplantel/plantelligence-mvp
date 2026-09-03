@@ -120,6 +120,7 @@ Wiring (already in `package.json`):
 ```jsonc
 "gallery:sync": "npx tsx scripts/gallery/sync-default-gallery.ts",
 "gallery:validate": "npx tsx scripts/gallery/validate-gallery.ts",
+"gallery:optimize": "npx tsx scripts/gallery/convert-png-to-webp.ts",
 "check:gallery": "npm run gallery:validate"
 ```
 
@@ -159,8 +160,12 @@ override pattern (e.g. `lib/portal-category-hero-background.ts`). Never store im
 
 - All masters are ~16:9 banner crops; render them via `next/image` with explicit `width`/`height`/`sizes` so the
   optimizer serves appropriately sized derivatives.
-- Nine assets (files `165`–`173`) are 2–3 MB PNGs and dominate payload — convert them to WebP/AVIF before
-  shipping. `gallery:sync` prints any master larger than 1.5 MB so they are easy to spot.
+- The nine former PNG masters (files `165`–`173`) were 2–3 MB each and dominated payload. They are now lossy
+  WebP (~0.1–0.3 MB) — converted in the source library with `gallery:optimize`
+  (`scripts/gallery/convert-png-to-webp.ts`), which also rewrites `metadata.json` (`format: "WebP"`,
+  `fileSizeBytes`, and `.webp` filenames). Run `gallery:sync` after converting so the repo copies match, then
+  remove any stale `.png` copies left in `public/gallery`.
+- `gallery:sync` prints any master still larger than 1.5 MB so oversized assets are easy to spot.
 
 ## 9. Editorial workflow
 
