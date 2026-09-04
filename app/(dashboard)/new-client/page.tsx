@@ -43,6 +43,10 @@ export default function NewClientPage() {
   const [showSavingDialog, setShowSavingDialog] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [successPortalUrl, setSuccessPortalUrl] = useState("");
+  // The just-created plan/client id, captured when the wizard completes so the
+  // success actions (e.g. "Create Benefit") can deep-link even if the store is
+  // reset/cleared after completion.
+  const [successPlanId, setSuccessPlanId] = useState("");
   const {
     currentStep,
     totalSteps,
@@ -451,6 +455,13 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
       completeStep(currentStep);
       await completeWizard();
 
+      // Capture the created plan/client id now (before any store reset) so the
+      // "Create Benefit" action can deep-link /benefits with the plan selected.
+      const createdPlanId = useNewClientWizardStore.getState().draftClientId;
+      if (createdPlanId) {
+        setSuccessPlanId(createdPlanId);
+      }
+
       // completeWizard() stored the portal URL on the store. Show a dialog
       // so the user can choose to view the portal or go to View Plans.
       setShowSavingDialog(false);
@@ -610,6 +621,25 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
                     className="w-full py-3 px-4 rounded-xl bg-accent-blue text-white font-semibold hover:bg-accent-blue/90 transition-colors"
                   >
                     View Portal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // Jump straight into the Benefits wizard with this plan
+                      // already preselected so the advisor can create a benefit.
+                      const planId =
+                        successPlanId ||
+                        useNewClientWizardStore.getState().draftClientId;
+                      setShowSuccessDialog(false);
+                      router.push(
+                        planId
+                          ? `/benefits?planId=${encodeURIComponent(planId)}`
+                          : "/benefits",
+                      );
+                    }}
+                    className="w-full py-3 px-4 rounded-xl border border-accent-blue text-accent-blue font-semibold hover:bg-accent-blue/10 transition-colors"
+                  >
+                    Create Benefit
                   </button>
                   <button
                     type="button"

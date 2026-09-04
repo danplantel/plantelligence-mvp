@@ -2,6 +2,7 @@
 
 import { BenefitsWizard } from "@/components/wizard/benefits-wizard";
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
+import { persistPlanSelection } from "@/lib/plan-selector-storage";
 import { useEffect, useState, Suspense } from "react";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { toast } from "sonner";
@@ -99,6 +100,11 @@ function BenefitsPageInner() {
   /**
    * Portal deep link: `/benefits?planId=<clientId>&category=<BenefitsCategory>`
    *
+   * A `planId` alone (e.g. the "Create Benefit" action after a plan is created)
+   * preselects the plan and leaves the benefit category blank so the advisor
+   * picks which benefit to create. When `category` is also present it is
+   * preselected too (per-category edit links).
+   *
    * When deep-link params exist they take priority over any persisted state —
    * re-apply after timeouts so persisted localStorage rehydration cannot
    * overwrite the URL-driven step1 values.
@@ -109,25 +115,37 @@ function BenefitsPageInner() {
    * survive a page refresh.
    */
   useEffect(() => {
-    const hasDeepLink = !!(planIdParam && categoryParam);
+    const hasPlanParam = !!planIdParam;
 
     const applyFromUrl = () => {
-      if (!planIdParam || !categoryParam) return;
+      if (!planIdParam) return;
       const step1Data = useBenefitsWizardStore.getState().stepData.step1 || {
         planId: "",
         benefitCategory: "",
         contactId: "",
         benefitTitle: "",
       };
-      saveStepData(1, {
+      const next: Record<string, any> = {
         ...step1Data,
         planId: planIdParam,
-        benefitCategory: categoryParam as BenefitsCategory,
-        benefitTitle: categoryParam === "Custom" ? "" : categoryParam,
-      });
+      };
+      if (categoryParam) {
+        next.benefitCategory = categoryParam as BenefitsCategory;
+        next.benefitTitle = categoryParam === "Custom" ? "" : categoryParam;
+      } else {
+        // Plan-only deep link: preselect the plan, clear any category so the
+        // wizard starts at "pick a benefit category" for this plan.
+        next.benefitCategory = "";
+        next.benefitTitle = "";
+        next.contactId = "";
+        next.companyLogo = null;
+      }
+      saveStepData(1, next);
+      // Keep the plan picker in sync so this plan shows as the most recent.
+      persistPlanSelection("benefits", planIdParam);
     };
 
-    if (hasDeepLink) {
+    if (hasPlanParam) {
       applyFromUrl();
       const t0 = setTimeout(applyFromUrl, 0);
       const t1 = setTimeout(applyFromUrl, 50);
