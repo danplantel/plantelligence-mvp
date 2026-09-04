@@ -521,6 +521,43 @@ export function BrandImagesSection({
       img.src = imageUrl;
     });
 
+  /**
+   * Exports the source image at its ORIGINAL full resolution — no crop and no
+   * rescale. Used for the Secondary Banner slot's default photos so the stored
+   * image stays the actual, original photo. That way when the user opens
+   * "Crop / Adjust Image" the editor shows the true original (not a pre-cropped
+   * band), and the user decides the crop themselves.
+   */
+  const exportFullResolutionImage = (
+    imageUrl: string,
+  ): Promise<{ dataUrl: string; width: number; height: number }> =>
+    new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = img.naturalWidth || img.width;
+          canvas.height = img.naturalHeight || img.height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            reject(new Error("Failed to get canvas context"));
+            return;
+          }
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve({
+            dataUrl: canvas.toDataURL("image/jpeg", 0.92),
+            width: canvas.width,
+            height: canvas.height,
+          });
+        } catch (error) {
+          reject(error);
+        }
+      };
+      img.onerror = () => reject(new Error("Failed to load image"));
+      img.src = imageUrl;
+    });
+
   return (
     <Card data-section="brandImages" className="dark:bg-gray-800">
       <CardHeader>
@@ -670,6 +707,14 @@ export function BrandImagesSection({
                 1920,
                 1080,
               );
+              brandImageData = buildImageData(dataUrl, width, height);
+            } else if (activeSlotKey === "secondaryBanner") {
+              // Keep the ORIGINAL photo (no auto-crop) so the stored image is
+              // the real, un-cropped default. When the user opens
+              // "Crop / Adjust Image", the Banner image editor therefore starts
+              // from the actual original instead of a pre-cropped band.
+              const { dataUrl, width, height } =
+                await exportFullResolutionImage(url);
               brandImageData = buildImageData(dataUrl, width, height);
             } else {
               // Auto-crop the image according to guideline settings

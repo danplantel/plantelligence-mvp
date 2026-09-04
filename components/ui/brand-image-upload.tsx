@@ -302,20 +302,23 @@ export function BrandImageUpload({
     }
 
     // Keep a spinner on the Delete button until the parent's removal chain
-    // (R2 delete + state update) has finished.
+    // (R2 delete + state update) has finished. When removal resolves instantly
+    // (e.g. the parent just clears local state), the spinner would never render,
+    // so hold the button in its loading state for a short minimum before the
+    // removal is actually invoked.
+    const MIN_REMOVE_FEEDBACK_MS = 450;
     setIsRemoving(true);
-    try {
-      Promise.resolve(onImageRemove())
-        .catch((error) => {
-          console.error("Failed to remove image:", error);
-        })
-        .finally(() => {
-          setIsRemoving(false);
-        });
-    } catch (error) {
-      console.error("Failed to remove image:", error);
-      setIsRemoving(false);
-    }
+    const run = async () => {
+      try {
+        await new Promise<void>((r) => setTimeout(r, MIN_REMOVE_FEEDBACK_MS));
+        await Promise.resolve(onImageRemove());
+      } catch (error) {
+        console.error("Failed to remove image:", error);
+      } finally {
+        setIsRemoving(false);
+      }
+    };
+    run();
   };
 
   const handleUploadClick = () => {
