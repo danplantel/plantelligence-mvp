@@ -65,9 +65,6 @@ import {
   Megaphone,
 } from "lucide-react";
 export type Icon = LucideIcon;
-import Ambulance from "@/public/custom/Ambulance";
-import NoteBookPen from "@/public/custom/NoteBookPen";
-import FilePen from "@/public/custom/FilePen";
 
 export const Icons = {
   megaphone: Megaphone,
@@ -126,9 +123,6 @@ export const Icons = {
   grid: Grid,
   siren: Siren,
   bankNote: Banknote,
-  ambulance: Ambulance,
-  noteBookPen: NoteBookPen,
-  filePen: FilePen,
   play: Play,
   handshake: Handshake,
   "wand-sparkles": WandSparkles,
