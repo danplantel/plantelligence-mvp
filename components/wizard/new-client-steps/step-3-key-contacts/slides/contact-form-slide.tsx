@@ -410,12 +410,12 @@ export function ContactFormSlide({
         })(),
   );
 
-  // Display toggles for Email / Phone on the card
+  // Display toggles for Email / Phone on the card. Both default to unchecked
+  // when there is no value to display, and are auto-checked once the user adds
+  // a value (otherwise they respect the saved preference).
   const [displayEmail, setDisplayEmail] = useState(
-    step3bData.displayEmail ?? true,
+    email ? (step3bData.displayEmail ?? true) : false,
   );
-  // Phone "show on card" toggle: defaults to unchecked when there is no phone
-  // value to display; otherwise respects the saved preference.
   const [displayPhone, setDisplayPhone] = useState(
     phone ? (step3bData.displayPhone ?? true) : false,
   );
@@ -533,7 +533,7 @@ export function ContactFormSlide({
               return sb.isPrimaryOverall ?? (isFirstContact || defaultIsPrimary);
             })(),
       );
-      setDisplayEmail(sb.displayEmail ?? true);
+      setDisplayEmail(sb.email ? (sb.displayEmail ?? true) : false);
       setDisplayPhone(sb.phone ? (sb.displayPhone ?? true) : false);
       setEnableCtaButton(sb.enableContactButton ?? false);
       setCtaType(sb.ctaType || "schedule");
@@ -559,6 +559,21 @@ export function ContactFormSlide({
       setDisplayPhone(true);
     }
   }, [phone]);
+
+  // Keep the Email "show on card" toggle in sync with the email field — same
+  // behavior as Phone above: uncheck when there is no email value, and
+  // auto-check when the user first adds one (preserving an explicit choice on
+  // an already-populated contact).
+  const prevEmailRef = useRef(email);
+  useEffect(() => {
+    const prevEmail = prevEmailRef.current;
+    prevEmailRef.current = email;
+    if (!email) {
+      setDisplayEmail(false);
+    } else if (!prevEmail) {
+      setDisplayEmail(true);
+    }
+  }, [email]);
 
   // Focus first name on mount for guided mode
   useEffect(() => {
