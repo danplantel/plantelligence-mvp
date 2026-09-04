@@ -164,11 +164,35 @@ export function Step5Disclaimers({
     }
   };
 
-  // Load data when component mounts
+  // Load saved disclaimers WITHOUT blocking the UI:
+  //  - Anything already in the store is rendered immediately (it is seeded into
+  //    local state above), so previously-saved disclaimer text shows right away.
+  //  - The server refresh runs in the background. If the store already has
+  //    disclaimers, loadStepData returns the cached value instantly (no network
+  //    request); otherwise it fetches and the result is applied DIRECTLY to
+  //    local state as soon as it resolves — it is never allowed to clobber
+  //    disclaimers the user added while the request was in flight.
   useEffect(() => {
-    if (typeof loadStepData === "function") {
-      loadStepData("disclaimers");
-    }
+    if (typeof loadStepData !== "function") return;
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const data: any = await loadStepData("disclaimers");
+        if (cancelled) return;
+        const loaded: Disclaimer[] = Array.isArray(data?.disclaimers)
+          ? data.disclaimers
+          : [];
+        if (loaded.length === 0) return;
+        setDisclaimers((prev) => (prev.length > 0 ? prev : loaded));
+        setAddTiming((prev) => prev ?? "now");
+      } catch {
+        // Ignore — anything already in the store is still shown.
+      }
+    };
+    void refresh();
+    return () => {
+      cancelled = true;
+    };
   }, [loadStepData]);
 
   // Update state when stepData changes
