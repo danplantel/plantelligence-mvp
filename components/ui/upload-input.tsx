@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Upload, X } from "lucide-react";
+import { Upload, X, Loader2 } from "lucide-react";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { isR2BrandingKey } from "@/lib/branding-image-url";
 
@@ -10,7 +10,9 @@ interface UploadInputProps {
   value: string;
   fileName: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onRemove: () => void;
+  /** Called when the file is removed. May return a promise; while it is pending
+   *  the remove control shows a loading spinner. */
+  onRemove: () => void | Promise<void>;
   placeholder: string;
   accept?: string;
   imageClassName?: string;
@@ -33,6 +35,30 @@ export function UploadInput({
   const isR2 = isR2BrandingKey(value);
   const { url: resolvedUrl, loading: resolving } = useBrandingImageUrl(isR2 ? value : null);
   const displaySrc = isR2 ? resolvedUrl : value;
+  const [isRemoving, setIsRemoving] = useState(false);
+
+  const handleRemove = () => {
+    if (isRemoving) return;
+
+    const inputEl = document.getElementById(id) as HTMLInputElement | null;
+
+    // Keep the spinner visible for a short minimum even when removal resolves
+    // instantly, so the user always sees the loading feedback.
+    const MIN_REMOVE_FEEDBACK_MS = 450;
+    setIsRemoving(true);
+    const run = async () => {
+      try {
+        await new Promise<void>((r) => setTimeout(r, MIN_REMOVE_FEEDBACK_MS));
+        await Promise.resolve(onRemove());
+      } catch (error) {
+        console.error("Failed to remove upload:", error);
+      } finally {
+        setIsRemoving(false);
+        if (inputEl) inputEl.value = "";
+      }
+    };
+    run();
+  };
 
   return (
     <div className="relative">
@@ -69,18 +95,21 @@ export function UploadInput({
               {fileName || `${placeholder} uploaded`}
             </span>
             <button
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                onRemove();
-
-                const inputEl = document.getElementById(
-                  id,
-                ) as HTMLInputElement | null;
-                if (inputEl) inputEl.value = "";
+                handleRemove();
               }}
-              className="p-1 text-red-500 hover:text-red-700"
+              disabled={isRemoving}
+              title="Delete"
+              aria-label="Delete"
+              className="p-1 text-red-500 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <X className="w-4 h-4" />
+              {isRemoving ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <X className="w-4 h-4" />
+              )}
             </button>
           </>
         ) : (

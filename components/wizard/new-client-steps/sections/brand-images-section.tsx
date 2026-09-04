@@ -695,6 +695,32 @@ export function BrandImagesSection({
             };
           };
 
+          // Square Thumbnail default photo — open the "Thumbnail image" crop
+          // editor with the ORIGINAL photo so the user crops it to a square
+          // themselves, instead of silently auto-cropping on selection. The
+          // editor's Save Thumbnail handler persists the final crop.
+          if (activeSlotKey === "thumbnail") {
+            let displayUrl = url;
+            let displayWidth = 0;
+            let displayHeight = 0;
+            try {
+              const exported = await exportFullResolutionImage(url);
+              displayUrl = exported.dataUrl;
+              displayWidth = exported.width;
+              displayHeight = exported.height;
+            } catch (error) {
+              console.error("Failed to load default photo for editing:", error);
+            }
+            setPendingImageData({
+              slotKey: "thumbnail",
+              data: buildImageData(displayUrl, displayWidth, displayHeight),
+            });
+            setGalleryOpen(false);
+            setActiveSlotKey(null);
+            setIsModalOpen(true);
+            return;
+          }
+
           let brandImageData: BrandImageData;
           try {
             if (activeSlotKey === "header") {
