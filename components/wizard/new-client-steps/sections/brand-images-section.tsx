@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Image as ImageIcon, Eye, Crop, CheckCircle } from "lucide-react";
 import { BrandImagesData, BrandImageData } from "@/types/new-client-wizard";
@@ -409,6 +409,109 @@ export function BrandImagesSection({
     });
   };
 
+  // ── "Wait for full preview" gate ─────────────────────────────────────────
+  // When the user confirms a default photo, the "Choose a Default Image" modal
+  // must stay open (button shows a spinner) until the chosen image has been
+  // persisted AND the section's preview <img> (Background Image / thumbnail /
+  // banner) has actually finished loading. BrandImageUpload reports that load
+  // via onPreviewLoaded → notifyGalleryPreviewLoaded, which resolves the
+  // deferred created below. A timeout bounds the wait so the modal can never
+  // hang (e.g. when the same image is re-selected and <img> won't re-fire).
+  const galleryPreviewWaitRef = useRef<{
+    slotKey: keyof BrandImagesData;
+    resolve: () => void;
+  } | null>(null);
+
+  const notifyGalleryPreviewLoaded = (slotKey: keyof BrandImagesData) => {
+    const wait = galleryPreviewWaitRef.current;
+    if (wait && wait.slotKey === slotKey) {
+      galleryPreviewWaitRef.current = null;
+      wait.resolve();
+    }
+  };
+
+  const waitForGalleryPreviewLoad = (
+    slotKey: keyof BrandImagesData,
+    timeoutMs = 10000,
+  ): Promise<void> =>
+    new Promise<void>((resolve) => {
+      let timer: number | null = null;
+      const finish = () => {
+        if (galleryPreviewWaitRef.current?.slotKey === slotKey) {
+          galleryPreviewWaitRef.current = null;
+        }
+        if (timer) window.clearTimeout(timer);
+        resolve();
+      };
+      timer = window.setTimeout(finish, timeoutMs);
+      galleryPreviewWaitRef.current = { slotKey, resolve: finish };
+    });
+
+  const loadImageDimensions = (
+    imageUrl: string,
+  ): Promise<{ width: number; height: number }> =>
+    new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve({ width: img.width, height: img.height });
+      img.onerror = () => reject(new Error("Failed to load image"));
+      img.src = imageUrl;
+    });
+
+  /**
+   * Exports the FULL source frame (no vertical crop) at a target resolution.
+   * Used for the curated gallery backgrounds on the "Background Image" (header)
+   * slot: those images are already 16:9 banner-safe and match the slot's
+   * recommended 1920×1080 ratio, so cropping them into the short 580×240 band
+   * (autoCropImage) cut off the scene and produced the wrong-looking preview.
+   * The source is scaled (never stretched) to the target because the curated
+   * images share its 16:9 aspect ratio.
+   */
+  const exportFullFrameImage = (
+    imageUrl: string,
+    targetWidth: number,
+    targetHeight: number,
+  ): Promise<{ dataUrl: string; width: number; height: number }> =>
+    new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = targetWidth;
+          canvas.height = targetHeight;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            reject(new Error("Failed to get canvas context"));
+            return;
+          }
+          // Cover-fit the source into the target while preserving its aspect
+          // ratio (16:9 → 16:9 = no effective crop for curated backgrounds).
+          const scale = Math.max(
+            targetWidth / img.width,
+            targetHeight / img.height,
+          );
+          const scaledWidth = img.width * scale;
+          const scaledHeight = img.height * scale;
+          ctx.drawImage(
+            img,
+            (targetWidth - scaledWidth) / 2,
+            (targetHeight - scaledHeight) / 2,
+            scaledWidth,
+            scaledHeight,
+          );
+          resolve({
+            dataUrl: canvas.toDataURL("image/jpeg", 0.92),
+            width: targetWidth,
+            height: targetHeight,
+          });
+        } catch (error) {
+          reject(error);
+        }
+      };
+      img.onerror = () => reject(new Error("Failed to load image"));
+      img.src = imageUrl;
+    });
+
   return (
     <Card data-section="brandImages" className="dark:bg-gray-800">
       <CardHeader>
@@ -437,6 +540,10 @@ export function BrandImagesSection({
                   handleImageChange(slot.key, imageData)
                 }
                 onImageRemove={() => handleImageRemove(slot.key)}
+                onPreviewLoaded={() => notifyGalleryPreviewLoaded(slot.key)}
+                previewObjectFit={
+                  slot.key === "header" ? "cover" : "contain"
+                }
                 onDefaultPhotoClick={() => {
                   setActiveSlotKey(slot.key);
                   setGalleryOpen(true);
@@ -482,6 +589,8 @@ export function BrandImagesSection({
       <ModalGallery
         open={galleryOpen}
         onOpenChange={setGalleryOpen}
+        awaitSelection
+        busyLabel="Loading Preview..."
         onSelect={async (url) => {
           if (!activeSlotKey) return;
           const slot = BRAND_IMAGE_SLOTS.find((s) => s.key === activeSlotKey);
@@ -507,26 +616,28 @@ export function BrandImagesSection({
             }
           }
 
-          try {
-            // Auto-crop the image according to guideline settings
-            const { croppedUrl, width, height } = await autoCropImage(
-              url,
-              activeSlotKey,
-            );
-
-            // Check warnings
+          // Auto-crop to the slot's guidelines; fall back to the raw URL if
+          // cropping fails so a selection is never lost.
+          const buildImageData = (
+            displayUrl: string,
+            width: number,
+            height: number,
+          ): BrandImageData => {
             const warnings: string[] = [];
             const [recWidth, recHeight] = slot.recommendedSize
               .split("×")
               .map((s) => parseInt(s));
-            if (width < recWidth || height < recHeight) {
+            if (
+              recWidth > 0 &&
+              recHeight > 0 &&
+              (width < recWidth || height < recHeight)
+            ) {
               warnings.push(
                 `Below recommended size (${slot.recommendedSize}). May appear blurry.`,
               );
             }
-
-            const brandImageData: BrandImageData = {
-              url: croppedUrl,
+            return {
+              url: displayUrl,
               fileName,
               fileSize: 0,
               width,
@@ -535,93 +646,65 @@ export function BrandImagesSection({
               status: warnings.length > 0 ? "warning" : "ok",
               warnings,
             };
+          };
 
-            const updatedBrandImages = {
-              ...brandImages,
-              [activeSlotKey]: brandImageData,
-            };
-
-            onBrandImagesChange(updatedBrandImages);
-            setGalleryOpen(false);
-
-            // Auto-open the News & Events header preview after selecting
-            // a default photo for the secondary banner
-            if (activeSlotKey === "secondaryBanner") {
-              setNewsEventsPreviewOpen(true);
+          let brandImageData: BrandImageData;
+          try {
+            if (activeSlotKey === "header") {
+              // Curated gallery backgrounds are 16:9 banner-safe — export the
+              // FULL frame (no vertical crop) at the recommended 1920×1080 so
+              // the stored Background Image keeps the whole scene and the
+              // correct ratio.
+              const { dataUrl, width, height } = await exportFullFrameImage(
+                url,
+                1920,
+                1080,
+              );
+              brandImageData = buildImageData(dataUrl, width, height);
+            } else {
+              // Auto-crop the image according to guideline settings
+              const { croppedUrl, width, height } = await autoCropImage(
+                url,
+                activeSlotKey,
+              );
+              brandImageData = buildImageData(croppedUrl, width, height);
             }
-
-            setActiveSlotKey(null);
           } catch (error) {
             console.error("Failed to auto-crop image:", error);
-            // Fallback: save without cropping
-            const img = new Image();
-            img.onload = () => {
-              const warnings: string[] = [];
-              const [recWidth, recHeight] = slot.recommendedSize
-                .split("×")
-                .map((s) => parseInt(s));
-              if (img.width < recWidth || img.height < recHeight) {
-                warnings.push(
-                  `Below recommended size (${slot.recommendedSize}). May appear blurry.`,
-                );
-              }
-
-              const brandImageData: BrandImageData = {
-                url,
-                fileName,
-                fileSize: 0,
-                width: img.width,
-                height: img.height,
-                recommendedSize: slot.recommendedSize,
-                status: warnings.length > 0 ? "warning" : "ok",
-                warnings,
-              };
-
-              const updatedBrandImages = {
-                ...brandImages,
-                [activeSlotKey]: brandImageData,
-              };
-
-              onBrandImagesChange(updatedBrandImages);
-              setGalleryOpen(false);
-
-              if (activeSlotKey === "secondaryBanner") {
-                setNewsEventsPreviewOpen(true);
-              }
-
-              setActiveSlotKey(null);
-            };
-
-            img.onerror = () => {
-              // Final fallback
-              const brandImageData: BrandImageData = {
-                url,
-                fileName,
-                fileSize: 0,
-                width: 0,
-                height: 0,
-                recommendedSize: slot.recommendedSize,
-                status: "ok",
-                warnings: [],
-              };
-
-              const updatedBrandImages = {
-                ...brandImages,
-                [activeSlotKey]: brandImageData,
-              };
-
-              onBrandImagesChange(updatedBrandImages);
-              setGalleryOpen(false);
-
-              if (activeSlotKey === "secondaryBanner") {
-                setNewsEventsPreviewOpen(true);
-              }
-
-              setActiveSlotKey(null);
-            };
-
-            img.src = url;
+            // Fallback: save without cropping (use natural dimensions when known)
+            try {
+              const dims = await loadImageDimensions(url);
+              brandImageData = buildImageData(url, dims.width, dims.height);
+            } catch {
+              brandImageData = buildImageData(url, 0, 0);
+            }
           }
+
+          const updatedBrandImages = {
+            ...brandImages,
+            [activeSlotKey]: brandImageData,
+          };
+
+          // Keep the modal open (button shows a spinner) until the image has
+          // been persisted AND the section's preview <img> (Background Image /
+          // thumbnail / banner) has fully loaded. ModalGallery won't close until
+          // this async handler resolves.
+          try {
+            const previewReady = waitForGalleryPreviewLoad(activeSlotKey);
+            await onBrandImagesChange(updatedBrandImages);
+            await previewReady;
+          } catch (error) {
+            console.error("Failed to apply default image:", error);
+          }
+
+          if (activeSlotKey === "secondaryBanner") {
+            // Close the gallery, then auto-open the News & Events header preview
+            setGalleryOpen(false);
+            setNewsEventsPreviewOpen(true);
+          } else {
+            setGalleryOpen(false);
+          }
+          setActiveSlotKey(null);
         }}
       />
 

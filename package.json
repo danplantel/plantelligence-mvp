@@ -12,6 +12,7 @@
     "gallery:sync": "npx tsx scripts/gallery/sync-default-gallery.ts",
     "gallery:validate": "npx tsx scripts/gallery/validate-gallery.ts",
     "gallery:optimize": "npx tsx scripts/gallery/convert-png-to-webp.ts",
+    "gallery:curate": "npx tsx scripts/gallery/curate-default-backgrounds.ts",
     "check:gallery": "npm run gallery:validate",
     "postinstall": "prisma generate && node -e \"try{require('fs').cpSync('node_modules/@sparticuz/chromium/bin','chromium-bin',{recursive:true})}catch(e){console.warn('chromium-bin copy skipped:',e.message)}\""
   },

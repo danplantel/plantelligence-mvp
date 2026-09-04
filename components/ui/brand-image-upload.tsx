@@ -68,6 +68,8 @@ interface BrandImageUploadProps {
   headerAction?: React.ReactNode;
   /** When true, shows a loading overlay on the upload area (e.g. while an R2 upload is in flight). */
   isUploading?: boolean;
+  /** Called when the rendered preview <img> finishes loading (the image is fully decoded/displayable). */
+  onPreviewLoaded?: () => void;
 }
 
 export function BrandImageUpload({
@@ -93,6 +95,7 @@ export function BrandImageUpload({
   previewObjectFit = "contain",
   headerAction,
   isUploading = false,
+  onPreviewLoaded,
 }: BrandImageUploadProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -484,11 +487,12 @@ export function BrandImageUpload({
                     <img
                       src={previewSrc}
                       alt={currentImage.fileName}
+                      onLoad={() => onPreviewLoaded?.()}
                       className={`max-h-full max-w-full ${
                         universalModalType === "headshot"
                           ? "h-full w-full object-cover rounded-full"
                           : previewObjectFit === "cover"
-                            ? "object-cover"
+                            ? "w-full h-full object-cover"
                             : "object-contain"
                       }`}
                     />
