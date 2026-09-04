@@ -200,19 +200,6 @@ export function BrandColorsSection({
         {/* ── Color Set Selection ───────────────────────────────────────── */}
         {colorSets.length > 0 && !isExtracting && (
           <div className="mb-4">
-            {siteType && (
-              <p className="mb-3 text-xs text-muted-foreground dark:text-gray-400 flex items-center gap-1.5">
-                <Globe className="w-3.5 h-3.5 shrink-0" />
-                <span>Detected site:</span>
-                <span className="font-medium text-foreground dark:text-gray-200">
-                  {siteType.label}
-                </span>
-                <span className="text-muted-foreground/70">
-                  ({siteType.category}
-                  {siteType.confidence !== "high" ? ` · ${siteType.confidence}` : ""})
-                </span>
-              </p>
-            )}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {colorSets.map((set) => {
                 const Icon = setIcons[set.id];
