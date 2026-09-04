@@ -2478,7 +2478,7 @@ export function UniversalImageEditorModal({
                       inputRef.current.value = "";
                     }
                   }}
-                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-full hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
                 >
                   {isDeleting ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
