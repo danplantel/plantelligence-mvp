@@ -5,7 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Image as ImageIcon, Eye, Crop, CheckCircle } from "lucide-react";
 import { BrandImagesData, BrandImageData } from "@/types/new-client-wizard";
 import { SimpleImageEditorModal } from "@/components/ui/simple-image-editor-modal";
-import { ModalGallery } from "@/components/ui/modalGallery";
+import {
+  ModalGallery,
+  type GalleryBackground,
+} from "@/components/ui/modalGallery";
 import { BrandImageUpload } from "../../../ui/brand-image-upload";
 import { toR2BrandingKey, getR2ObjectProxyUrl } from "@/lib/branding-image-url";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -22,6 +25,9 @@ interface BrandImagesSectionProps {
   logoUrl?: string | null;
   /** Company name used as the preview navbar fallback when no logo is selected */
   companyName?: string;
+  /** Optional curated images shown in the "Choose a Default Image" modal. When
+   *  omitted, the benefit-hub default backgrounds are used. */
+  galleryImages?: GalleryBackground[];
 }
 
 const BRAND_IMAGE_SLOTS = [
@@ -71,6 +77,7 @@ export function BrandImagesSection({
   visibleSlots,
   logoUrl,
   companyName,
+  galleryImages,
 }: BrandImagesSectionProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeSlotKey, setActiveSlotKey] = useState<
@@ -102,7 +109,7 @@ export function BrandImagesSection({
     onBrandImagesChange(updatedBrandImages);
   };
 
-  const handleImageRemove = (slotKey: keyof BrandImagesData) => {
+  const handleImageRemove = async (slotKey: keyof BrandImagesData) => {
     const currentImage = brandImages?.[slotKey];
     // Only revoke blob URLs (from createObjectURL), not data URLs or external URLs
     if (currentImage?.url?.startsWith("blob:")) {
@@ -116,7 +123,9 @@ export function BrandImagesSection({
       ...brandImages,
       [slotKey]: undefined,
     };
-    onBrandImagesChange(updatedBrandImages);
+    // Await the parent's removal chain (R2 delete + persistence) so the Delete
+    // button's spinner stays visible until the image is actually gone.
+    await onBrandImagesChange(updatedBrandImages);
   };
 
   const handleSecondaryBannerUpload = async (imageData: BrandImageData) => {
@@ -589,6 +598,7 @@ export function BrandImagesSection({
       <ModalGallery
         open={galleryOpen}
         onOpenChange={setGalleryOpen}
+        images={galleryImages}
         awaitSelection
         busyLabel="Loading Preview..."
         onSelect={async (url) => {

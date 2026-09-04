@@ -6,10 +6,25 @@ import { Button } from "@/components/ui/button";
 import { Loader2, ArrowLeft, Check } from "lucide-react";
 import curatedBackgrounds from "@/data/gallery-default-backgrounds.json";
 
+export interface GalleryBackground {
+  id: string;
+  title: string;
+  category: string;
+  mode: string;
+  src: string;
+  altText: string;
+}
+
 interface ModalGalleryProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSelect: (url: string) => void | Promise<void>;
+  /**
+   * Optional image list to show in the grid/preview. When omitted the default
+   * curated set is used. This lets each "Choose a Default Image" flow show its
+   * own imagery (e.g. benefit-hub backgrounds vs website homepage backgrounds).
+   */
+  images?: GalleryBackground[];
   /**
    * When true, the "Select Image" button shows a loading spinner and the dialog
    * stays open until `onSelect`'s promise resolves (e.g. so the caller can await
@@ -21,24 +36,20 @@ interface ModalGalleryProps {
   busyLabel?: string;
 }
 
-interface GalleryBackground {
-  id: string;
-  title: string;
-  category: string;
-  mode: string;
-  src: string;
-  altText: string;
-}
-
 type GalleryView = "grid" | "preview";
 
 export function ModalGallery({
   open,
   onOpenChange,
   onSelect,
+  images,
   awaitSelection = false,
   busyLabel = "Loading Preview...",
 }: ModalGalleryProps) {
+  // When a custom image set is provided use it; otherwise fall back to the
+  // default curated benefit-hub backgrounds.
+  const galleryImages =
+    images && images.length > 0 ? images : curatedBackgrounds;
   const [selected, setSelected] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // Two "slides": the image grid, and a full-size preview of the picked image.
@@ -53,7 +64,7 @@ export function ModalGallery({
   }, [open]);
 
   const selectedImage = selected
-    ? curatedBackgrounds.find((image) => image.src === selected)
+    ? galleryImages.find((image) => image.src === selected)
     : undefined;
 
   // Clicking a thumbnail selects it and slides over to the full preview.
@@ -94,7 +105,7 @@ export function ModalGallery({
   const renderGridSlide = () => (
     <section aria-label="Gallery" className="w-full shrink-0">
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 overflow-y-auto max-h-[60vh] pr-2">
-        {curatedBackgrounds.map((image) => {
+        {galleryImages.map((image) => {
           const isSelected = selected === image.src;
           return (
             <div

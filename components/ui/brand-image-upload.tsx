@@ -32,7 +32,9 @@ interface BrandImageUploadProps {
   };
   currentImage?: BrandImageData;
   onImageChange: (imageData: BrandImageData) => void;
-  onImageRemove: () => void;
+  /** Called when the image is deleted. May return a promise; while it is pending
+   *  the Delete button shows a loading spinner. */
+  onImageRemove: () => void | Promise<void>;
   onDefaultPhotoClick?: () => void;
   onEditClick?: () => void;
   onFileSelect?: (imageData: BrandImageData) => void;
@@ -98,6 +100,7 @@ export function BrandImageUpload({
   onPreviewLoaded,
 }: BrandImageUploadProps) {
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [pendingImageData, setPendingImageData] =
     useState<BrandImageData | null>(null);
@@ -290,12 +293,28 @@ export function BrandImageUpload({
   };
 
   const handleRemove = () => {
+    if (isRemoving) return;
     if (currentImage?.url?.startsWith?.("blob:")) {
       URL.revokeObjectURL(currentImage.url);
     }
-    onImageRemove();
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
+    }
+
+    // Keep a spinner on the Delete button until the parent's removal chain
+    // (R2 delete + state update) has finished.
+    setIsRemoving(true);
+    try {
+      Promise.resolve(onImageRemove())
+        .catch((error) => {
+          console.error("Failed to remove image:", error);
+        })
+        .finally(() => {
+          setIsRemoving(false);
+        });
+    } catch (error) {
+      console.error("Failed to remove image:", error);
+      setIsRemoving(false);
     }
   };
 
@@ -512,10 +531,15 @@ export function BrandImageUpload({
                   <button
                     type="button"
                     onClick={handleRemove}
-                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    disabled={isRemoving}
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
                   >
-                    <X className="w-3.5 h-3.5" />
-                    Delete
+                    {isRemoving ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <X className="w-3.5 h-3.5" />
+                    )}
+                    {isRemoving ? "Deleting..." : "Delete"}
                   </button>
                 </div>
               </div>

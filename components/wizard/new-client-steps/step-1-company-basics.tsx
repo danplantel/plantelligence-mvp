@@ -23,6 +23,7 @@ import {
 } from "@/types/new-client-wizard";
 import { WelcomeMissionSection } from "./sections/welcome-mission-section";
 import { MISSION_STATEMENT_PRESETS } from "./constants/welcome-statements";
+import homepageBackgrounds from "@/data/gallery-homepage-backgrounds.json";
 
 type CompanyBasicsSubStep = "branding" | "welcomeMission";
 
@@ -1177,6 +1178,9 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
             errorFields={errorFields}
             logoUrl={companyData.companyLogo?.url}
             companyName={companyData.companyName}
+            // These default images appear on the website home page (not the
+            // benefit-hub pages), so use the homepage curated set.
+            galleryImages={homepageBackgrounds}
           />
         </>
       )}
