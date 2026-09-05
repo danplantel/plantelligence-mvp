@@ -6,6 +6,7 @@ import { Canvas, Image as FabricImage } from "fabric";
 import { Button } from "./button";
 import { Label } from "./label";
 import { ImageEditorControls } from "./image-editor-controls";
+import { ConfirmDialog } from "./confirm-dialog";
 import {
   FlipHorizontal,
   FlipVertical,
@@ -367,6 +368,11 @@ export function UniversalImageEditorModal({
   >(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  // Confirmation dialog states
+  const [showBoundaryConfirm, setShowBoundaryConfirm] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  // Lets handleSave skip the boundary confirm after the user confirms in the dialog
+  const boundarySaveRef = useRef(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [showGuidelines, setShowGuidelines] = useState(true);
@@ -1585,16 +1591,18 @@ export function UniversalImageEditorModal({
       return;
     }
 
-    if ((type === "logo" || type === "normalizer") && isOutsideSafeZone) {
-      const confirmSave = window.confirm(
-        `⚠️ Your ${previewTitle ? previewTitle : "logo"
-        } touches the boundary and may get cropped. Continue?`,
-      );
-      if (!confirmSave) {
-        setIsSaving(false);
-        return;
-      }
+    if (
+      (type === "logo" || type === "normalizer") &&
+      isOutsideSafeZone &&
+      !boundarySaveRef.current
+    ) {
+      // Ask for confirmation before saving a logo that may get cropped.
+      setShowBoundaryConfirm(true);
+      setIsSaving(false);
+      return;
     }
+    // Consume the one-shot bypass once the user has confirmed in the dialog.
+    boundarySaveRef.current = false;
 
     const objects = canvas.getObjects();
     const hiddenObjects: any[] = [];
@@ -1843,14 +1851,22 @@ export function UniversalImageEditorModal({
 
   const handleCancel = () => {
     if (imageSrc && fabricCanvasRef.current) {
-      if (
-        confirm("Are you sure you want to cancel? Your changes will be lost.")
-      ) {
-        handleClose();
-      }
+      setShowCancelConfirm(true);
     } else {
       handleClose();
     }
+  };
+
+  const handleCancelConfirmed = () => {
+    setShowCancelConfirm(false);
+    handleClose();
+  };
+
+  const handleBoundarySaveConfirmed = async () => {
+    setShowBoundaryConfirm(false);
+    boundarySaveRef.current = true;
+    await handleSave();
+    boundarySaveRef.current = false;
   };
 
   const centerImage = () => {
@@ -3005,6 +3021,34 @@ export function UniversalImageEditorModal({
             });
           }}
         />
+
+      {/* Discard changes confirmation */}
+      <ConfirmDialog
+        open={showCancelConfirm}
+        onOpenChange={setShowCancelConfirm}
+        onConfirm={handleCancelConfirmed}
+        title="Discard Changes"
+        description="Are you sure you want to cancel? Your changes will be lost."
+        confirmText="Discard Changes"
+        cancelText="Keep Editing"
+        variant="warning"
+      />
+
+      {/* Boundary crop save confirmation */}
+      <ConfirmDialog
+        open={showBoundaryConfirm}
+        onOpenChange={setShowBoundaryConfirm}
+        onConfirm={handleBoundarySaveConfirmed}
+        title="Continue Saving?"
+        description={
+          previewTitle
+            ? `Your ${previewTitle} touches the boundary and may get cropped. Continue?`
+            : "Your logo touches the boundary and may get cropped. Continue?"
+        }
+        confirmText="Continue"
+        cancelText="Cancel"
+        variant="warning"
+      />
     </div>
   );
 }

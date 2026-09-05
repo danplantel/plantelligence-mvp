@@ -215,27 +215,45 @@ Each message below was checked against the code that enforces it:
 
 ## 🖼️ Image / Brand Upload & Editors
 
-### [`components/ui/brand-image-upload.tsx`](../components/ui/brand-image-upload.tsx) — `[ ]` 3 calls (alert)
+### 🧹 Relevance review (inspected in context)
+
+| Call | Type | Verdict | Why |
+| ---- | ---- | ------- | --- |
+| `ui/brand-image-upload.tsx` `L157` | alert | ✅ Keep → `toast.error` | Real fallback guard for non-image/non-zip files in `processImageFile`. |
+| `ui/brand-image-upload.tsx` `L163` | alert | ✅ Keep → `toast.error` | Real size guard — `file.size > maxFileSize MB`, message uses the same dynamic `maxFileSize`. |
+| `ui/brand-image-upload.tsx` `L252` | alert | ✅ Keep → `toast.error` | Real catch around `extractImagesFromZip` (surfaces user-friendly zip errors). |
+| `ui/universal-image-editor-modal.tsx` `L1589` | confirm | ✅ Keep → `ConfirmDialog` | Warns before saving a logo/normalizer that touches the boundary / may get cropped. |
+| `ui/universal-image-editor-modal.tsx` `L1847` | confirm | ✅ Keep → `ConfirmDialog` | "Cancel? Your changes will be lost" — real unsaved-changes guard (image loaded + canvas active). |
+| `ui/simple-image-editor-modal.tsx` `L1085` | confirm | ✅ Keep → `ConfirmDialog` | Same real cancel-with-unsaved-changes guard. |
+| `video-steps/step-2/step-2b.tsx` `L136` | alert | ✅ Keep → `toast.error` | Format guard matches `allowedTypes` = PNG/JPG/JPEG. |
+| `video-steps/step-2/step-2b.tsx` `L141` | alert | ✅ Keep → `toast.error` | Size guard `> 15 MB` matches message. |
+| `benefits-steps/benefits-editor-panel.tsx` `L209` | alert | ✅ Keep → `toast.error` | Guard `!file.type.startsWith("video/")`. |
+| `benefits-steps/benefits-editor-panel.tsx` `L238` | alert | ✅ Keep → `toast.error` | `uploadFileToR2` returned no key → real upload failure. |
+| `benefits-steps/benefits-editor-panel.tsx` `L242` | alert | ✅ Keep → `toast.error` | Real catch around the video upload. |
+
+**Bottom line:** all **11** calls remain useful — **8 alerts** → `toast.error`, **3 confirms** → `ConfirmDialog`. No dead code or placeholder messages found in this group.
+
+### [`components/ui/brand-image-upload.tsx`](../components/ui/brand-image-upload.tsx) — `[x]` 3 calls (alert)
 
 - `L157` — `alert("Unsupported file. Please upload an image (PNG, JPG, JPEG, WebP, or SVG), or a .zip folder of images.")` → `toast.error`
 - `L163` — `alert(\`File too large. Please upload a file under ${maxFileSize} MB.\`)` → `toast.error`
 - `L252` — `alert((err as Error).message || "Could not read that .zip file.")` → `toast.error`
 
-### [`components/ui/universal-image-editor-modal.tsx`](../components/ui/universal-image-editor-modal.tsx) — `[ ]` 2 calls (confirm)
+### [`components/ui/universal-image-editor-modal.tsx`](../components/ui/universal-image-editor-modal.tsx) — `[x]` 2 calls (confirm)
 
 - `L1589` — `window.confirm(\`⚠️ Your ${previewTitle ? previewTitle : "logo"} touches the boundary and may get cropped. Continue?\`)` → `ConfirmDialog`
 - `L1847` — `confirm("Are you sure you want to cancel? Your changes will be lost.")` → `ConfirmDialog`
 
-### [`components/ui/simple-image-editor-modal.tsx`](../components/ui/simple-image-editor-modal.tsx) — `[ ]` 1 call (confirm)
+### [`components/ui/simple-image-editor-modal.tsx`](../components/ui/simple-image-editor-modal.tsx) — `[x]` 1 call (confirm)
 
 - `L1085` — `confirm("Are you sure you want to cancel? Your changes will be lost.")` → `ConfirmDialog`
 
-### [`components/wizard/video-steps/step-2/step-2b.tsx`](../components/wizard/video-steps/step-2/step-2b.tsx) — `[ ]` 2 calls (alert)
+### [`components/wizard/video-steps/step-2/step-2b.tsx`](../components/wizard/video-steps/step-2/step-2b.tsx) — `[x]` 2 calls (alert)
 
 - `L136` — `alert("Unsupported format. Please upload .png,.jpg,.jpeg files.")` → `toast.error`
 - `L141` — `alert("File too large. Please upload a file under 15 MB.")` → `toast.error`
 
-### [`components/wizard/benefits-steps/benefits-editor-panel.tsx`](../components/wizard/benefits-steps/benefits-editor-panel.tsx) — `[ ]` 3 calls (alert)
+### [`components/wizard/benefits-steps/benefits-editor-panel.tsx`](../components/wizard/benefits-steps/benefits-editor-panel.tsx) — `[x]` 3 calls (alert)
 
 - `L209` — `alert("Please select a valid video file.")` → `toast.error`
 - `L238` — `alert("Failed to upload video. Please try again.")` → `toast.error`

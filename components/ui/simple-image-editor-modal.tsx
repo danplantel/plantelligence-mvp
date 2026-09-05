@@ -6,6 +6,7 @@ import { Canvas, Image as FabricImage, Rect } from "fabric";
 import { Button } from "./button";
 import { Label } from "./label";
 import { ImageEditorControls } from "./image-editor-controls";
+import { ConfirmDialog } from "./confirm-dialog";
 import { buildCropMetadata, cropImageToDataUrl } from "@/lib/image-editor-crop";
 import {
   handleUniformScale,
@@ -106,6 +107,8 @@ export function SimpleImageEditorModal({
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  // Discard-changes confirmation dialog
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const isEditingRef = useRef(false);
   const ignoreScaleDifferenceCheckRef = useRef(false); // Flag to ignore scale difference check after auto-size
   const [
@@ -1081,14 +1084,15 @@ export function SimpleImageEditorModal({
 
   const handleCancel = () => {
     if (imageSrc && fabricCanvasRef.current) {
-      if (
-        confirm("Are you sure you want to cancel? Your changes will be lost.")
-      ) {
-        handleClose();
-      }
+      setShowCancelConfirm(true);
     } else {
       handleClose();
     }
+  };
+
+  const handleCancelConfirmed = () => {
+    setShowCancelConfirm(false);
+    handleClose();
   };
 
   const centerImage = () => {
@@ -1680,6 +1684,18 @@ export function SimpleImageEditorModal({
           </div>
         </div>
       )}
+
+      {/* Discard changes confirmation */}
+      <ConfirmDialog
+        open={showCancelConfirm}
+        onOpenChange={setShowCancelConfirm}
+        onConfirm={handleCancelConfirmed}
+        title="Discard Changes"
+        description="Are you sure you want to cancel? Your changes will be lost."
+        confirmText="Discard Changes"
+        cancelText="Keep Editing"
+        variant="warning"
+      />
     </div>
   );
 }

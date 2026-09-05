@@ -23,6 +23,7 @@ import { BannerOverlaySettingsCard } from "@/components/wizard/new-client-steps/
 import { HeroBackgroundCard, type HeroSegmentMode } from "@/components/wizard/new-client-steps/sections/components/hero-background-card";
 import { uploadFileToR2 } from "@/lib/upload-to-r2";
 import { toNextImageSrc } from "@/lib/branding-image-url";
+import { toast } from "sonner";
 
 export const DEFAULT_HELP_CARDS: HelpCardData[] = [
     {
@@ -206,7 +207,7 @@ export function BenefitsEditorPanel({
         if (!file) return;
 
         if (!file.type.startsWith("video/")) {
-            alert("Please select a valid video file.");
+            toast.error("Please select a valid video file.");
             return;
         }
 
@@ -235,11 +236,11 @@ export function BenefitsEditorPanel({
                     planVideoRemoved: false,
                 });
             } else {
-                alert("Failed to upload video. Please try again.");
+                toast.error("Failed to upload video. Please try again.");
             }
         } catch (err) {
             console.error("Video upload error:", err);
-            alert("An error occurred while uploading the video.");
+            toast.error("An error occurred while uploading the video.");
         } finally {
             setVideoUploading(false);
             setVideoUploadProgress(0);

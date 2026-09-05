@@ -17,6 +17,7 @@ import {
   type ExtractedImage,
 } from "@/lib/zip-image-extract";
 import { ZipFilePickerModal } from "@/components/ui/zip-file-picker-modal";
+import { toast } from "sonner";
 
 interface BrandImageUploadProps {
   slotKey: string;
@@ -154,13 +155,13 @@ export function BrandImageUpload({
     if (!file.type || !allowedTypes.has(file.type)) {
       const fallbackImage = file.type?.startsWith("image/");
       if (!fallbackImage) {
-        alert(`Unsupported file. Please upload an image (PNG, JPG, JPEG, WebP, or SVG), or a .zip folder of images.`);
+        toast.error(`Unsupported file. Please upload an image (PNG, JPG, JPEG, WebP, or SVG), or a .zip folder of images.`);
         return;
       }
     }
 
     if (file.size > maxFileSize * 1024 * 1024) {
-      alert(`File too large. Please upload a file under ${maxFileSize} MB.`);
+      toast.error(`File too large. Please upload a file under ${maxFileSize} MB.`);
       return;
     }
 
@@ -249,7 +250,7 @@ export function BrandImageUpload({
         setIsZipPickerOpen(true);
         return;
       } catch (err) {
-        alert((err as Error).message || "Could not read that .zip file.");
+        toast.error((err as Error).message || "Could not read that .zip file.");
         return;
       }
     }

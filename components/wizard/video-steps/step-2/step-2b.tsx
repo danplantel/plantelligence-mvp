@@ -11,6 +11,7 @@ import { SimpleImageEditorModal } from "@/components/ui/simple-image-editor-moda
 import { ModalGallery } from "@/components/ui/modalGallery";
 import { Button } from "@/components/ui/button";
 import { Upload, Plus, Trash2, ImageIcon } from "lucide-react";
+import { toast } from "sonner";
 
 interface VideoStep2bProps {}
 
@@ -133,12 +134,12 @@ export function VideoStep2b({}: VideoStep2bProps) {
       (t) => `image/${t.replace(".", "")}`,
     );
     if (!allowedTypes.includes(file.type)) {
-      alert("Unsupported format. Please upload .png,.jpg,.jpeg files.");
+      toast.error("Unsupported format. Please upload .png,.jpg,.jpeg files.");
       return;
     }
 
     if (file.size > 15 * 1024 * 1024) {
-      alert("File too large. Please upload a file under 15 MB.");
+      toast.error("File too large. Please upload a file under 15 MB.");
       return;
     }
 
