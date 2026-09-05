@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { Canvas, Image as FabricImage } from "fabric";
 import { Button } from "./button";
 import { Label } from "./label";
-import { Slider } from "./slider";
+import { ImageEditorControls } from "./image-editor-controls";
 import {
   FlipHorizontal,
   FlipVertical,
@@ -17,6 +17,16 @@ import {
   Plus,
 } from "lucide-react";
 import { CropMetadata } from "./simple-image-editor-modal";
+import {
+  buildCropMetadata,
+  detectTransparency,
+  drawCroppedImage,
+  getBackingScale,
+} from "@/lib/image-editor-crop";
+import {
+  handleUniformScale,
+  installShiftCenteredScaling,
+} from "@/hooks/use-fabric-image-editor";
 import { uploadFileToR2 } from "@/lib/upload-to-r2";
 import { isR2BrandingKey, toR2BrandingKey, toFabricImageLoadUrl } from "@/lib/branding-image-url";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
@@ -1431,42 +1441,12 @@ export function UniversalImageEditorModal({
       }
     };
 
-    // Force proportional scaling always (even with Shift key)
-    const handleUniformScaling = (e: any) => {
-      const obj = e.target;
-      if (obj && obj.scaleX !== undefined && obj.scaleY !== undefined) {
-        // Always keep scaleX and scaleY equal
-        const maxScale = Math.max(obj.scaleX, obj.scaleY);
-        obj.scaleX = maxScale;
-        obj.scaleY = maxScale;
-      }
-    };
-
-    // Enable centered scaling when Shift is held
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Shift") {
-        const activeObject = canvas.getActiveObject();
-        if (activeObject) {
-          activeObject.set({ centeredScaling: true });
-        }
-      }
-    };
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === "Shift") {
-        const activeObject = canvas.getActiveObject();
-        if (activeObject) {
-          activeObject.set({ centeredScaling: false });
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
+    // Enable centered scaling while Shift is held; keep scaling proportional.
+    const removeShiftCenteredScaling = installShiftCenteredScaling(canvas);
 
     canvas.on("object:modified", handleObjectChange);
     canvas.on("object:moving", handleObjectChange);
-    canvas.on("object:scaling", handleUniformScaling);
+    canvas.on("object:scaling", handleUniformScale);
     canvas.on("object:scaling", handleObjectChange);
     canvas.on("object:rotating", handleObjectChange);
     canvas.on("object:skewing", handleObjectChange);
@@ -1553,11 +1533,10 @@ export function UniversalImageEditorModal({
     canvas.on("after:render", drawGuidelinesOverlay);
 
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
+      removeShiftCenteredScaling();
       canvas.off("object:modified", handleObjectChange);
       canvas.off("object:moving", handleObjectChange);
-      canvas.off("object:scaling", handleUniformScaling);
+      canvas.off("object:scaling", handleUniformScale);
       canvas.off("object:scaling", handleObjectChange);
       canvas.off("object:rotating", handleObjectChange);
       canvas.off("object:skewing", handleObjectChange);
@@ -1716,43 +1695,20 @@ export function UniversalImageEditorModal({
     // itself guarantees the exported crop always matches the on-screen canvas
     // at any browser zoom.
     const sourceCanvas = (canvas as any).lowerCanvasEl as HTMLCanvasElement;
-    const canvasWidth = canvas.getWidth();
-    const backingScale =
-      sourceCanvas && canvasWidth > 0 && sourceCanvas.width > 0
-        ? sourceCanvas.width / canvasWidth
-        : 1;
-    const ratio = backingScale || 1;
+    const ratio = getBackingScale(canvas);
 
-    const exportCanvas = document.createElement("canvas");
-    const exportCtx = exportCanvas.getContext("2d")!;
-    exportCanvas.width = cropWidth * ratio;
-    exportCanvas.height = cropHeight * ratio;
-
-    exportCtx.scale(ratio, ratio);
-    exportCtx.imageSmoothingEnabled = true;
-    exportCtx.imageSmoothingQuality = "high";
-
-    exportCtx.drawImage(
-      sourceCanvas,
-      cropX * ratio,
-      cropY * ratio,
-      cropWidth * ratio,
-      cropHeight * ratio,
-      0,
-      0,
-      cropWidth,
-      cropHeight,
-    );
+    const exportCanvas = drawCroppedImage({
+      source: sourceCanvas,
+      sx: cropX * ratio,
+      sy: cropY * ratio,
+      sw: cropWidth * ratio,
+      sh: cropHeight * ratio,
+      dw: cropWidth * ratio,
+      dh: cropHeight * ratio,
+    })!;
 
     // Check for transparency to decide between PNG and JPEG
-    const pixelData = exportCtx.getImageData(0, 0, exportCanvas.width, exportCanvas.height).data;
-    let hasTransparency = false;
-    for (let i = 3; i < pixelData.length; i += 4) {
-      if (pixelData[i] < 255) {
-        hasTransparency = true;
-        break;
-      }
-    }
+    const hasTransparency = detectTransparency(exportCanvas);
 
     const exportFormat = hasTransparency ? "image/png" : "image/jpeg";
     const exportQuality = hasTransparency ? 1.0 : 0.85;
@@ -1797,19 +1753,14 @@ export function UniversalImageEditorModal({
     const cropWidthInImage = (cropRight - cropLeft) / currentScale;
     const cropHeightInImage = (cropBottom - cropTop) / currentScale;
 
-    const cropXPercent = Math.max(0, (cropXInImage / originalImageWidth) * 100);
-    const cropYPercent = Math.max(
-      0,
-      (cropYInImage / originalImageHeight) * 100,
-    );
-    const cropWidthPercent = Math.min(
-      100,
-      (cropWidthInImage / originalImageWidth) * 100,
-    );
-    const cropHeightPercent = Math.min(
-      100,
-      (cropHeightInImage / originalImageHeight) * 100,
-    );
+    const cropMeta = buildCropMetadata({
+      cropX: cropXInImage,
+      cropY: cropYInImage,
+      cropWidth: cropWidthInImage,
+      cropHeight: cropHeightInImage,
+      originalWidth: originalImageWidth,
+      originalHeight: originalImageHeight,
+    });
 
     const finalize = async () => {
       try {
@@ -1824,13 +1775,7 @@ export function UniversalImageEditorModal({
         }
 
         const cropData: CropMetadata = {
-          x: Math.round(cropXPercent * 100) / 100,
-          y: Math.round(cropYPercent * 100) / 100,
-          width: Math.round(cropWidthPercent * 100) / 100,
-          height: Math.round(cropHeightPercent * 100) / 100,
-          originalWidth: Math.round(originalImageWidth),
-          originalHeight: Math.round(originalImageHeight),
-          cropped: true,
+          ...cropMeta,
           originalImage: finalOriginalImage, // Always use originalImageSrc for backend
         };
 
@@ -2389,6 +2334,26 @@ export function UniversalImageEditorModal({
       checkSafeZone();
       generatePreviews();
     }
+  };
+
+  const handleScaleChange = (newScale: number) => {
+    setScale(newScale);
+
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    const activeObject = canvas.getActiveObject();
+    if (!activeObject) return;
+
+    activeObject.set({
+      scaleX: newScale,
+      scaleY: newScale,
+    });
+
+    activeObject.setCoords();
+    canvas.renderAll();
+    generatePreviews();
+    checkSafeZone();
   };
 
   return (
@@ -2962,57 +2927,18 @@ export function UniversalImageEditorModal({
               {/* Controls */}
               <div className="p-4 border-t space-y-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    {/* Scale Control */}
-                    {config.allowScaling && (
-                      <div className="flex items-center gap-1.5 sm:gap-2">
-                        <Label className="text-[10px] sm:text-xs md:text-sm">
-                          Scale
-                        </Label>
-                        <Slider
-                          value={[
-                            (() => {
-                              const range = maxScale - minScale;
-                              if (range === 0 || !Number.isFinite(range)) return 50;
-                              const raw = ((scale - minScale) / range) * 100;
-                              return Number.isFinite(raw) ? Math.max(0, Math.min(100, raw)) : 50;
-                            })(),
-                          ]}
-                          onValueChange={([percent]) => {
-                            const newScale =
-                              minScale +
-                              (percent / 100) * (maxScale - minScale);
-
-                            setScale(newScale);
-
-                            const canvas = fabricCanvasRef.current;
-                            if (!canvas) return;
-
-                            const activeObject = canvas.getActiveObject();
-                            if (!activeObject) return;
-
-                            activeObject.set({
-                              scaleX: newScale,
-                              scaleY: newScale,
-                            });
-
-                            activeObject.setCoords();
-                            canvas.renderAll();
-                            generatePreviews();
-                            checkSafeZone();
-                          }}
-                          min={0}
-                          max={100}
-                          step={0.25}
-                          className="w-20 sm:w-24 md:w-32"
-                        />
-
-                        <span className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground w-8 sm:w-10 md:w-12">
-                          {Math.round((scale / baseScale) * 100)}%
-                        </span>
-                      </div>
-                    )}
-
+                  <ImageEditorControls
+                    scale={scale}
+                    baseScale={baseScale}
+                    minScale={minScale}
+                    maxScale={maxScale}
+                    onScaleChange={handleScaleChange}
+                    onCenter={centerImage}
+                    onReset={resetImage}
+                    onAutoSize={autoSizeImage}
+                    disabled={isLoading}
+                    showScale={config.allowScaling}
+                  >
                     {/* Show Guidelines Checkbox */}
                     <div className="flex items-center space-x-1.5 sm:space-x-2">
                       <input
@@ -3029,38 +2955,7 @@ export function UniversalImageEditorModal({
                         Show Guidelines
                       </label>
                     </div>
-
-                    {/* Center, Reset, Auto-size, and Canvas Mode Buttons */}
-                    <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={centerImage}
-                        disabled={isLoading}
-                        className="flex-1 text-[9px] sm:text-[10px] md:text-xs h-7 sm:h-8 md:h-9"
-                      >
-                        Center
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={resetImage}
-                        disabled={isLoading}
-                        className="flex-1 text-[9px] sm:text-[10px] md:text-xs h-7 sm:h-8 md:h-9"
-                      >
-                        Reset
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="lg"
-                        onClick={autoSizeImage}
-                        disabled={isLoading}
-                        className="flex-1 text-[9px] sm:text-[10px] md:text-xs h-7 sm:h-8 md:h-9 min-w-[80px] sm:min-w-[90px] md:min-w-[100px]"
-                      >
-                        Auto-size
-                      </Button>
-                    </div>
-                  </div>
+                  </ImageEditorControls>
 
                   <div className="flex items-center gap-1.5 sm:gap-2">
                     <Button

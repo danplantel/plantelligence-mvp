@@ -5,7 +5,12 @@ import { flushSync } from "react-dom";
 import { Canvas, Image as FabricImage, Rect } from "fabric";
 import { Button } from "./button";
 import { Label } from "./label";
-import { Slider } from "./slider";
+import { ImageEditorControls } from "./image-editor-controls";
+import { buildCropMetadata, cropImageToDataUrl } from "@/lib/image-editor-crop";
+import {
+  handleUniformScale,
+  installShiftCenteredScaling,
+} from "@/hooks/use-fabric-image-editor";
 import { Upload, X, Loader2 } from "lucide-react";
 
 // Export CropMetadata type for use in other components
@@ -563,72 +568,52 @@ export function SimpleImageEditorModal({
                   multiplier: 1,
                 });
 
-                // Create a new canvas for cropping to guideline bounds
-                const cropCanvas = document.createElement("canvas");
-                cropCanvas.width = guidelineWidth;
-                cropCanvas.height = guidelineHeight;
-                const cropCtx = cropCanvas.getContext("2d");
+                const img = new Image();
+                img.onload = () => {
+                  // Fabric exports the canvas at the device retina scale even at
+                  // multiplier 1, so the crop source rect must be scaled by the
+                  // actual exported size — otherwise the preview crop shifts and
+                  // clips whenever devicePixelRatio (browser zoom / HiDPI) ≠ 1.
+                  const fab = fabricCanvasRef.current;
+                  const logicalW = fab ? fab.getWidth() : 0;
+                  const srcScale =
+                    logicalW > 0 && img.naturalWidth > 0
+                      ? img.naturalWidth / logicalW
+                      : 1;
+                  // Draw only the guideline area from the full canvas
+                  const dataURL = cropImageToDataUrl({
+                    source: img,
+                    sx: outerLeft * srcScale,
+                    sy: outerTop * srcScale,
+                    sw: guidelineWidth * srcScale,
+                    sh: guidelineHeight * srcScale,
+                    dw: guidelineWidth,
+                    dh: guidelineHeight,
+                    format: "image/png",
+                  });
 
-                if (cropCtx) {
-                  const img = new Image();
-                  img.onload = () => {
-                    // Fabric exports the canvas at the device retina scale even at
-                    // multiplier 1, so the crop source rect must be scaled by the
-                    // actual exported size — otherwise the preview crop shifts and
-                    // clips whenever devicePixelRatio (browser zoom / HiDPI) ≠ 1.
-                    const fab = fabricCanvasRef.current;
-                    const logicalW = fab ? fab.getWidth() : 0;
-                    const srcScale =
-                      logicalW > 0 && img.naturalWidth > 0
-                        ? img.naturalWidth / logicalW
-                        : 1;
-                    // Draw only the guideline area from the full canvas
-                    cropCtx.drawImage(
-                      img,
-                      outerLeft * srcScale,
-                      outerTop * srcScale,
-                      guidelineWidth * srcScale,
-                      guidelineHeight * srcScale,
-                      0,
-                      0,
-                      guidelineWidth,
-                      guidelineHeight,
-                    );
-
-                    // Export cropped canvas as preview
-                    const dataURL = cropCanvas.toDataURL("image/png");
+                  if (dataURL) {
                     setPreviewSrc(dataURL);
-
-                    // Restore controls
-                    if (fabricCanvasRef.current) {
-                      setGuidelinesVisibility(true);
-                      activeObj.hasControls = prevControls;
-                      activeObj.hasBorders = prevBorders;
-                      fabricCanvasRef.current.setActiveObject(activeObj);
-                      fabricCanvasRef.current.renderAll();
-                    }
-                  };
-                  img.src = fullCanvasData;
-                } else {
-                  // Fallback to original export if crop canvas creation fails
-                  if (fabricCanvasRef.current) {
-                    const dataURL = fabricCanvasRef.current.toDataURL({
+                  } else if (fabricCanvasRef.current) {
+                    // Fallback to original export if crop canvas creation fails
+                    const fallback = fabricCanvasRef.current.toDataURL({
                       format: "png",
                       quality: 0.9,
                       multiplier: 1,
                     });
-                    if (dataURL) {
-                      setPreviewSrc(dataURL);
-                    }
+                    if (fallback) setPreviewSrc(fallback);
+                  }
 
-                    // Restore controls
+                  // Restore controls
+                  if (fabricCanvasRef.current) {
                     setGuidelinesVisibility(true);
                     activeObj.hasControls = prevControls;
                     activeObj.hasBorders = prevBorders;
                     fabricCanvasRef.current.setActiveObject(activeObj);
                     fabricCanvasRef.current.renderAll();
                   }
-                }
+                };
+                img.src = fullCanvasData;
               }
             }, 100);
           }
@@ -692,57 +677,41 @@ export function SimpleImageEditorModal({
         multiplier: 1,
       });
 
-      // Create a new canvas for cropping to guideline bounds
-      const cropCanvas = document.createElement("canvas");
-      cropCanvas.width = guidelineWidth;
-      cropCanvas.height = guidelineHeight;
-      const cropCtx = cropCanvas.getContext("2d");
-
-      if (cropCtx) {
-        const img = new Image();
-        img.onload = () => {
-          // Fabric exports the canvas at the device retina scale even at
-          // multiplier 1, so the crop source rect must be scaled by the actual
-          // exported size — otherwise the preview crop shifts and clips whenever
-          // devicePixelRatio (browser zoom / HiDPI) ≠ 1.
-          const logicalW = canvas.getWidth();
-          const srcScale =
-            logicalW > 0 && img.naturalWidth > 0
-              ? img.naturalWidth / logicalW
-              : 1;
-          // Draw only the guideline area from the full canvas
-          cropCtx.drawImage(
-            img,
-            outerLeft * srcScale,
-            outerTop * srcScale,
-            guidelineWidth * srcScale,
-            guidelineHeight * srcScale,
-            0,
-            0,
-            guidelineWidth,
-            guidelineHeight,
-          );
-
-          // Export cropped canvas as preview
-          const dataURL = cropCanvas.toDataURL("image/png");
-          setPreviewSrc(dataURL);
-
-          // Restore controls immediately
-          setGuidelinesVisibility(true);
-          currentActiveObject.hasControls = prevControls;
-          currentActiveObject.hasBorders = prevBorders;
-          canvas.setActiveObject(currentActiveObject);
-          canvas.renderAll();
-        };
-        img.src = fullCanvasData;
-      } else {
-        // Fallback to original export if crop canvas creation fails
-        const dataURL = canvas.toDataURL({
-          format: "png",
-          quality: 0.9,
-          multiplier: 1,
+      const img = new Image();
+      img.onload = () => {
+        // Fabric exports the canvas at the device retina scale even at
+        // multiplier 1, so the crop source rect must be scaled by the actual
+        // exported size — otherwise the preview crop shifts and clips whenever
+        // devicePixelRatio (browser zoom / HiDPI) ≠ 1.
+        const logicalW = canvas.getWidth();
+        const srcScale =
+          logicalW > 0 && img.naturalWidth > 0
+            ? img.naturalWidth / logicalW
+            : 1;
+        // Draw only the guideline area from the full canvas
+        const dataURL = cropImageToDataUrl({
+          source: img,
+          sx: outerLeft * srcScale,
+          sy: outerTop * srcScale,
+          sw: guidelineWidth * srcScale,
+          sh: guidelineHeight * srcScale,
+          dw: guidelineWidth,
+          dh: guidelineHeight,
+          format: "image/png",
         });
-        setPreviewSrc(dataURL);
+
+        if (dataURL) {
+          // Export cropped canvas as preview
+          setPreviewSrc(dataURL);
+        } else {
+          // Fallback to original export if crop canvas creation fails
+          const fallback = canvas.toDataURL({
+            format: "png",
+            quality: 0.9,
+            multiplier: 1,
+          });
+          setPreviewSrc(fallback);
+        }
 
         // Restore controls immediately
         setGuidelinesVisibility(true);
@@ -750,7 +719,8 @@ export function SimpleImageEditorModal({
         currentActiveObject.hasBorders = prevBorders;
         canvas.setActiveObject(currentActiveObject);
         canvas.renderAll();
-      }
+      };
+      img.src = fullCanvasData;
     });
   }, [getGuidelineMetrics]);
 
@@ -810,22 +780,6 @@ export function SimpleImageEditorModal({
       }, 100);
     };
 
-    // Force proportional scaling always (even with Shift key)
-    const handleUniformScaling = (e: any) => {
-      if (!e || !e.target) return;
-      const obj = e.target;
-      if (obj && obj.scaleX !== undefined && obj.scaleY !== undefined) {
-        // Only sync if scales are significantly different (to avoid unnecessary updates)
-        const diff = Math.abs(obj.scaleX - obj.scaleY);
-        if (diff > 0.001) {
-          // Always keep scaleX and scaleY equal
-          const maxScale = Math.max(obj.scaleX, obj.scaleY);
-          obj.scaleX = maxScale;
-          obj.scaleY = maxScale;
-        }
-      }
-    };
-
     const handleScaling = () => {
       isEditingRef.current = true;
       // Re-enable scale difference check when user starts editing
@@ -864,30 +818,11 @@ export function SimpleImageEditorModal({
     };
 
     // Enable centered scaling when Shift is held
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Shift") {
-        const activeObject = canvas.getActiveObject();
-        if (activeObject) {
-          activeObject.set({ centeredScaling: true });
-        }
-      }
-    };
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === "Shift") {
-        const activeObject = canvas.getActiveObject();
-        if (activeObject) {
-          activeObject.set({ centeredScaling: false });
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
+    const removeShiftCenteredScaling = installShiftCenteredScaling(canvas);
 
     canvas.on("object:modified", handleObjectModified);
     canvas.on("object:moving", handleObjectMoving);
-    canvas.on("object:scaling", handleUniformScaling);
+    canvas.on("object:scaling", handleUniformScale);
     canvas.on("object:scaling", handleScaling);
     canvas.on("mouse:down", handleMouseDown);
     canvas.on("mouse:up", handleMouseUp);
@@ -949,11 +884,10 @@ export function SimpleImageEditorModal({
       if (previewTimeout) {
         clearTimeout(previewTimeout);
       }
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
+      removeShiftCenteredScaling();
       canvas.off("object:modified", handleObjectModified);
       canvas.off("object:moving", handleObjectMoving);
-      canvas.off("object:scaling", handleUniformScaling);
+      canvas.off("object:scaling", handleUniformScale);
       canvas.off("object:scaling", handleScaling);
       canvas.off("mouse:down", handleMouseDown);
       canvas.off("mouse:up", handleMouseUp);
@@ -1021,22 +955,15 @@ export function SimpleImageEditorModal({
       guidelineHeight / currentScale,
     );
 
-    // Convert to percentages (0-100) relative to original image
-    const cropXPercent = (cropX / originalImageWidth) * 100;
-    const cropYPercent = (cropY / originalImageHeight) * 100;
-    const cropWidthPercent = (cropWidth / originalImageWidth) * 100;
-    const cropHeightPercent = (cropHeight / originalImageHeight) * 100;
-
-    // Create crop metadata in percentages
-    const cropData: CropMetadata = {
-      x: Math.round(cropXPercent * 100) / 100, // Round to 2 decimal places
-      y: Math.round(cropYPercent * 100) / 100,
-      width: Math.round(cropWidthPercent * 100) / 100,
-      height: Math.round(cropHeightPercent * 100) / 100,
-      originalWidth: Math.round(originalImageWidth),
-      originalHeight: Math.round(originalImageHeight),
-      cropped: true,
-    };
+    // Convert to percentage crop metadata relative to original image
+    const cropData: CropMetadata = buildCropMetadata({
+      cropX,
+      cropY,
+      cropWidth,
+      cropHeight,
+      originalWidth: originalImageWidth,
+      originalHeight: originalImageHeight,
+    });
 
     // Hide controls and guidelines before export
     activeObject.hasControls = false;
@@ -1050,108 +977,94 @@ export function SimpleImageEditorModal({
     // while rendering the saved crop at higher resolution.
     const exportMult = Math.max(1, exportScale || 1);
 
-    // Create a new canvas for cropping to guideline bounds
-    const cropCanvas = document.createElement("canvas");
-    cropCanvas.width = Math.round(guidelineWidth * exportMult);
-    cropCanvas.height = Math.round(guidelineHeight * exportMult);
-    const cropCtx = cropCanvas.getContext("2d");
+    // Get the full canvas as image data
+    const fullCanvasData = canvas.toDataURL({
+      format: "png",
+      quality: 1,
+      multiplier: exportMult,
+    });
 
-    if (cropCtx) {
-      // Get the full canvas as image data
-      const fullCanvasData = canvas.toDataURL({
-        format: "png",
-        quality: 1,
-        multiplier: exportMult,
-      });
-
-      const img = new Image();
-      img.onload = async () => {
-        try {
-          // Fabric multiplies toDataURL() by the device retina scale on top of
-          // the export multiplier, so the crop source rect must be scaled by
-          // the actual exported size — otherwise the saved crop shifts and
-          // clips whenever devicePixelRatio (browser zoom / HiDPI) ≠ 1.
-          const logicalW = canvas.getWidth();
-          // toDataURL() renders at logical × exportMult × retina, so the total
-          // source scale — including the export multiplier AND the device retina
-          // factor — is simply img.naturalWidth / logicalW. Scaling the crop
-          // source rect by this (and keeping the destination at exportMult)
-          // keeps the crop aligned at any browser zoom / HiDPI DPR.
-          const srcScale =
-            img.naturalWidth > 0 && logicalW > 0
-              ? img.naturalWidth / logicalW
-              : exportMult;
-          // Draw only the guideline area from the full canvas
-          cropCtx.drawImage(
-            img,
-            outerLeft * srcScale,
-            outerTop * srcScale,
-            guidelineWidth * srcScale,
-            guidelineHeight * srcScale,
-            0,
-            0,
-            guidelineWidth * exportMult,
-            guidelineHeight * exportMult,
-          );
-
-          const croppedPreview = cropCanvas.toDataURL("image/png");
-
-          setGuidelinesVisibility(true);
-          activeObject.hasControls = true;
-          activeObject.hasBorders = true;
-          canvas.setActiveObject(activeObject);
-          canvas.renderAll();
-
-          const originalFileName =
-            inputRef.current?.files?.[0]?.name || fileName || "image.png";
-          const newFileName =
-            originalFileName.replace(/\.[^/.]+$/, "") + "_edited.png";
-
-          const cropDataWithOriginal: CropMetadata = {
-            ...cropData,
-            originalImage: originalImageSrc,
-          };
-
-          const result = onChange(croppedPreview, newFileName, cropDataWithOriginal);
-          if (result != null && typeof (result as Promise<unknown>).then === "function") {
-            await (result as Promise<unknown>);
-          }
-          // Reset saving state and close modal after a delay to show spinner
-          setTimeout(() => {
-            setIsSaving(false);
-            handleClose();
-          }, 500);
-        } catch (error) {
-          console.error("Error saving image:", error);
-          setIsSaving(false);
-        }
-      };
-      img.src = fullCanvasData;
-    } else {
+    const img = new Image();
+    img.onload = async () => {
       try {
-        // Fallback to original export if crop canvas creation fails
-        const dataURL = canvas.toDataURL({
-          format: "png",
-          quality: 0.95,
-          multiplier: exportMult,
+        // Fabric multiplies toDataURL() by the device retina scale on top of
+        // the export multiplier, so the crop source rect must be scaled by
+        // the actual exported size — otherwise the saved crop shifts and
+        // clips whenever devicePixelRatio (browser zoom / HiDPI) ≠ 1.
+        const logicalW = canvas.getWidth();
+        // toDataURL() renders at logical × exportMult × retina, so the total
+        // source scale — including the export multiplier AND the device retina
+        // factor — is simply img.naturalWidth / logicalW. Scaling the crop
+        // source rect by this (and keeping the destination at exportMult)
+        // keeps the crop aligned at any browser zoom / HiDPI DPR.
+        const srcScale =
+          img.naturalWidth > 0 && logicalW > 0
+            ? img.naturalWidth / logicalW
+            : exportMult;
+        // Draw only the guideline area from the full canvas
+        const croppedPreview = cropImageToDataUrl({
+          source: img,
+          sx: outerLeft * srcScale,
+          sy: outerTop * srcScale,
+          sw: guidelineWidth * srcScale,
+          sh: guidelineHeight * srcScale,
+          dw: guidelineWidth * exportMult,
+          dh: guidelineHeight * exportMult,
+          format: "image/png",
         });
-
-        // Restore controls and guidelines
-        setGuidelinesVisibility(true);
-        activeObject.hasControls = true;
-        activeObject.hasBorders = true;
-        canvas.setActiveObject(activeObject);
-        canvas.renderAll();
 
         const originalFileName =
           inputRef.current?.files?.[0]?.name || fileName || "image.png";
         const newFileName =
           originalFileName.replace(/\.[^/.]+$/, "") + "_edited.png";
 
-        // If crop failed, don't send crop data (image not cropped)
-        const result = onChange(dataURL, newFileName);
-        if (result != null && typeof (result as Promise<unknown>).then === "function") {
-          await (result as Promise<unknown>);
+        if (croppedPreview) {
+          // Restore controls and guidelines
+          setGuidelinesVisibility(true);
+          activeObject.hasControls = true;
+          activeObject.hasBorders = true;
+          canvas.setActiveObject(activeObject);
+          canvas.renderAll();
+
+          const cropDataWithOriginal: CropMetadata = {
+            ...cropData,
+            originalImage: originalImageSrc,
+          };
+
+          const result = onChange(
+            croppedPreview,
+            newFileName,
+            cropDataWithOriginal,
+          );
+          if (
+            result != null &&
+            typeof (result as Promise<unknown>).then === "function"
+          ) {
+            await (result as Promise<unknown>);
+          }
+        } else {
+          // Fallback to original export if crop canvas creation fails
+          const dataURL = canvas.toDataURL({
+            format: "png",
+            quality: 0.95,
+            multiplier: exportMult,
+          });
+
+          // Restore controls and guidelines
+          setGuidelinesVisibility(true);
+          activeObject.hasControls = true;
+          activeObject.hasBorders = true;
+          canvas.setActiveObject(activeObject);
+          canvas.renderAll();
+
+          // If crop failed, don't send crop data (image not cropped)
+          const result = onChange(dataURL, newFileName);
+          if (
+            result != null &&
+            typeof (result as Promise<unknown>).then === "function"
+          ) {
+            await (result as Promise<unknown>);
+          }
         }
         // Reset saving state and close modal after a delay to show spinner
         setTimeout(() => {
@@ -1162,7 +1075,8 @@ export function SimpleImageEditorModal({
         console.error("Error saving image:", error);
         setIsSaving(false);
       }
-    }
+    };
+    img.src = fullCanvasData;
   };
 
   const handleCancel = () => {
@@ -1427,6 +1341,41 @@ export function SimpleImageEditorModal({
     return () => window.clearTimeout(timeoutId);
   }, [autoSizeOnOpen, modalOpen, imageSrc, autoSizeImage]);
 
+  const handleScaleChange = (newScale: number) => {
+    isEditingRef.current = true;
+    // Reset auto-size flag when user manually adjusts scale
+    setWasAutoSized(false);
+    // Re-enable scale difference check when user starts editing
+    ignoreScaleDifferenceCheckRef.current = false;
+    // Reset the flag that remembers if image was too large before auto-size
+    setHadLargeScaleDifferenceBeforeAutoSize(false);
+    setScale(newScale);
+
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    const activeObject = canvas.getActiveObject();
+    if (!activeObject) return;
+
+    activeObject.set({
+      scaleX: newScale,
+      scaleY: newScale,
+    });
+
+    activeObject.setCoords();
+    canvas.renderAll();
+    evaluateGuidelineBounds();
+  };
+
+  const handleScaleCommit = () => {
+    isEditingRef.current = false;
+    setTimeout(() => {
+      if (!isEditingRef.current) {
+        generatePreview();
+      }
+    }, 300);
+  };
+
   return (
     <div>
       <input
@@ -1689,94 +1638,18 @@ export function SimpleImageEditorModal({
             {/* Controls */}
             <div className="p-4 border-t dark:border-gray-700 space-y-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  {/* Scale Control */}
-                  <div className="flex items-center gap-1.5 sm:gap-2">
-                    <Label className="text-[10px] sm:text-xs md:text-sm">
-                      Scale
-                    </Label>
-                    <Slider
-                      value={[
-                        ((scale - minScale) / (maxScale - minScale)) * 100,
-                      ]}
-                      onValueChange={([percent]) => {
-                        isEditingRef.current = true;
-                        // Reset auto-size flag when user manually adjusts scale
-                        setWasAutoSized(false);
-                        // Re-enable scale difference check when user starts editing
-                        ignoreScaleDifferenceCheckRef.current = false;
-                        // Reset the flag that remembers if image was too large before auto-size
-                        setHadLargeScaleDifferenceBeforeAutoSize(false);
-                        const newScale =
-                          minScale + (percent / 100) * (maxScale - minScale);
-
-                        setScale(newScale);
-
-                        const canvas = fabricCanvasRef.current;
-                        if (!canvas) return;
-
-                        const activeObject = canvas.getActiveObject();
-                        if (!activeObject) return;
-
-                        activeObject.set({
-                          scaleX: newScale,
-                          scaleY: newScale,
-                        });
-
-                        activeObject.setCoords();
-                        canvas.renderAll();
-                        evaluateGuidelineBounds();
-                      }}
-                      onValueCommit={([percent]) => {
-                        isEditingRef.current = false;
-                        setTimeout(() => {
-                          if (!isEditingRef.current) {
-                            generatePreview();
-                          }
-                        }, 300);
-                      }}
-                      min={0}
-                      max={100}
-                      step={0.25}
-                      className="w-20 sm:w-24 md:w-32"
-                    />
-
-                    <span className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground w-8 sm:w-10 md:w-12">
-                      {Math.round((scale / baseScale) * 100)}%
-                    </span>
-                  </div>
-
-                  {/* Center, Reset, and Auto-size Buttons */}
-                  <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={centerImage}
-                      disabled={isLoading}
-                      className="flex-1 text-[9px] sm:text-[10px] md:text-xs h-7 sm:h-8 md:h-9"
-                    >
-                      Center
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={resetImage}
-                      disabled={isLoading}
-                      className="flex-1 text-[9px] sm:text-[10px] md:text-xs h-7 sm:h-8 md:h-9"
-                    >
-                      Reset
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={autoSizeImage}
-                      disabled={isLoading}
-                      className="flex-1 text-[9px] sm:text-[10px] md:text-xs h-7 sm:h-8 md:h-9 min-w-[80px] sm:min-w-[90px] md:min-w-[100px]"
-                    >
-                      Auto-size
-                    </Button>
-                  </div>
-                </div>
+                <ImageEditorControls
+                  scale={scale}
+                  baseScale={baseScale}
+                  minScale={minScale}
+                  maxScale={maxScale}
+                  onScaleChange={handleScaleChange}
+                  onScaleCommit={handleScaleCommit}
+                  onCenter={centerImage}
+                  onReset={resetImage}
+                  onAutoSize={autoSizeImage}
+                  disabled={isLoading}
+                />
 
                 <div className="flex items-center gap-1.5 sm:gap-2">
                   <Button
