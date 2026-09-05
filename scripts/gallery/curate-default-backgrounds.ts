@@ -4,12 +4,12 @@
  * The full data/gallery-metadata.json manifest is ~600 KB and every record is a
  * wide, 16:9, "Default Image Library" banner — so importing the whole manifest
  * into a client picker is both heavy and unfiltered. Instead this script picks
- * small, editorial subsets and writes lightweight derived files that client
+ * small editorial subsets and writes lightweight derived files that client
  * pickers import directly.
  *
- * Two datasets are produced:
+ * Produced datasets:
  *
- * 1. data/gallery-default-backgrounds.json  — benefit-hub / advisor backgrounds.
+ * 1. data/gallery-default-backgrounds.json — benefit-hub / advisor backgrounds.
  *    Chosen to read well behind an advisor profile / benefit-hub header
  *    (aspirational, corporate, people/lifestyle, financial & retirement scenes).
  *
@@ -18,12 +18,19 @@
  *    general / corporate / workplace / community / aspirational scenes — with NO
  *    medical/clinical or tabletop benefit-prop imagery.
  *
+ * 3. data/gallery-benefit-category-backgrounds.json — per-benefit-category
+ *    gallery for the Create Benefits wizard. Each list is derived from the
+ *    metadata (every image whose top-level `category` matches), so the images
+ *    shown for Retirement / Group Health / Group Life / Wellness genuinely align
+ *    with the benefit being configured (Custom / Company hubs use Wellness).
+ *
  * Run: pnpm gallery:curate
  *
  * - Source of truth: data/gallery-metadata.json (id, title, category, src, altText)
  * - Aborts with a clear message if a curated id is missing from the manifest,
  *   its `src` does not resolve to a real file under public/gallery, or the image
- *   is not banner-appropriate.
+ *   is not banner-appropriate. Category subsets skip (with a warning) any record
+ *   that isn't banner-safe or whose file is missing.
  */
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve, join } from "node:path";
@@ -39,6 +46,11 @@ const HOMEPAGE_OUTPUT_PATH = join(
   PROJECT_ROOT,
   "data",
   "gallery-homepage-backgrounds.json",
+);
+const CATEGORY_OUTPUT_PATH = join(
+  PROJECT_ROOT,
+  "data",
+  "gallery-benefit-category-backgrounds.json",
 );
 const IMAGES_DIR = join(PROJECT_ROOT, "public", "gallery");
 
@@ -102,6 +114,18 @@ const HOMEPAGE_CURATED_IDS = [
   "9573431c612e", // 208 Community Volunteer Day
 ];
 
+/**
+ * Metadata category for each Create Benefits benefit category key. Custom /
+ * Company (Plan Sponsor) hubs are wellness-focused, so they use the "Wellness"
+ * metadata category.
+ */
+const CATEGORY_KEYS: Record<string, string> = {
+  Retirement: "Retirement",
+  "Group Health": "Group Health",
+  "Group Life": "Group Life",
+  Wellness: "Wellness", // used for "Custom" / "Company / Plan Sponsor"
+};
+
 interface CuratedSet {
   outputPath: string;
   ids: string[];
@@ -132,10 +156,15 @@ const byId = new Map(manifest.map((r) => [r.id, r]));
 const has = (value: unknown, term: string) =>
   Array.isArray(value) && value.includes(term);
 
-// Resolve + validate every curated id, and assert each candidate is a
-// banner-appropriate default (Wide Banner + 16:9 Banner Safe + part of the
-// Default Image Library), so a future replacement can't silently regress a
-// picker to a non-banner image.
+const isBannerSafe = (record: GalleryRecord) =>
+  has(record.visualStyles, "Wide Banner") &&
+  has(record.composition, "16:9 Banner Safe") &&
+  has(record.useCases, "Default Image Library");
+
+const fileExists = (record: GalleryRecord) =>
+  existsSync(join(IMAGES_DIR, record.src.replace("/gallery/", "")));
+
+// Resolve + validate every curated id.
 const resolveCurated = (ids: string[]): GalleryRecord[] => {
   const curated: GalleryRecord[] = [];
   for (const id of ids) {
@@ -144,16 +173,11 @@ const resolveCurated = (ids: string[]): GalleryRecord[] => {
       console.error(`[gallery:curate] curated id "${id}" was not found in data/gallery-metadata.json.`);
       process.exit(1);
     }
-    const file = join(IMAGES_DIR, record.src.replace("/gallery/", ""));
-    if (!existsSync(file)) {
+    if (!fileExists(record)) {
       console.error(`[gallery:curate] "${record.id}" src does not resolve to a real file: ${record.src}`);
       process.exit(1);
     }
-    const bannerSafe =
-      has(record.visualStyles, "Wide Banner") &&
-      has(record.composition, "16:9 Banner Safe") &&
-      has(record.useCases, "Default Image Library");
-    if (!bannerSafe) {
+    if (!isBannerSafe(record)) {
       console.error(
         `[gallery:curate] "${record.id}" (${record.title}) is not banner-appropriate ` +
           `(requires visualStyles "Wide Banner", composition "16:9 Banner Safe", and ` +
@@ -184,3 +208,31 @@ for (const set of SETS) {
     `[gallery:curate] wrote ${payload.length} ${set.label} to ${set.outputPath}`,
   );
 }
+
+// ── Per-benefit-category gallery (Create Benefits wizard) ─────────────────
+// Every image whose metadata `category` matches the benefit is included, so the
+// "Choose a Default Image" modal offers category-relevant banners. Records that
+// aren't banner-safe or whose file is missing are skipped (never fatal).
+const categoryPayload: Record<string, ReturnType<typeof toPayload>> = {};
+for (const [key, category] of Object.entries(CATEGORY_KEYS)) {
+  const records = manifest.filter((r) => r.category === category);
+  const valid = records.filter((r) => {
+    if (!isBannerSafe(r) || !fileExists(r)) {
+      console.warn(
+        `[gallery:curate] skipping "${r.id}" (${r.title}) for "${key}" — not banner-safe or file missing.`,
+      );
+      return false;
+    }
+    return true;
+  });
+  categoryPayload[key] = toPayload(valid);
+  console.log(
+    `[gallery:curate] category "${key}": ${valid.length} backgrounds (${records.length} total in metadata).`,
+  );
+}
+writeFileSync(
+  CATEGORY_OUTPUT_PATH,
+  `${JSON.stringify(categoryPayload, null, 2)}\n`,
+  "utf8",
+);
+console.log(`[gallery:curate] wrote per-category gallery to ${CATEGORY_OUTPUT_PATH}`);

@@ -108,6 +108,8 @@ import {
 import { convertToDocumentFormat } from "@/lib/compliance-document-utils";
 import { mergeOnboardingAdvisorContactsIntoKeyContacts } from "@/lib/seed-onboarding-advisor-contacts";
 import { BenefitsDocumentsSection } from "./benefits-documents-section";
+import benefitCategoryBackgrounds from "@/data/gallery-benefit-category-backgrounds.json";
+
 /** Wizard order — matches accordion below (Branding → Messaging → Contacts → Documents). */
 const BENEFIT_SETUP_SECTION_ORDER = [
   { key: "branding" as const, label: "Branding" },
@@ -115,6 +117,41 @@ const BENEFIT_SETUP_SECTION_ORDER = [
   { key: "contacts" as const, label: "Contacts" },
   { key: "documents" as const, label: "Documents" },
 ];
+
+interface GalleryBackground {
+  id: string;
+  title: string;
+  category: string;
+  mode: string;
+  src: string;
+  altText: string;
+}
+
+/** Per-benefit-category gallery images, aligned to the gallery metadata category. */
+const BENEFIT_CATEGORY_GALLERY = benefitCategoryBackgrounds as unknown as Record<
+  string,
+  GalleryBackground[]
+>;
+
+/** Map a benefit-category label to its gallery key. Custom / Company hubs map
+ *  to the "Wellness" metadata category. Unknown/other categories return null so
+ *  the default (benefit-hub) gallery is used. */
+const toCategoryGalleryKey = (
+  category?: string,
+): "Retirement" | "Group Health" | "Group Life" | "Wellness" | null => {
+  const c = (category || "").trim().toLowerCase();
+  if (c === "retirement") return "Retirement";
+  if (c === "group health" || c === "health") return "Group Health";
+  if (c === "group life" || c === "life") return "Group Life";
+  if (
+    c === "custom" ||
+    c === "company / plan sponsor" ||
+    c === "wellness"
+  ) {
+    return "Wellness";
+  }
+  return null;
+};
 
 export function BenefitsStep1() {
   const { stepData, saveStepData } = useBenefitsWizardStore();
@@ -247,6 +284,17 @@ export function BenefitsStep1() {
       favicon: null,
     },
   };
+
+  /** Gallery images for the current benefit category — the "Choose a Default
+   *  Image" modal shows images aligned to the selected category (via metadata)
+   *  instead of the generic set. Falls back to undefined (generic gallery) when
+   *  the category has no dedicated set. */
+  const categoryGalleryKey = toCategoryGalleryKey(
+    currentStepData.benefitCategory,
+  );
+  const categoryGalleryImages = categoryGalleryKey
+    ? BENEFIT_CATEGORY_GALLERY[categoryGalleryKey] || undefined
+    : undefined;
 
   /** Only a value that exists in `plans` — Radix Select shows a blank trigger if `value` has no matching item. */
   const resolvedPlanId = useMemo(() => {
@@ -2890,6 +2938,10 @@ export function BenefitsStep1() {
                       onBrandImagesChange={handleBrandImagesChange}
                       visibleSlots={["header"]}
                       errorFields={[]}
+                      // Show default photos that match the selected benefit
+                      // category (Retirement / Group Health / Group Life /
+                      // Custom→Wellness) via the gallery metadata.
+                      galleryImages={categoryGalleryImages}
                     />
                   </div>
                 </div>

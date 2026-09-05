@@ -1,0 +1,994 @@
+{
+  "Retirement": [
+    {
+      "id": "5ea353a1abb6",
+      "title": "401(k) Missing Piece",
+      "category": "Retirement",
+      "mode": "Concept / Metaphor",
+      "src": "/gallery/010-5ea353a1abb6-401-k-missing-piece.jpg",
+      "altText": "401(k) Missing Piece, a concept / metaphor image for retirement."
+    },
+    {
+      "id": "675e65b8c9e3",
+      "title": "Retirement Grandparents Garden",
+      "category": "Retirement",
+      "mode": "Concept / Metaphor",
+      "src": "/gallery/015-675e65b8c9e3-retirement-grandparents-garden.jpg",
+      "altText": "Retirement Grandparents Garden, a concept / metaphor image for retirement."
+    },
+    {
+      "id": "dfd24c0f3615",
+      "title": "Building Savings",
+      "category": "Retirement",
+      "mode": "Concept / Metaphor",
+      "src": "/gallery/021-dfd24c0f3615-building-savings.jpg",
+      "altText": "Building Savings, a concept / metaphor image for retirement."
+    },
+    {
+      "id": "a696bbc0249e",
+      "title": "Household Retirement Review",
+      "category": "Retirement",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/023-a696bbc0249e-household-retirement-review.jpg",
+      "altText": "Household Retirement Review, a people / lifestyle image for retirement."
+    },
+    {
+      "id": "79e42e650e43",
+      "title": "The Retirement Climb",
+      "category": "Retirement",
+      "mode": "Concept / Metaphor",
+      "src": "/gallery/024-79e42e650e43-the-retirement-climb.jpg",
+      "altText": "The Retirement Climb, a concept / metaphor image for retirement."
+    },
+    {
+      "id": "f7286930e5fb",
+      "title": "Retirement Adventure",
+      "category": "Retirement",
+      "mode": "Aspirational",
+      "src": "/gallery/027-f7286930e5fb-retirement-adventure.jpg",
+      "altText": "Retirement Adventure, a aspirational image for retirement."
+    },
+    {
+      "id": "aba206e54434",
+      "title": "Steps Toward Retirement",
+      "category": "Retirement",
+      "mode": "Concept / Metaphor",
+      "src": "/gallery/033-aba206e54434-steps-toward-retirement.jpg",
+      "altText": "Steps Toward Retirement, a concept / metaphor image for retirement."
+    },
+    {
+      "id": "74cc233a3a63",
+      "title": "Retirement Beneficiary Update",
+      "category": "Retirement",
+      "mode": "Intimate Detail",
+      "src": "/gallery/062-74cc233a3a63-retirement-beneficiary-update.jpg",
+      "altText": "An older hand circling a family photograph beside a beneficiary form and uncapped pen at a lived-in kitchen table."
+    },
+    {
+      "id": "861c27ea8a36",
+      "title": "Retirement Catchup Stairs",
+      "category": "Retirement",
+      "mode": "Concept / Metaphor",
+      "src": "/gallery/063-861c27ea8a36-retirement-catchup-stairs.jpg",
+      "altText": "Small brushed-metal adult figure climbing stepped stacks of plain coins toward a calm open landing, representing catch-up contributions."
+    },
+    {
+      "id": "4eb9fe286635",
+      "title": "Retirement Employer Match Magnets",
+      "category": "Retirement",
+      "mode": "Concept / Metaphor",
+      "src": "/gallery/064-4eb9fe286635-retirement-employer-match-magnets.jpg",
+      "altText": "Two worn horseshoe magnets and growing coin stacks turn employer matching into a tactile, immediately legible savings metaphor."
+    },
+    {
+      "id": "88ed7e3cf147",
+      "title": "Retirement First Morning Train",
+      "category": "Retirement",
+      "mode": "Aspirational",
+      "src": "/gallery/065-88ed7e3cf147-retirement-first-morning-train.jpg",
+      "altText": "A recently retired couple boarding a quiet regional train with one small suitcase each, beginning a modest new chapter rather than a luxury fantasy."
+    },
+    {
+      "id": "182071810884",
+      "title": "Retirement Income Stream",
+      "category": "Retirement",
+      "mode": "Concept / Metaphor",
+      "src": "/gallery/066-182071810884-retirement-income-stream.jpg",
+      "altText": "A narrow, steady stream of water turning a small brass wheel beside a reserve basin, an elegant metaphor for reliable retirement income."
+    },
+    {
+      "id": "9d666508c202",
+      "title": "Retirement Inflation Path",
+      "category": "Retirement",
+      "mode": "Concept / Metaphor",
+      "src": "/gallery/067-9d666508c202-retirement-inflation-path.jpg",
+      "altText": "Rising coin stacks and worn brass path markers turn keeping pace with future costs into a tactile retirement-planning story."
+    },
+    {
+      "id": "76bdc7d15007",
+      "title": "Retirement Longevity Birthday",
+      "category": "Retirement",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/068-76bdc7d15007-retirement-longevity-birthday.jpg",
+      "altText": "A multigenerational family marks an older adult’s birthday in a candid home moment, connecting longer lives with thoughtful retirement planning."
+    },
+    {
+      "id": "2b420e6417a4",
+      "title": "Retirement Rmd Calendar",
+      "category": "Retirement",
+      "mode": "Concept / Metaphor",
+      "src": "/gallery/069-2b420e6417a4-retirement-rmd-calendar.jpg",
+      "altText": "A tactile desk calendar beside measured rows of coins moving from a glass jar, suggesting required distributions without readable copy."
+    },
+    {
+      "id": "e7f88c190430",
+      "title": "Retirement Rollover Bridge",
+      "category": "Retirement",
+      "mode": "Intimate Detail",
+      "src": "/gallery/070-e7f88c190430-retirement-rollover-bridge.jpg",
+      "altText": "A physically supported miniature bridge carries a portfolio from one side to another, representing a retirement rollover."
+    },
+    {
+      "id": "c15f73610d75",
+      "title": "Retirement Social Security Bridge",
+      "category": "Retirement",
+      "mode": "Concept / Metaphor",
+      "src": "/gallery/071-c15f73610d75-retirement-social-security-bridge.jpg",
+      "altText": "A tactile stone-and-brass bridge spans the transition between a final paycheck and dependable retirement income."
+    },
+    {
+      "id": "6981c0eaed17",
+      "title": "Retirement Advisor Library Consultation",
+      "category": "Retirement",
+      "mode": "Concept / Metaphor",
+      "src": "/gallery/084-6981c0eaed17-retirement-advisor-library-consultation.jpg",
+      "altText": "Retirement Advisor Library Consultation, a concept / metaphor image for retirement."
+    },
+    {
+      "id": "ff5fa19d68bf",
+      "title": "Savings Piggy Ladder",
+      "category": "Retirement",
+      "mode": "Concept / Metaphor",
+      "src": "/gallery/085-ff5fa19d68bf-savings-piggy-ladder.jpg",
+      "altText": "Savings Piggy Ladder, a concept / metaphor image for retirement."
+    },
+    {
+      "id": "2ccb6316b001",
+      "title": "Advisor Retirement Consultation",
+      "category": "Retirement",
+      "mode": "Concept / Metaphor",
+      "src": "/gallery/088-2ccb6316b001-advisor-retirement-consultation.jpg",
+      "altText": "Advisor Retirement Consultation, a concept / metaphor image for retirement."
+    },
+    {
+      "id": "880cdc129602",
+      "title": "401k Plan Puzzle",
+      "category": "Retirement",
+      "mode": "Concept / Metaphor",
+      "src": "/gallery/089-880cdc129602-401k-plan-puzzle.jpg",
+      "altText": "401k Plan Puzzle, a concept / metaphor image for retirement."
+    },
+    {
+      "id": "f73595550f14",
+      "title": "Retirement Family Legacy",
+      "category": "Retirement",
+      "mode": "Concept / Metaphor",
+      "src": "/gallery/092-f73595550f14-retirement-family-legacy.jpg",
+      "altText": "Retirement Family Legacy, a concept / metaphor image for retirement and group life."
+    },
+    {
+      "id": "6b30e1c0e1de",
+      "title": "Packing for the Next Chapter",
+      "category": "Retirement",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/099-6b30e1c0e1de-packing-for-the-next-chapter.jpg",
+      "altText": "Coworkers help one another pack up after a career transition."
+    },
+    {
+      "id": "9922f3aeebc3",
+      "title": "A Destination of Your Own",
+      "category": "Retirement",
+      "mode": "Aspirational",
+      "src": "/gallery/100-9922f3aeebc3-a-destination-of-your-own.jpg",
+      "altText": "A lone traveler faces an expansive landscape with room to choose."
+    },
+    {
+      "id": "ae6f197a3be8",
+      "title": "Income With Guardrails",
+      "category": "Retirement",
+      "mode": "Concept / Metaphor",
+      "src": "/gallery/101-ae6f197a3be8-income-with-guardrails.jpg",
+      "altText": "A small figure is protected by transparent arches and sturdy boundaries."
+    },
+    {
+      "id": "6547b2aedc25",
+      "title": "Building a Lasting Nest Egg",
+      "category": "Retirement",
+      "mode": "Concept / Metaphor",
+      "src": "/gallery/102-6547b2aedc25-building-a-lasting-nest-egg.jpg",
+      "altText": "A miniature figure climbs a measured staircase of saved coins."
+    },
+    {
+      "id": "af7fcaec0033",
+      "title": "Retirement Help at the Library",
+      "category": "Retirement",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/105-af7fcaec0033-retirement-help-at-the-library.jpg",
+      "altText": "A community advisor helps older adults compare options."
+    },
+    {
+      "id": "68bbb7bdd621",
+      "title": "Retirement Review at Home",
+      "category": "Retirement",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/106-68bbb7bdd621-retirement-review-at-home.jpg",
+      "altText": "An older couple works through details at a familiar kitchen table."
+    },
+    {
+      "id": "b0b84c273b10",
+      "title": "Retirement Advice One to One",
+      "category": "Retirement",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/107-b0b84c273b10-retirement-advice-one-to-one.jpg",
+      "altText": "A calm advisor conversation keeps the future personal and concrete."
+    },
+    {
+      "id": "8bc41237e796",
+      "title": "Retirement Guidance at the Desk",
+      "category": "Retirement",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/109-8bc41237e796-retirement-guidance-at-the-desk.jpg",
+      "altText": "An advisor and employee work through a practical plan."
+    },
+    {
+      "id": "d7b326ba0e90",
+      "title": "The Destination Beyond the Ridge",
+      "category": "Retirement",
+      "mode": "Aspirational",
+      "src": "/gallery/111-d7b326ba0e90-the-destination-beyond-the-ridge.jpg",
+      "altText": "A traveler reaches a broad mountain outlook with room to imagine what comes next."
+    },
+    {
+      "id": "57f0a11019e9",
+      "title": "Purpose After Retirement",
+      "category": "Retirement",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/115-57f0a11019e9-purpose-after-retirement.jpg",
+      "altText": "Older makers continue a tactile craft on their own terms."
+    },
+    {
+      "id": "035ea992715e",
+      "title": "Making the Plan at Home",
+      "category": "Retirement",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/118-035ea992715e-making-the-plan-at-home.jpg",
+      "altText": "A couple works through future decisions at their kitchen table."
+    },
+    {
+      "id": "97319de23707",
+      "title": "A Garden After Work",
+      "category": "Retirement",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/128-97319de23707-a-garden-after-work.jpg",
+      "altText": "Older adults share the routines of an active retirement."
+    },
+    {
+      "id": "753b73272309",
+      "title": "Working Through the Household Plan",
+      "category": "Retirement",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/138-753b73272309-working-through-the-household-plan.jpg",
+      "altText": "A couple compares paperwork and a calculator at home."
+    },
+    {
+      "id": "57f4b4eb8efe",
+      "title": "Reaching the Next Summit",
+      "category": "Retirement",
+      "mode": "Aspirational",
+      "src": "/gallery/145-57f4b4eb8efe-reaching-the-next-summit.jpg",
+      "altText": "Two travelers share momentum on an exposed mountain ridge."
+    },
+    {
+      "id": "bb47b84077c6",
+      "title": "A Destination Worth Planning For",
+      "category": "Retirement",
+      "mode": "Aspirational",
+      "src": "/gallery/158-bb47b84077c6-a-destination-worth-planning-for.jpg",
+      "altText": "A lone traveler pauses before a vast canyon landscape, making the future feel tangible."
+    },
+    {
+      "id": "0d5834ff9e54",
+      "title": "Retirement in the Garden",
+      "category": "Retirement",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/161-0d5834ff9e54-retirement-in-the-garden.jpg",
+      "altText": "Older partners share the practical pleasure of tending a garden together."
+    },
+    {
+      "id": "50dc21be87b8",
+      "title": "The Life You Planned For",
+      "category": "Retirement",
+      "mode": "Aspirational",
+      "src": "/gallery/172-50dc21be87b8-the-life-you-planned-for.webp",
+      "altText": "A couple enjoys an easy, refined dinner together after years of planning."
+    },
+    {
+      "id": "5e9274f4c472",
+      "title": "Active Retirement on the Lake",
+      "category": "Retirement",
+      "mode": "Aspirational",
+      "src": "/gallery/178-5e9274f4c472-active-retirement-on-the-lake.jpg",
+      "altText": "Active Retirement on the Lake, a aspirational image for retirement."
+    },
+    {
+      "id": "169d9b6270e0",
+      "title": "Retirement Plan Review",
+      "category": "Retirement",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/180-169d9b6270e0-retirement-plan-review.jpg",
+      "altText": "Retirement Plan Review, a people / lifestyle image for retirement."
+    },
+    {
+      "id": "e720cebf7791",
+      "title": "Retirement Outlook Together",
+      "category": "Retirement",
+      "mode": "Aspirational",
+      "src": "/gallery/199-e720cebf7791-retirement-outlook-together.jpg",
+      "altText": "Retirement Outlook Together, a aspirational image for retirement."
+    },
+    {
+      "id": "5f3970cc14b0",
+      "title": "The Next Journey",
+      "category": "Retirement",
+      "mode": "Aspirational",
+      "src": "/gallery/200-5f3970cc14b0-the-next-journey.jpg",
+      "altText": "The Next Journey, a aspirational image for retirement."
+    },
+    {
+      "id": "0ec97bd0ef87",
+      "title": "Travel on the Horizon",
+      "category": "Retirement",
+      "mode": "Aspirational",
+      "src": "/gallery/207-0ec97bd0ef87-travel-on-the-horizon.jpg",
+      "altText": "Travel on the Horizon, a aspirational image for retirement."
+    },
+    {
+      "id": "208d99fd8c63",
+      "title": "Retirement Decisions at Home",
+      "category": "Retirement",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/214-208d99fd8c63-retirement-decisions-at-home.jpg",
+      "altText": "Retirement Decisions at Home, a people / lifestyle image for retirement."
+    }
+  ],
+  "Group Health": [
+    {
+      "id": "63b778eeaa96",
+      "title": "Health Coverage Enrollment",
+      "category": "Group Health",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/029-63b778eeaa96-health-coverage-enrollment.jpg",
+      "altText": "Health Coverage Enrollment, a people / lifestyle image for group health."
+    },
+    {
+      "id": "749a6b807993",
+      "title": "A Helping Hand for Health",
+      "category": "Group Health",
+      "mode": "Concept / Metaphor",
+      "src": "/gallery/032-749a6b807993-a-helping-hand-for-health.jpg",
+      "altText": "A Helping Hand for Health, a concept / metaphor image for group health."
+    },
+    {
+      "id": "3531a8fb9b34",
+      "title": "Health Coverage Shelter",
+      "category": "Group Health",
+      "mode": "Concept / Metaphor",
+      "src": "/gallery/034-3531a8fb9b34-health-coverage-shelter.jpg",
+      "altText": "Health Coverage Shelter, a concept / metaphor image for group health."
+    },
+    {
+      "id": "638b43576b88",
+      "title": "Benefits Navigation Conversation",
+      "category": "Group Health",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/035-638b43576b88-benefits-navigation-conversation.jpg",
+      "altText": "A benefits professional walks an employee through plan choices on a correctly scaled tablet in a bright consultation area."
+    },
+    {
+      "id": "140d294f08f9",
+      "title": "Group Health Caregiver Telehealth",
+      "category": "Group Health",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/039-140d294f08f9-group-health-caregiver-telehealth.jpg",
+      "altText": "An adult daughter helps her older father prepare questions during a video visit at the kitchen table."
+    },
+    {
+      "id": "e292fb814f01",
+      "title": "Group Health Dental Cleaning",
+      "category": "Group Health",
+      "mode": "Intimate Detail",
+      "src": "/gallery/040-e292fb814f01-group-health-dental-cleaning.jpg",
+      "altText": "Close candid detail of a hygienist preparing tools while a patient settles into the chair, clean but not clinical-stock perfection."
+    },
+    {
+      "id": "f46b9e7433f1",
+      "title": "Group Health Eap Call",
+      "category": "Group Health",
+      "mode": "Intimate Detail",
+      "src": "/gallery/041-f46b9e7433f1-group-health-eap-call.jpg",
+      "altText": "A worker taking a private support call in a quiet stairwell, posture easing as they listen."
+    },
+    {
+      "id": "2a083c4c96cb",
+      "title": "Group Health Eye Exam",
+      "category": "Group Health",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/042-2a083c4c96cb-group-health-eye-exam.jpg",
+      "altText": "An optometrist adjusting lenses as an employee reads an eye chart off-frame, asymmetrical candid composition."
+    },
+    {
+      "id": "65469a5f140e",
+      "title": "Group Health Hearing Care",
+      "category": "Group Health",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/043-65469a5f140e-group-health-hearing-care.jpg",
+      "altText": "An older working adult has a hearing aid checked during a relaxed, ordinary audiology visit."
+    },
+    {
+      "id": "62b1a7fd4f9e",
+      "title": "Medication Delivery at Home",
+      "category": "Group Health",
+      "mode": "Intimate Detail",
+      "src": "/gallery/044-62b1a7fd4f9e-medication-delivery-at-home.jpg",
+      "altText": "A resident receives a correctly scaled medication parcel through a clear, believable doorstep handoff."
+    },
+    {
+      "id": "8957bed1a702",
+      "title": "Group Health Mental Health Walk",
+      "category": "Group Health",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/045-8957bed1a702-group-health-mental-health-walk.jpg",
+      "altText": "An employee and counselor walking side by side in a public garden, mid-conversation and not facing camera."
+    },
+    {
+      "id": "c5ca08443eeb",
+      "title": "Group Health Pharmacy Pickup",
+      "category": "Group Health",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/046-c5ca08443eeb-group-health-pharmacy-pickup.jpg",
+      "altText": "A pharmacist quietly explaining two medication bottles to a customer at the counter, both focused on the labels."
+    },
+    {
+      "id": "e5ee5de90078",
+      "title": "Group Health Physical Therapy",
+      "category": "Group Health",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/047-e5ee5de90078-group-health-physical-therapy.jpg",
+      "altText": "A patient works against a resistance band with a physical therapist in an ordinary clinic, showing practical recovery support."
+    },
+    {
+      "id": "4374fcb5b050",
+      "title": "Group Health Prenatal Visit",
+      "category": "Group Health",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/048-4374fcb5b050-group-health-prenatal-visit.jpg",
+      "altText": "Expectant parents listening to a midwife during a prenatal appointment, one holding a folded question list."
+    },
+    {
+      "id": "c4c879e00cef",
+      "title": "Group Health Preventive Checkup",
+      "category": "Group Health",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/049-c4c879e00cef-group-health-preventive-checkup.jpg",
+      "altText": "A primary-care clinician listening while a patient describes a concern, natural exam room daylight and no posed smiles."
+    },
+    {
+      "id": "2e49afcf1938",
+      "title": "Group Health Second Opinion",
+      "category": "Group Health",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/050-2e49afcf1938-group-health-second-opinion.jpg",
+      "altText": "A patient and partner compare clinical information with a physician, making access to a second opinion tangible and reassuring."
+    },
+    {
+      "id": "f620f0e1cebf",
+      "title": "Group Health Specialist Referral",
+      "category": "Group Health",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/051-f620f0e1cebf-group-health-specialist-referral.jpg",
+      "altText": "A warm, coordinated handoff from primary care to a specialist in an ordinary clinic corridor."
+    },
+    {
+      "id": "8b1e7cbf7217",
+      "title": "Group Health Virtual Kitchen",
+      "category": "Group Health",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/052-8b1e7cbf7217-group-health-virtual-kitchen.jpg",
+      "altText": "A parent having a telehealth visit at the kitchen table while a child colors nearby, realistic multitasking."
+    },
+    {
+      "id": "45927062299f",
+      "title": "Medication Guidance",
+      "category": "Group Health",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/098-45927062299f-medication-guidance.jpg",
+      "altText": "A pharmacist helps an older adult understand a prescription."
+    },
+    {
+      "id": "25a0f154a6fa",
+      "title": "A Child's Clinic Visit",
+      "category": "Group Health",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/108-25a0f154a6fa-a-child-s-clinic-visit.jpg",
+      "altText": "A parent helps a child settle in during a routine appointment."
+    },
+    {
+      "id": "67d61915aec7",
+      "title": "A Clearer View",
+      "category": "Group Health",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/110-67d61915aec7-a-clearer-view.jpg",
+      "altText": "An eye exam captures preventive care without medical drama."
+    },
+    {
+      "id": "4dfda3663360",
+      "title": "Dental Care Without the Pose",
+      "category": "Group Health",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/113-4dfda3663360-dental-care-without-the-pose.jpg",
+      "altText": "A routine dental visit is shown through real tools and relaxed body language."
+    },
+    {
+      "id": "bf5bfaacb71f",
+      "title": "The Work of Recovery",
+      "category": "Group Health",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/130-bf5bfaacb71f-the-work-of-recovery.jpg",
+      "altText": "A therapist checks a patient's knee during a real rehabilitation session."
+    },
+    {
+      "id": "ffbf88d46a41",
+      "title": "Care at Home With Dignity",
+      "category": "Group Health",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/141-ffbf88d46a41-care-at-home-with-dignity.jpg",
+      "altText": "A home health professional supports an older adult in familiar surroundings."
+    },
+    {
+      "id": "875cf3c4b555",
+      "title": "Ready for the Ride",
+      "category": "Group Health",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/142-875cf3c4b555-ready-for-the-ride.jpg",
+      "altText": "A parent fastens a child's helmet before an everyday bike outing."
+    },
+    {
+      "id": "d6dfb09a850b",
+      "title": "A Conversation That Helps",
+      "category": "Group Health",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/148-d6dfb09a850b-a-conversation-that-helps.jpg",
+      "altText": "A counselor listens closely without devices or staged reassurance."
+    },
+    {
+      "id": "7d41c67ead40",
+      "title": "Medication Pickup and Guidance",
+      "category": "Group Health",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/149-7d41c67ead40-medication-pickup-and-guidance.jpg",
+      "altText": "A pharmacist explains a pickup to a customer at the counter."
+    },
+    {
+      "id": "6f362208f556",
+      "title": "Caregiving in the Kitchen",
+      "category": "Group Health",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/155-6f362208f556-caregiving-in-the-kitchen.jpg",
+      "altText": "An adult child and older parent prepare a meal together."
+    },
+    {
+      "id": "c63d83df643a",
+      "title": "Pharmacy Benefits Conversation",
+      "category": "Group Health",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/174-c63d83df643a-pharmacy-benefits-conversation.jpg",
+      "altText": "Pharmacy Benefits Conversation, a people / lifestyle image for group health and general / universal benefits."
+    },
+    {
+      "id": "6b33da372e87",
+      "title": "Everyday Family Care",
+      "category": "Group Health",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/202-6b33da372e87-everyday-family-care.jpg",
+      "altText": "Everyday Family Care, a people / lifestyle image for group health."
+    },
+    {
+      "id": "cdfc4e7b6f96",
+      "title": "Medication Guidance",
+      "category": "Group Health",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/226-cdfc4e7b6f96-medication-guidance.jpg",
+      "altText": "Medication Guidance, a people / lifestyle image for group health."
+    }
+  ],
+  "Group Life": [
+    {
+      "id": "22502a56ee8b",
+      "title": "Legacy Next Generation",
+      "category": "Group Life",
+      "mode": "Aspirational",
+      "src": "/gallery/002-22502a56ee8b-legacy-next-generation.jpg",
+      "altText": "Legacy Next Generation, a aspirational image for group life."
+    },
+    {
+      "id": "499e652a6312",
+      "title": "Lifelong Learning",
+      "category": "Group Life",
+      "mode": "Aspirational",
+      "src": "/gallery/006-499e652a6312-lifelong-learning.jpg",
+      "altText": "Lifelong Learning, a aspirational image for group life."
+    },
+    {
+      "id": "dc0b0b394029",
+      "title": "Layers of Protection",
+      "category": "Group Life",
+      "mode": "Concept / Metaphor",
+      "src": "/gallery/030-dc0b0b394029-layers-of-protection.jpg",
+      "altText": "Layers of Protection, a concept / metaphor image for group life."
+    },
+    {
+      "id": "00f90f17b625",
+      "title": "Caregiving at Home",
+      "category": "Group Life",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/037-00f90f17b625-caregiving-at-home.jpg",
+      "altText": "Caregiving at Home, a people / lifestyle image for group life."
+    },
+    {
+      "id": "243a883d0f21",
+      "title": "Family Protection Figures",
+      "category": "Group Life",
+      "mode": "Concept / Metaphor",
+      "src": "/gallery/038-243a883d0f21-family-protection-figures.jpg",
+      "altText": "Family Protection Figures, a concept / metaphor image for group life."
+    },
+    {
+      "id": "0498d5c54351",
+      "title": "Group Life Beneficiary Designation",
+      "category": "Group Life",
+      "mode": "Intimate Detail",
+      "src": "/gallery/053-0498d5c54351-group-life-beneficiary-designation.jpg",
+      "altText": "A hand updating beneficiary information beside candid family snapshots and a plain wedding band."
+    },
+    {
+      "id": "63acea560eb1",
+      "title": "Group Life Child Coverage Detail",
+      "category": "Group Life",
+      "mode": "Concept / Metaphor",
+      "src": "/gallery/054-63acea560eb1-group-life-child-coverage-detail.jpg",
+      "altText": "A well-used child’s helmet and backpack sit beneath a physical clear protective arc, expressing coverage around everyday family life."
+    },
+    {
+      "id": "1dad250b1f37",
+      "title": "Group Life Family Support After Loss",
+      "category": "Group Life",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/055-1dad250b1f37-group-life-family-support-after-loss.jpg",
+      "altText": "Family members quietly sort keepsakes and share a memory at home, expressing practical continuity and support after a loss."
+    },
+    {
+      "id": "daa4b79a3970",
+      "title": "Group Life Income Continuity",
+      "category": "Group Life",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/056-daa4b79a3970-group-life-income-continuity.jpg",
+      "altText": "A family cooking an ordinary weeknight meal together, groceries and household rhythm conveying continuity."
+    },
+    {
+      "id": "3ca39a2432d0",
+      "title": "Group Life Marriage Beneficiary",
+      "category": "Group Life",
+      "mode": "Intimate Detail",
+      "src": "/gallery/057-3ca39a2432d0-group-life-marriage-beneficiary.jpg",
+      "altText": "A married couple updates beneficiary information together at home, with wedding rings and a personal photograph grounding the decision."
+    },
+    {
+      "id": "28be5f91a4a3",
+      "title": "Moving-Day Security",
+      "category": "Group Life",
+      "mode": "Intimate Detail",
+      "src": "/gallery/058-28be5f91a4a3-moving-day-security.jpg",
+      "altText": "A family carries properly sized moving boxes into a bright home, expressing housing continuity and family protection."
+    },
+    {
+      "id": "9dddb1c33466",
+      "title": "New-Parent Home Safety",
+      "category": "Group Life",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/059-9dddb1c33466-new-parent-home-safety.jpg",
+      "altText": "New parents install a nursery camera while their infant rests safely in a correctly arranged crib."
+    },
+    {
+      "id": "96f89899c02f",
+      "title": "Group Life Single Parent Morning",
+      "category": "Group Life",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/060-96f89899c02f-group-life-single-parent-morning.jpg",
+      "altText": "A single parent tying a child's shoe before school while packing lunch with the other hand."
+    },
+    {
+      "id": "a1d80a7df525",
+      "title": "Group Life Survivor Support",
+      "category": "Group Life",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/061-a1d80a7df525-group-life-survivor-support.jpg",
+      "altText": "A benefits counselor quietly supports an employee after a loss without melodrama or staged reassurance."
+    },
+    {
+      "id": "68ab3bf24666",
+      "title": "Family Protection Metal Resin",
+      "category": "Group Life",
+      "mode": "Concept / Metaphor",
+      "src": "/gallery/082-68ab3bf24666-family-protection-metal-resin.jpg",
+      "altText": "Family Protection Metal Resin, a concept / metaphor image for group life."
+    },
+    {
+      "id": "789728dbd36e",
+      "title": "Family Protection Legacy",
+      "category": "Group Life",
+      "mode": "Concept / Metaphor",
+      "src": "/gallery/095-789728dbd36e-family-protection-legacy.jpg",
+      "altText": "Family Protection Legacy, a concept / metaphor image for group life."
+    },
+    {
+      "id": "b78a65c165a5",
+      "title": "Protection Across the Passage",
+      "category": "Group Life",
+      "mode": "Concept / Metaphor",
+      "src": "/gallery/103-b78a65c165a5-protection-across-the-passage.jpg",
+      "altText": "Family figures face a lit archway and a clear path forward."
+    },
+    {
+      "id": "4d50f3293036",
+      "title": "The Family Craft Table",
+      "category": "Group Life",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/104-4d50f3293036-the-family-craft-table.jpg",
+      "altText": "Three generations make something together at home."
+    },
+    {
+      "id": "eb5bee4f576b",
+      "title": "Generations Together",
+      "category": "Group Life",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/121-eb5bee4f576b-generations-together.jpg",
+      "altText": "A multigenerational family gathers naturally around an older relative."
+    },
+    {
+      "id": "23c5d5936500",
+      "title": "The Walk to School",
+      "category": "Group Life",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/122-23c5d5936500-the-walk-to-school.jpg",
+      "altText": "A parent and child share an ordinary protected morning routine."
+    },
+    {
+      "id": "b901aaca7053",
+      "title": "Home and Family in Focus",
+      "category": "Group Life",
+      "mode": "Concept / Metaphor",
+      "src": "/gallery/123-b901aaca7053-home-and-family-in-focus.jpg",
+      "altText": "A hand arranges small household figures beside a simple home."
+    },
+    {
+      "id": "c8c0bed68c07",
+      "title": "A Home Held Together",
+      "category": "Group Life",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/125-c8c0bed68c07-a-home-held-together.jpg",
+      "altText": "Family members share an ordinary task that keeps the household moving."
+    },
+    {
+      "id": "902309ccaa5d",
+      "title": "Care for the Next Generation",
+      "category": "Group Life",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/126-902309ccaa5d-care-for-the-next-generation.jpg",
+      "altText": "Parents and children cook together in a lively kitchen."
+    },
+    {
+      "id": "07170d2d7374",
+      "title": "Support at the School Door",
+      "category": "Group Life",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/136-07170d2d7374-support-at-the-school-door.jpg",
+      "altText": "A parent steadies a child during an ordinary arrival."
+    },
+    {
+      "id": "fe1463f455b2",
+      "title": "A Parent's Protection",
+      "category": "Group Life",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/139-fe1463f455b2-a-parent-s-protection.jpg",
+      "altText": "A father lifts his child in a bright, unguarded moment by the water."
+    },
+    {
+      "id": "c10148b23fb9",
+      "title": "A Clear Shield Around Family",
+      "category": "Group Life",
+      "mode": "Concept / Metaphor",
+      "src": "/gallery/146-c10148b23fb9-a-clear-shield-around-family.jpg",
+      "altText": "Transparent material surrounds simple family figures and their home."
+    },
+    {
+      "id": "1fce672ac0b1",
+      "title": "A Family's New Home",
+      "category": "Group Life",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/150-1fce672ac0b1-a-family-s-new-home.jpg",
+      "altText": "Parents and children unpack together during a move."
+    },
+    {
+      "id": "067ce07334bb",
+      "title": "The Morning We Protect",
+      "category": "Group Life",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/151-067ce07334bb-the-morning-we-protect.jpg",
+      "altText": "Parents and a child move through an ordinary breakfast routine."
+    },
+    {
+      "id": "92c1625f839d",
+      "title": "A Family at the Water's Edge",
+      "category": "Group Life",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/153-92c1625f839d-a-family-at-the-water-s-edge.jpg",
+      "altText": "Parents and children share an unposed walk beside a lake."
+    },
+    {
+      "id": "f67032222757",
+      "title": "Home, Family and the People Protected",
+      "category": "Group Life",
+      "mode": "Concept / Metaphor",
+      "src": "/gallery/157-f67032222757-home-family-and-the-people-protected.jpg",
+      "altText": "Simple wooden figures and a small house create a direct protection story."
+    },
+    {
+      "id": "4f3c06cbbaa7",
+      "title": "A Family and the Home They Protect",
+      "category": "Group Life",
+      "mode": "Concept / Metaphor",
+      "src": "/gallery/160-4f3c06cbbaa7-a-family-and-the-home-they-protect.jpg",
+      "altText": "Simple pale figures, a house and everyday keys turn protection into a direct tactile story."
+    },
+    {
+      "id": "ebd51d856470",
+      "title": "The Bedtime Routine We Protect",
+      "category": "Group Life",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/162-ebd51d856470-the-bedtime-routine-we-protect.jpg",
+      "altText": "A parent reads with a child during an ordinary, affectionate bedtime routine."
+    },
+    {
+      "id": "9abf1479c46b",
+      "title": "Generations Around The Table",
+      "category": "Group Life",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/171-9abf1479c46b-generations-around-the-table.webp",
+      "altText": "Three generations share a believable weeknight meal in a bright family home."
+    },
+    {
+      "id": "e41bce01d72a",
+      "title": "Family Protection in Focus",
+      "category": "Group Life",
+      "mode": "Concept / Metaphor",
+      "src": "/gallery/191-e41bce01d72a-family-protection-in-focus.jpg",
+      "altText": "Family Protection in Focus, a concept / metaphor image for group life."
+    },
+    {
+      "id": "5b8505108931",
+      "title": "New Parent Protection",
+      "category": "Group Life",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/193-5b8505108931-new-parent-protection.jpg",
+      "altText": "New Parent Protection, a people / lifestyle image for group life."
+    },
+    {
+      "id": "f9d7cb42bed7",
+      "title": "Beneficiary Details Review",
+      "category": "Group Life",
+      "mode": "Intimate Detail",
+      "src": "/gallery/201-f9d7cb42bed7-beneficiary-details-review.jpg",
+      "altText": "Beneficiary Details Review, a intimate detail image for group life."
+    },
+    {
+      "id": "6d2d2e80aba9",
+      "title": "A Future Worth Protecting",
+      "category": "Group Life",
+      "mode": "Aspirational",
+      "src": "/gallery/249-6d2d2e80aba9-a-future-worth-protecting.jpg",
+      "altText": "A Future Worth Protecting, a aspirational image for group life."
+    }
+  ],
+  "Wellness": [
+    {
+      "id": "fdd7ede65755",
+      "title": "Vitality For Whats Next",
+      "category": "Wellness",
+      "mode": "Aspirational",
+      "src": "/gallery/004-fdd7ede65755-vitality-for-whats-next.jpg",
+      "altText": "Vitality For Whats Next, a aspirational image for general / universal benefits."
+    },
+    {
+      "id": "96fe9756d93e",
+      "title": "Workplace Wellness",
+      "category": "Wellness",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/018-96fe9756d93e-workplace-wellness.jpg",
+      "altText": "Workplace Wellness, a people / lifestyle image for general / universal benefits."
+    },
+    {
+      "id": "1fea6f7a611b",
+      "title": "Tranquil Financial Wellness",
+      "category": "Wellness",
+      "mode": "Concept / Metaphor",
+      "src": "/gallery/093-1fea6f7a611b-tranquil-financial-wellness.jpg",
+      "altText": "Tranquil Financial Wellness, a concept / metaphor image for general / universal benefits."
+    },
+    {
+      "id": "fb5ca88c3191",
+      "title": "A Healthier Start to the Day",
+      "category": "Wellness",
+      "mode": "Aspirational",
+      "src": "/gallery/159-fb5ca88c3191-a-healthier-start-to-the-day.jpg",
+      "altText": "A person practices yoga at sunrise in a simple outdoor setting."
+    },
+    {
+      "id": "699c8fab3dde",
+      "title": "Ready for the Workday",
+      "category": "Wellness",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/176-699c8fab3dde-ready-for-the-workday.jpg",
+      "altText": "Ready for the Workday, a people / lifestyle image for general / universal benefits."
+    },
+    {
+      "id": "16219e923d2e",
+      "title": "Rest and Recharge",
+      "category": "Wellness",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/184-16219e923d2e-rest-and-recharge.jpg",
+      "altText": "Rest and Recharge, a people / lifestyle image for general / universal benefits."
+    },
+    {
+      "id": "f94047ba2f0c",
+      "title": "Healthy Family Routine",
+      "category": "Wellness",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/222-f94047ba2f0c-healthy-family-routine.jpg",
+      "altText": "Healthy Family Routine, a people / lifestyle image for group health and general / universal benefits."
+    },
+    {
+      "id": "50caf59e2364",
+      "title": "Family Bike Safety",
+      "category": "Wellness",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/237-50caf59e2364-family-bike-safety.jpg",
+      "altText": "Family Bike Safety, a people / lifestyle image for general / universal benefits."
+    },
+    {
+      "id": "71cfc3a21df9",
+      "title": "Morning Wellness Practice",
+      "category": "Wellness",
+      "mode": "Aspirational",
+      "src": "/gallery/240-71cfc3a21df9-morning-wellness-practice.jpg",
+      "altText": "Morning Wellness Practice, a aspirational image for general / universal benefits."
+    },
+    {
+      "id": "11c9c55445d4",
+      "title": "Healthy Habits at Home",
+      "category": "Wellness",
+      "mode": "People / Lifestyle",
+      "src": "/gallery/245-11c9c55445d4-healthy-habits-at-home.jpg",
+      "altText": "Healthy Habits at Home, a people / lifestyle image for group health and general / universal benefits."
+    }
+  ]
+}
