@@ -75,17 +75,17 @@
 
 **Bottom line:** 17 of 20 calls remain meaningful (15 → `toast.error`, 2 → `ConfirmDialog`). 2 alerts are effectively unreachable dead code (`step-1.tsx` `L427`, `add-team-members-section.tsx` `L92`). 1 alert (`add-team-members-section.funcs.ts` `L69`) is relevant but must be **reworded** so it no longer surfaces the "implemented later" placeholder to users (→ `toast.success`).
 
-### [`lib/onboarding-wizard-store.ts`](../lib/onboarding-wizard-store.ts) — `[ ]` 2 calls (alert)
+### [`lib/onboarding-wizard-store.ts`](../lib/onboarding-wizard-store.ts) — `[x]` 2 calls (alert)
 
 - `L635` — `alert(\`Error completing onboarding: ${errorData.error || 'Unknown error'}\`)` → `toast.error`
 - `L639` — `alert(\`Error completing onboarding: ${error.message || 'Network error'}\`)` → `toast.error`
 
-### [`components/wizard/new-client-steps/step-1.tsx`](../components/wizard/new-client-steps/step-1.tsx) — `[ ]` 2 calls (alert)
+### [`components/wizard/new-client-steps/step-1.tsx`](../components/wizard/new-client-steps/step-1.tsx) — `[x]` 2 calls (alert)
 
 - `L414` — `alert("Please add a company name in Step 1A first.")` → `toast.error`
 - `L427` — `alert("Failed to generate content. Please try again.")` → `toast.error`
 
-### [`components/wizard/new-client-steps/sections/documents-upload-section.tsx`](../components/wizard/new-client-steps/sections/documents-upload-section.tsx) — `[ ]` 10 calls (alert)
+### [`components/wizard/new-client-steps/sections/documents-upload-section.tsx`](../components/wizard/new-client-steps/sections/documents-upload-section.tsx) — `[x]` 10 calls (alert)
 
 - `L350` — `alert(\`File ${file.name} is not supported. Only PDF files are allowed.\`)` → `toast.error`
 - `L358` — `alert(\`File ${file.name} is not supported. Only PDF and Word documents are allowed.\`)` → `toast.error`
@@ -98,24 +98,24 @@
 - `L958` — `alert("Failed to process file")` → `toast.error`
 - `L963` — `alert("Please select a file")` → `toast.error`
 
-### [`components/wizard/new-client-steps/sections/company-logo-section.tsx`](../components/wizard/new-client-steps/sections/company-logo-section.tsx) — `[ ]` 1 call (alert)
+### [`components/wizard/new-client-steps/sections/company-logo-section.tsx`](../components/wizard/new-client-steps/sections/company-logo-section.tsx) — `[x]` 1 call (alert)
 
 - `L48` — `alert("Unsupported format. Please upload SVG, PNG, or JPEG.")` → `toast.error`
 
-### [`components/wizard/new-client-steps/step-3-key-contacts/components/company-name-selector.tsx`](../components/wizard/new-client-steps/step-3-key-contacts/components/company-name-selector.tsx) — `[ ]` 1 call (window.confirm)
+### [`components/wizard/new-client-steps/step-3-key-contacts/components/company-name-selector.tsx`](../components/wizard/new-client-steps/step-3-key-contacts/components/company-name-selector.tsx) — `[x]` 1 call (window.confirm)
 
 - `L389` — `window.confirm("Are you sure you want to remove the logo for this contact?")` → `ConfirmDialog`
 
-### [`components/wizard/steps/sections/add-team-members-section/add-team-members-section.tsx`](../components/wizard/steps/sections/add-team-members-section/add-team-members-section.tsx) — `[ ]` 2 calls (alert)
+### [`components/wizard/steps/sections/add-team-members-section/add-team-members-section.tsx`](../components/wizard/steps/sections/add-team-members-section/add-team-members-section.tsx) — `[x]` 2 calls (alert)
 
 - `L77` — `alert("Please fill in name, email, and role before sending invite")` → `toast.error`
 - `L92` — `alert("Failed to send invite. Please try again.")` → `toast.error`
 
-### [`components/wizard/steps/sections/add-team-members-section/add-team-members-section.funcs.ts`](../components/wizard/steps/sections/add-team-members-section/add-team-members-section.funcs.ts) — `[ ]` 1 call (alert)
+### [`components/wizard/steps/sections/add-team-members-section/add-team-members-section.funcs.ts`](../components/wizard/steps/sections/add-team-members-section/add-team-members-section.funcs.ts) — `[x]` 1 call (alert)
 
 - `L69` — `alert(\`Invite email functionality will be implemented later. For now, team member "${member.name}" has been added with ${member.role} role.\`)` → `toast.info`
 
-### [`components/wizard/steps/sections/disclaimers-summary/disclaimers-summary.tsx`](../components/wizard/steps/sections/disclaimers-summary/disclaimers-summary.tsx) — `[ ]` 1 call (window.confirm)
+### [`components/wizard/steps/sections/disclaimers-summary/disclaimers-summary.tsx`](../components/wizard/steps/sections/disclaimers-summary/disclaimers-summary.tsx) — `[x]` 1 call (window.confirm)
 
 - `L46` — `window.confirm("Are you sure you want to delete this disclaimer?")` → `ConfirmDialog`
 
@@ -123,17 +123,74 @@
 
 ## 🗂️ Edit-Client Pages & Documents
 
-### [`components/pages/edit-client/compliance-documents-section.tsx`](../components/pages/edit-client/compliance-documents-section.tsx) — `[ ]` 3 calls (alert)
+### 🧹 Relevance review (inspected in context)
+
+| Call | Type | Verdict | Why |
+| ---- | ---- | ------- | --- |
+| `edit-client/compliance-documents-section.tsx` `L174` | alert | ✅ Keep → `toast.error` | Real file-type guard when uploading an SPD document. |
+| `edit-client/compliance-documents-section.tsx` `L219` | alert | ✅ Keep → `toast.error` | Real catch around R2/base64 SPD conversion. |
+| `edit-client/compliance-documents-section.tsx` `L571` | alert | ✅ Keep → `toast.error` | Real catch around inline document file conversion. |
+| `documents/components/compliance-documents-upload.tsx` `L273` | confirm | ✅ Keep → `ConfirmDialog` | Confirms archiving a DB-backed document (soft archive — still worth confirming). |
+| `client-portal/sections/documents-section.tsx` `L148` | alert | ✅ Keep → `toast.error` | Required document-name validation on save. |
+| `client-portal/sections/documents-section.tsx` `L177` | alert | ✅ Keep → `toast.error` | Server error path on document update. |
+| `client-portal/sections/documents-section.tsx` `L181` | alert | ✅ Keep → `toast.error` | Network/exception path on document update. |
+| `client-portal/sections/documents-section.tsx` `L313` | alert | ✅ Keep → `toast.error` | Guard: at least one retirement-plan document required. |
+| `client-portal/sections/documents-section.tsx` `L357` | alert | ✅ Keep → `toast.success` | **Success** message ("Documents saved successfully!") — use a success toast. |
+| `client-portal/sections/documents-section.tsx` `L459` | alert | ✅ Keep → `toast.error` | Server error path when saving documents. |
+| `client-portal/sections/documents-section.tsx` `L463` | alert | ✅ Keep → `toast.error` | Network/exception path when saving documents. |
+| `client-portal/…/retirement-documents-accordion.tsx` `L710` | alert | ✅ Keep → `toast.error` | Title-required guard (card edit). |
+| `client-portal/…/retirement-documents-accordion.tsx` `L714` | alert | ✅ Keep → `toast.error` | Title length guard (card edit). |
+| `client-portal/…/retirement-documents-accordion.tsx` `L718` | alert | ✅ Keep → `toast.error` | Description length guard (card edit). |
+| `client-portal/…/retirement-documents-accordion.tsx` `L755` | alert | ✅ Keep → `toast.error` | PDF-only file guard (card edit). |
+| `client-portal/…/retirement-documents-accordion.tsx` `L1276` | alert | ✅ Keep → `toast.error` | Title-required guard (list edit). |
+| `client-portal/…/retirement-documents-accordion.tsx` `L1280` | alert | ✅ Keep → `toast.error` | Title length guard (list edit). |
+| `client-portal/…/retirement-documents-accordion.tsx` `L1284` | alert | ✅ Keep → `toast.error` | Description length guard (list edit). |
+| `client-portal/…/retirement-documents-accordion.tsx` `L1350` | alert | ✅ Keep → `toast.error` | PDF-only file guard (list edit). |
+
+**Bottom line:** all **19** calls remain useful. **18 alerts** → toasts (17 → `toast.error`, 1 → `toast.success` for `L357`), and **1 confirm** → `ConfirmDialog`. No dead code or placeholder messages found in this group.
+
+### 🧪 Message-accuracy check (claim vs. actual enforcement)
+
+Each message below was checked against the code that enforces it:
+
+| Call | Message | Enforcement found | Accurate? |
+| ---- | ------- | ----------------- | --------- |
+| `compliance-documents-section.tsx` `L174` | "Only PDF and Word documents are allowed" | `allowedTypes` = `application/pdf`, `application/msword` (`.doc`), `application/vnd.openxmlformats-officedocument.wordprocessingml.document` (`.docx`); input `accept=".pdf,.doc,.docx"` | ✅ Yes |
+| `compliance-documents-section.tsx` `L219` | "Failed to process SPD file" | `catch` of R2 upload + `FileReader`→base64 (rejects via `reader.onerror`) | ✅ Yes |
+| `compliance-documents-section.tsx` `L571` | "Failed to process file" | `catch` of inline conversion (R2 / base64) on an `accept=".pdf,.doc,.docx"` input | ✅ Yes |
+| `documents/components/compliance-documents-upload.tsx` `L273` | "…removed from the Benefits Hub but kept for your records" | `PATCH …{ archivedAt }`, then removed from the list (soft archive) | ✅ Yes |
+| `documents-section.tsx` `L148` | "Document name is required" | guard `!editedTitle.trim()` | ✅ Yes |
+| `documents-section.tsx` `L177` | server `error.error \|\| "Failed to update document"` | non-OK branch of `PATCH /api/documents/{id}` | ✅ Yes |
+| `documents-section.tsx` `L181` | "Failed to update document" | `catch` around the PATCH | ✅ Yes |
+| `documents-section.tsx` `L313` | "Please add at least one document" | guard `retirementPlanDocuments.length === 0` | ✅ Yes |
+| `documents-section.tsx` `L357` | "Documents saved successfully!" | OK branch of `POST …/optional-documents` (success, not error) | ✅ Yes → use `toast.success` |
+| `documents-section.tsx` `L459` | `error.error \|\| "Failed to save documents"` | non-OK branch of the POST | ✅ Yes |
+| `documents-section.tsx` `L463` | "Failed to save documents" | `catch` around the POST | ✅ Yes |
+| `retirement-documents-accordion.tsx` `L710` | "Title cannot be empty" | guard `editTitle.trim().length === 0` (card edit) | ✅ Yes |
+| `retirement-documents-accordion.tsx` `L714` | "Title cannot exceed 85 characters" | guard `editTitle.length > 85` (card edit) | ✅ Yes |
+| `retirement-documents-accordion.tsx` `L718` | "Description cannot exceed 200 characters" | guard `editDescription.length > 200` (card edit) | ✅ Yes |
+| `retirement-documents-accordion.tsx` `L755` | "Please upload a PDF file" | guard `file.type !== "application/pdf"` (card edit) | ✅ Yes |
+| `retirement-documents-accordion.tsx` `L1276` | "Title cannot be empty" | guard `title.trim().length === 0` (list edit) | ✅ Yes |
+| `retirement-documents-accordion.tsx` `L1280` | "Title cannot exceed 85 characters" | guard `title.length > 85` (list edit) | ✅ Yes |
+| `retirement-documents-accordion.tsx` `L1284` | "Description cannot exceed 160 characters" | guard `description.length > 160` (list edit) | ✅ Yes |
+| `retirement-documents-accordion.tsx` `L1350` | "Please upload a PDF file" | guard `file.type !== "application/pdf"` (list edit) | ✅ Yes |
+
+**Flags / notes**
+- `retirement-documents-accordion.tsx` uses **two different description caps** on the same page — card edit allows 200 chars, list edit allows 160. Each message matches its own guard, but the inconsistency may deserve a product decision.
+- In `compliance-documents-section.tsx`, only the SPD handler (`L166`) performs a **runtime type check**; the sibling edit-document upload relies on `accept=".pdf,.doc,.docx"` alone (no runtime guard) — no alert exists there, so out of scope, but worth noting for parity.
+- `documents-section.tsx` `L357` is the only non-error message in the group → `toast.success`.
+
+### [`components/pages/edit-client/compliance-documents-section.tsx`](../components/pages/edit-client/compliance-documents-section.tsx) — `[x]` 3 calls (alert)
 
 - `L174` — `alert("Only PDF and Word documents are allowed")` → `toast.error`
 - `L219` — `alert("Failed to process SPD file")` → `toast.error`
 - `L571` — `alert("Failed to process file")` → `toast.error`
 
-### [`components/pages/documents/components/compliance-documents-upload.tsx`](../components/pages/documents/components/compliance-documents-upload.tsx) — `[ ]` 1 call (window.confirm)
+### [`components/pages/documents/components/compliance-documents-upload.tsx`](../components/pages/documents/components/compliance-documents-upload.tsx) — `[x]` 1 call (window.confirm)
 
 - `L273` — `window.confirm("Archive this document? It will be removed from the Benefits Hub but kept for your records.")` → `ConfirmDialog`
 
-### [`components/pages/client-portal/sections/documents-section.tsx`](../components/pages/client-portal/sections/documents-section.tsx) — `[ ]` 7 calls (alert)
+### [`components/pages/client-portal/sections/documents-section.tsx`](../components/pages/client-portal/sections/documents-section.tsx) — `[x]` 7 calls (alert)
 
 - `L148` — `alert("Document name is required")` → `toast.error`
 - `L177` — `alert(error.error || "Failed to update document")` → `toast.error`
@@ -143,7 +200,7 @@
 - `L459` — `alert(error.error || "Failed to save documents")` → `toast.error`
 - `L463` — `alert("Failed to save documents")` → `toast.error`
 
-### [`components/pages/client-portal/sections/retirement-documents-accordion.tsx`](../components/pages/client-portal/sections/retirement-documents-accordion.tsx) — `[ ]` 8 calls (alert)
+### [`components/pages/client-portal/sections/retirement-documents-accordion.tsx`](../components/pages/client-portal/sections/retirement-documents-accordion.tsx) — `[x]` 8 calls (alert)
 
 - `L710` — `alert("Title cannot be empty")` → `toast.error`
 - `L714` — `alert("Title cannot exceed 85 characters")` → `toast.error`

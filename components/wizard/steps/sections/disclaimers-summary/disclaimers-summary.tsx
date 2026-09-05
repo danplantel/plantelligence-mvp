@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Edit2, Trash2, Plus } from "lucide-react";
 import { Disclaimer } from "@/types/wizard";
 import { AddDisclaimerModal } from "../add-disclaimer-modal/add-disclaimer-modal";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface DisclaimersSummaryProps {
   disclaimers: Disclaimer[];
@@ -23,6 +24,9 @@ export function DisclaimersSummary({
 }: DisclaimersSummaryProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  // Disclaimer awaiting delete confirmation
+  const [disclaimerPendingDelete, setDisclaimerPendingDelete] =
+    useState<Disclaimer | null>(null);
 
   const handleEdit = (disclaimer: Disclaimer) => {
     setEditingId(disclaimer.id);
@@ -42,10 +46,15 @@ export function DisclaimersSummary({
     setIsModalOpen(false);
   };
 
-  const handleDelete = (id: string) => {
-    if (window.confirm("Are you sure you want to delete this disclaimer?")) {
-      onDeleteDisclaimer(id);
+  const handleDeleteRequest = (disclaimer: Disclaimer) => {
+    setDisclaimerPendingDelete(disclaimer);
+  };
+
+  const handleDeleteConfirmed = () => {
+    if (disclaimerPendingDelete) {
+      onDeleteDisclaimer(disclaimerPendingDelete.id);
     }
+    setDisclaimerPendingDelete(null);
   };
 
   const getEditingDisclaimer = () => {
@@ -113,7 +122,7 @@ export function DisclaimersSummary({
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleDelete(disclaimer.id)}
+                      onClick={() => handleDeleteRequest(disclaimer)}
                       className="h-8 w-8 p-0 text-gray-500 hover:text-red-600"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -132,6 +141,20 @@ export function DisclaimersSummary({
         onClose={handleModalClose}
         onSave={handleModalSave}
         initialData={getEditingDisclaimer() || undefined}
+      />
+
+      {/* Delete disclaimer confirmation dialog */}
+      <ConfirmDialog
+        open={!!disclaimerPendingDelete}
+        onOpenChange={(open) => {
+          if (!open) setDisclaimerPendingDelete(null);
+        }}
+        onConfirm={handleDeleteConfirmed}
+        title="Delete Disclaimer"
+        description="Are you sure you want to delete this disclaimer?"
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
       />
     </>
   );

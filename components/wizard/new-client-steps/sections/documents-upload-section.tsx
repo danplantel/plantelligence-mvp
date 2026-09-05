@@ -347,7 +347,7 @@ export function DocumentsUploadSection({
       file.type === "application/pdf" || nameLower.endsWith(".pdf");
     if (pdfOnly) {
       if (!isPdf) {
-        alert(
+        toast.error(
           `File ${file.name} is not supported. Only PDF files are allowed.`,
         );
         return false;
@@ -355,7 +355,7 @@ export function DocumentsUploadSection({
       return true;
     }
     if (!ALLOWED_FILE_TYPES.includes(file.type)) {
-      alert(
+      toast.error(
         `File ${file.name} is not supported. Only PDF and Word documents are allowed.`,
       );
       return false;
@@ -861,36 +861,36 @@ export function DocumentsUploadSection({
 
     try {
       if (!currentDocumentName.trim()) {
-        alert("Document name is required");
+        toast.error("Document name is required");
         return;
       }
 
       // Validate character limits
       if (currentDocumentName.length > 60) {
-        alert("Document name cannot exceed 60 characters");
+        toast.error("Document name cannot exceed 60 characters");
         return;
       }
 
       if (currentDocumentDescription.length > 200) {
-        alert("Description cannot exceed 200 characters");
+        toast.error("Description cannot exceed 200 characters");
         return;
       }
 
       // In edit mode, file can be existing (from URL) or new (from File)
       if (editingDocument) {
         if (!currentDocumentFile && !currentDocumentFileUrl) {
-          alert("Please select a file");
+          toast.error("Please select a file");
           return;
         }
 
         // Validate character limits
         if (currentDocumentName.length > 60) {
-          alert("Document name cannot exceed 60 characters");
+          toast.error("Document name cannot exceed 60 characters");
           return;
         }
 
         if (currentDocumentDescription.length > 200) {
-          alert("Description cannot exceed 200 characters");
+          toast.error("Description cannot exceed 200 characters");
           return;
         }
 
@@ -955,12 +955,12 @@ export function DocumentsUploadSection({
           resetCurrentFormState();
         } catch (error) {
           console.error("Error processing file:", error);
-          alert("Failed to process file");
+          toast.error("Failed to process file");
         }
       } else {
         // Add new document mode
         if (!currentDocumentFile) {
-          alert("Please select a file");
+          toast.error("Please select a file");
           return;
         }
 

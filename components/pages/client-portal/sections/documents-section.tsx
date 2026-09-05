@@ -14,6 +14,7 @@ import {
   resolvePersistedDocumentCategory,
 } from "@/lib/document-category";
 import { fetchPlanDocumentsForClient } from "@/lib/fetch-plan-documents-client";
+import { toast } from "sonner";
 
 interface Document {
   id: string;
@@ -145,7 +146,7 @@ function DocumentCard({
 
   const handleSave = async () => {
     if (!editedTitle.trim()) {
-      alert("Document name is required");
+      toast.error("Document name is required");
       return;
     }
 
@@ -174,11 +175,11 @@ function DocumentCard({
         }
       } else {
         const error = await response.json();
-        alert(error.error || "Failed to update document");
+        toast.error(error.error || "Failed to update document");
       }
     } catch (error) {
       console.error("Error updating document:", error);
-      alert("Failed to update document");
+      toast.error("Failed to update document");
     } finally {
       setIsSaving(false);
     }
@@ -310,7 +311,7 @@ export function DocumentsSection({
   // Save retirement plan documents to optional-documents API
   const handleSaveRetirementPlanDocuments = async () => {
     if (retirementPlanDocuments.length === 0) {
-      alert("Please add at least one document");
+      toast.error("Please add at least one document");
       return;
     }
 
@@ -354,7 +355,7 @@ export function DocumentsSection({
       );
 
       if (response.ok) {
-        alert("Documents saved successfully!");
+        toast.success("Documents saved successfully!");
         setShowAddDocuments(false);
         setRetirementPlanDocuments([]);
 
@@ -456,11 +457,11 @@ export function DocumentsSection({
         setDocuments(allDocuments);
       } else {
         const error = await response.json();
-        alert(error.error || "Failed to save documents");
+        toast.error(error.error || "Failed to save documents");
       }
     } catch (error) {
       console.error("Error saving retirement plan documents:", error);
-      alert("Failed to save documents");
+      toast.error("Failed to save documents");
     } finally {
       setIsSavingDocuments(false);
     }

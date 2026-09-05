@@ -15,6 +15,7 @@ import {
 import { normalizeCleanDomain } from "./url-utils";
 import { step2ServicesToCategories } from "./service-categories";
 import { getSession } from "next-auth/react";
+import { toast } from "sonner";
 
 export interface WizardStep {
   id: number;
@@ -632,11 +633,11 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
             // Handle error response
             const errorData = await response.json();
             console.error("Failed to complete wizard:", errorData);
-            alert(`Error completing onboarding: ${errorData.error || 'Unknown error'}`);
+            toast.error(`Error completing onboarding: ${errorData.error || 'Unknown error'}`);
           }
         }).catch((error) => {
           console.error("Error calling complete endpoint:", error);
-          alert(`Error completing onboarding: ${error.message || 'Network error'}`);
+          toast.error(`Error completing onboarding: ${error.message || 'Network error'}`);
         });
       },
 

@@ -10,6 +10,7 @@ import {
   KeyContact,
   WelcomeStatementData,
 } from "@/types/new-client-wizard";
+import { toast } from "sonner";
 
 type CompanyBasicsSubStep = "branding" | "welcomeMission";
 const defaultWelcomeBody = MISSION_STATEMENT_PRESETS[0]?.bodyText || "";
@@ -411,7 +412,7 @@ export function NewClientStep1() {
 
   const generateWelcomeWithAI = async () => {
     if (!companyData.companyName.trim()) {
-      alert("Please add a company name in Step 1A first.");
+      toast.error("Please add a company name in Step 1A first.");
       return;
     }
 
@@ -422,9 +423,6 @@ export function NewClientStep1() {
       updateWelcomeField("bodyText", generatedBody);
       updateWelcomeField("isAIGenerated", true);
       setUseDefaultBody(false);
-    } catch (error) {
-      console.error("Failed to generate welcome copy:", error);
-      alert("Failed to generate content. Please try again.");
     } finally {
       setIsGeneratingWelcome(false);
     }

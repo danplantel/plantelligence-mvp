@@ -11,6 +11,7 @@ import { BrandChangeConfirmationModal } from "./brand-change-confirmation-modal"
 import { CompanyBrandingOverrideModal } from "./company-branding-override-modal";
 import { Button } from "@/components/ui/button";
 import { BrandingImage } from "@/components/ui/branding-image";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface PlanSummary {
   id: string;
@@ -93,6 +94,8 @@ export function CompanyNameSelector({
   const [pendingNameChange, setPendingNameChange] = useState<string | null>(null);
   const [pendingLogoChange, setPendingLogoChange] = useState<string | null>(null);
   const [changeType, setChangeType] = useState<"name" | "logo" | "both">("name");
+  const [isRemoveLogoConfirmOpen, setIsRemoveLogoConfirmOpen] =
+    useState(false);
   const hasConfirmedBrandChange = useRef(false);
   const hasConfirmedNameOverride = useRef(false);
   const pendingLogoValueRef = useRef<string | null>(null);
@@ -386,9 +389,13 @@ export function CompanyNameSelector({
 
 
   const handleCompanyLogoRemove = () => {
-    if (window.confirm("Are you sure you want to remove the logo for this contact?")) {
-      onLogoChange("");
-    }
+    // Ask for confirmation before removing the logo
+    setIsRemoveLogoConfirmOpen(true);
+  };
+
+  const handleRemoveLogoConfirmed = () => {
+    onLogoChange("");
+    setIsRemoveLogoConfirmOpen(false);
   };
 
 
@@ -831,6 +838,18 @@ export function CompanyNameSelector({
         }}
         pendingValue={brandingOverrideType === "name" ? (pendingNameChange || "") : (pendingLogoChange || pendingLogoValueRef.current || "")}
         type={brandingOverrideType}
+      />
+
+      {/* Remove logo confirmation dialog */}
+      <ConfirmDialog
+        open={isRemoveLogoConfirmOpen}
+        onOpenChange={setIsRemoveLogoConfirmOpen}
+        onConfirm={handleRemoveLogoConfirmed}
+        title="Remove Logo"
+        description="Are you sure you want to remove the logo for this contact?"
+        confirmText="Remove"
+        cancelText="Cancel"
+        variant="warning"
       />
     </div>
   );

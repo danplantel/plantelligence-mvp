@@ -39,6 +39,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface ComplianceDocumentsUploadProps {
   clientId?: string; // For documents tab - client ID from plan selector
@@ -268,34 +269,7 @@ export function ComplianceDocumentsUpload({
         },
         onArchive: isDatabaseId
           ? () => {
-              void (async () => {
-                if (
-                  !window.confirm(
-                    "Archive this document? It will be removed from the Benefits Hub but kept for your records.",
-                  )
-                ) {
-                  return;
-                }
-                const res = await fetch(`/api/documents/${doc.id}`, {
-                  method: "PATCH",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    archivedAt: new Date().toISOString(),
-                  }),
-                });
-                if (!res.ok) {
-                  toast.error("Could not archive document");
-                  return;
-                }
-                const updated = retirementPlanDocuments.filter(
-                  (d) => d.id !== doc.id,
-                );
-                setRetirementPlanDocuments(updated);
-                setEditingDocId((cur) => (cur === doc.id ? null : cur));
-                setPreviewKey((p) => p + 1);
-                onDocumentsChangeRef.current?.(updated);
-                toast.success("Document archived");
-              })();
+              requestArchiveDocument(doc.id, doc.name);
             }
           : undefined,
       };
@@ -938,6 +912,41 @@ export function ComplianceDocumentsUpload({
   };
 
   const [editingDocId, setEditingDocId] = useState<string | null>(null);
+  // Document awaiting archive confirmation
+  const [archivePendingDoc, setArchivePendingDoc] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+
+  const requestArchiveDocument = (docId: string, docName: string) => {
+    setArchivePendingDoc({ id: docId, name: docName });
+  };
+
+  const handleArchiveConfirmed = async () => {
+    const docId = archivePendingDoc?.id;
+    if (!docId) return;
+    try {
+      const res = await fetch(`/api/documents/${docId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          archivedAt: new Date().toISOString(),
+        }),
+      });
+      if (!res.ok) {
+        toast.error("Could not archive document");
+        return;
+      }
+      const updated = retirementPlanDocuments.filter((d) => d.id !== docId);
+      setRetirementPlanDocuments(updated);
+      setEditingDocId((cur) => (cur === docId ? null : cur));
+      setPreviewKey((p) => p + 1);
+      onDocumentsChangeRef.current?.(updated);
+      toast.success("Document archived");
+    } catch {
+      toast.error("Could not archive document");
+    }
+  };
 
   const [bulkMajorityModal, setBulkMajorityModal] = useState<{
     category: BenefitsCategory;
@@ -1411,6 +1420,24 @@ export function ComplianceDocumentsUpload({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Archive document confirmation dialog */}
+      <ConfirmDialog
+        open={!!archivePendingDoc}
+        onOpenChange={(open) => {
+          if (!open) setArchivePendingDoc(null);
+        }}
+        onConfirm={handleArchiveConfirmed}
+        title="Archive Document"
+        description={
+          archivePendingDoc
+            ? `Archive "${archivePendingDoc.name}"? It will be removed from the Benefits Hub but kept for your records.`
+            : ""
+        }
+        confirmText="Archive"
+        cancelText="Cancel"
+        variant="warning"
+      />
     </div>
   );
 }

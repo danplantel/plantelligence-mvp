@@ -45,7 +45,7 @@ export function CompanyLogoSection({
       "image/jpg",
     ];
     if (!allowedTypes.includes(file.type)) {
-      alert("Unsupported format. Please upload SVG, PNG, or JPEG.");
+      toast.error("Unsupported format. Please upload SVG, PNG, or JPEG.");
       return;
     }
 

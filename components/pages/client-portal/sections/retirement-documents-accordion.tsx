@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 import {
   Download,
   FileText,
@@ -707,15 +708,15 @@ function SortableCard({
   const handleSave = async () => {
     if (onSaveEdit) {
       if (editTitle.trim().length === 0) {
-        alert("Title cannot be empty");
+        toast.error("Title cannot be empty");
         return;
       }
       if (editTitle.length > 85) {
-        alert("Title cannot exceed 85 characters");
+        toast.error("Title cannot exceed 85 characters");
         return;
       }
       if (editDescription.length > 200) {
-        alert("Description cannot exceed 200 characters");
+        toast.error("Description cannot exceed 200 characters");
         return;
       }
 
@@ -752,7 +753,7 @@ function SortableCard({
     const file = e.target.files?.[0];
     if (file) {
       if (file.type !== "application/pdf") {
-        alert("Please upload a PDF file");
+        toast.error("Please upload a PDF file");
         return;
       }
       setEditFile(file);
@@ -1273,15 +1274,15 @@ export function DocsGrid({
     category?: BenefitsCategory,
   ) => {
     if (title.trim().length === 0) {
-      alert("Title cannot be empty");
+      toast.error("Title cannot be empty");
       return;
     }
     if (title.length > 85) {
-      alert("Title cannot exceed 85 characters");
+      toast.error("Title cannot exceed 85 characters");
       return;
     }
     if (description.length > 160) {
-      alert("Description cannot exceed 160 characters");
+      toast.error("Description cannot exceed 160 characters");
       return;
     }
     if (onSaveEdit) {
@@ -1347,7 +1348,7 @@ export function DocsGrid({
       const file = e.target.files?.[0];
       if (file) {
         if (file.type !== "application/pdf") {
-          alert("Please upload a PDF file");
+          toast.error("Please upload a PDF file");
           return;
         }
         setEditFiles((prev) => {

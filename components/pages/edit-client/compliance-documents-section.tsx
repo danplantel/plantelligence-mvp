@@ -20,6 +20,7 @@ import {
   Save,
 } from "lucide-react";
 import { DragDropUpload } from "@/components/ui/drag-drop-upload";
+import { toast } from "sonner";
 import { DocumentsUploadSection } from "@/components/wizard/new-client-steps/sections/documents-upload-section";
 import {
   RetirementDocumentsAccordion,
@@ -171,7 +172,7 @@ export function ComplianceDocumentsSection({
     ];
 
     if (!allowedTypes.includes(file.type)) {
-      alert("Only PDF and Word documents are allowed");
+      toast.error("Only PDF and Word documents are allowed");
       return;
     }
 
@@ -216,7 +217,7 @@ export function ComplianceDocumentsSection({
       onDataChange("spdFile", updatedSPD);
     } catch (error) {
       console.error("Error converting SPD file:", error);
-      alert("Failed to process SPD file");
+      toast.error("Failed to process SPD file");
     }
   };
 
@@ -568,7 +569,7 @@ export function ComplianceDocumentsSection({
                               });
                             } catch (error) {
                               console.error("Error converting file:", error);
-                              alert("Failed to process file");
+                              toast.error("Failed to process file");
                             }
                           }}
                           onRemove={() => {}}

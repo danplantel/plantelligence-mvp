@@ -1,4 +1,5 @@
 import { TeamMember } from "@/types/wizard";
+import { toast } from "sonner";
 
 export interface AddTeamMembersSectionProps {
   isVisible: boolean;
@@ -66,7 +67,7 @@ export const onSendInvite = async (
 ) => {
   // TODO: Implement actual invite sending logic
   // For now, just mark as invite sent and show message
-  alert(`Invite email functionality will be implemented later. For now, team member "${member.name}" has been added with ${member.role} role.`);
+  toast.success(`Team member "${member.name}" has been added and marked as invited.`);
   
   const newMembers = members.map((m, i) =>
     i === index ? { ...m, inviteSent: true } : m

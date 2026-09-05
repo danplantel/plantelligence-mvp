@@ -28,6 +28,7 @@ import {
   onSendInvite,
   roleOptions,
 } from "./add-team-members-section.funcs";
+import { toast } from "sonner";
 
 export function AddTeamMembersSection({
   isVisible,
@@ -74,7 +75,7 @@ export function AddTeamMembersSection({
   const onSendInviteClick = async (index: number) => {
     const member = members[index];
     if (!member.email || !member.name || !member.role) {
-      alert("Please fill in name, email, and role before sending invite");
+      toast.error("Please fill in name, email, and role before sending invite");
       return;
     }
 
@@ -88,8 +89,6 @@ export function AddTeamMembersSection({
         setMembers,
         saveStepDataLocally,
       );
-    } catch (error) {
-      alert("Failed to send invite. Please try again.");
     } finally {
       setSendingInvites((prev) => {
         const newSet = new Set(prev);
