@@ -1184,9 +1184,10 @@ export function SimpleImageEditorModal({
       if (activeObject) {
         // Reset auto-size flag when user manually centers
         setWasAutoSized(false);
+        // Horizontally center the image only (originX is "center").
+        // Preserve the current vertical position and scale.
         activeObject.set({
           left: canvas.width! / 2,
-          top: canvas.height! / 2,
         });
         activeObject.setCoords();
         canvas.renderAll();
