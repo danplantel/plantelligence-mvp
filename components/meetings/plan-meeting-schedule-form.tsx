@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { flushSync } from "react-dom";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   AlertTriangle,
   Calendar,
@@ -187,6 +188,8 @@ export function PlanMeetingScheduleForm({
   const [timeConflictWarning, setTimeConflictWarning] = useState("");
   const [hasConfirmedConflict, setHasConfirmedConflict] = useState(false);
   const [editingMeetingId, setEditingMeetingId] = useState<string | null>(null);
+  // Meeting awaiting archive confirmation
+  const [archiveMeetingId, setArchiveMeetingId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [openModel, setOpenModel] = useState(false);
   const [allMeetingTypes, setAllMeetingTypes] = useState<MeetingType[]>([]);
@@ -602,8 +605,14 @@ export function PlanMeetingScheduleForm({
     toast.info("Edit cancelled.");
   };
 
-  const archiveMeeting = async (id: string) => {
-    if (!confirm("Archive this meeting?")) return;
+  const archiveMeeting = (id: string) => {
+    // Ask for confirmation before archiving
+    setArchiveMeetingId(id);
+  };
+
+  const handleArchiveMeetingConfirmed = async () => {
+    const id = archiveMeetingId;
+    if (!id) return;
     try {
       const res = await fetch(`/api/clients/${clientId}/meetings/${id}`, {
         method: "DELETE",
@@ -1337,6 +1346,20 @@ export function PlanMeetingScheduleForm({
           </ul>
         )}
       </div>
+
+      {/* Archive meeting confirmation dialog */}
+      <ConfirmDialog
+        open={!!archiveMeetingId}
+        onOpenChange={(open) => {
+          if (!open) setArchiveMeetingId(null);
+        }}
+        onConfirm={handleArchiveMeetingConfirmed}
+        title="Archive Meeting"
+        description="Are you sure you want to archive this meeting? It will be removed from your schedule."
+        confirmText="Archive"
+        cancelText="Cancel"
+        variant="warning"
+      />
     </div>
   );
 }

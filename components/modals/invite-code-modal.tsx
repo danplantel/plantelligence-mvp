@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { toast } from "sonner";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Icons } from "@/components/icons";
 
@@ -39,7 +40,8 @@ const InviteCodeModal = ({ open, handleClose }: InviteCodeModalProps) => {
     if (code.join("") === "22222") {
       handleClose();
     } else {
-      alert("Incorrect invite code");
+      toast.error("Incorrect invite code");
+      // Keep the modal open so the user can retry
     }
   };
 

@@ -263,10 +263,21 @@ Each message below was checked against the code that enforces it:
 
 ## 📅 Meetings & Auth
 
-### [`components/meetings/plan-meeting-schedule-form.tsx`](../components/meetings/plan-meeting-schedule-form.tsx) — `[ ]` 1 call (confirm)
+### 🧹 Relevance review (inspected in context)
+
+| Call | Type | Verdict | Why |
+| ---- | ---- | ------- | --- |
+| `meetings/plan-meeting-schedule-form.tsx` `L606` | confirm | ✅ Keep → `ConfirmDialog` | Real confirmation before archiving/deleting a meeting (DELETE API, with existing success/error toasts around it). |
+| `modals/invite-code-modal.tsx` `L42` | alert | ✅ Keep → `toast.error` | Real validation feedback when an entered invite code is incorrect. |
+
+**Bottom line:** both calls remain useful — **1 confirm** → `ConfirmDialog`, **1 alert** → `toast.error`. No dead code.
+
+> **⚠️ Separate flag (out of scope for dialogs):** [`modals/invite-code-modal.tsx`](../components/modals/invite-code-modal.tsx) validates against a **hard-coded `"22222"`** early-access code. That is a development placeholder that likely shouldn't ship as-is in the final product — separate from the native-dialog cleanup.
+
+### [`components/meetings/plan-meeting-schedule-form.tsx`](../components/meetings/plan-meeting-schedule-form.tsx) — `[x]` 1 call (confirm)
 
 - `L606` — `confirm("Archive this meeting?")` → `ConfirmDialog`
 
-### [`components/modals/invite-code-modal.tsx`](../components/modals/invite-code-modal.tsx) — `[ ]` 1 call (alert)
+### [`components/modals/invite-code-modal.tsx`](../components/modals/invite-code-modal.tsx) — `[x]` 1 call (alert)
 
 - `L42` — `alert("Incorrect invite code")` → `toast.error`
