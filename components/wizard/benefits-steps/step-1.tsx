@@ -2838,36 +2838,40 @@ export function BenefitsStep1() {
               </AccordionTrigger>
               <AccordionContent className="p-6 space-y-8">
                 <div className="flex flex-col gap-8">
-                  <div className="space-y-4">
-                    <BrandImageUpload
-                      slotKey="companyLogo"
-                      slot={{
-                        title: "Benefit Logo",
-                        description:
-                          "Upload a logo for this specific benefit provider.",
-                        recommendedSize: "900 px—900 px",
-                        accept: ".svg,.png,.jpg,.jpeg",
-                        required: true,
-                        previewAspectRatio: 1,
-                        previewLabel: "Logo preview",
-                        defaultPhoteButton: false,
-                      }}
-                      currentImage={convertLogoToBrandImage(
-                        currentStepData.companyLogo || null,
-                      )}
-                      onImageChange={handleLogoChange}
-                      onImageRemove={() =>
-                        saveStepData(1, {
-                          ...currentStepData,
-                          companyLogo: null,
-                        })
-                      }
-                      hideButtons={true}
-                      useUniversalModal={true}
-                      universalModalType="normalizer"
-                      maxFileSize={10}
-                    />
-                  </div>
+                  {/* Benefit Logo — wrapped in its own Card so it gets the same
+                      card background/panel as the Brand Images section below. */}
+                  <Card className="dark:bg-gray-800">
+                    <CardContent className="pt-4">
+                      <BrandImageUpload
+                        slotKey="companyLogo"
+                        slot={{
+                          title: "Benefit Logo",
+                          description:
+                            "Upload a logo for this specific benefit provider.",
+                          recommendedSize: "900 px—900 px",
+                          accept: ".svg,.png,.jpg,.jpeg",
+                          required: true,
+                          previewAspectRatio: 1,
+                          previewLabel: "Logo preview",
+                          defaultPhoteButton: false,
+                        }}
+                        currentImage={convertLogoToBrandImage(
+                          currentStepData.companyLogo || null,
+                        )}
+                        onImageChange={handleLogoChange}
+                        onImageRemove={() =>
+                          saveStepData(1, {
+                            ...currentStepData,
+                            companyLogo: null,
+                          })
+                        }
+                        hideButtons={true}
+                        useUniversalModal={true}
+                        universalModalType="normalizer"
+                        maxFileSize={10}
+                      />
+                    </CardContent>
+                  </Card>
                   <div className="space-y-4">
                     {/* Shared BrandImagesSection — the same component the
                         new-client wizard Step 1 uses for its "Background Image"

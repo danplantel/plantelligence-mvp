@@ -559,8 +559,8 @@ export function BrandImagesSection({
     });
 
   return (
-    <Card data-section="brandImages" className="dark:bg-gray-800">
-      <CardHeader>
+    <Card data-section="brandImages" className="pt-5 dark:bg-gray-800">
+      {/* <CardHeader>
         <CardTitle className="flex items-center gap-2 dark:text-gray-100">
           <ImageIcon className="w-5 h-5 text-accent-blue" />
           Brand Images
@@ -569,7 +569,7 @@ export function BrandImagesSection({
           Upload brand images for different placements in your Employee Benefits
           Hub.
         </p>
-      </CardHeader>
+      </CardHeader> */}
       <CardContent className="space-y-6">
         {BRAND_IMAGE_SLOTS.filter(
           (slot) => !visibleSlots || visibleSlots.includes(slot.key),
