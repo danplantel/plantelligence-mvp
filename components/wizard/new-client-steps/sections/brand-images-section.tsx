@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Image as ImageIcon, Eye, Crop, CheckCircle } from "lucide-react";
 import { BrandImagesData, BrandImageData } from "@/types/new-client-wizard";
@@ -295,238 +295,11 @@ export function BrandImagesSection({
     setPendingImageData(null);
   };
 
-  const autoCropImage = (
-    imageUrl: string,
-    slotKey: keyof BrandImagesData,
-  ): Promise<{ croppedUrl: string; width: number; height: number }> => {
-    return new Promise((resolve, reject) => {
-      const slot = BRAND_IMAGE_SLOTS.find((s) => s.key === slotKey);
-      if (!slot) {
-        reject(new Error("Slot not found"));
-        return;
-      }
-
-      // Get guideline settings based on slot type
-      const canvasWidth =
-        slotKey === "header" || slotKey === "secondaryBanner"
-          ? 640
-          : slotKey === "thumbnail"
-          ? 600
-          : 500;
-      const canvasHeight =
-        slotKey === "header" || slotKey === "secondaryBanner"
-          ? 600
-          : slotKey === "thumbnail"
-          ? 600
-          : 500;
-      const guidelineWidth =
-        slotKey === "thumbnail"
-          ? 400
-          : slotKey === "header" || slotKey === "secondaryBanner"
-          ? 580
-          : 300;
-      const guidelineHeight =
-        slotKey === "thumbnail"
-          ? 400
-          : slotKey === "header" || slotKey === "secondaryBanner"
-          ? 240
-          : 300;
-      const guidelinePadding = 20;
-
-      // Calculate guideline bounds (centered)
-      const pad =
-        guidelinePadding ??
-        Math.max(10, Math.min(canvasWidth, canvasHeight) * 0.05);
-      const outerWidth = Math.min(
-        guidelineWidth ?? canvasWidth - pad * 2,
-        canvasWidth - pad * 2,
-      );
-      const outerHeight = Math.min(
-        guidelineHeight ?? canvasHeight - pad * 2,
-        canvasHeight - pad * 2,
-      );
-      const outerLeft = (canvasWidth - outerWidth) / 2;
-      const outerTop = (canvasHeight - outerHeight) / 2;
-
-      // Load the image
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.onload = () => {
-        // Create a canvas for the full image with guideline dimensions
-        const tempCanvas = document.createElement("canvas");
-        tempCanvas.width = canvasWidth;
-        tempCanvas.height = canvasHeight;
-        const tempCtx = tempCanvas.getContext("2d");
-        if (!tempCtx) {
-          reject(new Error("Failed to get canvas context"));
-          return;
-        }
-
-        // Calculate scale to cover the guideline area
-        const scaleX = canvasWidth / img.width;
-        const scaleY = canvasHeight / img.height;
-        const scale = Math.max(scaleX, scaleY);
-
-        // Calculate scaled dimensions
-        const scaledWidth = img.width * scale;
-        const scaledHeight = img.height * scale;
-
-        // Center the image
-        const x = (canvasWidth - scaledWidth) / 2;
-        const y = (canvasHeight - scaledHeight) / 2;
-
-        // Draw the scaled image
-        tempCtx.drawImage(img, x, y, scaledWidth, scaledHeight);
-
-        // Create crop canvas for guideline area
-        const cropCanvas = document.createElement("canvas");
-        cropCanvas.width = outerWidth;
-        cropCanvas.height = outerHeight;
-        const cropCtx = cropCanvas.getContext("2d");
-        if (!cropCtx) {
-          reject(new Error("Failed to get crop canvas context"));
-          return;
-        }
-
-        // Crop to guideline bounds
-        cropCtx.drawImage(
-          tempCanvas,
-          outerLeft,
-          outerTop,
-          outerWidth,
-          outerHeight,
-          0,
-          0,
-          outerWidth,
-          outerHeight,
-        );
-
-        // Get cropped image as data URL
-        const croppedUrl = cropCanvas.toDataURL("image/png");
-        resolve({
-          croppedUrl,
-          width: outerWidth,
-          height: outerHeight,
-        });
-      };
-
-      img.onerror = () => {
-        reject(new Error("Failed to load image"));
-      };
-
-      img.src = imageUrl;
-    });
-  };
-
-  // ── "Wait for full preview" gate ─────────────────────────────────────────
-  // When the user confirms a default photo, the "Choose a Default Image" modal
-  // must stay open (button shows a spinner) until the chosen image has been
-  // persisted AND the section's preview <img> (Background Image / thumbnail /
-  // banner) has actually finished loading. BrandImageUpload reports that load
-  // via onPreviewLoaded → notifyGalleryPreviewLoaded, which resolves the
-  // deferred created below. A timeout bounds the wait so the modal can never
-  // hang (e.g. when the same image is re-selected and <img> won't re-fire).
-  const galleryPreviewWaitRef = useRef<{
-    slotKey: keyof BrandImagesData;
-    resolve: () => void;
-  } | null>(null);
-
-  const notifyGalleryPreviewLoaded = (slotKey: keyof BrandImagesData) => {
-    const wait = galleryPreviewWaitRef.current;
-    if (wait && wait.slotKey === slotKey) {
-      galleryPreviewWaitRef.current = null;
-      wait.resolve();
-    }
-  };
-
-  const waitForGalleryPreviewLoad = (
-    slotKey: keyof BrandImagesData,
-    timeoutMs = 10000,
-  ): Promise<void> =>
-    new Promise<void>((resolve) => {
-      let timer: number | null = null;
-      const finish = () => {
-        if (galleryPreviewWaitRef.current?.slotKey === slotKey) {
-          galleryPreviewWaitRef.current = null;
-        }
-        if (timer) window.clearTimeout(timer);
-        resolve();
-      };
-      timer = window.setTimeout(finish, timeoutMs);
-      galleryPreviewWaitRef.current = { slotKey, resolve: finish };
-    });
-
-  const loadImageDimensions = (
-    imageUrl: string,
-  ): Promise<{ width: number; height: number }> =>
-    new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => resolve({ width: img.width, height: img.height });
-      img.onerror = () => reject(new Error("Failed to load image"));
-      img.src = imageUrl;
-    });
-
-  /**
-   * Exports the FULL source frame (no vertical crop) at a target resolution.
-   * Used for the curated gallery backgrounds on the "Background Image" (header)
-   * slot: those images are already 16:9 banner-safe and match the slot's
-   * recommended 1920×1080 ratio, so cropping them into the short 580×240 band
-   * (autoCropImage) cut off the scene and produced the wrong-looking preview.
-   * The source is scaled (never stretched) to the target because the curated
-   * images share its 16:9 aspect ratio.
-   */
-  const exportFullFrameImage = (
-    imageUrl: string,
-    targetWidth: number,
-    targetHeight: number,
-  ): Promise<{ dataUrl: string; width: number; height: number }> =>
-    new Promise((resolve, reject) => {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.onload = () => {
-        try {
-          const canvas = document.createElement("canvas");
-          canvas.width = targetWidth;
-          canvas.height = targetHeight;
-          const ctx = canvas.getContext("2d");
-          if (!ctx) {
-            reject(new Error("Failed to get canvas context"));
-            return;
-          }
-          // Cover-fit the source into the target while preserving its aspect
-          // ratio (16:9 → 16:9 = no effective crop for curated backgrounds).
-          const scale = Math.max(
-            targetWidth / img.width,
-            targetHeight / img.height,
-          );
-          const scaledWidth = img.width * scale;
-          const scaledHeight = img.height * scale;
-          ctx.drawImage(
-            img,
-            (targetWidth - scaledWidth) / 2,
-            (targetHeight - scaledHeight) / 2,
-            scaledWidth,
-            scaledHeight,
-          );
-          resolve({
-            dataUrl: canvas.toDataURL("image/jpeg", 0.92),
-            width: targetWidth,
-            height: targetHeight,
-          });
-        } catch (error) {
-          reject(error);
-        }
-      };
-      img.onerror = () => reject(new Error("Failed to load image"));
-      img.src = imageUrl;
-    });
-
   /**
    * Exports the source image at its ORIGINAL full resolution — no crop and no
-   * rescale. Used for the Secondary Banner slot's default photos so the stored
-   * image stays the actual, original photo. That way when the user opens
-   * "Crop / Adjust Image" the editor shows the true original (not a pre-cropped
-   * band), and the user decides the crop themselves.
+   * rescale. Used for default photos on every slot so the crop editor receives
+   * the actual, original photo (not a pre-cropped band), and the user decides
+   * the crop themselves before it is saved.
    */
   const exportFullResolutionImage = (
     imageUrl: string,
@@ -586,7 +359,6 @@ export function BrandImagesSection({
                   handleImageChange(slot.key, imageData)
                 }
                 onImageRemove={() => handleImageRemove(slot.key)}
-                onPreviewLoaded={() => notifyGalleryPreviewLoaded(slot.key)}
                 previewObjectFit={
                   slot.key === "header" ? "cover" : "contain"
                 }
@@ -663,8 +435,9 @@ export function BrandImagesSection({
             }
           }
 
-          // Auto-crop to the slot's guidelines; fall back to the raw URL if
-          // cropping fails so a selection is never lost.
+          // Build BrandImageData from the image chosen in the gallery. The
+          // crop editor (opened below) lets the user frame it to the slot's
+          // guidelines before anything is applied.
           const buildImageData = (
             displayUrl: string,
             width: number,
@@ -695,97 +468,32 @@ export function BrandImagesSection({
             };
           };
 
-          // Square Thumbnail default photo — open the "Thumbnail image" crop
-          // editor with the ORIGINAL photo so the user crops it to a square
-          // themselves, instead of silently auto-cropping on selection. The
-          // editor's Save Thumbnail handler persists the final crop.
-          if (activeSlotKey === "thumbnail") {
-            let displayUrl = url;
-            let displayWidth = 0;
-            let displayHeight = 0;
-            try {
-              const exported = await exportFullResolutionImage(url);
-              displayUrl = exported.dataUrl;
-              displayWidth = exported.width;
-              displayHeight = exported.height;
-            } catch (error) {
-              console.error("Failed to load default photo for editing:", error);
-            }
-            setPendingImageData({
-              slotKey: "thumbnail",
-              data: buildImageData(displayUrl, displayWidth, displayHeight),
-            });
-            setGalleryOpen(false);
-            setActiveSlotKey(null);
-            setIsModalOpen(true);
-            return;
-          }
-
-          let brandImageData: BrandImageData;
+          // For every slot, open the crop editor with the ORIGINAL photo
+          // (full resolution — never pre-cropped or pre-scaled) so the user can
+          // frame the default image to that slot's own guidelines before saving,
+          // just like the "Crop / Adjust Image" flow. No image is applied on
+          // selection; the editor's Save handler (handleModalSave) persists the
+          // final crop and, for the Secondary Banner, re-opens the News &
+          // Events preview afterwards.
+          let displayUrl = url;
+          let displayWidth = 0;
+          let displayHeight = 0;
           try {
-            if (activeSlotKey === "header") {
-              // Curated gallery backgrounds are 16:9 banner-safe — export the
-              // FULL frame (no vertical crop) at the recommended 1920×1080 so
-              // the stored Background Image keeps the whole scene and the
-              // correct ratio.
-              const { dataUrl, width, height } = await exportFullFrameImage(
-                url,
-                1920,
-                1080,
-              );
-              brandImageData = buildImageData(dataUrl, width, height);
-            } else if (activeSlotKey === "secondaryBanner") {
-              // Keep the ORIGINAL photo (no auto-crop) so the stored image is
-              // the real, un-cropped default. When the user opens
-              // "Crop / Adjust Image", the Banner image editor therefore starts
-              // from the actual original instead of a pre-cropped band.
-              const { dataUrl, width, height } =
-                await exportFullResolutionImage(url);
-              brandImageData = buildImageData(dataUrl, width, height);
-            } else {
-              // Auto-crop the image according to guideline settings
-              const { croppedUrl, width, height } = await autoCropImage(
-                url,
-                activeSlotKey,
-              );
-              brandImageData = buildImageData(croppedUrl, width, height);
-            }
+            const exported = await exportFullResolutionImage(url);
+            displayUrl = exported.dataUrl;
+            displayWidth = exported.width;
+            displayHeight = exported.height;
           } catch (error) {
-            console.error("Failed to auto-crop image:", error);
-            // Fallback: save without cropping (use natural dimensions when known)
-            try {
-              const dims = await loadImageDimensions(url);
-              brandImageData = buildImageData(url, dims.width, dims.height);
-            } catch {
-              brandImageData = buildImageData(url, 0, 0);
-            }
+            console.error("Failed to load default photo for editing:", error);
           }
-
-          const updatedBrandImages = {
-            ...brandImages,
-            [activeSlotKey]: brandImageData,
-          };
-
-          // Keep the modal open (button shows a spinner) until the image has
-          // been persisted AND the section's preview <img> (Background Image /
-          // thumbnail / banner) has fully loaded. ModalGallery won't close until
-          // this async handler resolves.
-          try {
-            const previewReady = waitForGalleryPreviewLoad(activeSlotKey);
-            await onBrandImagesChange(updatedBrandImages);
-            await previewReady;
-          } catch (error) {
-            console.error("Failed to apply default image:", error);
-          }
-
-          if (activeSlotKey === "secondaryBanner") {
-            // Close the gallery, then auto-open the News & Events header preview
-            setGalleryOpen(false);
-            setNewsEventsPreviewOpen(true);
-          } else {
-            setGalleryOpen(false);
-          }
+          setPendingImageData({
+            slotKey: activeSlotKey,
+            data: buildImageData(displayUrl, displayWidth, displayHeight),
+          });
+          // Close the gallery and hand off to the crop editor.
+          setGalleryOpen(false);
           setActiveSlotKey(null);
+          setIsModalOpen(true);
         }}
       />
 
