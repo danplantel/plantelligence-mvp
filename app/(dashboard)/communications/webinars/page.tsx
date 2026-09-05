@@ -49,6 +49,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface WebinarFormData {
   client: string;
@@ -147,6 +148,9 @@ export default function WebinarsPage() {
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
   const [editingWebinarId, setEditingWebinarId] = useState<string | null>(null);
+  // Webinar awaiting delete confirmation
+  const [webinarPendingDelete, setWebinarPendingDelete] =
+    useState<Webinar | null>(null);
 
   // Filter and search state
   const [searchTerm, setSearchTerm] = useState("");
@@ -406,8 +410,9 @@ export default function WebinarsPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this webinar?")) return;
+  const handleDelete = async () => {
+    const id = webinarPendingDelete?.id;
+    if (!id) return;
 
     try {
       const response = await fetch(`/api/webinars/${id}`, {
@@ -907,7 +912,7 @@ export default function WebinarsPage() {
                                 Edit
                               </DropdownMenuItem>
                               <DropdownMenuItem
-                                onClick={() => handleDelete(webinar.id)}
+                                onClick={() => setWebinarPendingDelete(webinar)}
                                 className="text-destructive"
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />
@@ -1014,6 +1019,24 @@ export default function WebinarsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Delete webinar confirmation dialog */}
+      <ConfirmDialog
+        open={!!webinarPendingDelete}
+        onOpenChange={(open) => {
+          if (!open) setWebinarPendingDelete(null);
+        }}
+        onConfirm={handleDelete}
+        title="Delete Webinar"
+        description={
+          webinarPendingDelete
+            ? `Are you sure you want to delete "${webinarPendingDelete.webinarTitle}"?`
+            : ""
+        }
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
+      />
     </div>
   );
 }

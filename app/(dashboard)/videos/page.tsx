@@ -21,6 +21,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 type PlanOption = {
   id: string;
@@ -165,6 +167,47 @@ export default function ContentLibraryPage() {
   const prevSelectedPlanForCheckingRef = useRef<string>("all");
   // Keep current summaryVideos in ref to access latest value without dependency
   const summaryVideosRef = useRef<PlanVideo[]>([]);
+
+  // Video awaiting delete confirmation
+  const [videoPendingDelete, setVideoPendingDelete] = useState<PlanVideo | null>(
+    null,
+  );
+
+  const handleDeleteVideoConfirmed = async (video: PlanVideo | null) => {
+    if (!video?.id) return;
+    const videoDbId = video.id;
+    try {
+      const response = await fetch(
+        `/api/videos?id=${encodeURIComponent(videoDbId)}`,
+        { method: "DELETE" },
+      );
+      const responseData = await response.json();
+      if (!response.ok) {
+        console.error("❌ Delete failed:", {
+          status: response.status,
+          error: responseData.error,
+          videoDbId,
+        });
+        toast.error(
+          responseData.error || "Failed to delete video. Please try again.",
+        );
+        return;
+      }
+      // Remove video from state using database ID
+      setSummaryVideos((prev) => prev.filter((v) => v.id !== videoDbId));
+    } catch (error: any) {
+      console.error("❌ Error deleting video:", {
+        error,
+        videoDbId,
+        message: error?.message,
+      });
+      toast.error(
+        `Failed to delete video: ${
+          error?.message || "Unknown error"
+        }. Please try again.`,
+      );
+    }
+  };
 
   // SWR: clients + plans — cached so revisiting the page shows data instantly
   const { data: clientsData } = useSWR(
@@ -1043,7 +1086,7 @@ export default function ContentLibraryPage() {
                       (video.videoUrl.startsWith("http://") ||
                         video.videoUrl.startsWith("https://"));
 
-                    const handleDelete = async () => {
+                    const handleDelete = () => {
                       // ✅ Always use database ID (MongoDB ObjectId)
                       const videoDbId = video.id;
 
@@ -1055,62 +1098,14 @@ export default function ContentLibraryPage() {
                             videoProviderId: video.videoProviderId,
                           },
                         );
-                        alert(
+                        toast.error(
                           "Cannot delete video: missing ID. Please refresh the page.",
                         );
                         return;
                       }
 
-                      
-
-                      if (
-                        !confirm(
-                          `Are you sure you want to delete this video for ${video.planName}?`,
-                        )
-                      ) {
-                        return;
-                      }
-
-                      try {
-                        // ✅ Use database ID (MongoDB ObjectId) for deletion
-                        const response = await fetch(
-                          `/api/videos?id=${encodeURIComponent(videoDbId)}`,
-                          {
-                            method: "DELETE",
-                          },
-                        );
-
-                        const responseData = await response.json();
-
-                        if (!response.ok) {
-                          console.error("❌ Delete failed:", {
-                            status: response.status,
-                            error: responseData.error,
-                            videoDbId,
-                          });
-                          throw new Error(
-                            responseData.error || "Failed to delete video",
-                          );
-                        }
-
-                        
-
-                        // Remove video from state using database ID
-                        setSummaryVideos((prev) =>
-                          prev.filter((v) => v.id !== videoDbId),
-                        );
-                      } catch (error: any) {
-                        console.error("❌ Error deleting video:", {
-                          error,
-                          videoDbId,
-                          message: error?.message,
-                        });
-                        alert(
-                          `Failed to delete video: ${
-                            error?.message || "Unknown error"
-                          }. Please try again.`,
-                        );
-                      }
+                      // Ask for confirmation before deleting
+                      setVideoPendingDelete(video);
                     };
 
                     const handlePlacementChange = async (
@@ -1195,7 +1190,9 @@ export default function ContentLibraryPage() {
                         
                       } catch (error) {
                         console.error("Error updating placement:", error);
-                        alert("Failed to update placement. Please try again.");
+                        toast.error(
+                          "Failed to update placement. Please try again.",
+                        );
                       }
                     };
 
@@ -1368,6 +1365,24 @@ export default function ContentLibraryPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Delete video confirmation dialog */}
+      <ConfirmDialog
+        open={!!videoPendingDelete}
+        onOpenChange={(open) => {
+          if (!open) setVideoPendingDelete(null);
+        }}
+        onConfirm={() => handleDeleteVideoConfirmed(videoPendingDelete)}
+        title="Delete Video"
+        description={
+          videoPendingDelete
+            ? `Are you sure you want to delete this video for ${videoPendingDelete.planName}?`
+            : ""
+        }
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
+      />
     </div>
   );
 }
