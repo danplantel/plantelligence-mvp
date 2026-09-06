@@ -501,7 +501,6 @@ export function BenefitsStep4() {
                             brandColor={primaryColor}
                             accentColor={secondaryColor}
                             retirementDocs={previewDocs}
-                            forceLight
                             title={`${benefitCategory || "Plan"} Documents & Forms`}
                             description={`Access all your important ${(benefitCategory || "plan").toLowerCase()} plan documents, forms, and notices in one convenient location.`}
                             accordionHeaderTitle={

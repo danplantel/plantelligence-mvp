@@ -152,10 +152,6 @@ interface RetirementDocumentsAccordionProps {
   accordionHeaderTitle?: string;
   /** When true, shows skeleton placeholders while documents are being fetched */
   loading?: boolean;
-  /** When true, the internal preview dialog renders in Light Mode even when the
-   *  surrounding dashboard theme is dark (used by the benefits wizard Preview tab,
-   *  which mimics the always-light employee portal). */
-  forceLight?: boolean;
 }
 
 const defaultRetirementDocs: RetirementDocumentItem[] = [
@@ -244,7 +240,6 @@ export function RetirementDocumentsAccordion({
   onLanguageChange,
   accordionHeaderTitle: explicitAccordionTitle,
   loading = false,
-  forceLight = false,
 }: RetirementDocumentsAccordionProps) {
   // Use provided retirementDocs or default, but prefer provided (even if empty)
   const actualRetirementDocs =
@@ -455,9 +450,9 @@ export function RetirementDocumentsAccordion({
     mode === "page" ? "mx-auto max-w-6xl px-4 sm:px-6 lg:px-8" : "space-y-6";
 
   return (
-    <>
+    <div className="portal-root">
       {title && (
-        <div className="text-center bg-white pt-12 dark:bg-gray-800 border-b-0">
+        <div className="text-center bg-white pt-12 border-b-0">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <h2
               className="font-dm-serif text-3xl leading-tight mb-4 sm:text-4xl lg:text-[40px]"
@@ -466,7 +461,7 @@ export function RetirementDocumentsAccordion({
               {title}
             </h2>
             {description && (
-              <p className="text-base font-red-hat leading-relaxed dark:text-gray-300">
+              <p className="text-base font-red-hat leading-relaxed text-gray-600">
                 {description}
               </p>
             )}
@@ -497,13 +492,11 @@ export function RetirementDocumentsAccordion({
               onCancelEdit={onCancelEdit}
             />
           ) : (
-            <div
-              className="overflow-hidden rounded-md border bg-white shadow-sm dark:bg-gray-800 dark:border-gray-700"
-            >
+            <div className="overflow-hidden rounded-md border border-gray-200 bg-white shadow-sm">
               {/* RETIREMENT SECTION HEADER */}
               <button
                 type="button"
-                className="flex w-full items-center justify-between px-6 py-4 text-left transition-colors duration-200 dark:bg-gray-800"
+                className="flex w-full items-center justify-between px-6 py-4 text-left transition-colors duration-200"
                 onClick={() => setOpenRetirement((prev) => !prev)}
                 style={{
                   borderColor: `${brandColor}80`,
@@ -550,7 +543,7 @@ export function RetirementDocumentsAccordion({
                             }}
                             className={`rounded-full px-5 py-2 text-[16px] leading-tight font-red-hat font-semibold border ${isActive
                               ? "bg-[#002B5B] text-white border-[#002B5B]"
-                              : "bg-white text-[#002B5B] border-[#D1D5DB] dark:bg-gray-700 dark:text-accent-blue-light dark:border-gray-600"
+                              : "bg-white text-[#002B5B] border-[#D1D5DB]"
                               }`}
                           >
                             {lang === "EN" ? "ENGLISH" : "ESPAÑOL"}
@@ -596,14 +589,10 @@ export function RetirementDocumentsAccordion({
           if (!open) setPreviewDoc(null);
         }}
       >
-        <DialogContent
-          className={`max-w-5xl ${
-            forceLight ? "portal-root" : "dark:bg-gray-800 dark:border-gray-700"
-          }`}
-        >
+        <DialogContent className="portal-root max-w-5xl bg-white">
           <DialogHeader>
-            <DialogTitle className="dark:text-gray-100">{previewDoc?.title || "Document preview"}</DialogTitle>
-            <DialogDescription className="dark:text-gray-400">
+            <DialogTitle className="text-gray-900">{previewDoc?.title || "Document preview"}</DialogTitle>
+            <DialogDescription className="text-gray-600">
               {previewDoc?.description ||
                 "Preview the document or download it for offline use."}
             </DialogDescription>
@@ -611,7 +600,7 @@ export function RetirementDocumentsAccordion({
 
           {previewDoc?.href ? (
             <div className="space-y-4">
-              <div className="h-[70vh] w-full overflow-hidden rounded-xl border bg-white dark:bg-gray-800 dark:border-gray-600">
+              <div className="h-[70vh] w-full overflow-hidden rounded-xl border border-gray-200 bg-white">
                 <iframe
                   src={previewDoc.href}
                   className="h-full w-full"
@@ -628,13 +617,13 @@ export function RetirementDocumentsAccordion({
               </div>
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground dark:text-gray-400">
+            <p className="text-sm text-gray-600">
               Preview not available for this document.
             </p>
           )}
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 }
 
@@ -844,7 +833,7 @@ function SortableCard({
                   value={editCategory}
                   onValueChange={(value) => setEditCategory(value as BenefitsCategory)}
                 >
-                  <SelectTrigger className="w-full h-8 text-xs !bg-white dark:!bg-white !text-gray-900 dark:!text-gray-900 !border-gray-300 dark:!border-gray-300">
+                  <SelectTrigger className="w-full h-8 text-xs !bg-white !text-gray-900 !border-gray-300">
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
@@ -870,7 +859,7 @@ function SortableCard({
                     }
                   }}
                   maxLength={85}
-                  className={`text-xs !bg-white dark:!bg-white !text-gray-900 dark:!text-gray-900 !border-gray-300 dark:!border-gray-300 ${editTitle.length > 85
+                  className={`text-xs !bg-white !text-gray-900 !border-gray-300 ${editTitle.length > 85
                     ? "border-red-500 focus:border-red-500"
                     : ""
                     }`}
@@ -902,7 +891,7 @@ function SortableCard({
                   }}
                   maxLength={160}
                   rows={2}
-                  className={`text-xs !bg-white dark:!bg-white !text-gray-900 dark:!text-gray-900 !border-gray-300 dark:!border-gray-300 ${editDescription.length > 160
+                  className={`text-xs !bg-white !text-gray-900 !border-gray-300 ${editDescription.length > 160
                     ? "border-red-500 focus:border-red-500"
                     : ""
                     }`}
@@ -1101,7 +1090,7 @@ function DocsGridSkeleton({ brandColor }: { brandColor: string }) {
       {Array.from({ length: 3 }).map((_, i) => (
         <Card
           key={i}
-          className="bg-white shadow-sm dark:bg-gray-800 dark:border-gray-700"
+          className="bg-white shadow-sm"
           style={{
             borderColor: `${brandColor}26`,
             borderWidth: 1,
@@ -1210,7 +1199,7 @@ export function DocsGrid({
 
   if (!docs.length) {
     return (
-      <p className="text-sm text-[#6B6B6B] dark:text-gray-400">
+      <p className="text-sm text-[#6B6B6B]">
         No documents available in this language yet.
       </p>
     );
@@ -1382,7 +1371,7 @@ export function DocsGrid({
         const isEditing = localEditingDocId === doc.id;
         const cardContent = (
           <Card
-            className="bg-white shadow-sm transition-transform duration-200 hover:-translate-y-1 hover:shadow-md dark:bg-gray-800 dark:border-gray-700"
+            className="bg-white shadow-sm transition-transform duration-200 hover:-translate-y-1 hover:shadow-md"
             style={{
               borderColor: `${brandColor}26`,
               borderWidth: 1,
@@ -1397,7 +1386,7 @@ export function DocsGrid({
                     e.stopPropagation();
                     doc.onDelete?.();
                   }}
-                  className="absolute top-2 right-2 p-1 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 hover:text-red-700 dark:text-red-400 transition-colors"
+                  className="absolute top-2 right-2 p-1 rounded-full hover:bg-red-50 text-red-600 hover:text-red-700 transition-colors"
                   aria-label="Delete document"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -1405,7 +1394,7 @@ export function DocsGrid({
               )}
               {isDraggable && (
                 <div
-                  className="mb-2 self-start cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+                  className="mb-2 self-start cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600"
                   style={{ touchAction: "none" }}
                 >
                   <GripVertical className="h-5 w-5" />
@@ -1415,7 +1404,7 @@ export function DocsGrid({
                 <>
                   <div className="w-full mb-4">
                     <div className="flex items-center justify-between mb-1">
-                      <label className="text-xs text-gray-600 font-medium dark:text-gray-300">
+                      <label className="text-xs text-gray-600 font-medium">
                         Category
                       </label>
                     </div>
@@ -1429,7 +1418,7 @@ export function DocsGrid({
                         });
                       }}
                     >
-                      <SelectTrigger className="w-full h-8 text-xs !bg-white dark:!bg-white !text-gray-900 dark:!text-gray-900 !border-gray-300 dark:!border-gray-300">
+                      <SelectTrigger className="w-full h-8 text-xs !bg-white !text-gray-900 !border-gray-300">
                         <SelectValue placeholder="Select category" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1443,7 +1432,7 @@ export function DocsGrid({
                   </div>
                   <div className="w-full mb-2">
                     <div className="mb-1 text-left">
-                      <label className="text-xs text-gray-600 font-medium dark:text-gray-300">
+                      <label className="text-xs text-gray-600 font-medium">
                         Title
                       </label>
                     </div>
@@ -1459,7 +1448,7 @@ export function DocsGrid({
                         }
                       }}
                       maxLength={85}
-                      className={`text-center text-sm font-semibold !bg-white dark:!bg-white !text-gray-900 dark:!text-gray-900 !border-gray-300 dark:!border-gray-300 ${(editTitles.get(doc.id) || "").length > 85
+                      className={`text-center text-sm font-semibold !bg-white !text-gray-900 !border-gray-300 ${(editTitles.get(doc.id) || "").length > 85
                         ? "border-red-500 focus:border-red-500"
                         : ""
                         }`}
@@ -1471,7 +1460,7 @@ export function DocsGrid({
                         ? "text-red-500"
                         : (editTitles.get(doc.id) || "").length > 75
                           ? "text-amber-500"
-                          : "text-gray-500 dark:text-gray-400"
+                          : "text-gray-500"
                         }`}
                     >
                       {(editTitles.get(doc.id) || "").length}/85
@@ -1479,7 +1468,7 @@ export function DocsGrid({
                   </div>
                   <div className="w-full mb-4">
                     <div className="mb-1 text-left">
-                      <label className="text-xs text-gray-600 font-semibold dark:text-gray-300">
+                      <label className="text-xs text-gray-600 font-semibold">
                         Description
                       </label>
                     </div>
@@ -1496,7 +1485,7 @@ export function DocsGrid({
                       }}
                       maxLength={200}
                       rows={2}
-                      className={`text-center text-xs !bg-white dark:!bg-white !text-gray-900 dark:!text-gray-900 !border-gray-300 dark:!border-gray-300 ${(editDescriptions.get(doc.id) || "").length > 200
+                      className={`text-center text-xs !bg-white !text-gray-900 !border-gray-300 ${(editDescriptions.get(doc.id) || "").length > 200
                         ? "border-red-500 focus:border-red-500"
                         : ""
                         }`}
@@ -1506,7 +1495,7 @@ export function DocsGrid({
                         ? "text-red-500"
                         : (editDescriptions.get(doc.id) || "").length > 180
                           ? "text-amber-500"
-                          : "text-gray-500 dark:text-gray-400"
+                          : "text-gray-500"
                         }`}
                     >
                       {(editDescriptions.get(doc.id) || "").length}/200
@@ -1529,13 +1518,13 @@ export function DocsGrid({
                     </span>
                   </div>
                   <h4
-                    className="mb-2 text-[20px] leading-tight font-dm-serif font-semibold line-clamp-2 break-words dark:text-gray-100"
+                    className="mb-2 text-[20px] leading-tight font-dm-serif font-semibold line-clamp-2 break-words text-gray-900"
                     title={doc.title}
                   >
                     {doc.title}
                   </h4>
                   <p
-                    className={`text-[14px] leading-tight font-red-hat line-clamp-3 break-words dark:text-gray-300 ${showMetadata ? "mb-4" : "mb-6"
+                    className={`text-[14px] leading-tight font-red-hat line-clamp-3 break-words text-gray-600 ${showMetadata ? "mb-4" : "mb-6"
                       }`}
                     title={doc.description}
                   >
@@ -1548,7 +1537,7 @@ export function DocsGrid({
                 <div className={`absolute top-4 ${isDraggable ? "left-11" : "left-4"} flex flex-col gap-1 items-start z-10`}>
                   <Badge
                     variant="outline"
-                    className="text-[11px] font-bold px-2 py-0 h-5 border-gray-200 text-gray-500 bg-white shadow-sm dark:border-gray-600 dark:text-gray-300 dark:bg-gray-700"
+                    className="text-[11px] font-bold px-2 py-0 h-5 border-gray-200 text-gray-500 bg-white shadow-sm"
                   >
                     {doc.category}
                   </Badge>
@@ -1558,14 +1547,14 @@ export function DocsGrid({
               {showMetadata && (
                 <div className="w-full mb-4 space-y-2 text-left">
                   {doc.meta?.client && (
-                    <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
-                      <Building className="h-3 w-3 dark:text-gray-500" />
+                    <div className="flex items-center gap-1 text-xs text-gray-600">
+                      <Building className="h-3 w-3 text-gray-500" />
                       <span>{doc.meta.client.companyName}</span>
                     </div>
                   )}
                   {doc.meta?.uploadedAt && (
-                    <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
-                      <Calendar className="h-3 w-3 dark:text-gray-500" />
+                    <div className="flex items-center gap-1 text-xs text-gray-600">
+                      <Calendar className="h-3 w-3 text-gray-500" />
                       <span>
                         {formatUsDate(doc.meta.uploadedAt)}
                       </span>
@@ -1691,7 +1680,7 @@ export function DocsGrid({
                   (onEdit || onStartEdit) && (
                     <Button
                       variant="outline"
-                      className="flex-1 flex items-center justify-center gap-2 text-xs font-semibold tracking-wide transition-all duration-200 hover:scale-105 min-w-0 overflow-hidden dark:!text-accent-blue dark:!border-accent-blue"
+                      className="flex-1 flex items-center justify-center gap-2 text-xs font-semibold tracking-wide transition-all duration-200 hover:scale-105 min-w-0 overflow-hidden"
                       style={{
                         borderColor: brandColor,
                         color: brandColor,
