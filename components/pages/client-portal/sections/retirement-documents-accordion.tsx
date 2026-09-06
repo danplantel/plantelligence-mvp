@@ -796,7 +796,20 @@ function SortableCard({
               </Badge>
             )}
             <div className="ml-auto flex items-center gap-1 flex-shrink-0">
-              {!isEditing && (onEdit || onStartEdit) && (
+              {isEditing ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCancel();
+                  }}
+                  className="h-7 w-7 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                  aria-label="Cancel editing"
+                  title="Cancel editing"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              ) : (onEdit || onStartEdit) ? (
                 <button
                   type="button"
                   onClick={(e) => {
@@ -809,7 +822,7 @@ function SortableCard({
                 >
                   <Pencil className="h-3.5 w-3.5" />
                 </button>
-              )}
+              ) : null}
               {doc.onDelete && (
                 <button
                   type="button"
