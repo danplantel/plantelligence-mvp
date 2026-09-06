@@ -362,6 +362,28 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
   // of the per-input localStorage autosave in the step components.
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isAutosavingRef = useRef(false);
+  // On a reload/resume the draft is re-hydrated into the store, which flips the
+  // autosave effect's deps without any user edit — without a guard that would
+  // fire a redundant /save-draft ~3s after loading. Snapshot the loaded state
+  // once init finishes and skip autosave until the data actually differs.
+  const autosaveBaselineRef = useRef<string | null>(null);
+  const autosaveArmedRef = useRef(false);
+
+  // Capture the baseline the moment initialization finishes (before the user can
+  // type). Only a resumed draft (already has meaningful data) gets a baseline; a
+  // fresh plan is empty here, so autosave keeps its normal behavior and arms on
+  // the user's first input.
+  useEffect(() => {
+    if (isInitialLoading || autosaveBaselineRef.current !== null) return;
+    const sd = useNewClientWizardStore.getState().stepData;
+    const hasResumedDraft =
+      !!sd.companyBasics?.companyName?.trim() ||
+      !!sd.companyBasics?.planType?.trim() ||
+      !!(sd.keyContacts?.contacts && sd.keyContacts.contacts.length > 0);
+    if (hasResumedDraft) {
+      autosaveBaselineRef.current = JSON.stringify(sd);
+    }
+  }, [isInitialLoading]);
 
   useEffect(() => {
     // Do not autosave while the wizard is still initialising — the store may
@@ -376,6 +398,17 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
 
     // Skip if no company name or plan type yet (nothing meaningful to save as a draft)
     if (!companyName && !planType) return;
+
+    // Skip the redundant autosave that would fire right after reloading a draft:
+    // hydration re-populated stepData, but nothing has actually changed yet. Once
+    // the data differs from the loaded snapshot (a real edit, or a seed that
+    // filled empty fields), autosave arms and behaves normally from then on.
+    if (autosaveBaselineRef.current !== null && !autosaveArmedRef.current) {
+      if (JSON.stringify(stepData) === autosaveBaselineRef.current) {
+        return;
+      }
+      autosaveArmedRef.current = true;
+    }
 
     // Skip if already saving to avoid stacking requests
     if (isAutosavingRef.current) return;
