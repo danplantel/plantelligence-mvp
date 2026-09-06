@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
+import { fetchProfileOnce } from "@/lib/fetch-profile";
 import { Disclaimer } from "@/types/new-client-wizard";
 import {
   resolveDefaultDisclosuresText,
@@ -251,8 +252,10 @@ export function NewClientStep5a({
     advisorProfile,
   } = useNewClientWizardStore();
 
-  const { stepData: onboardingStepData, loadAllWizardData, loadStepData: loadOnboardingStepData } =
-    useOnboardingWizardStore();
+  const {
+    stepData: onboardingStepData,
+    loadStepData: loadOnboardingStepData,
+  } = useOnboardingWizardStore();
 
   // ── Resolve organisation & company name ──
   // [Organization Name] is resolved from the advisor's organization (onboarding
@@ -310,9 +313,11 @@ export function NewClientStep5a({
   // Page footer.
   const getUserProfileDisclaimer = useCallback(async (): Promise<Disclaimer | null> => {
     try {
-      const res = await fetch("/api/profile");
-      if (!res.ok) return null;
-      const profile = await res.json();
+      // Reuse the shared single-flight/cached profile fetch so this coalesces
+      // with the profile already loaded for the wizard instead of firing a
+      // separate /api/profile request.
+      const profile = await fetchProfileOnce();
+      if (!profile) return null;
       const raw = profile?.disclaimer;
       if (!raw) return null;
 
@@ -385,12 +390,32 @@ export function NewClientStep5a({
   const [showInitialPrompt, setShowInitialPrompt] = useState(false);
   const [previewFooterOpen, setPreviewFooterOpen] = useState(false);
 
-  // Load onboarding data if needed
+  // Resolve the advisor's organization name WITHOUT pulling the whole onboarding
+  // dataset. This previously called loadAllWizardData(), which fired ~12
+  // /api/onboarding-wizard/* requests (new-session + every step) just to answer
+  // "[Organization Name]". The org name is normally already on the advisor
+  // profile (seeded into this wizard store), so we only reach for the onboarding
+  // branding step (a single GET) when neither the profile nor the plan provides
+  // a name. The onboarding disclaimer default is still fetched lazily on demand
+  // by getOnboardingDisclaimerText().
+  const orgNameFromAdvisorProfile = (advisorProfile as any)?.organizationName;
+  const orgNameFromPlan = newClientStepData.companyBasics?.companyName;
+
   useEffect(() => {
-    if (!onboardingStepData.branding?.organizationName && loadAllWizardData) {
-      loadAllWizardData();
+    if (
+      !orgNameFromAdvisorProfile &&
+      !orgNameFromPlan &&
+      !onboardingStepData.branding?.organizationName &&
+      loadOnboardingStepData
+    ) {
+      void loadOnboardingStepData("branding");
     }
-  }, [onboardingStepData.branding?.organizationName, loadAllWizardData]);
+  }, [
+    orgNameFromAdvisorProfile,
+    orgNameFromPlan,
+    onboardingStepData.branding?.organizationName,
+    loadOnboardingStepData,
+  ]);
 
   // ── Load disclaimer from draft/API on first mount ──
   useEffect(() => {
