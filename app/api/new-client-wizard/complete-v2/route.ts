@@ -104,11 +104,11 @@ export async function POST(request: NextRequest) {
     let previewDataForClient = (latestPreview?.previewData ??
       wizardSession.employeePortalPreview?.previewData) as any;
 
-    const primaryCatsForCategoryAssets =
-      await resolveUserPrimaryServiceCategoryLabels(session.user.id);
-    const onboardingAdvisorBg = await getOnboardingAdvisorBackgroundImage(
-      session.user.id,
-    );
+    const [primaryCatsForCategoryAssets, onboardingAdvisorBg] =
+      await Promise.all([
+        resolveUserPrimaryServiceCategoryLabels(session.user.id),
+        getOnboardingAdvisorBackgroundImage(session.user.id),
+      ]);
     if (
       onboardingAdvisorBg &&
       userPrimaryServicesMapToBenefitsCategory(primaryCatsForCategoryAssets)
@@ -496,45 +496,49 @@ export async function POST(request: NextRequest) {
           const heroSource = headerData?.url ?? thumbnailData?.url;
           const heroFileName =
             headerData?.fileName || thumbnailData?.fileName || "hero.jpg";
-          const heroKey = await rehomeImage(
-            heroSource,
-            "background",
-            heroFileName
-          );
+          // Upload / re-home all brand images IN PARALLEL. Each is an independent
+          // R2 operation that can involve uploading a large base64 image, so
+          // awaiting them one-by-one made the publish take tens of seconds.
+          const [
+            heroKey,
+            thumbKey,
+            bannerKey,
+            faviconKey,
+            logoKey,
+          ] = await Promise.all([
+            rehomeImage(heroSource, "background", heroFileName),
+            rehomeImage(
+              thumbnailData?.url,
+              "thumbnail",
+              thumbnailData?.fileName || "thumbnail.jpg"
+            ),
+            rehomeImage(
+              brandImgs?.secondaryBanner?.url,
+              "secondaryBanner",
+              brandImgs?.secondaryBanner?.fileName || "banner.jpg"
+            ),
+            rehomeImage(
+              brandImgs?.favicon?.url,
+              "favicon",
+              brandImgs?.favicon?.fileName || "favicon.png"
+            ),
+            // Logo: re-home as well (it may be an R2 key under the draft plan or
+            // a data URL that needs uploading under this plan id).
+            rehomeImage(
+              companyBasics.companyLogo,
+              "logo",
+              companyBasics.logoFileName || "logo.png"
+            ),
+          ]);
+
           await persistIfChanged("backgroundImg", backgroundImgCreate, heroKey);
-
-          const thumbKey = await rehomeImage(
-            thumbnailData?.url,
-            "thumbnail",
-            thumbnailData?.fileName || "thumbnail.jpg"
-          );
           await persistIfChanged("thumbnailImg", thumbnailImgCreate, thumbKey);
-
-          const bannerKey = await rehomeImage(
-            brandImgs?.secondaryBanner?.url,
-            "secondaryBanner",
-            brandImgs?.secondaryBanner?.fileName || "banner.jpg"
-          );
           await persistIfChanged(
             "secondaryBannerImg",
             secondaryBannerImgCreate,
             bannerKey
           );
-
-          const faviconKey = await rehomeImage(
-            brandImgs?.favicon?.url,
-            "favicon",
-            brandImgs?.favicon?.fileName || "favicon.png"
-          );
           await persistIfChanged("faviconImg", faviconImgCreate, faviconKey);
-
-          // Logo: re-home as well (it may be an R2 key under the draft plan or a
-          // data URL that needs uploading under this plan id).
-          const logoKey = await rehomeImage(
-            companyBasics.companyLogo,
-            "logo",
-            companyBasics.logoFileName || "logo.png"
-          );
           await persistIfChanged("companyLogo", companyLogoCreate, logoKey);
 
           if (Object.keys(brandingUpdate).length > 0) {
@@ -597,6 +601,7 @@ export async function POST(request: NextRequest) {
 
         // Helper function to process documents array
         const processDocumentsArray = async (documentsArray: any[], documentType: string) => {
+          const createPromises: Promise<any>[] = [];
           for (let i = 0; i < documentsArray.length; i++) {
             const doc = documentsArray[i] as any;
 
@@ -694,42 +699,44 @@ export async function POST(request: NextRequest) {
                 : null;
 
             if (hasR2 && documentName) {
-              const createdDocument = await prisma.document.create({
-                data: {
-                  title: documentName,
-                  fileName: originalFileName,
-                  fileUrl: "r2:stored",
-                  storageKey: docStorageKey.trim(),
-                  shortDescription: shortDescription,
-                  type: documentType,
-                  category: resolvePersistedDocumentCategory(documentType, doc.category, docStorageKey),
-                  categorySuggested,
-                  categoryConfidence,
-                  expirationDate: validExpiration,
-                  language: detectedLanguage,
-                  clientId: client.id,
-                  uploadedAt: new Date(),
-                } as any,
-              });
-              documents.push(createdDocument);
+              createPromises.push(
+                prisma.document.create({
+                  data: {
+                    title: documentName,
+                    fileName: originalFileName,
+                    fileUrl: "r2:stored",
+                    storageKey: docStorageKey.trim(),
+                    shortDescription: shortDescription,
+                    type: documentType,
+                    category: resolvePersistedDocumentCategory(documentType, doc.category, docStorageKey),
+                    categorySuggested,
+                    categoryConfidence,
+                    expirationDate: validExpiration,
+                    language: detectedLanguage,
+                    clientId: client.id,
+                    uploadedAt: new Date(),
+                  } as any,
+                }),
+              );
             } else if (fileUrl && fileUrl !== "r2:stored" && documentName) {
-              const createdDocument = await prisma.document.create({
-                data: {
-                  title: documentName,
-                  fileName: originalFileName,
-                  fileUrl: fileUrl,
-                  shortDescription: shortDescription,
-                  type: documentType,
-                  category: resolvePersistedDocumentCategory(documentType, doc.category, docStorageKey),
-                  categorySuggested,
-                  categoryConfidence,
-                  expirationDate: validExpiration,
-                  language: detectedLanguage,
-                  clientId: client.id,
-                  uploadedAt: new Date(),
-                } as any,
-              });
-              documents.push(createdDocument);
+              createPromises.push(
+                prisma.document.create({
+                  data: {
+                    title: documentName,
+                    fileName: originalFileName,
+                    fileUrl: fileUrl,
+                    shortDescription: shortDescription,
+                    type: documentType,
+                    category: resolvePersistedDocumentCategory(documentType, doc.category, docStorageKey),
+                    categorySuggested,
+                    categoryConfidence,
+                    expirationDate: validExpiration,
+                    language: detectedLanguage,
+                    clientId: client.id,
+                    uploadedAt: new Date(),
+                  } as any,
+                }),
+              );
             } else if (!hasR2 && (!fileUrl || fileUrl === "r2:stored") && documentName) {
               console.warn("Skipping document creation - missing data:", {
                 hasFileUrl: !!fileUrl,
@@ -737,21 +744,24 @@ export async function POST(request: NextRequest) {
               });
             }
           }
+
+          if (createPromises.length > 0) {
+            documents.push(...(await Promise.all(createPromises)));
+          }
         };
 
-        // Create retirement plan documents if exist
+        // Create retirement plan + other documents concurrently (each array is
+        // already parallelised internally; overlap the two arrays as well).
         const complianceDocs = complianceDocuments as any;
 
-
+        const documentBatches: Promise<void>[] = [];
         if (complianceDocs?.retirementPlanDocuments && Array.isArray(complianceDocs.retirementPlanDocuments)) {
-          await processDocumentsArray(complianceDocs.retirementPlanDocuments, "Document");
-        } else {
+          documentBatches.push(processDocumentsArray(complianceDocs.retirementPlanDocuments, "Document"));
         }
-
-        // Create other documents if exist
         if (complianceDocuments?.otherDocuments && Array.isArray(complianceDocuments.otherDocuments)) {
-          await processDocumentsArray(complianceDocuments.otherDocuments, "SBC");
+          documentBatches.push(processDocumentsArray(complianceDocuments.otherDocuments, "SBC"));
         }
+        await Promise.all(documentBatches);
 
         // If a draft plan exists, copy any documents that were saved directly to
         // the draft Client row but were not present in the wizard JSON. This
@@ -870,25 +880,28 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Delete related records to avoid foreign key constraint violations
-        await prisma.newClientCompanyBasics.deleteMany({
-          where: { sessionId: wizardSession.id }
-        });
-        await prisma.newClientWelcomeStatement.deleteMany({
-          where: { sessionId: wizardSession.id }
-        });
-        await prisma.newClientKeyContacts.deleteMany({
-          where: { sessionId: wizardSession.id }
-        });
-        await prisma.newClientComplianceDocuments.deleteMany({
-          where: { sessionId: wizardSession.id }
-        });
-        await prisma.newClientEmployeePortalPreview.deleteMany({
-          where: { sessionId: wizardSession.id }
-        });
-        await prisma.newClientContactBuilder.deleteMany({
-          where: { sessionId: wizardSession.id }
-        });
+        // Delete related records (independent of one another) in parallel to
+        // avoid serialising several DB round-trips at the end of the publish.
+        await Promise.all([
+          prisma.newClientCompanyBasics.deleteMany({
+            where: { sessionId: wizardSession.id },
+          }),
+          prisma.newClientWelcomeStatement.deleteMany({
+            where: { sessionId: wizardSession.id },
+          }),
+          prisma.newClientKeyContacts.deleteMany({
+            where: { sessionId: wizardSession.id },
+          }),
+          prisma.newClientComplianceDocuments.deleteMany({
+            where: { sessionId: wizardSession.id },
+          }),
+          prisma.newClientEmployeePortalPreview.deleteMany({
+            where: { sessionId: wizardSession.id },
+          }),
+          prisma.newClientContactBuilder.deleteMany({
+            where: { sessionId: wizardSession.id },
+          }),
+        ]);
 
         // Now delete the wizard session
         await prisma.newClientWizardSession.delete({

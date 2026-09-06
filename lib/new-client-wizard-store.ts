@@ -1258,6 +1258,12 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
             "employeePortalPreview",
           ];
 
+          // Run the per-step saves concurrently — each writes an independent
+          // wizard-session sub-record, so awaiting them one-by-one (each is a
+          // slow POST that could take several seconds) needlessly serialized the
+          // publish path and made "Complete Setup" take ~20s before complete-v2
+          // even started.
+          const stepSaves: Array<{ stepType: string; data: any }> = [];
           for (const stepType of stepSaveOrder) {
             const data = stepData[stepType];
             if (!data) continue;
@@ -1270,16 +1276,25 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
             ) {
               continue;
             }
-            const saved = await get().saveStepDataToServer(
-              stepType,
-              data,
+            stepSaves.push({ stepType: String(stepType), data });
+          }
+
+          if (stepSaves.length > 0) {
+            const results = await Promise.all(
+              stepSaves.map(({ stepType, data }) =>
+                get()
+                  .saveStepDataToServer(stepType, data)
+                  .then((saved: boolean) => ({ stepType, saved })),
+              ),
             );
-            if (saved) {
-              anySaveSucceeded = true;
-            } else {
-              console.warn(
-                `⚠️ completeWizard: saveStepDataToServer("${String(stepType)}") returned false — proceeding anyway`,
-              );
+            for (const { stepType, saved } of results) {
+              if (saved) {
+                anySaveSucceeded = true;
+              } else {
+                console.warn(
+                  `⚠️ completeWizard: saveStepDataToServer("${String(stepType)}") returned false — proceeding anyway`,
+                );
+              }
             }
           }
 
