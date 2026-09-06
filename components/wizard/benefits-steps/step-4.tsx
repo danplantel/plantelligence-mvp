@@ -358,6 +358,33 @@ export function BenefitsStep4() {
         toast.success("Document updated");
     };
 
+    // Apply a drag/drop reorder from the Preview accordion back into the full
+    // document list. Only the currently-visible docs (current category + language)
+    // are dragged, so permute them in-place among their existing positions and leave
+    // every other document untouched.
+    const handlePreviewReorder = useCallback(
+        (ordered: RetirementDocumentItem[]) => {
+            setDocuments(prev => {
+                const ids = ordered.map(d => String(d.id));
+                const idSet = new Set(ids);
+                const slots: number[] = [];
+                prev.forEach((doc, i) => {
+                    if (idSet.has(String(doc.id))) slots.push(i);
+                });
+                // Safety: ignore if the reorder doesn't map exactly to visible docs.
+                if (slots.length !== ids.length) return prev;
+                const docById = new Map(prev.map(doc => [String(doc.id), doc]));
+                const next = [...prev];
+                ids.forEach((id, k) => {
+                    const doc = docById.get(id);
+                    if (doc) next[slots[k]] = doc;
+                });
+                return next;
+            });
+        },
+        [],
+    );
+
     const syncDocumentsToPlan = useCallback(
         async (docs: Document[]) => {
             const id = (planId || "").trim();
@@ -501,6 +528,8 @@ export function BenefitsStep4() {
                             brandColor={primaryColor}
                             accentColor={secondaryColor}
                             retirementDocs={previewDocs}
+                            reorderable
+                            onOrderChange={handlePreviewReorder}
                             title={`${benefitCategory || "Plan"} Documents & Forms`}
                             description={`Access all your important ${(benefitCategory || "plan").toLowerCase()} plan documents, forms, and notices in one convenient location.`}
                             accordionHeaderTitle={

@@ -152,6 +152,9 @@ interface RetirementDocumentsAccordionProps {
   accordionHeaderTitle?: string;
   /** When true, shows skeleton placeholders while documents are being fetched */
   loading?: boolean;
+  /** When true, document cards are draggable/reorderable (same drag-and-drop UI as
+   *  editable mode) and `onOrderChange` is called after each reorder. */
+  reorderable?: boolean;
 }
 
 const defaultRetirementDocs: RetirementDocumentItem[] = [
@@ -240,6 +243,7 @@ export function RetirementDocumentsAccordion({
   onLanguageChange,
   accordionHeaderTitle: explicitAccordionTitle,
   loading = false,
+  reorderable = false,
 }: RetirementDocumentsAccordionProps) {
   // Use provided retirementDocs or default, but prefer provided (even if empty)
   const actualRetirementDocs =
@@ -292,7 +296,9 @@ export function RetirementDocumentsAccordion({
   const [orderedDocs, setOrderedDocs] =
     useState<RetirementDocumentItem[]>(actualRetirementDocs);
 
-  const isEditable = mode === "editable";
+  // Draggable/reorderable when mode is "editable" (full editing) OR when the parent
+  // opts into `reorderable` (drag-to-reorder only, e.g. the benefits wizard Preview).
+  const isEditable = mode === "editable" || reorderable === true;
 
   // Debug: Log when retirementDocs change
 
