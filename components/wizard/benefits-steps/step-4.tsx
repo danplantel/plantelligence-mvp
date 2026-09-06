@@ -473,43 +473,48 @@ export function BenefitsStep4() {
                 </TabsContent>
 
                 <TabsContent value="preview" className="mt-6">
-                    {/* Language Switcher for Preview */}
-                    {availableLanguages.length > 1 && (
-                        <div className="mb-6 flex gap-2">
-                            {availableLanguages.map(lang => (
-                                <button
-                                    key={lang}
-                                    onClick={() => setPreviewLanguage(lang)}
-                                    className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-                                        previewLanguage === lang
-                                            ? "bg-primary text-white border-primary"
-                                            : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
-                                    }`}
-                                    style={previewLanguage === lang ? { backgroundColor: primaryColor, borderColor: primaryColor } : {}}
-                                >
-                                    {lang === "EN" ? "English" : "Español"}
-                                </button>
-                            ))}
-                        </div>
-                    )}
+                    {/* `portal-root` forces Light Mode regardless of the dashboard dark theme —
+                        the preview must look like the (always-light) employee portal. */}
+                    <div className="portal-root">
+                        {/* Language Switcher for Preview */}
+                        {availableLanguages.length > 1 && (
+                            <div className="mb-6 flex gap-2">
+                                {availableLanguages.map(lang => (
+                                    <button
+                                        key={lang}
+                                        onClick={() => setPreviewLanguage(lang)}
+                                        className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                                            previewLanguage === lang
+                                                ? "bg-primary text-white border-primary"
+                                                : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                                        }`}
+                                        style={previewLanguage === lang ? { backgroundColor: primaryColor, borderColor: primaryColor } : {}}
+                                    >
+                                        {lang === "EN" ? "English" : "Español"}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
 
-                    {/* Preview using the same RetirementDocumentsAccordion as the portal pages */}
-                    <RetirementDocumentsAccordion
-                        brandColor={primaryColor}
-                        accentColor={secondaryColor}
-                        retirementDocs={previewDocs}
-                        title={`${benefitCategory || "Plan"} Documents & Forms`}
-                        description={`Access all your important ${(benefitCategory || "plan").toLowerCase()} plan documents, forms, and notices in one convenient location.`}
-                        accordionHeaderTitle={
-                            benefitCategory === "Group Health"
-                                ? "Health Plan Documents"
-                                : benefitCategory === "Group Life"
-                                    ? "Life Insurance Documents"
-                                    : benefitCategory === "Company / Plan Sponsor"
-                                        ? "Wellness Program Documents"
-                                        : "Retirement Plan Documents"
-                        }
-                    />
+                        {/* Preview using the same RetirementDocumentsAccordion as the portal pages */}
+                        <RetirementDocumentsAccordion
+                            brandColor={primaryColor}
+                            accentColor={secondaryColor}
+                            retirementDocs={previewDocs}
+                            forceLight
+                            title={`${benefitCategory || "Plan"} Documents & Forms`}
+                            description={`Access all your important ${(benefitCategory || "plan").toLowerCase()} plan documents, forms, and notices in one convenient location.`}
+                            accordionHeaderTitle={
+                                benefitCategory === "Group Health"
+                                    ? "Health Plan Documents"
+                                    : benefitCategory === "Group Life"
+                                        ? "Life Insurance Documents"
+                                        : benefitCategory === "Company / Plan Sponsor"
+                                            ? "Wellness Program Documents"
+                                            : "Retirement Plan Documents"
+                            }
+                        />
+                    </div>
                 </TabsContent>
 
                 <TabsContent value="upload" className="mt-6 space-y-6">

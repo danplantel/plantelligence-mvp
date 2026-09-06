@@ -152,6 +152,10 @@ interface RetirementDocumentsAccordionProps {
   accordionHeaderTitle?: string;
   /** When true, shows skeleton placeholders while documents are being fetched */
   loading?: boolean;
+  /** When true, the internal preview dialog renders in Light Mode even when the
+   *  surrounding dashboard theme is dark (used by the benefits wizard Preview tab,
+   *  which mimics the always-light employee portal). */
+  forceLight?: boolean;
 }
 
 const defaultRetirementDocs: RetirementDocumentItem[] = [
@@ -240,6 +244,7 @@ export function RetirementDocumentsAccordion({
   onLanguageChange,
   accordionHeaderTitle: explicitAccordionTitle,
   loading = false,
+  forceLight = false,
 }: RetirementDocumentsAccordionProps) {
   // Use provided retirementDocs or default, but prefer provided (even if empty)
   const actualRetirementDocs =
@@ -591,7 +596,11 @@ export function RetirementDocumentsAccordion({
           if (!open) setPreviewDoc(null);
         }}
       >
-        <DialogContent className="max-w-5xl dark:bg-gray-800 dark:border-gray-700">
+        <DialogContent
+          className={`max-w-5xl ${
+            forceLight ? "portal-root" : "dark:bg-gray-800 dark:border-gray-700"
+          }`}
+        >
           <DialogHeader>
             <DialogTitle className="dark:text-gray-100">{previewDoc?.title || "Document preview"}</DialogTitle>
             <DialogDescription className="dark:text-gray-400">
@@ -1507,14 +1516,14 @@ export function DocsGrid({
               ) : (
                 <>
                   <div
-                    className="mb-4 flex h-12 w-12 items-center justify-center rounded-md transition-transform duration-200 dark:bg-accent-blue/20"
+                    className="mb-4 flex h-12 w-12 items-center justify-center rounded-md transition-transform duration-200"
                     style={{
                       backgroundColor: `${accentColor}1F`,
                     }}
                   >
-                    <span className="text-xl dark:!text-accent-blue" style={{ color: accentColor }}>
+                    <span className="text-xl" style={{ color: accentColor }}>
                       <FileText
-                        className="h-6 w-6 dark:!text-accent-blue"
+                        className="h-6 w-6"
                         style={{ color: accentColor }}
                       />
                     </span>
