@@ -45,6 +45,9 @@ export function BenefitsStep4() {
     const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
+    // Document currently being edited inline in the Preview accordion
+    const [editingDocId, setEditingDocId] = useState<string | null>(null);
+
     // Tabs state
     const [activeTab, setActiveTab] = useState("upload");
     const [sortColumn, setSortColumn] = useState<SortColumn>("uploadedAt");
@@ -343,6 +346,8 @@ export function BenefitsStep4() {
         file?: File,
         category?: BenefitsCategory
     ) => {
+        const target = documents.find(d => d.id === docId);
+
         setDocuments(prev => {
             const updated = prev.map(doc =>
                 doc.id === docId ? {
@@ -355,6 +360,27 @@ export function BenefitsStep4() {
             return updated;
         });
 
+        // Persist edits to DB-backed documents so they survive a Step 4 re-fetch.
+        if (target && isPersistedDocumentId(target.id)) {
+            try {
+                const res = await fetch(`/api/documents/${target.id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        title,
+                        shortDescription: description || null,
+                        ...(category !== undefined && { category }),
+                    }),
+                });
+                if (!res.ok) {
+                    console.error("Failed to persist document edit:", res.status);
+                }
+            } catch (error) {
+                console.error("Error persisting document edit:", error);
+            }
+        }
+
+        setEditingDocId(null);
         toast.success("Document updated");
     };
 
@@ -529,6 +555,10 @@ export function BenefitsStep4() {
                             accentColor={secondaryColor}
                             retirementDocs={previewDocs}
                             reorderable
+                            editingDocId={editingDocId}
+                            onStartEdit={(docId) => setEditingDocId(docId)}
+                            onSaveEdit={handleSaveEdit}
+                            onCancelEdit={() => setEditingDocId(null)}
                             onOrderChange={handlePreviewReorder}
                             title={`${benefitCategory || "Plan"} Documents & Forms`}
                             description={`Access all your important ${(benefitCategory || "plan").toLowerCase()} plan documents, forms, and notices in one convenient location.`}

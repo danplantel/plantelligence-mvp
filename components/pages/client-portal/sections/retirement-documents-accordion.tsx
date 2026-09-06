@@ -869,7 +869,6 @@ function SortableCard({
                     ? "border-red-500 focus:border-red-500"
                     : ""
                     }`}
-                  autoFocus
                 />
                 <span
                   className={`mt-1 block text-right text-xs ${editTitle.length > 85
@@ -1040,21 +1039,20 @@ function SortableCard({
             {isEditing && (
               <>
                 <Button
-                  variant="outline"
                   className="flex-1 flex items-center justify-center gap-2 text-xs font-semibold transition-all duration-200 hover:scale-105 min-w-0 overflow-hidden text-white"
                   style={{
-                    backgroundColor: "var(--accent-blue)",
-                    borderColor: "var(--accent-blue)",
+                    backgroundColor: brandColor,
+                    borderColor: brandColor,
                     color: "#ffffff",
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = "var(--accent-blue)";
-                    e.currentTarget.style.borderColor = "var(--accent-blue)";
+                    e.currentTarget.style.backgroundColor = accentColor;
+                    e.currentTarget.style.borderColor = accentColor;
                     e.currentTarget.style.color = "#ffffff";
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = "var(--accent-blue)";
-                    e.currentTarget.style.borderColor = "var(--accent-blue)";
+                    e.currentTarget.style.backgroundColor = brandColor;
+                    e.currentTarget.style.borderColor = brandColor;
                     e.currentTarget.style.color = "#ffffff";
                   }}
                   onClick={handleSave}
@@ -1459,7 +1457,6 @@ export function DocsGrid({
                         : ""
                         }`}
                       style={{ fontFamily: '"DM Serif Display", serif' }}
-                      autoFocus
                     />
                     <span
                       className={`mt-1 block text-right text-xs ${(editTitles.get(doc.id) || "").length > 85
@@ -1639,21 +1636,20 @@ export function DocsGrid({
                 {isEditing ? (
                   <>
                     <Button
-                      variant="outline"
                       className="flex-1 flex items-center justify-center gap-2 text-xs font-semibold transition-all duration-200 hover:scale-105 min-w-0 overflow-hidden text-white"
                       style={{
-                        backgroundColor: "var(--accent-blue)",
-                        borderColor: "var(--accent-blue)",
+                        backgroundColor: brandColor,
+                        borderColor: brandColor,
                         color: "#ffffff",
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = "var(--accent-blue)";
-                        e.currentTarget.style.borderColor = "var(--accent-blue)";
+                        e.currentTarget.style.backgroundColor = accentColor;
+                        e.currentTarget.style.borderColor = accentColor;
                         e.currentTarget.style.color = "#ffffff";
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = "var(--accent-blue)";
-                        e.currentTarget.style.borderColor = "var(--accent-blue)";
+                        e.currentTarget.style.backgroundColor = brandColor;
+                        e.currentTarget.style.borderColor = brandColor;
                         e.currentTarget.style.color = "#ffffff";
                       }}
                       onClick={() => {
