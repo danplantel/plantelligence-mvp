@@ -6,6 +6,7 @@ import {
   newClientWizardSteps,
   getCompanyBasicsSubStep,
   isWizardTransitionActive,
+  enqueueDraftSave,
 } from "@/lib/new-client-wizard-store";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
@@ -424,45 +425,52 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
       isAutosavingRef.current = true;
 
       try {
-        const state = useNewClientWizardStore.getState();
+        // Enqueue through the shared serializer so the autosave never overlaps an
+        // explicit save-draft (Next/Complete) — concurrent writes to the same
+        // wizard-session records raise a MongoDB write-conflict 500. Reading the
+        // store inside the queue ensures the freshest state is sent.
+        await enqueueDraftSave(async () => {
+          const state = useNewClientWizardStore.getState();
 
-        // Double-check there's still meaningful data (may have been reset during debounce)
-        if (
-          !state.stepData.companyBasics?.companyName?.trim() &&
-          !state.stepData.companyBasics?.planType?.trim()
-        ) {
-          return;
-        }
-
-        const response = await fetch("/api/new-client-wizard/save-draft", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            stepData: state.stepData,
-            currentStep: state.currentStep,
-            clientId: state.draftClientId || undefined,
-          }),
-        });
-
-        const result = (await response.json().catch(() => ({}))) as {
-          success?: boolean;
-          clientId?: string;
-          error?: string;
-          code?: string;
-        };
-
-        if (result.success && result.clientId) {
-          // Store the clientId so subsequent autosaves update the same record
-          const currentDraftId = useNewClientWizardStore.getState().draftClientId;
-          if (!currentDraftId || currentDraftId !== result.clientId) {
-            useNewClientWizardStore.setState({ draftClientId: result.clientId });
+          // Double-check there's still meaningful data (may have been reset during debounce)
+          if (
+            !state.stepData.companyBasics?.companyName?.trim() &&
+            !state.stepData.companyBasics?.planType?.trim()
+          ) {
+            return;
           }
-        } else if (result.code === "DUPLICATE_PLAN_NAME") {
-          // Duplicate name is expected when autosaving — the user will resolve
-          // via the explicit "Save as Draft" button dialog. Silently ignore.
-        } else if (result.error) {
-          console.warn("[Autosave] Failed to save draft:", result.error);
-        }
+
+          const response = await fetch("/api/new-client-wizard/save-draft", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              stepData: state.stepData,
+              currentStep: state.currentStep,
+              clientId: state.draftClientId || undefined,
+            }),
+          });
+
+          const result = (await response.json().catch(() => ({}))) as {
+            success?: boolean;
+            clientId?: string;
+            error?: string;
+            code?: string;
+          };
+
+          if (result.success && result.clientId) {
+            // Store the clientId so subsequent autosaves update the same record
+            const currentDraftId =
+              useNewClientWizardStore.getState().draftClientId;
+            if (!currentDraftId || currentDraftId !== result.clientId) {
+              useNewClientWizardStore.setState({ draftClientId: result.clientId });
+            }
+          } else if (result.code === "DUPLICATE_PLAN_NAME") {
+            // Duplicate name is expected when autosaving — the user will resolve
+            // via the explicit "Save as Draft" button dialog. Silently ignore.
+          } else if (result.error) {
+            console.warn("[Autosave] Failed to save draft:", result.error);
+          }
+        });
       } catch (error) {
         console.warn("[Autosave] Error saving draft:", error);
       } finally {

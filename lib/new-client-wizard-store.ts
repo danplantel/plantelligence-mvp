@@ -439,6 +439,25 @@ export function isWizardTransitionActive(): boolean {
   return wizardTransitionActive;
 }
 
+// ── Draft-save serializer ─────────────────────────────────────────────────────
+// MongoDB raises a write-conflict/deadlock (Prisma P2034) when two requests
+// upsert the same wizard-session sub-record at the same time. The debounced
+// autosave and the explicit saves fired by Next/Complete can overlap (an autosave
+// already in flight when the user clicks Next), which surfaced as a 500 from
+// /api/new-client-wizard/save-draft. Serializing every /save-draft POST (the
+// store's saveAsDraft AND the page autosave both enqueue through this) guarantees
+// they never run concurrently, and each queued save re-reads the freshest state.
+let draftSaveTail: Promise<unknown> = Promise.resolve();
+
+export function enqueueDraftSave<T>(task: () => Promise<T>): Promise<T> {
+  const run = draftSaveTail.then(() => task());
+  draftSaveTail = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
 // ==================== Step 3 Slide-Based Next Handler ====================
 
 async function handleStep3NextBySlide(
@@ -1363,6 +1382,12 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
       },
 
       saveAsDraft: async (options?: SaveDraftOptions) => {
+        // Serialize /save-draft POSTs so an explicit save (Next/Complete) never
+        // overlaps the debounced autosave — concurrent upserts of the same
+        // wizard-session sub-record on MongoDB raise a write-conflict/deadlock
+        // (Prisma P2034) which otherwise surfaces as a 500. Because the whole
+        // body runs inside the queue, each save reads the freshest store state.
+        return enqueueDraftSave(async () => {
         const showDuplicatePlanDialog =
           options?.showDuplicatePlanDialog !== false;
         try {
@@ -1480,6 +1505,7 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
         } catch (error) {
           throw error;
         }
+        });
       },
 
       saveStepData: async (
