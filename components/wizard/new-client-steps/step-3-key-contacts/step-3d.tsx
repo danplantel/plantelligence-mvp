@@ -852,7 +852,7 @@ export function NewClientStep3d({
   };
 
   // Function to save current state before next step
-  const saveCurrentState = useCallback(async () => {
+  const saveCurrentState = useCallback(async (): Promise<boolean> => {
     const currentKeyContactsData = stepData.keyContacts || { contacts: [] };
     const updatedKeyContacts = {
       ...currentKeyContactsData,
@@ -863,11 +863,30 @@ export function NewClientStep3d({
     };
 
     await saveStepDataLocally("keyContacts", updatedKeyContacts);
+
+    // Persist the step-specific keyContacts and AWAIT it, so the transition to
+    // step 4 (and a later resume) sees the latest contacts. The full-draft
+    // snapshot is fired WITHOUT blocking navigation — keyContacts is already
+    // durable at that point, and the page autosave / leave-guard keep the draft
+    // current. (Duplicate-plan detection already happened at step 1 when this
+    // draft was first created, so the draft POST isn't needed to gate this step.)
     try {
-      await saveStepDataToServer("keyContacts", updatedKeyContacts);
-      await saveAsDraft();
+      const serverSaved = await saveStepDataToServer(
+        "keyContacts",
+        updatedKeyContacts,
+      );
+      if (serverSaved) {
+        void saveAsDraft().catch((error) => {
+          console.error(
+            "Background draft save after step-3d Next failed:",
+            error,
+          );
+        });
+      }
+      return !!serverSaved;
     } catch (error) {
-      console.error("Failed to save draft in saveCurrentState:", error);
+      console.error("Failed to save key contacts in saveCurrentState:", error);
+      return false;
     }
   }, [
     contacts,

@@ -5,6 +5,7 @@ import {
   useNewClientWizardStore,
   newClientWizardSteps,
   getCompanyBasicsSubStep,
+  isWizardTransitionActive,
 } from "@/lib/new-client-wizard-store";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
@@ -364,8 +365,11 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
 
   useEffect(() => {
     // Do not autosave while the wizard is still initialising — the store may
-    // be in a transient state (resetWizard / createNewSession / seedDefaults).
-    if (isInitialLoading) return;
+    // be in a transient state (resetWizard / createNewSession / seedDefaults) —
+    // or while it is processing a Next/Complete transition, which already
+    // persists the draft explicitly (an autosave would stack a duplicate,
+    // slow save-draft POST on top of the transition save).
+    if (isInitialLoading || isWizardTransitionActive()) return;
 
     const companyName = stepData.companyBasics?.companyName?.trim();
     const planType = stepData.companyBasics?.planType?.trim();
@@ -383,7 +387,7 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
 
     // Debounce 3 seconds after the last data change
     autosaveTimerRef.current = setTimeout(async () => {
-      if (isAutosavingRef.current) return;
+      if (isAutosavingRef.current || isWizardTransitionActive()) return;
       isAutosavingRef.current = true;
 
       try {

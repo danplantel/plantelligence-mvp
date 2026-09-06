@@ -402,6 +402,43 @@ const createSafeStorage = (): any => {
   };
 };
 
+// ── Step-3d "pre-save before Next" guard ────────────────────────────────────
+// new-client-wizard.tsx calls __step3dSaveCurrentState() immediately before
+// nextStep() when leaving step-3d so the component's latest LOCAL state (layout
+// style, mobile layout, drag order) is flushed to the store and persisted. If
+// nextStep() then repeated the identical server+draft save for that same
+// transition it doubled the /save-draft POSTs (each can take several seconds),
+// which is what made "Next" from step-3d feel extremely slow. These helpers let
+// the wizard mark the transition as already persisted so nextStep() skips its
+// redundant duplicate, while still saving when nextStep() is reached without the
+// wizard pre-save (e.g. a direct invocation).
+let step3dNextPreSaved = false;
+
+export function markStep3dNextPreSaved() {
+  step3dNextPreSaved = true;
+}
+
+function consumeStep3dNextPreSaved(): boolean {
+  const wasPreSaved = step3dNextPreSaved;
+  step3dNextPreSaved = false;
+  return wasPreSaved;
+}
+
+// ── Wizard "transition in progress" flag ─────────────────────────────────────
+// The wizard (new-client-wizard.tsx) sets this while it is processing a Next /
+// Complete click. The page-level debounced autosave checks it and stands down,
+// because those transitions already persist the draft explicitly — an autosave
+// firing mid-transition only stacks a duplicate, slow /save-draft POST on top.
+let wizardTransitionActive = false;
+
+export function setWizardTransitionActive(active: boolean) {
+  wizardTransitionActive = active;
+}
+
+export function isWizardTransitionActive(): boolean {
+  return wizardTransitionActive;
+}
+
 // ==================== Step 3 Slide-Based Next Handler ====================
 
 async function handleStep3NextBySlide(
@@ -494,7 +531,12 @@ async function handleStep3NextBySlide(
 
     case 3: {
       // Slide 3 (Preview) → Step 4
-      if (keyContactsData) {
+      // The wizard's step-3d pre-save (new-client-wizard.tsx handleNext) already
+      // flushed local state to the store and persisted keyContacts + draft right
+      // before nextStep(). Skip the redundant second full save here (each
+      // save-draft POST is slow) unless nextStep() was reached without that
+      // pre-save.
+      if (!consumeStep3dNextPreSaved() && keyContactsData) {
         try {
           await get().saveStepDataToServer("keyContacts", keyContactsData);
           await get().saveAsDraft();
@@ -718,9 +760,13 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
             }));
             return { isValid: true, errors: [] };
           } else if (step3SubStep === "step3d") {
-            // Save to server and draft before moving to next main step (step 4)
+            // Save to server and draft before moving to next main step (step 4).
+            // The wizard's step-3d pre-save (new-client-wizard.tsx handleNext)
+            // already persisted keyContacts + draft right before nextStep(), so
+            // skip the redundant second save here unless nextStep() was reached
+            // without that pre-save.
             const keyContactsData = stepData.keyContacts || { contacts: [] };
-            if (keyContactsData) {
+            if (!consumeStep3dNextPreSaved() && keyContactsData) {
               try {
                 await get().saveStepDataToServer(
                   "keyContacts",

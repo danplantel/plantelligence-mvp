@@ -10,6 +10,8 @@ import { LoadingButton } from "@/components/ui/loading-button";
 import {
   useNewClientWizardStore,
   focusFirstInvalidField,
+  markStep3dNextPreSaved,
+  setWizardTransitionActive,
 } from "@/lib/new-client-wizard-store";
 import { isDuplicatePlanNameError } from "@/lib/duplicate-plan-name-error";
 import { DuplicatePlanNameDialog } from "@/components/wizard/duplicate-plan-name-dialog";
@@ -99,10 +101,12 @@ export function NewClientWizard({
     }
 
     setIsProcessing(true);
+    setWizardTransitionActive(true);
     try {
       await onComplete();
     } finally {
       setIsProcessing(false);
+      setWizardTransitionActive(false);
     }
   };
 
@@ -155,6 +159,7 @@ export function NewClientWizard({
     }
 
     setIsProcessing(true);
+    setWizardTransitionActive(true);
     try {
       // Flush step3b form to store before validation so auto-filled values are recognized (fixes intermittent validation errors)
       const { currentStep: step, stepData: data, step3SlideIndex: slideIdx } =
@@ -370,8 +375,11 @@ export function NewClientWizard({
         try {
           // Call step-3d's save function to ensure all local state is saved
           const saveStep3dState = (window as any).__step3dSaveCurrentState;
+          let preSaved = false;
           if (saveStep3dState) {
-            await saveStep3dState();
+            // saveCurrentState flushes local state into the store and persists
+            // it. It resolves true when the server save + draft save succeeded.
+            preSaved = (await saveStep3dState()) === true;
           } else {
             // Fallback: save from store if function not available
             // Give a small delay to ensure any pending state updates are flushed
@@ -393,7 +401,15 @@ export function NewClientWizard({
               // Then save to server and draft
               await saveStepDataToServer("keyContacts", keyContactsData);
               await saveAsDraft();
+              preSaved = true;
             }
+          }
+
+          // The step-3d state was just fully persisted, so nextStep() should NOT
+          // repeat the identical server/draft save for this transition (doing so
+          // doubled the save-draft POSTs and made "Next" feel extremely slow).
+          if (preSaved) {
+            markStep3dNextPreSaved();
           }
 
           // Give a small delay to ensure save completes
@@ -425,6 +441,7 @@ export function NewClientWizard({
       await onNext();
     } finally {
       setIsProcessing(false);
+      setWizardTransitionActive(false);
     }
   };
 
