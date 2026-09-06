@@ -13,14 +13,24 @@ import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ChevronRight } from "lucide-react";
 import { DocumentListTab } from "@/components/pages/documents/tabs/document-list-tab";
 import { RetirementDocumentsAccordion, RetirementDocumentItem } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
+import { deleteFromR2 } from "@/lib/upload-to-r2";
 import type {
     Document as DocumentsModuleDocument,
     SortColumn,
     SortDirection,
 } from "@/components/pages/documents/types";
+
+/**
+ * True when the id references a persisted Prisma/MongoDB Document row
+ * (24-char hex ObjectId) rather than an in-session temporary id.
+ */
+const isPersistedDocumentId = (id: string): boolean =>
+    /^[0-9a-fA-F]{24}$/.test(String(id)) &&
+    !/^(doc-|plan-doc-|optional-doc-|temp-)/.test(String(id));
 
 export function BenefitsStep4() {
     const { stepData, saveStepData } = useBenefitsWizardStore();
@@ -30,6 +40,10 @@ export function BenefitsStep4() {
     // Use local state effectively synced with store
     const [documents, setDocuments] = useState<Document[]>(stepData.step4?.documents || []);
     const [isLoading, setIsLoading] = useState(false);
+
+    // Pending document deletion (awaiting confirmation dialog)
+    const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     // Tabs state
     const [activeTab, setActiveTab] = useState("upload");
@@ -240,9 +254,62 @@ export function BenefitsStep4() {
     }, [listDocs, sortColumn, sortDirection]);
 
     // Handlers
+    // Opening the delete "request" shows the confirmation dialog. The actual
+    // deletion (see confirmDelete) also removes the persisted backend record so
+    // the document does not reappear when Step 4 is re-fetched on remount.
     const handleDelete = (id: string, name: string) => {
-        setDocuments(prev => prev.filter(d => d.id !== id));
-        toast.success(`"${name}" removed`);
+        setDeleteTarget({ id, name });
+    };
+
+    // Perform the deletion after the user confirms:
+    // 1. Persisted DB documents are deleted via DELETE /api/documents/:id and
+    //    their R2 object is cleaned up.
+    // 2. R2-only uploads (temp ids) just have their R2 object removed.
+    // 3. Local state/store are updated so the card disappears immediately and
+    //    stays deleted on the next Step 4 fetch.
+    const confirmDelete = async () => {
+        if (!deleteTarget) return;
+        const { id, name } = deleteTarget;
+        const doc = documents.find(d => d.id === id);
+        const isDbDoc = doc ? isPersistedDocumentId(doc.id) : false;
+
+        setIsDeleting(true);
+        try {
+            if (isDbDoc && doc) {
+                const res = await fetch(`/api/documents/${doc.id}`, {
+                    method: "DELETE",
+                });
+                if (!res.ok && res.status !== 404) {
+                    console.error("Failed to delete document:", res.status);
+                    toast.error(`Failed to delete "${name}"`);
+                    return;
+                }
+                // DB row removed (or already gone) — clean up the stored file.
+                if (doc.storageKey) {
+                    await deleteFromR2(doc.storageKey).catch(() => undefined);
+                }
+            } else if (doc?.storageKey) {
+                // Uploaded to R2 but not yet persisted to the DB (temp id).
+                await deleteFromR2(doc.storageKey).catch(() => undefined);
+            }
+
+            setDocuments(prev => prev.filter(d => d.id !== id));
+            toast.success(`"${name}" deleted`);
+
+            if (planId) {
+                window.dispatchEvent(
+                    new CustomEvent("plan-documents-persisted", {
+                        detail: { clientId: planId },
+                    }),
+                );
+            }
+        } catch (error) {
+            console.error("Error deleting document:", error);
+            toast.error(`Failed to delete "${name}"`);
+        } finally {
+            setIsDeleting(false);
+            setDeleteTarget(null);
+        }
     };
 
     const handleDownload = async (doc: Document) => {
@@ -471,6 +538,22 @@ export function BenefitsStep4() {
                     />
                 </TabsContent>
             </Tabs>
+
+            <ConfirmDialog
+                open={deleteTarget !== null}
+                onOpenChange={(open) => {
+                    if (!open && !isDeleting) setDeleteTarget(null);
+                }}
+                onConfirm={confirmDelete}
+                title="Delete Document"
+                description={deleteTarget
+                    ? `Are you sure you want to delete "${deleteTarget.name}"? This will permanently remove the document and its stored file.`
+                    : ""}
+                confirmText="Delete"
+                cancelText="Cancel"
+                variant="destructive"
+                isLoading={isDeleting}
+            />
         </div>
     );
 }
