@@ -12,7 +12,6 @@ import { UniversalImageEditorModal } from "@/components/ui/universal-image-edito
 import { Building2, Globe, Image as ImageIcon, CheckCircle2, AlertCircle, Sparkles, Upload, Plus, X, AlertTriangle, Loader2, XCircle } from "lucide-react";
 import { isValidDomain, normalizeCleanDomain } from "@/lib/url-utils";
 import { deleteFromR2 } from "@/lib/upload-to-r2";
-import { Skeleton } from "@/components/ui/skeleton";
 import { BrandImagesSection } from "./sections/brand-images-section";
 import { BrandColorsSection } from "./sections/brand-colors-section";
 import {
@@ -82,6 +81,10 @@ const areCompanyBasicsEqual = (
 
 interface NewClientStep1Props {
   errorFields?: string[];
+  /** Advisor's portal subdomain (User.subdomain) for the Portal URL preview.
+   *  Provided by the host page from its already-fetched profile — Step 1 must
+   *  NOT fire its own `/api/profile` request just to read this. */
+  userSubdomain?: string;
 }
 
 const normalizeWelcomeStatement = (
@@ -94,7 +97,10 @@ const normalizeWelcomeStatement = (
   advisorAvatar: data?.advisorAvatar || null,
 });
 
-export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
+export function NewClientStep1({
+  errorFields = [],
+  userSubdomain = "",
+}: NewClientStep1Props) {
   const { stepData, saveStepDataLocally, loadDraftById, currentStep, draftClientId, saveAsDraft } =
     useNewClientWizardStore();
   const normalizedInitialCompanyData = normalizeCompanyBasicsData(
@@ -179,12 +185,8 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
   const [logoPreviewDataUrl, setLogoPreviewDataUrl] = useState<string | undefined>(undefined);
   const [isLogoModalOpen, setIsLogoModalOpen] = useState(false);
 
-  // Advisor's portal subdomain (User.subdomain) — used in the Portal URL preview
-  const [userSubdomain, setUserSubdomain] = useState<string>("");
-
-  // Loading state — keep showing the skeleton until the subdomain (and other
-  // profile-derived data) has been fetched.
-  const [isDataLoading, setIsDataLoading] = useState(true);
+  // Note: the advisor portal subdomain comes in via the `userSubdomain` prop
+  // (the host page already fetches /api/profile). No local profile fetch.
 
   // Track whether the user has manually edited the Portal URL, so we stop
   // auto-populating it from the company name once they take control.
@@ -243,32 +245,6 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
       }
     };
   }, [companyData.portalUrl, draftClientId]);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/profile");
-        if (res.ok) {
-          const profile = await res.json();
-          if (!cancelled && profile?.subdomain) {
-            setUserSubdomain(profile.subdomain);
-          }
-        }
-      } catch {
-        // Non-critical — the subdomain is just for the preview
-      } finally {
-        // Always flip off the skeleton once the fetch resolves, so the form
-        // renders even if the subdomain is missing (e.g. localhost dev).
-        if (!cancelled) {
-          setIsDataLoading(false);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   // Auto-populate the Portal URL from the company name whenever the company
   // name is present but the Portal URL is empty. The onChange handler covers
@@ -651,80 +627,6 @@ export function NewClientStep1({ errorFields = [] }: NewClientStep1Props) {
     }
     updateWelcomeField("bodyText", value);
   };
-
-  if (isDataLoading) {
-    return (
-      <div className="space-y-6 max-w-4xl mx-auto">
-        {/* Plan Type Skeleton */}
-        <Card className="dark:bg-gray-800">
-          <CardHeader>
-            <Skeleton className="h-5 w-32" />
-            <Skeleton className="h-4 w-64" />
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Skeleton className="h-16 w-full" />
-            <Skeleton className="h-16 w-full" />
-          </CardContent>
-        </Card>
-
-        {/* Company Information Skeleton */}
-        <Card className="dark:bg-gray-800">
-          <CardHeader>
-            <Skeleton className="h-5 w-44" />
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Skeleton className="h-4 w-32" />
-                <Skeleton className="h-10 w-full" />
-              </div>
-              <div className="space-y-2">
-                <Skeleton className="h-4 w-32" />
-                <Skeleton className="h-10 w-full" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Portal URL Skeleton */}
-        <Card className="dark:bg-gray-800">
-          <CardHeader>
-            <Skeleton className="h-5 w-32" />
-            <Skeleton className="h-4 w-72" />
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Skeleton className="h-9 w-full" />
-            <Skeleton className="h-10 w-full" />
-          </CardContent>
-        </Card>
-
-        {/* Logo Skeleton */}
-        <Card className="dark:bg-gray-800">
-          <CardHeader>
-            <Skeleton className="h-5 w-36" />
-            <Skeleton className="h-4 w-80" />
-          </CardHeader>
-          <CardContent>
-            <Skeleton className="h-24 w-full" />
-          </CardContent>
-        </Card>
-
-        {/* Brand Colors Skeleton */}
-        <Card className="dark:bg-gray-800">
-          <CardHeader>
-            <Skeleton className="h-5 w-32" />
-            <Skeleton className="h-4 w-80" />
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-12 w-full" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">

@@ -26,13 +26,12 @@ import {
   getBenefitsHubAbsoluteUrl,
   getBenefitsHubPath,
 } from "@/lib/marketing/hub-url";
-
-const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
+import { fetchProfileOnce } from "@/lib/fetch-profile";
 
 export default function NewClientPage() {
   const router = useRouter();
   const { setTitle } = usePageTitleContext();
-  const { data: profileData } = useSWR("/api/profile", jsonFetcher, {
+  const { data: profileData } = useSWR("/api/profile", () => fetchProfileOnce(), {
     keepPreviousData: true,
     dedupingInterval: 60_000,
     revalidateOnFocus: false,
@@ -188,7 +187,10 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
         // No existing data at all — start a fresh session immediately.
         resetWizard();
         await createNewSession();
-        await seedAdvisorDefaultsFromProfile();
+        // Seeding advisor defaults reads the (slow) /api/profile. Don't keep the
+        // "Loading Your Plan" spinner up for it — render the wizard now and let
+        // the empty advisor defaults fill in moments later (non-blocking).
+        void seedAdvisorDefaultsFromProfile();
 
         if (cancelled) return;
         setIsInitialLoading(false);
@@ -235,7 +237,8 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
     }
 
     // Re-seed advisor defaults for any empty fields (safe — only fills empty).
-    await seedAdvisorDefaultsFromProfile();
+    // Fire-and-forget so it never gates the wizard loading UI on /api/profile.
+    void seedAdvisorDefaultsFromProfile();
 
     // Ensure the store knows which draft Client row it's editing. When resuming
     // via localStorage rehydration the persisted snapshot can lack draftClientId
@@ -300,7 +303,8 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
     // in View Plans if the user wants to come back to it later.
     resetWizard();
     await createNewSession();
-    await seedAdvisorDefaultsFromProfile();
+    // Non-blocking advisor-default seeding (does not gate the loading UI).
+    void seedAdvisorDefaultsFromProfile();
 
     try {
       sessionStorage.removeItem("plantelligence:selectedDraftId");
@@ -512,7 +516,12 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
   const renderStep = () => {
     switch (currentStep) {
       case 1:
-        return <NewClientStep1 errorFields={errorFields} />;
+        return (
+          <NewClientStep1
+            errorFields={errorFields}
+            userSubdomain={userSubdomain}
+          />
+        );
       case 2:
         return <NewClientStep2 errorFields={errorFields} />;
       case 3:
@@ -522,7 +531,12 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
       case 5:
         return <NewClientStep5 errorFields={errorFields} />;
       default:
-        return <NewClientStep1 errorFields={errorFields} />;
+        return (
+          <NewClientStep1
+            errorFields={errorFields}
+            userSubdomain={userSubdomain}
+          />
+        );
     }
   };
 

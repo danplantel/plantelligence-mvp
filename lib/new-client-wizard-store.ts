@@ -16,6 +16,7 @@ import { validateNewClientCurrentStepV2 } from "./new-client-wizard-validation-v
 import { normalizeCleanDomain } from "./url-utils";
 import { findFirstIncompleteWizardStepNumber } from "./wizard-progress";
 import { mergeAdvisorProfileIntoWizardStepData } from "./wizard-advisor-prefill";
+import { fetchProfileOnce } from "./fetch-profile";
 import {
   DuplicatePlanNameError,
   DUPLICATE_PLAN_NAME_CODE,
@@ -2271,9 +2272,11 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
 
       seedAdvisorDefaultsFromProfile: async () => {
         try {
-          const response = await fetch("/api/profile");
-          if (!response.ok) return;
-          const profile = await response.json();
+          // Use the shared single-flight/cached fetcher so this coalesces with
+          // the other /api/profile callers on the page (header user-nav, the
+          // page-level SWR) into ONE network request.
+          const profile = await fetchProfileOnce();
+          if (!profile) return;
           // Cache the full profile so Step 3 seeding can use it synchronously
           // without needing its own /api/profile fetch.
           set((state) => ({
