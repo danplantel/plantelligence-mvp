@@ -100,6 +100,13 @@ interface BrandingSetupCardProps {
     * wizard behavior).
     */
    disableAutoColorExtraction?: boolean;
+   /**
+    * When true, the subdomain availability check is NOT run for the value that
+    * is present when the form loads (e.g. an existing saved subdomain in
+    * Settings > Branding). It only runs once the user manually edits the
+    * subdomain field.
+    */
+   skipInitialSubdomainCheck?: boolean;
  }
 
 export function BrandingSetupCard({
@@ -113,6 +120,7 @@ export function BrandingSetupCard({
   hideColors = false,
   hideBackgroundImage = false,
   disableAutoColorExtraction = false,
+  skipInitialSubdomainCheck = false,
 }: BrandingSetupCardProps) {
    const [websiteError, setWebsiteError] = useState<string>("");
    const fileInputRef = useRef<HTMLInputElement>(null);
@@ -179,6 +187,15 @@ export function BrandingSetupCard({
        clearTimeout(availabilityTimerRef.current);
      }
 
+     // In pre-populated contexts (e.g. Settings > Branding), don't validate the
+     // subdomain that is already loaded — only check once the user edits it.
+     if (skipInitialSubdomainCheck && !subdomainManuallyEditedRef.current) {
+       setAvailabilityStatus("idle");
+       setCheckedSubdomain("");
+       lastCheckedRef.current = "";
+       return;
+     }
+
      const slug = subdomain?.trim();
      if (!slug || slug.length < 2) {
        setAvailabilityStatus("idle");
@@ -196,7 +213,7 @@ export function BrandingSetupCard({
          clearTimeout(availabilityTimerRef.current);
        }
      };
-   }, [subdomain, checkSubdomainAvailability]);
+   }, [subdomain, checkSubdomainAvailability, skipInitialSubdomainCheck]);
 
    // Handle file input change to capture preview immediately
    const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

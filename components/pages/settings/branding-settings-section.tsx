@@ -184,6 +184,10 @@ export function BrandingSettingsSection({
             <FormProvider {...brandingForm} key={`branding-form-${formKey}`}>
               <BrandingSetupCard
                 data={brandingForm.watch()}
+                // In Settings the subdomain is pre-populated from saved data — don't
+                // run the availability check for the existing value on load, only
+                // when the user edits the subdomain field.
+                skipInitialSubdomainCheck
                 onDataChange={(field, value) => {
                   brandingForm.setValue(field as any, value, {
                     shouldDirty: true,
