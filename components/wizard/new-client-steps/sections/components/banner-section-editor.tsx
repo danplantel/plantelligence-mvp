@@ -15,7 +15,6 @@ import {
   HERO_RECOMMENDED_SIZE_LABEL,
   HERO_RECOMMENDED_WIDTH,
   HERO_RECOMMENDED_HEIGHT,
-  autoCropHeroBackgroundImage,
 } from "../utils/hero-utils";
 import type {
   BrandImageData,
@@ -232,6 +231,42 @@ export function BannerSectionEditor({
     setPendingHeroImageData(imageData);
     setIsHeroModalOpen(true);
   };
+
+  /**
+   * Exports the source image at its ORIGINAL full resolution — no crop and no
+   * rescale. Used for default photos so the crop editor receives the actual,
+   * original photo (not a pre-cropped band), and the user decides the crop
+   * themselves before it is saved. Mirrors Step 1's brand-images flow.
+   */
+  const exportFullResolutionImage = (
+    imageUrl: string,
+  ): Promise<{ dataUrl: string; width: number; height: number }> =>
+    new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = img.naturalWidth || img.width;
+          canvas.height = img.naturalHeight || img.height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            reject(new Error("Failed to get canvas context"));
+            return;
+          }
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve({
+            dataUrl: canvas.toDataURL("image/jpeg", 0.92),
+            width: canvas.width,
+            height: canvas.height,
+          });
+        } catch (error) {
+          reject(error);
+        }
+      };
+      img.onerror = () => reject(new Error("Failed to load image"));
+      img.src = imageUrl;
+    });
 
   const handleHeroModalSave = useCallback(
     (
@@ -486,83 +521,40 @@ export function BannerSectionEditor({
             }
           }
 
+          // Match the Step 1 brand-images flow: hand the ORIGINAL (full
+          // resolution, never pre-cropped) photo to the crop editor so the user
+          // frames it to the hero guidelines themselves, instead of auto-cropping
+          // and applying immediately. Nothing is applied until the user saves.
           try {
-            const { croppedUrl, width, height } =
-              await autoCropHeroBackgroundImage(url);
-
-            const warnings: string[] = [];
-            if (
-              width < HERO_RECOMMENDED_WIDTH ||
-              height < HERO_RECOMMENDED_HEIGHT
-            ) {
-              warnings.push(
-                `Below recommended size (${HERO_RECOMMENDED_SIZE_LABEL}). May appear blurry.`,
-              );
-            }
-
-            const brandImageData: BrandImageData = {
-              url: croppedUrl,
+            const exported = await exportFullResolutionImage(url);
+            setPendingHeroImageData({
+              url: exported.dataUrl,
+              originalUrl: url,
               fileName,
               fileSize: 0,
-              width,
-              height,
+              width: exported.width,
+              height: exported.height,
               recommendedSize: HERO_RECOMMENDED_SIZE_LABEL,
-              status: (warnings.length > 0 ? "warning" : "ok") as
-                | "ok"
-                | "warning"
-                | "error",
-              warnings,
-            };
-
-            handleHeroBackgroundImageChange(brandImageData);
-            setHeroGalleryOpen(false);
+              status: "ok",
+              warnings: [],
+            } as BrandImageData);
           } catch (error) {
-            console.error("Failed to auto-crop image:", error);
-            const img = new Image();
-            img.onload = () => {
-              const warnings: string[] = [];
-              if (
-                img.width < HERO_RECOMMENDED_WIDTH ||
-                img.height < HERO_RECOMMENDED_HEIGHT
-              ) {
-                warnings.push(
-                  `Below recommended size (${HERO_RECOMMENDED_SIZE_LABEL}). May appear blurry.`,
-                );
-              }
-
-              const brandImageData: BrandImageData = {
-                url,
-                fileName,
-                fileSize: 0,
-                width: img.width,
-                height: img.height,
-                recommendedSize: HERO_RECOMMENDED_SIZE_LABEL,
-                status: (warnings.length > 0 ? "warning" : "ok") as
-                  | "ok"
-                  | "warning"
-                  | "error",
-                warnings,
-              };
-
-              handleHeroBackgroundImageChange(brandImageData);
-              setHeroGalleryOpen(false);
-            };
-            img.onerror = () => {
-              const brandImageData: BrandImageData = {
-                url,
-                fileName,
-                fileSize: 0,
-                width: 0,
-                height: 0,
-                recommendedSize: HERO_RECOMMENDED_SIZE_LABEL,
-                status: "ok",
-                warnings: [],
-              };
-              handleHeroBackgroundImageChange(brandImageData);
-              setHeroGalleryOpen(false);
-            };
-            img.src = url;
+            console.error("Failed to load default photo for editing:", error);
+            // Fall back to the raw URL so the editor can still open.
+            setPendingHeroImageData({
+              url,
+              originalUrl: url,
+              fileName,
+              fileSize: 0,
+              width: 0,
+              height: 0,
+              recommendedSize: HERO_RECOMMENDED_SIZE_LABEL,
+              status: "ok",
+              warnings: [],
+            } as BrandImageData);
           }
+          setHeroGalleryOpen(false);
+          setIsHeroModalOpen(true);
         }}
       />
     </div>
