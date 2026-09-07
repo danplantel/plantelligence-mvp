@@ -1100,6 +1100,7 @@ export default function MeetingsPage() {
         title: m.meeting,
         date: m.date,
         time: m.time,
+        status: m.status,
       }));
   }, [meetings, selectedPlan, clients]);
 

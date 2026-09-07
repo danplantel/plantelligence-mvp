@@ -22,6 +22,8 @@ export interface CalendarMeeting {
   date: string;
   /** 24-hour "HH:mm" time. */
   time?: string;
+  /** Meeting status, e.g. "Upcoming", "Past", "Draft". */
+  status?: string;
 }
 
 interface MeetingsCalendarViewProps {
@@ -96,9 +98,19 @@ export function MeetingsCalendarView({ meetings }: MeetingsCalendarViewProps) {
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <span className="inline-block h-2.5 w-2.5 rounded-full bg-accent-blue" />
-          Scheduled meeting
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-block h-2.5 w-2.5 rounded-full bg-blue-500" />
+            Today
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-block h-2.5 w-2.5 rounded-full bg-accent-blue" />
+            Scheduled meeting
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-block h-2.5 w-2.5 rounded-full bg-amber-400" />
+            Draft meeting
+          </span>
         </div>
       </div>
 
@@ -154,15 +166,16 @@ export function MeetingsCalendarView({ meetings }: MeetingsCalendarViewProps) {
                           : undefined
                       }
                       className={cn(
-                        "flex min-h-[46px] flex-col bg-card p-0.5",
+                        "flex min-h-[46px] flex-col bg-card p-0.5 transition-colors duration-150",
                         !inMonth && "bg-muted/40",
+                        inMonth && "cursor-default hover:bg-accent-blue-light",
                         dayMeetings.length > 0 && "bg-accent-blue/[0.03]",
                       )}
                     >
                       <span
                         className={cn(
                           "mx-auto flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] tabular-nums leading-none",
-                          isToday && "bg-accent-blue font-bold text-white",
+                          isToday && "bg-blue-500 font-bold text-white",
                           !isToday && inMonth && dayMeetings.length > 0 && "font-semibold text-foreground",
                           !isToday && inMonth && dayMeetings.length === 0 && "text-muted-foreground",
                           !isToday && !inMonth && "text-muted-foreground/40",
@@ -172,15 +185,23 @@ export function MeetingsCalendarView({ meetings }: MeetingsCalendarViewProps) {
                       </span>
                       {inMonth && dayMeetings.length > 0 && (
                         <div className="mt-1 flex flex-col gap-0.5">
-                          {dayMeetings.slice(0, 2).map((m) => (
-                            <div
-                              key={m.id}
-                              className="truncate rounded bg-accent-blue/10 px-1 py-0.5 text-[9px] font-medium leading-tight text-accent-blue"
-                              title={m.title}
-                            >
-                              {m.time ? formatTimeAbbrev(m.time) : "All day"}
-                            </div>
-                          ))}
+                          {dayMeetings.slice(0, 2).map((m) => {
+                            const isDraft = (m.status || "").toLowerCase() === "draft";
+                            return (
+                              <div
+                                key={m.id}
+                                className={cn(
+                                  "truncate rounded px-1 py-0.5 text-[9px] font-medium leading-tight",
+                                  isDraft
+                                    ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200"
+                                    : "bg-accent-blue/10 text-accent-blue",
+                                )}
+                                title={m.title}
+                              >
+                                {m.time ? formatTimeAbbrev(m.time) : "All day"}
+                              </div>
+                            );
+                          })}
                           {dayMeetings.length > 2 && (
                             <div className="text-center text-[9px] font-semibold text-muted-foreground">
                               +{dayMeetings.length - 2} more
