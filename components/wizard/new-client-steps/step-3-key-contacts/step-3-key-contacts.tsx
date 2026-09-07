@@ -6,8 +6,7 @@ import { SlideContainer, SlideDirection } from "./slides/slide-container";
 import { FirstContactPrompt, SomeoneElseOption } from "./slides/first-contact-prompt";
 import { ContactFormSlide } from "./slides/contact-form-slide";
 import { CategoryExplorer } from "./slides/category-explorer";
-import { NewClientStep3d } from "./step-3d";
-import { IncompleteCategoriesModal } from "./components/incomplete-categories-modal";
+import { NewClientStep3d } from "./step-3-contact-preview";
 import { cn } from "@/lib/utils";
 import { BenefitsCategory } from "@/types/new-client-wizard";
 import { mergeOnboardingAdvisorContactsIntoKeyContacts } from "@/lib/seed-onboarding-advisor-contacts";
@@ -105,10 +104,6 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
 
   // Tracks whether the contact form was opened via "Someone Else" selection
   const [isFromSomeoneElse, setIsFromSomeoneElse] = useState(false);
-
-  // Modal state
-  const [isIncompleteModalOpen, setIsIncompleteModalOpen] = useState(false);
-  const [missingCategories, setMissingCategories] = useState<BenefitsCategory[]>([]);
 
   // Sync slide changes to store
   const goToSlide = useCallback(
@@ -454,53 +449,6 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
     goToSlide(2);
   }, [goToSlide]);
 
-  // Check missing categories
-  const checkMissingCategories = useCallback((): BenefitsCategory[] => {
-    const requiredCategories: BenefitsCategory[] = [
-      "Retirement",
-      "Group Health",
-      "Group Life",
-      "Other Benefits",
-    ];
-    const filledCategories = new Set<BenefitsCategory>();
-
-    contacts.forEach((contact: any) => {
-      const hasMinimumData =
-        (contact.email && contact.email.trim() !== "") ||
-        (contact.phone && contact.phone.trim() !== "");
-
-      if (
-        hasMinimumData &&
-        contact.benefitsCategories &&
-        Array.isArray(contact.benefitsCategories)
-      ) {
-        contact.benefitsCategories.forEach((cat: BenefitsCategory) => {
-          if (requiredCategories.includes(cat)) {
-            filledCategories.add(cat);
-          }
-        });
-      }
-    });
-
-    return requiredCategories.filter((cat) => !filledCategories.has(cat));
-  }, [contacts]);
-
-  const handleAddContactForCategory = useCallback(
-    (category: BenefitsCategory) => {
-      saveStepDataLocally("step3b", {});
-      setContactFormCategory(category);
-      setIsGuidedForm(false);
-      setIsIncompleteModalOpen(false);
-      goToSlide(1);
-    },
-    [goToSlide, saveStepDataLocally],
-  );
-
-  const handleSkip = useCallback(() => {
-    setIsIncompleteModalOpen(false);
-    goToSlide(3);
-  }, [goToSlide]);
-
   // ==================== Render ====================
 
   const defaultCompanyName = stepData?.companyBasics?.companyName || "";
@@ -664,19 +612,6 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
       >
         {slideContent}
       </SlideContainer>
-
-      <IncompleteCategoriesModal
-        open={isIncompleteModalOpen}
-        onOpenChange={setIsIncompleteModalOpen}
-        onFillCategories={() => {
-          setIsIncompleteModalOpen(false);
-          goToSlide(2);
-        }}
-        onSkip={handleSkip}
-        missingCategories={missingCategories}
-        onAddContactForCategory={handleAddContactForCategory}
-        contacts={contacts}
-      />
     </div>
   );
 }

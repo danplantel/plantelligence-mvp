@@ -1,6 +1,6 @@
 "use client";
 
-import type { KeyContact } from "@/types/new-client-wizard";
+import type { BenefitsCategory, KeyContact } from "@/types/new-client-wizard";
 
 export type ContactType = "Email" | "Phone" | "Custom" | "None";
 
@@ -72,5 +72,27 @@ export function mapKeyContactsToContactInfo(
     tertiaryPhone: tertiary?.phone || "",
     planId: "",
   };
+}
+
+/** Count complete contacts per category */
+export function getContactCountForCategory(
+  contacts: any[],
+  category: BenefitsCategory,
+): number {
+  return contacts.filter((contact) => {
+    const hasFirstName =
+      contact.firstName && String(contact.firstName).trim() !== "";
+    const hasLastName =
+      contact.lastName && String(contact.lastName).trim() !== "";
+    const hasEmail = contact.email && String(contact.email).trim() !== "";
+    const hasPhone = contact.phone && String(contact.phone).trim() !== "";
+    const isComplete = hasFirstName && hasLastName && (hasEmail || hasPhone);
+    if (!isComplete) return false;
+    const contactCategories =
+      contact.benefitsCategories ||
+      (contact.benefitsCategory ? [contact.benefitsCategory] : []);
+    if (!contactCategories || contactCategories.length === 0) return false;
+    return contactCategories.includes(category);
+  }).length;
 }
 

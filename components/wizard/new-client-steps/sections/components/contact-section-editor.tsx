@@ -10,7 +10,7 @@ import { useState, memo } from "react";
 import { RotateCcw, ChevronDown, ChevronUp, Globe, Calendar, Mail, Phone, Building2, Trash2, Star } from "lucide-react";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import { cn } from "@/lib/utils";
-import { ContactFormFields } from "../../step-3-key-contacts/components/contact-form-fields";
+import { ContactFormFields } from "@/components/ui/contact-form-fields";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { useEffect, useRef, useMemo } from "react";
 import { BenefitsCategory, KeyContact } from "@/types/new-client-wizard";

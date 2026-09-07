@@ -26,7 +26,7 @@ import { Headshot } from "@/components/ui/headshot";
 import { BenefitsCategory } from "@/types/new-client-wizard";
 import { cn } from "@/lib/utils";
 import { BrandingImage } from "@/components/ui/branding-image";
-import { getContactCountForCategory } from "../components/category-grid";
+import { getContactCountForCategory } from "@/lib/contact-info";
 
 // ==================== Types ====================
 

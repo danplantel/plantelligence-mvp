@@ -190,25 +190,6 @@ export function NewClientWizard({
         }
 
         if (validationResult.errors && validationResult.errors.length > 0) {
-          const incompleteCategoriesError = validationResult.errors.find(
-            (error: any) => error.field === "incompleteCategories",
-          ) as any;
-
-          if (
-            incompleteCategoriesError &&
-            incompleteCategoriesError.missingCategories
-          ) {
-            window.dispatchEvent(
-              new CustomEvent("showIncompleteCategoriesModal", {
-                detail: {
-                  missingCategories:
-                    incompleteCategoriesError.missingCategories,
-                },
-              }),
-            );
-            return;
-          }
-
           const primaryContactError = validationResult.errors.find(
             (error: any) =>
               error.field === "primaryContactRequired" ||

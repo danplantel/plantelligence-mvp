@@ -46,7 +46,7 @@ import { SaveButton } from "@/components/pages/edit-client/save-button";
 import { useEditClient } from "@/hooks/useEditClient";
 // Import components from new-client-steps
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
-import { ContactFormFields } from "@/components/wizard/new-client-steps/step-3-key-contacts/components/contact-form-fields";
+import { ContactFormFields } from "@/components/ui/contact-form-fields";
 import { SmallVerticalCard } from "@/components/pages/my-benefits-team/small-vertical-card";
 import { BrandImagesSection } from "@/components/wizard/new-client-steps/sections/brand-images-section";
 import { ComplianceDocumentsUpload } from "@/components/pages/documents/components/compliance-documents-upload";
@@ -66,7 +66,7 @@ import type {
   SortColumn,
   SortDirection,
 } from "@/components/pages/documents/types";
-import { AddMoreContactsModal } from "@/components/wizard/new-client-steps/step-3-key-contacts/components/add-more-contacts-modal";
+import { AddMoreContactsModal } from "@/components/ui/add-more-contacts-modal";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { Headshot } from "@/components/ui/headshot";
 import type { RetirementDocumentItem } from "@/components/pages/client-portal/sections/retirement-documents-accordion";

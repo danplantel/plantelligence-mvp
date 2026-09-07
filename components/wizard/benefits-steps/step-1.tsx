@@ -83,7 +83,7 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { SmallVerticalCard } from "@/components/pages/my-benefits-team/small-vertical-card";
-import { ContactFormFields } from "@/components/wizard/new-client-steps/step-3-key-contacts/components/contact-form-fields";
+import { ContactFormFields } from "@/components/ui/contact-form-fields";
 import {
   BenefitsCategory,
   KeyContact,
@@ -100,7 +100,7 @@ import {
 } from "@/components/wizard/steps/sections/user-setup-section/user-setup-section.funcs";
 import { normalizeExtension } from "@/lib/phone-utils";
 import { toast } from "sonner";
-import { AddContactModal } from "@/components/wizard/new-client-steps/step-3-key-contacts/components/add-contact-modal";
+import { AddContactModal } from "@/components/ui/add-contact-modal";
 import {
   getBenefitCompleteness,
   normalizeBenefitsCategoryForCompleteness,
