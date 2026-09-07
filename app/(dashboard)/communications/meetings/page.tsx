@@ -90,6 +90,7 @@ import {
 import { useNavigateAwayGuard } from "@/hooks/use-navigate-away-guard";
 import { NavigateAwayWarningDialog } from "@/components/ui/navigate-away-warning-dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { MeetingsCalendarView } from "@/components/meetings/meetings-calendar-view";
 import { WebinarsSection } from "@/components/pages/client-portal/sections/webinars-section";
 import { resolveRsvpUrl } from "@/lib/meetings/meeting-schedule-shared";
 import {
@@ -1081,6 +1082,27 @@ export default function MeetingsPage() {
         (m.client && m.client.toLowerCase() === planClient.companyName.toLowerCase()),
     );
   }, [meetings, selectedPlan, clients]);
+
+  // Meetings for the selected plan, used to populate the Calendar view.
+  const calendarMeetings = useMemo(() => {
+    if (!selectedPlan) return [];
+    const planClient = clients.find((c) => c.id === selectedPlan);
+    if (!planClient) return [];
+    const planName = planClient.companyName.toLowerCase();
+    return meetings
+      .filter(
+        (m) =>
+          (m.clientId && m.clientId === selectedPlan) ||
+          (m.client && m.client.toLowerCase() === planName),
+      )
+      .map((m) => ({
+        id: m.id,
+        title: m.meeting,
+        date: m.date,
+        time: m.time,
+      }));
+  }, [meetings, selectedPlan, clients]);
+
   return (
     <div className="p-6 bg-background">
       <div className="w-full space-y-6 max-w-4xl mx-auto">
@@ -1112,25 +1134,10 @@ export default function MeetingsPage() {
                   </div>
 
                   {viewMode === "calendar" ? (
-                    selectedPlanHasMeetings ? (
-                      /* Calendar view placeholder (meetings exist, actual calendar not built yet) */
-                      <div className="flex flex-col items-center justify-center py-12 px-4 text-center rounded-xl border-2 border-dashed border-border/70 bg-muted/20">
-                        <div className="mx-auto w-14 h-14 rounded-full bg-muted/60 flex items-center justify-center mb-4"><CalendarDays className="h-7 w-7 text-muted-foreground/70" /></div>
-                        <h3 className="text-base font-semibold text-foreground mb-1.5">Calendar view coming soon</h3>
-                        <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">This plan has scheduled meetings. The calendar view will display them arranged by date once it is ready.</p>
-                      </div>
-                    ) : (
-                      /* Calendar empty state: no meetings scheduled for this plan */
-                      <div className="flex flex-col items-center justify-center py-12 px-4 text-center rounded-xl border-2 border-dashed border-border/70 bg-muted/20">
-                        <div className="mx-auto w-14 h-14 rounded-full bg-muted/60 flex items-center justify-center mb-4"><CalendarDays className="h-7 w-7 text-muted-foreground/70" /></div>
-                        <h3 className="text-base font-semibold text-foreground mb-1.5">No meetings scheduled</h3>
-                        <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">Your calendar is clear. Schedule a meeting and it will appear here organized by date.</p>
-                        <Button onClick={() => { resetMeetingForm(); setMeetingModalOpen(true); }} className="gap-2 mt-5"><Plus className="h-4 w-4" />Add Meeting</Button>
-                      </div>
-                      )
-                    ) : viewMode === "preview" ? (
-                      null
-                    ) : (
+                    <MeetingsCalendarView meetings={calendarMeetings} />
+                  ) : viewMode === "preview" ? (
+                    null
+                  ) : (
                       <>
                         {selectedPlanHasMeetings && (
                         <div className="flex items-center justify-start gap-2 flex-wrap">
