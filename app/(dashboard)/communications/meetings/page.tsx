@@ -49,7 +49,6 @@ import {
   Copy,
   FileText,
   Languages,
-  X,
   Trash2,
   AlertTriangle,
   UserPlus,
@@ -69,7 +68,6 @@ import { toast } from "sonner";
 import { AddressSearch } from "@/components/ui/address-search";
 import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -617,7 +615,7 @@ export default function MeetingsPage() {
   const [clientFilter, setClientFilter] = useState("all");
   const [sortColumn, setSortColumn] = useState<SortColumn>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
-  const [viewMode, setViewMode] = useState<"cards" | "calendar">("cards");
+  const [viewMode, setViewMode] = useState<"cards" | "calendar" | "preview">("cards");
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const meetingFormRef = useRef<HTMLFormElement | null>(null);
@@ -659,8 +657,6 @@ export default function MeetingsPage() {
   /** Snapshot of the just-created meeting so the duplicate form inherits all fields
    *  (meetingType, duration, format, etc.) that the duplicate page doesn't re-collect. */
   const createdMeetingData = useRef<MeetingFormData | null>(null);
-  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
-  const [previewLoading, setPreviewLoading] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string>("");
   const hasClients = clients.length > 0;
   const fetchCustomMeetings = useMeetingStore((state) => state.fetchCustomMeetings);
@@ -1110,7 +1106,7 @@ export default function MeetingsPage() {
                     <div className="flex items-center border rounded-md overflow-hidden dark:border-gray-600 shrink-0">
                       <button type="button" onClick={() => setViewMode("cards")} className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${viewMode === "cards" ? "bg-accent-blue text-white" : "bg-white text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"}`}><LayoutGrid className="h-3.5 w-3.5 mr-1 inline" />Cards</button>
                       <button type="button" onClick={() => setViewMode("calendar")} className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${viewMode === "calendar" ? "bg-accent-blue text-white" : "bg-white text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"}`}><CalendarDays className="h-3.5 w-3.5 mr-1 inline" />Calendar</button>
-                      <button type="button" onClick={() => setPreviewDialogOpen(true)} className="px-2.5 py-1.5 text-xs font-medium transition-colors bg-white text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"><Eye className="h-3.5 w-3.5 mr-1 inline" />Preview</button>
+                      <button type="button" onClick={() => setViewMode("preview")} className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${viewMode === "preview" ? "bg-accent-blue text-white" : "bg-white text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"}`}><Eye className="h-3.5 w-3.5 mr-1 inline" />Preview</button>
                     </div>
                     <Button onClick={() => { resetMeetingForm(); setMeetingModalOpen(true); }} className="gap-1.5 shrink-0"><Plus className="h-4 w-4" />Add Meeting</Button>
                   </div>
@@ -1131,10 +1127,27 @@ export default function MeetingsPage() {
                         <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">Your calendar is clear. Schedule a meeting and it will appear here organized by date.</p>
                         <Button onClick={() => { resetMeetingForm(); setMeetingModalOpen(true); }} className="gap-2 mt-5"><Plus className="h-4 w-4" />Add Meeting</Button>
                       </div>
-                    )
-                  ) : (
-                    <>
-                      {selectedPlanHasMeetings && (
+                      )
+                    ) : viewMode === "preview" ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 border border-border/60 rounded-xl bg-card px-4 py-3">
+                          <Eye className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <div className="min-w-0">
+                            <h3 className="text-sm font-semibold text-foreground">Meeting Preview</h3>
+                            <p className="text-xs text-muted-foreground truncate">This is how meetings will appear to clients in the portal.</p>
+                          </div>
+                        </div>
+                        <div className="overflow-hidden rounded-xl border border-border/60">
+                          <WebinarsSection
+                            clientId={selectedPlan || undefined}
+                            brandColor={clients.find((c) => c.id === selectedPlan)?.brandColor || "#002B5B"}
+                            secondaryColor={clients.find((c) => c.id === selectedPlan)?.secondaryColor || "#C9A961"}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        {selectedPlanHasMeetings && (
                         <div className="flex items-center justify-start gap-2 flex-wrap">
                           <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger className="w-32 h-9 bg-white dark:bg-gray-800 text-xs"><SelectValue placeholder="All Status" /></SelectTrigger><SelectContent><SelectItem value="all">All Status</SelectItem><SelectItem value="Upcoming">Upcoming</SelectItem><SelectItem value="Past">Past</SelectItem><SelectItem value="Draft">Draft</SelectItem></SelectContent></Select>
                           <Select value={benefitsCategoryFilter} onValueChange={setBenefitsCategoryFilter}><SelectTrigger className="w-40 h-9 bg-white dark:bg-gray-800 text-xs"><SelectValue placeholder="All Categories" /></SelectTrigger><SelectContent><SelectItem value="all">All Categories</SelectItem><SelectItem value="Retirement">Retirement</SelectItem><SelectItem value="Group Health">Group Health</SelectItem><SelectItem value="Group Life">Group Life</SelectItem><SelectItem value="Other">Other</SelectItem></SelectContent></Select>
@@ -1144,8 +1157,11 @@ export default function MeetingsPage() {
                       )}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {sortedMeetings.length === 0 ? (
-                      <div className="col-span-full flex items-center justify-center py-10">
-                        <div className="text-center max-w-sm"><div className="mx-auto w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-5"><CalendarDays className="h-8 w-8 text-muted-foreground/60" /></div><h3 className="text-lg font-semibold text-foreground mb-2">No meetings added yet</h3><p className="text-sm text-muted-foreground mb-6 leading-relaxed">Get started by scheduling your first meeting session for a client.</p><Button onClick={() => { resetMeetingForm(); setMeetingModalOpen(true); }} className="gap-2"><Plus className="h-4 w-4" />Add Meeting</Button></div>
+                      <div className="col-span-full flex flex-col items-center justify-center py-12 px-4 text-center rounded-xl border-2 border-dashed border-border/70 bg-muted/20">
+                        <div className="mx-auto w-14 h-14 rounded-full bg-muted/60 flex items-center justify-center mb-4"><CalendarDays className="h-7 w-7 text-muted-foreground/70" /></div>
+                        <h3 className="text-base font-semibold text-foreground mb-1.5">No meetings added yet</h3>
+                        <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">Get started by scheduling your first meeting session for a client.</p>
+                        <Button onClick={() => { resetMeetingForm(); setMeetingModalOpen(true); }} className="gap-2 mt-5"><Plus className="h-4 w-4" />Add Meeting</Button>
                       </div>
                     ) : sortedMeetings.map((meeting) => { const FormatIcon = formatIcons[meeting.format as keyof typeof formatIcons]; const meetingDate = formatUsDate(parseLocalDate(meeting.date)); const sc: Record<string, string> = { Upcoming: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200 border-blue-200 dark:border-blue-700/50", Past: "bg-gray-100 dark:bg-gray-800/50 text-gray-700 dark:text-gray-100 border-gray-200 dark:border-gray-700/50", Draft: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-200 border-amber-200 dark:border-amber-700/50" }; const ds = STATUS_LABEL_MAP[meeting.status] || meeting.status; return (
                       <div key={meeting.id} className={`p-4 dark:bg-gray-800 border border-border/60 rounded-xl bg-card flex flex-col h-full relative ${deletingMeetingId === meeting.id ? "opacity-50 pointer-events-none" : ""}`}>
@@ -1710,52 +1726,6 @@ export default function MeetingsPage() {
               </DialogFooter>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Preview Dialog shows meetings as they appear in the client portal */}
-      <Dialog open={previewDialogOpen} onOpenChange={setPreviewDialogOpen}>
-        <DialogContent className="max-w-7xl max-h-[90vh] flex flex-col p-0 overflow-hidden [&>button.absolute]:hidden">
-          {/* Fixed header: title, description, and close button on one row */}
-          <div className="shrink-0 flex items-center justify-between gap-4 border-b px-6 py-4 bg-background">
-            <div className="flex items-center gap-3 min-w-0">
-              <DialogTitle className="shrink-0">Meeting Preview</DialogTitle>
-              <DialogDescription className="truncate">
-                This is how meetings will appear to clients in the portal.
-              </DialogDescription>
-            </div>
-            <DialogClose asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 rounded-full">
-                <X className="h-4 w-4" />
-              </Button>
-            </DialogClose>
-          </div>
-          {/* Scrollable body */}
-          <div className="flex-1 overflow-y-auto p-6">
-            {formData.clientId ? (
-              <WebinarsSection
-                clientId={formData.clientId}
-                brandColor={(() => {
-                  const client = clients.find((c) => c.id === formData.clientId);
-                  return client?.brandColor || "#002B5B";
-                })()}
-                secondaryColor={(() => {
-                  const client = clients.find((c) => c.id === formData.clientId);
-                  return client?.secondaryColor || "#C9A961";
-                })()}
-                onLoadComplete={() => setPreviewLoading(false)}
-              />
-            ) : (
-              <div className="flex items-center justify-center py-20 text-muted-foreground">
-                <p>Select a plan first to preview its meetings.</p>
-              </div>
-            )}
-          </div>
-          <DialogFooter className="shrink-0 border-t px-6 py-4">
-            <Button variant="outline" onClick={() => setPreviewDialogOpen(false)}>
-              Close
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
