@@ -1129,22 +1129,7 @@ export default function MeetingsPage() {
                       </div>
                       )
                     ) : viewMode === "preview" ? (
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-2 border border-border/60 rounded-xl bg-card px-4 py-3">
-                          <Eye className="h-4 w-4 text-muted-foreground shrink-0" />
-                          <div className="min-w-0">
-                            <h3 className="text-sm font-semibold text-foreground">Meeting Preview</h3>
-                            <p className="text-xs text-muted-foreground truncate">This is how meetings will appear to clients in the portal.</p>
-                          </div>
-                        </div>
-                        <div className="overflow-hidden rounded-xl border border-border/60">
-                          <WebinarsSection
-                            clientId={selectedPlan || undefined}
-                            brandColor={clients.find((c) => c.id === selectedPlan)?.brandColor || "#002B5B"}
-                            secondaryColor={clients.find((c) => c.id === selectedPlan)?.secondaryColor || "#C9A961"}
-                          />
-                        </div>
-                      </div>
+                      null
                     ) : (
                       <>
                         {selectedPlanHasMeetings && (
@@ -1202,6 +1187,24 @@ export default function MeetingsPage() {
                   </div>
                     </>
                   )}
+                  {/* Meeting preview stays mounted so its data loads as soon as a plan is
+                      selected/switched; it is revealed when the Preview view is active. */}
+                  <div className={viewMode === "preview" ? "space-y-3" : "hidden"}>
+                    <div className="flex items-center gap-2 border border-border/60 rounded-xl bg-card px-4 py-3">
+                      <Eye className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <div className="min-w-0">
+                        <h3 className="text-sm font-semibold text-foreground">Meeting Preview</h3>
+                        <p className="text-xs text-muted-foreground truncate">This is how meetings will appear to clients in the portal.</p>
+                      </div>
+                    </div>
+                    <div className="overflow-hidden rounded-xl border border-border/60">
+                      <WebinarsSection
+                        clientId={selectedPlan || undefined}
+                        brandColor={clients.find((c) => c.id === selectedPlan)?.brandColor || "#002B5B"}
+                        secondaryColor={clients.find((c) => c.id === selectedPlan)?.secondaryColor || "#C9A961"}
+                      />
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
