@@ -424,6 +424,24 @@ function consumeStep3dNextPreSaved(): boolean {
   return wasPreSaved;
 }
 
+// ── Step-2 "pre-save before Next" guard ────────────────────────────────────
+// Same idea as the step-3d guard: leaving step-2 does not actually need to wait
+// for the full draft save — the wizard starts a background saveAsDraft() (which
+// persists companyBasics hero/mission/image edits plus the welcome mirror) and
+// marks this flag so nextStep() skips its own redundant, sequential
+// welcome-statement + save-draft POSTs that were making "Next" take ~20s.
+let step2NextPreSaved = false;
+
+export function markStep2NextPreSaved() {
+  step2NextPreSaved = true;
+}
+
+function consumeStep2NextPreSaved(): boolean {
+  const wasPreSaved = step2NextPreSaved;
+  step2NextPreSaved = false;
+  return wasPreSaved;
+}
+
 // ── Wizard "transition in progress" flag ─────────────────────────────────────
 // The wizard (new-client-wizard.tsx) sets this while it is processing a Next /
 // Complete click. The page-level debounced autosave checks it and stands down,
@@ -846,6 +864,22 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
             return { isValid: true, errors: [] };
           }
           // If on benefits-team/step5d, proceed to completion (handled below or by completeWizard)
+        }
+
+        // Step 2 → step 3: the wizard (new-client-wizard.tsx) fires the full draft
+        // save in the background right before transitioning and marks this flag, so
+        // skip the redundant sequential welcome-statement + save-draft POSTs here
+        // (each can take many seconds) — together they made "Next" from step-2 feel
+        // like a ~20s stall. saveAsDraft already upserts the newClientWelcomeStatement
+        // record and persists companyBasics (hero/mission/images), so the dedicated
+        // /welcome-statement POST is not required for this transition.
+        // If nextStep() is reached WITHOUT that pre-save (e.g. a direct invocation),
+        // fall through to the generic save below so nothing is silently lost.
+        if (currentStep === 2 && consumeStep2NextPreSaved()) {
+          if (currentStep < totalSteps) {
+            set({ currentStep: currentStep + 1, errorFields: [] });
+          }
+          return { isValid: true, errors: [] };
         }
 
         // Save current step data to server before proceeding

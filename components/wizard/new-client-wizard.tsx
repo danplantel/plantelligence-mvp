@@ -11,6 +11,7 @@ import {
   useNewClientWizardStore,
   focusFirstInvalidField,
   markStep3dNextPreSaved,
+  markStep2NextPreSaved,
   setWizardTransitionActive,
 } from "@/lib/new-client-wizard-store";
 import { isDuplicatePlanNameError } from "@/lib/duplicate-plan-name-error";
@@ -351,6 +352,20 @@ export function NewClientWizard({
 
       // If valid, now we can safely close the editor panels before transitioning
       if (currentStep === 2) {
+        // Step-2 content (hero copy, mission, images) is edited directly into the
+        // store (companyBasics + the welcomeStatement mirror), so it is already
+        // fresh here. Fire the full draft save in the BACKGROUND and mark the
+        // transition so nextStep() skips its redundant sequential
+        // welcome-statement + save-draft POSTs — those two awaited POSTs (each can
+        // take several seconds) were what made "Next" from step-2 feel like a ~20s
+        // stall. The 2s editor-close animation below overlaps the start of this
+        // background save. saveAsDraft() also upserts the newClientWelcomeStatement
+        // record and persists companyBasics, so nothing needed by step 3 (or a
+        // later complete) is lost.
+        markStep2NextPreSaved();
+        void saveAsDraft().catch((error) => {
+          console.error("Background draft save before step-2 Next failed:", error);
+        });
         window.dispatchEvent(new CustomEvent("closeStep2Editor"));
         // Wait 2 seconds for modal to close before proceeding to next step
         await new Promise((resolve) => setTimeout(resolve, 2000));
