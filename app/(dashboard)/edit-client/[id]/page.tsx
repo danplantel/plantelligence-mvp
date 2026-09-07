@@ -1109,10 +1109,15 @@ function EditKeyContactsSection({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contacts]);
 
-  // The overall primary contact (isPrimaryOverall or legacy isPrimary), falling
-  // back to the first contact so the section always has something to show.
+  // The overall primary contact. `isPrimaryOverall` takes precedence over the
+  // legacy `isPrimary` flag — advisor-seeded per-category contacts carry
+  // `isPrimary: true` (but not `isPrimaryOverall`), so a plain `||` search would
+  // let an advisor Retirement row shadow the Company / Plan Sponsor the user
+  // actually promoted as primary. Fall back to the first contact so the section
+  // always has something to show.
   const primaryContact =
-    contacts.find((c) => c.isPrimaryOverall || c.isPrimary) ||
+    contacts.find((c) => c.isPrimaryOverall) ||
+    contacts.find((c) => c.isPrimary) ||
     contacts[0] ||
     null;
 
@@ -1226,12 +1231,12 @@ function EditKeyContactsSection({
 
   return (
     <div className="space-y-6">
-      {/* Primary Contact — always visible (no accordion) */}
+      {/* Main Contact — always visible (no accordion) */}
       <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
         <div className="flex items-center gap-2 mb-2 flex-wrap">
           <Star className="w-4 h-4 text-amber-500" />
           <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-            Primary Contact
+            Main Contact
           </h3>
           {primaryContactLabel && (
             <Badge
@@ -1255,7 +1260,7 @@ function EditKeyContactsSection({
           />
         ) : (
           <p className="text-xs text-muted-foreground text-center py-4">
-            No primary contact set yet. Add a contact and mark it as primary.
+            No main contact set yet. Add a contact and mark it as primary.
           </p>
         )}
       </div>

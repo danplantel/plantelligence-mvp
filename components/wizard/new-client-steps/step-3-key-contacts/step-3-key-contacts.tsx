@@ -470,7 +470,6 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
             category={contactFormCategory}
             defaultCompanyName={defaultCompanyName}
             defaultCompanyLogo={defaultCompanyLogo}
-            defaultIsPrimary={contactFormCategory === "Company / Plan Sponsor"}
             onBack={
               isGuidedForm || isFromSomeoneElse
                 ? handleContactFormBack

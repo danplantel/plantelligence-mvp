@@ -32,8 +32,6 @@ export interface ContactFormSlideProps {
   defaultCompanyName?: string;
   /** Pre-filled company logo */
   defaultCompanyLogo?: string;
-  /** Whether to show as primary by default */
-  defaultIsPrimary?: boolean;
   /** Called when user clicks Back */
   onBack: () => void;
   /** Called when user clicks Continue after saving */
@@ -348,7 +346,6 @@ export function ContactFormSlide({
   category,
   defaultCompanyName = "",
   defaultCompanyLogo = "",
-  defaultIsPrimary = false,
   onBack,
   onContinue,
   isGuided = false,
@@ -392,22 +389,23 @@ export function ContactFormSlide({
     restoreCompanyName ? step3bData.companyName || "" : "",
   );
   const [isPrimary, setIsPrimary] = useState(
-    category === "Company / Plan Sponsor"
-      ? true
-      : (() => {
-          // Auto-check primary when this is the first contact for the category
-          const existingContacts = (
-            stepData.keyContacts?.contacts || []
-          ) as any[];
-          const contactsInCategory = existingContacts.filter((c: any) => {
-            const cats: BenefitsCategory[] =
-              c.benefitsCategories ||
-              (c.benefitsCategory ? [c.benefitsCategory] : []);
-            return cats.includes(category);
-          });
-          const isFirstContact = contactsInCategory.length === 0;
-          return step3bData.isPrimaryOverall ?? (isFirstContact || defaultIsPrimary);
-        })(),
+    (() => {
+      // Auto-check primary when this is the first contact for the category.
+      // Company / Plan Sponsor follows the same rule: the first sponsor added
+      // (the Main Contact) becomes primary, while additional sponsors added
+      // from the category explorer default to non-primary.
+      const existingContacts = (
+        stepData.keyContacts?.contacts || []
+      ) as any[];
+      const contactsInCategory = existingContacts.filter((c: any) => {
+        const cats: BenefitsCategory[] =
+          c.benefitsCategories ||
+          (c.benefitsCategory ? [c.benefitsCategory] : []);
+        return cats.includes(category);
+      });
+      const isFirstContact = contactsInCategory.length === 0;
+      return step3bData.isPrimaryOverall ?? isFirstContact;
+    })(),
   );
 
   // Display toggles for Email / Phone on the card. Both default to unchecked
@@ -517,21 +515,19 @@ export function ContactFormSlide({
       setUseCustomLogo(sb.useCustomLogo === true);
       setCompanyName(sb.companyName || "");
       setIsPrimary(
-        category === "Company / Plan Sponsor"
-          ? true
-          : (() => {
-              const existingContacts = (
-                stepData.keyContacts?.contacts || []
-              ) as any[];
-              const contactsInCategory = existingContacts.filter((c: any) => {
-                const cats: BenefitsCategory[] =
-                  c.benefitsCategories ||
-                  (c.benefitsCategory ? [c.benefitsCategory] : []);
-                return cats.includes(category);
-              });
-              const isFirstContact = contactsInCategory.length === 0;
-              return sb.isPrimaryOverall ?? (isFirstContact || defaultIsPrimary);
-            })(),
+        (() => {
+          const existingContacts = (
+            stepData.keyContacts?.contacts || []
+          ) as any[];
+          const contactsInCategory = existingContacts.filter((c: any) => {
+            const cats: BenefitsCategory[] =
+              c.benefitsCategories ||
+              (c.benefitsCategory ? [c.benefitsCategory] : []);
+            return cats.includes(category);
+          });
+          const isFirstContact = contactsInCategory.length === 0;
+          return sb.isPrimaryOverall ?? isFirstContact;
+        })(),
       );
       setDisplayEmail(sb.email ? (sb.displayEmail ?? true) : false);
       setDisplayPhone(sb.phone ? (sb.displayPhone ?? true) : false);
@@ -781,7 +777,7 @@ export function ContactFormSlide({
     (): string => {
       const keyContactsData = stepData.keyContacts || { contacts: [] };
       const savedContacts = keyContactsData.contacts || [];
-      const shouldBePrimary = category === "Company / Plan Sponsor" ? true : isPrimary;
+      const shouldBePrimary = isPrimary;
 
       // Check if we're editing an existing contact (passed via step3b.editingContactId)
       const editingContactId = step3bData.editingContactId as string | undefined | null;
@@ -870,82 +866,6 @@ export function ContactFormSlide({
           editingContactId: existingContact.id,
         });
         return existingContact.id;
-      }
-
-      // Guard for non-editing path: if saving a Company / Plan Sponsor contact
-      // and one already exists, update it instead of creating a duplicate
-      if (category === "Company / Plan Sponsor") {
-        const existingMainContact = savedContacts.find((c: any) => {
-          const cats = c.benefitsCategories || (c.benefitsCategory ? [c.benefitsCategory] : []);
-          return cats.includes("Company / Plan Sponsor");
-        });
-
-        if (existingMainContact) {
-          const updatedContact = {
-            ...existingMainContact,
-            contactType,
-            benefitsCategories: [category],
-            benefitsCategory: category,
-            firstName: contactType === "individual" ? firstName : undefined,
-            lastName: contactType === "individual" ? lastName : undefined,
-            title: contactType === "individual" ? title : undefined,
-            displayName: contactType === "team_support" ? displayName : undefined,
-            email,
-            phone,
-            phoneExtension,
-            headshot: contactType === "individual" ? headshot || undefined : undefined,
-            headshotFileName:
-              contactType === "individual" ? headshotFileName || undefined : undefined,
-            companyName: companyName || defaultCompanyName,
-            companyLogo: defaultCompanyLogo || undefined,
-            name:
-              contactType === "individual"
-                ? `${firstName} ${lastName}`.trim()
-                : displayName,
-            isPrimary: true,
-            isPrimaryOverall: true,
-            displayEmail,
-            displayPhone,
-            displayUrl: enableCtaButton ? ctaType === "contact" : false,
-            displayScheduleAppointment: enableCtaButton ? ctaType === "schedule" : false,
-            enableContactButton: enableCtaButton,
-            contactButtonType: enableCtaButton
-              ? ((ctaType === "schedule" ? "calendar" : ctaType === "call" ? "phone" : ctaType === "email" ? "email" : "url") as "calendar" | "phone" | "email" | "url")
-              : undefined,
-            schedulingUrl: enableCtaButton && ctaType === "schedule" ? schedulingUrl || undefined : undefined,
-            websiteUrl: enableCtaButton && ctaType === "contact" ? websiteUrl || undefined : undefined,
-            benefitsCategoryOther: customBenefits || undefined,
-          };
-  
-            // Demote only contacts in the same category to prevent duplicate primaries
-          const baseContacts = savedContacts.map((c: any) => {
-            const contactCats: BenefitsCategory[] =
-              c.benefitsCategories ||
-              (c.benefitsCategory ? [c.benefitsCategory] : []);
-            if (contactCats.includes("Company / Plan Sponsor")) {
-              return {
-                ...c,
-                isPrimary: false,
-                isPrimaryOverall: false,
-              };
-            }
-            return c;
-          });
-
-          const updatedContacts = baseContacts.map((c: any) =>
-            c.id === existingMainContact.id ? updatedContact : c,
-          );
-          const updatedKeyContacts = { ...keyContactsData, contacts: updatedContacts };
-          saveStepDataLocally("keyContacts", updatedKeyContacts);
-          // Persist editingContactId in step3b so re-entering the form edits
-          // instead of creating a duplicate.
-          editingContactIdRef.current = existingMainContact.id;
-          saveStepDataLocally("step3b", {
-            ...step3bData,
-            editingContactId: existingMainContact.id,
-          });
-          return existingMainContact.id;
-        }
       }
 
       // If this contact is being saved as primary, demote only contacts that share
