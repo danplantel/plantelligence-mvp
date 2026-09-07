@@ -1227,6 +1227,36 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
       },
 
       completeWizard: async () => {
+        // A page refresh can restore stepData from localStorage without a
+        // standalone welcomeStatement even though the welcome banner copy exists
+        // on companyBasics (heroTitle/heroDescription) — the step-2 editor writes
+        // those fields directly instead of mirroring into welcomeStatement.
+        // save-draft only creates the newClientWelcomeStatement DB record when
+        // stepData.welcomeStatement is truthy, and complete-v2 treats that record
+        // as required ("Missing required data: welcome statement"). Re-derive the
+        // standalone welcomeStatement from the hero copy before persisting so
+        // resuming a draft and hitting Complete no longer fails.
+        {
+          const s = get().stepData;
+          const existingWelcome = s.welcomeStatement as any;
+          const hasStoredWelcome =
+            !!existingWelcome &&
+            (!!existingWelcome.headline || !!existingWelcome.bodyText);
+          if (!hasStoredWelcome) {
+            const cb = s.companyBasics as any;
+            const meta = cb?.brandImages?._meta || {};
+            const headline = cb?.heroTitle || meta.heroTitle || "";
+            const bodyText = cb?.heroDescription || meta.heroDescription || "";
+            if (headline || bodyText) {
+              await get().saveStepDataLocally("welcomeStatement", {
+                headline: headline || "",
+                bodyText: bodyText || "",
+                isAIGenerated: false,
+              });
+            }
+          }
+        }
+
         const { stepData, draftClientId } = get();
 
         for (let step = 1; step <= 5; step++) {
