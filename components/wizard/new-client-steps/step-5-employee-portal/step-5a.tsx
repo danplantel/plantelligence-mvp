@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,42 @@ const LOCATION_OPTIONS = [
   { value: "Global", label: "Global (all pages)" },
   { value: "custom", label: "Custom location..." },
 ];
+
+/**
+ * Parses the user's stored disclaimer (User.disclaimer) into a Disclaimer.
+ * The value may be an array or a JSON string (array of disclaimers) or plain
+ * text. Shared by the synchronous advisorProfile read and the fetch fallback.
+ */
+function parseProfileDisclaimer(raw: unknown): Disclaimer | null {
+  if (!raw) return null;
+  let arr: any[] = [];
+  if (Array.isArray(raw)) {
+    arr = raw;
+  } else if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        arr = parsed;
+      }
+    } catch {
+      arr = [{ id: "profile", locations: ["Home Page"], text: raw }];
+    }
+  }
+  const first = arr[0];
+  if (!first || !first.text) return null;
+  return {
+    id: first.id || "profile",
+    text: first.text,
+    locations:
+      Array.isArray(first.locations) && first.locations.length > 0
+        ? first.locations
+        : ["Home Page"],
+    customLocation: first.customLocation || "",
+    scope: "plan",
+    apply_all_benefits_categories:
+      first.apply_all_benefits_categories ?? false,
+  };
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  Disclaimer Modal
@@ -247,7 +283,6 @@ export function NewClientStep5a({
     saveStepDataLocally,
     saveStepDataToServer,
     saveAsDraft,
-    loadStepData,
     draftClientId,
     advisorProfile,
   } = useNewClientWizardStore();
@@ -313,43 +348,18 @@ export function NewClientStep5a({
   // Page footer.
   const getUserProfileDisclaimer = useCallback(async (): Promise<Disclaimer | null> => {
     try {
-      // Reuse the shared single-flight/cached profile fetch so this coalesces
-      // with the profile already loaded for the wizard instead of firing a
-      // separate /api/profile request.
+      // Prefer the profile already seeded into the wizard store (advisorProfile)
+      // so this resolves WITHOUT a network request on normal navigation; only
+      // fall back to the shared single-flight/cached profile fetch when the
+      // profile hasn't loaded yet (e.g. a cold page reload).
+      const seeded = (useNewClientWizardStore.getState().advisorProfile as any)
+        ?.disclaimer;
+      if (seeded) {
+        return parseProfileDisclaimer(seeded);
+      }
       const profile = await fetchProfileOnce();
       if (!profile) return null;
-      const raw = profile?.disclaimer;
-      if (!raw) return null;
-
-      // User.disclaimer may be a JSON string (array of disclaimers) or an array.
-      let arr: any[] = [];
-      if (Array.isArray(raw)) {
-        arr = raw;
-      } else if (typeof raw === "string") {
-        try {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) {
-            arr = parsed;
-          }
-        } catch {
-          // Not JSON — treat as plain text
-          arr = [{ id: "profile", locations: ["Home Page"], text: raw }];
-        }
-      }
-
-      const first = arr[0];
-      if (!first || !first.text) return null;
-
-      return {
-        id: first.id || "profile",
-        text: first.text,
-        locations: Array.isArray(first.locations) && first.locations.length > 0
-          ? first.locations
-          : ["Home Page"],
-        customLocation: first.customLocation || "",
-        scope: "plan",
-        apply_all_benefits_categories: first.apply_all_benefits_categories ?? false,
-      };
+      return parseProfileDisclaimer(profile?.disclaimer);
     } catch {
       return null;
     }
@@ -389,6 +399,9 @@ export function NewClientStep5a({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showInitialPrompt, setShowInitialPrompt] = useState(false);
   const [previewFooterOpen, setPreviewFooterOpen] = useState(false);
+  // Guards the one-shot disclaimer initializer so React StrictMode's double
+  // effect invocation in dev doesn't fire duplicate network requests.
+  const disclaimersInitStartedRef = useRef(false);
 
   // Resolve the advisor's organization name WITHOUT pulling the whole onboarding
   // dataset. This previously called loadAllWizardData(), which fired ~12
@@ -420,78 +433,64 @@ export function NewClientStep5a({
   // ── Load disclaimer from draft/API on first mount ──
   useEffect(() => {
     const initializeDisclaimers = async () => {
+      if (disclaimersInitStartedRef.current) return;
+      disclaimersInitStartedRef.current = true;
       if (hasInitialized) return;
+
+      // 1) Plan already has a saved disclaimer → show it immediately (no wait).
       if (disclaimer) {
         setHasInitialized(true);
         return;
       }
-
-      try {
-        // If it's a draft with existing disclaimers, use them — but resolve any
-        // leftover [Organization Name] / [Company Name] placeholders first.
-        if (draftClientId && existingDisclaimers.length > 0) {
-          const resolved = {
-            ...existingDisclaimers[0],
-            text: resolveDisclaimerText(existingDisclaimers[0].text),
-          };
-          setDisclaimer(resolved);
-          setHasInitialized(true);
-          return;
-        }
-
-        // Try to load from the New Client Wizard API (session/draft) — resolve
-        // placeholders so a previously-persisted template gets populated too.
-        const data = await loadStepData("disclaimers");
-        if (data?.disclaimers?.length > 0) {
-          const d = data.disclaimers[0];
-          const resolved = { ...d, text: resolveDisclaimerText(d.text) };
-          setDisclaimer(resolved);
-          saveStepDataLocally("disclaimers", { disclaimers: [resolved] });
-          setHasInitialized(true);
-          return;
-        }
-
-        // Prefer the User's profile disclaimer (Settings > Team & Disclaimers),
-        // which is what should appear on the Home Page footer.
-        const userProfileDisclaimer = await getUserProfileDisclaimer();
-        if (userProfileDisclaimer) {
-          const d: Disclaimer = {
-            ...userProfileDisclaimer,
-            text: resolveDisclaimerText(userProfileDisclaimer.text),
-            locations: ["Home Page"],
-            customLocation: "",
-          };
-          setDisclaimer(d);
-          saveStepDataLocally("disclaimers", { disclaimers: [d] });
-          setHasInitialized(true);
-          return;
-        }
-
-        // Try to inherit from Onboarding disclaimers before showing the prompt
-        const onboardingText = await getOnboardingDisclaimerText();
-        if (onboardingText) {
-          const inheritedDisclaimer: Disclaimer = {
-            id: Date.now().toString(),
-            text: resolveDisclaimerText(onboardingText),
-            locations: ["Home Page"],
-            customLocation: "",
-            scope: "plan",
-            apply_all_benefits_categories: false,
-          };
-          setDisclaimer(inheritedDisclaimer);
-          saveStepDataLocally("disclaimers", { disclaimers: [inheritedDisclaimer] });
-          setHasInitialized(true);
-          return;
-        }
-
-        // No disclaimer found yet — show the prompt
+      if (draftClientId && existingDisclaimers.length > 0) {
+        const resolved = {
+          ...existingDisclaimers[0],
+          text: resolveDisclaimerText(existingDisclaimers[0].text),
+        };
+        setDisclaimer(resolved);
         setHasInitialized(true);
-        setShowInitialPrompt(true);
-      } catch (error) {
-        console.error("❌ Error initializing disclaimers:", error);
-        // Prefer the User's profile disclaimer even on error
+        return;
+      }
+
+      // The disclaimer shown for a NEW plan is the one tied to the user's
+      // profile (Settings > Team & Disclaimers). When the profile is already
+      // seeded into the wizard store (advisorProfile — the normal case after
+      // navigating to Step 5), read it synchronously so the disclaimer appears
+      // immediately with no skeleton or prompt flash.
+      const seededProfileRaw = (
+        useNewClientWizardStore.getState().advisorProfile as any
+      )?.disclaimer;
+      const seededParsed = parseProfileDisclaimer(seededProfileRaw);
+      if (seededParsed) {
+        const d: Disclaimer = {
+          ...seededParsed,
+          text: resolveDisclaimerText(seededParsed.text),
+          locations: ["Home Page"],
+          customLocation: "",
+        };
+        setDisclaimer(d);
+        saveStepDataLocally("disclaimers", { disclaimers: [d] });
+        setHasInitialized(true);
+        return;
+      }
+
+      // 2) Otherwise reveal the page quickly — never gate the skeleton on the
+      //    user profile /api request (which can take several seconds on a cold
+      //    load). Show the create prompt, then prefill in the background.
+      setHasInitialized(true);
+      setShowInitialPrompt(true);
+
+      // 3) Prefill from the user's profile disclaimer (falling back to the
+      //    onboarding disclaimer), without blocking the UI. Uses the shared
+      //    single-flight/cached profile fetch when the profile isn't seeded yet.
+      void (async () => {
         try {
           const userProfileDisclaimer = await getUserProfileDisclaimer();
+          // Never overwrite a disclaimer the user created while this loaded.
+          const currentStore =
+            useNewClientWizardStore.getState().stepData.disclaimers;
+          if (currentStore?.disclaimers?.length) return;
+
           if (userProfileDisclaimer) {
             const d: Disclaimer = {
               ...userProfileDisclaimer,
@@ -501,35 +500,35 @@ export function NewClientStep5a({
             };
             setDisclaimer(d);
             saveStepDataLocally("disclaimers", { disclaimers: [d] });
-            setHasInitialized(true);
+            setShowInitialPrompt(false);
             return;
           }
-        } catch {
-          // fall through
-        }
-        // Try onboarding fallback even on error
-        try {
+
           const onboardingText = await getOnboardingDisclaimerText();
-          if (onboardingText) {
-            const inheritedDisclaimer: Disclaimer = {
-              id: Date.now().toString(),
-              text: resolveDisclaimerText(onboardingText),
-              locations: ["Home Page"],
-              customLocation: "",
-              scope: "plan",
-              apply_all_benefits_categories: false,
-            };
-            setDisclaimer(inheritedDisclaimer);
-            saveStepDataLocally("disclaimers", { disclaimers: [inheritedDisclaimer] });
-            setHasInitialized(true);
+          if (!onboardingText) return;
+          if (
+            useNewClientWizardStore.getState().stepData.disclaimers
+              ?.disclaimers?.length
+          ) {
             return;
           }
-        } catch {
-          // fall through
+          const inheritedDisclaimer: Disclaimer = {
+            id: Date.now().toString(),
+            text: resolveDisclaimerText(onboardingText),
+            locations: ["Home Page"],
+            customLocation: "",
+            scope: "plan",
+            apply_all_benefits_categories: false,
+          };
+          setDisclaimer(inheritedDisclaimer);
+          saveStepDataLocally("disclaimers", {
+            disclaimers: [inheritedDisclaimer],
+          });
+          setShowInitialPrompt(false);
+        } catch (error) {
+          console.error("❌ Error prefilling disclaimer:", error);
         }
-        setHasInitialized(true);
-        setShowInitialPrompt(true);
-      }
+      })();
     };
 
     initializeDisclaimers();
