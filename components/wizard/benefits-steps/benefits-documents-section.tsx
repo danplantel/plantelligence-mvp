@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { Check } from "lucide-react";
 import { ComplianceDocumentsUpload } from "@/components/pages/documents/components/compliance-documents-upload";
 import { convertToDocumentFormat } from "@/lib/compliance-document-utils";
 import { toast } from "sonner";
@@ -621,20 +622,16 @@ export function BenefitsDocumentsSection({
                     onClick={() => {
                       setPreviewLanguage(lang);
                     }}
-                    className={`rounded-full px-5 py-2 text-[16px] leading-tight font-red-hat font-semibold border transition-colors ${
+                    aria-pressed={isActive}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-[16px] leading-tight font-red-hat font-semibold border-2 transition-colors ${
                       isActive
-                        ? "bg-[#002B5B] text-white border-[#002B5B]"
-                        : "bg-white text-[#002B5B] border-[#D1D5DB] hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600"
+                        ? "bg-accent-blue text-white border-accent-blue shadow-sm"
+                        : "bg-white text-[#002B5B] border-[#D1D5DB] hover:bg-gray-50 dark:bg-transparent dark:text-gray-300 dark:border-gray-600 dark:hover:bg-white/10"
                     }`}
-                    style={
-                      isActive
-                        ? {
-                            backgroundColor: brandColor,
-                            borderColor: brandColor,
-                          }
-                        : {}
-                    }
                   >
+                    {isActive && (
+                      <Check className="w-4 h-4" strokeWidth={3} aria-hidden="true" />
+                    )}
                     {lang === "EN" ? "ENGLISH" : "ESPAÑOL"}
                   </button>
                 );

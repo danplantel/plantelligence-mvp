@@ -14,7 +14,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { ChevronRight } from "lucide-react";
+import { Check, ChevronRight } from "lucide-react";
 import { DocumentListTab } from "@/components/pages/documents/tabs/document-list-tab";
 import { RetirementDocumentsAccordion, RetirementDocumentItem } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
 import { deleteFromR2 } from "@/lib/upload-to-r2";
@@ -536,14 +536,18 @@ export function BenefitsStep4() {
                                 {availableLanguages.map(lang => (
                                     <button
                                         key={lang}
+                                        type="button"
                                         onClick={() => setPreviewLanguage(lang)}
-                                        className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                                        aria-pressed={previewLanguage === lang}
+                                        className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium border-2 transition-colors ${
                                             previewLanguage === lang
-                                                ? "bg-primary text-white border-primary"
+                                                ? "bg-accent-blue text-white border-accent-blue shadow-sm"
                                                 : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
                                         }`}
-                                        style={previewLanguage === lang ? { backgroundColor: primaryColor, borderColor: primaryColor } : {}}
                                     >
+                                        {previewLanguage === lang && (
+                                            <Check className="w-3.5 h-3.5" strokeWidth={3} aria-hidden="true" />
+                                        )}
                                         {lang === "EN" ? "English" : "Español"}
                                     </button>
                                 ))}
