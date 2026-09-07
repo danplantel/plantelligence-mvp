@@ -60,6 +60,8 @@ import {
   Search,
   Loader2,
   ExternalLink,
+  Eye,
+  LayoutGrid,
 } from "lucide-react";
 import { format, addDays, startOfDay, isBefore } from "date-fns";
 import { formatUsDate } from "@/lib/date";
@@ -615,6 +617,7 @@ export default function MeetingsPage() {
   const [clientFilter, setClientFilter] = useState("all");
   const [sortColumn, setSortColumn] = useState<SortColumn>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [viewMode, setViewMode] = useState<"cards" | "calendar">("cards");
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const meetingFormRef = useRef<HTMLFormElement | null>(null);
@@ -1102,18 +1105,44 @@ export default function MeetingsPage() {
             <Card className="shadow-sm">
               <CardContent className="pt-6">
                 <div className="space-y-4">
-                  {selectedPlanHasMeetings && (
-                    <div className="flex items-center justify-start gap-2 flex-wrap">
-                      <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger className="w-32 h-9 bg-white dark:bg-gray-800 text-xs"><SelectValue placeholder="All Status" /></SelectTrigger><SelectContent><SelectItem value="all">All Status</SelectItem><SelectItem value="Upcoming">Upcoming</SelectItem><SelectItem value="Past">Past</SelectItem><SelectItem value="Draft">Draft</SelectItem></SelectContent></Select>
-                      <Select value={benefitsCategoryFilter} onValueChange={setBenefitsCategoryFilter}><SelectTrigger className="w-40 h-9 bg-white dark:bg-gray-800 text-xs"><SelectValue placeholder="All Categories" /></SelectTrigger><SelectContent><SelectItem value="all">All Categories</SelectItem><SelectItem value="Retirement">Retirement</SelectItem><SelectItem value="Group Health">Group Health</SelectItem><SelectItem value="Group Life">Group Life</SelectItem><SelectItem value="Other">Other</SelectItem></SelectContent></Select>
-                      <div className="w-px h-9 bg-border mx-1 shrink-0" />
-                      <Select value={currentSortValue} onValueChange={handleSortSelect}><SelectTrigger className="w-44 h-9 bg-white dark:bg-gray-800 text-xs"><SelectValue placeholder="Sort by" /></SelectTrigger><SelectContent>{SORT_OPTIONS.map((o) => (<SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>))}</SelectContent></Select>
-                      <div className="w-px h-9 bg-border mx-1 shrink-0" />
-                      <Button variant="outline" onClick={() => setPreviewDialogOpen(true)} className="gap-1.5 flex-1"><FileText className="h-4 w-4" />Preview</Button>
-                      <Button onClick={() => { resetMeetingForm(); setMeetingModalOpen(true); }} className="gap-1.5 flex-1"><Plus className="h-4 w-4" />Add Meeting</Button>
+                  {/* View switcher: Cards / Calendar / Preview */}
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div className="flex items-center border rounded-md overflow-hidden dark:border-gray-600 shrink-0">
+                      <button type="button" onClick={() => setViewMode("cards")} className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${viewMode === "cards" ? "bg-accent-blue text-white" : "bg-white text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"}`}><LayoutGrid className="h-3.5 w-3.5 mr-1 inline" />Cards</button>
+                      <button type="button" onClick={() => setViewMode("calendar")} className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${viewMode === "calendar" ? "bg-accent-blue text-white" : "bg-white text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"}`}><CalendarDays className="h-3.5 w-3.5 mr-1 inline" />Calendar</button>
+                      <button type="button" onClick={() => setPreviewDialogOpen(true)} className="px-2.5 py-1.5 text-xs font-medium transition-colors bg-white text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"><Eye className="h-3.5 w-3.5 mr-1 inline" />Preview</button>
                     </div>
-                  )}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Button onClick={() => { resetMeetingForm(); setMeetingModalOpen(true); }} className="gap-1.5 shrink-0"><Plus className="h-4 w-4" />Add Meeting</Button>
+                  </div>
+
+                  {viewMode === "calendar" ? (
+                    selectedPlanHasMeetings ? (
+                      /* Calendar view placeholder (meetings exist, actual calendar not built yet) */
+                      <div className="flex flex-col items-center justify-center py-12 px-4 text-center rounded-xl border-2 border-dashed border-border/70 bg-muted/20">
+                        <div className="mx-auto w-14 h-14 rounded-full bg-muted/60 flex items-center justify-center mb-4"><CalendarDays className="h-7 w-7 text-muted-foreground/70" /></div>
+                        <h3 className="text-base font-semibold text-foreground mb-1.5">Calendar view coming soon</h3>
+                        <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">This plan has scheduled meetings. The calendar view will display them arranged by date once it is ready.</p>
+                      </div>
+                    ) : (
+                      /* Calendar empty state: no meetings scheduled for this plan */
+                      <div className="flex flex-col items-center justify-center py-12 px-4 text-center rounded-xl border-2 border-dashed border-border/70 bg-muted/20">
+                        <div className="mx-auto w-14 h-14 rounded-full bg-muted/60 flex items-center justify-center mb-4"><CalendarDays className="h-7 w-7 text-muted-foreground/70" /></div>
+                        <h3 className="text-base font-semibold text-foreground mb-1.5">No meetings scheduled</h3>
+                        <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">Your calendar is clear. Schedule a meeting and it will appear here organized by date.</p>
+                        <Button onClick={() => { resetMeetingForm(); setMeetingModalOpen(true); }} className="gap-2 mt-5"><Plus className="h-4 w-4" />Add Meeting</Button>
+                      </div>
+                    )
+                  ) : (
+                    <>
+                      {selectedPlanHasMeetings && (
+                        <div className="flex items-center justify-start gap-2 flex-wrap">
+                          <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger className="w-32 h-9 bg-white dark:bg-gray-800 text-xs"><SelectValue placeholder="All Status" /></SelectTrigger><SelectContent><SelectItem value="all">All Status</SelectItem><SelectItem value="Upcoming">Upcoming</SelectItem><SelectItem value="Past">Past</SelectItem><SelectItem value="Draft">Draft</SelectItem></SelectContent></Select>
+                          <Select value={benefitsCategoryFilter} onValueChange={setBenefitsCategoryFilter}><SelectTrigger className="w-40 h-9 bg-white dark:bg-gray-800 text-xs"><SelectValue placeholder="All Categories" /></SelectTrigger><SelectContent><SelectItem value="all">All Categories</SelectItem><SelectItem value="Retirement">Retirement</SelectItem><SelectItem value="Group Health">Group Health</SelectItem><SelectItem value="Group Life">Group Life</SelectItem><SelectItem value="Other">Other</SelectItem></SelectContent></Select>
+                          <div className="w-px h-9 bg-border mx-1 shrink-0" />
+                          <Select value={currentSortValue} onValueChange={handleSortSelect}><SelectTrigger className="w-44 h-9 bg-white dark:bg-gray-800 text-xs"><SelectValue placeholder="Sort by" /></SelectTrigger><SelectContent>{SORT_OPTIONS.map((o) => (<SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>))}</SelectContent></Select>
+                        </div>
+                      )}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {sortedMeetings.length === 0 ? (
                       <div className="col-span-full flex items-center justify-center py-10">
                         <div className="text-center max-w-sm"><div className="mx-auto w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-5"><CalendarDays className="h-8 w-8 text-muted-foreground/60" /></div><h3 className="text-lg font-semibold text-foreground mb-2">No meetings added yet</h3><p className="text-sm text-muted-foreground mb-6 leading-relaxed">Get started by scheduling your first meeting session for a client.</p><Button onClick={() => { resetMeetingForm(); setMeetingModalOpen(true); }} className="gap-2"><Plus className="h-4 w-4" />Add Meeting</Button></div>
@@ -1155,6 +1184,8 @@ export default function MeetingsPage() {
                       </div>
                     ); })}
                   </div>
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>
