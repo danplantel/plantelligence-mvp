@@ -222,6 +222,7 @@ export function BenefitsDocumentsSection({
       categorySuggested: doc.categorySuggested,
       categoryConfidence: doc.categoryConfidence,
       expirationDate: doc.expirationDate,
+      language: (doc as any).language === "ES" ? "ES" : "EN",
     }));
   }, [categoryDocs, clientId, companyName]);
 

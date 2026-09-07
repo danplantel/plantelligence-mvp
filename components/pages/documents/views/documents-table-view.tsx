@@ -200,7 +200,24 @@ export function DocumentsTableView({
                   <TableCell className="font-medium text-xs text-gray-900 dark:text-gray-100">
                     <div className="flex items-center">
                       <FileText className={`${compact ? "h-3.5 w-3.5" : "h-4 w-4"} mr-2 text-gray-400 dark:text-gray-500`} />
-                      {document.title}
+                      <span className="truncate">{document.title}</span>
+                      {document.language === "ES" ? (
+                        <Badge
+                          variant="outline"
+                          className="ml-2 h-4 px-1 text-[9px] font-semibold shrink-0 bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800"
+                          title="Spanish document"
+                        >
+                          ES
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className="ml-2 h-4 px-1 text-[9px] font-semibold shrink-0 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800"
+                          title="English document"
+                        >
+                          EN
+                        </Badge>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>

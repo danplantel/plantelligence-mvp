@@ -12,6 +12,8 @@ export interface Document {
   category?: string;
   categorySuggested?: string;
   categoryConfidence?: number;
+  /** Document language (EN/ES). Absent values are treated as EN when rendering. */
+  language?: "EN" | "ES";
 }
 
 export type SortColumn = "title" | "client" | "uploadedAt" | "expirationDate";

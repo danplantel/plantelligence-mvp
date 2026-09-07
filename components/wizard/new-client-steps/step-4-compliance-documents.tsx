@@ -475,6 +475,7 @@ export function NewClientStep4({
       categorySuggested: doc.categorySuggested,
       categoryConfidence: doc.categoryConfidence,
       expirationDate: doc.expirationDate,
+      language: doc.language === "ES" ? "ES" : "EN",
     }));
   }, [retirementPlanDocuments, companyName]);
 
