@@ -90,6 +90,7 @@ import {
 import { useNavigateAwayGuard } from "@/hooks/use-navigate-away-guard";
 import { NavigateAwayWarningDialog } from "@/components/ui/navigate-away-warning-dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { MeetingDayDrawer, type DayDrawerMeeting } from "@/components/meetings/meeting-day-drawer";
 import { MeetingsCalendarView } from "@/components/meetings/meetings-calendar-view";
 import { WebinarsSection } from "@/components/pages/client-portal/sections/webinars-section";
 import { resolveRsvpUrl } from "@/lib/meetings/meeting-schedule-shared";
@@ -659,6 +660,8 @@ export default function MeetingsPage() {
    *  (meetingType, duration, format, etc.) that the duplicate page doesn't re-collect. */
   const createdMeetingData = useRef<MeetingFormData | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<string>("");
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [dayDrawerOpen, setDayDrawerOpen] = useState(false);
   const hasClients = clients.length > 0;
   const fetchCustomMeetings = useMeetingStore((state) => state.fetchCustomMeetings);
   const customMeetings = useMeetingStore((state) => state.customMeetings);
@@ -1064,6 +1067,68 @@ export default function MeetingsPage() {
     setStartTimeText(""); setEndTimeText(""); setErrors({}); setTimeConflictWarning(""); setHasConfirmedConflict(false); setEditingMeetingId(null); setMeetingModalOpen(false);
     toast.info("Edit cancelled. Form reset to create new meeting.");
   };
+  // Open the Schedule-a-Meeting modal pre-filled with a chosen day (Calendar quick-add / drawer).
+  const openScheduleForDay = useCallback(
+    (dayKey: string) => {
+      const plan = clients.find((c) => c.id === selectedPlan);
+      setFormData((prev) => ({
+        ...DEFAULT_MEETING_FORM_DATA,
+        client: plan?.companyName ?? prev.client,
+        clientId: plan?.id ?? prev.clientId,
+        date: dayKey,
+      }));
+      setStartTimeText("");
+      setEndTimeText("");
+      setErrors({});
+      setTimeConflictWarning("");
+      setHasConfirmedConflict(false);
+      setEditingMeetingId(null);
+      setMeetingModalOpen(true);
+    },
+    [clients, selectedPlan],
+  );
+
+  // Calendar: clicking a day selects it and opens the day drawer.
+  const openDayDrawer = useCallback((dayKey: string) => {
+    setSelectedDay(dayKey);
+    setDayDrawerOpen(true);
+  }, []);
+
+  // Day-drawer actions reuse the existing schedule/edit/duplicate/delete flows.
+  const handleDrawerAdd = useCallback(() => {
+    if (!selectedDay) return;
+    setDayDrawerOpen(false);
+    openScheduleForDay(selectedDay);
+  }, [selectedDay, openScheduleForDay]);
+
+  const handleDrawerEdit = useCallback(
+    (meeting: DayDrawerMeeting) => {
+      setDayDrawerOpen(false);
+      handleEditMeeting(meeting as Meeting);
+    },
+    [handleEditMeeting],
+  );
+
+  const handleDrawerDuplicate = useCallback(
+    (meeting: DayDrawerMeeting) => {
+      setDayDrawerOpen(false);
+      handleDuplicateMeeting(meeting as Meeting);
+    },
+    [handleDuplicateMeeting],
+  );
+
+  const handleDrawerDelete = useCallback(
+    (meeting: DayDrawerMeeting) => {
+      handleDeleteMeeting(meeting as Meeting);
+    },
+    [handleDeleteMeeting],
+  );
+
+  // Close the day drawer whenever the selected plan changes.
+  useEffect(() => {
+    setSelectedDay(null);
+    setDayDrawerOpen(false);
+  }, [selectedPlan]);
   // Earliest selectable meeting date: tomorrow (disable today and all past days).
   const minSelectableDate = addDays(startOfDay(new Date()), 1);
   // Show all meetings (upcoming + past + drafts) — the Upcoming/Past toggle was removed.
@@ -1104,6 +1169,27 @@ export default function MeetingsPage() {
       }));
   }, [meetings, selectedPlan, clients]);
 
+  // Full meetings for the selected plan (used by the day drawer actions).
+  const planMeetings = useMemo(() => {
+    if (!selectedPlan) return [];
+    const planClient = clients.find((c) => c.id === selectedPlan);
+    if (!planClient) return [];
+    const planName = planClient.companyName.toLowerCase();
+    return meetings.filter(
+      (m) =>
+        (m.clientId && m.clientId === selectedPlan) ||
+        (m.client && m.client.toLowerCase() === planName),
+    );
+  }, [meetings, selectedPlan, clients]);
+
+  // Meetings for the currently selected day, shown in the day drawer.
+  const dayMeetings = useMemo(() => {
+    if (!selectedDay) return [];
+    return planMeetings.filter(
+      (m) => format(parseLocalDate(m.date), "yyyy-MM-dd") === selectedDay,
+    );
+  }, [planMeetings, selectedDay]);
+
   return (
     <div className="p-6 bg-background">
       <div className="w-full space-y-6 max-w-4xl mx-auto">
@@ -1135,7 +1221,11 @@ export default function MeetingsPage() {
                   </div>
 
                   {viewMode === "calendar" ? (
-                    <MeetingsCalendarView meetings={calendarMeetings} />
+                    <MeetingsCalendarView
+                      meetings={calendarMeetings}
+                      onSelectDay={openDayDrawer}
+                      onQuickAdd={openScheduleForDay}
+                    />
                   ) : viewMode === "preview" ? (
                     null
                   ) : (
@@ -1739,6 +1829,18 @@ export default function MeetingsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Day Drawer (Calendar view) */}
+      <MeetingDayDrawer
+        open={dayDrawerOpen}
+        onOpenChange={setDayDrawerOpen}
+        dateKey={selectedDay}
+        meetings={dayMeetings}
+        onAdd={handleDrawerAdd}
+        onEdit={handleDrawerEdit}
+        onDuplicate={handleDrawerDuplicate}
+        onDelete={handleDrawerDelete}
+      />
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog

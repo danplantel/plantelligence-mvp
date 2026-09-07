@@ -1,18 +1,20 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   addDays,
   addMonths,
   endOfMonth,
   format,
+  isBefore,
   isSameDay,
   isSameMonth,
   startOfDay,
   startOfMonth,
   startOfWeek,
 } from "date-fns";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, PanelRight, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface CalendarMeeting {
@@ -29,10 +31,17 @@ export interface CalendarMeeting {
 interface MeetingsCalendarViewProps {
   /** Meetings to plot (already scoped to the selected plan). */
   meetings: CalendarMeeting[];
+  /** Fired when an in-month day is clicked (opens the day drawer). */
+  onSelectDay?: (dayKey: string) => void;
+  /** Fired when the "Add a Meeting" hover action is chosen. */
+  onQuickAdd?: (dayKey: string) => void;
 }
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const GRID_SIZE = 42; // 6 weeks so every month grid stays uniform
+
+const HOVER_MENU_WIDTH = 168;
+const HOVER_MENU_HEIGHT = 88; // approx. height used to keep the menu on-screen
 
 const parseLocalDate = (value: string): Date => {
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
@@ -50,8 +59,14 @@ const formatTimeAbbrev = (time24: string): string => {
   return `${h12}:${m.toString().padStart(2, "0")}${ampm}`;
 };
 
-export function MeetingsCalendarView({ meetings }: MeetingsCalendarViewProps) {
+export function MeetingsCalendarView({
+  meetings,
+  onSelectDay,
+  onQuickAdd,
+}: MeetingsCalendarViewProps) {
   const today = useMemo(() => startOfDay(new Date()), []);
+  // Scheduling is only allowed at least one day ahead; today and past days are read-only.
+  const minSchedulable = useMemo(() => addDays(today, 1), [today]);
 
   // 12 month anchors, starting at the current month.
   const monthAnchors = useMemo(
@@ -81,6 +96,65 @@ export function MeetingsCalendarView({ meetings }: MeetingsCalendarViewProps) {
   }, [windowMeetings]);
 
   const scheduledCount = windowMeetings.length;
+
+  // Hover menu: a single portal-anchored menu that appears just under the date
+  // number of the hovered day. It always opens from the same relative spot.
+  const [hoverMenu, setHoverMenu] = useState<{
+    dayKey: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  const hoverTimer = useRef<number | null>(null);
+
+  const clearHoverTimer = () => {
+    if (hoverTimer.current !== null) {
+      window.clearTimeout(hoverTimer.current);
+      hoverTimer.current = null;
+    }
+  };
+
+  const scheduleCloseMenu = () => {
+    clearHoverTimer();
+    hoverTimer.current = window.setTimeout(() => setHoverMenu(null), 160);
+  };
+
+  const openHoverMenu = (dayKey: string, el: HTMLElement) => {
+    clearHoverTimer();
+    const rect = el.getBoundingClientRect();
+    // Always open centered under the date number (static location), downward.
+    let x = rect.left + rect.width / 2 - HOVER_MENU_WIDTH / 2;
+    x = Math.max(8, Math.min(x, window.innerWidth - HOVER_MENU_WIDTH - 8));
+    let y = rect.top + 18; // just below the date number
+    if (y + HOVER_MENU_HEIGHT > window.innerHeight - 8) {
+      y = Math.max(8, rect.top - HOVER_MENU_HEIGHT - 6);
+    }
+    setHoverMenu({ dayKey, x, y });
+  };
+
+  const runHoverAction = (fn?: (dayKey: string) => void) => (dayKey: string) => {
+    setHoverMenu(null);
+    fn?.(dayKey);
+  };
+
+  // Reposition safety: close the menu if the page scrolls/resizes while open.
+  useEffect(() => {
+    if (!hoverMenu) return;
+    const close = () => setHoverMenu(null);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [hoverMenu]);
+
+  // Clear any pending close timer on unmount.
+  useEffect(
+    () => () => {
+      if (hoverTimer.current !== null) window.clearTimeout(hoverTimer.current);
+    },
+    [],
+  );
 
   return (
     <div className="space-y-4">
@@ -155,59 +229,82 @@ export function MeetingsCalendarView({ meetings }: MeetingsCalendarViewProps) {
                   const dayMeetings = meetingsByDay.get(dayKey) ?? [];
                   const inMonth = isSameMonth(cell, month);
                   const isToday = isSameDay(cell, today);
+                  const schedulable = !isBefore(cell, minSchedulable);
+                  const meetingTooltip =
+                    dayMeetings.length > 0
+                      ? dayMeetings
+                          .map((m) => `${m.time ? formatTimeAbbrev(m.time) : "All day"} · ${m.title}`)
+                          .join("\n")
+                      : undefined;
+
+                  const dayNumber = (
+                    <span
+                      className={cn(
+                        "mx-auto flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] tabular-nums leading-none",
+                        isToday && "bg-blue-500 font-bold text-white",
+                        !isToday && inMonth && dayMeetings.length > 0 && "font-semibold text-foreground",
+                        !isToday && inMonth && dayMeetings.length === 0 && "text-muted-foreground",
+                        !isToday && !inMonth && "text-muted-foreground/40",
+                      )}
+                    >
+                      {format(cell, "d")}
+                    </span>
+                  );
+
+                  const canOpenMenu =
+                    (schedulable && !!onQuickAdd) ||
+                    (dayMeetings.length > 0 && !!onSelectDay);
+
                   return (
                     <div
                       key={dayKey}
-                      title={
-                        dayMeetings.length > 0
-                          ? dayMeetings
-                              .map((m) => `${m.time ? formatTimeAbbrev(m.time) : "All day"} · ${m.title}`)
-                              .join("\n")
-                          : undefined
-                      }
+                      onMouseEnter={(e) => {
+                        if (!inMonth || !canOpenMenu) return;
+                        openHoverMenu(dayKey, e.currentTarget);
+                      }}
+                      onMouseLeave={() => {
+                        if (inMonth) scheduleCloseMenu();
+                      }}
                       className={cn(
-                        "flex min-h-[46px] flex-col bg-card p-0.5 transition-colors duration-150",
+                        "relative flex min-h-[46px] flex-col bg-card p-0.5 transition-colors duration-150",
                         !inMonth && "bg-muted/40",
                         inMonth && "cursor-default hover:bg-accent-blue-light",
                         dayMeetings.length > 0 && "bg-accent-blue/[0.03]",
                       )}
                     >
-                      <span
-                        className={cn(
-                          "mx-auto flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] tabular-nums leading-none",
-                          isToday && "bg-blue-500 font-bold text-white",
-                          !isToday && inMonth && dayMeetings.length > 0 && "font-semibold text-foreground",
-                          !isToday && inMonth && dayMeetings.length === 0 && "text-muted-foreground",
-                          !isToday && !inMonth && "text-muted-foreground/40",
-                        )}
-                      >
-                        {format(cell, "d")}
-                      </span>
-                      {inMonth && dayMeetings.length > 0 && (
-                        <div className="mt-1 flex flex-col gap-0.5">
-                          {dayMeetings.slice(0, 2).map((m) => {
-                            const isDraft = (m.status || "").toLowerCase() === "draft";
-                            return (
-                              <div
-                                key={m.id}
+                      {inMonth ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setHoverMenu(null);
+                            onSelectDay?.(dayKey);
+                          }}
+                          title={meetingTooltip}
+                          aria-label={`Open ${format(cell, "EEEE, MMMM d, yyyy")}`}
+                          className="flex w-full flex-1 flex-col items-center rounded-[6px] focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-blue"
+                        >
+                          {dayNumber}
+                          {dayMeetings.length > 0 && (
+                            <div className="mt-1 flex w-full items-center justify-center px-0.5">
+                              <span
+                                title={meetingTooltip}
                                 className={cn(
-                                  "truncate rounded px-1 py-0.5 text-[9px] font-medium leading-tight",
-                                  isDraft
+                                  "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-bold leading-none",
+                                  dayMeetings.some(
+                                    (m) => (m.status || "").toLowerCase() === "draft",
+                                  )
                                     ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200"
                                     : "bg-accent-blue/10 text-accent-blue",
                                 )}
-                                title={m.title}
                               >
-                                {m.time ? formatTimeAbbrev(m.time) : "All day"}
-                              </div>
-                            );
-                          })}
-                          {dayMeetings.length > 2 && (
-                            <div className="text-center text-[9px] font-semibold text-muted-foreground">
-                              +{dayMeetings.length - 2} more
+                                <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                                {dayMeetings.length}
+                              </span>
                             </div>
                           )}
-                        </div>
+                        </button>
+                      ) : (
+                        <div className="flex w-full flex-1 flex-col items-center">{dayNumber}</div>
                       )}
                     </div>
                   );
@@ -217,6 +314,49 @@ export function MeetingsCalendarView({ meetings }: MeetingsCalendarViewProps) {
           );
         })}
       </div>
+
+      {/* Portal hover menu — static position just under the hovered day's date number */}
+      {hoverMenu &&
+        (() => {
+          const m = hoverMenu;
+          const hoverMeetings = meetingsByDay.get(m.dayKey) ?? [];
+          const canSchedule = !isBefore(parseLocalDate(m.dayKey), minSchedulable);
+          const showAdd = canSchedule && !!onQuickAdd;
+          const showView = hoverMeetings.length > 0 && !!onSelectDay;
+          if (!showAdd && !showView) return null;
+          return createPortal(
+            <div
+              className="fixed z-[70]"
+              style={{ left: m.x, top: m.y }}
+              onMouseEnter={clearHoverTimer}
+              onMouseLeave={scheduleCloseMenu}
+            >
+              <div className="w-[168px] overflow-hidden rounded-lg border border-gray-200 bg-white py-1 text-gray-800 shadow-xl dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100">
+                {showAdd && (
+                  <button
+                    type="button"
+                    onClick={() => runHoverAction(onQuickAdd)(m.dayKey)}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold transition-colors hover:bg-accent-blue-light hover:text-accent-blue dark:hover:bg-accent-blue/25 dark:hover:text-[#7ce1ea]"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add a Meeting
+                  </button>
+                )}
+                {showView && (
+                  <button
+                    type="button"
+                    onClick={() => runHoverAction(onSelectDay)(m.dayKey)}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold transition-colors hover:bg-accent-blue-light hover:text-accent-blue dark:hover:bg-accent-blue/25 dark:hover:text-[#7ce1ea]"
+                  >
+                    <PanelRight className="h-3.5 w-3.5" />
+                    View Meetings
+                  </button>
+                )}
+              </div>
+            </div>,
+            document.body,
+          );
+        })()}
     </div>
   );
 }

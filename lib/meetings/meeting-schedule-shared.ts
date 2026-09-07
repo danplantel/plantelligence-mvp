@@ -66,6 +66,16 @@ export function getTimezoneAbbr(timezone: string): string {
   return tzMap[timezone] || timezone.split("/")[1] || timezone;
 }
 
+/** Format a 24-hour "HH:mm" time as 12-hour ("9:30 AM"). Empty string when invalid. */
+export function formatTime12h(time24?: string | null): string {
+  if (!time24) return "";
+  const [hour24, minute] = time24.split(":").map(Number);
+  if (Number.isNaN(hour24) || Number.isNaN(minute)) return time24;
+  const ampm = hour24 >= 12 ? "PM" : "AM";
+  const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
+  return `${hour12}:${minute.toString().padStart(2, "0")} ${ampm}`;
+}
+
 /** Same list as `app/(dashboard)/communications/meetings/page.tsx` */
 export const TIMEZONE_OPTIONS = [
   { value: "America/New_York", label: "Eastern Time (ET)" },
