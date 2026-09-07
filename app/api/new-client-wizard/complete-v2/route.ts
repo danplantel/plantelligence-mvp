@@ -779,37 +779,50 @@ export async function POST(request: NextRequest) {
             }),
           );
 
-          for (const draftDoc of draftDocuments) {
-            if ((draftDoc as any).archivedAt) continue;
+          // Create the not-yet-copied draft documents concurrently. Each create is
+          // an independent DB insert, so awaiting them one-by-one needlessly added
+          // a round-trip per document to the publish path.
+          const missingDraftDocs = draftDocuments.filter((draftDoc: any) => {
+            if ((draftDoc as any).archivedAt) return false;
             const dedupeKey = (draftDoc as any).storageKey
               ? `storage:${(draftDoc as any).storageKey}`
               : `file:${draftDoc.fileName || ""}:${draftDoc.title || ""}:${draftDoc.type || ""}`;
-            if (copiedKeys.has(dedupeKey)) continue;
+            return !copiedKeys.has(dedupeKey);
+          });
 
-            const copiedDocument = await prisma.document.create({
-              data: {
-                title: draftDoc.title,
-                fileName: draftDoc.fileName,
-                fileUrl: draftDoc.fileUrl,
-                storageKey: (draftDoc as any).storageKey || null,
-                shortDescription: (draftDoc as any).shortDescription || null,
-                type: draftDoc.type || "Document",
-                category: resolvePersistedDocumentCategory(
-                  draftDoc.type,
-                  (draftDoc as any).category,
-                  (draftDoc as any).storageKey,
-                ),
-                categorySuggested: (draftDoc as any).categorySuggested || null,
-                categoryConfidence: (draftDoc as any).categoryConfidence || null,
-                language: draftDoc.language || "EN",
-                expirationDate: draftDoc.expirationDate || null,
-                showQrCode: (draftDoc as any).showQrCode ?? true,
-                clientId: client.id,
-                uploadedAt: draftDoc.uploadedAt || new Date(),
-              } as any,
-            });
-            documents.push(copiedDocument);
-            copiedKeys.add(dedupeKey);
+          if (missingDraftDocs.length > 0) {
+            const copiedDocuments = await Promise.all(
+              missingDraftDocs.map(async (draftDoc: any) => {
+                const dedupeKey = draftDoc.storageKey
+                  ? `storage:${draftDoc.storageKey}`
+                  : `file:${draftDoc.fileName || ""}:${draftDoc.title || ""}:${draftDoc.type || ""}`;
+                const copiedDocument = await prisma.document.create({
+                  data: {
+                    title: draftDoc.title,
+                    fileName: draftDoc.fileName,
+                    fileUrl: draftDoc.fileUrl,
+                    storageKey: draftDoc.storageKey || null,
+                    shortDescription: draftDoc.shortDescription || null,
+                    type: draftDoc.type || "Document",
+                    category: resolvePersistedDocumentCategory(
+                      draftDoc.type,
+                      draftDoc.category,
+                      draftDoc.storageKey,
+                    ),
+                    categorySuggested: draftDoc.categorySuggested || null,
+                    categoryConfidence: draftDoc.categoryConfidence || null,
+                    language: draftDoc.language || "EN",
+                    expirationDate: draftDoc.expirationDate || null,
+                    showQrCode: draftDoc.showQrCode ?? true,
+                    clientId: client.id,
+                    uploadedAt: draftDoc.uploadedAt || new Date(),
+                  } as any,
+                });
+                documents.push(copiedDocument);
+                copiedKeys.add(dedupeKey);
+                return copiedDocument;
+              }),
+            );
           }
         }
 

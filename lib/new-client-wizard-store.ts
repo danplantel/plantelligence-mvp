@@ -1326,57 +1326,66 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
             );
           }
 
-          // ── 2. Individual step saves (fallback if saveAsDraft failed) ──
-          // Each request has a much smaller payload than the bundled save-draft,
-          // so even if save-draft hit a body-size limit, these are more likely
-          // to succeed. With retry logic in saveStepDataToServer, transient
-          // failures are also handled.
-          const stepSaveOrder: Array<keyof typeof stepData> = [
-            "companyBasics",
-            "welcomeStatement",
-            "keyContacts",
-            "contactBuilder",
-            "complianceDocuments",
-            "disclaimers",
-            "employeePortalPreview",
-          ];
+          // ── 2. Individual step saves — ONLY when save-draft failed ──
+          // saveAsDraft already upserts every wizard-session sub-record
+          // (newClientCompanyBasics, newClientWelcomeStatement, keyContacts,
+          // complianceDocuments, and the disclaimers inside previewData), so when
+          // it succeeds there is nothing left to persist — re-running the per-step
+          // POSTs just stacks ~5 more multi-second requests on the publish path
+          // before complete-v2 even starts. They exist purely as a fallback for
+          // when the bundled save-draft fails (e.g. 413 Payload Too Large).
+          if (!anySaveSucceeded) {
+            // Each request has a much smaller payload than the bundled save-draft,
+            // so even if save-draft hit a body-size limit, these are more likely
+            // to succeed. With retry logic in saveStepDataToServer, transient
+            // failures are also handled.
+            const stepSaveOrder: Array<keyof typeof stepData> = [
+              "companyBasics",
+              "welcomeStatement",
+              "keyContacts",
+              "contactBuilder",
+              "complianceDocuments",
+              "disclaimers",
+              "employeePortalPreview",
+            ];
 
-          // Run the per-step saves concurrently — each writes an independent
-          // wizard-session sub-record, so awaiting them one-by-one (each is a
-          // slow POST that could take several seconds) needlessly serialized the
-          // publish path and made "Complete Setup" take ~20s before complete-v2
-          // even started.
-          const stepSaves: Array<{ stepType: string; data: any }> = [];
-          for (const stepType of stepSaveOrder) {
-            const data = stepData[stepType];
-            if (!data) continue;
-            if (
-              stepType === "contactBuilder" &&
-              (!(data as any).fullName ||
-                !(data as any).title ||
-                !(data as any).companyName ||
-                !(data as any).orgType)
-            ) {
-              continue;
+            // Run the per-step saves concurrently — each writes an independent
+            // wizard-session sub-record, so awaiting them one-by-one (each is a
+            // slow POST that could take several seconds) needlessly serialized the
+            // publish path and made "Complete Setup" take ~20s before complete-v2
+            // even started.
+            const stepSaves: Array<{ stepType: string; data: any }> = [];
+            for (const stepType of stepSaveOrder) {
+              const data = stepData[stepType];
+              if (!data) continue;
+              if (
+                stepType === "contactBuilder" &&
+                (!(data as any).fullName ||
+                  !(data as any).title ||
+                  !(data as any).companyName ||
+                  !(data as any).orgType)
+              ) {
+                continue;
+              }
+              stepSaves.push({ stepType: String(stepType), data });
             }
-            stepSaves.push({ stepType: String(stepType), data });
-          }
 
-          if (stepSaves.length > 0) {
-            const results = await Promise.all(
-              stepSaves.map(({ stepType, data }) =>
-                get()
-                  .saveStepDataToServer(stepType, data)
-                  .then((saved: boolean) => ({ stepType, saved })),
-              ),
-            );
-            for (const { stepType, saved } of results) {
-              if (saved) {
-                anySaveSucceeded = true;
-              } else {
-                console.warn(
-                  `⚠️ completeWizard: saveStepDataToServer("${String(stepType)}") returned false — proceeding anyway`,
-                );
+            if (stepSaves.length > 0) {
+              const results = await Promise.all(
+                stepSaves.map(({ stepType, data }) =>
+                  get()
+                    .saveStepDataToServer(stepType, data)
+                    .then((saved: boolean) => ({ stepType, saved })),
+                ),
+              );
+              for (const { stepType, saved } of results) {
+                if (saved) {
+                  anySaveSucceeded = true;
+                } else {
+                  console.warn(
+                    `⚠️ completeWizard: saveStepDataToServer("${String(stepType)}") returned false — proceeding anyway`,
+                  );
+                }
               }
             }
           }
