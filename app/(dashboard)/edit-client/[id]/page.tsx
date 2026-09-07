@@ -102,7 +102,7 @@ import type {
 } from "@/types/new-client-wizard";
 import { EditPlanPreviewSection } from "@/components/wizard/new-client-steps/sections/edit-plan-preview-section";
 import { BrandColorsSection } from "@/components/wizard/new-client-steps/sections/brand-colors-section";
-import { CardSelectionModal } from "@/components/wizard/new-client-steps/card-selection-modal";
+import { CardSelectionModal } from "@/components/ui/card-selection-modal";
 import { PortalDisclaimers } from "@/components/pages/client-portal/sections/portal-disclaimers";
 import { uploadBrandingToR2 } from "@/lib/branding-r2";
 import {

@@ -28,7 +28,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle, Eye, FileText, Edit2, X } from "lucide-react";
 
 /**
- * New Client Step 5a – Home Page Footer Disclaimer
+ * New Client Step 5 – Home Page Footer Disclaimer
  *
  * The user creates exactly ONE disclaimer that appears in the Footer of the
  * **Home Page** (`app/(portal)/[id]/page.tsx`). This is **not** a benefit
@@ -266,18 +266,18 @@ function DisclaimerModal({
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  NewClientStep5a — Single Disclaimer for the Home Page
+//  NewClientStep5 — Single Disclaimer for the Home Page
 // ═══════════════════════════════════════════════════════════════════════════
 
-interface NewClientStep5aProps {
+interface NewClientStep5Props {
   errorFields?: string[];
   onValidationChange?: (isValid: boolean) => void;
 }
 
-export function NewClientStep5a({
+export function NewClientStep5({
   errorFields = [],
   onValidationChange,
-}: NewClientStep5aProps) {
+}: NewClientStep5Props) {
   const {
     stepData: newClientStepData,
     saveStepDataLocally,
@@ -306,7 +306,7 @@ export function NewClientStep5a({
     newClientStepData.companyBasics?.companyName || "[Company Name]";
 
   // DEBUG: confirm what [Organization Name] resolves to.
-  console.log("[step5a] org/company resolve:", JSON.stringify({
+  console.log("[step5] org/company resolve:", JSON.stringify({
     onboardingBrandingOrg: onboardingStepData.branding?.organizationName ?? null,
     advisorProfileOrg: (advisorProfile as any)?.organizationName ?? null,
     planCompany: newClientStepData.companyBasics?.companyName ?? null,
