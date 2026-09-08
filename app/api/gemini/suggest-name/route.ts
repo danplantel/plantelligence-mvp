@@ -99,7 +99,9 @@ DESCRIPTION RULES
 
 Write one plain-language sentence under 140 characters when practical.
 
-Use:
+The description language MUST match the document language (see LANGUAGE RULES): English documents get English descriptions, Spanish documents get fully Spanish descriptions. Never mix English and Spanish within a description.
+
+For English descriptions use:
 
 - "Use this form to..." for forms
 - "Explains..." for notices
@@ -108,14 +110,23 @@ Use:
 - "Lists..." for lists
 - "Shows..." for reports
 
+For Spanish descriptions use:
+
+- "Use este formulario para..." for forms
+- "Explica..." for notices
+- "Resume..." for summaries
+- "Instrucciones para..." for instructions
+- "Lista..." for lists
+- "Muestra..." for reports
+
 Describe the document's actual purpose.
 
-Do not use generic filler such as:
+Do not use generic filler in the document's language, such as:
 
-- Important plan information
-- Complete guide to your benefits
-- Learn more about your plan
-- Information about this document
+- "Important plan information" / "Información importante del plan"
+- "Complete guide to your benefits" / "Guía completa de sus beneficios"
+- "Learn more about your plan" / "Obtenga más información sobre su plan"
+- "Information about this document" / "Información sobre este documento"
 
 Do not promise eligibility, approval, payment, coverage, or benefits.
 

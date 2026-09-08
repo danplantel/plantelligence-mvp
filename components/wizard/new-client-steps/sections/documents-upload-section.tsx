@@ -679,6 +679,8 @@ export function DocumentsUploadSection({
                     : (rawItem as Record<string, unknown> | null | undefined);
                 const candidate = parsed?.display_title;
                 const title = typeof candidate === "string" ? candidate.trim() : "";
+                const descriptionCandidate = parsed?.description;
+                const description = typeof descriptionCandidate === "string" ? descriptionCandidate.trim() : "";
                 if (title) {
                   newDocuments[i] = {
                     ...newDocuments[i],
@@ -686,6 +688,16 @@ export function DocumentsUploadSection({
                     name: title.slice(0, 60),
                   };
                   applied++;
+                }
+                // Also apply Gemini's suggested description (written in the document's
+                // detected language — Spanish for Spanish documents) so Documents and the
+                // Portal show the correct-language description instead of an English default.
+                if (description) {
+                  newDocuments[i] = {
+                    ...newDocuments[i],
+                    // Keep within the 200-char field limit used elsewhere in this form.
+                    shortDescription: description.slice(0, 200),
+                  };
                 }
               }
               // Gemini suggestions applied silently to document names
