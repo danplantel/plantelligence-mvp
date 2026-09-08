@@ -285,7 +285,11 @@ function RenderCardBySlot({
   switch (slot.type) {
     case "primary":
       return (
-        <div className="relative w-full h-full">
+        // cursor-pointer across the entire primary card so the pointer never
+        // "disappears" over the card background — matches the small/large cards,
+        // which set cursor-pointer on their whole surface. Interactive children
+        // (profile picture, links, CTA) keep their own pointers on top.
+        <div className="relative w-full h-full cursor-pointer">
           {categoryBadge}
           <PrimaryContactCard
             contact={contactWithProps}
