@@ -82,11 +82,15 @@ export async function suggestDocumentName(
       body.availableDocumentTypes = availableDocumentTypes;
     }
 
-    // Prefer sending the raw PDF file so Gemini can read it via vision
+    // Always send the extracted text when available (now normalized to readable
+    // English/Spanish by extractTextFromPDF) so the API can steer language detection
+    // and sanity-check the model's "language" output. Also send the raw PDF when
+    // available so Gemini can read image-based/scanned pages directly.
+    if (pdfText && pdfText.trim().length > 50) {
+      body.pdfText = pdfText.substring(0, 1500);
+    }
     if (pdfBase64 && pdfBase64.startsWith("data:") && pdfBase64.length > 100) {
       body.pdfBase64 = pdfBase64;
-    } else if (pdfText && pdfText.trim().length > 50) {
-      body.pdfText = pdfText.substring(0, 1500);
     }
 
     const response = await fetch("/api/gemini/suggest-name", {

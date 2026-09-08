@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { normalizePdfText, detectEnEsLanguage } from "@/lib/pdf-text-normalize";
 
 const API_KEY = process.env.GEMINI_API_KEY || "";
 
@@ -18,6 +19,9 @@ selected_category:
 
 custom_category_name:
 {{CUSTOM_CATEGORY_NAME_OR_NULL}}
+
+detected_language:
+{{DETECTED_LANGUAGE}}
 
 document_text:
 {{DOCUMENT_TEXT}}
@@ -55,20 +59,25 @@ The filename is a secondary clue only.
 
 LANGUAGE RULES
 
-1. Detect the primary language of the document from its content (document_text and/or the PDF). Recognize both English and Spanish benefits documents.
-2. Set the "language" field to the matching ISO 639-1 code: "en" for English, "es" for Spanish.
-3. Write the display_title, display_document_type, and description IN the detected document language so plan members see a title in the language they read.
+1. The "detected_language" input is computed from the document text by a reliable detector. Treat it as authoritative: it states the language the document's content is predominantly written in. Default to it unless the content clearly contradicts it.
+2. Detect the primary language ONLY from the dominant written content of the document. Recognize both English and Spanish benefits documents.
+3. Never decide the language from:
+   - Reversed or garbled characters (PDF text-extraction artifacts such as "ytilibigil" instead of "Eligibility"). Such text carries no language signal; ignore it.
+   - A one- or two-line multilingual notice, footer, or "available in Spanish" statement.
+   - The file name or any marketing boilerplate.
+4. Set the "language" field to the matching ISO 639-1 code: "en" for English, "es" for Spanish.
+5. Write the display_title, display_document_type, and description IN the detected document language so plan members see a title in the language they read.
    - English document -> English title and description.
    - Spanish document -> Spanish title and description (for example, "Folleto de Inscripción - Plan de Jubilación 401(k)").
-4. For Spanish documents, use Spanish description lead-ins:
+6. For Spanish documents, use Spanish description lead-ins:
    - "Use este formulario para..." for forms
    - "Explica..." for notices
    - "Resume..." for summaries
    - "Instrucciones para..." for instructions
    - "Lista..." for lists
    - "Muestra..." for reports
-5. Keep Spanish text concise: title under 75 characters and description under 140 characters when practical.
-6. Never translate an English document into Spanish, and never force a Spanish title onto an English document. Match the output language to the content only.
+7. Keep Spanish text concise: title under 75 characters and description under 140 characters when practical.
+8. Never translate an English document into Spanish, and never force a Spanish title onto an English document. Match the output language to the content only.
 
 TITLE RULES
 
@@ -233,6 +242,21 @@ export async function POST(request: NextRequest) {
     const model = "gemini-3.5-flash-lite";
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`;
 
+    // pdf-parse returns some PDFs (e.g. ADP plan-highlight booklets) with every line
+    // reversed character-by-character. Normalize so the model reads real English/Spanish
+    // words instead of garbled text that can make it mislabel an English document as
+    // Spanish (franc even classifies the reversed English text as Spanish).
+    const normalizedPdfText = normalizePdfText(
+      typeof pdfText === "string" ? pdfText : "",
+    );
+    // Pre-detect the language from the readable text to steer the model and to
+    // sanity-check its "language" output below. Only computed when there is enough
+    // text to be reliable; vision-only requests get no hint.
+    const detectedLanguageHint =
+      normalizedPdfText.trim().length >= 80
+        ? detectEnEsLanguage(normalizedPdfText)
+        : null;
+
     // Build the user prompt with the input values substituted into the template format
     const userPrompt = `original_file_name:
 ${originalFileName || ""}
@@ -243,8 +267,11 @@ ${selectedCategory || ""}
 custom_category_name:
 ${customCategoryName ?? null}
 
+detected_language:
+${detectedLanguageHint ?? ""}
+
 document_text:
-${pdfText || ""}
+${normalizedPdfText}
 
 available_document_types:
 ${JSON.stringify(availableDocumentTypes || {})}`;
@@ -262,10 +289,10 @@ ${JSON.stringify(availableDocumentTypes || {})}`;
         },
       });
       console.log(`[gemini-api] Sending PDF file (${Math.round(base64Data.length / 1024)}KB) for: ${originalFileName}`);
-    } else if (pdfText && typeof pdfText === "string" && pdfText.trim().length > 0) {
-      // pdfText is already included in the userPrompt above, but we still need to ensure
-      // the document_text field in the prompt is populated
-      console.log(`[gemini-api] Sending text-only (${pdfText.length} chars) for: ${originalFileName}`);
+    } else if (normalizedPdfText.trim().length > 0) {
+      // The normalized text is already included in the userPrompt above; this branch
+      // just keeps the same telemetry as before.
+      console.log(`[gemini-api] Sending text-only (${normalizedPdfText.length} chars) for: ${originalFileName}`);
     }
 
     // Increase maxOutputTokens to handle the full structured JSON response
@@ -395,6 +422,43 @@ ${JSON.stringify(availableDocumentTypes || {})}`;
       }
     }
 
+    // ── Language sanity check ──────────────────────────────────────────────────
+    // Guard against the model misreading an English document as Spanish — the exact
+    // failure mode seen on ADP-style PDFs whose extracted text pdf.js reverses. Only
+    // override on hard evidence: the readable document text is clearly English and
+    // contains no Spanish characters at all, yet the model labelled it Spanish.
+    const rawLanguage = String(result.language || "").trim().toLowerCase();
+    const isSpanishLabel =
+      rawLanguage === "es" ||
+      rawLanguage === "spa" ||
+      rawLanguage === "español" ||
+      rawLanguage === "espanol" ||
+      (rawLanguage.startsWith("es") && rawLanguage.length <= 3);
+    if (
+      detectedLanguageHint === "en" &&
+      isSpanishLabel &&
+      normalizedPdfText &&
+      !/[áéíóúñüÁÉÍÓÚÑÜ¿¡]/.test(normalizedPdfText)
+    ) {
+      result.language = "en";
+      const titleHasSpanish = /[áéíóúñüÁÉÍÓÚÑÜ¿¡]/.test(
+        String(result.display_title || ""),
+      );
+      const descriptionHasSpanish = /[áéíóúñüÁÉÍÓÚÑÜ¿¡]/.test(
+        String(result.description || ""),
+      );
+      if (titleHasSpanish || descriptionHasSpanish) {
+        // Drop the Spanish-language title/description so callers fall back to the
+        // original (English) filename instead of persisting Spanish content for an
+        // English document. Flag for review so a human can confirm.
+        result.display_title = "";
+        result.description = "";
+        result.needs_review = true;
+        result.review_reason =
+          "Language mismatch corrected: document text is English, but the suggested title/description were generated in Spanish.";
+      }
+    }
+
     // Validate required fields
     const validated = {
       display_title: result.display_title || "",
@@ -408,7 +472,11 @@ ${JSON.stringify(availableDocumentTypes || {})}`;
       provider: result.provider ?? null,
       plan_option: result.plan_option ?? null,
       document_year: result.document_year ?? null,
-      language: result.language || "en",
+      language:
+        result.language === "es" ||
+        String(result.language || "").toLowerCase().startsWith("es")
+          ? "es"
+          : "en",
       document_completion_status: result.document_completion_status || "informational",
       is_combined_document: typeof result.is_combined_document === "boolean" ? result.is_combined_document : false,
       combined_document_types: Array.isArray(result.combined_document_types) ? result.combined_document_types : [],

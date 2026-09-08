@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 // @ts-ignore
 import pdfParse from "pdf-parse";
+import { normalizePdfText } from "@/lib/pdf-text-normalize";
 
 export async function POST(request: NextRequest) {
   try {
@@ -41,10 +42,12 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await pdfParse(buffer);
-    const fullText = data.text || "";
-    if (fullText.length > 0) {
-    } else {
-    }
+    // pdf-parse returns some benefit booklets (ADP plan highlights, etc.) with every
+    // line reversed character-by-character. That garbled text makes franc-based
+    // language detection mislabel English documents as Spanish and defeats keyword
+    // category detection — normalize it before returning so every consumer (language,
+    // category, Gemini) sees the real English/Spanish words.
+    const fullText = normalizePdfText(data.text || "");
 
     return NextResponse.json({ text: fullText.trim() });
   } catch (error) {

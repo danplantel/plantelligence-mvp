@@ -2,6 +2,7 @@
 
 import { Document, BenefitsCategory } from "@/types/new-client-wizard";
 import { franc } from "franc";
+import { normalizePdfText } from "@/lib/pdf-text-normalize";
 
 export type DocumentLanguage = "EN" | "ES";
 
@@ -38,11 +39,10 @@ export const extractTextFromPDF = async (fileData: string): Promise<string> => {
     const data = await response.json();
     const extractedText = data.text || "";
 
-    if (extractedText.length > 0) {
-    } else {
-    }
-
-    return extractedText;
+    // Guard against the pdf-parse "reversed per line" artifact (ADP plan-highlight
+    // booklets, etc.). The server route already normalizes, but normalizing here too
+    // keeps language/category detection correct even when the text came from elsewhere.
+    return normalizePdfText(extractedText);
   } catch (error) {
     console.error("❌ [extractTextFromPDF] Error:", error);
     return "";
