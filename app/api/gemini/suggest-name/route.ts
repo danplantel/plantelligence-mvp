@@ -34,8 +34,8 @@ TASK
 4. Use the exact canonical type when there is a clear match.
 5. If no canonical type accurately fits, create a concise custom document type.
 6. Do not force an inaccurate canonical match.
-7. Generate an employee-facing display title.
-8. Generate a short description explaining what the document contains or allows the employee to do.
+7. Determine the document's primary language (see LANGUAGE RULES) and generate an employee-facing display title in that language.
+8. Generate a short description in the same language as the display title explaining what the document contains or allows the employee to do.
 9. Identify whether the document is informational, a blank form, a partially completed form, or a completed form.
 10. Flag category mismatches, unreadable documents, unrelated merged documents, and potential participant-specific information.
 
@@ -52,6 +52,23 @@ Use evidence in this order:
 7. Original filename
 
 The filename is a secondary clue only.
+
+LANGUAGE RULES
+
+1. Detect the primary language of the document from its content (document_text and/or the PDF). Recognize both English and Spanish benefits documents.
+2. Set the "language" field to the matching ISO 639-1 code: "en" for English, "es" for Spanish.
+3. Write the display_title, display_document_type, and description IN the detected document language so plan members see a title in the language they read.
+   - English document -> English title and description.
+   - Spanish document -> Spanish title and description (for example, "Folleto de Inscripción - Plan de Jubilación 401(k)").
+4. For Spanish documents, use Spanish description lead-ins:
+   - "Use este formulario para..." for forms
+   - "Explica..." for notices
+   - "Resume..." for summaries
+   - "Instrucciones para..." for instructions
+   - "Lista..." for lists
+   - "Muestra..." for reports
+5. Keep Spanish text concise: title under 75 characters and description under 140 characters when practical.
+6. Never translate an English document into Spanish, and never force a Spanish title onto an English document. Match the output language to the content only.
 
 TITLE RULES
 
