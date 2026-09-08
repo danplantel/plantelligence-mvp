@@ -2617,8 +2617,22 @@ export function BenefitsStep1() {
 
                     return categoryConfigs.map((cat) => {
                       const status = getCategoryStatus(cat.id);
-                      const isSelected =
-                        currentStepData.benefitCategory === cat.id;
+                      // "Custom" is stored (and deep-linked) as
+                      // "Company / Plan Sponsor", so normalize before comparing
+                      // to keep the active state lit after the user selects it.
+                      const isCategoryActive = (id: string): boolean => {
+                        const stored = (
+                          currentStepData.benefitCategory || ""
+                        ).trim();
+                        if (id === "Custom") {
+                          return (
+                            stored === "Custom" ||
+                            stored === "Company / Plan Sponsor"
+                          );
+                        }
+                        return stored === id;
+                      };
+                      const isSelected = isCategoryActive(cat.id);
 
                       return (
                         <button
@@ -2677,8 +2691,11 @@ export function BenefitsStep1() {
                 </div>
               )}
 
-              {/* Custom Category Title Input */}
-              {currentStepData.benefitCategory === "Custom" && (
+              {/* Custom Category Title Input — the store keeps Custom as
+                  "Company / Plan Sponsor", so accept both keys here. */}
+              {(currentStepData.benefitCategory === "Custom" ||
+                currentStepData.benefitCategory ===
+                  "Company / Plan Sponsor") && (
                 <div className="space-y-2 pt-2 animate-in slide-in-from-top-2 duration-300">
                   <Label className="text-sm font-semibold text-gray-700 dark:text-gray-100">
                     Custom Category Name <span className="text-red-500">*</span>
