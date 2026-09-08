@@ -429,6 +429,11 @@ export default function DocumentsPage() {
   const [sortColumn, setSortColumn] = useState<SortColumn>("uploadedAt");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [isLoading, setIsLoading] = useState(false);
+  // Plan-scoped documents loaded explicitly (brute-force) for the selected plan.
+  // `isLoadingDocs` drives a spinner dialog while a plan switch reloads docs.
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [isLoadingDocs, setIsLoadingDocs] = useState(false);
+  const [docsLoadedForPlan, setDocsLoadedForPlan] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState<{
     id: string;
@@ -495,35 +500,69 @@ export default function DocumentsPage() {
     [clientsData],
   );
 
-  const docsKey = useMemo(() => {
-    const params = new URLSearchParams();
-    if (searchTerm) params.append("search", searchTerm);
-    if (typeFilter !== "all") params.append("type", typeFilter);
-    if (clientFilter !== "all") params.append("clientId", clientFilter);
-    return `/api/documents?${params.toString()}`;
-  }, [searchTerm, typeFilter, clientFilter]);
-
-  const {
-    data: docsData,
-    mutate: refreshDocsSWR,
-  } = useSWR(docsKey, jsonFetcher, {
-    keepPreviousData: true,
-    dedupingInterval: 60_000,
-    revalidateOnFocus: false,
-    onSuccess: () => setIsLoading(false),
-    onError: () => {
-      toast.error("Failed to fetch documents");
-      setIsLoading(false);
+  // Brute-force fetch of the selected plan's documents. Called explicitly on
+  // every plan change (and after mutations via `fetchDocuments`) so the list
+  // always reflects the active plan — no SWR key/staleness involved.
+  const loadDocumentsForPlan = useCallback(
+    async (planId: string, showSpinner: boolean) => {
+      if (!planId) return;
+      if (showSpinner) {
+        // Clear stale rows immediately so the previous plan's documents can
+        // never linger while the new plan's documents are being fetched.
+        setDocuments([]);
+        setDocsLoadedForPlan(null);
+        setIsLoadingDocs(true);
+      }
+      setIsLoading(true);
+      try {
+        const params = new URLSearchParams();
+        if (searchTerm) params.append("search", searchTerm);
+        if (typeFilter !== "all") params.append("type", typeFilter);
+        params.append("clientId", planId);
+        const response = await fetch(`/api/documents?${params.toString()}`);
+        const json = await response.json();
+        if (!response.ok) {
+          throw new Error(json?.error || "Failed to fetch documents");
+        }
+        const raw: Document[] = json?.data ?? [];
+        const deduped = raw.filter(
+          (doc, idx, arr) => arr.findIndex((d) => d.id === doc.id) === idx,
+        );
+        setDocuments(deduped);
+        setDocsLoadedForPlan(planId);
+      } catch (error) {
+        console.error("Error fetching documents:", error);
+        setDocuments([]);
+        setDocsLoadedForPlan(null);
+        toast.error("Failed to fetch documents");
+      } finally {
+        setIsLoading(false);
+        if (showSpinner) setIsLoadingDocs(false);
+      }
     },
-  });
-  const documents: Document[] = useMemo(() => {
-    const raw: Document[] = docsData?.data ?? [];
-    return raw.filter((doc, idx, arr) => arr.findIndex((d) => d.id === doc.id) === idx);
-  }, [docsData]);
+    [searchTerm, typeFilter],
+  );
 
+  // Refetch the currently selected plan's documents (silent — used after
+  // upload/delete/reorder/review-date mutations).
   const fetchDocuments = useCallback((): Promise<any> => {
-    return refreshDocsSWR();
-  }, [refreshDocsSWR]);
+    if (!selectedPlan) return Promise.resolve();
+    return loadDocumentsForPlan(selectedPlan, false);
+  }, [selectedPlan, loadDocumentsForPlan]);
+
+  // Reload whenever the plan (or the server-side search/type filters) changes.
+  // Switching plans triggers a fresh brute-force fetch with a spinner dialog.
+  const docFetchKey = `${selectedPlan}::${searchTerm}::${typeFilter}`;
+  const lastDocFetchKeyRef = useRef("");
+  useEffect(() => {
+    if (!selectedPlan) return;
+    if (lastDocFetchKeyRef.current === docFetchKey) return;
+    const switchingPlans = lastDocFetchKeyRef.current !== "";
+    lastDocFetchKeyRef.current = docFetchKey;
+    setDocPreviews({});
+    setExpandedRow("");
+    void loadDocumentsForPlan(selectedPlan, switchingPlans);
+  }, [docFetchKey, selectedPlan, loadDocumentsForPlan]);
 
   const updateURL = (search: string, type: string, client: string) => {
     const params = new URLSearchParams();
@@ -604,8 +643,16 @@ export default function DocumentsPage() {
   }, [searchTerm, typeFilter, clientFilter, selectedPlan, activeSection, clients.length, searchParams]);
 
   const handlePlanChange = (clientId: string) => {
+    // No-op when the same plan is already selected — avoids clearing the loaded
+    // documents (the fetch effect won't re-run because the key is unchanged).
+    if (clientId === selectedPlan) return;
     setSelectedPlan(clientId);
     setClientFilter(clientId);
+    // Clear stale rows immediately so the previous plan's documents never flash
+    // under the new plan header while the brute-force fetch runs. The
+    // docFetchKey effect below performs the actual load (with a spinner).
+    setDocuments([]);
+    setDocsLoadedForPlan(null);
     setDocPreviews({});
     setExpandedRow("");
     const params = new URLSearchParams(window.location.search);
@@ -1070,9 +1117,9 @@ export default function DocumentsPage() {
                       </div>
                     ) : (
                       <>
-                    {!isLoading && docsData && sortedDocuments.length === 0 && (<div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-4 rounded-lg border border-dashed border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/50"><p className="text-gray-900 dark:text-gray-100 text-lg font-semibold">No documents for this plan yet</p><p className="text-muted-foreground text-sm">Upload retirement plan documents for this client on the Upload tab. After you save, they will appear here.</p><Button type="button" onClick={goToUploadTab}>Upload documents</Button></div>)}
-                    {!isLoading && docsData && sortedDocuments.length > 0 && retirementDocs.length === 0 && (<div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-3"><p className="text-gray-900 dark:text-gray-100 text-lg font-semibold">No documents in {languageFilter === "all" ? "English" : languageFilter === "EN" ? "English" : "Spanish"}</p><p className="text-muted-foreground text-sm">This plan has documents in another language. Use the language toggle above, or upload a file in the appropriate language on the Upload tab.</p><Button type="button" variant="outline" onClick={goToUploadTab}>Go to Upload</Button></div>)}
-                    {!isLoading && docsData && retirementDocs.length > 0 && filteredDocs.length === 0 && (<div className="flex flex-col items-center justify-center py-12 px-4 text-center gap-3"><p className="text-gray-900 dark:text-gray-100 text-base font-semibold">No documents match the current filters</p><p className="text-muted-foreground text-sm">Try adjusting the type, category or language filters above.</p><Button size="sm" variant="outline" onClick={() => { setTypeFilter("all"); setCategoryFilter("all"); setLanguageFilter("all"); }}>Clear Filters</Button></div>)}
+                    {!isLoading && !isLoadingDocs && docsLoadedForPlan === selectedPlan && sortedDocuments.length === 0 && (<div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-4 rounded-lg border border-dashed border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/50"><p className="text-gray-900 dark:text-gray-100 text-lg font-semibold">No documents for this plan yet</p><p className="text-muted-foreground text-sm">Upload retirement plan documents for this client on the Upload tab. After you save, they will appear here.</p><Button type="button" onClick={goToUploadTab}>Upload documents</Button></div>)}
+                    {!isLoading && !isLoadingDocs && docsLoadedForPlan === selectedPlan && sortedDocuments.length > 0 && retirementDocs.length === 0 && (<div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-3"><p className="text-gray-900 dark:text-gray-100 text-lg font-semibold">No documents in {languageFilter === "all" ? "English" : languageFilter === "EN" ? "English" : "Spanish"}</p><p className="text-muted-foreground text-sm">This plan has documents in another language. Use the language toggle above, or upload a file in the appropriate language on the Upload tab.</p><Button type="button" variant="outline" onClick={goToUploadTab}>Go to Upload</Button></div>)}
+                    {!isLoading && !isLoadingDocs && docsLoadedForPlan === selectedPlan && retirementDocs.length > 0 && filteredDocs.length === 0 && (<div className="flex flex-col items-center justify-center py-12 px-4 text-center gap-3"><p className="text-gray-900 dark:text-gray-100 text-base font-semibold">No documents match the current filters</p><p className="text-muted-foreground text-sm">Try adjusting the type, category or language filters above.</p><Button size="sm" variant="outline" onClick={() => { setTypeFilter("all"); setCategoryFilter("all"); setLanguageFilter("all"); }}>Clear Filters</Button></div>)}
                     {/* Deleting loading indicator */}
                     {isDeleting && (
                       <div className="flex items-center justify-center rounded-lg border border-accent-blue/30 bg-accent-blue/5 px-4 py-4 dark:border-accent-blue/20 dark:bg-accent-blue/10">
@@ -1291,6 +1338,21 @@ export default function DocumentsPage() {
             <DialogTitle className="text-lg font-semibold text-accent-blue">Adding Documents</DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground text-center">
               Saving and loading your documents…
+            </DialogDescription>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Loading spinner dialog shown while the selected plan's documents load */}
+      <Dialog
+        open={activeSection === "documents" && !!selectedPlan && isLoadingDocs}
+      >
+        <DialogContent className="sm:max-w-sm [&>button.absolute]:hidden" onInteractOutside={(e) => e.preventDefault()}>
+          <div className="flex flex-col items-center gap-4 py-8">
+            <div className="animate-spin rounded-full h-10 w-10 border-[3px] border-accent-blue border-t-transparent" />
+            <DialogTitle className="text-lg font-semibold text-accent-blue">Loading Documents</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground text-center">
+              Loading documents for the selected plan…
             </DialogDescription>
           </div>
         </DialogContent>
