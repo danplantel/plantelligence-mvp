@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  AlertTriangle, Clock, FileText, Download, Pencil, Trash2,
+  AlertTriangle, CalendarDays, Clock, FileText, Download, Pencil, Trash2,
   Eye, ArrowUpDown, ArrowUp, ArrowDown, LayoutGrid, List, Search, GripVertical, X, ExternalLink,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -27,6 +27,7 @@ import { RetirementDocumentsAccordion, RetirementDocumentItem } from "@/componen
 import { DocumentPreviewModal } from "@/components/pages/documents/components/document-preview-modal";
 import { DocumentEditModal } from "@/components/pages/documents/components/document-edit-modal";
 import { DocumentUploadTab } from "@/components/pages/documents/tabs/document-upload-tab";
+import { DocumentsCalendarView } from "@/components/pages/documents/views/documents-calendar-view";
 import type {
   Document,
   SortColumn,
@@ -418,7 +419,7 @@ export default function DocumentsPage() {
     }
   });
   const [languageFilter, setLanguageFilter] = useState("all");
-  const [viewMode, setViewMode] = useState<"list" | "cards">("list");
+  const [viewMode, setViewMode] = useState<"list" | "cards" | "calendar">("list");
   const [loadedCards, setLoadedCards] = useState<Set<string>>(new Set());
   const handleCardLoad = useCallback((docId: string) => {
     setLoadedCards((prev) => { const next = new Set(prev); next.add(docId); return next; });
@@ -789,6 +790,31 @@ export default function DocumentsPage() {
     if (doc) { setDocumentToEdit({ id: doc.id, title: doc.title, description: (doc as any).shortDescription || "", fileName: doc.fileName, category: doc.category }); setEditModalOpen(true); }
   };
 
+  const handleUpdateDocumentReviewDate = async (
+    docId: string,
+    date: string | null,
+  ): Promise<boolean> => {
+    try {
+      const response = await fetch(`/api/documents/${docId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ expirationDate: date }),
+      });
+      const result = await response.json();
+      if (response.ok && result.success) {
+        toast.success(date ? "Review date updated" : "Review date cleared");
+        setDocPreviews((prev) => { const next = { ...prev }; delete next[docId]; return next; });
+        await fetchDocuments();
+        return true;
+      }
+      toast.error(result.error || "Failed to update review date");
+      return false;
+    } catch {
+      toast.error("An error occurred while updating the review date");
+      return false;
+    }
+  };
+
   const goToUploadTab = () => { setActiveSection("upload"); const url = new URL(window.location.href); url.searchParams.set("section", "upload"); window.history.pushState({}, "", url.toString()); };
   const goToDocumentsSection = () => { setActiveSection("documents"); const url = new URL(window.location.href); url.searchParams.set("section", "documents"); window.history.pushState({}, "", url.toString()); };
 
@@ -915,9 +941,18 @@ export default function DocumentsPage() {
                       <div className="flex items-center border rounded-md overflow-hidden dark:border-gray-600 shrink-0">
                         <button type="button" onClick={() => setViewMode("list")} className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${viewMode === "list" ? "bg-accent-blue text-white" : "bg-white text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"}`}><List className="h-3.5 w-3.5 mr-1 inline" />List</button>
                         <button type="button" onClick={() => setViewMode("cards")} className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${viewMode === "cards" ? "bg-accent-blue text-white" : "bg-white text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"}`}><LayoutGrid className="h-3.5 w-3.5 mr-1 inline" />Cards</button>
+                        <button type="button" onClick={() => setViewMode("calendar")} className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${viewMode === "calendar" ? "bg-accent-blue text-white" : "bg-white text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"}`}><CalendarDays className="h-3.5 w-3.5 mr-1 inline" />Calendar</button>
                         <button type="button" onClick={() => setDocPortalPreviewOpen(true)} className="px-2.5 py-1.5 text-xs font-medium transition-colors bg-white text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"><Eye className="h-3.5 w-3.5 mr-1 inline" />Preview</button>
                       </div>
                     </div>
+                    {viewMode === "calendar" ? (
+                      <DocumentsCalendarView
+                        documents={documents}
+                        onPreview={(doc) => handlePreviewFromTable(doc.id, doc.title)}
+                        onUpdateReviewDate={handleUpdateDocumentReviewDate}
+                      />
+                    ) : (
+                      <>
                     {!isLoading && docsData && sortedDocuments.length === 0 && (<div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-4 rounded-lg border border-dashed border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/50"><p className="text-gray-900 dark:text-gray-100 text-lg font-semibold">No documents for this plan yet</p><p className="text-muted-foreground text-sm">Upload retirement plan documents for this client on the Upload tab. After you save, they will appear here.</p><Button type="button" onClick={goToUploadTab}>Upload documents</Button></div>)}
                     {!isLoading && docsData && sortedDocuments.length > 0 && retirementDocs.length === 0 && (<div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-3"><p className="text-gray-900 dark:text-gray-100 text-lg font-semibold">No documents in {languageFilter === "all" ? "English" : languageFilter === "EN" ? "English" : "Spanish"}</p><p className="text-muted-foreground text-sm">This plan has documents in another language. Use the language toggle above, or upload a file in the appropriate language on the Upload tab.</p><Button type="button" variant="outline" onClick={goToUploadTab}>Go to Upload</Button></div>)}
                     {!isLoading && docsData && retirementDocs.length > 0 && filteredDocs.length === 0 && (<div className="flex flex-col items-center justify-center py-12 px-4 text-center gap-3"><p className="text-gray-900 dark:text-gray-100 text-base font-semibold">No documents match the current filters</p><p className="text-muted-foreground text-sm">Try adjusting the type, category or language filters above.</p><Button size="sm" variant="outline" onClick={() => { setTypeFilter("all"); setCategoryFilter("all"); setLanguageFilter("all"); }}>Clear Filters</Button></div>)}
@@ -1118,6 +1153,8 @@ export default function DocumentsPage() {
                         </div>
                       </DragDropContext>
                   )}
+                      </>
+                    )}
                   </div>
                 )}
                 </CardContent>
