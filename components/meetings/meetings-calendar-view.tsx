@@ -14,7 +14,14 @@ import {
   startOfMonth,
   startOfWeek,
 } from "date-fns";
-import { CalendarDays, PanelRight, Plus } from "lucide-react";
+import {
+  CalendarDays,
+  CalendarRange,
+  ChevronLeft,
+  ChevronRight,
+  PanelRight,
+  Plus,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface CalendarMeeting {
@@ -39,6 +46,11 @@ interface MeetingsCalendarViewProps {
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const GRID_SIZE = 42; // 6 weeks so every month grid stays uniform
+
+// Slider settings: the full window is 12 months starting at the current month,
+// shown 3 months at a time => 4 slides (slide 0 = current month + next two).
+const TOTAL_MONTHS = 12;
+const MONTHS_PER_PAGE = 3;
 
 const HOVER_MENU_WIDTH = 168;
 const HOVER_MENU_HEIGHT = 88; // approx. height used to keep the menu on-screen
@@ -68,16 +80,64 @@ export function MeetingsCalendarView({
   // Scheduling is only allowed at least one day ahead; today and past days are read-only.
   const minSchedulable = useMemo(() => addDays(today, 1), [today]);
 
-  // 12 month anchors, starting at the current month.
+  // Anchors for the whole window: current month + the following (TOTAL_MONTHS - 1).
   const monthAnchors = useMemo(
-    () => Array.from({ length: 12 }, (_, i) => addMonths(startOfMonth(today), i)),
+    () =>
+      Array.from({ length: TOTAL_MONTHS }, (_, i) =>
+        addMonths(startOfMonth(today), i),
+      ),
     [today],
   );
+
+  // Split the anchors into slider slides of 3 months each (4 slides for 12).
+  const monthPages = useMemo(() => {
+    const pages: Date[][] = [];
+    for (let i = 0; i < monthAnchors.length; i += MONTHS_PER_PAGE) {
+      pages.push(monthAnchors.slice(i, i + MONTHS_PER_PAGE));
+    }
+    return pages;
+  }, [monthAnchors]);
+
+  // The currently visible slide. Defaults to the first page, which starts on
+  // the current month (+ the next two). `slideDir` drives the slide animation.
+  const [pageIndex, setPageIndex] = useState(0);
+  const [slideDir, setSlideDir] = useState<"left" | "right">("right");
+  const pageMonths = monthPages[pageIndex] ?? [];
+  const canGoPrev = pageIndex > 0;
+  const canGoNext = pageIndex < monthPages.length - 1;
+
+  // Label for the visible slide, e.g. "Sep – Nov 2026" or "Dec 2026 – Feb 2027".
+  const pageRangeLabel = useMemo(() => {
+    if (pageMonths.length === 0) return "";
+    const first = pageMonths[0];
+    const last = pageMonths[pageMonths.length - 1];
+    return first.getFullYear() === last.getFullYear()
+      ? `${format(first, "MMM")} – ${format(last, "MMM yyyy")}`
+      : `${format(first, "MMM yyyy")} – ${format(last, "MMM yyyy")}`;
+  }, [pageMonths]);
+
+  const goToPreviousPage = () => {
+    if (!canGoPrev) return;
+    setSlideDir("left");
+    setPageIndex((p) => p - 1);
+  };
+
+  const goToNextPage = () => {
+    if (!canGoNext) return;
+    setSlideDir("right");
+    setPageIndex((p) => p + 1);
+  };
+
+  const jumpToPage = (next: number) => {
+    if (next === pageIndex) return;
+    setSlideDir(next > pageIndex ? "right" : "left");
+    setPageIndex(next);
+  };
 
   // Only consider meetings that fall inside the rendered window.
   const windowMeetings = useMemo(() => {
     const start = startOfMonth(today);
-    const end = endOfMonth(addMonths(start, 11));
+    const end = endOfMonth(addMonths(start, TOTAL_MONTHS - 1));
     return meetings.filter((m) => {
       const d = parseLocalDate(m.date);
       return d >= start && d <= end;
@@ -168,7 +228,7 @@ export function MeetingsCalendarView({
             </span>
           ) : (
             <span className="text-xs text-muted-foreground">
-              {scheduledCount} meeting{scheduledCount === 1 ? "" : "s"} scheduled over the next 12 months
+              {scheduledCount} meeting{scheduledCount === 1 ? "" : "s"} scheduled over the next {TOTAL_MONTHS} months
             </span>
           )}
         </div>
@@ -188,9 +248,79 @@ export function MeetingsCalendarView({
         </div>
       </div>
 
-      {/* Month grids */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {monthAnchors.map((month) => {
+      {/* Slider controls — navigate between the 3-month slides */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <CalendarRange className="h-4 w-4 text-accent-blue shrink-0" />
+          <span className="text-sm font-semibold text-foreground whitespace-nowrap">
+            {pageRangeLabel}
+          </span>
+          <span className="text-xs text-muted-foreground whitespace-nowrap">
+            {pageIndex + 1} / {monthPages.length}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={goToPreviousPage}
+            disabled={!canGoPrev}
+            aria-label="Show previous 3 months"
+            className={cn(
+              "inline-flex h-8 w-8 items-center justify-center rounded-md border border-border/60 bg-card text-muted-foreground transition-colors",
+              canGoPrev
+                ? "hover:bg-muted hover:text-foreground"
+                : "cursor-not-allowed opacity-40",
+            )}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+
+          <div className="flex items-center gap-1.5 px-1">
+            {monthPages.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => jumpToPage(i)}
+                aria-label={`Show slide ${i + 1} of ${monthPages.length}`}
+                className={cn(
+                  "h-2 rounded-full transition-all",
+                  i === pageIndex
+                    ? "w-4 bg-accent-blue"
+                    : "w-2 bg-muted-foreground/30 hover:bg-muted-foreground/60",
+                )}
+              />
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={goToNextPage}
+            disabled={!canGoNext}
+            aria-label="Show next 3 months"
+            className={cn(
+              "inline-flex h-8 w-8 items-center justify-center rounded-md border border-border/60 bg-card text-muted-foreground transition-colors",
+              canGoNext
+                ? "hover:bg-muted hover:text-foreground"
+                : "cursor-not-allowed opacity-40",
+            )}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Visible slide — 3 month cards at a time */}
+      <div
+        key={pageIndex}
+        className={cn(
+          "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 animate-in duration-300 ease-out",
+          slideDir === "right"
+            ? "slide-in-from-right-5"
+            : "slide-in-from-left-5",
+        )}
+      >
+        {pageMonths.map((month) => {
           const monthKey = format(month, "yyyy-MM");
           const gridStart = startOfWeek(month, { weekStartsOn: 0 });
           const cells = Array.from({ length: GRID_SIZE }, (_, i) => addDays(gridStart, i));
