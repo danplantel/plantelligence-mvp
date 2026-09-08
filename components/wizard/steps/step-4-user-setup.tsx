@@ -75,6 +75,7 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
     defaultValues: {
       name: "",
       email: "",
+      organizationEmail: "",
       phone: "",
       phoneExtension: "",
       title: "",
@@ -135,7 +136,11 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
         if (serverData && (serverData.name || serverData.email)) {
           // Use server data if available and has meaningful data
           setValue("name", serverData.name || "");
+          // email stays the login/account email (not shown/edited on this step)
           setValue("email", serverData.email || "");
+          // Organization Email loads from the wizard session only — it is NEVER
+          // pre-populated with the user's login email (User.email).
+          setValue("organizationEmail", serverData.organizationEmail || "");
           setValue("phone", serverData.phone || "");
           setValue("phoneExtension", serverData.phoneExtension || "");
           setValue("title", serverData.title || "");
@@ -157,6 +162,7 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
           const userSetupData = {
             name: serverData.name || "",
             email: serverData.email || "",
+            organizationEmail: serverData.organizationEmail || "",
             phone: serverData.phone || "",
             phoneExtension: serverData.phoneExtension || "",
             title: serverData.title || "",
@@ -168,9 +174,11 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
           };
           await saveStepData("userSetup", userSetupData, true);
         } else if (session?.user) {
-          // Fallback to session data
+          // Fallback to session data — Organization Email is intentionally left
+          // BLANK (never prefilled with the login email).
           setValue("name", session.user.name || "");
           setValue("email", session.user.email || "");
+          setValue("organizationEmail", "");
           setValue("headshot", session.user.image || "");
 
           // Generate default filename for headshot if it exists
@@ -182,6 +190,7 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
           const userSetupData = {
             name: session.user.name || "",
             email: session.user.email || "",
+            organizationEmail: "",
             phone: "",
             title: "",
             designations: [],
@@ -193,16 +202,18 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
         }
       } catch (error) {
         console.error("Error loading step data:", error);
-        // Fallback to session data
+        // Fallback to session data — Organization Email stays blank.
         if (session?.user) {
           setValue("name", session.user.name || "");
           setValue("email", session.user.email || "");
+          setValue("organizationEmail", "");
           setValue("headshot", session.user.image || "");
 
           // Also save to store immediately
           const userSetupData = {
             name: session.user.name || "",
             email: session.user.email || "",
+            organizationEmail: "",
             phone: "",
             title: "",
             designations: [],

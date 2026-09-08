@@ -64,6 +64,7 @@ export function buildOnboardingAdvisorContactsForCategories(
   profile: {
     name?: string;
     email?: string;
+    organizationEmail?: string | null;
     phone?: string;
     phoneExtension?: string | null;
     title?: string;
@@ -95,7 +96,9 @@ export function buildOnboardingAdvisorContactsForCategories(
       benefitsCategories: [bc],
       benefitsCategory: bc,
       role: "Advisor / Specialist",
-      email: profile.email || "",
+      // Prefer the advisor's Organization Email on contact cards; fall back to
+      // the login email when none is set ("can be the same if the user wants").
+      email: profile.organizationEmail?.trim() || profile.email || "",
       phone: profile.phone || "",
       phoneExtension: profile.phoneExtension || undefined,
       firstName,

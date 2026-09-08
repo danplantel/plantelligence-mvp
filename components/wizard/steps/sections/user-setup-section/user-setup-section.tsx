@@ -184,34 +184,42 @@ export function UserSetupSection({
           }}
         />
       ) : (
+        // Onboarding Step 4: capture the Organization Email. This is separate
+        // from the login/account email (User.email) — it is intentionally NOT
+        // pre-populated with the user's login email. Blank = advisor contact
+        // cards fall back to the login email.
         <div className="space-y-2">
           <label className="block font-medium text-sm">
-            Your Email <span className="text-red-500">*</span>
+            Organization Email <span className="text-red-500">*</span>
           </label>
           <Controller
-            name="email"
+            name="organizationEmail"
             control={control}
             render={({ field }) => (
               <Input
                 {...field}
                 type="email"
-                icon={<Mail className="h-4 w-4" />}
+                value={field.value || ""}
                 onChange={(e) => {
                   field.onChange(e);
                 }}
-                onBlur={async (e) => {
+                onBlur={(e) => {
                   field.onBlur();
-                  const value = e.target.value;
-                  onDataChange("email", value);
+                  onDataChange("organizationEmail", e.target.value);
                 }}
-                placeholder="your.email@example.com"
-                required
-                data-field="email"
-                destructive={errorFields.includes("email")}
+                placeholder="your.organization@example.com"
+                data-field="organizationEmail"
+                destructive={errorFields.includes("organizationEmail")}
+                icon={<Mail className="h-4 w-4" />}
               />
             )}
           />
-          <FormError message={errors.email?.message} />
+          <p className="text-sm text-muted-foreground">
+            A business email shown on your advisor contact cards. This can be the
+            same as your sign-up email
+            {data.email ? ` (${data.email})` : ""}.
+          </p>
+          <FormError message={errors.organizationEmail?.message} />
         </div>
       )}
 
@@ -222,6 +230,54 @@ export function UserSetupSection({
         ) : (
           <PasswordChangeSection />
         ))}
+
+      {/* Organization Email (Settings mode) — a separate business/contact email
+          shown on the advisor's pre-populated contact cards (e.g. Create Plan
+          Step 3). This is NOT used for login; it can differ from the login email
+          above (blank = contact cards fall back to the login email). Onboarding
+          Step 4 also captures this field via the non-emailChangeMode branch. */}
+      {emailChangeMode && (
+        <div className="space-y-2">
+          <label className="block font-medium text-sm">
+            Organization Email <span className="text-red-500">*</span>
+          </label>
+          <Controller
+            name="organizationEmail"
+            control={control}
+            rules={{
+              required: "Organization email is required",
+              pattern: {
+                value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                message: "Please enter a valid organization email",
+              },
+            }}
+            render={({ field }) => (
+              <Input
+                {...field}
+                type="email"
+                value={field.value || ""}
+                onChange={(e) => {
+                  field.onChange(e);
+                }}
+                onBlur={(e) => {
+                  field.onBlur();
+                  onDataChange("organizationEmail", e.target.value);
+                }}
+                placeholder="your.organization@example.com"
+                data-field="organizationEmail"
+                destructive={errorFields.includes("organizationEmail")}
+                icon={<Mail className="h-4 w-4" />}
+              />
+            )}
+          />
+          <p className="text-sm text-muted-foreground">
+            A business email shown on your advisor contact cards. This can be the
+            same as your login email
+            {data.email ? ` (${data.email})` : ""}.
+          </p>
+          <FormError message={errors.organizationEmail?.message} />
+        </div>
+      )}
 
       <div className="space-y-2">
         <label className="block font-medium text-sm text-left">

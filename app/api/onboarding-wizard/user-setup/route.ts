@@ -60,6 +60,7 @@ export async function POST(request: NextRequest) {
     const defaults = {
       name: "",
       email: "",
+      organizationEmail: "",
       phone: "",
       phoneExtension: null as string | null,
       title: "",
@@ -77,6 +78,7 @@ export async function POST(request: NextRequest) {
         ? {
           name: existing.name,
           email: existing.email,
+          organizationEmail: (existing as any)?.organizationEmail ?? "",
           phone: existing.phone,
           phoneExtension: existing.phoneExtension,
           title: existing.title,
@@ -90,6 +92,9 @@ export async function POST(request: NextRequest) {
         : {}),
       ...(data.name !== undefined && { name: data.name || "" }),
       ...(data.email !== undefined && { email: data.email || "" }),
+      ...(data.organizationEmail !== undefined && {
+        organizationEmail: data.organizationEmail || "",
+      }),
       ...(data.phone !== undefined && { phone: data.phone || "" }),
       ...(data.phoneExtension !== undefined && { phoneExtension: data.phoneExtension || null }),
       ...(data.title !== undefined && { title: data.title || "" }),
@@ -106,6 +111,7 @@ export async function POST(request: NextRequest) {
       update: {
         name: merged.name,
         email: merged.email,
+        organizationEmail: merged.organizationEmail,
         phone: merged.phone,
         phoneExtension: merged.phoneExtension,
         title: merged.title,
@@ -121,6 +127,7 @@ export async function POST(request: NextRequest) {
         sessionId,
         name: merged.name,
         email: merged.email,
+        organizationEmail: merged.organizationEmail,
         phone: merged.phone,
         phoneExtension: merged.phoneExtension,
         title: merged.title,
@@ -133,13 +140,18 @@ export async function POST(request: NextRequest) {
       } as any,
     });
 
-    // Mirror advisor contact fields on User so /api/profile keeps phone after new empty WizardSessions (3b autofill).
+    // Mirror advisor contact fields on User so /api/profile keeps phone +
+    // organizationEmail after new empty WizardSessions (3b autofill).
+    // organizationEmail is a User-level field consumed by pre-populated advisor
+    // contact cards (Create Plan Step 3); blank/null means cards fall back to
+    // the login email.
     try {
       await (prisma.user as any).update({
         where: { id: userId },
         data: {
           phone: merged.phone || null,
           phoneExtension: merged.phoneExtension ?? null,
+          organizationEmail: merged.organizationEmail || null,
         },
       });
     } catch (userError) {

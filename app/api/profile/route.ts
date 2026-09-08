@@ -141,6 +141,9 @@ export async function POST(request: Request) {
         advisorLink: data.advisorLink,
         additionalAdvisorLink: data.additionalAdvisorLink,
         recordkeeperContactLabel: data.recordkeeperContactLabel,
+        ...(data.organizationEmail !== undefined && {
+          organizationEmail: data.organizationEmail || null,
+        }),
         ...(data.primaryServiceCategories !== undefined && { primaryServiceCategories: data.primaryServiceCategories }),
       } as any,
     });

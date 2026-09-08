@@ -619,6 +619,14 @@ export function Step5Summary({
                 </p>
               </div>
               <div>
+                <p className="text-sm font-bold text-gray-700 dark:text-gray-300">
+                  Organization Email
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {stepData.userSetup?.organizationEmail || "Not specified"}
+                </p>
+              </div>
+              <div>
                 <p className="text-sm font-bold text-gray-700 dark:text-gray-300">Phone</p>
                 <p className="text-sm text-muted-foreground">
                   {formatPhoneNumber(stepData.userSetup?.phone || "")}

@@ -21,7 +21,15 @@ const getFieldFromError = (message: string): string[] => {
   if (message.includes("secondaryColor")) fields.push("secondaryColor");
   if (message.includes("subdomain")) fields.push("subdomain");
   if (message.includes("name")) fields.push("name");
-  if (message.includes("email")) fields.push("email");
+  // Organization Email maps to its own field (not the login "email" field).
+  if (
+    message.includes("organizationEmail") ||
+    message.includes("organization email")
+  ) {
+    fields.push("organizationEmail");
+  } else if (message.includes("email")) {
+    fields.push("email");
+  }
   if (message.includes("phone")) fields.push("phone");
   if (message.includes("title")) fields.push("title");
   
@@ -231,6 +239,13 @@ export const employerScopeSchema = z.object({
 export const userSetupSchema = z.object({
   name: z.string().min(1, "Name is required"),
   email: z.string().email("Valid email is required"),
+  // Organization Email — REQUIRED, but separate from the login email
+  // (User.email). It is never pre-populated with the login email; it can be the
+  // same value as the login email if the user wants.
+  organizationEmail: z
+    .string()
+    .min(1, "Organization email is required")
+    .email("Please enter a valid organization email"),
   phone: z.string()
     .min(1, "Phone number is required")
     .refine((phone) => {
@@ -488,6 +503,8 @@ export const validateCurrentStep = async (step: number, stepData: any) => {
         
           if (!cleanUserSetup.name) step4Errors.push("name");
           if (!cleanUserSetup.email) step4Errors.push("email");
+          if (!(cleanUserSetup.organizationEmail || "").trim())
+            step4Errors.push("organizationEmail");
           if (!cleanUserSetup.phone) step4Errors.push("phone");
           if (!cleanUserSetup.title) step4Errors.push("title");
         

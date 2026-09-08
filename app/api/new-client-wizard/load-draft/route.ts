@@ -131,6 +131,7 @@ export async function GET(request: NextRequest) {
       select: {
         name: true,
         email: true,
+        organizationEmail: true,
         phone: true,
         phoneExtension: true,
         title: true,
@@ -165,6 +166,8 @@ export async function GET(request: NextRequest) {
       {
         name: (userSetup?.name || user?.name) ?? "",
         email: (userSetup?.email || user?.email) ?? "",
+        // Organization Email lives on the User record (mirror of settings/onboarding).
+        organizationEmail: user?.organizationEmail ?? null,
         phone: userSetup?.phone || user?.phone || "",
         phoneExtension:
           (userSetup?.phoneExtension ?? user?.phoneExtension) ?? undefined,

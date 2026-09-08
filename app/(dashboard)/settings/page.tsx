@@ -72,6 +72,7 @@ export default function SettingsPage() {
     defaultValues: {
       name: "",
       email: "",
+      organizationEmail: "",
       phone: "",
       phoneExtension: "",
       title: "",
@@ -185,6 +186,10 @@ export default function SettingsPage() {
           const profileData = {
             name: userSetup.name || profileFallback?.name || "",
             email: userSetup.email || profileFallback?.email || "",
+            organizationEmail:
+              userSetup.organizationEmail ||
+              profileFallback?.organizationEmail ||
+              "",
             phone: userSetup.phone || profileFallback?.phone || "",
             phoneExtension:
               userSetup.phoneExtension || profileFallback?.phoneExtension || "",
@@ -336,6 +341,8 @@ export default function SettingsPage() {
     const userData = {
       name: userSetup.name || profile.name || "",
       email: userSetup.email || profile.email || "",
+      organizationEmail:
+        userSetup.organizationEmail || profile.organizationEmail || "",
       phone: userSetup.phone || profile.phone || "",
       phoneExtension: userSetup.phoneExtension || profile.phoneExtension || "",
       title: userSetup.title || profile.title || "",
@@ -487,33 +494,66 @@ export default function SettingsPage() {
     setIsSaving(true);
     try {
       const data = userSetupForm.getValues();
+
+      // Organization Email is required (it is what advisor contact cards show).
+      // Validate before any server write so a partial save never happens.
+      const orgEmail = (data.organizationEmail || "").trim();
+      if (!orgEmail) {
+        userSetupForm.setError("organizationEmail", {
+          type: "manual",
+          message: "Organization email is required",
+        });
+        toast.error("Organization email is required");
+        return;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(orgEmail)) {
+        userSetupForm.setError("organizationEmail", {
+          type: "manual",
+          message: "Please enter a valid organization email",
+        });
+        toast.error("Please enter a valid organization email");
+        return;
+      }
+      userSetupForm.clearErrors("organizationEmail");
+
       const { saveStepDataToServer } = useOnboardingWizardStore.getState();
       const ok = await saveStepDataToServer("userSetup", data);
       if (!ok) throw new Error("Failed to save user setup");
 
-      // Persist Primary Service Categories to the User record. WizardUserSetup has no
-      // primaryServiceCategories column (it was removed from the model), so a plain
-      // userSetup save silently drops them. `/api/profile` is the authoritative source
-      // that reads `User.primaryServiceCategories` — mirror the Branding tab's dual-write.
+      // Persist Primary Service Categories (and, as a safety net, Organization
+      // Email) directly to the User record. PrimaryServiceCategories has no
+      // column on WizardUserSetup, so a plain userSetup save silently drops it;
+      // `/api/profile` is the authoritative source that reads
+      // `User.primaryServiceCategories`. Organization Email is what pre-populated
+      // advisor contact cards (Create Plan Step 3) display; blank/null means the
+      // card falls back to the login email.
       const userId = userProfile?.id || cachedProfile?.id;
-      if (userId && Array.isArray(data.primaryServiceCategories)) {
+      if (userId) {
         try {
-          const categoriesRes = await fetch("/api/profile", {
+          const profileRes = await fetch("/api/profile", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               id: userId,
-              primaryServiceCategories: data.primaryServiceCategories,
+              ...(data.organizationEmail !== undefined && {
+                organizationEmail: data.organizationEmail || null,
+              }),
+              ...(Array.isArray(data.primaryServiceCategories) && {
+                primaryServiceCategories: data.primaryServiceCategories,
+              }),
             }),
           });
-          if (!categoriesRes.ok) {
+          if (!profileRes.ok) {
             console.warn(
-              "Failed to persist primaryServiceCategories to User record",
-              categoriesRes.status,
+              "Failed to persist profile fields (organizationEmail / primaryServiceCategories) to User record",
+              profileRes.status,
             );
           }
-        } catch (categoriesError) {
-          console.error("Error persisting primaryServiceCategories:", categoriesError);
+        } catch (profileError) {
+          console.error(
+            "Error persisting profile fields to User record:",
+            profileError,
+          );
         }
       }
 
@@ -787,6 +827,10 @@ export default function SettingsPage() {
           userSetupForm.reset({
             name: userSetup.name || "",
             email: userSetup.email || "",
+            organizationEmail:
+              userSetup.organizationEmail ||
+              initialUserSetup?.organizationEmail ||
+              "",
             phone: userSetup.phone || "",
             phoneExtension: userSetup.phoneExtension || "",
             title: userSetup.title || "",

@@ -1,6 +1,7 @@
 export interface UserSetupData {
   name: string;
   email: string;
+  organizationEmail?: string;
   phone: string;
   phoneExtension?: string;
   title: string;

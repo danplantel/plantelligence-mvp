@@ -163,6 +163,12 @@ export async function completeWizardOnboarding({ userId, wizardSessionId }: Wiza
       if (wizardSession.userSetup.phoneExtension) {
         updateData.phoneExtension = wizardSession.userSetup.phoneExtension;
       }
+      // Organization Email (Step 4) — captured separately from the login email
+      // and mirrored to User.organizationEmail (consumed by advisor contact cards).
+      if ((wizardSession.userSetup as any).organizationEmail !== undefined) {
+        updateData.organizationEmail =
+          (wizardSession.userSetup as any).organizationEmail || null;
+      }
       if (wizardSession.userSetup.title) {
         updateData.title = wizardSession.userSetup.title;
       }

@@ -206,6 +206,7 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
           {
             name: profile.name,
             email: profile.email,
+            organizationEmail: profile.organizationEmail,
             phone: profile.phone,
             phoneExtension: profile.phoneExtension,
             title: profile.title,

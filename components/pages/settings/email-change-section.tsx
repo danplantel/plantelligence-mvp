@@ -151,7 +151,7 @@ export function EmailChangeSection({
   if (stage === "view") {
     return (
       <div className="space-y-2">
-        <label className="block font-medium text-sm">Your Email</label>
+        <label className="block font-medium text-sm">Sign-Up Email</label>
         <div className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
           <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
           <span className="text-sm flex-1 truncate">{currentEmail}</span>

@@ -27,6 +27,7 @@ model User {
   provider                    AuthProvider             @default(credentials)
   name                        String
   email                       String                   @unique
+  organizationEmail           String?
   password                    String?
   resetCode                   String?
   resetCodeExpiry             DateTime?
@@ -506,6 +507,7 @@ model WizardUserSetup {
   sessionId          String   @unique @db.ObjectId
   name               String
   email              String
+  organizationEmail  String?
   phone              String
   phoneExtension     String?
   title              String

@@ -203,6 +203,8 @@ export interface BrandingFormData {
 export interface UserSetupFormData {
   name: string;
   email: string;
+  /** Optional business email (separate from login email) used on advisor contact cards. */
+  organizationEmail?: string;
   phone: string;
   phoneExtension?: string;
   title: string;
