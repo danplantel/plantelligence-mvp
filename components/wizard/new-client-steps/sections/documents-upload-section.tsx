@@ -59,6 +59,26 @@ const MAX_BATCH_FILE_COUNT = 10;
 const MAX_BATCH_PDF_COUNT = 25;
 const MAX_PDF_BYTES = 50 * 1024 * 1024;
 
+/**
+ * Review-date fallbacks for document uploads. If the AI/Gemini naming step is
+ * unavailable or a malformed value slips through, the review list must still
+ * show and persist a valid date — never stray characters.
+ */
+
+/** 1 year from now, as a full ISO string (same convention the upload flow uses). */
+function defaultReviewDateISO(): string {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() + 1);
+  return d.toISOString();
+}
+
+/** True when `value` parses to a real date (accepts full ISO or YYYY-MM-DD). */
+function isValidDateValue(value?: string | null): boolean {
+  if (value == null || String(value).trim() === "") return false;
+  const d = new Date(String(value));
+  return !Number.isNaN(d.getTime());
+}
+
 interface DocumentsUploadSectionProps {
   documents: Document[];
   onDocumentsChange: (documents: Document[]) => void;
@@ -736,7 +756,18 @@ export function DocumentsUploadSection({
         if (toAdd.length > 0) {
           // Show review UI for uploads without fixed category (single + multi-file)
           if (!fixedCategory) {
-            setReviewDocuments(toAdd);
+            // Normalize the Review Date before showing the list: any document
+            // without a valid review date (e.g. the AI/Gemini naming step was
+            // skipped or unavailable) is defaulted to a valid "1 year from now"
+            // date so the field never shows a malformed value.
+            setReviewDocuments(
+              toAdd.map((d) => ({
+                ...d,
+                expirationDate: isValidDateValue(d.expirationDate)
+                  ? d.expirationDate
+                  : defaultReviewDateISO(),
+              })),
+            );
             setIsReviewing(true);
             // Track which docs were uncategorized so the category dropdown
             // stays visible even after the user selects a value.
@@ -1175,9 +1206,14 @@ export function DocumentsUploadSection({
   };
 
   const formatDateForInput = (isoDate?: string): string => {
-    if (!isoDate) return "";
+    // Never surface a malformed value in the Review Date field — if it isn't a
+    // real, parseable date, return an empty string so no stray characters show.
+    if (!isValidDateValue(isoDate)) return "";
     try {
-      return isoDate.split("T")[0];
+      const d = new Date(String(isoDate));
+      if (Number.isNaN(d.getTime())) return "";
+      // Normalize to a YYYY-MM-DD value (same UTC convention the flow stores).
+      return d.toISOString().split("T")[0];
     } catch {
       return "";
     }
