@@ -35,7 +35,7 @@ export function HaveQuestions({
           {contacts.map((contact) => (
             <div
               key={contact.id}
-              className="text-center h-[327px] p-6 border flex flex-col justify-between border-gray-200 rounded-lg hover:shadow-lg transition-shadow"
+              className="text-center h-[327px] p-6 border flex flex-col justify-between border-gray-200 rounded-lg hover:shadow-lg transition-shadow w-full sm:w-auto sm:flex-1 sm:min-w-[240px] sm:max-w-[340px]"
             >
               <div>
                 <div
