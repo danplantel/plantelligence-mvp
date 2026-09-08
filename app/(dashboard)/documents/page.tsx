@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import {
   AlertTriangle, CalendarDays, Clock, FileText, Download, Pencil, Trash2,
-  Eye, ArrowUpDown, ArrowUp, ArrowDown, LayoutGrid, List, Search, GripVertical, X, ExternalLink,
+  Eye, ArrowUpDown, ArrowUp, ArrowDown, LayoutGrid, List, Search, GripVertical, ExternalLink,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { RetirementDocumentsAccordion, RetirementDocumentItem } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
@@ -56,7 +56,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { DialogClose } from "@radix-ui/react-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatUsDate } from "@/lib/date";
 
@@ -419,7 +418,7 @@ export default function DocumentsPage() {
     }
   });
   const [languageFilter, setLanguageFilter] = useState("all");
-  const [viewMode, setViewMode] = useState<"list" | "cards" | "calendar">("list");
+  const [viewMode, setViewMode] = useState<"list" | "cards" | "calendar" | "preview">("list");
   const [loadedCards, setLoadedCards] = useState<Set<string>>(new Set());
   const handleCardLoad = useCallback((docId: string) => {
     setLoadedCards((prev) => { const next = new Set(prev); next.add(docId); return next; });
@@ -462,8 +461,6 @@ export default function DocumentsPage() {
   const [hasUnsavedUploadChanges, setHasUnsavedUploadChanges] = useState(false);
   const [uploadSaveFn, setUploadSaveFn] = useState<(() => Promise<void>) | null>(null);
   const [isTransitioningToDocuments, setIsTransitioningToDocuments] = useState(false);
-  const [docPortalPreviewOpen, setDocPortalPreviewOpen] = useState(false);
-
   const [docPreviews, setDocPreviews] = useState<Record<string, { blobUrl: string; loading: boolean }>>({});
   const [expandedRow, setExpandedRow] = useState<string>("");
 
@@ -911,7 +908,7 @@ export default function DocumentsPage() {
                     <p className="text-sm text-muted-foreground">Review and manage all documents for this plan. Use the filters to narrow results, click column headers to sort, and expand rows to preview.</p>
                     <div className="flex flex-wrap items-center gap-3 justify-between">
                       <div className="flex items-center gap-3 flex-wrap">
-                        <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v)}><SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue placeholder="Category" /></SelectTrigger><SelectContent><SelectItem value="all">All Categories</SelectItem><SelectItem value="Retirement">Retirement</SelectItem><SelectItem value="Group Health">Group Health</SelectItem><SelectItem value="Group Life">Group Life</SelectItem><SelectItem value="Multiple">Multiple</SelectItem><SelectItem value="Other Benefits">Other</SelectItem>{uniqueCategories.filter((c) => !["Retirement","Group Health","Group Life","Multiple","Other Benefits"].includes(c)).map((cat) => (<SelectItem key={cat} value={cat}>{cat}</SelectItem>))}</SelectContent></Select>
+                        <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v)}><SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue placeholder="Category" /></SelectTrigger><SelectContent><SelectItem value="all" disabled={viewMode === "preview"}>All Categories</SelectItem><SelectItem value="Retirement">Retirement</SelectItem><SelectItem value="Group Health">Group Health</SelectItem><SelectItem value="Group Life">Group Life</SelectItem><SelectItem value="Multiple" disabled={viewMode === "preview"}>Multiple</SelectItem><SelectItem value="Other Benefits" disabled={viewMode === "preview"}>Other</SelectItem>{uniqueCategories.filter((c) => !["Retirement","Group Health","Group Life","Multiple","Other Benefits"].includes(c)).map((cat) => (<SelectItem key={cat} value={cat}>{cat}</SelectItem>))}</SelectContent></Select>
                         {/* Language toggle buttons — always visible */}
                         <div className="flex gap-1">
                           {(["EN", "ES"] as const).map((lang) => {
@@ -942,7 +939,7 @@ export default function DocumentsPage() {
                         <button type="button" onClick={() => setViewMode("list")} className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${viewMode === "list" ? "bg-accent-blue text-white" : "bg-white text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"}`}><List className="h-3.5 w-3.5 mr-1 inline" />List</button>
                         <button type="button" onClick={() => setViewMode("cards")} className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${viewMode === "cards" ? "bg-accent-blue text-white" : "bg-white text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"}`}><LayoutGrid className="h-3.5 w-3.5 mr-1 inline" />Cards</button>
                         <button type="button" onClick={() => setViewMode("calendar")} className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${viewMode === "calendar" ? "bg-accent-blue text-white" : "bg-white text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"}`}><CalendarDays className="h-3.5 w-3.5 mr-1 inline" />Calendar</button>
-                        <button type="button" onClick={() => setDocPortalPreviewOpen(true)} className="px-2.5 py-1.5 text-xs font-medium transition-colors bg-white text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"><Eye className="h-3.5 w-3.5 mr-1 inline" />Preview</button>
+                        <button type="button" onClick={() => setViewMode("preview")} className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${viewMode === "preview" ? "bg-accent-blue text-white" : "bg-white text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"}`}><Eye className="h-3.5 w-3.5 mr-1 inline" />Preview</button>
                       </div>
                     </div>
                     {viewMode === "calendar" ? (
@@ -951,6 +948,34 @@ export default function DocumentsPage() {
                         onPreview={(doc) => handlePreviewFromTable(doc.id, doc.title)}
                         onUpdateReviewDate={handleUpdateDocumentReviewDate}
                       />
+                    ) : viewMode === "preview" ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-card px-4 py-3">
+                          <Eye className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <div className="min-w-0">
+                            <h3 className="text-sm font-semibold text-foreground">Document Preview</h3>
+                            <p className="text-xs text-muted-foreground truncate">
+                              This is how your documents appear to plan members on the Benefits Hub.
+                            </p>
+                          </div>
+                        </div>
+                        {retirementDocs.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border/70 bg-muted/20 px-4 py-16 text-center">
+                            <FileText className="h-10 w-10 text-muted-foreground/50" />
+                            <p className="mt-3 text-sm text-muted-foreground">No documents available for preview.</p>
+                          </div>
+                        ) : (
+                          <div className="overflow-hidden rounded-xl border border-border/60">
+                            <RetirementDocumentsAccordion
+                              retirementDocs={retirementDocs}
+                              hideHeader={true}
+                              reorderable
+                              brandColor={clients.find((c) => c.id === selectedPlan) ? ((clients.find((c) => c.id === selectedPlan) as any).brandColor || "#1F3A60") : "#1F3A60"}
+                              accentColor={clients.find((c) => c.id === selectedPlan) ? ((clients.find((c) => c.id === selectedPlan) as any).secondaryColor || "#6B7280") : "#6B7280"}
+                            />
+                          </div>
+                        )}
+                      </div>
                     ) : (
                       <>
                     {!isLoading && docsData && sortedDocuments.length === 0 && (<div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-4 rounded-lg border border-dashed border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/50"><p className="text-gray-900 dark:text-gray-100 text-lg font-semibold">No documents for this plan yet</p><p className="text-muted-foreground text-sm">Upload retirement plan documents for this client on the Upload tab. After you save, they will appear here.</p><Button type="button" onClick={goToUploadTab}>Upload documents</Button></div>)}
@@ -1161,42 +1186,6 @@ export default function DocumentsPage() {
               )}
         </Card>
       </div>
-      {/* Portal Preview Dialog — shows document cards in the portal layout */}
-      <Dialog open={docPortalPreviewOpen} onOpenChange={setDocPortalPreviewOpen}>
-        <DialogContent className="max-w-5xl p-0 flex flex-col max-h-[90vh] [&>button.absolute]:hidden">
-          {/* Fixed header */}
-          <div className="flex items-start justify-between border-b px-6 py-4 shrink-0">
-            <div>
-              <DialogTitle>Portal Preview for Documents</DialogTitle>
-              <DialogDescription className="mt-1">
-                See how your documents appear to plan members on the Benefits Hub.
-              </DialogDescription>
-            </div>
-            <DialogClose asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-                <X className="h-4 w-4" />
-              </Button>
-            </DialogClose>
-          </div>
-          {/* Scrollable body */}
-          <div className="overflow-y-auto p-6">
-            {retirementDocs.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-                <FileText className="h-12 w-12 text-gray-300 mb-4" />
-                <p className="text-gray-500 text-sm">No documents available for preview.</p>
-              </div>
-            ) : (
-              <RetirementDocumentsAccordion
-                retirementDocs={retirementDocs}
-                hideHeader={true}
-                brandColor={clients.find((c) => c.id === selectedPlan) ? ((clients.find((c) => c.id === selectedPlan) as any).brandColor || "#1F3A60") : "#1F3A60"}
-                accentColor={clients.find((c) => c.id === selectedPlan) ? ((clients.find((c) => c.id === selectedPlan) as any).secondaryColor || "#6B7280") : "#6B7280"}
-              />
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
       <ConfirmDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen} onConfirm={handleDeleteConfirm} title="Delete Document" description={documentToDelete ? `Are you sure you want to delete "${documentToDelete.title}"? This action cannot be undone and the document will be permanently removed.` : ""} confirmText="Delete" cancelText="Cancel" variant="destructive" />
       <DocumentPreviewModal isOpen={previewOpen} onClose={() => { setPreviewOpen(false); setPreviewDocument(null); }} document={previewDocument} isLoading={isLoadingPreview} />
       <DocumentEditModal isOpen={editModalOpen} onClose={() => { setEditModalOpen(false); setDocumentToEdit(null); }} document={documentToEdit} onSave={handleSaveEdit} />
