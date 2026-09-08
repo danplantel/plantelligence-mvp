@@ -98,6 +98,7 @@ import {
   getBenefitsHubAbsoluteUrl,
   getBenefitsHubPath,
 } from "@/lib/marketing/hub-url";
+import { PlanChangeLoadingDialog } from "@/components/ui/plan-change-loading-dialog";
 
 interface Meeting {
   id: string;
@@ -660,6 +661,8 @@ export default function MeetingsPage() {
    *  (meetingType, duration, format, etc.) that the duplicate page doesn't re-collect. */
   const createdMeetingData = useRef<MeetingFormData | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<string>("");
+  // Loading dialog shown while the newly selected plan's data is loading.
+  const [isPlanLoading, setIsPlanLoading] = useState(false);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [dayDrawerOpen, setDayDrawerOpen] = useState(false);
   const hasClients = clients.length > 0;
@@ -744,7 +747,31 @@ export default function MeetingsPage() {
     params.set("planId", clientId);
     router.replace(`/communications/meetings?${params.toString()}`);
   };
-  const handlePlanChange = (clientId: string) => { setSelectedPlan(clientId); handlePlanClientChange(clientId); };
+  const handlePlanChange = (clientId: string) => {
+    // No-op when the same plan is already selected.
+    if (clientId === selectedPlan) return;
+    setSelectedPlan(clientId);
+    handlePlanClientChange(clientId);
+    // Show the loading dialog while the new plan's data loads.
+    setIsPlanLoading(true);
+  };
+
+  // Close the plan loading dialog once meetings are loaded. A minimum display
+  // time prevents an instant flash, and a cap guarantees it can never get stuck.
+  useEffect(() => {
+    if (!isPlanLoading) return;
+    const cap = window.setTimeout(() => setIsPlanLoading(false), 6000);
+    return () => window.clearTimeout(cap);
+  }, [isPlanLoading]);
+  useEffect(() => {
+    if (!isPlanLoading) return;
+    const check = window.setTimeout(() => {
+      if (meetingsData !== undefined && !meetingsLoading) {
+        setIsPlanLoading(false);
+      }
+    }, 350);
+    return () => window.clearTimeout(check);
+  }, [isPlanLoading, meetingsData, meetingsLoading]);
   const handleInputChange = (field: keyof MeetingFormData, value: string) => {
     setFormData((prev) => { const newData = { ...prev, [field]: value };
       if (field === "meetingType") {
@@ -1854,6 +1881,9 @@ export default function MeetingsPage() {
         variant="destructive"
         isLoading={!!deletingMeetingId}
       />
+
+      {/* Loading dialog shown while the selected plan's data is loading */}
+      <PlanChangeLoadingDialog open={isPlanLoading} />
     </div>
   );
 }

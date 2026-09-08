@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PlanChangeLoadingDialog } from "@/components/ui/plan-change-loading-dialog";
 import {
   Loader2,
   Activity,
@@ -3992,6 +3993,9 @@ export function BenefitsStep1() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Loading dialog shown while a newly selected plan's data is loading */}
+      <PlanChangeLoadingDialog open={planLoading} />
     </div>
   );
 }

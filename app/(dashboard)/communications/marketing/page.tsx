@@ -40,6 +40,7 @@ import {
   getBenefitsHubAbsoluteUrl,
   getBenefitsHubPath,
 } from "@/lib/marketing/hub-url";
+import { PlanChangeLoadingDialog } from "@/components/ui/plan-change-loading-dialog";
 
 interface Client {
   id: string;
@@ -953,6 +954,8 @@ function MarketingAssetListAccordionItem({
 export default function MarketingPage() {
   const { setTitle } = usePageTitleContext();
   const [selectedPlan, setSelectedPlan] = useState<string>("");
+  // Loading dialog shown while the newly selected plan's data is being loaded.
+  const [isPlanLoading, setIsPlanLoading] = useState(false);
   const { data: profileData } = useSWR("/api/profile", jsonFetcher, {
     keepPreviousData: true,
     dedupingInterval: 60_000,
@@ -1000,7 +1003,7 @@ export default function MarketingPage() {
   }, []);
 
   // â”€â”€ Fetch assets from API â”€â”€
-  const { data: assetsData, isLoading: isLoadingAssets, mutate: mutateAssets } = useSWR(
+  const { data: assetsData, isLoading: isLoadingAssets, mutate: mutateAssets, error: assetsError } = useSWR(
     selectedPlan ? `/api/marketing/assets?clientId=${selectedPlan}` : null,
     jsonFetcher,
     { dedupingInterval: 10_000, revalidateOnFocus: true },
@@ -1039,8 +1042,30 @@ export default function MarketingPage() {
   }, [clients]);
 
   const handlePlanChange = (clientId: string) => {
+    // No-op when the same plan is already selected.
+    if (clientId === selectedPlan) return;
     setSelectedPlan(clientId);
+    // Show the loading dialog while the new plan's data loads.
+    setIsPlanLoading(true);
   };
+
+  // Close the plan loading dialog once the new plan's marketing assets are
+  // loaded (covers success + error). A minimum display time prevents an
+  // instant flash, and an 8s cap guarantees the dialog can never get stuck.
+  useEffect(() => {
+    if (!isPlanLoading) return;
+    const cap = window.setTimeout(() => setIsPlanLoading(false), 8000);
+    return () => window.clearTimeout(cap);
+  }, [isPlanLoading]);
+  useEffect(() => {
+    if (!isPlanLoading) return;
+    const check = window.setTimeout(() => {
+      if (!isLoadingAssets && (assetsData !== undefined || !!assetsError)) {
+        setIsPlanLoading(false);
+      }
+    }, 350);
+    return () => window.clearTimeout(check);
+  }, [isPlanLoading, isLoadingAssets, assetsData, assetsError]);
 
   const selectedClient = useMemo(
     () => clients.find((c) => c.id === selectedPlan),
@@ -1209,6 +1234,9 @@ export default function MarketingPage() {
             }}
           />
         )}
+
+        {/* Loading dialog shown while the selected plan's data is loading */}
+        <PlanChangeLoadingDialog open={isPlanLoading} />
       </div>
     </div>
   );
