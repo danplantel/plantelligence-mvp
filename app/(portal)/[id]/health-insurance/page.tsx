@@ -19,6 +19,7 @@ import {
   RetirementDocumentItem,
 } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
 import { mergePlanDocumentRows } from "@/lib/plan-client-documents-merge";
+import { sortDocumentRowsByCustomOrder } from "@/lib/documents/document-sort";
 import { fetchPlanDocumentsForClient } from "@/lib/fetch-plan-documents-client";
 import {
   benefitCategoryToDocumentHubLabel,
@@ -93,9 +94,12 @@ export default function HealthInsurancePage() {
           apiRows as unknown[],
           embedded as unknown[],
         );
+        const orderedRaw = sortDocumentRowsByCustomOrder(
+          mergedRaw as Record<string, unknown>[],
+        );
         setHealthDocs(
           mapMergedRowsToBenefitHubItems(
-            mergedRaw as Record<string, unknown>[],
+            orderedRaw,
             HEALTH_DOCUMENT_HUB,
           ),
         );

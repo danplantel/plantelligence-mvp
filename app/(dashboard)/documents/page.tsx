@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  AlertTriangle, CalendarDays, Clock, FileText, Download, Pencil, Trash2,
+  AlertTriangle, CalendarDays, Clock, FileText, Download, Loader2, Pencil, Save, Trash2,
   Eye, ArrowUpDown, ArrowUp, ArrowDown, LayoutGrid, List, Search, GripVertical, ExternalLink,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -463,6 +463,9 @@ export default function DocumentsPage() {
   const [isTransitioningToDocuments, setIsTransitioningToDocuments] = useState(false);
   const [docPreviews, setDocPreviews] = useState<Record<string, { blobUrl: string; loading: boolean }>>({});
   const [expandedRow, setExpandedRow] = useState<string>("");
+  // Re-ordered document ids waiting to be persisted from the Document Preview.
+  const [pendingOrderIds, setPendingOrderIds] = useState<string[] | null>(null);
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
 
   const leaveGuard = useNavigateAwayGuard({
     enabled: true,
@@ -812,6 +815,73 @@ export default function DocumentsPage() {
     }
   };
 
+  // ---- Document Preview reorder (persisted to the plan) ----
+  // Order-preserving items that mirror hub ordering (list/cards still use type-sorted data).
+  const previewOrderedDocs = useMemo<RetirementDocumentItem[]>(() => {
+    return documents.map((doc) => {
+      const docType = getDocumentType(doc);
+      const docLanguage = (doc as any).language;
+      const language = (docLanguage === "ES" || docLanguage === "EN" ? docLanguage : "EN") as "EN" | "ES";
+      return {
+        id: doc.id,
+        title: doc.title,
+        description: (doc as any).shortDescription || doc.fileName || doc.title,
+        href: `/api/documents/${doc.id}/view?t=${doc.uploadedAt}`,
+        language,
+        category: (doc as any).category ?? undefined,
+        categorySuggested: (doc as any).categorySuggested ?? undefined,
+        categoryConfidence: (doc as any).categoryConfidence ?? undefined,
+        expirationDate: doc.expirationDate,
+        meta: {
+          type: docType,
+          client: { id: doc.client.id, companyName: doc.client.companyName },
+          uploadedAt: doc.uploadedAt,
+        },
+      };
+    });
+  }, [documents]);
+
+  const previewCurrentOrderIds = useMemo(
+    () => previewOrderedDocs.map((d) => d.meta?.id || d.id).filter(Boolean) as string[],
+    [previewOrderedDocs],
+  );
+
+  const orderDirty = useMemo(() => {
+    if (!pendingOrderIds) return false;
+    if (pendingOrderIds.length !== previewCurrentOrderIds.length) return true;
+    return pendingOrderIds.some((id, i) => id !== previewCurrentOrderIds[i]);
+  }, [pendingOrderIds, previewCurrentOrderIds]);
+
+  const handlePreviewOrderChange = useCallback((docs: RetirementDocumentItem[]) => {
+    setPendingOrderIds(docs.map((d) => d.meta?.id || d.id).filter(Boolean) as string[]);
+  }, []);
+
+  const revertPreviewOrder = useCallback(() => setPendingOrderIds(null), []);
+
+  const saveDocumentOrder = useCallback(async () => {
+    if (!pendingOrderIds || pendingOrderIds.length === 0) return;
+    setIsSavingOrder(true);
+    try {
+      const response = await fetch("/api/documents/reorder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderedIds: pendingOrderIds }),
+      });
+      const result = await response.json();
+      if (response.ok && result.success) {
+        toast.success("Document order saved");
+        setPendingOrderIds(null);
+        await fetchDocuments();
+      } else {
+        toast.error(result.error || "Failed to save document order");
+      }
+    } catch {
+      toast.error("An error occurred while saving the document order");
+    } finally {
+      setIsSavingOrder(false);
+    }
+  }, [pendingOrderIds, fetchDocuments]);
+
   const goToUploadTab = () => { setActiveSection("upload"); const url = new URL(window.location.href); url.searchParams.set("section", "upload"); window.history.pushState({}, "", url.toString()); };
   const goToDocumentsSection = () => { setActiveSection("documents"); const url = new URL(window.location.href); url.searchParams.set("section", "documents"); window.history.pushState({}, "", url.toString()); };
 
@@ -909,7 +979,9 @@ export default function DocumentsPage() {
                     <div className="flex flex-wrap items-center gap-3 justify-between">
                       <div className="flex items-center gap-3 flex-wrap">
                         <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v)}><SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue placeholder="Category" /></SelectTrigger><SelectContent><SelectItem value="all" disabled={viewMode === "preview"}>All Categories</SelectItem><SelectItem value="Retirement">Retirement</SelectItem><SelectItem value="Group Health">Group Health</SelectItem><SelectItem value="Group Life">Group Life</SelectItem><SelectItem value="Multiple" disabled={viewMode === "preview"}>Multiple</SelectItem><SelectItem value="Other Benefits" disabled={viewMode === "preview"}>Other</SelectItem>{uniqueCategories.filter((c) => !["Retirement","Group Health","Group Life","Multiple","Other Benefits"].includes(c)).map((cat) => (<SelectItem key={cat} value={cat}>{cat}</SelectItem>))}</SelectContent></Select>
-                        {/* Language toggle buttons — always visible */}
+                        {/* Language toggle buttons — hidden while Preview is active because the
+                            Preview accordion renders its own portal-style ENGLISH/ESPAÑOL switcher. */}
+                        {viewMode !== "preview" && (
                         <div className="flex gap-1">
                           {(["EN", "ES"] as const).map((lang) => {
                             const isActive = languageFilter === lang;
@@ -933,7 +1005,8 @@ export default function DocumentsPage() {
                             );
                           })}
                         </div>
-                        {filteredDocs.length !== retirementDocs.length && <span className="text-xs text-muted-foreground">{filteredDocs.length} of {retirementDocs.length} documents</span>}
+                        )}
+                        {viewMode !== "preview" && filteredDocs.length !== retirementDocs.length && <span className="text-xs text-muted-foreground">{filteredDocs.length} of {retirementDocs.length} documents</span>}
                       </div>
                       <div className="flex items-center border rounded-md overflow-hidden dark:border-gray-600 shrink-0">
                         <button type="button" onClick={() => setViewMode("list")} className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${viewMode === "list" ? "bg-accent-blue text-white" : "bg-white text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"}`}><List className="h-3.5 w-3.5 mr-1 inline" />List</button>
@@ -950,16 +1023,35 @@ export default function DocumentsPage() {
                       />
                     ) : viewMode === "preview" ? (
                       <div className="space-y-3">
-                        <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-card px-4 py-3">
-                          <Eye className="h-4 w-4 text-muted-foreground shrink-0" />
-                          <div className="min-w-0">
-                            <h3 className="text-sm font-semibold text-foreground">Document Preview</h3>
-                            <p className="text-xs text-muted-foreground truncate">
-                              This is how your documents appear to plan members on the Benefits Hub.
-                            </p>
+                        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 bg-card px-4 py-3">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Eye className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <div className="min-w-0">
+                              <h3 className="text-sm font-semibold text-foreground">Document Preview</h3>
+                              <p className="text-xs text-muted-foreground truncate">
+                                This is how your documents appear to plan members on the Benefits Hub. Drag a document to reorder it.
+                              </p>
+                            </div>
                           </div>
+                          {previewOrderedDocs.length > 0 && (
+                            <div className="flex shrink-0 items-center gap-2">
+                              {orderDirty && (
+                                <Button type="button" size="sm" variant="outline" disabled={isSavingOrder} onClick={revertPreviewOrder}>
+                                  Revert
+                                </Button>
+                              )}
+                              <Button type="button" size="sm" className="gap-1.5" disabled={!orderDirty || isSavingOrder} onClick={saveDocumentOrder}>
+                                {isSavingOrder ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <Save className="h-3.5 w-3.5" />
+                                )}
+                                Save order
+                              </Button>
+                            </div>
+                          )}
                         </div>
-                        {retirementDocs.length === 0 ? (
+                        {previewOrderedDocs.length === 0 ? (
                           <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border/70 bg-muted/20 px-4 py-16 text-center">
                             <FileText className="h-10 w-10 text-muted-foreground/50" />
                             <p className="mt-3 text-sm text-muted-foreground">No documents available for preview.</p>
@@ -967,9 +1059,9 @@ export default function DocumentsPage() {
                         ) : (
                           <div className="overflow-hidden rounded-xl border border-border/60">
                             <RetirementDocumentsAccordion
-                              retirementDocs={retirementDocs}
-                              hideHeader={true}
+                              retirementDocs={previewOrderedDocs}
                               reorderable
+                              onOrderChange={handlePreviewOrderChange}
                               brandColor={clients.find((c) => c.id === selectedPlan) ? ((clients.find((c) => c.id === selectedPlan) as any).brandColor || "#1F3A60") : "#1F3A60"}
                               accentColor={clients.find((c) => c.id === selectedPlan) ? ((clients.find((c) => c.id === selectedPlan) as any).secondaryColor || "#6B7280") : "#6B7280"}
                             />

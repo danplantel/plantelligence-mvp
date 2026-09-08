@@ -377,6 +377,16 @@ export function RetirementDocumentsAccordion({
     [docsForLanguageCalculation],
   );
 
+  // Number of documents per language, shown on the ENGLISH / ESPAÑOL buttons.
+  const languageCounts = useMemo(() => {
+    const counts: Record<RetirementDocumentLanguage, number> = { EN: 0, ES: 0 };
+    for (const doc of docsForLanguageCalculation) {
+      const lang = normalizePortalDocumentLanguage(doc.language, "EN");
+      counts[lang] += 1;
+    }
+    return counts;
+  }, [docsForLanguageCalculation]);
+
   // Store the previous available languages to prevent language switching during drag operations
   const prevAvailableLanguagesRef = useRef<RetirementDocumentLanguage[]>([]);
 
@@ -552,7 +562,9 @@ export function RetirementDocumentsAccordion({
                               : "bg-white text-[#002B5B] border-[#D1D5DB]"
                               }`}
                           >
-                            {lang === "EN" ? "ENGLISH" : "ESPAÑOL"}
+                            {lang === "EN"
+                              ? `ENGLISH (${languageCounts.EN})`
+                              : `ESPAÑOL (${languageCounts.ES})`}
                           </button>
                         );
                       })}

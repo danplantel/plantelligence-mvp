@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth-options";
 import { prisma } from "@/lib/prisma";
 import { R2_FILEURL_PLACEHOLDER, isR2Configured } from "@/lib/r2";
 import { resolvePersistedDocumentCategory } from "@/lib/document-category";
+import { sortDocumentRowsByCustomOrder } from "@/lib/documents/document-sort";
 
 export async function GET(request: NextRequest) {
   try {
@@ -84,8 +85,11 @@ export async function GET(request: NextRequest) {
           (d: { archivedAt: Date | null }) => d.archivedAt == null,
         );
 
+    // Respect advisor-set custom order (sortOrder); untracked rows fall back to newest first.
+    const orderedRaw = sortDocumentRowsByCustomOrder(activeRaw);
+
     // Transform to only include needed fields (excluding fileUrl for security)
-    const documents = activeRaw.map((doc: any) => ({
+    const documents = orderedRaw.map((doc: any) => ({
       id: doc.id,
       title: doc.title,
       fileName: doc.fileName,

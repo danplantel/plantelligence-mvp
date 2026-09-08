@@ -907,6 +907,7 @@ model Document {
   categoryConfidence Int?      // 0–100 confidence for categorySuggested (spec: aiConfidence)
   uploadedAt         DateTime  @default(now())
   expirationDate     DateTime? // Optional expiration date for the document
+  sortOrder          Int?      // Advisor-set display order; lower sorts first (nulls = last)
   showQrCode         Boolean   @default(true) // Whether to expose QR / quick-access affordances for this document
   archivedAt         DateTime? // Soft-archive: null = active; set = hidden from Hub default lists
 

@@ -81,6 +81,7 @@ export async function GET(
         categorySuggested: true,
         categoryConfidence: true,
         uploadedAt: true,
+        sortOrder: true,
         expirationDate: true,
         showQrCode: true,
         archivedAt: true,
