@@ -6,6 +6,53 @@ import GoogleProvider from "next-auth/providers/google";
 import prisma from "./prisma";
 import { sendSignInNotificationEmail } from "@/lib/email";
 
+const ROOT_DOMAIN = (process.env.ROOT_DOMAIN || "plantel.pro")
+  .replace(/^\./, "")
+  .toLowerCase();
+
+/**
+ * Resolve the Domain attribute for the NextAuth session cookie.
+ *
+ * When the app is served on the Plantel root domain (apex `plantel.pro` or a
+ * subdomain like `waypoint.plantel.pro`), scope the cookie to `.plantel.pro`
+ * so it is shared across those hosts.
+ *
+ * On ANY other host — e.g. a Vercel deployment/dev domain such as
+ * `plantel-dev.vercel.app` — the domain must be left unset so the browser
+ * stores a host-only cookie. Otherwise the browser silently rejects a
+ * `Domain=.plantel.pro` cookie on a host that isn't under `plantel.pro`, the
+ * session never persists, and sign-in appears to do nothing after the callback.
+ *
+ * NextAuth v4 resolves cookie options statically from this config (no per
+ * request function), so we infer the host from the environment's canonical
+ * app URL. Each Vercel project/environment should set NEXTAUTH_URL to its own
+ * URL (e.g. https://plantel-dev.vercel.app for the dev project).
+ */
+function resolveSessionCookieDomain(): string | undefined {
+  if (process.env.NODE_ENV !== "production") return undefined;
+
+  const canonical =
+    process.env.NEXTAUTH_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : "") ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+
+  if (!canonical) return undefined;
+
+  let host = "";
+  try {
+    host = new URL(canonical).hostname.toLowerCase();
+  } catch {
+    return undefined;
+  }
+
+  return host === ROOT_DOMAIN || host.endsWith(`.${ROOT_DOMAIN}`)
+    ? `.${ROOT_DOMAIN}`
+    : undefined;
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
@@ -96,14 +143,13 @@ export const authOptions: NextAuthOptions = {
         sameSite: "lax",
         path: "/",
         secure: process.env.NODE_ENV === "production",
-        // In production, set the domain to .plantel.pro so the session cookie
-        // is shared across the apex domain and all subdomains (waypoint.plantel.pro, etc.).
-        // On localhost, leave domain undefined — browsers reject dot-prefixed domains
-        // on localhost.
-        domain:
-          process.env.NODE_ENV === "production"
-            ? ".plantel.pro"
-            : undefined,
+        // On the Plantel root domain the cookie is scoped to `.plantel.pro` so
+        // it is shared across the apex and all subdomains (waypoint.plantel.pro,
+        // etc.). On localhost and on non-Plantel hosts (Vercel preview/dev
+        // domains like plantel-dev.vercel.app) the domain is left undefined so
+        // the browser stores a host-only cookie — dot-prefixed domains are
+        // rejected on localhost and on mismatched hosts.
+        domain: resolveSessionCookieDomain(),
       },
     },
   },
