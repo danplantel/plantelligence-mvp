@@ -202,6 +202,24 @@ export function NewClientWizard({
             });
             return;
           }
+
+          // Surface a specific message when the Contact Form CTA is selected
+          // but the contact has no email — the /contact form delivers
+          // submissions to that email, so it is required for this CTA.
+          const contactFormCtaError = validationResult.errors.find(
+            (error: any) =>
+              error.field === "contactFormCtaEmail" ||
+              (typeof error.field === "string" &&
+                error.field.startsWith("contact_") &&
+                error.field.includes("contactFormCtaEmail")),
+          ) as any;
+          if (contactFormCtaError?.message) {
+            toast.error("Contact Form CTA requires an email", {
+              description: contactFormCtaError.message,
+              duration: 6000,
+            });
+            return;
+          }
         }
 
         setTimeout(() => {
@@ -230,6 +248,7 @@ export function NewClientWizard({
             hubDocumentsCategory: "Benefits Hub documents",
             schedulingUrl: "Scheduling URL",
             websiteUrl: "Contact Form URL",
+            contactFormCtaEmail: "Email (required for the Contact Form CTA)",
           };
 
           const fieldsByContact = new Map<string, Set<string>>();

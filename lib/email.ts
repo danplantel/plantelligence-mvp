@@ -41,6 +41,86 @@ async function sendEmail({ to, subject, html }: EmailOptions) {
   }
 }
 
+/** Payload for a submission from the Plantelligence-branded `/contact` form. */
+export interface ContactFormSubmission {
+  /** Recipient — the contact/advisor email associated with the contact card. */
+  to: string;
+  fromName: string;
+  fromEmail: string;
+  message: string;
+  company?: string;
+}
+
+/** Email a `/contact` form submission to the recipient (the contact's email). */
+export async function sendContactFormEmail({
+  to,
+  fromName,
+  fromEmail,
+  message,
+  company,
+}: ContactFormSubmission) {
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="margin:0;padding:0;background-color:#f4f6f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f6f9;">
+            <tr>
+                <td align="center" style="padding:40px 16px 20px;">
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;width:100%;background-color:#ffffff;border-radius:12px;overflow:hidden;">
+                        <tr>
+                            <td align="center" style="padding:24px;background-color:#0a3a40;">
+                                <img src="${logoUrl}" alt="PlanTelligence®" width="180" class="logo-default" style="max-width:180px;height:auto;" />
+                                <img src="${logoUrlLight}" alt="PlanTelligence®" width="180" class="logo-dark" style="display:none;max-width:180px;height:auto;" />
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:32px 32px 24px;">
+                                <h1 style="margin:0 0 8px;font-size:20px;font-weight:600;color:#1a1a2e;">New Contact Form Submission</h1>
+                                ${company ? `<p style="margin:0 0 16px;color:#666680;font-size:14px;">From <strong>${company}</strong></p>` : ""}
+                                <p style="margin:0 0 16px;color:#666680;font-size:14px;">
+                                    <strong>Name:</strong> ${escapeHtml(fromName)}<br/>
+                                    <strong>Email:</strong> ${escapeHtml(fromEmail)}
+                                </p>
+                                <div style="padding:16px;background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;color:#374151;font-size:14px;line-height:1.6;white-space:pre-wrap;">
+                                    ${escapeHtml(message)}
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:8px 32px 24px;">
+                                <p style="margin:0;color:#9ca3af;font-size:12px;">Sent from the PlanTelligence® contact form.</p>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+    </html>
+  `;
+  const subject = `New Contact Form Submission${company ? ` – ${company}` : ""}`;
+  return sendEmail({ to, subject, html });
+}
+
+/** Minimal HTML-escape helper for user-provided content in emails. */
+function escapeHtml(value: string): string {
+  const amp = "&" + "amp;";
+  const lt = "&" + "lt;";
+  const gt = "&" + "gt;";
+  const quot = "&" + "quot;";
+  const apos = "&" + "#039;";
+  return value
+    .replace(/&/g, amp)
+    .replace(/</g, lt)
+    .replace(/>/g, gt)
+    .replace(/"/g, quot)
+    .replace(/'/g, apos);
+}
+
 export async function sendVideoCreationEmail(userEmail: string, videoName: string) {
   const subject = 'Your Video Creation Has Started';
   const html = `

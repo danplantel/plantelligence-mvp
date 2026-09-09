@@ -32,6 +32,11 @@ const AUTH_ROUTES = [
   "/verify-code",
 ];
 
+// Public non-auth routes that must never be gated or treated as portal paths.
+// `/contact` is the first-party Plantelligence-branded contact form that portal
+// "Contact Form" CTAs link to on the main site.
+const PUBLIC_ROUTES = ["/contact"];
+
 function isPathOrChild(pathname: string, route: string): boolean {
   return pathname === route || pathname.startsWith(`${route}/`);
 }
@@ -90,11 +95,13 @@ export default async function middleware(req: NextRequest) {
   // Any apex path that isn't a known app/auth/api route is treated as a
   // portal request and redirected to the dashboard.
   const isAuthPath = AUTH_ROUTES.some((r) => isPathOrChild(pathname, r));
+  const isPublicPath = PUBLIC_ROUTES.some((r) => isPathOrChild(pathname, r));
   const isKnownPath =
     pathname === "/" ||
     pathname === "/not-found" ||
     pathname.startsWith("/api/") ||
     isAuthPath ||
+    isPublicPath ||
     APP_ROUTES.some((r) => isPathOrChild(pathname, r));
 
   if (!isKnownPath) {

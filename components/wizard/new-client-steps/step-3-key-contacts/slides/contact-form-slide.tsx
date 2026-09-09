@@ -22,6 +22,8 @@ import { formatPhoneWithExtension } from "@/lib/phone-utils";
 import { toast } from "sonner";
 import { SmallVerticalCard } from "@/components/pages/my-benefits-team/small-vertical-card";
 import { useContactStyles } from "../../sections/hooks/use-contact-styles";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { ContactFormPage } from "@/components/pages/contact-form-page";
 
 // ==================== Types ====================
 
@@ -52,6 +54,25 @@ const formatPhoneNumber = (value: string): string => {
   if (phoneNumber.length <= 6)
     return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3)}`;
   return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
+};
+
+/**
+ * Build the URL for the Plantelligence-branded `/contact` page. The form emails
+ * submissions to `to` (this contact's email), so the CTA link is derived from
+ * the contact's email rather than an arbitrary external URL.
+ */
+const buildContactFormHref = (
+  to: string,
+  company?: string,
+  name?: string,
+): string => {
+  const base = typeof window !== "undefined" ? window.location.origin : "";
+  const params = new URLSearchParams();
+  if (to) params.set("to", to);
+  if (company) params.set("company", company);
+  if (name) params.set("name", name);
+  const qs = params.toString();
+  return `${base}/contact${qs ? `?${qs}` : ""}`;
 };
 
 /** Compute a two-letter monogram from a contact name */
@@ -468,6 +489,8 @@ export function ContactFormSlide({
   const [websiteUrl, setWebsiteUrl] = useState(
     step3bData.websiteUrl || "",
   );
+  // Whether the live Plantelligence `/contact` page preview modal is open.
+  const [contactPreviewOpen, setContactPreviewOpen] = useState(false);
 
   // Validation state
   const [validationAttempted, setValidationAttempted] = useState(false);
@@ -848,7 +871,10 @@ export function ContactFormSlide({
             ? ((ctaType === "schedule" ? "calendar" : ctaType === "call" ? "phone" : ctaType === "email" ? "email" : "url") as "calendar" | "phone" | "email" | "url")
             : undefined,
           schedulingUrl: enableCtaButton && ctaType === "schedule" ? schedulingUrl || undefined : undefined,
-          websiteUrl: enableCtaButton && ctaType === "contact" ? websiteUrl || undefined : undefined,
+          websiteUrl:
+            enableCtaButton && ctaType === "contact"
+              ? buildContactFormHref(email, companyName, displayName)
+              : undefined,
           benefitsCategoryOther: category === "Other Benefits" ? customBenefits || undefined : undefined,
         };
 
@@ -949,7 +975,10 @@ export function ContactFormSlide({
           ? ((ctaType === "schedule" ? "calendar" : ctaType === "call" ? "phone" : ctaType === "email" ? "email" : "url") as "calendar" | "phone" | "email" | "url")
           : undefined,
         schedulingUrl: enableCtaButton && ctaType === "schedule" ? schedulingUrl || undefined : undefined,
-        websiteUrl: enableCtaButton && ctaType === "contact" ? websiteUrl || undefined : undefined,
+        websiteUrl:
+          enableCtaButton && ctaType === "contact"
+            ? buildContactFormHref(email, companyName, displayName)
+            : undefined,
         benefitsCategoryOther: category === "Other Benefits" ? customBenefits || undefined : undefined,
       };
 
@@ -1065,9 +1094,11 @@ export function ContactFormSlide({
       errors.push("schedulingUrl");
     }
 
-    // Contact Form URL is required when the "Contact Form" CTA is enabled
-    if (enableCtaButton && ctaType === "contact" && !websiteUrl.trim()) {
-      errors.push("websiteUrl");
+    // The "Contact Form" CTA opens the Plantelligence-branded `/contact` page,
+    // which emails the submission to this contact — so a valid email is
+    // required whenever the Contact Form CTA is selected.
+    if (enableCtaButton && ctaType === "contact" && !emailValid) {
+      if (!errors.includes("email")) errors.push("email");
     }
 
     setLocalErrors(errors);
@@ -1095,7 +1126,11 @@ export function ContactFormSlide({
         });
         targetRef.current.focus();
       }
-      toast.error("Please fill out all required fields");
+      toast.error(
+        enableCtaButton && ctaType === "contact" && !emailValid
+          ? "Selecting the Contact Form CTA requires this contact's email, since form submissions are delivered to it."
+          : "Please fill out all required fields",
+      );
     }
 
     return errors.length === 0;
@@ -1696,56 +1731,29 @@ export function ContactFormSlide({
                   )}
 
                   {ctaType === "contact" && (
-                    <div className="space-y-1" data-field="websiteUrl">
-                      <Label className="dark:text-gray-300 text-xs font-medium">
-                        Contact Form URL <span className="text-red-500">*</span>
-                      </Label>
+                    <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <Input
-                          ref={websiteUrlRef}
-                          value={websiteUrl}
-                          onChange={(e) => setWebsiteUrl(e.target.value)}
-                          placeholder="https://forms.company.com/..."
-                          className={cn(
-                            "h-8 text-sm flex-1",
-                            hasError("websiteUrl") && "border-red-500",
-                          )}
-                        />
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button
-                              type="button"
-                              className="flex-shrink-0 w-5 h-5 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                              aria-label="Info about CTA button types"
-                            >
-                              <Info className="w-3 h-3 text-gray-400" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-72 p-3 text-xs" side="left" align="center">
-                            <p className="font-medium mb-1 text-gray-900 dark:text-gray-100">
-                              Schedule Appt (Appointment)
-                            </p>
-                            <p className="text-gray-500 dark:text-gray-400 mb-3">
-                              When an employee clicks this button, they can book a meeting
-                              directly using the scheduling link you provide (e.g., Calendly,
-                              Microsoft Bookings).
-                            </p>
-                            <p className="font-medium mb-1 text-gray-900 dark:text-gray-100">
-                              Contact Form
-                            </p>
-                            <p className="text-gray-500 dark:text-gray-400">
-                              This opens a contact form or external page where the employee
-                              can send a message or submit an inquiry.
-                            </p>
-                          </PopoverContent>
-                        </Popover>
+                        <Label className="dark:text-gray-300 text-xs font-medium">
+                          Plantelligence Contact Form
+                        </Label>
+                        <button
+                          type="button"
+                          onClick={() => setContactPreviewOpen(true)}
+                          className="flex-shrink-0 w-5 h-5 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          aria-label="Preview the Contact Form page"
+                          title="Preview the Contact Form page"
+                        >
+                          <Info className="w-3 h-3 text-gray-400" />
+                        </button>
                       </div>
-                      {hasError("websiteUrl") && (
-                        <p className="text-[10px] text-red-500">
-                          Contact Form URL is required when &ldquo;Contact
-                          Form&rdquo; is enabled
-                        </p>
-                      )}
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 rounded px-2.5 py-1.5 leading-relaxed">
+                        This CTA opens a Plantelligence-branded contact form on
+                        the /contact page. Submissions are delivered to this
+                        contact&rsquo;s email.
+                        {email
+                          ? ` Incoming messages will be sent to ${email}.`
+                          : " Enter this contact's email above to receive incoming messages."}
+                      </p>
                     </div>
                   )}
 
@@ -1889,7 +1897,13 @@ export function ContactFormSlide({
                 ? (ctaType === "schedule" ? "calendar" : ctaType === "call" ? "phone" : ctaType === "email" ? "email" : "url")
                 : undefined,
               schedulingUrl: enableCtaButton && ctaType === "schedule" ? schedulingUrl : undefined,
-              websiteUrl: enableCtaButton && ctaType === "contact" ? websiteUrl : undefined,
+              // For the preview, derive the contact-form URL live from the form's
+              // email so the Contact Form CTA button actually renders (the saved
+              // websiteUrl is only written on save).
+              websiteUrl:
+                enableCtaButton && ctaType === "contact"
+                  ? buildContactFormHref(email, companyName, displayName)
+                  : undefined,
             }}
             brandColor={brandColor}
             secondaryColor={secondaryColor}
@@ -1906,7 +1920,35 @@ export function ContactFormSlide({
         </StickyPreviewContainer>
       </div>
 
-      {/* Navigation is handled by the bottom bar (Previous/Next buttons) */}
+      {/* Contact Form preview modal — renders the live Plantelligence-branded
+          /contact page so the editor can see exactly what employees will get. */}
+      <Dialog open={contactPreviewOpen} onOpenChange={setContactPreviewOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto dark:bg-gray-800 dark:border-gray-700">
+          <DialogHeader>
+            <DialogTitle>Contact Form Preview</DialogTitle>
+            <DialogDescription>
+              This is the Plantelligence-branded contact form employees will see
+              when they click the &ldquo;Contact Form&rdquo; CTA button on this
+              contact&rsquo;s card.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
+            <ContactFormPage
+              to={email}
+              company={
+                companyName || (!isFromSomeoneElse ? defaultCompanyName : "")
+              }
+              contactName={
+                contactType === "individual"
+                  ? `${firstName} ${lastName}`.trim()
+                  : displayName
+              }
+              embedded
+              preview
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );

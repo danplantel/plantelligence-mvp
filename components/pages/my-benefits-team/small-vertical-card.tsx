@@ -188,10 +188,14 @@ export function SmallVerticalCard({
         url: contact.email ? `mailto:${contact.email}` : "",
       });
     } else if (ctaBtnType === "url") {
+      // `url` corresponds to the first-party Contact Form CTA — the button
+      // opens the branded /contact form (the saved websiteUrl is derived from
+      // the contact's email). Match the "Contact" label used by the other card
+      // variants.
       if (primaryIndex === -1) primaryIndex = buttons.length;
       buttons.push({
         type: "website",
-        label: isTeamSupport ? "Visit Support Site" : "Visit Website",
+        label: isTeamSupport ? "Contact Support" : "Contact",
         url: contact.websiteUrl || "",
       });
     }
