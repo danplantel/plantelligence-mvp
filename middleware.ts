@@ -50,7 +50,7 @@ export default async function middleware(req: NextRequest) {
 
   // Let static/public assets through (e.g. /logo.png) — they're never an app
   // or portal route. /api/r2/object image paths are exempt so subdomain image
-  // serving below can still attach x-advisor-id.
+  // serving below still works (the R2 route resolves the advisor from the Host).
   if (
     !pathname.startsWith("/api/r2/object") &&
     /\.[a-zA-Z0-9]+$/.test(pathname)
@@ -61,9 +61,9 @@ export default async function middleware(req: NextRequest) {
   // ── Subdomain portal routing ──────────────────────────────────────────
   // Subdomains serve ONLY the public portal (root-level /{slug} and its
   // sub-pages). Every non-API path is a portal page; /api/r2/object serves
-  // portal images. The subdomain→advisor lookup is delegated to
-  // /api/resolve-subdomain (Node.js runtime) because Prisma cannot run in
-  // Edge middleware.
+  // portal images. Advisor scoping happens in the Node.js API routes
+  // (resolvePortalAdvisorId derives the advisor from the Host subdomain via
+  // Prisma), so the Edge middleware just lets portal requests through.
   if (subdomain) {
     // Only the R2 image proxy is allowed on a subdomain; other API routes
     // aren't portal pages.
@@ -74,55 +74,15 @@ export default async function middleware(req: NextRequest) {
       return NextResponse.rewrite(new URL("/not-found", req.url));
     }
 
-    try {
-      // Self-fetch the Node.js route that resolves the subdomain. Use the same
-      // custom host the request came in on (e.g. testing.dev.plantel.pro). When
-      // Vercel Authentication protects preview deployments, the server-side
-      // fetch has no Vercel login cookie, so send the automation bypass header
-      // (see Vercel → Deployment Protection → Protection Bypass for Automation).
-      const resolveUrl = new URL("/api/resolve-subdomain", req.nextUrl.origin);
-      resolveUrl.searchParams.set("subdomain", subdomain);
-
-      const resolveRes = await fetch(resolveUrl.toString(), {
-        headers: process.env.VERCEL_AUTOMATION_BYPASS_SECRET
-          ? {
-              "x-vercel-protection-bypass":
-                process.env.VERCEL_AUTOMATION_BYPASS_SECRET,
-            }
-          : undefined,
-      });
-      const resolveText = await resolveRes.text().catch(() => "");
-      const contentType = resolveRes.headers.get("content-type") || "";
-      console.log(
-        `[middleware] resolve ${resolveUrl} -> status=${resolveRes.status} contentType=${contentType} body=${JSON.stringify(resolveText.slice(0, 200))}`,
-      );
-
-      if (!resolveRes.ok) {
-        // Invalid subdomain — show the app's not-found page
-        return NextResponse.rewrite(new URL("/not-found", req.url));
-      }
-
-      let userId: string | undefined;
-      try {
-        userId = JSON.parse(resolveText).userId;
-      } catch {
-        console.error(
-          `[middleware] resolve returned non-JSON (contentType=${contentType}): ${resolveText.slice(0, 300)}`,
-        );
-        return NextResponse.rewrite(new URL("/not-found", req.url));
-      }
-
-      if (!userId) {
-        return NextResponse.rewrite(new URL("/not-found", req.url));
-      }
-      console.log(`[middleware] resolved subdomain=${subdomain} -> userId=${userId}`);
-      response.headers.set("x-advisor-id", userId);
-      response.headers.set("x-root-domain", rootDomain);
-      return response;
-    } catch (err) {
-      console.error("[middleware] subdomain lookup error:", err);
-      return NextResponse.rewrite(new URL("/not-found", req.url));
-    }
+    // Portal pages + the R2 image proxy pass straight through. Advisor scoping
+    // is handled in the Node.js API routes via resolvePortalAdvisorId (which
+    // derives the advisor from the Host subdomain using Prisma). We no longer
+    // self-fetch /api/resolve-subdomain here: on preview deployments Vercel's
+    // Deployment Protection answers that server-side fetch with an HTML
+    // challenge instead of JSON, which wrongly rewrote every portal to the
+    // not-found page.
+    response.headers.set("x-root-domain", rootDomain);
+    return response;
   }
 
   // ── Apex domain ────────────────────────────────────────────────────────
@@ -177,10 +137,11 @@ export default async function middleware(req: NextRequest) {
 export const config = {
   matcher: [
     // Catch-all for app + portal routes (root-level /{slug} and /{slug}/…),
-    // skipping Next.js internals and ALL /api/* paths. If /api/* were matched,
-    // the middleware's own internal fetch to /api/resolve-subdomain (and the
-    // portal's /api/clients/... calls) would be re-intercepted and rewritten to
-    // the HTML not-found page, breaking JSON responses.
+    // skipping Next.js internals and ALL /api/* paths. Portal API routes
+    // (/api/clients/..., /api/profile, etc.) resolve their own advisor from the
+    // Host subdomain in the Node runtime, so they must not run through
+    // middleware. /api/r2/object is matched separately below for subdomain
+    // image serving.
     "/((?!_next/|favicon.ico|api/).*)",
     // /api/r2/object must still run through middleware for subdomain image serving.
     "/api/r2/object",
