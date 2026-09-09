@@ -1419,9 +1419,38 @@ export function ContactFormSlide({
 
             {contactType === "individual" ? (
               <>
-                {/* Company / Organization first, then the person's name — matches
-                    the desired field order for Individual contacts. */}
+                {/* Company / Organization first, then the headshot and name. */}
                 {companyNameInput}
+                {/* Headshot (optional) — only for Individual contacts, placed
+                    before the name fields. */}
+                <div className="space-y-1" data-field="headshot">
+                  <Label className="dark:text-gray-300 text-xs font-medium">
+                    Headshot (optional)
+                  </Label>
+                  <div className="items-start">
+                    <div className="flex-1">
+                      <UniversalImageEditorModal
+                        value={headshot || ""}
+                        fileName={headshotFileName || ""}
+                        onChange={(value, fileName) => {
+                          setHeadshot(value);
+                          setHeadshotFileName(fileName || "");
+                        }}
+                        onRemove={() => {
+                          setHeadshot("");
+                          setHeadshotFileName("");
+                        }}
+                        placeholder="Upload Headshot"
+                        modalTitle="Edit Headshot"
+                        modalDescription="Upload a clear, front-facing photo. Keep the face inside the circle guide for best results."
+                        saveButtonText="Save Headshot"
+                        type="headshot"
+                        autoSizeOnOpen={true}
+                        forceCircularGuidelines={true}
+                      />
+                    </div>
+                  </div>
+                </div>
                 <div className="space-y-1" data-field="firstName">
                   <Label className="dark:text-gray-300 text-xs font-medium">
                     First Name <span className="text-red-500">*</span>
@@ -1814,38 +1843,6 @@ export function ContactFormSlide({
                 </>
               )}
             </div>
-
-            {/* Headshot (optional) - only for Individual contacts */}
-            {contactType === "individual" && (
-              <div className="space-y-1" data-field="headshot">
-                <Label className="dark:text-gray-300 text-xs font-medium">
-                  Headshot (optional)
-                </Label>
-                <div className="items-start">
-                  <div className="flex-1">
-                    <UniversalImageEditorModal
-                      value={headshot || ""}
-                      fileName={headshotFileName || ""}
-                      onChange={(value, fileName) => {
-                        setHeadshot(value);
-                        setHeadshotFileName(fileName || "");
-                      }}
-                      onRemove={() => {
-                        setHeadshot("");
-                        setHeadshotFileName("");
-                      }}
-                      placeholder="Upload Headshot"
-                      modalTitle="Edit Headshot"
-                      modalDescription="Upload a clear, front-facing photo. Keep the face inside the circle guide for best results."
-                      saveButtonText="Save Headshot"
-                      type="headshot"
-                      autoSizeOnOpen={true}
-                      forceCircularGuidelines={true}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Contact Company Logo — shown for all non-Plan-Sponsor contacts */}
             {category !== "Company / Plan Sponsor" && (
