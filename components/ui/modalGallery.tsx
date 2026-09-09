@@ -55,12 +55,15 @@ export function ModalGallery({
   // Two "slides": the image grid, and a full-size preview of the picked image.
   const [view, setView] = useState<GalleryView>("grid");
 
-  // Start on the grid slide whenever the dialog is (re)opened.
+  // Reset the whole interaction state on every open/close transition: always
+  // (re)open on the grid slide, never busy, and never carry over a previously
+  // picked image. Clearing on open (not just on close) guarantees that if a
+  // user selects an image and then cancels, that image is NOT shown as
+  // "selected" the next time the dialog is opened.
   useEffect(() => {
-    if (open) {
-      setView("grid");
-      setBusy(false);
-    }
+    setView("grid");
+    setBusy(false);
+    setSelected(null);
   }, [open]);
 
   const selectedImage = selected

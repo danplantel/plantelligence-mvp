@@ -84,6 +84,11 @@ export function BrandImagesSection({
     keyof BrandImagesData | null
   >(null);
   const [galleryOpen, setGalleryOpen] = useState(false);
+  // Incremented each time the "Choose a Default Image" modal is opened and used
+  // as its React `key`. Remounting the gallery on every open guarantees its
+  // internal selection state starts fresh — a previously picked-but-cancelled
+  // image can never show up as "selected" on the next open.
+  const [gallerySession, setGallerySession] = useState(0);
   const [pendingImageData, setPendingImageData] = useState<{
     slotKey: keyof BrandImagesData;
     data: BrandImageData;
@@ -364,6 +369,7 @@ export function BrandImagesSection({
                 }
                 onDefaultPhotoClick={() => {
                   setActiveSlotKey(slot.key);
+                  setGallerySession((s) => s + 1);
                   setGalleryOpen(true);
                 }}
                 onEditClick={() => {
@@ -405,6 +411,7 @@ export function BrandImagesSection({
       </CardContent>
 
       <ModalGallery
+        key={gallerySession}
         open={galleryOpen}
         onOpenChange={setGalleryOpen}
         images={galleryImages}
