@@ -51,6 +51,9 @@ async function auth(req: NextRequest, ctx: any) {
 
   // Host-only cookies are already correct for non-Plantel hosts — nothing to do.
   const domain = cookieDomainForHost(req);
+  console.log(
+    `[nextauth] host=${req.headers.get("host") || ""} cookieDomain=${domain || "(host-only)"} status=${res.status}`,
+  );
   if (!domain) return res;
 
   // NextAuth v4 serializes cookies as real Set-Cookie headers on the returned
