@@ -41,6 +41,9 @@ export default async function middleware(req: NextRequest) {
   const host = req.headers.get("host") || "";
   const rootDomain = process.env.ROOT_DOMAIN || "plantel.pro";
   const subdomain = extractSubdomain(host, rootDomain);
+  console.log(
+    `[middleware] host=${host} rootDomain=${rootDomain} extractedSubdomain=${subdomain || "(none)"} path=${pathname} env=${process.env.NODE_ENV}`,
+  );
 
   const response = NextResponse.next();
   response.headers.set("x-pathname", pathname);
@@ -77,11 +80,19 @@ export default async function middleware(req: NextRequest) {
       const resolveRes = await fetch(resolveUrl.toString());
 
       if (!resolveRes.ok) {
+        const text = await resolveRes.text().catch(() => "");
+        console.error(
+          `[middleware] resolve-subdomain returned ${resolveRes.status} for subdomain=${subdomain}:`,
+          text.slice(0, 200),
+        );
         // Invalid subdomain — show the app's not-found page
         return NextResponse.rewrite(new URL("/not-found", req.url));
       }
 
       const { userId } = await resolveRes.json();
+      console.log(
+        `[middleware] resolved subdomain=${subdomain} -> userId=${userId}`,
+      );
       response.headers.set("x-advisor-id", userId);
       response.headers.set("x-root-domain", rootDomain);
       return response;
