@@ -75,15 +75,11 @@ export default async function middleware(req: NextRequest) {
     }
 
     try {
-      // Self-fetch the Node.js route that resolves the subdomain. Use Vercel's
-      // own deployment URL (VERCEL_URL) rather than the request origin: on a
-      // custom wildcard domain (*.dev.plantel.pro / *.plantel.pro) a fetch back
-      // to that same host can be served the app's HTML shell instead of the
-      // /api route, producing a 200 HTML response that JSON.parse() rejects.
-      const baseUrl = process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : new URL(req.url).origin;
-      const resolveUrl = new URL("/api/resolve-subdomain", baseUrl);
+      // Self-fetch the Node.js route that resolves the subdomain. Use the same
+      // custom host the request came in on (e.g. testing.dev.plantel.pro) so it
+      // is covered by the project's Deployment Protection Exceptions for the
+      // pre-production domains and isn't intercepted by Vercel Authentication.
+      const resolveUrl = new URL("/api/resolve-subdomain", req.nextUrl.origin);
       resolveUrl.searchParams.set("subdomain", subdomain);
 
       const resolveRes = await fetch(resolveUrl.toString());
