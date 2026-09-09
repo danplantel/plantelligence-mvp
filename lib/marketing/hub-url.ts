@@ -64,3 +64,53 @@ export function getBenefitsHubAbsoluteUrl(
 
   return `${base}${path}`;
 }
+
+/**
+ * Absolute Benefits Hub URL for the in-app "Open Portal" / "View Portal"
+ * buttons. This targets the environment the advisor is CURRENTLY using, unlike
+ * getBenefitsHubAbsoluteUrl, which always targets the Plantel root domain
+ * (used for external-facing flyer QR codes and email links).
+ *
+ *   • local `next dev`                  -> {origin}/{slug}
+ *   • Plantel hosts (www.plantel.pro…)  -> https://{subdomain}.plantel.pro/{slug}
+ *   • other hosts (e.g. the Vercel dev
+ *     deployment plantel-dev.vercel.app) -> https://{subdomain}.plantel-dev.vercel.app/{slug}
+ *
+ * Requires the browser (window.location) — call from client event handlers only.
+ */
+export function getBenefitsHubOpenPortalUrl(
+  clientIdOrSlug: string,
+  userSubdomain?: string,
+): string {
+  const path = getBenefitsHubPath(clientIdOrSlug);
+
+  // Local development: no subdomain hosting, so open the current origin.
+  if (process.env.NODE_ENV === "development") {
+    return `${window.location.origin}${path}`;
+  }
+
+  const subdomain = userSubdomain?.trim();
+  if (!subdomain) {
+    return `${window.location.origin}${path}`;
+  }
+
+  const host = window.location.hostname.toLowerCase();
+  const configuredRoot = (
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN ||
+    process.env.ROOT_DOMAIN ||
+    "plantel.pro"
+  )
+    .replace(/^\./, "")
+    .toLowerCase();
+
+  // On Plantel hosts the portal root is always plantel.pro (whether the app is
+  // served from the apex, www, or a subdomain). On any other host — e.g. the
+  // Vercel dev deployment plantel-dev.vercel.app — the portal root is that host
+  // itself, producing https://{subdomain}.plantel-dev.vercel.app/{slug}.
+  const portalRoot =
+    host === configuredRoot || host.endsWith(`.${configuredRoot}`)
+      ? configuredRoot
+      : host;
+
+  return `https://${subdomain}.${portalRoot}${path}`;
+}

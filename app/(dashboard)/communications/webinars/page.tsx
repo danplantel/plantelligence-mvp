@@ -9,10 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import {
-  getBenefitsHubAbsoluteUrl,
-  getBenefitsHubPath,
-} from "@/lib/marketing/hub-url";
+import { getBenefitsHubOpenPortalUrl } from "@/lib/marketing/hub-url";
 import {
   Select,
   SelectContent,
@@ -499,13 +496,10 @@ export default function WebinarsPage() {
                           const slug =
                             (client as any)?.slug;
                           const resolvedSlug = slug || clientId;
-                          const url =
-                            process.env.NODE_ENV === "development"
-                              ? `${window.location.origin}${getBenefitsHubPath(resolvedSlug)}`
-                              : getBenefitsHubAbsoluteUrl(
-                                  resolvedSlug,
-                                  userSubdomain,
-                                );
+                          const url = getBenefitsHubOpenPortalUrl(
+                            resolvedSlug,
+                            userSubdomain,
+                          );
                           window.open(url, "_blank");
                         }
                       }}

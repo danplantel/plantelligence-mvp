@@ -24,10 +24,7 @@ import { NavigateAwayWarningDialog } from "@/components/ui/navigate-away-warning
 import { ResumeOrNewPlanDialog } from "@/components/ui/resume-or-new-plan-dialog";
 import useSWR from "swr";
 import { useRouter } from "next/navigation";
-import {
-  getBenefitsHubAbsoluteUrl,
-  getBenefitsHubPath,
-} from "@/lib/marketing/hub-url";
+import { getBenefitsHubOpenPortalUrl } from "@/lib/marketing/hub-url";
 import { fetchProfileOnce } from "@/lib/fetch-profile";
 
 export default function NewClientPage() {
@@ -666,12 +663,10 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
                     type="button"
                     onClick={() => {
                       const resolvedUrl = successPortalUrl.startsWith("/")
-                        ? (() => {
-                            const slug = successPortalUrl.replace(/^\//, "");
-                            return process.env.NODE_ENV === "development"
-                              ? `${window.location.origin}${getBenefitsHubPath(slug)}`
-                              : getBenefitsHubAbsoluteUrl(slug, userSubdomain);
-                          })()
+                        ? getBenefitsHubOpenPortalUrl(
+                            successPortalUrl.replace(/^\//, ""),
+                            userSubdomain,
+                          )
                         : successPortalUrl;
                       window.open(resolvedUrl, "_blank", "noopener,noreferrer");
                       setShowSuccessDialog(false);

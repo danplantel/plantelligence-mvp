@@ -5,10 +5,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { fetchProfileOnce } from "@/lib/fetch-profile";
-import {
-  getBenefitsHubAbsoluteUrl,
-  getBenefitsHubPath,
-} from "@/lib/marketing/hub-url";
+import { getBenefitsHubOpenPortalUrl } from "@/lib/marketing/hub-url";
 import {
   BenefitsStep1Data,
   BenefitsStep3Data,
@@ -2410,10 +2407,10 @@ export function BenefitsStep1() {
                   const plan = plans.find((p: any) => p.id === resolvedPlanId);
                   const slug = (plan as any)?.slug;
                   const resolvedSlug = slug || resolvedPlanId;
-                  const url =
-                    process.env.NODE_ENV === "development"
-                      ? `${window.location.origin}${getBenefitsHubPath(resolvedSlug)}`
-                      : getBenefitsHubAbsoluteUrl(resolvedSlug, userSubdomain);
+                  const url = getBenefitsHubOpenPortalUrl(
+                    resolvedSlug,
+                    userSubdomain,
+                  );
                   window.open(url, "_blank");
                 }}
                 className="gap-1.5 shrink-0 bg-accent-blue text-white hover:bg-accent-blue/90"

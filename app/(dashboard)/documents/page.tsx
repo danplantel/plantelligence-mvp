@@ -45,10 +45,7 @@ import {
 import { useNavigateAwayGuard } from "@/hooks/use-navigate-away-guard";
 import { NavigateAwayWarningDialog } from "@/components/ui/navigate-away-warning-dialog";
 import { Button } from "@/components/ui/button";
-import {
-  getBenefitsHubAbsoluteUrl,
-  getBenefitsHubPath,
-} from "@/lib/marketing/hub-url";
+import { getBenefitsHubOpenPortalUrl } from "@/lib/marketing/hub-url";
 import {
   Dialog,
   DialogContent,
@@ -229,10 +226,10 @@ function PlanSearchBar({
               const slug =
                 (selectedPlan as any)?.slug;
               const resolvedSlug = slug || value;
-              const url =
-                process.env.NODE_ENV === "development"
-                  ? `${window.location.origin}${getBenefitsHubPath(resolvedSlug)}`
-                  : getBenefitsHubAbsoluteUrl(resolvedSlug, userSubdomain);
+              const url = getBenefitsHubOpenPortalUrl(
+                resolvedSlug,
+                userSubdomain,
+              );
               window.open(url, "_blank");
             }}
             className="gap-1.5 shrink-0 text-white bg-accent-blue hover:bg-accent-blue/80"
