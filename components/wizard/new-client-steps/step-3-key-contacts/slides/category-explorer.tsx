@@ -548,7 +548,16 @@ export function CategoryExplorer({
                   className="flex items-center justify-between px-4 py-3 border-b border-accent-blue/10 last:border-b-0"
                 >
                   <div className="flex items-center gap-3 min-w-0 flex-1">
-                    {contact.headshot ? (
+                    {contact.contactType === "team_support" &&
+                    (contact.companyLogo || contact.logo) ? (
+                      <div className="w-9 h-9 rounded-full overflow-hidden bg-white dark:bg-gray-800 flex items-center justify-center flex-shrink-0 border border-gray-100 dark:border-gray-600">
+                        <BrandingImage
+                          src={contact.companyLogo || contact.logo || ""}
+                          alt={name}
+                          className="w-full h-full object-contain p-1"
+                        />
+                      </div>
+                    ) : contact.headshot ? (
                       <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0">
                         <Headshot src={contact.headshot} alt={name} />
                       </div>
@@ -743,7 +752,16 @@ export function CategoryExplorer({
                           className="flex items-center justify-between px-4 py-2.5 bg-white dark:bg-gray-800"
                         >
                           <div className="flex items-center gap-3 min-w-0 flex-1">
-                            {contact.headshot ? (
+                            {contact.contactType === "team_support" &&
+                            (contact.companyLogo || contact.logo) ? (
+                              <div className="w-7 h-7 rounded-full overflow-hidden bg-white dark:bg-gray-800 flex items-center justify-center flex-shrink-0 border border-gray-100 dark:border-gray-600">
+                                <BrandingImage
+                                  src={contact.companyLogo || contact.logo || ""}
+                                  alt={name}
+                                  className="w-full h-full object-contain p-0.5"
+                                />
+                              </div>
+                            ) : contact.headshot ? (
                               <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0">
                                 <Headshot src={contact.headshot} alt={name} />
                               </div>

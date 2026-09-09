@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { BrandingImage } from "@/components/ui/branding-image";
-import { Mail, Phone, Clock } from "lucide-react";
+import { Mail, Phone, Clock, Headset } from "lucide-react";
 import { motion } from "framer-motion";
 import { readableColor, mix } from "polished";
 import { ContactAvatar } from "@/components/pages/my-benefits-team/contact-avatar";
@@ -200,18 +200,27 @@ export function LargeHorizontalCard({
 
       {/* RIGHT: CONTENT — stretches vertically so action buttons are pushed to the bottom */}
       <div className="flex-1 min-w-0 text-left flex flex-col justify-start gap-4 py-1">
-        {/* LOGO — full width of column so wordmarks can scale; height follows slider (1× = 120px) */}
+        {/* SUPPORT-LINE ICON OR COMPANY LOGO — Team/Support Line contacts show a
+            support icon here because their company logo moves into the circular
+            avatar slot on the left. Height follows the logo-size slider. */}
         <div
           className="flex w-full min-w-0 items-center justify-start m-0"
           style={{ height: `${logoSlotHeightPx}px` }}
         >
-          {(contact.companyLogo || contact.logo) && (
-            <BrandingImage
-              src={contact.companyLogo || contact.logo || ""}
-              alt="Logo"
-              className="object-contain w-auto max-w-full transition-all duration-200 max-h-full"
-              style={{ height: "100%", maxHeight: "100%" }}
+          {isTeamSupport ? (
+            <Headset
+              className="w-10 h-10 sm:w-12 sm:h-12"
+              style={{ color: effectiveBrandColor }}
             />
+          ) : (
+            (contact.companyLogo || contact.logo) && (
+              <BrandingImage
+                src={contact.companyLogo || contact.logo || ""}
+                alt="Logo"
+                className="object-contain w-auto max-w-full transition-all duration-200 max-h-full"
+                style={{ height: "100%", maxHeight: "100%" }}
+              />
+            )
           )}
         </div>
 
@@ -225,15 +234,16 @@ export function LargeHorizontalCard({
             : contact.name}
         </h3>
 
-        {/* TITLE / DEPARTMENT LABEL */}
-        <p
-          className="text-sm font-medium m-0 font-red-hat"
-          style={{ color: textColor || "#374151" }}
-        >
-          {contact.contactType === "team_support"
-            ? contact.departmentLabel || contact.customRole
-            : contact.title || contact.customRole}
-        </p>
+        {/* TITLE / DEPARTMENT LABEL — hidden for Team/Support Line contacts
+            because the team name above already conveys it. */}
+        {!isTeamSupport && (
+          <p
+            className="text-sm font-medium m-0 font-red-hat"
+            style={{ color: textColor || "#374151" }}
+          >
+            {contact.title || contact.customRole}
+          </p>
+        )}
 
         {/* COMPANY NAME */}
         {(contact.companyName || companyName) && (

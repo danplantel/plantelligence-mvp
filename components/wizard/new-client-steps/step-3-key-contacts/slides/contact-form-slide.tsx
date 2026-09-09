@@ -361,6 +361,26 @@ export function ContactFormSlide({
 
   const step3bData = (stepData as any).step3b || {};
 
+  // When editing an existing contact, the wizard's edit-entry points (category
+  // explorer / "Someone Else") re-populate `step3b` from the stored contact but
+  // omit the uploaded contact logo — that logo is persisted on the contact under
+  // `companyLogo`, not in step3b. Backfill it here so re-opening the form (e.g.
+  // to edit a Team/Support Line contact) restores the uploaded logo instead of
+  // showing a blank "Upload Contact Company Logo" field. A contact's `companyLogo`
+  // falls back to the plan's default company logo, so only treat it as a custom
+  // logo when it differs from that default.
+  const editingContactIdValue = (stepData as any)?.step3b?.editingContactId;
+  const contactBeingEdited = editingContactIdValue
+    ? ((stepData.keyContacts?.contacts || []) as any[]).find(
+        (c: any) => c.id === editingContactIdValue,
+      )
+    : null;
+  const storedCustomContactLogo =
+    contactBeingEdited?.companyLogo &&
+    contactBeingEdited.companyLogo !== defaultCompanyLogo
+      ? contactBeingEdited.companyLogo
+      : "";
+
   // Form state
   const [contactType, setContactType] = useState<"individual" | "team_support">(
     (step3bData.contactType as "individual" | "team_support") || "individual",
@@ -425,13 +445,14 @@ export function ContactFormSlide({
 
   // External Admin Logo state — only shown for "Third Party Contact" category
   const [externalAdminLogo, setExternalAdminLogo] = useState(
-    (step3bData as any).externalAdminLogo || "",
+    (step3bData as any).externalAdminLogo || storedCustomContactLogo,
   );
   const [externalAdminLogoFileName, setExternalAdminLogoFileName] = useState(
     (step3bData as any).externalAdminLogoFileName || "",
   );
   const [useCustomLogo, setUseCustomLogo] = useState(
-    (step3bData as any).useCustomLogo === true,
+    (step3bData as any).useCustomLogo === true ||
+      Boolean(storedCustomContactLogo),
   );
 
   // CTA state
@@ -510,9 +531,11 @@ export function ContactFormSlide({
       setHeadshot(sb.headshot || "");
       setHeadshotFileName(sb.headshotFileName || "");
       setCustomBenefits(sb.benefitsCategoryOther || "");
-      setExternalAdminLogo(sb.externalAdminLogo || "");
+      setExternalAdminLogo(sb.externalAdminLogo || storedCustomContactLogo);
       setExternalAdminLogoFileName(sb.externalAdminLogoFileName || "");
-      setUseCustomLogo(sb.useCustomLogo === true);
+      setUseCustomLogo(
+        sb.useCustomLogo === true || Boolean(storedCustomContactLogo),
+      );
       setCompanyName(sb.companyName || "");
       setIsPrimary(
         (() => {
@@ -1127,6 +1150,32 @@ export function ContactFormSlide({
   };
   const CategoryIcon = categoryIcons[category];
 
+  // Company / Organization input — required for all non-Plan-Sponsor contacts.
+  // For Team/Support Line contacts it renders ABOVE "Team / Department Name";
+  // for individual contacts it stays further down the form. Someone Else
+  // contacts already show it near the top of the form (isFromSomeoneElse), so
+  // it isn't duplicated here.
+  const showCompanyNameInput =
+    category !== "Company / Plan Sponsor" && !isFromSomeoneElse;
+  const companyNameInput = showCompanyNameInput ? (
+    <div className="space-y-1.5" data-field="companyName">
+      <Label className="dark:text-gray-300">
+        Company / Organization <span className="text-red-500">*</span>
+      </Label>
+      <Input
+        value={companyName}
+        onChange={(e) => setCompanyName(e.target.value)}
+        placeholder="e.g. Benefits Provider Inc."
+        className={cn("h-8 text-sm", hasError("companyName") && "border-red-500")}
+      />
+      {hasError("companyName") && (
+        <p className="text-[10px] text-red-500">
+          Company / Organization is required
+        </p>
+      )}
+    </div>
+  ) : null;
+
   return (
     <div className="flex flex-col items-center space-y-4 py-2">
       {/* Company Logo above header */}
@@ -1304,6 +1353,9 @@ export function ContactFormSlide({
 
             {contactType === "individual" ? (
               <>
+                {/* Company / Organization first, then the person's name — matches
+                    the desired field order for Individual contacts. */}
+                {companyNameInput}
                 <div className="space-y-1" data-field="firstName">
                   <Label className="dark:text-gray-300 text-xs font-medium">
                     First Name <span className="text-red-500">*</span>
@@ -1351,21 +1403,26 @@ export function ContactFormSlide({
                 </div>
               </>
             ) : (
-              <div className="space-y-1" data-field="displayName">
-                <Label className="dark:text-gray-300 text-xs font-medium">
-                  Team / Department Name <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  ref={displayNameRef}
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="e.g. Benefits Support Team"
-                  className={cn("h-8 text-sm", hasError("displayName") && "border-red-500")}
-                />
-                {hasError("displayName") && (
-                  <p className="text-[10px] text-red-500">Team name is required</p>
-                )}
-              </div>
+              <>
+                {/* Company / Organization first, then the team name — matches
+                    the desired field order for Team/Support Line contacts. */}
+                {companyNameInput}
+                <div className="space-y-1" data-field="displayName">
+                  <Label className="dark:text-gray-300 text-xs font-medium">
+                    Team / Department Name <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    ref={displayNameRef}
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    placeholder="e.g. Benefits Support Team"
+                    className={cn("h-8 text-sm", hasError("displayName") && "border-red-500")}
+                  />
+                  {hasError("displayName") && (
+                    <p className="text-[10px] text-red-500">Team name is required</p>
+                  )}
+                </div>
+              </>
             )}
 
             <div className="space-y-1" data-field="phone">
@@ -1489,6 +1546,40 @@ export function ContactFormSlide({
               {hasError("email") && (
                 <p className="text-[10px] text-red-500">Please enter a valid email address</p>
               )}
+            </div>
+
+            {/* Email / Phone Visibility Toggles — shown directly below the Email
+                input for both contact types */}
+            <div className="border-t border-gray-100 dark:border-gray-700 pt-3 mt-2 space-y-2">
+              <Label className="dark:text-gray-300 text-xs font-medium">
+                Show on contact card
+              </Label>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="display-email"
+                  checked={displayEmail}
+                  onCheckedChange={(checked) => setDisplayEmail(checked === true)}
+                />
+                <Label
+                  htmlFor="display-email"
+                  className="text-xs font-medium cursor-pointer dark:text-gray-300"
+                >
+                  Email
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="display-phone"
+                  checked={displayPhone}
+                  onCheckedChange={(checked) => setDisplayPhone(checked === true)}
+                />
+                <Label
+                  htmlFor="display-phone"
+                  className="text-xs font-medium cursor-pointer dark:text-gray-300"
+                >
+                  Phone
+                </Label>
+              </div>
             </div>
 
             {/* Call-to-Action Button Section */}
@@ -1749,57 +1840,6 @@ export function ContactFormSlide({
                 </div>
               </div>
             )}
-
-            {/* Company / Organization — shown for non-Plan-Sponsor, unless already shown at top for Someone Else */}
-            {category !== "Company / Plan Sponsor" && !isFromSomeoneElse && (
-              <div className="space-y-1.5">
-                <Label className="dark:text-gray-300">
-                  Company / Organization <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  placeholder="e.g. Benefits Provider Inc."
-                  className={cn("h-8 text-sm", hasError("companyName") && "border-red-500")}
-                />
-                {hasError("companyName") && (
-                  <p className="text-[10px] text-red-500">Company / Organization is required</p>
-                )}
-              </div>
-            )}
-
-            {/* Email / Phone Visibility Toggles */}
-            <div className="border-t border-gray-100 dark:border-gray-700 pt-3 mt-2 space-y-2">
-              <Label className="dark:text-gray-300 text-xs font-medium">
-                Show on contact card
-              </Label>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="display-email"
-                  checked={displayEmail}
-                  onCheckedChange={(checked) => setDisplayEmail(checked === true)}
-                />
-                <Label
-                  htmlFor="display-email"
-                  className="text-xs font-medium cursor-pointer dark:text-gray-300"
-                >
-                  Email
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="display-phone"
-                  checked={displayPhone}
-                  onCheckedChange={(checked) => setDisplayPhone(checked === true)}
-                />
-                <Label
-                  htmlFor="display-phone"
-                  className="text-xs font-medium cursor-pointer dark:text-gray-300"
-                >
-                  Phone
-                </Label>
-              </div>
-            </div>
 
           </CardContent>
           </Card>
