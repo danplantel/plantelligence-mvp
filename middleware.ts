@@ -77,22 +77,33 @@ export default async function middleware(req: NextRequest) {
     try {
       const resolveUrl = new URL("/api/resolve-subdomain", req.url);
       resolveUrl.searchParams.set("subdomain", subdomain);
+
       const resolveRes = await fetch(resolveUrl.toString());
+      const resolveText = await resolveRes.text().catch(() => "");
+      const contentType = resolveRes.headers.get("content-type") || "";
+      console.log(
+        `[middleware] resolve ${resolveUrl} -> status=${resolveRes.status} contentType=${contentType} body=${JSON.stringify(resolveText.slice(0, 200))}`,
+      );
 
       if (!resolveRes.ok) {
-        const text = await resolveRes.text().catch(() => "");
-        console.error(
-          `[middleware] resolve-subdomain returned ${resolveRes.status} for subdomain=${subdomain}:`,
-          text.slice(0, 200),
-        );
         // Invalid subdomain — show the app's not-found page
         return NextResponse.rewrite(new URL("/not-found", req.url));
       }
 
-      const { userId } = await resolveRes.json();
-      console.log(
-        `[middleware] resolved subdomain=${subdomain} -> userId=${userId}`,
-      );
+      let userId: string | undefined;
+      try {
+        userId = JSON.parse(resolveText).userId;
+      } catch {
+        console.error(
+          `[middleware] resolve returned non-JSON (contentType=${contentType}): ${resolveText.slice(0, 300)}`,
+        );
+        return NextResponse.rewrite(new URL("/not-found", req.url));
+      }
+
+      if (!userId) {
+        return NextResponse.rewrite(new URL("/not-found", req.url));
+      }
+      console.log(`[middleware] resolved subdomain=${subdomain} -> userId=${userId}`);
       response.headers.set("x-advisor-id", userId);
       response.headers.set("x-root-domain", rootDomain);
       return response;
