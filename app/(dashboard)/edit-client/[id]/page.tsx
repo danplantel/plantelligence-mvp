@@ -35,6 +35,7 @@ import {
   Star,
   Image as ImageIcon,
   Trash2,
+  Info,
 } from "lucide-react";
 import {
   EditClientHeader,
@@ -47,6 +48,8 @@ import { useEditClient } from "@/hooks/useEditClient";
 // Import components from new-client-steps
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { ContactFormFields } from "@/components/ui/contact-form-fields";
+import { ContactFormPage } from "@/components/pages/contact-form-page";
+import { buildContactFormHref } from "@/lib/contact-form-link";
 import { SmallVerticalCard } from "@/components/pages/my-benefits-team/small-vertical-card";
 import { BrandImagesSection } from "@/components/wizard/new-client-steps/sections/brand-images-section";
 import { ComplianceDocumentsUpload } from "@/components/pages/documents/components/compliance-documents-upload";
@@ -350,6 +353,17 @@ function EditContactDialog({
     displayPhone: false,
   });
   const [errors, setErrors] = useState<string[]>([]);
+  // Whether the live Plantelligence /contact page preview modal is open.
+  const [contactPreviewOpen, setContactPreviewOpen] = useState(false);
+  // Derived values used to build the first-party /contact CTA link.
+  const ctaName =
+    form.contactType === "individual"
+      ? `${form.firstName} ${form.lastName}`.trim()
+      : form.displayName;
+  const ctaCompany = isPlanSponsorContact ? companyName : form.companyName;
+  const ctaLogo = isPlanSponsorContact ? companyLogo : form.companyLogo;
+  const ctaHeadshot =
+    form.contactType === "individual" ? form.headshot || "" : "";
 
   const firstNameRef = useRef<HTMLInputElement>(null);
   const lastNameRef = useRef<HTMLInputElement>(null);
@@ -358,7 +372,6 @@ function EditContactDialog({
   const phoneRef = useRef<HTMLInputElement>(null);
   const companyNameRef = useRef<HTMLInputElement>(null);
   const schedulingUrlRef = useRef<HTMLInputElement>(null);
-  const websiteUrlRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!contact) return;
@@ -439,12 +452,11 @@ function EditContactDialog({
     ) {
       errors.push("schedulingUrl");
     }
-    if (
-      form.enableContactButton &&
-      form.ctaType === "contact" &&
-      !form.websiteUrl.trim()
-    ) {
-      errors.push("websiteUrl");
+    // The "Contact Form" CTA opens the Plantelligence-branded /contact page,
+    // which emails the submission to this contact — so a valid email is required
+    // whenever the Contact Form CTA is selected (the URL is derived from it).
+    if (form.enableContactButton && form.ctaType === "contact" && !emailValid) {
+      if (!errors.includes("email")) errors.push("email");
     }
 
     if (errors.length > 0) {
@@ -457,10 +469,15 @@ function EditContactDialog({
         phone: phoneRef,
         companyName: companyNameRef,
         schedulingUrl: schedulingUrlRef,
-        websiteUrl: websiteUrlRef,
       };
       refMap[errors[0]]?.current?.focus();
-      toast.error("Please fill out all required fields");
+      toast.error(
+        form.enableContactButton &&
+          form.ctaType === "contact" &&
+          !emailValid
+          ? "Selecting the Contact Form CTA requires this contact's email, since form submissions are delivered to it."
+          : "Please fill out all required fields",
+      );
       return;
     }
 
@@ -531,7 +548,13 @@ function EditContactDialog({
           : undefined,
       websiteUrl:
         form.enableContactButton && form.ctaType === "contact"
-          ? form.websiteUrl || undefined
+          ? buildContactFormHref(
+              form.email,
+              ctaCompany,
+              ctaName,
+              ctaHeadshot,
+              ctaLogo,
+            )
           : undefined,
     };
 
@@ -591,12 +614,19 @@ function EditContactDialog({
         : undefined,
     websiteUrl:
       form.enableContactButton && form.ctaType === "contact"
-        ? form.websiteUrl
+        ? buildContactFormHref(
+            form.email,
+            ctaCompany,
+            ctaName,
+            ctaHeadshot,
+            ctaLogo,
+          )
         : undefined,
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl lg:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Contact</DialogTitle>
@@ -926,29 +956,28 @@ function EditContactDialog({
 
                   {form.ctaType === "contact" && (
                     <div className="space-y-1">
-                      <Label className="dark:text-gray-300 text-xs font-medium">
-                        Contact Form URL <span className="text-red-500">*</span>
-                      </Label>
-                      <Input
-                        ref={websiteUrlRef}
-                        value={form.websiteUrl}
-                        onChange={(e) =>
-                          updateForm({ websiteUrl: e.target.value }, [
-                            "websiteUrl",
-                          ])
-                        }
-                        placeholder="https://forms.company.com/..."
-                        className={cn(
-                          "h-8 text-sm",
-                          errors.includes("websiteUrl") && "border-red-500",
-                        )}
-                      />
-                      {errors.includes("websiteUrl") && (
-                        <p className="text-[10px] text-red-500">
-                          Contact Form URL is required when &ldquo;Contact
-                          Form&rdquo; is enabled
-                        </p>
-                      )}
+                      <div className="flex items-center gap-2">
+                        <Label className="dark:text-gray-300 text-xs font-medium">
+                          Plantelligence Contact Form
+                        </Label>
+                        <button
+                          type="button"
+                          onClick={() => setContactPreviewOpen(true)}
+                          className="flex-shrink-0 w-5 h-5 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          aria-label="Preview the Contact Form page"
+                          title="Preview the Contact Form page"
+                        >
+                          <Info className="w-3 h-3 text-gray-400" />
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 rounded px-2.5 py-1.5 leading-relaxed">
+                        This CTA opens a Plantelligence-branded contact form on
+                        the /contact page. Submissions are delivered to this
+                        contact&rsquo;s email.
+                        {form.email
+                          ? ` Incoming messages will be sent to ${form.email}.`
+                          : " Enter this contact's email above to receive incoming messages."}
+                      </p>
                     </div>
                   )}
 
@@ -1038,7 +1067,29 @@ function EditContactDialog({
           <Button onClick={handleSave}>Save Changes</Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+      </Dialog>
+
+      {/* Contact Form preview modal — renders the live Plantelligence-branded
+          /contact page so the editor can see what employees will get. */}
+      <Dialog open={contactPreviewOpen} onOpenChange={setContactPreviewOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto dark:bg-gray-800 dark:border-gray-700">
+          <DialogHeader>
+            <DialogTitle>Contact Form Preview</DialogTitle>
+          </DialogHeader>
+          <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
+            <ContactFormPage
+              to={form.email}
+              company={ctaCompany}
+              contactName={ctaName}
+              avatar={ctaHeadshot}
+              companyLogo={ctaLogo}
+              embedded
+              preview
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

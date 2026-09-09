@@ -9,6 +9,8 @@ import { formatPhone } from "@/components/pages/my-benefits-team/utils";
 import { cn } from "@/lib/utils";
 import { readableColor, mix } from "polished";
 import { formatPhoneWithExtension, getBasePhoneForDialing } from "@/lib/phone-utils";
+import { withContactFormAvatar } from "@/lib/url-utils";
+import { resolveContactFormUrl } from "@/lib/contact-form-link";
 
 interface Contact {
   id?: string | number;
@@ -196,7 +198,7 @@ export function SmallVerticalCard({
       buttons.push({
         type: "website",
         label: isTeamSupport ? "Contact Support" : "Contact",
-        url: contact.websiteUrl || "",
+        url: withContactFormAvatar(contact.websiteUrl || "", contact.headshot),
       });
     }
   } else {
@@ -222,7 +224,7 @@ export function SmallVerticalCard({
         buttons.push({
           type: "website",
           label: isTeamSupport ? "Visit Support Site" : "Visit Website",
-          url: contact.websiteUrl,
+          url: withContactFormAvatar(contact.websiteUrl, contact.headshot),
         });
       }
     }
@@ -506,14 +508,18 @@ export function SmallVerticalCard({
                         ? "1px solid #E5E7EB"
                         : "1px solid #E5E7EB",
                   }}
-                  onClick={() => {
+                  onClick={async () => {
                     if (
                       button.type === "schedule" ||
                       button.type === "website" ||
                       button.type === "call" ||
                       button.type === "email"
                     ) {
-                      window.open(button.url, "_blank");
+                      const target =
+                        button.type === "website"
+                          ? await resolveContactFormUrl(button.url, contact)
+                          : button.url;
+                      window.open(target, "_blank");
                     }
                   }}
                 >
@@ -767,14 +773,18 @@ export function SmallVerticalCard({
                         ? "1px solid #E5E7EB"
                         : "1px solid #E5E7EB",
                   }}
-                  onClick={() => {
+                  onClick={async () => {
                     if (
                       button.type === "schedule" ||
                       button.type === "website" ||
                       button.type === "call" ||
                       button.type === "email"
                     ) {
-                      window.open(button.url, "_blank");
+                      const target =
+                        button.type === "website"
+                          ? await resolveContactFormUrl(button.url, contact)
+                          : button.url;
+                      window.open(target, "_blank");
                     }
                   }}
                 >

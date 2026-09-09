@@ -9,6 +9,8 @@ import { ContactAvatar } from "@/components/pages/my-benefits-team/contact-avata
 import { formatPhone } from "@/components/pages/my-benefits-team/utils";
 import { cn } from "@/lib/utils";
 import { formatPhoneWithExtension, getBasePhoneForDialing } from "@/lib/phone-utils";
+import { withContactFormAvatar } from "@/lib/url-utils";
+import { resolveContactFormUrl } from "@/lib/contact-form-link";
 
 interface Contact {
   id?: string | number;
@@ -140,7 +142,7 @@ export function LargeHorizontalCard({
       buttons.push({
         type: "website",
         label: "Contact",
-        url: contact.websiteUrl || "",
+        url: withContactFormAvatar(contact.websiteUrl || "", contact.headshot),
       });
     }
   } else {
@@ -166,7 +168,7 @@ export function LargeHorizontalCard({
         buttons.push({
           type: "website",
           label: "Contact",
-          url: contact.websiteUrl,
+          url: withContactFormAvatar(contact.websiteUrl, contact.headshot),
         });
       }
     }
@@ -379,14 +381,18 @@ export function LargeHorizontalCard({
                         ? "1px solid #E5E7EB"
                         : "1px solid #E5E7EB",
                   }}
-                  onClick={() => {
+                  onClick={async () => {
                     if (
                       button.type === "schedule" ||
                       button.type === "website" ||
                       button.type === "call" ||
                       button.type === "email"
                     ) {
-                      window.open(button.url, "_blank");
+                      const target =
+                        button.type === "website"
+                          ? await resolveContactFormUrl(button.url, contact)
+                          : button.url;
+                      window.open(target, "_blank");
                     }
                   }}
                 >

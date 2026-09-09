@@ -4,7 +4,10 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Send, CheckCircle2, AlertCircle, Building2, Mail, User } from "lucide-react";
+import { Headshot } from "@/components/ui/headshot";
+import { BrandingImage } from "@/components/ui/branding-image";
+import { Loader2, Send, CheckCircle2, AlertCircle, Building2, User } from "lucide-react";
+import { motion } from "framer-motion";
 
 interface ContactFormPageProps {
   /** Recipient email (the contact/advisor the message goes to). */
@@ -13,6 +16,10 @@ interface ContactFormPageProps {
   company?: string;
   /** Optional pre-filled contact/advisor name. */
   contactName?: string;
+  /** Optional headshot/photo of the contact receiving the message. */
+  avatar?: string;
+  /** Optional company/plan logo to show with the company name. */
+  companyLogo?: string;
   /** Render compact for embedding in a modal/preview (no full-viewport height). */
   embedded?: boolean;
   /** Disable real submission — for previewing the form inside the editor. */
@@ -25,6 +32,8 @@ export function ContactFormPage({
   to = "",
   company = "",
   contactName = "",
+  avatar = "",
+  companyLogo = "",
   embedded = false,
   preview = false,
 }: ContactFormPageProps) {
@@ -76,52 +85,72 @@ export function ContactFormPage({
   };
 
   return (
-    <div
-      className={`${
-        embedded ? "" : "min-h-screen "
-      }bg-gradient-to-b from-[#0a3a40] to-[#06282c]`}
-    >
+    // Forced-light contact page: white background with a light-gray form wrapper,
+    // regardless of the surrounding app theme. `dark:` overrides mirror the light
+    // palette so the page always looks the same for employees.
+    <div className={`${embedded ? "" : "min-h-screen "}bg-white text-gray-900`}>
       <div
         className={`mx-auto w-full max-w-xl px-4 ${
           embedded ? "py-6 sm:py-8" : "py-12 sm:py-16"
         }`}
       >
         {/* Header / brand */}
-        <div className="flex flex-col items-center text-center mb-8">
+        <motion.div
+          className="flex flex-col items-center text-center mb-8"
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.55, ease: "easeOut" }}
+        >
           <img
-            src="/plantelligence-logos/pt_web_dark.png"
+            src="/plantelligence-logos/pt_web_light.png"
             alt="Plantelligence"
-            className="h-12 w-auto mb-6 rounded-lg"
+            className="h-8 w-auto mb-6 rounded-lg"
           />
-          <h1 className="text-3xl font-semibold text-white font-dm-serif">
+          {/* <h1 className="text-3xl font-semibold text-gray-900 dark:text-gray-900 font-dm-serif">
             Contact Us
-          </h1>
+          </h1> */}
+          {avatar && (
+            <div className="mt-4 w-20 h-20 rounded-full overflow-hidden ring-4 ring-gray-200 bg-white shadow-md flex-shrink-0">
+              <Headshot
+                src={avatar}
+                alt={contactName || "Contact"}
+                monogramName={contactName || ""}
+              />
+            </div>
+          )}
+          {companyLogo && (
+            <div className="my-2 flex items-center justify-center">
+              <BrandingImage
+                src={companyLogo}
+                alt={company || "Company logo"}
+                className="h-12 w-auto max-w-[200px] object-contain"
+              />
+            </div>
+          )}
           {company && (
-            <p className="text-sm text-white/70 mt-2 flex items-center gap-1.5">
-              <Building2 className="w-3.5 h-3.5" />
+            <p className="text-sm text-gray-600 dark:text-gray-600 mt-2 flex items-center gap-1.5">
               {company}
             </p>
           )}
           {contactName && (
-            <p className="text-xs text-white/60 mt-1 flex items-center gap-1.5">
-              <User className="w-3 h-3" />
-              Your message will go to {contactName}
+            <p className="text-sm font-bold text-gray-700 dark:text-gray-700 mt-2 flex items-center gap-1.5">
+              {contactName}
             </p>
           )}
-          {to && (
-            <p className="text-xs text-white/60 mt-1 flex items-center gap-1.5">
-              <Mail className="w-3 h-3" />
-              {to}
-            </p>
-          )}
-        </div>
+        </motion.div>
 
-        <div className="bg-white rounded-xl shadow-xl p-6 sm:p-8">
+        {/* Form wrapper — light gray to complement the white page */}
+        <motion.div
+          className="bg-gray-100 dark:bg-gray-100 rounded-2xl border border-gray-200 dark:border-gray-200 shadow-sm p-6 sm:p-8"
+          initial={{ opacity: 0, y: 26 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.12, ease: "easeOut" }}
+        >
           {sent ? (
             <div className="flex flex-col items-center text-center py-8">
               <CheckCircle2 className="w-12 h-12 text-green-500 mb-3" />
-              <h2 className="text-lg font-semibold text-gray-900">Message sent!</h2>
-              <p className="text-sm text-gray-500 mt-1">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-900">Message sent!</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
                 Thank you{name ? `, ${name.trim().split(" ")[0]}` : ""}. Your message has been sent
                 and you can expect a reply shortly.
               </p>
@@ -129,7 +158,7 @@ export function ContactFormPage({
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4" noValidate>
               <div className="space-y-1.5">
-                <Label htmlFor="cf-name" className="text-sm font-medium text-gray-800">
+                <Label htmlFor="cf-name" className="text-sm font-medium text-gray-700 dark:text-gray-700">
                   Your Name <span className="text-red-500">*</span>
                 </Label>
                 <Input
@@ -137,7 +166,7 @@ export function ContactFormPage({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. Jordan Smith"
-                  className="h-10"
+                  className="h-10 border-gray-300 dark:border-gray-300 bg-white dark:bg-white text-gray-900 dark:text-gray-900 placeholder:text-gray-400"
                 />
                 {fieldErrors.name && (
                   <p className="text-xs text-red-500">{fieldErrors.name}</p>
@@ -145,7 +174,7 @@ export function ContactFormPage({
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="cf-email" className="text-sm font-medium text-gray-800">
+                <Label htmlFor="cf-email" className="text-sm font-medium text-gray-700 dark:text-gray-700">
                   Your Email <span className="text-red-500">*</span>
                 </Label>
                 <Input
@@ -154,7 +183,7 @@ export function ContactFormPage({
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="e.g. jordan@company.com"
-                  className="h-10"
+                  className="h-10 border-gray-300 dark:border-gray-300 bg-white dark:bg-white text-gray-900 dark:text-gray-900 placeholder:text-gray-400"
                 />
                 {fieldErrors.email && (
                   <p className="text-xs text-red-500">{fieldErrors.email}</p>
@@ -162,7 +191,7 @@ export function ContactFormPage({
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="cf-message" className="text-sm font-medium text-gray-800">
+                <Label htmlFor="cf-message" className="text-sm font-medium text-gray-700 dark:text-gray-700">
                   Message <span className="text-red-500">*</span>
                 </Label>
                 <textarea
@@ -171,7 +200,7 @@ export function ContactFormPage({
                   onChange={(e) => setMessage(e.target.value)}
                   rows={5}
                   placeholder="How can we help you?"
-                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                  className="flex w-full rounded-lg border border-gray-300 dark:border-gray-300 bg-white dark:bg-white text-gray-900 dark:text-gray-900 placeholder:text-gray-400 px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-blue/40 focus-visible:border-accent-blue disabled:cursor-not-allowed disabled:opacity-50 resize-none"
                 />
                 {fieldErrors.message && (
                   <p className="text-xs text-red-500">{fieldErrors.message}</p>
@@ -209,12 +238,12 @@ export function ContactFormPage({
                 )}
               </Button>
 
-              <p className="text-center text-[11px] text-gray-400">
+              <p className="text-center text-[11px] text-gray-500 dark:text-gray-500">
                 Powered by PlanTelligence®
               </p>
             </form>
           )}
-        </div>
+        </motion.div>
       </div>
     </div>
   );

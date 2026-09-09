@@ -65,12 +65,23 @@ const buildContactFormHref = (
   to: string,
   company?: string,
   name?: string,
+  avatar?: string,
+  logo?: string,
 ): string => {
   const base = typeof window !== "undefined" ? window.location.origin : "";
   const params = new URLSearchParams();
   if (to) params.set("to", to);
   if (company) params.set("company", company);
   if (name) params.set("name", name);
+  // Only carry short non-data image URLs (R2 keys / http(s)) — base64 data
+  // URLs are far too large for a query string. The Headshot/BrandingImage
+  // components on the /contact page resolve R2 keys client-side.
+  if (avatar && !avatar.startsWith("data:")) {
+    params.set("avatar", avatar);
+  }
+  if (logo && !logo.startsWith("data:")) {
+    params.set("logo", logo);
+  }
   const qs = params.toString();
   return `${base}/contact${qs ? `?${qs}` : ""}`;
 };
@@ -873,7 +884,17 @@ export function ContactFormSlide({
           schedulingUrl: enableCtaButton && ctaType === "schedule" ? schedulingUrl || undefined : undefined,
           websiteUrl:
             enableCtaButton && ctaType === "contact"
-              ? buildContactFormHref(email, companyName, displayName)
+              ? buildContactFormHref(
+                  email,
+                  companyName,
+                  contactType === "individual"
+                    ? `${firstName} ${lastName}`.trim()
+                    : displayName,
+                  headshot,
+                  category !== "Company / Plan Sponsor" && externalAdminLogo
+                    ? externalAdminLogo
+                    : defaultCompanyLogo,
+                )
               : undefined,
           benefitsCategoryOther: category === "Other Benefits" ? customBenefits || undefined : undefined,
         };
@@ -977,7 +998,17 @@ export function ContactFormSlide({
         schedulingUrl: enableCtaButton && ctaType === "schedule" ? schedulingUrl || undefined : undefined,
         websiteUrl:
           enableCtaButton && ctaType === "contact"
-            ? buildContactFormHref(email, companyName, displayName)
+            ? buildContactFormHref(
+                email,
+                companyName,
+                contactType === "individual"
+                  ? `${firstName} ${lastName}`.trim()
+                  : displayName,
+                headshot,
+                category !== "Company / Plan Sponsor" && externalAdminLogo
+                  ? externalAdminLogo
+                  : defaultCompanyLogo,
+              )
             : undefined,
         benefitsCategoryOther: category === "Other Benefits" ? customBenefits || undefined : undefined,
       };
@@ -1902,7 +1933,17 @@ export function ContactFormSlide({
               // websiteUrl is only written on save).
               websiteUrl:
                 enableCtaButton && ctaType === "contact"
-                  ? buildContactFormHref(email, companyName, displayName)
+                  ? buildContactFormHref(
+                      email,
+                      companyName,
+                      contactType === "individual"
+                        ? `${firstName} ${lastName}`.trim()
+                        : displayName,
+                      headshot,
+                      category !== "Company / Plan Sponsor" && externalAdminLogo
+                        ? externalAdminLogo
+                        : defaultCompanyLogo,
+                    )
                   : undefined,
             }}
             brandColor={brandColor}
@@ -1942,6 +1983,12 @@ export function ContactFormSlide({
                 contactType === "individual"
                   ? `${firstName} ${lastName}`.trim()
                   : displayName
+              }
+              avatar={headshot}
+              companyLogo={
+                category !== "Company / Plan Sponsor" && externalAdminLogo
+                  ? externalAdminLogo
+                  : defaultCompanyLogo
               }
               embedded
               preview
