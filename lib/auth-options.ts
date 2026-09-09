@@ -199,11 +199,24 @@ export const authOptions: NextAuthOptions = {
           });
         } else {
           // Existing user — send a sign-in notification email (best-effort).
-          try {
-            await sendSignInNotificationEmail(user.email, user?.name || existUser.name || undefined);
-          } catch (emailErr) {
-            console.error("[signIn callback] Failed to send sign-in notification email:", emailErr);
-          }
+          // Never block login on the SMTP send: when the mail host is
+          // unreachable (e.g. local dev), nodemailer can hang ~10s before
+          // timing out, stalling every sign-in. Race the send against a short
+          // timeout so auth completes promptly and the email goes out
+          // fire-and-forget in the background.
+          const notificationEmail = sendSignInNotificationEmail(
+            user.email,
+            user?.name || existUser.name || undefined,
+          ).catch((emailErr) => {
+            console.error(
+              "[signIn callback] Sign-in notification email failed:",
+              emailErr,
+            );
+          });
+          await Promise.race([
+            notificationEmail,
+            new Promise<void>((resolve) => setTimeout(resolve, 3000)),
+          ]);
 
           if (existUser.provider !== (account?.provider as any)) {
             console.log(

@@ -116,6 +116,17 @@ export default async function middleware(req: NextRequest) {
     const token = await getToken({
       req,
       secret: process.env.NEXTAUTH_SECRET,
+      // Mirror the session-cookie name that lib/auth-options.ts sets — it keys
+      // off NODE_ENV, not NEXTAUTH_URL's protocol. getToken() otherwise derives
+      // the cookie name from process.env.NEXTAUTH_URL: when that points at an
+      // https URL (e.g. .env's https://plantel.pro) while the dev server runs
+      // over http, getToken looks for "__Secure-next-auth.session-token" but
+      // the server only set "next-auth.session-token", so every /dashboard
+      // request is treated as unauthenticated and bounced back to /signin.
+      cookieName:
+        process.env.NODE_ENV === "production"
+          ? "__Secure-next-auth.session-token"
+          : "next-auth.session-token",
     });
 
     if (!token) {
