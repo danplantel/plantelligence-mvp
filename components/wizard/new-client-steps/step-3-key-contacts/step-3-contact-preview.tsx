@@ -91,9 +91,9 @@ const getSlotsForLayout = (
   const slots: CardSlot[] = [];
 
   if (layoutId === 0 || layoutId === 1) {
-    // Default Layout: 1 primary + 4 small
+    // Default Layout: 1 primary + every other contact as a small card (no cap).
     slots.push({ id: "slot-0", type: "primary" });
-    for (let i = 1; i < Math.min(5, maxContacts); i++) {
+    for (let i = 1; i < maxContacts; i++) {
       slots.push({ id: `slot-${i}`, type: "small" });
     }
   } else if (layoutId === 4) {
@@ -104,8 +104,9 @@ const getSlotsForLayout = (
       slots.push({ id: `slot-${i}`, type: "small" });
     }
   } else if (layoutId === 2) {
-    // Layout 2: All large horizontal
-    for (let i = 0; i < Math.min(4, maxContacts); i++) {
+    // Layout 2: every contact as a large horizontal card (no cap; wraps in the
+    // responsive grid).
+    for (let i = 0; i < maxContacts; i++) {
       slots.push({ id: `slot-${i}`, type: "large" });
     }
   } else if (layoutId === 3) {
@@ -636,6 +637,17 @@ export function NewClientStep3d({
   );
   const isDraggingRef = useRef<boolean>(false);
   const justFinishedDragRef = useRef<boolean>(false);
+
+  // When (re)entering this preview slide, clear any stale drag flags. The
+  // order-sync effects that rebuild `previewOrder` from ALL contacts are gated
+  // on these flags; if one is left `true` from a previous interaction while the
+  // slide stayed mounted, later-added contacts (e.g. the 4th/5th) would render
+  // but never be added to the draggable set. Resetting on entry guarantees every
+  // visible contact is draggable from the start.
+  useEffect(() => {
+    isDraggingRef.current = false;
+    justFinishedDragRef.current = false;
+  }, [isStep3dActive]);
 
   // Track previous values
   const prevSortedContactsRef = useRef<string>("");
