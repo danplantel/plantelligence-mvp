@@ -49,7 +49,7 @@ function isR2DocumentRow(doc: {
 }
 
 function BenefitsPageInner() {
-  const { setTitle } = usePageTitleContext();
+  const { setTitle, setSubtitle } = usePageTitleContext();
   const [isLoading, setIsLoading] = useState(false);
   const [isAttestationOpen, setIsAttestationOpen] = useState(false);
   const searchParams = useSearchParams();
@@ -71,6 +71,18 @@ function BenefitsPageInner() {
     saveStepData,
     stepData,
   } = useBenefitsWizardStore();
+  // Selected plan's company name (set by Step 1 when a plan is chosen), shown
+  // in the page header next to the "Create Benefits" title.
+  const selectedPlanName = useBenefitsWizardStore(
+    (s) =>
+      (s.stepData.step1?.selectedPlan as { companyName?: string } | null)
+        ?.companyName ?? "",
+  );
+  // Benefit category for the selected plan (e.g. "Retirement"), appended to the
+  // company name in the header subtitle ("Acme Corp - Retirement").
+  const benefitCategoryName = useBenefitsWizardStore(
+    (s) => s.stepData.step1?.benefitCategory ?? "",
+  );
   const hasUnsavedChanges = useBenefitsWizardStore((s) =>
     hasUnsavedBenefitsWork({
       currentStep: s.currentStep,
@@ -90,6 +102,23 @@ function BenefitsPageInner() {
   useEffect(() => {
     setTitle("Create Benefits");
   }, [setTitle]);
+
+  // Show the selected plan's company name + benefit category in the page header
+  // (next to the "Create Benefits" title) instead of inside the plan selection
+  // card, e.g. "Loading Company - Retirement".
+  useEffect(() => {
+    const category =
+      benefitCategoryName === "Custom"
+        ? "Company / Plan Sponsor"
+        : benefitCategoryName.trim();
+    setSubtitle(
+      selectedPlanName
+        ? category
+          ? `${selectedPlanName} - ${category}`
+          : selectedPlanName
+        : "",
+    );
+  }, [selectedPlanName, benefitCategoryName, setSubtitle]);
 
   // Scroll to the top whenever the user navigates between steps so each step
   // starts at its beginning (e.g. going back from Step 5 to Step 1).

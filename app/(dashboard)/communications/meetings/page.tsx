@@ -508,14 +508,6 @@ function PlanSearchBar({ plans, value, onChange, disabled, userSubdomain }: { pl
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
           <CardTitle className="text-2xl font-bold shrink-0">Meeting Sessions</CardTitle>
-          {selectedPlan && (
-            <span
-              className="text-xl font-semibold text-accent-blue truncate max-w-[280px]"
-              title={selectedPlan.companyName}
-            >
-              {selectedPlan.companyName}
-            </span>
-          )}
         </div>
         {value && (
           <Button
@@ -608,7 +600,7 @@ function RecentPlanLabels({ plans, onSelect }: { plans: Client[]; onSelect: (pla
 
 export default function MeetingsPage() {
   const router = useRouter();
-  const { setTitle } = usePageTitleContext();
+  const { setTitle, setSubtitle } = usePageTitleContext();
   useEffect(() => { setTitle("Meetings"); }, [setTitle]);
   const [formData, setFormData] = useState<MeetingFormData>({ ...DEFAULT_MEETING_FORM_DATA });
   const searchParams = useSearchParams();
@@ -737,6 +729,14 @@ export default function MeetingsPage() {
     router.replace(newURL);
   }, [statusFilter, clientFilter, formData.clientId, router]);
   useEffect(() => { updateURL(); }, [updateURL]);
+
+  // Show the selected plan's company name in the page header (next to the
+  // "Meetings" title) instead of inside the plan search bar.
+  useEffect(() => {
+    const c = clients.find((x) => x.id === selectedPlan);
+    setSubtitle(c?.companyName ?? "");
+  }, [clients, selectedPlan, setSubtitle]);
+
   const fetchMeetings = useCallback(async () => { refreshMeetings(); }, [refreshMeetings]);
   const handlePlanClientChange = (clientId: string) => {
     const c = clients.find((x) => x.id === clientId);

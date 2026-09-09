@@ -19,7 +19,7 @@ interface HeaderProps {
 
 export default function Header({ stepper, stepTitle }: HeaderProps) {
   const [scrolled, setScrolled] = useState(false);
-  const { title } = usePageTitleContext();
+  const { title, subtitle } = usePageTitleContext();
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   // When an "Editing Panel" is open (Create Benefits step 5 editor via
@@ -28,10 +28,26 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
   // overlap the editor overlay, and center the Stepper over the full header —
   // matching how the Create Benefits wizard behaves.
   const [editorOpen, setEditorOpen] = useState(false);
+  // True once a page portals a TabsList into #header-tabs-portal (e.g. the
+  // Edit Plan tabs). Only then does the center of the header reserve the
+  // wide flex-[3] area; otherwise it collapses so the left title/company
+  // name area gets enough room and doesn't get truncated.
+  const [portalHasContent, setPortalHasContent] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (stepper) return;
+    const el = document.getElementById("header-tabs-portal");
+    if (!el) return;
+    const update = () => setPortalHasContent(el.childElementCount > 0);
+    update();
+    const observer = new MutationObserver(update);
+    observer.observe(el, { childList: true });
+    return () => observer.disconnect();
+  }, [stepper]);
 
   useEffect(() => {
     const handleEditorStateChange = (event: any) => {
@@ -100,13 +116,25 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
           marginLeft: "var(--sidebar-width, 18rem)",
         }}
       >
-        {/* Left: Title + Step Title (hidden while the Editing Panel is open) */}
+        {/* Left: Title + Company Name + Step Title (hidden while the Editing Panel is open) */}
         <div className="flex items-center gap-2 flex-[1] min-w-0">
-          {!editorOpen && title && <h1 className="text-xl font-semibold dark:text-white truncate">{title}</h1>}
+          {!editorOpen && title && 
+          <h1 className="text-sm font-semibold dark:text-white truncate">{title}</h1>}
+          {!editorOpen && subtitle && (
+            <>
+              <span className="text-sm text-muted-foreground/40 dark:text-gray-600">/</span>
+              <span
+                className="text-sm font-semibold text-accent-blue truncate min-w-0"
+                title={subtitle}
+              >
+                {subtitle}
+              </span>
+            </>
+          )}
           {!editorOpen && stepTitle && (
             <>
               <span className="text-xl text-muted-foreground/40 dark:text-gray-600">/</span>
-              <span className="text-sm font-medium text-muted-foreground truncate">{stepTitle}</span>
+              <span className="text-sm font-medium text-muted-foreground truncate min-w-0">{stepTitle}</span>
             </>
           )}
         </div>
@@ -120,7 +148,11 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
         <div
           className={cn(
             "flex justify-center min-w-0",
-            stepper ? "flex-shrink-0" : "flex-[3]",
+            stepper
+              ? "flex-shrink-0"
+              : portalHasContent
+                ? "flex-[3]"
+                : "flex-shrink-0",
           )}
         >
           {stepper && !editorOpen ? stepper : <div id="header-tabs-portal" className="w-full" />}

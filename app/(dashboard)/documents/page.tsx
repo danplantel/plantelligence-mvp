@@ -220,14 +220,6 @@ function PlanSearchBar({
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
           <CardTitle className="text-2xl font-bold shrink-0">View Documents</CardTitle>
-          {selectedPlan && (
-            <span
-              className="text-xl font-semibold text-accent-blue truncate max-w-[280px]"
-              title={selectedPlan.companyName}
-            >
-              {selectedPlan.companyName}
-            </span>
-          )}
         </div>
         {value && (
           <Button
@@ -394,7 +386,7 @@ function PlanSearchBar({
 }
 
 export default function DocumentsPage() {
-  const { setTitle } = usePageTitleContext();
+  const { setTitle, setSubtitle } = usePageTitleContext();
 
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -588,6 +580,13 @@ export default function DocumentsPage() {
   useEffect(() => {
     setTitle("Documents");
   }, [setTitle]);
+
+  // Show the selected plan's company name in the page header (next to the
+  // "Documents" title) instead of inside the plan search bar.
+  useEffect(() => {
+    const plan = clients.find((c) => c.id === selectedPlan);
+    setSubtitle(plan?.companyName ?? "");
+  }, [clients, selectedPlan, setSubtitle]);
 
   useEffect(() => {
     const companyParam = searchParams.get("company");

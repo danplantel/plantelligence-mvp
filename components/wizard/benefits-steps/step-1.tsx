@@ -2397,14 +2397,6 @@ export function BenefitsStep1() {
                 <CardTitle className="text-lg text-gray-900 font-bold dark:text-gray-100">
                   Plan & Benefit Selection
                 </CardTitle>
-                {selectedPlanName && (
-                  <span
-                    className="text-base font-semibold text-accent-blue truncate max-w-[280px]"
-                    title={selectedPlanName}
-                  >
-                    {selectedPlanName}
-                  </span>
-                )}
               </div>
               <CardDescription className="text-sm text-gray-600 text-muted-foreground">
                 Choose which plan and benefit category you want to configure.

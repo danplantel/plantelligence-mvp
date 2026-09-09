@@ -273,14 +273,6 @@ function PlanSearchBar({
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
           <CardTitle className="text-2xl font-bold shrink-0">Marketing</CardTitle>
-          {selectedPlan && (
-            <span
-              className="text-xl font-semibold text-accent-blue truncate max-w-[280px]"
-              title={selectedPlan.companyName}
-            >
-              {selectedPlan.companyName}
-            </span>
-          )}
         </div>
         {value && (
           <Button
@@ -952,7 +944,7 @@ function MarketingAssetListAccordionItem({
 }
 
 export default function MarketingPage() {
-  const { setTitle } = usePageTitleContext();
+  const { setTitle, setSubtitle } = usePageTitleContext();
   const [selectedPlan, setSelectedPlan] = useState<string>("");
   // Loading dialog shown while the newly selected plan's data is being loaded.
   const [isPlanLoading, setIsPlanLoading] = useState(false);
@@ -1071,6 +1063,12 @@ export default function MarketingPage() {
     () => clients.find((c) => c.id === selectedPlan),
     [clients, selectedPlan]
   );
+
+  // Show the selected plan's company name in the page header (next to the
+  // "Marketing" title) instead of inside the plan search bar.
+  useEffect(() => {
+    setSubtitle(selectedClient?.companyName ?? "");
+  }, [selectedClient, setSubtitle]);
 
   return (
     <div className="p-6 bg-background">
