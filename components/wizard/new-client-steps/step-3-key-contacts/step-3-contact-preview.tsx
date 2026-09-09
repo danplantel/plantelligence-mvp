@@ -118,6 +118,21 @@ const getSlotsForLayout = (
   return slots;
 };
 
+// ==================== HELPERS ====================
+
+/** Whether a contact is the wizard's "Main Contact" (Plan Sponsor or Third
+ *  Party / Someone Else). The Main Contact is pinned to the leading/primary
+ *  slot and is never draggable, regardless of the chosen layout. */
+function isMainContactType(contact: any): boolean {
+  const cats: BenefitsCategory[] =
+    contact?.benefitsCategories ||
+    (contact?.benefitsCategory ? [contact.benefitsCategory] : []);
+  return (
+    cats.includes("Company / Plan Sponsor") ||
+    cats.includes("Third Party Contact")
+  );
+}
+
 // ==================== COMPONENTS ====================
 
 function SortablePreviewCard({
@@ -127,6 +142,7 @@ function SortablePreviewCard({
   onEdit,
   header,
   headerMode = false,
+  disabled = false,
 }: {
   id: string | number;
   children: React.ReactNode;
@@ -137,6 +153,8 @@ function SortablePreviewCard({
   /** When true, renders the drag handle + edit button in a header bar ABOVE the card
    *  (mobile preview) instead of as absolute overlays inside the card. */
   headerMode?: boolean;
+  /** When true the card cannot be dragged (e.g. the static Main Contact). */
+  disabled?: boolean;
 }) {
   const {
     attributes,
@@ -145,7 +163,7 @@ function SortablePreviewCard({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id });
+  } = useSortable({ id, disabled });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -163,8 +181,9 @@ function SortablePreviewCard({
     },
   };
 
-  // Shared drag handle (positioning applied by the caller context)
-  const dragHandle = (
+  // Shared drag handle (positioning applied by the caller context). Hidden for
+  // disabled (static) cards — the Main Contact is never draggable.
+  const dragHandle = disabled ? null : (
     <div
       {...dragHandleListeners}
       className={cn(
@@ -200,11 +219,12 @@ function SortablePreviewCard({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "relative w-full min-w-0 h-full group cursor-grab active:cursor-grabbing",
+        "relative w-full min-w-0 h-full group",
+        !disabled && "cursor-grab active:cursor-grabbing",
         (isDragging || externalIsDragging) && "cursor-grabbing",
       )}
-      {...attributes}
-      {...listeners}
+      {...(disabled ? {} : attributes)}
+      {...(disabled ? {} : listeners)}
     >
       {headerMode ? (
         // Header bar ABOVE the card — keeps drag handle, category label, and
@@ -565,6 +585,13 @@ export function NewClientStep3d({
     });
   }, [existingContacts, contactDisplayOrder]);
 
+  // The wizard's Main Contact (Company / Plan Sponsor or Third Party) is pinned
+  // to the leading/primary slot and is never draggable in any layout.
+  const mainContactId = useMemo<string | number | null>(() => {
+    const main = sortedContacts.find((c: any) => isMainContactType(c));
+    return main ? main.id : null;
+  }, [sortedContacts]);
+
   // Handle card click to open editor and focus contact
   const handleCardClick = useCallback(
     (contactId: string | number) => {
@@ -658,16 +685,25 @@ export function NewClientStep3d({
   useEffect(() => {
     if (isDraggingRef.current || justFinishedDragRef.current) return;
 
-    const newOrder = placements
+    const baseOrder = placements
       .map((p) => p.contactId)
       .filter((id) => id !== "");
+    // The Main Contact is pinned to the leading slot — always move it to the
+    // front of the preview order.
+    let newOrder = baseOrder;
+    if (mainContactId != null) {
+      const idx = baseOrder.indexOf(mainContactId);
+      if (idx > 0) {
+        newOrder = [mainContactId, ...baseOrder.filter((id) => id !== mainContactId)];
+      }
+    }
     const newOrderKey = JSON.stringify(newOrder);
 
     if (prevPlacementsOrderRef.current === newOrderKey) return;
     prevPlacementsOrderRef.current = newOrderKey;
 
     setPreviewOrder(newOrder);
-  }, [placements]);
+  }, [placements, mainContactId]);
 
   // Update placements when contacts or layout changes
   useEffect(() => {
@@ -918,13 +954,23 @@ export function NewClientStep3d({
   const handlePreviewDragOver = (event: any) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
+    // The Main Contact is never reordered.
+    if (mainContactId != null && active.id === mainContactId) return;
 
     setPreviewOrder((items) => {
-      const oldIndex = items.indexOf(active.id);
-      const newIndex = items.indexOf(over.id);
+      // Only the non-Main contacts move; Main stays pinned at the front.
+      const pool =
+        mainContactId != null
+          ? items.filter((id) => id !== mainContactId)
+          : items;
+      const oldIndex = pool.indexOf(active.id);
+      const newIndex = pool.indexOf(over.id);
 
       if (oldIndex === -1 || newIndex === -1) return items;
-      return arrayMove(items, oldIndex, newIndex);
+      const nextPool = arrayMove(pool, oldIndex, newIndex);
+      return mainContactId != null
+        ? [mainContactId, ...nextPool]
+        : nextPool;
     });
 
     setActivePreviewId(over.id);
@@ -935,13 +981,27 @@ export function NewClientStep3d({
 
     setActivePreviewId(null);
 
-    // Calculate final order after drag
+    // The Main Contact is never draggable — bail if it somehow started a drag.
+    if (mainContactId != null && active.id === mainContactId) {
+      isDraggingRef.current = false;
+      return;
+    }
+
+    // Calculate final order after drag. Only the non-Main contacts move; the
+    // Main Contact is pinned to the leading position in every layout.
     const finalOrder = (() => {
-      const oldIndex = previewOrder.indexOf(active.id);
-      const newIndex = previewOrder.indexOf(over?.id || "");
+      const pool =
+        mainContactId != null
+          ? previewOrder.filter((id) => id !== mainContactId)
+          : previewOrder;
+      const oldIndex = pool.indexOf(active.id);
+      const newIndex = pool.indexOf(over?.id || "");
 
       if (oldIndex === -1 || newIndex === -1) return previewOrder;
-      return arrayMove(previewOrder, oldIndex, newIndex);
+      const nextPool = arrayMove(pool, oldIndex, newIndex);
+      return mainContactId != null
+        ? [mainContactId, ...nextPool]
+        : nextPool;
     })();
 
     // Update previewOrder to ensure it's in sync
@@ -1016,10 +1076,21 @@ export function NewClientStep3d({
   };
 
   const handlePreviewDragCancel = () => {
-    // Reset previewOrder to placements order
-    setPreviewOrder(
-      placements.map((p) => p.contactId).filter((id) => id !== ""),
-    );
+    // Reset previewOrder to placements order, keeping the Main Contact pinned
+    // to the leading position.
+    let resetOrder = placements
+      .map((p) => p.contactId)
+      .filter((id) => id !== "");
+    if (mainContactId != null) {
+      const idx = resetOrder.indexOf(mainContactId);
+      if (idx > 0) {
+        resetOrder = [
+          mainContactId,
+          ...resetOrder.filter((id) => id !== mainContactId),
+        ];
+      }
+    }
+    setPreviewOrder(resetOrder);
     setActivePreviewId(null);
     isDraggingRef.current = false;
   };
@@ -1071,12 +1142,21 @@ export function NewClientStep3d({
     // Sync mobile layout from store (0 = Stacked, 1 = 2-Column, 2 = Hero + Grid)
     setMobileLayoutStyle(currentKeyContactsData.mobileDisplayStyle ?? 0);
 
-    // Sync preview order if needed
-    const newOrder =
+    // Sync preview order if needed, keeping the Main Contact pinned first.
+    let newOrder =
       currentKeyContactsData.contactDisplayOrder ||
       newContacts.map((c: any) => c.id);
+    if (mainContactId != null) {
+      const idx = newOrder.indexOf(mainContactId);
+      if (idx > 0) {
+        newOrder = [
+          mainContactId,
+          ...newOrder.filter((id) => id !== mainContactId),
+        ];
+      }
+    }
     setPreviewOrder(newOrder);
-  }, [keyContactsFingerprint]);
+  }, [keyContactsFingerprint, mainContactId]);
 
   // Layout previews
   const layoutOptions: LayoutOption[] = [
@@ -1195,7 +1275,18 @@ export function NewClientStep3d({
     const remaining = previewContacts.filter(
       (c) => !previewOrder.includes(c.id),
     );
-    const orderedContacts = [...orderedById, ...remaining];
+    let orderedContacts = [...orderedById, ...remaining];
+    // Pin the Main Contact to the leading slot (order is normally already
+    // normalized, but this guards against a legacy saved order).
+    if (mainContactId != null) {
+      const mainIdx = orderedContacts.findIndex(
+        (c) => c.id === mainContactId,
+      );
+      if (mainIdx > 0) {
+        const [main] = orderedContacts.splice(mainIdx, 1);
+        orderedContacts = [main, ...orderedContacts];
+      }
+    }
 
     // Render contacts in order, assigning slots by index
     const slotElements = orderedContacts
@@ -1234,6 +1325,7 @@ export function NewClientStep3d({
             key={contact.id}
             id={contact.id}
             isDragging={activePreviewId === contact.id}
+            disabled={mainContactId != null && contact.id === mainContactId}
             onEdit={() => handleCardClick(contact.id)}
             headerMode={previewMode === "mobile"}
             header={
@@ -1371,6 +1463,7 @@ export function NewClientStep3d({
     slots,
     previewOrder,
     previewContacts,
+    mainContactId,
     currentDisplayStyle,
     brandColor,
     secondaryColor,
