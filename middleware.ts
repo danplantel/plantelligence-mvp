@@ -76,13 +76,21 @@ export default async function middleware(req: NextRequest) {
 
     try {
       // Self-fetch the Node.js route that resolves the subdomain. Use the same
-      // custom host the request came in on (e.g. testing.dev.plantel.pro) so it
-      // is covered by the project's Deployment Protection Exceptions for the
-      // pre-production domains and isn't intercepted by Vercel Authentication.
+      // custom host the request came in on (e.g. testing.dev.plantel.pro). When
+      // Vercel Authentication protects preview deployments, the server-side
+      // fetch has no Vercel login cookie, so send the automation bypass header
+      // (see Vercel → Deployment Protection → Protection Bypass for Automation).
       const resolveUrl = new URL("/api/resolve-subdomain", req.nextUrl.origin);
       resolveUrl.searchParams.set("subdomain", subdomain);
 
-      const resolveRes = await fetch(resolveUrl.toString());
+      const resolveRes = await fetch(resolveUrl.toString(), {
+        headers: process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+          ? {
+              "x-vercel-protection-bypass":
+                process.env.VERCEL_AUTOMATION_BYPASS_SECRET,
+            }
+          : undefined,
+      });
       const resolveText = await resolveRes.text().catch(() => "");
       const contentType = resolveRes.headers.get("content-type") || "";
       console.log(
