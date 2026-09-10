@@ -285,6 +285,30 @@ export function BenefitsStep1() {
     },
   };
 
+  // Fields flagged by the last failed Next validation — used to paint red
+  // borders around the offending controls until the user fills them in.
+  const [errorFields, setErrorFields] = useState<string[]>([]);
+
+  const isFieldInvalid = (field: string): boolean => {
+    if (!errorFields.includes(field)) return false;
+    switch (field) {
+      case "planId":
+        return !(currentStepData.planId || "").trim();
+      case "benefitCategory":
+        return !(currentStepData.benefitCategory || "").trim();
+      case "companyLogo":
+        return !currentStepData.companyLogo?.url;
+      case "benefitTitle":
+        return !(currentStepData.benefitTitle || "").trim();
+      case "shortDescription":
+        return !(currentStepData.shortDescription || "").trim();
+      case "contactId":
+        return !currentStepData.contactId;
+      default:
+        return false;
+    }
+  };
+
   /** Gallery images for the current benefit category — the "Choose a Default
    *  Image" modal shows images aligned to the selected category (via metadata)
    *  instead of the generic set. Falls back to undefined (generic gallery) when
@@ -431,6 +455,142 @@ export function BenefitsStep1() {
   useEffect(() => {
     setPlanSearchHighlight(0);
   }, [planSearchDropdownItems.length, planSearchOpen]);
+
+  // ── Error Validation Scroll-to ──
+  // The benefits page's Next handler dispatches `benefitsStep1ValidationError`
+  // with the list of missing required fields. Open the accordion that owns the
+  // top-most missing field and scroll straight to that control so the advisor
+  // can fix it immediately.
+  const validationScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  useEffect(() => {
+    /** Resolve a `data-field` control, scroll its nearest scrollable ancestor,
+     *  and focus it. Returns false when the control isn't in the DOM yet. */
+    const scrollToField = (field: string): boolean => {
+      const el = document.querySelector(
+        `[data-field="${field}"]`,
+      ) as HTMLElement | null;
+      if (!el) return false;
+
+      // The dashboard renders content inside `<main class="overflow-y-auto">`,
+      // so scrolling the nearest scrollable ancestor is far more reliable than
+      // relying solely on `scrollIntoView` (which can be a no-op in this layout).
+      let scroller: HTMLElement | null = el.parentElement;
+      while (scroller) {
+        const style = window.getComputedStyle(scroller);
+        const scrollableY = /(auto|scroll|overlay)/.test(style.overflowY);
+        if (scrollableY && scroller.scrollHeight > scroller.clientHeight) break;
+        scroller = scroller.parentElement;
+      }
+
+      const rect = el.getBoundingClientRect();
+      if (scroller) {
+        const scrollerRect = scroller.getBoundingClientRect();
+        const target =
+          scroller.scrollTop +
+          (rect.top - scrollerRect.top) -
+          scroller.clientHeight / 2 +
+          rect.height / 2;
+        scroller.scrollTo({ top: Math.max(0, target), behavior: "smooth" });
+      } else {
+        window.scrollTo({
+          top: Math.max(
+            0,
+            window.scrollY + rect.top - window.innerHeight / 2 + rect.height / 2,
+          ),
+          behavior: "smooth",
+        });
+      }
+
+      // Focus the first text control inside (if any) so the user can start
+      // correcting immediately. `preventScroll` keeps our scroll in place.
+      const focusable = el.matches("input, textarea")
+        ? el
+        : (el.querySelector("input, textarea") as HTMLElement | null);
+      if (focusable) focusable.focus({ preventScroll: true });
+      return true;
+    };
+
+    const handleValidationError = (e: Event) => {
+      const fields = (e as CustomEvent<{ fields?: string[] }>).detail?.fields;
+      if (!fields || fields.length === 0) return;
+
+      // Flag the offending controls so they render with red borders.
+      setErrorFields(fields);
+
+      // Required Step 1 fields, in document order.
+      const step1Fields = [
+        "planId",
+        "benefitCategory",
+        "companyLogo",
+        "benefitTitle",
+        "shortDescription",
+        "contactId",
+      ];
+      const firstMissing = step1Fields.find((f) => fields.includes(f));
+      if (!firstMissing) return;
+
+      // The accordion that owns the field (if any) must be expanded first so the
+      // control is rendered and measurable when we scroll to it.
+      const accordionForField: Record<string, string | undefined> = {
+        companyLogo: "branding",
+        benefitTitle: "messaging",
+        shortDescription: "messaging",
+        contactId: "contacts",
+      };
+      const accordion = accordionForField[firstMissing];
+      if (accordion) {
+        setActiveAccordions((prev) =>
+          prev.includes(accordion) ? prev : [...prev, accordion],
+        );
+      }
+
+      if (validationScrollTimerRef.current) {
+        clearTimeout(validationScrollTimerRef.current);
+      }
+
+      // Accordion content mounts + animates after we open it, so retry briefly
+      // until the control exists before scrolling.
+      const maxAttempts = accordion ? 15 : 4;
+      const attemptScroll = (attempt: number) => {
+        if (scrollToField(firstMissing) || attempt >= maxAttempts) return;
+        validationScrollTimerRef.current = setTimeout(
+          () => attemptScroll(attempt + 1),
+          100,
+        );
+      };
+      validationScrollTimerRef.current = setTimeout(
+        () => attemptScroll(0),
+        accordion ? 200 : 50,
+      );
+    };
+
+    // Guaranteed direct entry point (in addition to the event) so the host page
+    // can invoke the scroll without depending on event-listener ordering.
+    (window as any).__benefitsStep1ScrollToFields = (fields: string[]) =>
+      handleValidationError(
+        new CustomEvent("benefitsStep1ValidationError", {
+          detail: { fields },
+        }),
+      );
+
+    window.addEventListener(
+      "benefitsStep1ValidationError",
+      handleValidationError as EventListener,
+    );
+    return () => {
+      window.removeEventListener(
+        "benefitsStep1ValidationError",
+        handleValidationError as EventListener,
+      );
+      delete (window as any).__benefitsStep1ScrollToFields;
+      if (validationScrollTimerRef.current) {
+        clearTimeout(validationScrollTimerRef.current);
+        validationScrollTimerRef.current = null;
+      }
+    };
+  }, []);
 
   // Filter and sort contacts for the dropdown
   const filteredContacts = useMemo(() => {
@@ -2426,7 +2586,7 @@ export function BenefitsStep1() {
         </CardHeader>
         <CardContent className="space-y-5">
           {/* Plan Selector */}
-          <div className="space-y-2">
+          <div className="space-y-2" data-field="planId">
             {/* Plan search input */}
             <div ref={planSearchContainerRef} className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
@@ -2441,7 +2601,12 @@ export function BenefitsStep1() {
                 }}
                 onFocus={() => setPlanSearchOpen(true)}
                 onKeyDown={handlePlanSearchKeyDown}
-                className="h-10 pl-9 pr-3 bg-white dark:bg-gray-700 dark:border-gray-600"
+                destructive={isFieldInvalid("planId")}
+                className={cn(
+                  "h-10 pl-9 pr-3 bg-white dark:bg-gray-700 dark:border-gray-600",
+                  isFieldInvalid("planId") &&
+                    "border-red-500 dark:border-red-500",
+                )}
                 aria-label="Search plans"
                 aria-expanded={planSearchOpen}
                 aria-haspopup="listbox"
@@ -2582,7 +2747,14 @@ export function BenefitsStep1() {
 
           {/* Benefit Category Cards */}
           {resolvedPlanId && (
-            <div className="space-y-3 animate-in fade-in duration-300">
+            <div
+              className={cn(
+                "space-y-3 animate-in fade-in duration-300 rounded-xl",
+                isFieldInvalid("benefitCategory") &&
+                  "ring-2 ring-red-500 ring-offset-2 ring-offset-background",
+              )}
+              data-field="benefitCategory"
+            >
               <Label className="text-sm font-semibold text-gray-700 dark:text-gray-100">
                 Benefit Category <span className="text-red-500">*</span>
               </Label>
@@ -2704,8 +2876,14 @@ export function BenefitsStep1() {
                         benefitTitle: e.target.value,
                       })
                     }
+                    data-field="benefitTitle"
+                    destructive={isFieldInvalid("benefitTitle")}
                     placeholder="e.g. Disability Insurance, Wellness Program, HSA..."
-                    className="bg-white border-gray-200 focus-visible:ring-[#23919C] h-10 dark:bg-gray-700 dark:border-gray-600"
+                    className={cn(
+                      "bg-white border-gray-200 focus-visible:ring-[#23919C] h-10 dark:bg-gray-700 dark:border-gray-600",
+                      isFieldInvalid("benefitTitle") &&
+                        "border-red-500 dark:border-red-500",
+                    )}
                   />
                 </div>
               )}
@@ -2898,7 +3076,13 @@ export function BenefitsStep1() {
                 <div className="flex flex-col gap-8">
                   {/* Benefit Logo — wrapped in its own Card so it gets the same
                       card background/panel as the Brand Images section below. */}
-                  <Card className="dark:bg-gray-800">
+                  <Card
+                    className={cn(
+                      "dark:bg-gray-800",
+                      isFieldInvalid("companyLogo") && "ring-2 ring-red-500",
+                    )}
+                    data-field="companyLogo"
+                  >
                     <CardContent className="pt-4">
                       <BrandImageUpload
                         slotKey="companyLogo"
@@ -3015,8 +3199,14 @@ export function BenefitsStep1() {
                           benefitTitle: e.target.value,
                         })
                       }
+                      data-field="benefitTitle"
+                      destructive={isFieldInvalid("benefitTitle")}
                       placeholder={`e.g., 401(k) Retirement Plan`}
-                      className="h-11 border-gray-200 dark:border-gray-600"
+                      className={cn(
+                        "h-11 border-gray-200 dark:border-gray-600",
+                        isFieldInvalid("benefitTitle") &&
+                          "border-red-500 dark:border-red-500",
+                      )}
                       maxLength={35}
                     />
                     <div className="flex justify-between items-center">
@@ -3052,8 +3242,14 @@ export function BenefitsStep1() {
                           shortDescription: e.target.value,
                         })
                       }
+                      data-field="shortDescription"
+                      destructive={isFieldInvalid("shortDescription")}
                       placeholder="Provide a high-level overview of this benefit for employees..."
-                      className="min-h-[120px] border-gray-200 dark:border-gray-600 resize-none"
+                      className={cn(
+                        "min-h-[120px] border-gray-200 dark:border-gray-600 resize-none",
+                        isFieldInvalid("shortDescription") &&
+                          "border-red-500 dark:border-red-500",
+                      )}
                       maxLength={450}
                     />
                     <div className="flex justify-between items-center">
@@ -3209,7 +3405,7 @@ export function BenefitsStep1() {
               </AccordionTrigger>
               <AccordionContent className="p-6 space-y-6">
                 <div className="space-y-6">
-                  <div className="space-y-4">
+                  <div className="space-y-4" data-field="contactId">
                     <Label className="text-sm font-bold text-gray-700 dark:text-gray-100">
                       Primary Contact <span className="text-red-500">*</span>
                     </Label>
@@ -3219,7 +3415,11 @@ export function BenefitsStep1() {
                           variant="outline"
                           role="combobox"
                           aria-expanded={searchOpen}
-                          className="w-full justify-between bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 h-11 px-3"
+                          className={cn(
+                            "w-full justify-between bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 h-11 px-3",
+                            isFieldInvalid("contactId") &&
+                              "border-red-500 dark:border-red-500",
+                          )}
                         >
                           <span className="truncate">
                             {activeContact

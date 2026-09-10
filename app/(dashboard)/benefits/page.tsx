@@ -231,15 +231,34 @@ function BenefitsPageInner() {
     if (currentStep === 1) {
       const step1Data = useBenefitsWizardStore.getState().stepData.step1;
 
-      // Validate 1a - Selection + Branding
-      if (
-        !step1Data?.planId ||
-        !step1Data?.benefitCategory ||
-        !step1Data?.contactId ||
-        !step1Data?.companyLogo
-      ) {
+      // Validate 1a - Selection, Branding & Messaging. Collect the specific
+      // missing required fields so Step 1 can open the owning accordion and
+      // scroll straight to the offending control.
+      const missingFields: string[] = [];
+      if (!step1Data?.planId) missingFields.push("planId");
+      if (!step1Data?.benefitCategory) missingFields.push("benefitCategory");
+      if (!step1Data?.companyLogo) missingFields.push("companyLogo");
+      if (!step1Data?.benefitTitle?.trim()) missingFields.push("benefitTitle");
+      if (!step1Data?.shortDescription?.trim())
+        missingFields.push("shortDescription");
+      if (!step1Data?.contactId) missingFields.push("contactId");
+
+      if (missingFields.length > 0) {
+        // Prefer the direct handler registered by Step 1 (guaranteed to exist
+        // once the step is mounted); fall back to the event for decoupling.
+        const scrollToFields = (window as any).__benefitsStep1ScrollToFields;
+        if (typeof scrollToFields === "function") {
+          scrollToFields(missingFields);
+        } else {
+          window.dispatchEvent(
+            new CustomEvent("benefitsStep1ValidationError", {
+              detail: { fields: missingFields },
+            }),
+          );
+        }
         toast.error("Please fill in all required fields", {
-          description: "Select a plan, category, contact, and upload a logo.",
+          description:
+            "Select a plan, category, contact, upload a logo, and complete the Intro Headline & Message.",
         });
         return;
       }
