@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { BrandingImage } from "@/components/ui/branding-image";
-import { Mail, Phone } from "lucide-react";
+import { Mail, Phone, Headset } from "lucide-react";
 import { motion } from "framer-motion";
 import { PrimaryVisual } from "@/components/pages/my-benefits-team/primary-visual";
 import { readableColor, mix } from "polished";
@@ -10,6 +10,8 @@ import {
   formatPhoneWithExtension,
   getBasePhoneForDialing,
 } from "@/lib/phone-utils";
+import { withContactFormAvatar } from "@/lib/url-utils";
+import { resolveContactFormUrl } from "@/lib/contact-form-link";
 
 interface Contact {
   id?: string | number;
@@ -137,7 +139,7 @@ export function PrimaryContactCard({
       buttons.push({
         type: "website",
         label: "Contact",
-        url: contact.websiteUrl || "",
+        url: withContactFormAvatar(contact.websiteUrl || "", contact.headshot),
       });
     }
   } else {
@@ -163,7 +165,7 @@ export function PrimaryContactCard({
         buttons.push({
           type: "website",
           label: "Contact",
-          url: contact.websiteUrl,
+          url: withContactFormAvatar(contact.websiteUrl, contact.headshot),
         });
       }
     }
@@ -214,16 +216,27 @@ export function PrimaryContactCard({
 
         {/* RIGHT: CONTENT — vertically centered to align with the left headshot */}
         <div className="flex flex-col font-red-hat gap-1 justify-center h-full min-w-0" style={{ color: textColor }}>
-          {/* COMPANY LOGO */}
-          {(contact.companyLogo || contact.logo) && (
-            <div className="mb-1">
-              <BrandingImage
-                src={contact.companyLogo || contact.logo || ""}
-                alt="Company Logo"
-                className="object-contain w-auto"
-                style={{ height: `${48 * (contact.logoScale || 1)}px`, maxHeight: "60px" }}
+          {/* SUPPORT-LINE ICON OR COMPANY LOGO — Team/Support Line contacts show a
+              support icon here because their company logo moves into the large
+              circular slot on the left. */}
+          {isTeamSupport ? (
+            <div className="mb-1 flex items-center">
+              <Headset
+                className="w-8 h-8 sm:w-9 sm:h-9"
+                style={{ color: effectiveBrandColor }}
               />
             </div>
+          ) : (
+            (contact.companyLogo || contact.logo) && (
+              <div className="mb-1">
+                <BrandingImage
+                  src={contact.companyLogo || contact.logo || ""}
+                  alt="Company Logo"
+                  className="object-contain w-auto"
+                  style={{ height: `${48 * (contact.logoScale || 1)}px`, maxHeight: "60px" }}
+                />
+              </div>
+            )
           )}
 
           {/* NAME */}
@@ -236,12 +249,13 @@ export function PrimaryContactCard({
               : contact.name}
           </h2>
 
-          {/* TITLE */}
-          <p className="text-base sm:text-lg font-medium font-red-hat" style={{ color: textColor }}>
-            {contact.contactType === "team_support"
-              ? contact.departmentLabel || contact.customRole
-              : contact.title || contact.customRole}
-          </p>
+          {/* TITLE — hidden for Team/Support Line contacts because the team
+              name above already conveys it. */}
+          {!isTeamSupport && (
+            <p className="text-base sm:text-lg font-medium font-red-hat" style={{ color: textColor }}>
+              {contact.title || contact.customRole}
+            </p>
+          )}
 
           {/* COMPANY NAME */}
           {(contact.companyName || companyName) && (
@@ -304,14 +318,18 @@ export function PrimaryContactCard({
                       color: buttonColor,
                       border: isPrimaryButton ? "none" : "1px solid #E5E7EB",
                     }}
-                    onClick={() => {
+                    onClick={async () => {
                       if (
                         button.type === "schedule" ||
                         button.type === "website" ||
                         button.type === "call" ||
                         button.type === "email"
                       ) {
-                        window.open(button.url, "_blank");
+                        const target =
+                          button.type === "website"
+                            ? await resolveContactFormUrl(button.url, contact)
+                            : button.url;
+                        window.open(target, "_blank");
                       }
                     }}
                   >

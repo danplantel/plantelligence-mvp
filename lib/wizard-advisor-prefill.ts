@@ -12,7 +12,7 @@ const emptyBrandImages = (): BrandImagesData => ({
 });
 
 type ProfileLike = {
-  company?: string | null;
+  organizationType?: string | null;
   name?: string | null;
   advisorLink?: string | null;
   additionalAdvisorLink?: string | null;
@@ -39,8 +39,9 @@ export function mergeAdvisorProfileIntoWizardStepData(
 
   const cb: Partial<CompanyBasicsData> = { ...existing, brandImages };
 
-  // Do not prefill Benefits Hub / plan companyName from profile.company (often "Independent"
-  // or org-type placeholder). Advisors enter the client plan name explicitly on Step 1.
+  // Do not prefill Benefits Hub / plan companyName from profile.organizationType (often
+  // "Independent" or org-type placeholder). Advisors enter the client plan name explicitly
+  // on Step 1.
 
   if (!cb.companyWebsite?.trim()) {
     const link =

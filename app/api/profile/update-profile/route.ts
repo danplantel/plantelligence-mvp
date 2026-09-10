@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
   type TBody = {
     disclaimer: string;
     name: string;
-    company: string;
+    organizationType: string;
     phone: string;
     advisorName: string;
     advisorEmail: string;

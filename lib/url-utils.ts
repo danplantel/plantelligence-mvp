@@ -84,3 +84,32 @@ export function normalizeCleanDomain(url: string): string {
 
   return normalizedUrl;
 }
+
+/**
+ * Ensures a stored /contact CTA link carries the contact's CURRENT headshot.
+ * Old saved links (created before avatar support) have no `avatar` param, so
+ * inject it at click time from the live contact data. The headshot must be a
+ * short R2 key or http(s) URL — base64 data URLs are never put in query params.
+ * Non-/contact URLs (schedule/call/email) are returned unchanged.
+ */
+export function withContactFormAvatar(
+  url: string,
+  headshot?: string | null,
+): string {
+  if (!url || !headshot) return url;
+  if (headshot.startsWith("data:")) return url;
+  try {
+    const u = new URL(
+      url,
+      typeof window !== "undefined"
+        ? window.location.origin
+        : "https://plantel.pro",
+    );
+    if (u.pathname !== "/contact") return url;
+    if (u.searchParams.has("avatar")) return url;
+    u.searchParams.set("avatar", headshot);
+    return u.toString();
+  } catch {
+    return url;
+  }
+}

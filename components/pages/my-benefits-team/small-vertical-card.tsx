@@ -2,13 +2,15 @@
 
 import { Button } from "@/components/ui/button";
 import { BrandingImage } from "@/components/ui/branding-image";
-import { Mail, Phone, Clock } from "lucide-react";
+import { Mail, Phone, Clock, Headset } from "lucide-react";
 import { motion } from "framer-motion";
 import { ContactAvatar } from "@/components/pages/my-benefits-team/contact-avatar";
 import { formatPhone } from "@/components/pages/my-benefits-team/utils";
 import { cn } from "@/lib/utils";
 import { readableColor, mix } from "polished";
 import { formatPhoneWithExtension, getBasePhoneForDialing } from "@/lib/phone-utils";
+import { withContactFormAvatar } from "@/lib/url-utils";
+import { resolveContactFormUrl } from "@/lib/contact-form-link";
 
 interface Contact {
   id?: string | number;
@@ -154,7 +156,10 @@ export function SmallVerticalCard({
     resolvedCardCompany || (showPlaceholders ? "[Company / Organization]" : "");
 
   const hasAvatarImage = Boolean(contact.headshot || contact.teamImage);
-  const showHeadshotPlaceholder = showPlaceholders && !hasAvatarImage;
+  // Team/Support Line contacts have no headshot and render their company logo
+  // in the avatar slot instead, so never show a [Headshot] placeholder for them.
+  const showHeadshotPlaceholder =
+    showPlaceholders && !isTeamSupport && !hasAvatarImage;
 
   // Check if a CTA button was explicitly configured via the wizard
   const hasEnabledCta = contact.enableContactButton === true;
@@ -185,11 +190,15 @@ export function SmallVerticalCard({
         url: contact.email ? `mailto:${contact.email}` : "",
       });
     } else if (ctaBtnType === "url") {
+      // `url` corresponds to the first-party Contact Form CTA — the button
+      // opens the branded /contact form (the saved websiteUrl is derived from
+      // the contact's email). Match the "Contact" label used by the other card
+      // variants.
       if (primaryIndex === -1) primaryIndex = buttons.length;
       buttons.push({
         type: "website",
-        label: isTeamSupport ? "Visit Support Site" : "Visit Website",
-        url: contact.websiteUrl || "",
+        label: isTeamSupport ? "Contact Support" : "Contact",
+        url: withContactFormAvatar(contact.websiteUrl || "", contact.headshot),
       });
     }
   } else {
@@ -215,7 +224,7 @@ export function SmallVerticalCard({
         buttons.push({
           type: "website",
           label: isTeamSupport ? "Visit Support Site" : "Visit Website",
-          url: contact.websiteUrl,
+          url: withContactFormAvatar(contact.websiteUrl, contact.headshot),
         });
       }
     }
@@ -262,24 +271,35 @@ export function SmallVerticalCard({
         style={{ backgroundColor }}
       >
         <div className="flex flex-col items-center flex-1 w-full">
-          {/* LOGO AND COMPANY NAME */}
-          <div className={`flex flex-col items-center gap-2 ${gapLogo} flex-shrink-0`} style={{ height: `${logoHeight * (contact.logoScale || baselineLogoScale || 1)}px` }}>
-            {(contact.companyLogo || contact.logo) && (
-              <BrandingImage
-                src={contact.companyLogo || contact.logo || ""}
-                alt="Logo"
-                className="w-auto object-contain transition-all duration-200"
-                style={{ height: "100%" }}
+          {/* SUPPORT-LINE ICON OR COMPANY LOGO — Team/Support Line contacts show
+              a support icon here because their company logo moves into the
+              circular avatar slot below. */}
+          <div className={`flex flex-col items-center justify-center gap-2 ${gapLogo} flex-shrink-0`} style={{ height: `${logoHeight * (contact.logoScale || baselineLogoScale || 1)}px` }}>
+            {isTeamSupport ? (
+              <Headset
+                className="w-8 h-8 sm:w-10 sm:h-10"
+                style={{ color: effectiveBrandColor }}
               />
-            )}
-            {/* Preview-only placeholder so the wizard's Portal Preview shows
-                what's expected when no contact company logo has been uploaded. */}
-            {showPlaceholders && !(contact.companyLogo || contact.logo) && (
-              <div className="w-full h-full flex items-center justify-center rounded bg-gray-50 border border-dashed border-gray-200 px-2">
-                <span className="text-[10px] text-gray-400 font-medium text-center leading-tight">
-                  [Upload Company Logo]
-                </span>
-              </div>
+            ) : (
+              <>
+                {(contact.companyLogo || contact.logo) && (
+                  <BrandingImage
+                    src={contact.companyLogo || contact.logo || ""}
+                    alt="Logo"
+                    className="w-auto object-contain transition-all duration-200"
+                    style={{ height: "100%" }}
+                  />
+                )}
+                {/* Preview-only placeholder so the wizard's Portal Preview shows
+                    what's expected when no contact company logo has been uploaded. */}
+                {showPlaceholders && !(contact.companyLogo || contact.logo) && (
+                  <div className="w-full h-full flex items-center justify-center rounded bg-gray-50 border border-dashed border-gray-200 px-2">
+                    <span className="text-[10px] text-gray-400 font-medium text-center leading-tight">
+                      [Upload Company Logo]
+                    </span>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
@@ -315,18 +335,21 @@ export function SmallVerticalCard({
             {displayNameText}
           </h3>
 
-          {/* TITLE / DEPARTMENT LABEL */}
-          <p
-            className={`${subtitleSize} font-medium ${gapTitle} text-center font-red-hat flex-shrink-0`}
-            style={{
-              color:
-                showPlaceholders && !resolvedCardTitle
-                  ? "#9CA3AF"
-                  : textColor || "#374151",
-            }}
-          >
-            {displayTitleText}
-          </p>
+          {/* TITLE / DEPARTMENT LABEL — hidden for Team/Support Line contacts
+              because the team name above already conveys it. */}
+          {!isTeamSupport && (
+            <p
+              className={`${subtitleSize} font-medium ${gapTitle} text-center font-red-hat flex-shrink-0`}
+              style={{
+                color:
+                  showPlaceholders && !resolvedCardTitle
+                    ? "#9CA3AF"
+                    : textColor || "#374151",
+              }}
+            >
+              {displayTitleText}
+            </p>
+          )}
 
           {/* COMPANY NAME */}
           {(resolvedCardCompany || showPlaceholders) && (
@@ -485,14 +508,18 @@ export function SmallVerticalCard({
                         ? "1px solid #E5E7EB"
                         : "1px solid #E5E7EB",
                   }}
-                  onClick={() => {
+                  onClick={async () => {
                     if (
                       button.type === "schedule" ||
                       button.type === "website" ||
                       button.type === "call" ||
                       button.type === "email"
                     ) {
-                      window.open(button.url, "_blank");
+                      const target =
+                        button.type === "website"
+                          ? await resolveContactFormUrl(button.url, contact)
+                          : button.url;
+                      window.open(target, "_blank");
                     }
                   }}
                 >
@@ -519,15 +546,24 @@ export function SmallVerticalCard({
       style={{ backgroundColor }}
     >
       <div className="flex flex-col items-center flex-1 w-full">
-        {/* LOGO AND COMPANY NAME */}
-        <div className="flex flex-col items-center gap-2 mb-3 sm:mb-6 flex-shrink-0">
-          {(contact.companyLogo || contact.logo) && (
-            <BrandingImage
-              src={contact.companyLogo || contact.logo || ""}
-              alt="Logo"
-              className="h-[40px] sm:h-[60px] w-auto object-contain transition-transform duration-200"
-              style={{ transform: `scale(${contact.logoScale || baselineLogoScale || 1})` }}
+        {/* SUPPORT-LINE ICON OR COMPANY LOGO — Team/Support Line contacts show
+            a support icon here because their company logo moves into the
+            circular avatar slot below. */}
+        <div className="flex flex-col items-center justify-center gap-2 mb-3 sm:mb-6 flex-shrink-0 min-h-[60px]">
+          {isTeamSupport ? (
+            <Headset
+              className="w-8 h-8 sm:w-10 sm:h-10"
+              style={{ color: effectiveBrandColor }}
             />
+          ) : (
+            (contact.companyLogo || contact.logo) && (
+              <BrandingImage
+                src={contact.companyLogo || contact.logo || ""}
+                alt="Logo"
+                className="h-[40px] sm:h-[60px] w-auto object-contain transition-transform duration-200"
+                style={{ transform: `scale(${contact.logoScale || baselineLogoScale || 1})` }}
+              />
+            )
           )}
         </div>
 
@@ -565,18 +601,21 @@ export function SmallVerticalCard({
           {displayNameText}
         </h3>
 
-        {/* TITLE / DEPARTMENT LABEL */}
-        <p
-          className="text-xs sm:text-sm font-medium mb-1 sm:mb-2 text-center font-red-hat flex-shrink-0"
-          style={{
-            color:
-              showPlaceholders && !resolvedCardTitle
-                ? "#9CA3AF"
-                : textColor || "#374151",
-          }}
-        >
-          {displayTitleText}
-        </p>
+        {/* TITLE / DEPARTMENT LABEL — hidden for Team/Support Line contacts
+            because the team name above already conveys it. */}
+        {!isTeamSupport && (
+          <p
+            className="text-xs sm:text-sm font-medium mb-1 sm:mb-2 text-center font-red-hat flex-shrink-0"
+            style={{
+              color:
+                showPlaceholders && !resolvedCardTitle
+                  ? "#9CA3AF"
+                  : textColor || "#374151",
+            }}
+          >
+            {displayTitleText}
+          </p>
+        )}
 
         {/* COMPANY NAME */}
         {(resolvedCardCompany || showPlaceholders) && (
@@ -734,14 +773,18 @@ export function SmallVerticalCard({
                         ? "1px solid #E5E7EB"
                         : "1px solid #E5E7EB",
                   }}
-                  onClick={() => {
+                  onClick={async () => {
                     if (
                       button.type === "schedule" ||
                       button.type === "website" ||
                       button.type === "call" ||
                       button.type === "email"
                     ) {
-                      window.open(button.url, "_blank");
+                      const target =
+                        button.type === "website"
+                          ? await resolveContactFormUrl(button.url, contact)
+                          : button.url;
+                      window.open(target, "_blank");
                     }
                   }}
                 >

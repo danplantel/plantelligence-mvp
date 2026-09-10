@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
-        company: true,
+        organizationType: true,
         name: true,
         advisorLogo: true,
         advisorLogoUrl: true,

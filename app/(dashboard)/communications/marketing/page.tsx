@@ -36,10 +36,7 @@ import {
   persistPlanSelection,
   resolveStickyPlanId,
 } from "@/lib/plan-selector-storage";
-import {
-  getBenefitsHubAbsoluteUrl,
-  getBenefitsHubPath,
-} from "@/lib/marketing/hub-url";
+import { getBenefitsHubOpenPortalUrl } from "@/lib/marketing/hub-url";
 import { PlanChangeLoadingDialog } from "@/components/ui/plan-change-loading-dialog";
 
 interface Client {
@@ -282,10 +279,10 @@ function PlanSearchBar({
               const slug =
                 (selectedPlan as any)?.slug;
               const resolvedSlug = slug || value;
-              const url =
-                process.env.NODE_ENV === "development"
-                  ? `${window.location.origin}${getBenefitsHubPath(resolvedSlug)}`
-                  : getBenefitsHubAbsoluteUrl(resolvedSlug, userSubdomain);
+              const url = getBenefitsHubOpenPortalUrl(
+                resolvedSlug,
+                userSubdomain,
+              );
               window.open(url, "_blank");
             }}
             className="gap-1.5 shrink-0 bg-accent-blue text-white hover:bg-accent-blue/90"

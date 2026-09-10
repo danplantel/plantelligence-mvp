@@ -32,6 +32,11 @@ const AUTH_ROUTES = [
   "/verify-code",
 ];
 
+// Public non-auth routes that must never be gated or treated as portal paths.
+// `/contact` is the first-party Plantelligence-branded contact form that portal
+// "Contact Form" CTAs link to on the main site.
+const PUBLIC_ROUTES = ["/contact"];
+
 function isPathOrChild(pathname: string, route: string): boolean {
   return pathname === route || pathname.startsWith(`${route}/`);
 }
@@ -41,13 +46,16 @@ export default async function middleware(req: NextRequest) {
   const host = req.headers.get("host") || "";
   const rootDomain = process.env.ROOT_DOMAIN || "plantel.pro";
   const subdomain = extractSubdomain(host, rootDomain);
+  console.log(
+    `[middleware] host=${host} rootDomain=${rootDomain} extractedSubdomain=${subdomain || "(none)"} path=${pathname} env=${process.env.NODE_ENV}`,
+  );
 
   const response = NextResponse.next();
   response.headers.set("x-pathname", pathname);
 
   // Let static/public assets through (e.g. /logo.png) — they're never an app
   // or portal route. /api/r2/object image paths are exempt so subdomain image
-  // serving below can still attach x-advisor-id.
+  // serving below still works (the R2 route resolves the advisor from the Host).
   if (
     !pathname.startsWith("/api/r2/object") &&
     /\.[a-zA-Z0-9]+$/.test(pathname)
@@ -58,9 +66,9 @@ export default async function middleware(req: NextRequest) {
   // ── Subdomain portal routing ──────────────────────────────────────────
   // Subdomains serve ONLY the public portal (root-level /{slug} and its
   // sub-pages). Every non-API path is a portal page; /api/r2/object serves
-  // portal images. The subdomain→advisor lookup is delegated to
-  // /api/resolve-subdomain (Node.js runtime) because Prisma cannot run in
-  // Edge middleware.
+  // portal images. Advisor scoping happens in the Node.js API routes
+  // (resolvePortalAdvisorId derives the advisor from the Host subdomain via
+  // Prisma), so the Edge middleware just lets portal requests through.
   if (subdomain) {
     // Only the R2 image proxy is allowed on a subdomain; other API routes
     // aren't portal pages.
@@ -71,24 +79,15 @@ export default async function middleware(req: NextRequest) {
       return NextResponse.rewrite(new URL("/not-found", req.url));
     }
 
-    try {
-      const resolveUrl = new URL("/api/resolve-subdomain", req.url);
-      resolveUrl.searchParams.set("subdomain", subdomain);
-      const resolveRes = await fetch(resolveUrl.toString());
-
-      if (!resolveRes.ok) {
-        // Invalid subdomain — show the app's not-found page
-        return NextResponse.rewrite(new URL("/not-found", req.url));
-      }
-
-      const { userId } = await resolveRes.json();
-      response.headers.set("x-advisor-id", userId);
-      response.headers.set("x-root-domain", rootDomain);
-      return response;
-    } catch (err) {
-      console.error("[middleware] subdomain lookup error:", err);
-      return NextResponse.rewrite(new URL("/not-found", req.url));
-    }
+    // Portal pages + the R2 image proxy pass straight through. Advisor scoping
+    // is handled in the Node.js API routes via resolvePortalAdvisorId (which
+    // derives the advisor from the Host subdomain using Prisma). We no longer
+    // self-fetch /api/resolve-subdomain here: on preview deployments Vercel's
+    // Deployment Protection answers that server-side fetch with an HTML
+    // challenge instead of JSON, which wrongly rewrote every portal to the
+    // not-found page.
+    response.headers.set("x-root-domain", rootDomain);
+    return response;
   }
 
   // ── Apex domain ────────────────────────────────────────────────────────
@@ -96,11 +95,13 @@ export default async function middleware(req: NextRequest) {
   // Any apex path that isn't a known app/auth/api route is treated as a
   // portal request and redirected to the dashboard.
   const isAuthPath = AUTH_ROUTES.some((r) => isPathOrChild(pathname, r));
+  const isPublicPath = PUBLIC_ROUTES.some((r) => isPathOrChild(pathname, r));
   const isKnownPath =
     pathname === "/" ||
     pathname === "/not-found" ||
     pathname.startsWith("/api/") ||
     isAuthPath ||
+    isPublicPath ||
     APP_ROUTES.some((r) => isPathOrChild(pathname, r));
 
   if (!isKnownPath) {
@@ -122,6 +123,17 @@ export default async function middleware(req: NextRequest) {
     const token = await getToken({
       req,
       secret: process.env.NEXTAUTH_SECRET,
+      // Mirror the session-cookie name that lib/auth-options.ts sets — it keys
+      // off NODE_ENV, not NEXTAUTH_URL's protocol. getToken() otherwise derives
+      // the cookie name from process.env.NEXTAUTH_URL: when that points at an
+      // https URL (e.g. .env's https://plantel.pro) while the dev server runs
+      // over http, getToken looks for "__Secure-next-auth.session-token" but
+      // the server only set "next-auth.session-token", so every /dashboard
+      // request is treated as unauthenticated and bounced back to /signin.
+      cookieName:
+        process.env.NODE_ENV === "production"
+          ? "__Secure-next-auth.session-token"
+          : "next-auth.session-token",
     });
 
     if (!token) {
@@ -143,10 +155,11 @@ export default async function middleware(req: NextRequest) {
 export const config = {
   matcher: [
     // Catch-all for app + portal routes (root-level /{slug} and /{slug}/…),
-    // skipping Next.js internals and ALL /api/* paths. If /api/* were matched,
-    // the middleware's own internal fetch to /api/resolve-subdomain (and the
-    // portal's /api/clients/... calls) would be re-intercepted and rewritten to
-    // the HTML not-found page, breaking JSON responses.
+    // skipping Next.js internals and ALL /api/* paths. Portal API routes
+    // (/api/clients/..., /api/profile, etc.) resolve their own advisor from the
+    // Host subdomain in the Node runtime, so they must not run through
+    // middleware. /api/r2/object is matched separately below for subdomain
+    // image serving.
     "/((?!_next/|favicon.ico|api/).*)",
     // /api/r2/object must still run through middleware for subdomain image serving.
     "/api/r2/object",

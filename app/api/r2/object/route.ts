@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { getObjectFromR2, isR2Configured } from "@/lib/r2";
+import { resolvePortalAdvisorId } from "@/lib/portal-access";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -12,14 +13,18 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(request: NextRequest) {
   try {
-    // Public subdomain portals have no session, so the middleware sets
-    // x-advisor-id for verified subdomains (same trust model as
-    // GET /api/clients?forPortal=1). Without this, R2-keyed portal images
-    // (e.g. a Settings background pre-populated into the benefits wizard and
-    // rendered by the welcome banner) 401 on the employee portal.
-    const portalAdvisorId = request.headers.get("x-advisor-id") || undefined;
+    // Public subdomain portals have no session. Middleware no longer attaches
+    // x-advisor-id, so fall back to resolving the advisor from the Host
+    // subdomain (same trust model as GET /api/clients?forPortal=1). Without
+    // this, R2-keyed portal images (e.g. a Settings background pre-populated
+    // into the benefits wizard and rendered by the welcome banner) 401 on the
+    // employee portal.
+    const headerId = request.headers.get("x-advisor-id")?.trim() || undefined;
     const session = await getServerSession(authOptions);
-    const ownerId = portalAdvisorId || session?.user?.id || null;
+    const hostAdvisorId = session?.user?.id
+      ? undefined
+      : await resolvePortalAdvisorId(request, true);
+    const ownerId = headerId || session?.user?.id || hostAdvisorId || null;
     if (!ownerId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

@@ -13,7 +13,7 @@ export type FlyerBrandSnapshot = {
     companyLogo: string | null;
   };
   organization: {
-    company: string | null;
+    organizationType: string | null;
     name: string;
     advisorLogo: string | null;
     advisorLogoUrl: string | null;
@@ -27,7 +27,7 @@ export function buildFlyerBrandSnapshot(
   >,
   user: Pick<
     User,
-    "company" | "name" | "advisorLogo" | "advisorLogoUrl"
+    "organizationType" | "name" | "advisorLogo" | "advisorLogoUrl"
   >,
 ): FlyerBrandSnapshot {
   return {
@@ -38,7 +38,7 @@ export function buildFlyerBrandSnapshot(
       companyLogo: client.companyLogo ?? null,
     },
     organization: {
-      company: user.company ?? null,
+      organizationType: user.organizationType ?? null,
       name: user.name,
       advisorLogo: user.advisorLogo ?? null,
       advisorLogoUrl: user.advisorLogoUrl ?? null,

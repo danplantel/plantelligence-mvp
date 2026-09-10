@@ -131,7 +131,7 @@ export async function POST(request: Request) {
       data: {
         name: data.name,
         phone: data.phone,
-        company: data.company,
+        organizationType: data.organizationType,
         advisorName: data.advisorName,
         advisorEmail: data.advisorEmail,
         advisorPhone: data.advisorPhone,

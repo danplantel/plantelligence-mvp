@@ -96,14 +96,14 @@ export const authOptions: NextAuthOptions = {
         sameSite: "lax",
         path: "/",
         secure: process.env.NODE_ENV === "production",
-        // In production, set the domain to .plantel.pro so the session cookie
-        // is shared across the apex domain and all subdomains (waypoint.plantel.pro, etc.).
-        // On localhost, leave domain undefined — browsers reject dot-prefixed domains
-        // on localhost.
-        domain:
-          process.env.NODE_ENV === "production"
-            ? ".plantel.pro"
-            : undefined,
+        // The Domain attribute is intentionally left unset here (host-only).
+        // NextAuth v4 resolves cookie options statically and cannot see the
+        // request host, so the auth route wrapper (see
+        // app/api/auth/[...nextauth]/route.ts) adds `Domain=.plantel.pro` on
+        // Plantel hosts — to share the session across the apex and subdomains
+        // — and leaves it host-only everywhere else (e.g. the Vercel dev
+        // domain plantel-dev.vercel.app, where a `.plantel.pro` cookie would
+        // be rejected by the browser).
       },
     },
   },
@@ -113,6 +113,8 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id as string;
         (session.user as any).organizationName =
           (token as any).organizationName || null;
+        (session.user as any).organizationEmail =
+          (token as any).organizationEmail || null;
       }
       (session as any).provider = token.provider;
       return session;
@@ -122,16 +124,19 @@ export const authOptions: NextAuthOptions = {
         if (account?.provider === "google") {
           const dbUser = await prisma.user.findUnique({
             where: { email: user.email as string },
-            select: { id: true, organizationName: true },
+            select: { id: true, organizationName: true, organizationEmail: true },
           });
           token.id = dbUser?.id || user.id;
           token.organizationName = dbUser?.organizationName || null;
+          token.organizationEmail = dbUser?.organizationEmail || null;
         } else {
           token.id = user.id;
           token.organizationName = (user as any)?.organizationName || null;
+          token.organizationEmail = (user as any)?.organizationEmail || null;
         }
         // Mark org name as loaded for this token.
         (token as any).__orgNameLoaded = true;
+        (token as any).__orgEmailLoaded = true;
       }
       // Backfill organizationName for sessions created before this field was
       // added to the token (avoids requiring the user to log out/in again).
@@ -139,13 +144,30 @@ export const authOptions: NextAuthOptions = {
         try {
           const dbUser = await prisma.user.findUnique({
             where: { id: token.id as string },
-            select: { organizationName: true },
+            select: { organizationName: true, organizationEmail: true },
           });
           token.organizationName = dbUser?.organizationName || null;
+          token.organizationEmail = dbUser?.organizationEmail || null;
         } catch {
           token.organizationName = null;
+          token.organizationEmail = null;
         }
         (token as any).__orgNameLoaded = true;
+      }
+      // Backfill organizationEmail independently — sessions created before this
+      // field existed already have __orgNameLoaded=true, so the block above
+      // would skip them. This one-time fetch avoids requiring a re-login.
+      if (token.id && !(token as any).__orgEmailLoaded) {
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: token.id as string },
+            select: { organizationEmail: true },
+          });
+          token.organizationEmail = dbUser?.organizationEmail || null;
+        } catch {
+          token.organizationEmail = (token as any).organizationEmail || null;
+        }
+        (token as any).__orgEmailLoaded = true;
       }
       if (account) {
         token.provider = account.provider;
@@ -199,11 +221,24 @@ export const authOptions: NextAuthOptions = {
           });
         } else {
           // Existing user — send a sign-in notification email (best-effort).
-          try {
-            await sendSignInNotificationEmail(user.email, user?.name || existUser.name || undefined);
-          } catch (emailErr) {
-            console.error("[signIn callback] Failed to send sign-in notification email:", emailErr);
-          }
+          // Never block login on the SMTP send: when the mail host is
+          // unreachable (e.g. local dev), nodemailer can hang ~10s before
+          // timing out, stalling every sign-in. Race the send against a short
+          // timeout so auth completes promptly and the email goes out
+          // fire-and-forget in the background.
+          const notificationEmail = sendSignInNotificationEmail(
+            user.email,
+            user?.name || existUser.name || undefined,
+          ).catch((emailErr) => {
+            console.error(
+              "[signIn callback] Sign-in notification email failed:",
+              emailErr,
+            );
+          });
+          await Promise.race([
+            notificationEmail,
+            new Promise<void>((resolve) => setTimeout(resolve, 3000)),
+          ]);
 
           if (existUser.provider !== (account?.provider as any)) {
             console.log(

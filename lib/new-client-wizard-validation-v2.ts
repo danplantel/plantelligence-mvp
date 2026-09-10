@@ -817,19 +817,22 @@ export const validateNewClientCurrentStepV2 = async (step: number, stepData: any
               });
             }
 
-            // Contact Form URL is required when the "Contact Form" CTA is enabled
-            if (
-              enableContactButton &&
-              contactCtaType === "contact" &&
-              !(contact.websiteUrl || "").trim()
-            ) {
+            // The "Contact Form" CTA opens the Plantelligence-branded `/contact`
+            // page, which emails the submission to this contact. The page URL is
+            // derived from the contact's email, so a valid email is required
+            // whenever the Contact Form CTA is selected. A dedicated
+            // `contactFormCtaEmail` error lets the wizard surface a specific
+            // toast tying the requirement to the CTA, while the plain `email`
+            // error keeps the field highlighted/focused.
+            if (enableContactButton && contactCtaType === "contact" && !emailValid) {
+              pushContactError("email");
               step3Errors.push({
-                field: `websiteUrl`,
+                field: `contactFormCtaEmail`,
                 contactId: contactId,
                 contactName: contactIdentifier,
               });
               step3Errors.push({
-                field: `contact_${contactId}_websiteUrl`,
+                field: `contact_${contactId}_contactFormCtaEmail`,
                 contactId: contactId,
                 contactName: contactIdentifier,
               });
@@ -1025,6 +1028,15 @@ export const validateNewClientCurrentStepV2 = async (step: number, stepData: any
                 errorMessages.push({
                   field: "websiteUrl",
                   message: `"${contactName}": Please enter a contact form URL for the Contact Form button`,
+                  contactName: contactName,
+                });
+              } else if (
+                baseField === "contactFormCtaEmail" ||
+                field.includes("contactFormCtaEmail")
+              ) {
+                errorMessages.push({
+                  field: "contactFormCtaEmail",
+                  message: `"${contactName}": The "Contact Form" CTA sends submissions to this contact's email, so an email address is required.`,
                   contactName: contactName,
                 });
               }

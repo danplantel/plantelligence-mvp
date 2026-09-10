@@ -895,7 +895,17 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
               ? "complianceDocuments"
               : "employeePortalPreview";
 
-          if (stepData[stepType]) {
+          // Step 1: skip the dedicated /company-basics POST. saveAsDraft()
+          // below already upserts newClientCompanyBasics (logo, colors, brand
+          // images, mission/hero meta) AND creates the Client row, and it is
+          // what performs the duplicate-plan-name check. The dedicated POST's
+          // only additional work is server-side re-cropping of images that the
+          // client crop editor has already finalized, and running both posts
+          // back-to-back doubled the round-trips that made "Next" from step-1
+          // take ~20s (same fix already applied to steps 2 and 3d).
+          const skipDedicatedStepPost = currentStep === 1;
+
+          if (!skipDedicatedStepPost && stepData[stepType]) {
             await get().saveStepDataToServer(stepType, stepData[stepType]);
           }
 

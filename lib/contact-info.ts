@@ -80,13 +80,25 @@ export function getContactCountForCategory(
   category: BenefitsCategory,
 ): number {
   return contacts.filter((contact) => {
+    const isTeamSupport = contact.contactType === "team_support";
+    const hasTeamName =
+      (contact.displayName && String(contact.displayName).trim() !== "") ||
+      (contact.name && String(contact.name).trim() !== "");
     const hasFirstName =
       contact.firstName && String(contact.firstName).trim() !== "";
     const hasLastName =
       contact.lastName && String(contact.lastName).trim() !== "";
     const hasEmail = contact.email && String(contact.email).trim() !== "";
     const hasPhone = contact.phone && String(contact.phone).trim() !== "";
-    const isComplete = hasFirstName && hasLastName && (hasEmail || hasPhone);
+
+    // Team/Support Line contacts have no first/last name — they use a display
+    // name. Count them as complete when they have a name and an email/phone so
+    // they surface in the category explorer's counts (covered status, auto-
+    // expand, and "No contacts yet" label). Without this, team contacts were
+    // invisible in the explorer even though the preview rendered them.
+    const isComplete = isTeamSupport
+      ? hasTeamName && (hasEmail || hasPhone)
+      : hasFirstName && hasLastName && (hasEmail || hasPhone);
     if (!isComplete) return false;
     const contactCategories =
       contact.benefitsCategories ||

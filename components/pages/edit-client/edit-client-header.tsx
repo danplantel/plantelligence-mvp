@@ -15,10 +15,7 @@ import {
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 import { ArrowLeft, ExternalLink, Trash2 } from "lucide-react";
-import {
-  getBenefitsHubAbsoluteUrl,
-  getBenefitsHubPath,
-} from "@/lib/marketing/hub-url";
+import { getBenefitsHubOpenPortalUrl } from "@/lib/marketing/hub-url";
 
 interface EditClientHeaderProps {
   clientStatus: string;
@@ -55,10 +52,10 @@ export function EditClientHeader({
   const handleOpenPortal = () => {
     if (clientId) {
       const resolvedSlug = slug || clientId;
-      const url =
-        process.env.NODE_ENV === "development"
-          ? `${window.location.origin}${getBenefitsHubPath(resolvedSlug)}`
-          : getBenefitsHubAbsoluteUrl(resolvedSlug, userSubdomain);
+      const url = getBenefitsHubOpenPortalUrl(
+        resolvedSlug,
+        userSubdomain,
+      );
       window.open(url, "_blank");
     }
   };

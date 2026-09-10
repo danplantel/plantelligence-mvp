@@ -35,6 +35,7 @@ import {
   Star,
   Image as ImageIcon,
   Trash2,
+  Info,
 } from "lucide-react";
 import {
   EditClientHeader,
@@ -47,6 +48,8 @@ import { useEditClient } from "@/hooks/useEditClient";
 // Import components from new-client-steps
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { ContactFormFields } from "@/components/ui/contact-form-fields";
+import { ContactFormPage } from "@/components/pages/contact-form-page";
+import { buildContactFormHref } from "@/lib/contact-form-link";
 import { SmallVerticalCard } from "@/components/pages/my-benefits-team/small-vertical-card";
 import { BrandImagesSection } from "@/components/wizard/new-client-steps/sections/brand-images-section";
 import { ComplianceDocumentsUpload } from "@/components/pages/documents/components/compliance-documents-upload";
@@ -66,7 +69,6 @@ import type {
   SortColumn,
   SortDirection,
 } from "@/components/pages/documents/types";
-import { AddMoreContactsModal } from "@/components/ui/add-more-contacts-modal";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { Headshot } from "@/components/ui/headshot";
 import type { RetirementDocumentItem } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
@@ -160,6 +162,39 @@ const CATEGORY_ACCORDIONS: {
     icon: <Gift className="w-5 h-5 text-accent-blue" />,
   },
 ];
+
+// Category options offered when creating a brand-new contact.
+const ADD_CONTACT_CATEGORY_OPTIONS: { id: BenefitsCategory; label: string }[] = [
+  { id: "Company / Plan Sponsor", label: "Company / Plan Sponsor" },
+  { id: "Retirement", label: "Retirement" },
+  { id: "Group Health", label: "Group Health" },
+  { id: "Group Life", label: "Group Life" },
+  { id: "Other Benefits", label: "Other Benefits" },
+];
+
+/** Default portal-card description for a newly created contact. */
+function getDefaultContactDescription(
+  orgType: string | undefined,
+  companyName: string,
+  recordkeeper: string,
+): string {
+  switch (orgType) {
+    case "Advisor Firm":
+      return `Your dedicated financial professional for retirement plan education, enrollment assistance, and investment guidance.`;
+    case "Client":
+      return "Your primary contact for enrollment questions, plan changes, and general benefits support.";
+    case "Recordkeeper":
+      return `For account access, contributions, or transaction assistance, please contact ${
+        recordkeeper || "[Recordkeeper Name]"
+      } directly.`;
+    case "Partner/Custom":
+      return `For questions about additional benefits such as insurance, wellness, or supplemental programs, please contact ${
+        companyName || "[Company Name]"
+      }.`;
+    default:
+      return `Your dedicated financial professional for retirement plan education, enrollment assistance, and investment guidance.`;
+  }
+}
 
 // ── Compact contact row (replaces KeyContactsSection dropdown) ──
 function ContactRow({
@@ -281,6 +316,11 @@ function EditContactDialog({
   brandColor = "#1F3A60",
   secondaryColor = "#6B7280",
   appointmentLink = "",
+  mode = "edit",
+  addCategory = null,
+  addContactType = "individual",
+  addExternal = false,
+  addDefaults,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -291,19 +331,21 @@ function EditContactDialog({
   brandColor?: string;
   secondaryColor?: string;
   appointmentLink?: string;
+  /** "add" turns this into a create form; the new contact is appended on save. */
+  mode?: "edit" | "add";
+  /** Category pre-selected when the dialog opens in add mode. */
+  addCategory?: BenefitsCategory | null;
+  addContactType?: "individual" | "team_support";
+  /** Marks the new contact as an External HR / Administrator. */
+  addExternal?: boolean;
+  /** Base field values for a newly created contact (orgType, description, logo…). */
+  addDefaults?: Partial<KeyContact>;
 }) {
-  const contactCategories = useMemo(
-    () =>
-      contact?.benefitsCategories ||
-      (contact?.benefitsCategory ? [contact.benefitsCategory] : []),
-    [contact],
-  );
-  const isPlanSponsorContact = contactCategories.includes(
-    "Company / Plan Sponsor",
-  );
+  const isAddMode = mode === "add";
 
   const [form, setForm] = useState<{
     contactType: "individual" | "team_support";
+    benefitsCategory: BenefitsCategory | null;
     firstName: string;
     lastName: string;
     title: string;
@@ -327,6 +369,7 @@ function EditContactDialog({
     displayPhone: boolean;
   }>({
     contactType: "individual",
+    benefitsCategory: null,
     firstName: "",
     lastName: "",
     title: "",
@@ -350,6 +393,31 @@ function EditContactDialog({
     displayPhone: false,
   });
   const [errors, setErrors] = useState<string[]>([]);
+  // Whether the live Plantelligence /contact page preview modal is open.
+  const [contactPreviewOpen, setContactPreviewOpen] = useState(false);
+
+  // The category set is fixed by the contact in edit mode. In add mode the editor
+  // chooses it here (seeded from `addCategory`).
+  const contactCategories = useMemo(
+    () =>
+      contact?.benefitsCategories ||
+      (contact?.benefitsCategory ? [contact.benefitsCategory] : []),
+    [contact],
+  );
+  const isPlanSponsorContact = isAddMode
+    ? form.benefitsCategory === "Company / Plan Sponsor"
+    : contactCategories.includes("Company / Plan Sponsor");
+
+  // Derived values used to build the first-party /contact CTA link.
+  const ctaName =
+    form.contactType === "individual"
+      ? `${form.firstName} ${form.lastName}`.trim()
+      : form.displayName;
+  const ctaCompany = isPlanSponsorContact ? companyName : form.companyName;
+  const ctaLogo = isPlanSponsorContact ? companyLogo : form.companyLogo;
+  const ctaHeadshot =
+    form.contactType === "individual" ? form.headshot || "" : "";
+  const ctaTitle = form.contactType === "individual" ? form.title : "";
 
   const firstNameRef = useRef<HTMLInputElement>(null);
   const lastNameRef = useRef<HTMLInputElement>(null);
@@ -358,12 +426,52 @@ function EditContactDialog({
   const phoneRef = useRef<HTMLInputElement>(null);
   const companyNameRef = useRef<HTMLInputElement>(null);
   const schedulingUrlRef = useRef<HTMLInputElement>(null);
-  const websiteUrlRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!contact) return;
+    if (!open) return;
+
+    // Add mode — start from a blank form (seeded with the caller's preset).
+    if (!contact) {
+      if (!isAddMode) return;
+      setForm({
+        contactType: addContactType,
+        benefitsCategory: addCategory,
+        firstName: "",
+        lastName: "",
+        title: "",
+        displayName: "",
+        email: "",
+        phone: "",
+        phoneExtension: "",
+        headshot: "",
+        headshotFileName: "",
+        teamImage: "",
+        teamImageFileName: "",
+        companyName: addExternal
+          ? ""
+          : (addDefaults?.companyName as string) || "",
+        companyLogo: addExternal
+          ? ""
+          : (addDefaults?.companyLogo as string) || "",
+        companyLogoFileName: "",
+        isPrimary: false,
+        enableContactButton: false,
+        ctaType: "schedule",
+        schedulingUrl: "",
+        websiteUrl: "",
+        displayEmail: true,
+        displayPhone: false,
+      });
+      setErrors([]);
+      return;
+    }
+
     setForm({
       contactType: contact.contactType || "individual",
+      benefitsCategory:
+        contactCategories[0] ??
+        (contact.benefitsCategory as BenefitsCategory) ??
+        null,
       firstName: contact.firstName || "",
       lastName: contact.lastName || "",
       title: contact.title || contact.customRole || "",
@@ -394,7 +502,16 @@ function EditContactDialog({
       displayPhone: contact.displayPhone ?? Boolean(contact.phone),
     });
     setErrors([]);
-  }, [contact]);
+  }, [
+    contact,
+    open,
+    isAddMode,
+    addCategory,
+    addContactType,
+    addExternal,
+    addDefaults,
+    contactCategories,
+  ]);
 
   const updateForm = (
     patch: Partial<typeof form>,
@@ -407,7 +524,7 @@ function EditContactDialog({
   };
 
   const handleSave = () => {
-    if (!contact) return;
+    if (!contact && !isAddMode) return;
     const errors: string[] = [];
 
     if (form.contactType === "individual") {
@@ -416,6 +533,12 @@ function EditContactDialog({
       if (!form.title.trim()) errors.push("title");
     } else {
       if (!form.displayName.trim()) errors.push("displayName");
+    }
+
+    // A new contact must be assigned to a benefits category (External HR
+    // contacts intentionally have no category).
+    if (isAddMode && !addExternal && !form.benefitsCategory) {
+      errors.push("benefitsCategory");
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -439,12 +562,11 @@ function EditContactDialog({
     ) {
       errors.push("schedulingUrl");
     }
-    if (
-      form.enableContactButton &&
-      form.ctaType === "contact" &&
-      !form.websiteUrl.trim()
-    ) {
-      errors.push("websiteUrl");
+    // The "Contact Form" CTA opens the Plantelligence-branded /contact page,
+    // which emails the submission to this contact — so a valid email is required
+    // whenever the Contact Form CTA is selected (the URL is derived from it).
+    if (form.enableContactButton && form.ctaType === "contact" && !emailValid) {
+      if (!errors.includes("email")) errors.push("email");
     }
 
     if (errors.length > 0) {
@@ -457,18 +579,58 @@ function EditContactDialog({
         phone: phoneRef,
         companyName: companyNameRef,
         schedulingUrl: schedulingUrlRef,
-        websiteUrl: websiteUrlRef,
       };
       refMap[errors[0]]?.current?.focus();
-      toast.error("Please fill out all required fields");
+      toast.error(
+        isAddMode && !addExternal && !form.benefitsCategory
+          ? "Choose a benefits category for this contact."
+          : form.enableContactButton &&
+              form.ctaType === "contact" &&
+              !emailValid
+            ? "Selecting the Contact Form CTA requires this contact's email, since form submissions are delivered to it."
+            : "Please fill out all required fields",
+      );
       return;
     }
 
-    const shouldBePrimary = isPlanSponsorContact || form.isPrimary;
+    // Contacts are no longer force-promoted to primary just for being a
+    // Company / Plan Sponsor — the editor opts in with the primary toggle.
+    const shouldBePrimary = form.isPrimary;
+
+    const base: KeyContact =
+      contact ??
+      ({
+        id: `contact-${Date.now()}`,
+        contactType: form.contactType,
+        benefitsCategories: [],
+        benefitsCategory: undefined,
+        role: "Advisor / Specialist",
+        isPrimaryForCategory: false,
+        companyName: "",
+        companyLogo: undefined,
+        firstName: "",
+        lastName: "",
+        title: "",
+        email: "",
+        phone: "",
+        website: "",
+        showOnPortal: true,
+        enableContactButton: true,
+        isPrimary: false,
+        displayScope: "thisPortal",
+        name: "",
+      } as KeyContact);
 
     const updated: KeyContact = {
-      ...contact,
+      ...base,
+      ...(isAddMode && addDefaults ? addDefaults : {}),
       contactType: form.contactType,
+      benefitsCategories: form.benefitsCategory
+        ? [form.benefitsCategory]
+        : base.benefitsCategories,
+      benefitsCategory: (form.benefitsCategory ?? base.benefitsCategory) as any,
+      role: addExternal ? "Other" : base.role,
+      roleOther: addExternal ? "External HR / Administrator" : base.roleOther,
       firstName:
         form.contactType === "individual" ? form.firstName : undefined,
       lastName:
@@ -500,7 +662,10 @@ function EditContactDialog({
         form.contactType === "team_support"
           ? form.teamImageFileName || undefined
           : undefined,
-      companyName: form.companyName || "",
+      companyName:
+        isPlanSponsorContact && isAddMode
+          ? companyName || form.companyName || ""
+          : form.companyName || "",
       companyLogo:
         !isPlanSponsorContact && form.companyLogo
           ? form.companyLogo
@@ -531,7 +696,14 @@ function EditContactDialog({
           : undefined,
       websiteUrl:
         form.enableContactButton && form.ctaType === "contact"
-          ? form.websiteUrl || undefined
+          ? buildContactFormHref(
+              form.email,
+              ctaCompany,
+              ctaName,
+              ctaHeadshot,
+              ctaLogo,
+              ctaTitle,
+            )
           : undefined,
     };
 
@@ -567,12 +739,14 @@ function EditContactDialog({
       ? companyLogo || undefined
       : form.companyLogo || undefined,
     benefitsCategory:
-      contactCategories[0] === "Group Health"
+      (form.benefitsCategory ?? contactCategories[0]) === "Group Health"
         ? "Health Insurance"
-        : contactCategories[0] === "Group Life"
+        : (form.benefitsCategory ?? contactCategories[0]) === "Group Life"
           ? "Life Insurance"
-          : (contactCategories[0] || "Retirement") as any,
-    isPrimary: isPlanSponsorContact || form.isPrimary,
+          : ((form.benefitsCategory ??
+              contactCategories[0] ??
+              "Retirement") as any),
+    isPrimary: form.isPrimary,
     displayEmail: form.displayEmail,
     displayPhone: form.displayPhone,
     enableContactButton: form.enableContactButton,
@@ -591,20 +765,64 @@ function EditContactDialog({
         : undefined,
     websiteUrl:
       form.enableContactButton && form.ctaType === "contact"
-        ? form.websiteUrl
+        ? buildContactFormHref(
+            form.email,
+            ctaCompany,
+            ctaName,
+            ctaHeadshot,
+            ctaLogo,
+            ctaTitle,
+          )
         : undefined,
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl lg:max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Edit Contact</DialogTitle>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-2xl lg:max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+        <DialogHeader className="shrink-0">
+          <DialogTitle>{isAddMode ? "Add Contact" : "Edit Contact"}</DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 py-2 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 py-2 items-start flex-1 min-h-0 overflow-y-auto">
           {/* Left column: form fields */}
           <div className="space-y-4 min-w-0">
+            {/* Benefits category — only when creating a new contact */}
+            {isAddMode && !addExternal && (
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium dark:text-gray-300">
+                  Benefits Category <span className="text-red-500">*</span>
+                </Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {ADD_CONTACT_CATEGORY_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() =>
+                        updateForm(
+                          { benefitsCategory: opt.id },
+                          ["benefitsCategory"],
+                        )
+                      }
+                      className={cn(
+                        "px-2.5 py-2 rounded-lg border-2 text-left text-xs font-medium transition-all",
+                        form.benefitsCategory === opt.id
+                          ? "border-[#23919C] bg-[#23919C]/5 shadow-sm"
+                          : "border-gray-200 bg-white hover:border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500",
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                {errors.includes("benefitsCategory") && (
+                  <p className="text-[10px] text-red-500">
+                    Choose which benefits category this contact belongs to
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Contact Type */}
             <div className="space-y-1.5">
               <Label className="text-sm font-medium dark:text-gray-300">
@@ -926,29 +1144,28 @@ function EditContactDialog({
 
                   {form.ctaType === "contact" && (
                     <div className="space-y-1">
-                      <Label className="dark:text-gray-300 text-xs font-medium">
-                        Contact Form URL <span className="text-red-500">*</span>
-                      </Label>
-                      <Input
-                        ref={websiteUrlRef}
-                        value={form.websiteUrl}
-                        onChange={(e) =>
-                          updateForm({ websiteUrl: e.target.value }, [
-                            "websiteUrl",
-                          ])
-                        }
-                        placeholder="https://forms.company.com/..."
-                        className={cn(
-                          "h-8 text-sm",
-                          errors.includes("websiteUrl") && "border-red-500",
-                        )}
-                      />
-                      {errors.includes("websiteUrl") && (
-                        <p className="text-[10px] text-red-500">
-                          Contact Form URL is required when &ldquo;Contact
-                          Form&rdquo; is enabled
-                        </p>
-                      )}
+                      <div className="flex items-center gap-2">
+                        <Label className="dark:text-gray-300 text-xs font-medium">
+                          Plantelligence Contact Form
+                        </Label>
+                        <button
+                          type="button"
+                          onClick={() => setContactPreviewOpen(true)}
+                          className="flex-shrink-0 w-5 h-5 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          aria-label="Preview the Contact Form page"
+                          title="Preview the Contact Form page"
+                        >
+                          <Info className="w-3 h-3 text-gray-400" />
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 rounded px-2.5 py-1.5 leading-relaxed">
+                        This CTA opens a Plantelligence-branded contact form on
+                        the /contact page. Submissions are delivered to this
+                        contact&rsquo;s email.
+                        {form.email
+                          ? ` Incoming messages will be sent to ${form.email}.`
+                          : " Enter this contact's email above to receive incoming messages."}
+                      </p>
                     </div>
                   )}
 
@@ -1031,14 +1248,39 @@ function EditContactDialog({
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0 border-t border-gray-100 dark:border-gray-700 pt-4 mt-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSave}>Save Changes</Button>
+          <Button onClick={handleSave}>
+            {isAddMode ? "Add Contact" : "Save Changes"}
+          </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+      </Dialog>
+
+      {/* Contact Form preview modal — renders the live Plantelligence-branded
+          /contact page so the editor can see what employees will get. */}
+      <Dialog open={contactPreviewOpen} onOpenChange={setContactPreviewOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto dark:bg-gray-800 dark:border-gray-700">
+          <DialogHeader>
+            <DialogTitle>Contact Form Preview</DialogTitle>
+          </DialogHeader>
+          <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
+            <ContactFormPage
+              to={form.email}
+              company={ctaCompany}
+              contactName={ctaName}
+              contactTitle={ctaTitle}
+              avatar={ctaHeadshot}
+              companyLogo={ctaLogo}
+              embedded
+              preview
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -1051,7 +1293,7 @@ function EditKeyContactsSection({
   onHeadshotUpload,
   onHeadshotRemove,
   validationErrors = {},
-  onAddContactForCategory,
+  onAddContact,
 }: {
   contacts: KeyContact[];
   companyData: CompanyBasicsData;
@@ -1060,7 +1302,14 @@ function EditKeyContactsSection({
   onHeadshotUpload?: (index: number, file: File) => void;
   onHeadshotRemove?: (index: number) => void;
   validationErrors?: Record<string, string[]>;
-  onAddContactForCategory: (category: BenefitsCategory) => void;
+  /** Opens the Add Contact dialog, optionally pre-seeding the category/type. */
+  onAddContact: (
+    category: BenefitsCategory | null,
+    options?: {
+      contactType?: "individual" | "team_support";
+      external?: boolean;
+    },
+  ) => void;
 }) {
   const [editingContact, setEditingContact] = useState<KeyContact | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -1107,6 +1356,35 @@ function EditKeyContactsSection({
     );
     if (hasExternal) defaults.push("external-hr");
     setOpenAccordions(defaults);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contacts]);
+
+  // Re-open the relevant accordion whenever a contact is added so the user
+  // immediately sees the contact they just created.
+  const prevContactCountRef = useRef(contacts.length);
+  useEffect(() => {
+    if (contacts.length > prevContactCountRef.current) {
+      const added = contacts[contacts.length - 1];
+      const cats: BenefitsCategory[] = added?.benefitsCategories?.length
+        ? added.benefitsCategories
+        : added?.benefitsCategory
+          ? [added.benefitsCategory]
+          : [];
+      setOpenAccordions((prev) => {
+        const next = new Set(prev);
+        if (added && isExternalContact(added)) next.add("external-hr");
+        cats.forEach((cat) => {
+          if (cat === "Company / Plan Sponsor") {
+            next.add("company-plan-sponsor");
+            return;
+          }
+          const meta = CATEGORY_ACCORDIONS.find((c) => c.id === cat);
+          if (meta) next.add(meta.value);
+        });
+        return Array.from(next);
+      });
+    }
+    prevContactCountRef.current = contacts.length;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contacts]);
 
@@ -1301,7 +1579,7 @@ function EditKeyContactsSection({
               className="mr-2"
               onClick={(e) => {
                 e.stopPropagation();
-                onAddContactForCategory("Company / Plan Sponsor");
+                onAddContact("Company / Plan Sponsor");
               }}
             >
               <Plus className="w-3.5 h-3.5 mr-1" />
@@ -1352,7 +1630,7 @@ function EditKeyContactsSection({
                   className="mr-2"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onAddContactForCategory(category.id);
+                    onAddContact(category.id);
                   }}
                 >
                   <Plus className="w-3.5 h-3.5 mr-1" />
@@ -1400,31 +1678,10 @@ function EditKeyContactsSection({
               className="mr-2"
               onClick={(e) => {
                 e.stopPropagation();
-                const newContact: KeyContact = {
-                  id: `contact-${Date.now()}`,
+                onAddContact(null, {
                   contactType: "team_support",
-                  benefitsCategories: [],
-                  benefitsCategory: undefined,
-                  role: "Other",
-                  roleOther: "External HR / Administrator",
-                  isPrimaryForCategory: false,
-                  companyName: "",
-                  companyLogo: undefined,
-                  firstName: "",
-                  lastName: "",
-                  title: "",
-                  email: "",
-                  phone: "",
-                  website: "",
-                  showOnPortal: true,
-                  enableContactButton: true,
-                  isPrimary: false,
-                  displayScope: "thisPortal",
-                  name: "",
-                  orgType: "Advisor Firm",
-                  description: "External HR or administrator contact for benefits support.",
-                };
-                onContactsChange([...contacts, newContact]);
+                  external: true,
+                });
               }}
             >
               <Plus className="w-3.5 h-3.5 mr-1" />
@@ -2299,13 +2556,34 @@ export default function EditClientPage() {
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [isPreviewLayoutModalOpen, setIsPreviewLayoutModalOpen] =
     useState(false);
-  const [isAddContactModalOpen, setIsAddContactModalOpen] = useState(false);
   // Number of newly-uploaded documents still awaiting the "I confirm these
   // documents are accurate..." checkbox. Blocks Save Changes until confirmed.
   const [pendingDocumentUploads, setPendingDocumentUploads] = useState(0);
 
-  const handleAddContactForCategory = useCallback(
-    (category: BenefitsCategory) => {
+  // Preset for the Add Contact dialog. Entry points just open the dialog with a
+  // pre-seeded category/type — the contact is created only when the user saves.
+  const [addContactPreset, setAddContactPreset] = useState<{
+    open: boolean;
+    category: BenefitsCategory | null;
+    contactType: "individual" | "team_support";
+    external: boolean;
+    defaults: Partial<KeyContact>;
+  }>({
+    open: false,
+    category: null,
+    contactType: "individual",
+    external: false,
+    defaults: {},
+  });
+
+  const openAddContact = useCallback(
+    (
+      category: BenefitsCategory | null,
+      options?: {
+        contactType?: "individual" | "team_support";
+        external?: boolean;
+      },
+    ) => {
       const planOrganizationType =
         (companyData.organizationType as
           | "Advisor Firm"
@@ -2313,48 +2591,36 @@ export default function EditClientPage() {
           | "Recordkeeper"
           | "Partner/Custom") || "Advisor Firm";
 
-      const getDefaultDescription = (orgType?: string): string => {
-        switch (orgType) {
-          case "Advisor Firm":
-            return `Your dedicated financial professional for retirement plan education, enrollment assistance, and investment guidance.`;
-          case "Client":
-            return "Your primary contact for enrollment questions, plan changes, and general benefits support.";
-          case "Recordkeeper":
-            return `For account access, contributions, or transaction assistance, please contact ${documentsData.recordkeeper || "[Recordkeeper Name]"} directly.`;
-          case "Partner/Custom":
-            return `For questions about additional benefits such as insurance, wellness, or supplemental programs, please contact ${companyData.companyName || "[Company Name]"}.`;
-          default:
-            return `Your dedicated financial professional for retirement plan education, enrollment assistance, and investment guidance.`;
-        }
-      };
+      const description = options?.external
+        ? "External HR or administrator contact for benefits support."
+        : getDefaultContactDescription(
+            planOrganizationType,
+            companyData.companyName || "",
+            documentsData.recordkeeper || "",
+          );
 
-      const newContact: KeyContact = {
-        id: `contact-${Date.now()}`,
-        contactType: "individual",
-        benefitsCategories: [category],
-        benefitsCategory: category,
-        role: "Advisor / Specialist",
-        isPrimaryForCategory: false,
-        companyName: companyData.companyName || "",
-        companyLogo: companyData.companyLogo?.url || undefined,
-        firstName: "",
-        lastName: "",
-        title: "",
-        email: "",
-        phone: "",
-        website: "",
-        showOnPortal: true,
-        enableContactButton: true,
-        isPrimary: false,
-        displayScope: "thisPortal",
-        name: "",
-        orgType: planOrganizationType,
-        organization: companyData.companyName || "",
-        description: getDefaultDescription(planOrganizationType),
-      };
-      setKeyContacts([...keyContacts, newContact]);
+      setAddContactPreset({
+        open: true,
+        category,
+        contactType: options?.contactType ?? "individual",
+        external: !!options?.external,
+        defaults: {
+          orgType: planOrganizationType,
+          organization: companyData.companyName || "",
+          companyName: companyData.companyName || "",
+          companyLogo: companyData.companyLogo?.url || undefined,
+          description,
+        },
+      });
     },
-    [companyData, documentsData, keyContacts, setKeyContacts],
+    [companyData, documentsData],
+  );
+
+  const handleAddContactSave = useCallback(
+    (created: KeyContact) => {
+      setKeyContacts([...keyContacts, created]);
+    },
+    [keyContacts, setKeyContacts],
   );
 
   // Portal target for the tabs bar – the Header renders <div id="header-tabs-portal" />
@@ -2669,7 +2935,7 @@ export default function EditClientPage() {
         const orgName =
           profile?.organizationName ||
           profile?.wizardSessions?.[0]?.branding?.organizationName ||
-          profile?.company ||
+          profile?.organizationType ||
           "";
         const email =
           profile?.email || profile?.advisorEmail || "";
@@ -3257,7 +3523,7 @@ export default function EditClientPage() {
                     <div className="flex items-center gap-3">
                       <CardTitle className="text-xl">Key Contacts</CardTitle>
                       <Button
-                        onClick={() => setIsAddContactModalOpen(true)}
+                        onClick={() => openAddContact(null)}
                         variant="outline"
                         size="sm"
                         className="text-sm"
@@ -3318,7 +3584,7 @@ export default function EditClientPage() {
                     onHeadshotUpload={handleHeadshotUpload}
                     onHeadshotRemove={handleHeadshotRemove}
                     validationErrors={getValidationErrors()}
-                    onAddContactForCategory={handleAddContactForCategory}
+                    onAddContact={openAddContact}
                   />
                 </CardContent>
               </Card>
@@ -3598,14 +3864,29 @@ export default function EditClientPage() {
           </Tabs>
         </div>
 
-        {/* Add Contact Modal */}
-        <AddMoreContactsModal
-          open={isAddContactModalOpen}
-          onOpenChange={setIsAddContactModalOpen}
-          onSkip={() => setIsAddContactModalOpen(false)}
-          onAddContactForCategory={handleAddContactForCategory}
-          contacts={keyContacts}
-        />
+        {/* Add Contact Modal — same form as the Edit Contact dialog. The contact
+            is only created once the user saves, so no blank "Unnamed Contact"
+            rows are ever added up front. */}
+        {addContactPreset.open && (
+          <EditContactDialog
+            open={addContactPreset.open}
+            onOpenChange={(open) =>
+              setAddContactPreset((prev) => ({ ...prev, open }))
+            }
+            contact={null}
+            mode="add"
+            addCategory={addContactPreset.category}
+            addContactType={addContactPreset.contactType}
+            addExternal={addContactPreset.external}
+            addDefaults={addContactPreset.defaults}
+            onSave={handleAddContactSave}
+            companyName={companyData.companyName || ""}
+            companyLogo={companyData.companyLogo?.url || ""}
+            brandColor={companyData.primaryColor || "#1F3A60"}
+            secondaryColor={companyData.secondaryColor || "#6B7280"}
+            appointmentLink={companyData.appointmentLink || ""}
+          />
+        )}
 
         {/* Card Selection Modal */}
         <CardSelectionModal

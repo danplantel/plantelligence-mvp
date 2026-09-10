@@ -164,7 +164,7 @@ export const DisclaimersSettingsSection = forwardRef<
         const profileOrgName =
           profile?.organizationName ||
           profile?.wizardSessions?.[0]?.branding?.organizationName ||
-          profile?.company ||
+          profile?.organizationType ||
           stepData.branding?.organizationName ||
           "";
         if (profileOrgName) {

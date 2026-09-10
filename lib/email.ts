@@ -24,21 +24,141 @@ interface EmailOptions {
   to: string;
   subject: string;
   html: string;
+  /** Optional plain-text alternative (multipart/alternative). */
+  text?: string;
+  /** Optional Reply-To address. */
+  replyTo?: string;
+  /** Optional From override (e.g. a personal-looking sender). */
+  from?: string;
+  /** Optional extra headers (e.g. X-Entity-Ref-ID to stop Gmail trimming/threading). */
+  headers?: Record<string, string>;
 }
 
-async function sendEmail({ to, subject, html }: EmailOptions) {
+async function sendEmail({ to, subject, html, text, replyTo, from, headers }: EmailOptions) {
   try {
     const info = await transporter.sendMail({
-      from: `"PlanTelligence®" <${fromAddress}>`,
+      from: from || `"PlanTelligence®" <${fromAddress}>`,
       to,
       subject,
       html,
+      ...(text ? { text } : {}),
+      ...(replyTo ? { replyTo } : {}),
+      ...(headers ? { headers } : {}),
     });
     return info;
   } catch (error) {
     console.error('Error sending email:', error);
     throw error;
   }
+}
+
+/** Payload for a submission from the Plantelligence-branded `/contact` form. */
+export interface ContactFormSubmission {
+  /** Recipient — the contact/advisor email associated with the contact card. */
+  to: string;
+  fromName: string;
+  fromEmail: string;
+  message: string;
+  company?: string;
+}
+
+/** Email a `/contact` form submission to the recipient (the contact's email). */
+export async function sendContactFormEmail({
+  to,
+  fromName,
+  fromEmail,
+  message,
+  company,
+}: ContactFormSubmission) {
+  // This is a person-to-person message, so it is intentionally minimal and
+  // image-free. Branded HTML with logos/buttons makes Gmail file it under
+  // "Promotions", and a generic no-reply automated style files it under
+  // "Updates" — a plain, reply-to-a-real-person email stays in the Primary tab.
+  const safeName = sanitizeHeaderValue(fromName) || "A visitor";
+  const safeEmail = sanitizeHeaderValue(fromEmail);
+  const safeCompany = company ? sanitizeHeaderValue(company) : "";
+
+  const html = `
+    <div style="margin:0;padding:32px 16px;background-color:#f2f4f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+      <div style="max-width:560px;margin:0 auto;background-color:#ffffff;border:1px solid #e5e7eb;border-radius:14px;padding:32px;">
+        <img src="${logoUrl}" alt="PlanTelligence®" width="132" style="display:block;border:0;max-width:132px;height:auto;margin:0 0 22px;" />
+
+        <div style="width:40px;height:3px;background-color:#0a3a40;border-radius:3px;margin:0 0 20px;"></div>
+        <h1 style="margin:0 0 22px;font-size:19px;font-weight:600;letter-spacing:-0.01em;color:#111827;">New message from the PlanTelligence® contact form</h1>
+
+        <p style="margin:0 0 3px;font-size:15px;font-weight:600;color:#111827;">From: ${escapeHtml(safeName)}</p>
+        <p style="margin:0 0 22px;font-size:13px;color:#6b7280;">
+          <a href="mailto:${escapeHtml(safeEmail)}" style="color:#0a7d8a;text-decoration:none;">${escapeHtml(safeEmail)}</a>
+        </p>
+
+        <div style="padding:16px 18px;background-color:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;font-size:15px;line-height:1.65;color:#333333;white-space:pre-wrap;">${escapeHtml(message.trim())}</div>
+
+        <p style="margin:20px 0 0;font-size:13px;color:#6b7280;">
+          Reply directly to this email to reach ${escapeHtml(safeName)}.
+        </p>
+
+        <div style="margin-top:28px;padding-top:16px;border-top:1px solid #eef1f5;font-size:12px;line-height:1.6;color:#9aa0a6;">
+          Sent via PlanTelligence® &middot; This message was delivered through the contact form.
+        </div>
+      </div>
+    </div>
+  `;
+  // Neutralize any leading ">" in the plain-text part so Gmail can't detect it
+  // as quoted content (which would add a "show trimmed content" control).
+  const textSafeMessage = message
+    .trim()
+    .split("\n")
+    .map((line) => (line.startsWith(">") ? ` ${line}` : line))
+    .join("\n");
+  const text = [
+    `${safeName} sent you a message through the contact form.`,
+    ...(safeCompany ? ["", `Company: ${safeCompany}`] : []),
+    "",
+    textSafeMessage,
+    "",
+    `Reply directly to this email to reach ${safeName} at ${safeEmail}.`,
+    "",
+    "Sent via PlanTelligence",
+  ].join("\n");
+  const subject = `New message from ${safeName}`;
+  // A unique X-Entity-Ref-ID stops Gmail from bundling this into a conversation
+  // and collapsing the body behind a "show trimmed content" control.
+  const entityRefId = `contact-form-${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2)}`;
+  return sendEmail({
+    to,
+    subject,
+    html,
+    text,
+    replyTo: safeEmail,
+    from: `"${safeName} (via PlanTelligence)" <${fromAddress}>`,
+    headers: { "X-Entity-Ref-ID": entityRefId },
+  });
+}
+
+/** Strip CR/LF/quotes so user input is safe in email headers (From/Reply-To/Subject). */
+function sanitizeHeaderValue(value: string): string {
+  return (value || "")
+    .replace(/[\r\n"]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
+}
+
+/** Minimal HTML-escape helper for user-provided content in emails. */
+function escapeHtml(value: string): string {
+  const amp = "&" + "amp;";
+  const lt = "&" + "lt;";
+  const gt = "&" + "gt;";
+  const quot = "&" + "quot;";
+  const apos = "&" + "#039;";
+  return value
+    .replace(/&/g, amp)
+    .replace(/</g, lt)
+    .replace(/>/g, gt)
+    .replace(/"/g, quot)
+    .replace(/'/g, apos);
 }
 
 export async function sendVideoCreationEmail(userEmail: string, videoName: string) {
