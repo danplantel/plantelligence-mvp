@@ -89,6 +89,19 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
     setTheme(resolvedTheme === "dark" ? "light" : "dark");
   };
 
+  // The Plan's company name can be embedded in the page title (e.g. the Edit
+  // Plan page sets "Edit Plan - {Company}"). Split it out so the company-name
+  // portion renders in accent-blue, matching the accent-blue subtitle used
+  // elsewhere (e.g. the Create Benefits page).
+  const TITLE_COMPANY_SEPARATOR = " - ";
+  const companySeparatorIndex = title.indexOf(TITLE_COMPANY_SEPARATOR);
+  const titleMain =
+    companySeparatorIndex >= 0 ? title.slice(0, companySeparatorIndex) : title;
+  const titleCompany =
+    companySeparatorIndex >= 0
+      ? title.slice(companySeparatorIndex + TITLE_COMPANY_SEPARATOR.length)
+      : "";
+
   return (
     <div className="fixed top-0 left-0 right-0 z-50 bg-background border-b border-border">
       {/* When the Editing Panel is open, align the Stepper to the start of the
@@ -118,8 +131,20 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
       >
         {/* Left: Title + Company Name + Step Title (hidden while the Editing Panel is open) */}
         <div className="flex items-center gap-2 flex-[1] min-w-0">
-          {!editorOpen && title && 
-          <h1 className="text-sm font-semibold dark:text-white truncate">{title}</h1>}
+          {!editorOpen && title && (
+            <h1
+              className="text-sm font-semibold dark:text-white truncate"
+              title={title}
+            >
+              {titleMain}
+              {titleCompany && (
+                <>
+                  {TITLE_COMPANY_SEPARATOR}
+                  <span className="text-accent-blue">{titleCompany}</span>
+                </>
+              )}
+            </h1>
+          )}
           {!editorOpen && subtitle && (
             <>
               <span className="text-sm text-muted-foreground/40 dark:text-gray-600">/</span>
