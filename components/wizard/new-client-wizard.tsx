@@ -12,6 +12,8 @@ import {
   focusFirstInvalidField,
   markStep3dNextPreSaved,
   markStep2NextPreSaved,
+  markStep1NextPreSaved,
+  markStep4NextPreSaved,
   setWizardTransitionActive,
 } from "@/lib/new-client-wizard-store";
 import { isDuplicatePlanNameError } from "@/lib/duplicate-plan-name-error";
@@ -369,6 +371,36 @@ export function NewClientWizard({
         window.dispatchEvent(new CustomEvent("closeStep2Editor"));
         // Wait 2 seconds for modal to close before proceeding to next step
         await new Promise((resolve) => setTimeout(resolve, 2000));
+      } else if (currentStep === 1) {
+        // Step-1 content (company basics + branding) is edited directly into the
+        // store, so it is already fresh here. Fire the full draft save in the
+        // BACKGROUND and mark the transition so nextStep() skips its redundant
+        // sequential save-draft POST — that awaited POST (slow: it upserts every
+        // wizard-session sub-record and the Client row) was what made "Next" from
+        // step-1 stall for ~14s. saveAsDraft() also performs the
+        // duplicate-plan-name check; if a conflict exists the store-driven dialog
+        // opens after navigation instead of blocking it.
+        markStep1NextPreSaved();
+        void saveAsDraft().catch((error) => {
+          console.error("Background draft save before step-1 Next failed:", error);
+        });
+      } else if (currentStep === 4) {
+        // Leaving step-4 (compliance documents): persist the dedicated
+        // /compliance-documents POST + the full draft save in the BACKGROUND,
+        // keeping their original sequential order so they never overlap (both
+        // upsert the same wizard-session record). Mark the transition so
+        // nextStep() skips its redundant, sequential copy of these saves.
+        markStep4NextPreSaved();
+        const complianceData =
+          useNewClientWizardStore.getState().stepData.complianceDocuments;
+        void (async () => {
+          if (complianceData) {
+            await saveStepDataToServer("complianceDocuments", complianceData);
+          }
+          await saveAsDraft();
+        })().catch((error) => {
+          console.error("Background save before step-4 Next failed:", error);
+        });
       } else if (currentStep === 5) {
         const step5SubStep =
           (stepData as any)?.employeePortalPreview?.step5SubStep || "disclaimers";
@@ -390,11 +422,20 @@ export function NewClientWizard({
         try {
           // Call step-3d's save function to ensure all local state is saved
           const saveStep3dState = (window as any).__step3dSaveCurrentState;
-          let preSaved = false;
           if (saveStep3dState) {
-            // saveCurrentState flushes local state into the store and persists
-            // it. It resolves true when the server save + draft save succeeded.
-            preSaved = (await saveStep3dState()) === true;
+            // saveCurrentState flushes the local contacts/layout state into the
+            // store SYNCHRONOUSLY (so nextStep() validates the freshest data)
+            // and then persists keyContacts + a background draft save on its
+            // own. Fire it WITHOUT awaiting so navigation to step 4 is not
+            // blocked on the slow /key-contacts POST. Mark the transition so
+            // nextStep() skips its redundant sequential copy of that save.
+            void saveStep3dState().catch((error: unknown) => {
+              console.error(
+                "Failed to save key contacts before step-3d Next:",
+                error,
+              );
+            });
+            markStep3dNextPreSaved();
           } else {
             // Fallback: save from store if function not available
             // Give a small delay to ensure any pending state updates are flushed
@@ -413,22 +454,20 @@ export function NewClientWizard({
                 .getState()
                 .saveStepDataLocally("keyContacts", keyContactsData);
 
-              // Then save to server and draft
-              await saveStepDataToServer("keyContacts", keyContactsData);
-              await saveAsDraft();
-              preSaved = true;
+              // Then save to server and draft in the background, preserving the
+              // original sequential order so the two writes never overlap.
+              markStep3dNextPreSaved();
+              void (async () => {
+                await saveStepDataToServer("keyContacts", keyContactsData);
+                await saveAsDraft();
+              })().catch((error) => {
+                console.error(
+                  "Background step-3d fallback save failed:",
+                  error,
+                );
+              });
             }
           }
-
-          // The step-3d state was just fully persisted, so nextStep() should NOT
-          // repeat the identical server/draft save for this transition (doing so
-          // doubled the save-draft POSTs and made "Next" feel extremely slow).
-          if (preSaved) {
-            markStep3dNextPreSaved();
-          }
-
-          // Give a small delay to ensure save completes
-          await new Promise((resolve) => setTimeout(resolve, 100));
         } catch (error) {
           if (isDuplicatePlanNameError(error)) {
             setIsProcessing(false);

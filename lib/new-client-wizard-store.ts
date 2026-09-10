@@ -442,6 +442,42 @@ function consumeStep2NextPreSaved(): boolean {
   return wasPreSaved;
 }
 
+// ── Step-1 "pre-save before Next" guard ────────────────────────────────────
+// Same idea as the step-2/step-3d guards: leaving step-1 (company basics) does
+// not need to wait for the full save-draft POST — the wizard fires it in the
+// background before transitioning and marks this flag so nextStep() skips its
+// own redundant, sequential save-draft POST that was making "Next" from step-1
+// stall for ~14s (the save-draft endpoint is slow because it upserts every
+// wizard-session sub-record and the Client row in a single request).
+let step1NextPreSaved = false;
+
+export function markStep1NextPreSaved() {
+  step1NextPreSaved = true;
+}
+
+function consumeStep1NextPreSaved(): boolean {
+  const wasPreSaved = step1NextPreSaved;
+  step1NextPreSaved = false;
+  return wasPreSaved;
+}
+
+// ── Step-4 "pre-save before Next" guard ────────────────────────────────────
+// Leaving step-4 (compliance documents) likewise does not need to wait for the
+// dedicated /compliance-documents POST + save-draft — the wizard fires both in
+// the background before transitioning and marks this flag so nextStep() skips
+// its redundant sequential copy of those saves.
+let step4NextPreSaved = false;
+
+export function markStep4NextPreSaved() {
+  step4NextPreSaved = true;
+}
+
+function consumeStep4NextPreSaved(): boolean {
+  const wasPreSaved = step4NextPreSaved;
+  step4NextPreSaved = false;
+  return wasPreSaved;
+}
+
 // ── Wizard "transition in progress" flag ─────────────────────────────────────
 // The wizard (new-client-wizard.tsx) sets this while it is processing a Next /
 // Complete click. The page-level debounced autosave checks it and stands down,
@@ -876,6 +912,20 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
         // If nextStep() is reached WITHOUT that pre-save (e.g. a direct invocation),
         // fall through to the generic save below so nothing is silently lost.
         if (currentStep === 2 && consumeStep2NextPreSaved()) {
+          if (currentStep < totalSteps) {
+            set({ currentStep: currentStep + 1, errorFields: [] });
+          }
+          return { isValid: true, errors: [] };
+        }
+
+        if (currentStep === 1 && consumeStep1NextPreSaved()) {
+          if (currentStep < totalSteps) {
+            set({ currentStep: currentStep + 1, errorFields: [] });
+          }
+          return { isValid: true, errors: [] };
+        }
+
+        if (currentStep === 4 && consumeStep4NextPreSaved()) {
           if (currentStep < totalSteps) {
             set({ currentStep: currentStep + 1, errorFields: [] });
           }
