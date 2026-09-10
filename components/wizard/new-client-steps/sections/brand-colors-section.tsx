@@ -325,6 +325,7 @@ export function BrandColorsSection({
                 value={primaryColor}
                 onChange={(e) => onPrimaryChange(e.target.value)}
                 placeholder="#..."
+                data-field="primaryColor"
                 className="flex-1"
                 destructive={isFieldInvalid("primaryColor")}
               />
@@ -383,6 +384,7 @@ export function BrandColorsSection({
                 value={secondaryColor}
                 onChange={(e) => onSecondaryChange(e.target.value)}
                 placeholder="#..."
+                data-field="secondaryColor"
                 className="flex-1"
                 destructive={isFieldInvalid("secondaryColor")}
               />
