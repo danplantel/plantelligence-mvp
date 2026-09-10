@@ -15,7 +15,8 @@ import type {
 } from "@/components/pages/documents/types";
 import { RetirementDocumentItem } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
 import { DocumentPreviewModal } from "@/components/pages/documents/components/document-preview-modal";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { DismissibleAlert } from "@/components/ui/dismissible-alert";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { deleteFromR2 } from "@/lib/upload-to-r2";
 import { persistNewDocumentsToApi } from "@/lib/benefits-document-persist";
@@ -539,7 +540,10 @@ export function BenefitsDocumentsSection({
         </TabsContent>
 
         <TabsContent value="list" className="mt-6">
-          <Alert className="mb-6 border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30">
+          <DismissibleAlert
+            alertKey="plan-documents-overview-benefits-list"
+            className="mb-6 border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30"
+          >
             <AlertTitle className="text-sm font-semibold text-blue-800 dark:text-blue-300">
               Plan Documents Overview
             </AlertTitle>
@@ -549,7 +553,7 @@ export function BenefitsDocumentsSection({
               Documents with missing categories will need to be assigned before
               proceeding.
             </AlertDescription>
-          </Alert>
+          </DismissibleAlert>
           <DocumentListTab
             selectedPlan={clientId || "current-plan"}
             isLoading={false}

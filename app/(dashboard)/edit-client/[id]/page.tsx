@@ -57,7 +57,8 @@ import { DocumentPreviewTab } from "@/components/pages/documents/tabs/document-p
 import { DocumentListTab } from "@/components/pages/documents/tabs/document-list-tab";
 import { DocumentPreviewModal } from "@/components/pages/documents/components/document-preview-modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { DismissibleAlert } from "@/components/ui/dismissible-alert";
 import { toast } from "sonner";
 import {
   formatPhoneNumber,
@@ -2356,14 +2357,17 @@ function EditComplianceDocumentsSection({
         </TabsContent>
 
         <TabsContent value="list" className="mt-6">
-          <Alert className="mb-6 border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30">
+          <DismissibleAlert
+            alertKey="plan-documents-overview-edit-client-list"
+            className="mb-6 border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30"
+          >
             <AlertTitle className="text-sm font-semibold text-blue-800 dark:text-blue-300">
               Plan Documents Overview
             </AlertTitle>
             <AlertDescription className="text-xs text-blue-700 dark:text-blue-400">
               Review all uploaded plan documents, forms, and notices below. Use the column headers to sort, and expand rows to preview or edit. Documents with missing categories will need to be assigned before proceeding.
             </AlertDescription>
-          </Alert>
+          </DismissibleAlert>
           <DocumentListTab
             selectedPlan="current-plan"
             isLoading={false}

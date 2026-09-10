@@ -23,6 +23,7 @@ import {
   Eye, ArrowUpDown, ArrowUp, ArrowDown, LayoutGrid, List, Search, GripVertical, ExternalLink,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { DismissibleAlert } from "@/components/ui/dismissible-alert";
 import { RetirementDocumentsAccordion, RetirementDocumentItem } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
 import { DocumentPreviewModal } from "@/components/pages/documents/components/document-preview-modal";
 import { DocumentEditModal } from "@/components/pages/documents/components/document-edit-modal";
@@ -991,11 +992,14 @@ export default function DocumentsPage() {
                   {activeSection === "upload" ? (
                   <><h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Upload Documents</h3><p className="text-sm text-muted-foreground mb-2">
                     Upload PDFs for this Benefits Hub. Suggestions should be reviewed before publishing.</p>
-                    <Alert className="mb-4 border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30">
+                    <DismissibleAlert
+                      alertKey="documents-upload-batch-limit"
+                      className="mb-4 border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30"
+                    >
                       <AlertDescription className="text-xs text-center text-blue-700 dark:text-blue-300">
                         You can upload up to 10 files at once. For larger batches, upload in groups of 10 or fewer.
                       </AlertDescription>
-                    </Alert>
+                    </DismissibleAlert>
                     <DocumentUploadTab
                       selectedPlan={selectedPlan}
                       showSaveButton={false}
