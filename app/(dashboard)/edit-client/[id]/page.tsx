@@ -218,14 +218,23 @@ function ContactRow({
 
   return (
     <div className="flex items-center gap-3 py-2.5 border-b border-gray-100 dark:border-gray-700 last:border-0">
-      {/* Headshot aligned to the left */}
+      {/* Avatar aligned to the left — Team/Support Line contacts show their
+          Company Logo in place of a headshot. */}
       <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600">
-        <Headshot
-          src={contact.headshot || undefined}
-          alt={displayName}
-          monogramName={displayName}
-          className="w-full h-full object-cover"
-        />
+        {contact.contactType === "team_support" && contact.companyLogo ? (
+          <BrandingImage
+            src={contact.companyLogo}
+            alt={displayName}
+            className="w-full h-full object-contain p-1 bg-white dark:bg-gray-800"
+          />
+        ) : (
+          <Headshot
+            src={contact.headshot || undefined}
+            alt={displayName}
+            monogramName={displayName}
+            className="w-full h-full object-cover"
+          />
+        )}
       </div>
 
       {/* All contact info on one row */}
