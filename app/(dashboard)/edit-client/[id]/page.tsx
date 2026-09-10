@@ -364,6 +364,7 @@ function EditContactDialog({
   const ctaLogo = isPlanSponsorContact ? companyLogo : form.companyLogo;
   const ctaHeadshot =
     form.contactType === "individual" ? form.headshot || "" : "";
+  const ctaTitle = form.contactType === "individual" ? form.title : "";
 
   const firstNameRef = useRef<HTMLInputElement>(null);
   const lastNameRef = useRef<HTMLInputElement>(null);
@@ -554,6 +555,7 @@ function EditContactDialog({
               ctaName,
               ctaHeadshot,
               ctaLogo,
+              ctaTitle,
             )
           : undefined,
     };
@@ -620,6 +622,7 @@ function EditContactDialog({
             ctaName,
             ctaHeadshot,
             ctaLogo,
+            ctaTitle,
           )
         : undefined,
   };
@@ -1081,6 +1084,7 @@ function EditContactDialog({
               to={form.email}
               company={ctaCompany}
               contactName={ctaName}
+              contactTitle={ctaTitle}
               avatar={ctaHeadshot}
               companyLogo={ctaLogo}
               embedded

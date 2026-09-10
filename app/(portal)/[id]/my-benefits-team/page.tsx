@@ -131,6 +131,11 @@ export default function MyBenefitsTeamPage() {
     (clientData as any)?.employeePortalPreview?.categoryPortalVisibility,
   ]);
 
+  // Plan-level company name/logo — used for every Company / Plan Sponsor card
+  // (not just the Main Contact) so they all read the same and always show a logo.
+  const planCompanyName = clientData?.companyName || "";
+  const planCompanyLogo = (clientData as any)?.companyLogo || "";
+
   // 2) Only contacts that are NOT hidden by category — fetch → check isHidden → then we only render these
   const visibleContacts: Contact[] = useMemo(() => {
     const filtered = contacts.filter(
@@ -141,17 +146,34 @@ export default function MyBenefitsTeamPage() {
       if (!normalized.name && (normalized.firstName || normalized.lastName)) {
         normalized.name = `${normalized.firstName || ""} ${normalized.lastName || ""}`.trim();
       }
-      if (normalized.companyLogo && !normalized.logo) normalized.logo = normalized.companyLogo;
+
+      const categories = getContactCategoriesFromLib(contact);
+      const isPlanSponsor =
+        categories.includes("Company / Plan Sponsor") ||
+        contact.benefitsCategory === "Company / Plan Sponsor";
+
+      if (isPlanSponsor) {
+        // Every Company / Plan Sponsor card shows the plan's company name and
+        // logo, matching the Main Contact card.
+        normalized.companyName = planCompanyName || normalized.companyName || "";
+        normalized.companyLogo = contact.companyLogo || planCompanyLogo || undefined;
+        normalized.logo = normalized.companyLogo;
+      } else {
+        if (normalized.companyLogo && !normalized.logo) {
+          normalized.logo = normalized.companyLogo;
+        }
+        // If this contact is the logged-in user, show their Organization Name
+        // as the company name on the card.
+        normalized.companyName = resolveContactCompanyName(
+          contact,
+          currentUserEmails,
+          currentUserOrgName,
+        );
+      }
+
       normalized.cardBackgroundColor = contact.cardBackgroundColor;
       normalized.logoScale =
         contact.logoScale ?? globalLogoScale ?? 1;
-      // If this contact is the logged-in user, show their Organization Name
-      // as the company name on the card.
-      normalized.companyName = resolveContactCompanyName(
-        contact,
-        currentUserEmails,
-        currentUserOrgName,
-      );
       return normalized;
     });
   }, [
@@ -161,6 +183,8 @@ export default function MyBenefitsTeamPage() {
     currentUserEmail,
     currentUserOrgEmail,
     currentUserOrgName,
+    planCompanyName,
+    planCompanyLogo,
   ]);
 
   const primaryContact = visibleContacts[0];

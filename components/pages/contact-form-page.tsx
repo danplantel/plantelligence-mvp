@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Headshot } from "@/components/ui/headshot";
 import { BrandingImage } from "@/components/ui/branding-image";
+import { cn } from "@/lib/utils";
 import { Loader2, Send, CheckCircle2, AlertCircle, Building2, User } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -16,6 +17,8 @@ interface ContactFormPageProps {
   company?: string;
   /** Optional pre-filled contact/advisor name. */
   contactName?: string;
+  /** Optional contact title/role (e.g. "HR Director"). */
+  contactTitle?: string;
   /** Optional headshot/photo of the contact receiving the message. */
   avatar?: string;
   /** Optional company/plan logo to show with the company name. */
@@ -27,11 +30,14 @@ interface ContactFormPageProps {
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** Reasonable cap for a contact-form message (matches the API's 5000-char limit). */
+const MESSAGE_MAX_LENGTH = 1000;
 
 export function ContactFormPage({
   to = "",
   company = "",
   contactName = "",
+  contactTitle = "",
   avatar = "",
   companyLogo = "",
   embedded = false,
@@ -109,17 +115,8 @@ export function ContactFormPage({
           {/* <h1 className="text-3xl font-semibold text-gray-900 dark:text-gray-900 font-dm-serif">
             Contact Us
           </h1> */}
-          {avatar && (
-            <div className="mt-4 w-20 h-20 rounded-full overflow-hidden ring-4 ring-gray-200 bg-white shadow-md flex-shrink-0">
-              <Headshot
-                src={avatar}
-                alt={contactName || "Contact"}
-                monogramName={contactName || ""}
-              />
-            </div>
-          )}
           {companyLogo && (
-            <div className="my-2 flex items-center justify-center">
+            <div className="flex items-center justify-center">
               <BrandingImage
                 src={companyLogo}
                 alt={company || "Company logo"}
@@ -127,14 +124,18 @@ export function ContactFormPage({
               />
             </div>
           )}
-          {company && (
-            <p className="text-sm text-gray-600 dark:text-gray-600 mt-2 flex items-center gap-1.5">
-              {company}
-            </p>
+          {avatar && (
+            <div className="my-2 w-20 h-20 rounded-full overflow-hidden ring-4 ring-gray-200 bg-white shadow-md flex-shrink-0">
+              <Headshot
+                src={avatar}
+                alt={contactName || "Contact"}
+                monogramName={contactName || ""}
+              />
+            </div>
           )}
-          {contactName && (
-            <p className="text-sm font-bold text-gray-700 dark:text-gray-700 mt-2 flex items-center gap-1.5">
-              {contactName}
+          {company && contactName && contactTitle && (
+            <p className="text-sm text-gray-600 dark:text-gray-600 mt-2 flex items-center gap-1.5">
+              <span className="font-semibold">{contactName}</span>, {contactTitle} at {company}
             </p>
           )}
         </motion.div>
@@ -191,14 +192,28 @@ export function ContactFormPage({
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="cf-message" className="text-sm font-medium text-gray-700 dark:text-gray-700">
-                  Message <span className="text-red-500">*</span>
-                </Label>
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="cf-message" className="text-sm font-medium text-gray-700 dark:text-gray-700">
+                    Message <span className="text-red-500">*</span>
+                  </Label>
+                  <span
+                    className={cn(
+                      "text-[11px] tabular-nums",
+                      message.length >= MESSAGE_MAX_LENGTH
+                        ? "text-red-500"
+                        : "text-gray-400 dark:text-gray-400",
+                    )}
+                    aria-live="polite"
+                  >
+                    {message.length}/{MESSAGE_MAX_LENGTH}
+                  </span>
+                </div>
                 <textarea
                   id="cf-message"
                   value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  rows={5}
+                  onChange={(e) => setMessage(e.target.value.slice(0, MESSAGE_MAX_LENGTH))}
+                  rows={10}
+                  maxLength={MESSAGE_MAX_LENGTH}
                   placeholder="How can we help you?"
                   className="flex w-full rounded-lg border border-gray-300 dark:border-gray-300 bg-white dark:bg-white text-gray-900 dark:text-gray-900 placeholder:text-gray-400 px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-blue/40 focus-visible:border-accent-blue disabled:cursor-not-allowed disabled:opacity-50 resize-none"
                 />

@@ -12,12 +12,14 @@ export function buildContactFormHref(
   name?: string,
   avatar?: string,
   logo?: string,
+  title?: string,
 ): string {
   const base = typeof window !== "undefined" ? window.location.origin : "";
   const params = new URLSearchParams();
   if (to) params.set("to", to);
   if (company) params.set("company", company);
   if (name) params.set("name", name);
+  if (title) params.set("title", title);
   if (avatar && !avatar.startsWith("data:")) params.set("avatar", avatar);
   if (logo && !logo.startsWith("data:")) params.set("logo", logo);
   const qs = params.toString();
@@ -31,6 +33,7 @@ export interface ContactFormCtaContact {
   companyName?: string | null;
   companyLogo?: string | null;
   headshot?: string | null;
+  title?: string | null;
 }
 
 /** Convert a base64 `data:` URL into a File for R2 upload. */
@@ -76,6 +79,9 @@ export async function resolveContactFormUrl(
     }
     if (!u.searchParams.has("name") && c.name) {
       u.searchParams.set("name", c.name);
+    }
+    if (!u.searchParams.has("title") && c.title) {
+      u.searchParams.set("title", c.title);
     }
     if (!u.searchParams.has("logo") && c.companyLogo) {
       const logo = c.companyLogo;

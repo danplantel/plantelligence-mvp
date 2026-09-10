@@ -18,6 +18,7 @@ interface ContactPageProps {
     to?: string;
     company?: string;
     name?: string;
+    title?: string;
     avatar?: string;
     logo?: string;
   }>;
@@ -67,6 +68,9 @@ export default async function ContactPage({ searchParams }: ContactPageProps) {
       }
       contactName={
         typeof params.name === "string" ? params.name.slice(0, 120) : ""
+      }
+      contactTitle={
+        typeof params.title === "string" ? params.title.slice(0, 120) : ""
       }
       avatar={avatar}
       companyLogo={companyLogo}

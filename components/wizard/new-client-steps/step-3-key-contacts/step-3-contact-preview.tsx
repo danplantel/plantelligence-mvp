@@ -821,11 +821,14 @@ export function NewClientStep3d({
         benefitsCategory: mapBenefitsCategory(rawBenefitsCategory),
         benefitsCategoryOther: contact.benefitsCategoryOther,
         categoryLabel,
-        companyName: resolveContactCompanyName(
-          contact,
-          currentUserEmails,
-          currentUserOrgName,
-        ),
+        companyName:
+          rawBenefitsCategory === "Company / Plan Sponsor"
+            ? contact.companyName || companyName
+            : resolveContactCompanyName(
+                contact,
+                currentUserEmails,
+                currentUserOrgName,
+              ),
         contactType: contact.contactType,
         displayName: contact.displayName,
         teamImage: contact.teamImage,

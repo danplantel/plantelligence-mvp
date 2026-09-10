@@ -67,12 +67,14 @@ const buildContactFormHref = (
   name?: string,
   avatar?: string,
   logo?: string,
+  title?: string,
 ): string => {
   const base = typeof window !== "undefined" ? window.location.origin : "";
   const params = new URLSearchParams();
   if (to) params.set("to", to);
   if (company) params.set("company", company);
   if (name) params.set("name", name);
+  if (title) params.set("title", title);
   // Only carry short non-data image URLs (R2 keys / http(s)) — base64 data
   // URLs are far too large for a query string. The Headshot/BrandingImage
   // components on the /contact page resolve R2 keys client-side.
@@ -894,6 +896,7 @@ export function ContactFormSlide({
                   category !== "Company / Plan Sponsor" && externalAdminLogo
                     ? externalAdminLogo
                     : defaultCompanyLogo,
+                  title,
                 )
               : undefined,
           benefitsCategoryOther: category === "Other Benefits" ? customBenefits || undefined : undefined,
@@ -1008,6 +1011,7 @@ export function ContactFormSlide({
                 category !== "Company / Plan Sponsor" && externalAdminLogo
                   ? externalAdminLogo
                   : defaultCompanyLogo,
+                title,
               )
             : undefined,
         benefitsCategoryOther: category === "Other Benefits" ? customBenefits || undefined : undefined,
@@ -1940,6 +1944,7 @@ export function ContactFormSlide({
                       category !== "Company / Plan Sponsor" && externalAdminLogo
                         ? externalAdminLogo
                         : defaultCompanyLogo,
+                      title,
                     )
                   : undefined,
             }}
@@ -1982,6 +1987,7 @@ export function ContactFormSlide({
                   : displayName
               }
               avatar={headshot}
+              contactTitle={title}
               companyLogo={
                 category !== "Company / Plan Sponsor" && externalAdminLogo
                   ? externalAdminLogo
