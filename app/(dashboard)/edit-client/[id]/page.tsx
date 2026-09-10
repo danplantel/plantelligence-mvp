@@ -627,12 +627,12 @@ function EditContactDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl lg:max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-2xl lg:max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+        <DialogHeader className="shrink-0">
           <DialogTitle>Edit Contact</DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 py-2 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 py-2 items-start flex-1 min-h-0 overflow-y-auto">
           {/* Left column: form fields */}
           <div className="space-y-4 min-w-0">
             {/* Contact Type */}
@@ -1060,7 +1060,7 @@ function EditContactDialog({
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0 border-t border-gray-100 dark:border-gray-700 pt-4 mt-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
