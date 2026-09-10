@@ -71,6 +71,8 @@ interface BenefitsEditorPanelProps {
     onHeroSegmentModeChange?: (mode: HeroSegmentMode) => void;
     /** Layout variant passed through to EditorPanelWrapper */
     variant?: 'fixed' | 'inline';
+    /** Plan/company name shown next to the benefit category badge in the header */
+    planCompanyName?: string;
 }
 
 export function BenefitsEditorPanel({
@@ -79,6 +81,7 @@ export function BenefitsEditorPanel({
     onClose,
     activeSection,
     highlightedField,
+    planCompanyName,
     editorScrollContainerRef: externalScrollRef,
     variant,
     onHeroSegmentModeChange,
@@ -333,9 +336,17 @@ export function BenefitsEditorPanel({
             editorScrollContainerRef={editorScrollContainerRef}
             variant={variant}
             headerBadge={
-                step1Data?.benefitCategory ? (
-                    <span className="inline-flex items-center rounded-md bg-accent-blue/10 px-2 py-0.5 text-xs font-semibold text-accent-blue">
-                        {step1Data.benefitCategory}
+                planCompanyName || step1Data?.benefitCategory ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-md bg-accent-blue/10 px-2 py-0.5 text-xs font-semibold text-accent-blue">
+                        {planCompanyName ? (
+                            <span className="max-w-[180px] truncate">{planCompanyName}</span>
+                        ) : null}
+                        {planCompanyName && step1Data?.benefitCategory ? (
+                            <span className="opacity-60">-</span>
+                        ) : null}
+                        {step1Data?.benefitCategory ? (
+                            <span>{step1Data.benefitCategory}</span>
+                        ) : null}
                     </span>
                 ) : undefined
             }

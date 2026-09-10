@@ -293,6 +293,14 @@ export function BenefitsStep2() {
         || resolveCompanyLogo(step1Data?.selectedPlan)
         || undefined;
 
+    // Plan/company name shown next to the benefit category badge in the editor
+    // header. Prefer the freshly fetched plan (authoritative after a reload,
+    // since the store's selectedPlan is stripped from persistence).
+    const planCompanyName =
+        ((planDetails?.companyName as string | undefined) || "").trim()
+        || (((step1Data?.selectedPlan as any)?.companyName as string | undefined) || "").trim()
+        || "";
+
     // Auto-save the "How Can We Help You Today?" cards (Section 4) to the Benefit
     // row so the live Benefits Hub pages reflect edits even before the wizard is
     // completed. (The Step 1 auto-save only runs while Step 1 is mounted, so Step
@@ -422,6 +430,7 @@ export function BenefitsStep2() {
                 onClose={editorState.handleCloseEditor}
                 activeSection={editorState.activeSection}
                 highlightedField={editorState.highlightedField}
+                planCompanyName={planCompanyName}
                 editorScrollContainerRef={editorScrollContainerRef}
                 onHeroSegmentModeChange={(mode) => {
                     if (mode === "desktop" && previewMode !== "desktop") {
