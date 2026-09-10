@@ -422,6 +422,16 @@ export function UniversalImageEditorModal({
     previewDataUrl ||
     (isStoredR2Key ? (displayUrl ?? undefined) : (displayUrl ?? value ?? undefined));
 
+  // Track whether the trigger-area preview image has decoded so a spinner can
+  // show until it's ready. Reset synchronously when the source changes (an
+  // effect-based reset leaves a frame where the collapsed <img> is painted).
+  const [triggerPreviewLoaded, setTriggerPreviewLoaded] = useState(false);
+  const [lastPreviewSrc, setLastPreviewSrc] = useState(previewSrc);
+  if (previewSrc !== lastPreviewSrc) {
+    setLastPreviewSrc(previewSrc);
+    setTriggerPreviewLoaded(false);
+  }
+
   // Check if headshot image is cropped (for headshot type only)
   const checkHeadshotCropping = useCallback(() => {
     if (type !== "headshot") return false;
@@ -2410,22 +2420,37 @@ export function UniversalImageEditorModal({
               <div className="flex items-center justify-center flex-shrink-0">
                 <div
                   className={
-                    "relative overflow-hidden border border-gray-200 bg-gray-50 " +
+                    "relative overflow-hidden border border-gray-200 bg-white dark:bg-gray-700 " +
                     (type === "headshot"
                       ? "h-[140px] w-[140px] rounded-full"
-                      : "flex items-center justify-center w-full max-w-[300px] h-[150px] rounded-xl")
+                      : // Fixed width (capped to the available space) so the box
+                        // never collapses to a thin line while the object-contain
+                        // image is still decoding.
+                        "flex items-center justify-center w-[300px] max-w-full h-[150px] rounded-xl")
                   }
                 >
                   <img
                     src={previewSrc}
                     alt={fileName || "Uploaded file"}
+                    ref={(el) => {
+                      // A cached image can finish before React attaches onLoad.
+                      if (el?.complete) setTriggerPreviewLoaded(true);
+                    }}
+                    onLoad={() => setTriggerPreviewLoaded(true)}
+                    onError={() => setTriggerPreviewLoaded(true)}
                     className={
-                      "max-h-full max-w-full" +
+                      "max-h-full max-w-full transition-opacity duration-200" +
                       (type === "headshot"
                         ? " h-full w-full object-cover rounded-full"
-                        : " object-contain")
+                        : " object-contain") +
+                      (triggerPreviewLoaded ? " opacity-100" : " opacity-0")
                     }
                   />
+                  {!triggerPreviewLoaded && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Loader2 className="h-6 w-6 animate-spin text-accent-blue" />
+                    </div>
+                  )}
                 </div>
               </div>
 
