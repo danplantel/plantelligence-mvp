@@ -389,19 +389,15 @@ export function NewClientStep3d({
     session?.user?.organizationName ||
     (advisorProfile as any)?.organizationName ||
     null;
-
-  // DEBUG: confirm identity resolution for the org-name-override feature.
-  console.log("[step3d] identity:", JSON.stringify({
-    sessionEmail: session?.user?.email ?? null,
-    sessionOrg: session?.user?.organizationName ?? null,
-    advisorEmail: (advisorProfile as any)?.email ?? null,
-    advisorOrg: (advisorProfile as any)?.organizationName ?? null,
-    resolvedEmail: currentUserEmail,
-    resolvedOrg: currentUserOrgName,
-    contactEmails: ((stepData as any)?.keyContacts?.contacts || []).map(
-      (c: any) => c.email,
-    ),
-  }));
+  // Seeded advisor contacts store the *organization* email, not the login email,
+  // so the org-name override must match on both.
+  const currentUserOrgEmail =
+    session?.user?.organizationEmail ||
+    (advisorProfile as any)?.organizationEmail ||
+    null;
+  const currentUserEmails = [currentUserEmail, currentUserOrgEmail].filter(
+    Boolean,
+  ) as string[];
 
   // Show skeleton when this step becomes active (step3SubStep === "step3d")
   const step3SubStep = (stepData as any)?.step3SubStep?.step3SubStep;
@@ -827,7 +823,7 @@ export function NewClientStep3d({
         categoryLabel,
         companyName: resolveContactCompanyName(
           contact,
-          currentUserEmail,
+          currentUserEmails,
           currentUserOrgName,
         ),
         contactType: contact.contactType,
@@ -852,7 +848,13 @@ export function NewClientStep3d({
         actionButtonOrder: contact.actionButtonOrder,
       };
     });
-  }, [previewContactsKey, companyName, currentUserEmail, currentUserOrgName]);
+  }, [
+    previewContactsKey,
+    companyName,
+    currentUserEmail,
+    currentUserOrgEmail,
+    currentUserOrgName,
+  ]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {

@@ -66,6 +66,12 @@ export default function MyBenefitsTeamPage() {
   const { data: session } = useSession();
   const currentUserEmail = session?.user?.email || null;
   const currentUserOrgName = session?.user?.organizationName || null;
+  // Seeded advisor contacts store the *organization* email, not the login email,
+  // so the org-name override must match on both.
+  const currentUserOrgEmail = session?.user?.organizationEmail || null;
+  const currentUserEmails = [currentUserEmail, currentUserOrgEmail].filter(
+    Boolean,
+  ) as string[];
 
   useEffect(() => {
     refetch();
@@ -143,12 +149,19 @@ export default function MyBenefitsTeamPage() {
       // as the company name on the card.
       normalized.companyName = resolveContactCompanyName(
         contact,
-        currentUserEmail,
+        currentUserEmails,
         currentUserOrgName,
       );
       return normalized;
     });
-  }, [contacts, visibility, globalLogoScale, currentUserEmail, currentUserOrgName]);
+  }, [
+    contacts,
+    visibility,
+    globalLogoScale,
+    currentUserEmail,
+    currentUserOrgEmail,
+    currentUserOrgName,
+  ]);
 
   const primaryContact = visibleContacts[0];
   const rest = visibleContacts.slice(1);

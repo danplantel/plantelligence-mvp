@@ -113,6 +113,8 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id as string;
         (session.user as any).organizationName =
           (token as any).organizationName || null;
+        (session.user as any).organizationEmail =
+          (token as any).organizationEmail || null;
       }
       (session as any).provider = token.provider;
       return session;
@@ -122,16 +124,19 @@ export const authOptions: NextAuthOptions = {
         if (account?.provider === "google") {
           const dbUser = await prisma.user.findUnique({
             where: { email: user.email as string },
-            select: { id: true, organizationName: true },
+            select: { id: true, organizationName: true, organizationEmail: true },
           });
           token.id = dbUser?.id || user.id;
           token.organizationName = dbUser?.organizationName || null;
+          token.organizationEmail = dbUser?.organizationEmail || null;
         } else {
           token.id = user.id;
           token.organizationName = (user as any)?.organizationName || null;
+          token.organizationEmail = (user as any)?.organizationEmail || null;
         }
         // Mark org name as loaded for this token.
         (token as any).__orgNameLoaded = true;
+        (token as any).__orgEmailLoaded = true;
       }
       // Backfill organizationName for sessions created before this field was
       // added to the token (avoids requiring the user to log out/in again).
@@ -139,13 +144,30 @@ export const authOptions: NextAuthOptions = {
         try {
           const dbUser = await prisma.user.findUnique({
             where: { id: token.id as string },
-            select: { organizationName: true },
+            select: { organizationName: true, organizationEmail: true },
           });
           token.organizationName = dbUser?.organizationName || null;
+          token.organizationEmail = dbUser?.organizationEmail || null;
         } catch {
           token.organizationName = null;
+          token.organizationEmail = null;
         }
         (token as any).__orgNameLoaded = true;
+      }
+      // Backfill organizationEmail independently — sessions created before this
+      // field existed already have __orgNameLoaded=true, so the block above
+      // would skip them. This one-time fetch avoids requiring a re-login.
+      if (token.id && !(token as any).__orgEmailLoaded) {
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: token.id as string },
+            select: { organizationEmail: true },
+          });
+          token.organizationEmail = dbUser?.organizationEmail || null;
+        } catch {
+          token.organizationEmail = (token as any).organizationEmail || null;
+        }
+        (token as any).__orgEmailLoaded = true;
       }
       if (account) {
         token.provider = account.provider;
