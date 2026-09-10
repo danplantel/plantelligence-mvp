@@ -568,8 +568,8 @@ export const validateNewClientCurrentStepV2 = async (step: number, stepData: any
                 : step3bData.displayName,
               // Carry over the action-visibility flags so the "Contact Action
               // Buttons" validation doesn't falsely fail a fully-filled form.
-              displayEmail: step3bData.displayEmail ?? true,
-              displayPhone: step3bData.displayPhone ?? true,
+              displayEmail: step3bData.displayEmail ?? false,
+              displayPhone: step3bData.displayPhone ?? false,
               displayScheduleAppointment: step3bData.displayScheduleAppointment,
               displayUrl: step3bData.displayUrl,
               // Carry over CTA fields so scheduling/contact-form URL validation works.

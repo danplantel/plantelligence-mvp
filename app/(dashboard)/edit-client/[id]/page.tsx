@@ -389,7 +389,9 @@ function EditContactDialog({
     ctaType: "schedule",
     schedulingUrl: "",
     websiteUrl: "",
-    displayEmail: true,
+    // "Show on contact card" starts unchecked — adding an email/phone must not
+    // auto-enable these toggles.
+    displayEmail: false,
     displayPhone: false,
   });
   const [errors, setErrors] = useState<string[]>([]);
@@ -459,7 +461,8 @@ function EditContactDialog({
         ctaType: "schedule",
         schedulingUrl: "",
         websiteUrl: "",
-        displayEmail: true,
+        // "Show on contact card" starts unchecked (no auto-enable on email/phone).
+        displayEmail: false,
         displayPhone: false,
       });
       setErrors([]);
@@ -498,8 +501,10 @@ function EditContactDialog({
               : "schedule",
       schedulingUrl: contact.schedulingUrl || "",
       websiteUrl: contact.websiteUrl || "",
-      displayEmail: contact.displayEmail ?? true,
-      displayPhone: contact.displayPhone ?? Boolean(contact.phone),
+      // Preserve an explicit saved preference, but never auto-enable based on
+      // whether the contact has an email/phone.
+      displayEmail: contact.displayEmail ?? false,
+      displayPhone: contact.displayPhone ?? false,
     });
     setErrors([]);
   }, [
@@ -776,6 +781,42 @@ function EditContactDialog({
         : undefined,
   };
 
+  // Upload Contact Company Logo — non-Plan-Sponsor only. Hoisted into a variable
+  // so Team/Support Line contacts can render it ABOVE the Company / Organization
+  // input (Individual contacts keep it at its original position further down).
+  const contactCompanyLogoInput = !isPlanSponsorContact ? (
+    <div className="space-y-1.5 pt-1 border-t border-gray-100 dark:border-gray-700">
+      <Label className="dark:text-gray-300 text-xs font-medium">
+        Upload Contact Company Logo
+      </Label>
+      <p className="text-[10px] text-gray-400 dark:text-gray-500">
+        Upload a logo to display on this contact&rsquo;s portal card
+        instead of the plan&rsquo;s company logo.
+      </p>
+      <UniversalImageEditorModal
+        value={form.companyLogo || ""}
+        fileName={form.companyLogoFileName || ""}
+        onChange={(value, fileName) =>
+          updateForm({
+            companyLogo: value,
+            companyLogoFileName: fileName || "",
+          })
+        }
+        onRemove={() =>
+          updateForm({
+            companyLogo: "",
+            companyLogoFileName: "",
+          })
+        }
+        placeholder="Upload Contact Company Logo"
+        modalTitle="Edit Contact Company Logo"
+        modalDescription="Upload a logo for this contact's portal card."
+        saveButtonText="Save Logo"
+        type="logo"
+      />
+    </div>
+  ) : null;
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -930,6 +971,10 @@ function EditContactDialog({
               errorFields={errors}
             />
 
+            {/* Upload Contact Company Logo first for Team/Support Line contacts,
+                above the Company / Organization input. */}
+            {form.contactType === "team_support" && contactCompanyLogoInput}
+
             {/* Company / Organization — required for non-Plan-Sponsor contacts */}
             {!isPlanSponsorContact && (
               <div className="space-y-1.5">
@@ -1032,39 +1077,9 @@ function EditContactDialog({
               </div>
             </div>
 
-            {/* Contact Company Logo — non-Plan-Sponsor only */}
-            {!isPlanSponsorContact && (
-              <div className="space-y-1.5 pt-1 border-t border-gray-100 dark:border-gray-700">
-                <Label className="dark:text-gray-300 text-xs font-medium">
-                  Upload Contact Company Logo
-                </Label>
-                <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                  Upload a logo to display on this contact&rsquo;s portal card
-                  instead of the plan&rsquo;s company logo.
-                </p>
-                <UniversalImageEditorModal
-                  value={form.companyLogo || ""}
-                  fileName={form.companyLogoFileName || ""}
-                  onChange={(value, fileName) =>
-                    updateForm({
-                      companyLogo: value,
-                      companyLogoFileName: fileName || "",
-                    })
-                  }
-                  onRemove={() =>
-                    updateForm({
-                      companyLogo: "",
-                      companyLogoFileName: "",
-                    })
-                  }
-                  placeholder="Upload Contact Company Logo"
-                  modalTitle="Edit Contact Company Logo"
-                  modalDescription="Upload a logo for this contact's portal card."
-                  saveButtonText="Save Logo"
-                  type="logo"
-                />
-              </div>
-            )}
+            {/* Contact Company Logo — Individual contacts. Team/Support Line
+                contacts render it earlier (above Company / Organization). */}
+            {form.contactType !== "team_support" && contactCompanyLogoInput}
 
             {/* Call-to-Action Button */}
             <div className="border-t border-gray-100 dark:border-gray-700 pt-3 space-y-2.5">
@@ -1323,11 +1338,25 @@ function EditKeyContactsSection({
     c.benefitsCategory === "Company / Plan Sponsor"
   );
 
-  // Determine which contacts are external
-  const isExternalContact = (c: KeyContact) =>
-    c.contactType === "team_support" ||
-    (c.role === "Other" && c.roleOther === "External HR / Administrator") ||
-    (c.role as string) === "External HR / Administrator";
+  // Determine which contacts are External HR / Administrator contacts.
+  //
+  // A contact is external when it carries the External HR role markers, OR it is
+  // a legacy Team/Support contact that has NO benefits category (External HR
+  // contacts intentionally live outside the category accordions). A Team/Support
+  // contact that IS assigned to a benefits category belongs to that category and
+  // must NOT be treated as external — previously every `team_support` contact
+  // was, so e.g. a Retirement Team/Support contact also showed under External HR.
+  const isExternalContact = (c: KeyContact) => {
+    if (
+      (c.role === "Other" && c.roleOther === "External HR / Administrator") ||
+      (c.role as string) === "External HR / Administrator"
+    ) {
+      return true;
+    }
+    const hasBenefitsCategory =
+      (c.benefitsCategories?.length ?? 0) > 0 || !!c.benefitsCategory;
+    return c.contactType === "team_support" && !hasBenefitsCategory;
+  };
 
   const externalContacts = contacts.filter(isExternalContact);
 
@@ -1348,12 +1377,7 @@ function EditKeyContactsSection({
     CATEGORY_ACCORDIONS.forEach((cat) => {
       if (hasCategory(cat.id)) defaults.push(cat.value);
     });
-    const hasExternal = contacts.some(
-      (c) =>
-        c.contactType === "team_support" ||
-        (c.role === "Other" && c.roleOther === "External HR / Administrator") ||
-        (c.role as string) === "External HR / Administrator"
-    );
+    const hasExternal = contacts.some(isExternalContact);
     if (hasExternal) defaults.push("external-hr");
     setOpenAccordions(defaults);
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -235,8 +235,10 @@ export function BenefitsStep1() {
     ctaType: "schedule",
     schedulingUrl: "",
     websiteUrl: "",
-    displayEmail: true,
-    displayPhone: true,
+    // "Show on contact card" starts unchecked — adding an email/phone must not
+    // auto-enable these toggles.
+    displayEmail: false,
+    displayPhone: false,
   });
   // Validation errors for the Create New Contact modal (field names).
   const [contactFormErrors, setContactFormErrors] = useState<string[]>([]);
@@ -1575,8 +1577,9 @@ export function BenefitsStep1() {
       ctaType: "schedule",
       schedulingUrl: "",
       websiteUrl: "",
-      displayEmail: true,
-      displayPhone: true,
+      // "Show on contact card" starts unchecked (no auto-enable on email/phone).
+      displayEmail: false,
+      displayPhone: false,
     });
     setContactFormErrors([]);
     setIsFormDialogOpen(true);
