@@ -3,7 +3,7 @@
 import { BenefitsWizard } from "@/components/wizard/benefits-wizard";
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
 import { persistPlanSelection } from "@/lib/plan-selector-storage";
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { toast } from "sonner";
 import { useSearchParams } from "next/navigation";
@@ -17,7 +17,10 @@ import {
 import { BenefitsCategory } from "@/types/new-client-wizard";
 import { resolvePersistedDocumentCategory } from "@/lib/document-category";
 import { mergeUserBenefitWithHubDefaults } from "@/lib/hub-benefit-defaults";
-import { hasUnsavedBenefitsWork } from "@/lib/benefits-wizard-dirty";
+import {
+  hasUnsavedBenefitsWork,
+  serializeBenefitsSnapshot,
+} from "@/lib/benefits-wizard-dirty";
 import { useNavigateAwayGuard } from "@/hooks/use-navigate-away-guard";
 import { NavigateAwayWarningDialog } from "@/components/ui/navigate-away-warning-dialog";
 import { PublishingAttestationDialog } from "@/components/wizard/benefits-steps/publishing-attestation-dialog";
@@ -51,6 +54,11 @@ function isR2DocumentRow(doc: {
 function BenefitsPageInner() {
   const { setTitle, setSubtitle } = usePageTitleContext();
   const [isLoading, setIsLoading] = useState(false);
+  // True until the persisted store is rehydrated (or the deep-link state is
+  // applied) and a clean baseline has been captured. The leave guard stays
+  // disabled during this window so a resume never flashes the warning dialog.
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const benefitsBaselineRef = useRef<string | null>(null);
   const [isAttestationOpen, setIsAttestationOpen] = useState(false);
   const searchParams = useSearchParams();
   const planIdParam = searchParams.get("planId");
@@ -84,14 +92,17 @@ function BenefitsPageInner() {
     (s) => s.stepData.step1?.benefitCategory ?? "",
   );
   const hasUnsavedChanges = useBenefitsWizardStore((s) =>
-    hasUnsavedBenefitsWork({
-      currentStep: s.currentStep,
-      stepData: s.stepData,
-    }),
+    hasUnsavedBenefitsWork(
+      {
+        currentStep: s.currentStep,
+        stepData: s.stepData,
+      },
+      benefitsBaselineRef.current,
+    ),
   );
   const leaveGuard = useNavigateAwayGuard({
-    enabled: true,
-    hasUnsavedChanges: !isLoading && hasUnsavedChanges,
+    enabled: !isInitialLoading && !isLoading,
+    hasUnsavedChanges,
     onSaveAndExit: async () => {
       // Benefits wizard uses persisted zustand storage as its draft source.
       // Save-and-exit is satisfied once local persisted state is current.
@@ -174,8 +185,20 @@ function BenefitsPageInner() {
       persistPlanSelection("benefits", planIdParam);
     };
 
+    // Snapshot the store after the initial state is settled (URL-driven or
+    // rehydrated). Anything that changes after this point is real user work.
+    const captureBaseline = () => {
+      const state = useBenefitsWizardStore.getState();
+      benefitsBaselineRef.current = serializeBenefitsSnapshot({
+        currentStep: state.currentStep,
+        stepData: state.stepData,
+      });
+    };
+
     if (hasPlanParam) {
       applyFromUrl();
+      captureBaseline();
+      setIsInitialLoading(false);
       const t0 = setTimeout(applyFromUrl, 0);
       const t1 = setTimeout(applyFromUrl, 50);
       const t2 = setTimeout(applyFromUrl, 200);
@@ -195,6 +218,8 @@ function BenefitsPageInner() {
       if (!sd.step1?.planId && !sd.step1?.benefitCategory) {
         resetWizard();
       }
+      captureBaseline();
+      setIsInitialLoading(false);
     };
     init();
     return () => {
