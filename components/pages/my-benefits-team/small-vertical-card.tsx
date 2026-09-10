@@ -209,7 +209,9 @@ export function SmallVerticalCard({
       if (primaryIndex === -1) primaryIndex = buttons.length;
       buttons.push({
         type: "website",
-        label: isTeamSupport ? "Contact Support" : "Contact",
+        // Same CTA label for both contact types — Team/Support Line cards use
+        // "Contact" (not "Contact Support").
+        label: "Contact",
         url: withContactFormAvatar(contact.websiteUrl || "", contact.headshot),
       });
     }
