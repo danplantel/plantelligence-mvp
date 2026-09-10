@@ -258,6 +258,13 @@ function BenefitsPageInner() {
       if (
         !step1Data?.insuranceLoginUrl?.trim()
       ) {
+        // Open the Step 2 editing panel and scroll it to the required Login URL
+        // input so the advisor can fix the missing field immediately.
+        window.dispatchEvent(
+          new CustomEvent("openBenefitsEditor", {
+            detail: { sectionId: "insurance", fieldId: "insuranceLoginUrl" },
+          }),
+        );
         toast.error("Login URL is required", {
           description: "Please enter a Register or Login Here Button URL in Section 5.",
         });

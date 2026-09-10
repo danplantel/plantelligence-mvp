@@ -115,6 +115,14 @@ export function BenefitsEditorPanel({
         insurance: useRef<HTMLDivElement>(null),
     };
 
+    // Field-level refs so a validation error (e.g. the required Login URL) can
+    // scroll the editor straight to the offending input instead of just the
+    // top of its section.
+    const insuranceLoginUrlRef = useRef<HTMLDivElement>(null);
+    const fieldRefs: Record<string, React.RefObject<HTMLDivElement>> = {
+        insuranceLoginUrl: insuranceLoginUrlRef,
+    };
+
     const [videoUploading, setVideoUploading] = useState(false);
     const [videoUploadProgress, setVideoUploadProgress] = useState(0);
 
@@ -127,24 +135,32 @@ export function BenefitsEditorPanel({
     };
 
     // Sync highlightedField (cardId) with accordion open state.
-    // Only the clicked card's accordion opens; all others close.
+    // Only the clicked card's accordion opens; all others close. Guarded by the
+    // active section so non-help-card field ids (e.g. "insuranceLoginUrl") don't
+    // collapse the cards.
     useEffect(() => {
-        if (highlightedField && sectionsRef.helpCards) {
+        if (highlightedField && activeSection === "helpCards") {
             setOpenAccordionItems([highlightedField]);
         }
-    }, [highlightedField]);
+    }, [highlightedField, activeSection]);
 
     // Resolve help cards from store or defaults
     const helpCards = step1Data.helpCards && step1Data.helpCards.length > 0
         ? step1Data.helpCards
         : DEFAULT_HELP_CARDS;
 
-    // Scroll to section when activeSection changes
+    // Scroll to the requested section — or, when the event carries a field id
+    // (e.g. the required Login URL validation), to that specific input.
     useEffect(() => {
         if (activeSection && isOpen) {
             setHighlightedSection(activeSection);
 
-            const element = sectionsRef[activeSection as keyof typeof sectionsRef]?.current;
+            const fieldElement = highlightedField
+                ? fieldRefs[highlightedField]?.current
+                : null;
+            const sectionElement =
+                sectionsRef[activeSection as keyof typeof sectionsRef]?.current;
+            const element = fieldElement || sectionElement;
             if (element && editorScrollContainerRef.current) {
                 const container = editorScrollContainerRef.current;
                 setTimeout(() => {
@@ -158,7 +174,7 @@ export function BenefitsEditorPanel({
             const timer = setTimeout(() => setHighlightedSection(null), 2000);
             return () => clearTimeout(timer);
         }
-    }, [activeSection, isOpen]);
+    }, [activeSection, isOpen, highlightedField]);
 
     // --- Logic from Step 1 ---
     const handleLogoChange = (imageData: BrandImageData) => {
@@ -1016,7 +1032,7 @@ export function BenefitsEditorPanel({
                                 </span>
                             </div>
                         </div>
-                        <div className="space-y-2">
+                        <div className="space-y-2" ref={insuranceLoginUrlRef}>
                             <Label className="text-xs font-bold text-foreground">Register or Login Here Button URL <span className="text-red-500">*</span></Label>
                             <Input
                                 value={step1Data.insuranceLoginUrl || ""}
