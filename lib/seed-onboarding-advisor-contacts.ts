@@ -69,7 +69,7 @@ export function buildOnboardingAdvisorContactsForCategories(
     phoneExtension?: string | null;
     title?: string;
     headshot?: string | null;
-    company?: string;
+    organizationType?: string;
     advisorLogo?: string;
     advisorLogoUrl?: string;
     advisorLink?: string;
@@ -106,7 +106,7 @@ export function buildOnboardingAdvisorContactsForCategories(
       title: profile.title || "",
       headshot: profile.headshot || undefined,
       name: fullName || `${firstName} ${lastName}`.trim(),
-      companyName: profile.company || "",
+      companyName: profile.organizationType || "",
       companyLogo: profile.advisorLogo || profile.advisorLogoUrl || undefined,
       websiteUrl: profile.advisorLink || undefined,
       showOnPortal: true,

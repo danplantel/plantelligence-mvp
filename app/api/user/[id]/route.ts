@@ -42,7 +42,7 @@ export async function POST(request: Request) {
         name: data.name,
         phone: data.phone,
         phoneExtension: data.phoneExtension,
-        company: data.company,
+        organizationType: data.organizationType,
         advisorName: data.advisorName,
         advisorEmail: data.advisorEmail,
         advisorPhone: data.advisorPhone,

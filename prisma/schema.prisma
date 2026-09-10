@@ -36,7 +36,7 @@ model User {
   pendingEmail                String?
   phone                       String?
   phoneExtension              String?
-  company                     String?
+  organizationType            String?
   customOrganization          String?
   teamSize                    String?
   website                     String?

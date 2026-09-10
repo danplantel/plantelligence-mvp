@@ -45,8 +45,8 @@ export async function completeWizardOnboarding({ userId, wizardSessionId }: Wiza
     
     // Client Profile data (Step 1)
     if (wizardSession.clientProfile) {
-      // User.company stores the organization type (e.g., "independent", "ria")
-      updateData.company = wizardSession.clientProfile.organizationType;
+      // User.organizationType stores the organization type (e.g., "independent", "ria")
+      updateData.organizationType = wizardSession.clientProfile.organizationType;
       
       // User.customOrganization stores the free-text description when "other" is selected
       if (wizardSession.clientProfile.customOrganization) {
@@ -54,7 +54,7 @@ export async function completeWizardOnboarding({ userId, wizardSessionId }: Wiza
         console.log("📋 Setting customOrganization:", updateData.customOrganization);
       }
       
-      console.log("📋 Setting company:", updateData.company);
+      console.log("📋 Setting organizationType:", updateData.organizationType);
     }
 
     // Team Size data (Step 1B)

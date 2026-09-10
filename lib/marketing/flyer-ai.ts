@@ -59,7 +59,10 @@ export async function generateFlyerCopy(
   const modeLabel = FLYER_MODE_LABELS[input.mode];
   const sponsorName = input.brand.sponsor.companyName;
   const orgLine = [
-    input.brand.organization.company,
+    // `company` is the legacy key on snapshots persisted before the
+    // organizationType rename — read it as a fallback for older flyers.
+    input.brand.organization.organizationType ??
+      (input.brand.organization as { company?: string | null }).company,
     input.brand.organization.name,
   ]
     .filter(Boolean)

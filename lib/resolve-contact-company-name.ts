@@ -4,8 +4,8 @@
  * For most contacts this is simply the contact's own company name. But when the
  * contact matches the currently logged-in user, the user's Organization Name is
  * shown instead — e.g. an advisor's own pre-seeded contact card should read the
- * advisor's Organization Name rather than the raw `company` value stored on the
- * contact ("independent", etc.).
+ * advisor's Organization Name rather than the raw `organizationType` value stored
+ * on the contact ("independent", etc.).
  *
  * Matching uses the user's email(s): pass the login email and/or the
  * organization email. Seeded advisor contacts store the *organization* email,

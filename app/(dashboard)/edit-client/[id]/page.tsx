@@ -2935,7 +2935,7 @@ export default function EditClientPage() {
         const orgName =
           profile?.organizationName ||
           profile?.wizardSessions?.[0]?.branding?.organizationName ||
-          profile?.company ||
+          profile?.organizationType ||
           "";
         const email =
           profile?.email || profile?.advisorEmail || "";

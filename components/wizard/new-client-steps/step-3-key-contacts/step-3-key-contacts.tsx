@@ -211,7 +211,7 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
             phoneExtension: profile.phoneExtension,
             title: profile.title,
             headshot: profile.headshot,
-            company: profile.company,
+            organizationType: profile.organizationType,
             advisorLogo: profile.advisorLogo,
             advisorLogoUrl: profile.advisorLogoUrl,
             advisorLink: profile.advisorLink,

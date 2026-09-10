@@ -227,7 +227,7 @@ export default function SettingsPage() {
             organizationName:
               branding.organizationName ||
               profileFallback?.organizationName ||
-              profileFallback?.company ||
+              profileFallback?.organizationType ||
               "",
             website:
               branding.website || profileFallback?.website || "",
@@ -278,7 +278,7 @@ export default function SettingsPage() {
           const orgData = {
             organizationType:
               completedClientProfile?.organizationType ||
-              profileFallback?.company ||
+              profileFallback?.organizationType ||
               "",
             customOrganization:
               completedClientProfile?.customOrganization ||
@@ -366,7 +366,7 @@ export default function SettingsPage() {
         branding.organizationName ||
         completedBranding?.organizationName ||
         userProfile?.organizationName ||
-        userProfile?.company ||
+        userProfile?.organizationType ||
         "",
       website:
         branding.website ||
@@ -431,7 +431,7 @@ export default function SettingsPage() {
       organizationType:
         stepData.clientProfile?.organizationType ||
         completedClientProfile?.organizationType ||
-        userProfile?.company ||
+        userProfile?.organizationType ||
         "",
       customOrganization:
         stepData.clientProfile?.customOrganization ||
