@@ -2596,6 +2596,9 @@ export default function EditClientPage() {
   // Number of newly-uploaded documents still awaiting the "I confirm these
   // documents are accurate..." checkbox. Blocks Save Changes until confirmed.
   const [pendingDocumentUploads, setPendingDocumentUploads] = useState(0);
+  // Step 1 (Company Basics) error scroll-to target. Set when Save finds missing
+  // required fields; the effect below switches to the Company tab and scrolls.
+  const [step1ScrollTarget, setStep1ScrollTarget] = useState<string | null>(null);
 
   // Preset for the Add Contact dialog. Entry points just open the dialog with a
   // pre-seeded category/type — the contact is created only when the user saves.
@@ -2821,6 +2824,117 @@ export default function EditClientPage() {
     return fields;
   }, [getValidationErrors]);
 
+  // ── Step 1 (Company Basics & Branding): required fields ──
+  // Mirrors the new-client wizard Step 1 — the red-asterisk fields are Plan
+  // Type, Company Name, Portal URL, Company Logo, and the two brand colors.
+  // Company Name / Company Logo / Portal URL come from getValidationErrors();
+  // The brand colors also carry red asterisks, so an empty value counts
+  // as missing here.
+  const step1MissingFields = useMemo(() => {
+    // Draft / Archived clients skip validation entirely (matches isFormValid).
+    if (clientStatus === "Draft" || clientStatus === "Archived") return [];
+    const errors = getValidationErrors();
+    const fields: string[] = [];
+    if (!(companyData.planType || "client").trim())
+      fields.push("planType");
+    if (errors.companyName?.length) fields.push("companyName");
+    if (!companyData.companyLogo) fields.push("companyLogo");
+    if (errors.portalUrl?.length) fields.push("portalUrl");
+    if (!companyData.primaryColor || !String(companyData.primaryColor).trim())
+      fields.push("primaryColor");
+    if (
+      !companyData.secondaryColor ||
+      !String(companyData.secondaryColor).trim()
+    )
+      fields.push("secondaryColor");
+    return fields;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    clientStatus,
+    getValidationErrors,
+    companyData.planType,
+    companyData.companyLogo,
+    companyData.primaryColor,
+    companyData.secondaryColor,
+  ]);
+
+  const isStep1Invalid = (field: string) => step1MissingFields.includes(field);
+  const step1ColorFields = step1MissingFields.filter(
+    (f) => f === "primaryColor" || f === "secondaryColor",
+  );
+
+  // Scroll the page to the requested Step 1 field (switching to the Company tab
+  // first so it is mounted). Uses the nearest scrollable ancestor — the
+  // dashboard renders content inside <main class="overflow-y-auto">.
+  useEffect(() => {
+    if (!step1ScrollTarget) return;
+    setActiveTab("company");
+
+    let attempts = 0;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const go = () => {
+      const el = document.querySelector(
+        `[data-field="${step1ScrollTarget}"]`,
+      ) as HTMLElement | null;
+      if (!el) {
+        if (attempts < 15) {
+          attempts += 1;
+          timer = setTimeout(go, 100);
+        }
+        return;
+      }
+
+      let scroller: HTMLElement | null = el.parentElement;
+      while (scroller) {
+        const style = window.getComputedStyle(scroller);
+        if (
+          /(auto|scroll|overlay)/.test(style.overflowY) &&
+          scroller.scrollHeight > scroller.clientHeight
+        ) {
+          break;
+        }
+        scroller = scroller.parentElement;
+      }
+
+      const rect = el.getBoundingClientRect();
+      if (scroller) {
+        const scrollerRect = scroller.getBoundingClientRect();
+        scroller.scrollTo({
+          top: Math.max(
+            0,
+            scroller.scrollTop +
+              (rect.top - scrollerRect.top) -
+              scroller.clientHeight / 2 +
+              rect.height / 2,
+          ),
+          behavior: "smooth",
+        });
+      } else {
+        window.scrollTo({
+          top: Math.max(
+            0,
+            window.scrollY + rect.top - window.innerHeight / 2 + rect.height / 2,
+          ),
+          behavior: "smooth",
+        });
+      }
+
+      const focusable = el.matches("input, textarea")
+        ? el
+        : (el.querySelector("input, textarea") as HTMLElement | null);
+      if (focusable) focusable.focus({ preventScroll: true });
+
+      setStep1ScrollTarget(null);
+    };
+
+    timer = setTimeout(go, 150);
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step1ScrollTarget]);
+
   const updateField = (field: "headline" | "bodyText", value: string) => {
     handleWelcomeChange(field, value);
   };
@@ -2992,7 +3106,7 @@ export default function EditClientPage() {
     };
   }, []);
 
-  const handleSaveClick = () => {
+  const handleSaveClick = async () => {
     // Block saving while newly-uploaded documents haven't been confirmed via
     // the "I confirm these documents are accurate..." checkbox in the
     // Documents tab.
@@ -3009,7 +3123,24 @@ export default function EditClientPage() {
       setShowDisclaimerConfirmDialog(true);
       return;
     }
-    handleSave();
+    // Surface Step 1 errors first: jump to the Company tab and scroll to the
+    // first missing required field (mirrors the new-client wizard Step 1) so the
+    // advisor lands directly on the offending control.
+    if (step1MissingFields.length > 0) {
+      setActiveTab("company");
+      setStep1ScrollTarget(step1MissingFields[0]);
+    }
+    await handleSave();
+  };
+
+  // The Save button is disabled for an invalid Active client, so the "Complete
+  // all required fields to activate" indicator invokes this to jump straight to
+  // the first missing Step 1 field.
+  const handleShowStep1Errors = () => {
+    if (step1MissingFields.length > 0) {
+      setActiveTab("company");
+      setStep1ScrollTarget(step1MissingFields[0]);
+    }
   };
 
   const handleConfirmDisclaimerSave = async () => {
@@ -3158,7 +3289,13 @@ export default function EditClientPage() {
             {/* ── Tab 1: Company Basics & Branding ── */}
             <TabsContent value="company" className="space-y-6 mt-0">
               {/* Plan Type */}
-              <Card className="dark:bg-gray-800">
+              <Card
+                className={cn(
+                  "dark:bg-gray-800",
+                  isStep1Invalid("planType") && "ring-2 ring-red-500",
+                )}
+                data-field="planType"
+              >
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Building2 className="w-5 h-5 text-accent-blue" />
@@ -3241,6 +3378,7 @@ export default function EditClientPage() {
                       <Input
                         icon={<Building2 className="h-4 w-4" />}
                         id="companyName"
+                        data-field="companyName"
                         value={companyData.companyName}
                         onChange={(e) => {
                           const value = e.target.value.slice(0, 65);
@@ -3392,7 +3530,7 @@ export default function EditClientPage() {
               </Card>
 
               {/* Company Logo */}
-              <Card className="dark:bg-gray-800">
+              <Card className="dark:bg-gray-800" data-field="companyLogo">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <ImageIcon className="w-5 h-5 text-accent-blue" />
@@ -3509,6 +3647,7 @@ export default function EditClientPage() {
                 }
                 websiteUrl={companyData.companyWebsite}
                 organizationName={companyData.companyName}
+                errorFields={step1ColorFields}
               />
 
               {/* Brand Images */}
@@ -3974,6 +4113,7 @@ export default function EditClientPage() {
           </Button>
           <SaveButton
             onSave={handleSaveClick}
+            onInvalidClick={handleShowStep1Errors}
             saving={saving}
             clientStatus={clientStatus}
             isFormValid={isFormValid()}
