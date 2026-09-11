@@ -846,6 +846,8 @@ export function EditPlanPreviewSection({
               categoryPortalVisibility={null}
               benefits={null}
               enableNavigation={false}
+              scale={scale}
+              referenceWidth={contentWidth}
             />
           </div>
         )}

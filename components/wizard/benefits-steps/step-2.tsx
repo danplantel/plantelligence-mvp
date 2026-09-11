@@ -528,6 +528,8 @@ export function BenefitsStep2() {
                             categoryPortalVisibility={step1Data?.benefitVisibility ?? null}
                             benefits={(step1Data?.selectedPlan as any)?.employeePortalPreview?.benefits ?? null}
                             enableNavigation={false}
+                            scale={scale}
+                            referenceWidth={DESKTOP_WIDTH}
                         />
                     </div>
                 )}

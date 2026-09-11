@@ -1221,6 +1221,8 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
               categoryPortalVisibility={null}
               benefits={null}
               enableNavigation={false}
+              scale={scale}
+              referenceWidth={DESKTOP_WIDTH}
             />
           </div>
         )}

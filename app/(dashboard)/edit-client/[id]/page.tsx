@@ -4148,7 +4148,21 @@ export default function EditClientPage() {
 
       {/* Fixed Save Button Bar */}
       <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background shadow-lg">
-        <div className="mx-auto max-w-5xl px-4 py-4 flex justify-end gap-3">
+        <div
+          className={cn(
+            "px-4 py-4 flex justify-end gap-3 transition-all duration-200",
+            // Default: center the actions in the same max-width column the page
+            // content uses. While the Editing Panel is open, the preview shifts
+            // right by the widened sidebar, so align the actions to the right of
+            // the bar (offset past the editor panel) instead of centering them.
+            !planEditorOpen && "mx-auto max-w-5xl",
+          )}
+          style={
+            planEditorOpen
+              ? { marginLeft: "var(--sidebar-width, 18rem)" }
+              : undefined
+          }
+        >
           <Button
             variant="outline"
             onClick={() => router.push("/clients")}
