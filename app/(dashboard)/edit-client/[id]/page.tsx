@@ -2589,6 +2589,15 @@ export default function EditClientPage() {
   } = useEditClient();
 
   const [activeTab, setActiveTab] = useState<EditTabId>("company");
+  // True while the Preview tab inline Editing Panel is open (dispatched as
+  // step5EditorStateChange). Used to right-align the Edit Page tabs.
+  const [planEditorOpen, setPlanEditorOpen] = useState(false);
+  useEffect(() => {
+    const handler = (e: any) => setPlanEditorOpen(!!e?.detail?.isOpen);
+    window.addEventListener("step5EditorStateChange" as any, handler);
+    return () =>
+      window.removeEventListener("step5EditorStateChange" as any, handler);
+  }, []);
   const [isLogoModalOpen, setIsLogoModalOpen] = useState(false);
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [isPreviewLayoutModalOpen, setIsPreviewLayoutModalOpen] =
@@ -2599,6 +2608,8 @@ export default function EditClientPage() {
   // Step 1 (Company Basics) error scroll-to target. Set when Save finds missing
   // required fields; the effect below switches to the Company tab and scrolls.
   const [step1ScrollTarget, setStep1ScrollTarget] = useState<string | null>(null);
+  // Tab 2 (Preview) field to scroll to after a failed Save.
+  const [tab2ScrollField, setTab2ScrollField] = useState<string | null>(null);
 
   // Preset for the Add Contact dialog. Entry points just open the dialog with a
   // pre-seeded category/type — the contact is created only when the user saves.
@@ -2823,6 +2834,18 @@ export default function EditClientPage() {
     if (errors.missionBody) fields.push("missionBody");
     return fields;
   }, [getValidationErrors]);
+
+  // Map the Tab 2 (Preview) validation errors to the field names the shared
+  // editor inputs use, so red borders + error scroll-to work like the
+  // new-client wizard Step 2.
+  const tab2ErrorFields = useMemo(() => {
+    const fields: string[] = [];
+    if (errorFields.includes("heroTitle")) fields.push("headline");
+    if (errorFields.includes("heroDescription")) fields.push("bodyText");
+    if (errorFields.includes("missionHeadline")) fields.push("missionHeadline");
+    if (errorFields.includes("missionBody")) fields.push("missionBody");
+    return fields;
+  }, [errorFields]);
 
   // ── Step 1 (Company Basics & Branding): required fields ──
   // Mirrors the new-client wizard Step 1 — the red-asterisk fields are Plan
@@ -3068,9 +3091,15 @@ export default function EditClientPage() {
   };
 
   useEffect(() => {
+    // Hide the page title on the Preview tab.
+    // (The editing panel provides its own surrounding context.)
+    if (activeTab === "preview") {
+      setTitle("");
+      return;
+    }
     const companyName = companyData.companyName?.trim();
     setTitle(companyName ? `Edit Plan - ${companyName}` : "Edit Plan");
-  }, [setTitle, companyData.companyName]);
+  }, [setTitle, companyData.companyName, activeTab]);
 
   // Fetch the current user's email + organization name. Used to show the
   // user's Organization Name on their own contact card in the Contact Card
@@ -3129,6 +3158,11 @@ export default function EditClientPage() {
     if (step1MissingFields.length > 0) {
       setActiveTab("company");
       setStep1ScrollTarget(step1MissingFields[0]);
+    }
+    // Tab 2 (Preview) errors: open the Preview tab and scroll its editor to the first one.
+    if (tab2ErrorFields.length > 0) {
+      setActiveTab("preview");
+      setTab2ScrollField(tab2ErrorFields[0]);
     }
     await handleSave();
   };
@@ -3272,7 +3306,12 @@ export default function EditClientPage() {
                 is rendered by the Header component. */}
             {headerPortalTarget &&
               createPortal(
-                <TabsList className="w-full justify-center gap-1 bg-transparent dark:bg-transparent p-0 border-b rounded-none flex-nowrap h-auto min-h-fit overflow-x-auto">
+                <TabsList
+                  className={cn(
+                    "w-full gap-1 bg-transparent dark:bg-transparent p-0 border-b rounded-none flex-nowrap h-auto min-h-fit overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]",
+                    planEditorOpen ? "justify-start" : "justify-center",
+                  )}
+                >
                   {EDIT_TABS.map((tab) => (
                     <TabsTrigger
                       key={tab.id}
@@ -3687,7 +3726,9 @@ export default function EditClientPage() {
                 bodyCharCount={bodyCharCount}
                 isHeadlineValid={isHeadlineValid}
                 isBodyValid={isBodyValid}
-                errorFields={errorFields}
+                errorFields={tab2ErrorFields}
+                scrollToField={tab2ScrollField}
+                onScrollToFieldHandled={() => setTab2ScrollField(null)}
               />
             </TabsContent>
 

@@ -190,6 +190,10 @@ interface EditPlanPreviewSectionProps {
   isHeadlineValid: boolean;
   isBodyValid: boolean;
   errorFields: string[];
+  /** When set, opens the editor panel and scrolls to this field (validation error). */
+  scrollToField?: string | null;
+  /** Called once the scroll-to-field has been handled. */
+  onScrollToFieldHandled?: () => void;
 }
 
 export function EditPlanPreviewSection({
@@ -220,6 +224,8 @@ export function EditPlanPreviewSection({
   isHeadlineValid,
   isBodyValid,
   errorFields,
+  scrollToField,
+  onScrollToFieldHandled,
 }: EditPlanPreviewSectionProps) {
   // ── Editor panel state ──
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -408,6 +414,21 @@ export function EditPlanPreviewSection({
     setTimeout(() => setIsEditorAnimating(true), 10);
   }, []);
 
+  // Notify the app header when this inline Editing Panel opens/closes so it can
+  // right-align the Edit Page tabs and hide the page title.
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent("step5EditorStateChange", {
+        detail: { isOpen: isEditorOpen },
+      }),
+    );
+    return () => {
+      window.dispatchEvent(
+        new CustomEvent("step5EditorStateChange", { detail: { isOpen: false } }),
+      );
+    };
+  }, [isEditorOpen]);
+
   const scrollEditorToSection = useCallback((sectionIndex: number) => {
     const container = editorScrollContainerRef.current;
     if (!container) return;
@@ -419,6 +440,52 @@ export function EditPlanPreviewSection({
       }, 350);
     }
   }, []);
+
+  // -- Validation error scroll-to --
+  // When the page flags an errored Tab 2 field, open the editor panel and
+  // scroll it straight to that control (mirrors the new-client wizard Step 2).
+  // The fields carry data-field attributes (headline, bodyText,
+  // missionHeadline, missionBody).
+  useEffect(() => {
+    if (!scrollToField) return;
+    handleOpenEditor();
+
+    let attempts = 0;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const go = () => {
+      const container = editorScrollContainerRef.current;
+      const el = container?.querySelector(
+        `[data-field="${scrollToField}"]`,
+      ) as HTMLElement | null;
+      if (!container || !el) {
+        if (attempts < 15) {
+          attempts += 1;
+          timer = setTimeout(go, 100);
+        }
+        return;
+      }
+
+      const rect = el.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      const target = container.scrollTop + (rect.top - containerRect.top) - 20;
+      container.scrollTo({ top: Math.max(0, target), behavior: "smooth" });
+
+      // Focus the first text control inside so the user can correct it at once.
+      const focusable = el.matches("input, textarea")
+        ? el
+        : (el.querySelector("input, textarea") as HTMLElement | null);
+      if (focusable) focusable.focus({ preventScroll: true });
+
+      onScrollToFieldHandled?.();
+    };
+
+    timer = setTimeout(go, 400);
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scrollToField]);
 
   const handleToggleEditor = useCallback(() => {
     if (editorIsOpen) {
@@ -581,7 +648,7 @@ export function EditPlanPreviewSection({
         <div className="space-y-4">
           <Card className="dark:bg-gray-800">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm dark:text-gray-100">Company Logo</CardTitle>
+              <CardTitle className="text-sm dark:text-gray-100">Company Logo <span className="text-red-500">*</span></CardTitle>
             </CardHeader>
             <CardContent>
               <CompanyLogoCard
@@ -597,7 +664,7 @@ export function EditPlanPreviewSection({
 
           <Card className="dark:bg-gray-800">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm dark:text-gray-100">Hero Background</CardTitle>
+              <CardTitle className="text-sm dark:text-gray-100">Hero Background <span className="text-red-500">*</span></CardTitle>
             </CardHeader>
             <CardContent>
               <HeroBackgroundCard
@@ -887,6 +954,13 @@ export function EditPlanPreviewSection({
         editorScrollContainerRef={editorScrollContainerRef}
         onClose={handleCloseEditor}
         sections={editorSections}
+        headerBadge={
+          companyData?.companyName?.trim() ? (
+            <span className="inline-flex items-center rounded-md bg-accent-blue/10 px-2 py-0.5 text-xs font-semibold text-accent-blue">
+              {companyData.companyName}
+            </span>
+          ) : undefined
+        }
       />
     </div>
   );

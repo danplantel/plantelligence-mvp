@@ -130,7 +130,12 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
         }}
       >
         {/* Left: Title + Company Name + Step Title (hidden while the Editing Panel is open) */}
-        <div className="flex items-center gap-2 flex-[1] min-w-0">
+        <div
+          className={cn(
+            "flex items-center gap-2 min-w-0",
+            editorOpen && portalHasContent ? "flex-none" : "flex-[1]",
+          )}
+        >
           {!editorOpen && title && (
             <h1
               className="text-sm font-semibold dark:text-white truncate"
@@ -172,29 +177,40 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
             tabs stay on one line. */}
         <div
           className={cn(
-            "flex justify-center min-w-0",
+            "flex min-w-0",
             stepper
-              ? "flex-shrink-0"
+              ? "justify-center flex-shrink-0"
               : portalHasContent
-                ? "flex-[3]"
-                : "flex-shrink-0",
+                ? editorOpen
+                  ? "flex-1 justify-start"
+                  : "flex-[3] justify-center"
+                : "justify-center flex-shrink-0",
           )}
         >
           {stepper && !editorOpen ? stepper : <div id="header-tabs-portal" className="w-full" />}
         </div>
 
         {/* Right: Actions */}
-        <div className="flex items-center justify-end gap-2 flex-[1] min-w-0">
+        <div
+          className={cn(
+            "flex items-center justify-end gap-2 min-w-0",
+            editorOpen && portalHasContent ? "flex-none" : "flex-[1]",
+          )}
+        >
           {/* Notifications UI — hidden for now; will be re-added later. */}
           {/* <DocumentExpirationNotifications /> */}
-          <UserNav />
+          {/* Collapse the user menu to just the avatar while the Editing Panel is
+              open so its name can never overlap the Light/Dark toggle. */}
+          <div className="min-w-0">
+            <UserNav compact={editorOpen} />
+          </div>
           {mounted && (
             <Button
               variant="ghost"
               size="icon"
               onClick={toggleTheme}
               aria-label="Toggle light/dark mode"
-              className="rounded-full"
+              className="rounded-full shrink-0"
             >
               {resolvedTheme === "dark" ? (
                 <Sun className="h-5 w-5 text-yellow-400" />

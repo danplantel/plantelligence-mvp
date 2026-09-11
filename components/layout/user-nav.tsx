@@ -32,7 +32,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-export function UserNav() {
+export function UserNav({ compact = false }: { compact?: boolean }) {
   const { data: session } = useSession();
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -121,7 +121,10 @@ export function UserNav() {
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
-              className="relative flex items-center gap-3 h-12 px-3 rounded-lg hover:bg-accent-blue hover:text-white min-w-0"
+              className={cn(
+                "relative flex items-center gap-3 h-12 rounded-lg hover:bg-accent-blue hover:text-white min-w-0",
+                compact ? "shrink-0 px-2" : "px-3",
+              )}
             >
               <Avatar className="w-10 h-10 shrink-0">
                 <AvatarImage src={userImage} alt={userName} />
@@ -129,22 +132,24 @@ export function UserNav() {
                   {getNameMonogram(userName)}
                 </AvatarFallback>
               </Avatar>
-              <div className="flex flex-col items-start min-w-0">
-                <span
-                  className="text-sm font-medium truncate max-w-[200px]"
-                  title={userName}
-                >
-                  {userName}
-                </span>
-                {userTitle && (
+              {!compact && (
+                <div className="flex flex-col items-start min-w-0">
                   <span
-                    className="text-xs truncate max-w-[200px]"
-                    title={userTitle}
+                    className="text-sm font-medium truncate max-w-[200px]"
+                    title={userName}
                   >
-                    {userTitle}
+                    {userName}
                   </span>
-                )}
-              </div>
+                  {userTitle && (
+                    <span
+                      className="text-xs truncate max-w-[200px]"
+                      title={userTitle}
+                    >
+                      {userTitle}
+                    </span>
+                  )}
+                </div>
+              )}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-56" align="end" forceMount>
