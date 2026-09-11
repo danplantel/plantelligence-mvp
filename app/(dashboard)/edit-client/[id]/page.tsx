@@ -3699,6 +3699,9 @@ export default function EditClientPage() {
 
             {/* ── Tab 2: Preview ── */}
             <TabsContent value="preview" className="mt-0">
+              {/* The EditClientHeader is hidden on the Preview tab, so the
+                  preview's fixed toolbar/panel must sit directly below the 64px
+                  fixed app header instead of clearing the removed header. */}
               <EditPlanPreviewSection
                 companyData={companyData}
                 onCompanyDataChange={handleInputChange}
@@ -3729,6 +3732,7 @@ export default function EditClientPage() {
                 errorFields={tab2ErrorFields}
                 scrollToField={tab2ScrollField}
                 onScrollToFieldHandled={() => setTab2ScrollField(null)}
+                topOffset={64}
               />
             </TabsContent>
 

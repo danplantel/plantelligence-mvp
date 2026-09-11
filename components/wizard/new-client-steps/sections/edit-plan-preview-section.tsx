@@ -194,6 +194,13 @@ interface EditPlanPreviewSectionProps {
   scrollToField?: string | null;
   /** Called once the scroll-to-field has been handled. */
   onScrollToFieldHandled?: () => void;
+  /**
+   * Fixed vertical offset (px) for the toolbar + preview area, used to clear the
+   * page headers rendered above the preview. Defaults to 130px (app header +
+   * the in-page EditClientHeader). When that header is hidden (Preview tab),
+   * pass the app header height (64px) so no leftover gap remains.
+   */
+  topOffset?: number;
 }
 
 export function EditPlanPreviewSection({
@@ -226,6 +233,7 @@ export function EditPlanPreviewSection({
   errorFields,
   scrollToField,
   onScrollToFieldHandled,
+  topOffset = 130,
 }: EditPlanPreviewSectionProps) {
   // ── Editor panel state ──
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -771,7 +779,7 @@ export function EditPlanPreviewSection({
         ref={barRef}
         className="fixed z-[45] flex items-center justify-between px-4 py-3 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm"
         style={{
-          top: "130px",
+          top: `${topOffset}px`,
           left: "var(--sidebar-width, 18rem)",
           right: 0,
           transition: "left 300ms ease-in-out",
@@ -817,7 +825,10 @@ export function EditPlanPreviewSection({
       <div
         className="fixed z-20 flex flex-col"
         style={{
-          top: barHeight > 0 ? `${130 + barHeight}px` : "180px",
+          top:
+            barHeight > 0
+              ? `${topOffset + barHeight}px`
+              : `${topOffset + 50}px`,
           left: "var(--sidebar-width, 18rem)",
           right: 0,
           bottom: 0,
