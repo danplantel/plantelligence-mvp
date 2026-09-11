@@ -274,18 +274,33 @@ function BenefitsPageInner() {
       // Validate Insurance fields: only the Login URL is required. The Plan /
       // Group ID is optional — the editor panel shows it without a required
       // marker, so it must not block moving to the next step.
-      if (
-        !step1Data?.insuranceLoginUrl?.trim()
-      ) {
-        // Open the Step 2 editing panel and scroll it to the required Login URL
-        // input so the advisor can fix the missing field immediately.
-        window.dispatchEvent(
-          new CustomEvent("openBenefitsEditor", {
-            detail: { sectionId: "insurance", fieldId: "insuranceLoginUrl" },
-          }),
-        );
-        toast.error("Login URL is required", {
-          description: "Please enter a Register or Login Here Button URL in Section 5.",
+      // Flag any missing required Step 2 fields (in document order) so the
+      // editor paints them red and scrolls to the first one. Prefer the direct
+      // handler registered by Step 2; fall back to the editor event.
+      const missingFields: string[] = [];
+      if (!step1Data?.companyLogo?.url?.trim()) missingFields.push("companyLogo");
+      if (!step1Data?.brandImages?.header?.url?.trim())
+        missingFields.push("brandImages.header");
+      if (!step1Data?.benefitTitle?.trim()) missingFields.push("benefitTitle");
+      if (!step1Data?.shortDescription?.trim())
+        missingFields.push("shortDescription");
+      if (!step1Data?.insuranceLoginUrl?.trim())
+        missingFields.push("insuranceLoginUrl");
+
+      if (missingFields.length > 0) {
+        const scrollToFields = (window as any).__benefitsStep2ScrollToFields;
+        if (typeof scrollToFields === "function") {
+          scrollToFields(missingFields);
+        } else {
+          window.dispatchEvent(
+            new CustomEvent("openBenefitsEditor", {
+              detail: { sectionId: "insurance", fieldId: "insuranceLoginUrl" },
+            }),
+          );
+        }
+        toast.error("Please complete the required fields", {
+          description:
+            "Add a Provider Logo, Header Background, Intro Headline, Intro Message, and the Register/Login Button URL.",
         });
         return;
       }

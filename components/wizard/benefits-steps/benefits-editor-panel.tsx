@@ -73,6 +73,10 @@ interface BenefitsEditorPanelProps {
     variant?: 'fixed' | 'inline';
     /** Plan/company name shown next to the benefit category badge in the header */
     planCompanyName?: string;
+    /** Fields flagged by the last failed step validation (renders red borders) */
+    errorFields?: string[];
+    /** Lenis-backed scroll for the editor panel (falls back to native scroll) */
+    onScrollEditorTo?: (top: number) => void;
 }
 
 export function BenefitsEditorPanel({
@@ -82,6 +86,8 @@ export function BenefitsEditorPanel({
     activeSection,
     highlightedField,
     planCompanyName,
+    errorFields = [],
+    onScrollEditorTo,
     editorScrollContainerRef: externalScrollRef,
     variant,
     onHeroSegmentModeChange,
@@ -122,8 +128,36 @@ export function BenefitsEditorPanel({
     // scroll the editor straight to the offending input instead of just the
     // top of its section.
     const insuranceLoginUrlRef = useRef<HTMLDivElement>(null);
+    const companyLogoRef = useRef<HTMLDivElement>(null);
+    const brandImagesHeaderRef = useRef<HTMLDivElement>(null);
+    const benefitTitleRef = useRef<HTMLDivElement>(null);
+    const shortDescriptionRef = useRef<HTMLDivElement>(null);
     const fieldRefs: Record<string, React.RefObject<HTMLDivElement>> = {
+        companyLogo: companyLogoRef,
+        "brandImages.header": brandImagesHeaderRef,
+        benefitTitle: benefitTitleRef,
+        shortDescription: shortDescriptionRef,
         insuranceLoginUrl: insuranceLoginUrlRef,
+    };
+
+    // Red-border helper: a field is invalid when flagged by validation and its
+    // value is still empty (so the border clears as soon as it's filled).
+    const isFieldInvalid = (field: string): boolean => {
+        if (!errorFields.includes(field)) return false;
+        switch (field) {
+            case "companyLogo":
+                return !(step1Data.companyLogo?.url || "").trim();
+            case "brandImages.header":
+                return !(step1Data.brandImages?.header?.url || "").trim();
+            case "benefitTitle":
+                return !(step1Data.benefitTitle || "").trim();
+            case "shortDescription":
+                return !(step1Data.shortDescription || "").trim();
+            case "insuranceLoginUrl":
+                return !(step1Data.insuranceLoginUrl || "").trim();
+            default:
+                return false;
+        }
     };
 
     const [videoUploading, setVideoUploading] = useState(false);
@@ -155,28 +189,62 @@ export function BenefitsEditorPanel({
     // Scroll to the requested section — or, when the event carries a field id
     // (e.g. the required Login URL validation), to that specific input.
     useEffect(() => {
-        if (activeSection && isOpen) {
-            setHighlightedSection(activeSection);
+        if (!activeSection || !isOpen) return;
+        setHighlightedSection(activeSection);
 
+        let attempts = 0;
+        let scrollTimer: ReturnType<typeof setTimeout> | null = null;
+
+        const scrollToTarget = () => {
             const fieldElement = highlightedField
                 ? fieldRefs[highlightedField]?.current
                 : null;
             const sectionElement =
                 sectionsRef[activeSection as keyof typeof sectionsRef]?.current;
             const element = fieldElement || sectionElement;
-            if (element && editorScrollContainerRef.current) {
-                const container = editorScrollContainerRef.current;
-                setTimeout(() => {
-                    const rect = element.getBoundingClientRect();
-                    const containerRect = container.getBoundingClientRect();
-                    const targetScroll = rect.top - containerRect.top + container.scrollTop - 20;
-                    container.scrollTo({ top: targetScroll, behavior: "smooth" });
-                }, 350);
+            const container = editorScrollContainerRef.current;
+
+            // The section/field may not be mounted yet (accordion animating in),
+            // so retry briefly before giving up.
+            if (!element || !container) {
+                if (attempts < 15) {
+                    attempts += 1;
+                    scrollTimer = setTimeout(scrollToTarget, 100);
+                }
+                return;
             }
 
-            const timer = setTimeout(() => setHighlightedSection(null), 2000);
-            return () => clearTimeout(timer);
-        }
+            const rect = element.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+            const targetScroll = Math.max(
+                0,
+                container.scrollTop + (rect.top - containerRect.top) - 20,
+            );
+            // The editor scroller is driven by Lenis, which would override a raw
+            // scrollTo — so go through the Lenis-backed helper when provided.
+            if (onScrollEditorTo) {
+                onScrollEditorTo(targetScroll);
+            } else {
+                container.scrollTo({ top: targetScroll, behavior: "smooth" });
+            }
+
+            // Focus the first input/textarea inside so the user can type at once.
+            const focusable = element.querySelector(
+                "input, textarea",
+            ) as HTMLElement | null;
+            if (focusable) focusable.focus({ preventScroll: true });
+        };
+
+        scrollTimer = setTimeout(scrollToTarget, 350);
+        const clearHighlightTimer = setTimeout(
+            () => setHighlightedSection(null),
+            2000,
+        );
+
+        return () => {
+            if (scrollTimer) clearTimeout(scrollTimer);
+            clearTimeout(clearHighlightTimer);
+        };
     }, [activeSection, isOpen, highlightedField]);
 
     // --- Logic from Step 1 ---
@@ -362,8 +430,19 @@ export function BenefitsEditorPanel({
                 >
                     <SectionHeader number={1} title="Branding" />
                     <div className="space-y-8">
-                        <div className="space-y-4" onMouseDown={() => focusPreviewField("companyLogo")}>
-                            <Label className="text-xs font-bold text-foreground">Provider Logo</Label>
+                        <div
+                            className={cn(
+                                "space-y-4 rounded-xl transition-all duration-300",
+                                isFieldInvalid("companyLogo") &&
+                                    "ring-2 ring-red-500 ring-offset-2 ring-offset-background p-2 -m-2",
+                            )}
+                            data-field="companyLogo"
+                            ref={companyLogoRef}
+                            onMouseDown={() => focusPreviewField("companyLogo")}
+                        >
+                            <Label className="text-xs font-bold text-foreground">
+                                Provider Logo <span className="text-red-500">*</span>
+                            </Label>
                             <BrandImageUpload
                                 slotKey="companyLogo"
                                 slot={{
@@ -392,8 +471,19 @@ export function BenefitsEditorPanel({
                                 universalModalType="normalizer"
                             />
                         </div>
-                        <div className="space-y-4" onMouseDownCapture={() => focusPreviewField("brandImagesHeader")}>
-                            <Label className="text-xs font-bold text-foreground">Header Background</Label>
+                        <div
+                            className={cn(
+                                "space-y-4 rounded-xl transition-all duration-300",
+                                isFieldInvalid("brandImages.header") &&
+                                    "ring-2 ring-red-500 ring-offset-2 ring-offset-background p-2 -m-2",
+                            )}
+                            data-field="brandImages.header"
+                            ref={brandImagesHeaderRef}
+                            onMouseDownCapture={() => focusPreviewField("brandImagesHeader")}
+                        >
+                            <Label className="text-xs font-bold text-foreground">
+                                Header Background <span className="text-red-500">*</span>
+                            </Label>
                             <HeroBackgroundCard
                                 heroImageData={
                                     step1Data.brandImages?.header
@@ -491,14 +581,21 @@ export function BenefitsEditorPanel({
                 >
                     <SectionHeader number={2} title="Benefit Messaging" />
                     <div className="space-y-6">
-                        <div className="space-y-2">
-                            <Label className="text-xs font-bold text-foreground">Intro Headline</Label>
+                        <div className="space-y-2" data-field="benefitTitle" ref={benefitTitleRef}>
+                            <Label className="text-xs font-bold text-foreground">
+                                Intro Headline <span className="text-red-500">*</span>
+                            </Label>
                             <Input
                                 value={step1Data.benefitTitle || ""}
                                 onChange={(e) => saveStepData(1, { ...step1Data, benefitTitle: e.target.value })}
                                 onFocus={() => focusPreviewField("benefitTitle")}
+                                destructive={isFieldInvalid("benefitTitle")}
                                 placeholder="e.g. 401(k) Retirement Plan"
-                                className="h-11 shadow-sm border-muted"
+                                className={cn(
+                                    "h-11 shadow-sm border-muted",
+                                    isFieldInvalid("benefitTitle") &&
+                                        "border-red-500 dark:border-red-500",
+                                )}
                                 maxLength={35}
                             />
                             <div className="flex justify-end">
@@ -515,14 +612,21 @@ export function BenefitsEditorPanel({
                                 </span>
                             </div>
                         </div>
-                        <div className="space-y-2">
-                            <Label className="text-xs font-bold text-foreground">Intro Message</Label>
+                        <div className="space-y-2" data-field="shortDescription" ref={shortDescriptionRef}>
+                            <Label className="text-xs font-bold text-foreground">
+                                Intro Message <span className="text-red-500">*</span>
+                            </Label>
                             <Textarea
                                 value={step1Data.shortDescription || ""}
                                 onChange={(e) => saveStepData(1, { ...step1Data, shortDescription: e.target.value })}
                                 onFocus={() => focusPreviewField("shortDescription")}
+                                destructive={isFieldInvalid("shortDescription")}
                                 placeholder="Provide a helpful overview for employees..."
-                                className="min-h-[120px] shadow-sm border-muted leading-relaxed"
+                                className={cn(
+                                    "min-h-[120px] shadow-sm border-muted leading-relaxed",
+                                    isFieldInvalid("shortDescription") &&
+                                        "border-red-500 dark:border-red-500",
+                                )}
                                 maxLength={450}
                             />
                             <div className="flex justify-end">
@@ -1043,7 +1147,11 @@ export function BenefitsEditorPanel({
                                 </span>
                             </div>
                         </div>
-                        <div className="space-y-2" ref={insuranceLoginUrlRef}>
+                        <div
+                            className="space-y-2"
+                            ref={insuranceLoginUrlRef}
+                            data-field="insuranceLoginUrl"
+                        >
                             <Label className="text-xs font-bold text-foreground">Register or Login Here Button URL <span className="text-red-500">*</span></Label>
                             <Input
                                 value={step1Data.insuranceLoginUrl || ""}
@@ -1051,7 +1159,13 @@ export function BenefitsEditorPanel({
                                 onMouseDown={() => focusPreviewField("insuranceLoginUrl")}
                                 onFocus={() => focusPreviewField("insuranceLoginUrl")}
                                 placeholder="e.g. https://portal.empower.com/auth/login"
-                                className="h-11 shadow-sm border-muted"
+                                destructive={isFieldInvalid("insuranceLoginUrl")}
+                                data-field="insuranceLoginUrl"
+                                className={cn(
+                                    "h-11 shadow-sm border-muted",
+                                    isFieldInvalid("insuranceLoginUrl") &&
+                                        "border-red-500 dark:border-red-500",
+                                )}
                                 type="url"
                             />
                             <p className="text-[11px] text-muted-foreground">

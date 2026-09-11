@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import Lenis from "@studio-freight/lenis";
 
 export function useBenefitsLenisScroll(isEditorOpen: boolean, disableMain?: boolean) {
@@ -88,7 +88,31 @@ export function useBenefitsLenisScroll(isEditorOpen: boolean, disableMain?: bool
         };
     }, [isEditorOpen]);
 
+    // Scroll the editor panel to an absolute offset. Uses the dedicated editor
+    // Lenis instance when present (it drives the wrapper's scroll and would
+    // otherwise override a raw `wrapper.scrollTo`), falling back to a native
+    // scroll. Retries briefly because the editor Lenis instance may still be
+    // initializing when validation first opens the panel.
+    const scrollEditorTo = useCallback((top: number) => {
+        const clamped = Math.max(0, top);
+        const attempt = (n: number) => {
+            const wrapper = editorScrollContainerRef.current;
+            if (lenisEditorRef.current) {
+                lenisEditorRef.current.scrollTo(clamped, { duration: 0.8 });
+                return;
+            }
+            if (wrapper) {
+                wrapper.scrollTo({ top: clamped, behavior: "smooth" });
+            }
+            if (n < 6) {
+                setTimeout(() => attempt(n + 1), 120);
+            }
+        };
+        attempt(0);
+    }, []);
+
     return {
         editorScrollContainerRef,
+        scrollEditorTo,
     };
 }

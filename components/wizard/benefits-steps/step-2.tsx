@@ -112,7 +112,7 @@ export function BenefitsStep2() {
     // Disable main Lenis smooth scroll — the preview uses native scrolling,
     // and the page scroll is locked. Lenis would intercept wheel events and
     // prevent them from reaching the preview container.
-    const { editorScrollContainerRef } = useBenefitsLenisScroll(editorState.isEditorOpen, true);
+    const { editorScrollContainerRef, scrollEditorTo } = useBenefitsLenisScroll(editorState.isEditorOpen, true);
     const { currentStep, stepData } = useBenefitsWizardStore();
     const step1Data = stepData.step1;
     const [editorInitialized, setEditorInitialized] = useState(false);
@@ -339,6 +339,67 @@ export function BenefitsStep2() {
         return () => clearTimeout(timer);
     }, [step1Data?.helpCards, step1Data?.planId, step1Data?.benefitCategory]);
 
+    // ── Error Validation Scroll-to ──
+    // The benefits page's Next handler flags the Step 2 required fields. Record
+    // them (so the editor panel can render red borders) and open the editor on
+    // the owning section + field so the panel scrolls straight to the control.
+    const [errorFields, setErrorFields] = useState<string[]>([]);
+
+    useEffect(() => {
+        const handleValidationError = (raw: Event | string[]) => {
+            const fields: string[] | undefined = Array.isArray(raw)
+                ? raw
+                : (raw as CustomEvent<{ fields?: string[] }>).detail?.fields;
+            if (!fields || fields.length === 0) return;
+
+            setErrorFields(fields);
+
+            // Step 2 required fields, in document order, mapped to the editor
+            // section + field id they live in.
+            const step2Fields = [
+                "companyLogo",
+                "brandImages.header",
+                "benefitTitle",
+                "shortDescription",
+                "insuranceLoginUrl",
+            ];
+            const sectionForField: Record<string, string> = {
+                companyLogo: "branding",
+                "brandImages.header": "branding",
+                benefitTitle: "messaging",
+                shortDescription: "messaging",
+                insuranceLoginUrl: "insurance",
+            };
+            const firstMissing = step2Fields.find((f) => fields.includes(f));
+            if (!firstMissing) return;
+
+            window.dispatchEvent(
+                new CustomEvent("openBenefitsEditor", {
+                    detail: {
+                        sectionId: sectionForField[firstMissing],
+                        fieldId: firstMissing,
+                    },
+                }),
+            );
+        };
+
+        // Guaranteed direct entry point (in addition to the event).
+        (window as any).__benefitsStep2ScrollToFields = (fields: string[]) =>
+            handleValidationError(fields);
+
+        window.addEventListener(
+            "benefitsStep2ValidationError",
+            handleValidationError as EventListener,
+        );
+        return () => {
+            window.removeEventListener(
+                "benefitsStep2ValidationError",
+                handleValidationError as EventListener,
+            );
+            delete (window as any).__benefitsStep2ScrollToFields;
+        };
+    }, []);
+
     const togglePreviewMode = () => {
         setPreviewMode((prev) => (prev === "desktop" ? "mobile" : "desktop"));
     };
@@ -431,7 +492,9 @@ export function BenefitsStep2() {
                 activeSection={editorState.activeSection}
                 highlightedField={editorState.highlightedField}
                 planCompanyName={planCompanyName}
+                errorFields={errorFields}
                 editorScrollContainerRef={editorScrollContainerRef}
+                onScrollEditorTo={scrollEditorTo}
                 onHeroSegmentModeChange={(mode) => {
                     if (mode === "desktop" && previewMode !== "desktop") {
                         setPreviewMode("desktop");
