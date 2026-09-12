@@ -2,7 +2,8 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { FileText, Upload, X, Plus, Save, AlertTriangle } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { DismissibleAlert } from "@/components/ui/dismissible-alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -1246,13 +1247,16 @@ export function DocumentsUploadSection({
         )}
         {/* Admin notice shown during upload/analyze/naming */}
         {(isUploading || isAnalyzingNames) && (
-          <Alert className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30">
+          <DismissibleAlert
+            alertKey="new-client-admin-notice-upload"
+            className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30"
+          >
             <AlertTriangle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             <AlertTitle className="text-sm font-semibold text-blue-800 dark:text-blue-300">Admin Notice</AlertTitle>
             <AlertDescription className="text-xs text-blue-700 dark:text-blue-400">
               Suggested names, categories, and review dates are for organization only. Please review before publishing.
             </AlertDescription>
-          </Alert>
+          </DismissibleAlert>
         )}
         {/* Upload Loading Overlay - hidden when progress bar is shown (multi-file) */}
         <LoadingOverlay

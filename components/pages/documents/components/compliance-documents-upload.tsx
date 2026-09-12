@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Save, AlertCircle } from "lucide-react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { DismissibleAlert } from "@/components/ui/dismissible-alert";
 import {
   Select,
   SelectContent,
@@ -1200,14 +1201,17 @@ export function ComplianceDocumentsUpload({
   return (
     <div className={compact ? "space-y-3 min-w-0" : "space-y-4"}>
       {showInfoCard && (
-        <Alert className="mb-6 border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30">
+        <DismissibleAlert
+          alertKey="plan-documents-overview-upload"
+          className="mb-6 border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30"
+        >
           <AlertTitle className="text-sm font-semibold text-blue-800 dark:text-blue-300">
             Plan Documents Overview
           </AlertTitle>
           <AlertDescription className="text-xs text-blue-700 dark:text-blue-400">
             {infoCardText}
           </AlertDescription>
-        </Alert>
+        </DismissibleAlert>
       )}
 
       {!hideCategoryReview &&

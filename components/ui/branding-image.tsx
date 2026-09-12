@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { isR2BrandingKey } from "@/lib/branding-image-url";
@@ -41,6 +42,13 @@ export function BrandingImage({
   const refetchAttempted = useRef(false);
   const isR2 = isR2BrandingKey(src);
   const resolvedSrc = isR2 ? url : url ?? src;
+  const [imgLoaded, setImgLoaded] = useState(false);
+
+  // Reset the load state whenever the resolved source changes (including the R2
+  // proxy refetch cache-bust) so the spinner shows until the new image decodes.
+  useEffect(() => {
+    setImgLoaded(false);
+  }, [resolvedSrc]);
 
   // Reset only when the logical source changes — not when refetch() bumps the proxy URL
   // (cache-bust), or refetchAttempted would reset and cause an infinite 404 retry loop.
@@ -73,11 +81,13 @@ export function BrandingImage({
         )}
         style={style}
       >
-        {isR2 && !resolvedSrc && !loadError && (
+        {!loadError && ((isR2 && !resolvedSrc) || (resolvedSrc && !imgLoaded)) && (
           <div
-            className="absolute inset-0 animate-pulse bg-muted/40"
+            className="absolute inset-0 flex items-center justify-center animate-pulse bg-muted/40"
             aria-hidden
-          />
+          >
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
         )}
         {loadError && (
           <span className="absolute inset-0 flex items-center justify-center bg-muted/50 px-2 text-center text-xs text-muted-foreground">
@@ -94,8 +104,9 @@ export function BrandingImage({
             style={{
               objectFit: objectFitProp ?? "cover",
               objectPosition: "center",
-              opacity: loading ? 0.85 : 1,
+              opacity: !imgLoaded ? 0 : loading ? 0.85 : 1,
             }}
+            onLoad={() => setImgLoaded(true)}
             onError={handleError}
           />
         )}

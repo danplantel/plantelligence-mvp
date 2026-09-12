@@ -160,6 +160,18 @@ export function SmallVerticalCard({
   // in the avatar slot instead, so never show a [Headshot] placeholder for them.
   const showHeadshotPlaceholder =
     showPlaceholders && !isTeamSupport && !hasAvatarImage;
+  // Team/Support Line contacts render the Company Logo in the avatar slot. In
+  // the wizard's Portal Preview, when no logo has been uploaded, show a
+  // [Company Logo] placeholder in that slot instead of the support-line icon.
+  // (The support icon above the avatar stays as-is.)
+  const showTeamLogoPlaceholder =
+    showPlaceholders &&
+    isTeamSupport &&
+    !(contact.companyLogo || contact.logo);
+  // Shared sizing/centering for the avatar slot when it holds a text placeholder
+  // (either the [Headshot] placeholder or the Team/Support [Company Logo] one).
+  const showAvatarPlaceholder =
+    showHeadshotPlaceholder || showTeamLogoPlaceholder;
 
   // Check if a CTA button was explicitly configured via the wizard
   const hasEnabledCta = contact.enableContactButton === true;
@@ -197,7 +209,9 @@ export function SmallVerticalCard({
       if (primaryIndex === -1) primaryIndex = buttons.length;
       buttons.push({
         type: "website",
-        label: isTeamSupport ? "Contact Support" : "Contact",
+        // Same CTA label for both contact types — Team/Support Line cards use
+        // "Contact" (not "Contact Support").
+        label: "Contact",
         url: withContactFormAvatar(contact.websiteUrl || "", contact.headshot),
       });
     }
@@ -276,8 +290,12 @@ export function SmallVerticalCard({
               circular avatar slot below. */}
           <div className={`flex flex-col items-center justify-center gap-2 ${gapLogo} flex-shrink-0`} style={{ height: `${logoHeight * (contact.logoScale || baselineLogoScale || 1)}px` }}>
             {isTeamSupport ? (
+              // Team/Support Line contacts keep the support icon in the logo bar
+              // here (their Company Logo moves into the circular avatar slot
+              // below, which shows its own [Company Logo] placeholder). The icon
+              // is rendered 30% smaller than the original size.
               <Headset
-                className="w-8 h-8 sm:w-10 sm:h-10"
+                className="w-[1.4rem] h-[1.4rem] sm:w-[1.75rem] sm:h-[1.75rem]"
                 style={{ color: effectiveBrandColor }}
               />
             ) : (
@@ -306,14 +324,18 @@ export function SmallVerticalCard({
           {/* PROFILE PICTURE */}
           <div
             className={`relative ${
-              showHeadshotPlaceholder ? "h-[90px] w-[90px]" : avatarSize
+              showAvatarPlaceholder ? "h-[90px] w-[90px]" : avatarSize
             } overflow-hidden rounded-full ${gapAvatar} flex-shrink-0 ${
-              showHeadshotPlaceholder
+              showAvatarPlaceholder
                 ? "flex items-center justify-center bg-gray-50"
                 : ""
             }`}
           >
-            {showHeadshotPlaceholder ? (
+            {showTeamLogoPlaceholder ? (
+              <span className="text-[10px] sm:text-xs font-medium text-gray-400 text-center leading-tight px-1">
+                [Company Logo]
+              </span>
+            ) : showHeadshotPlaceholder ? (
               <span className="text-[10px] sm:text-xs font-medium italic text-gray-400">
                 [Headshot]
               </span>
@@ -551,8 +573,10 @@ export function SmallVerticalCard({
             circular avatar slot below. */}
         <div className="flex flex-col items-center justify-center gap-2 mb-3 sm:mb-6 flex-shrink-0 min-h-[60px]">
           {isTeamSupport ? (
+            // Support icon in the logo bar (30% smaller). The Company Logo
+            // renders in the avatar slot below — see the compact branch above.
             <Headset
-              className="w-8 h-8 sm:w-10 sm:h-10"
+              className="w-[1.4rem] h-[1.4rem] sm:w-[1.75rem] sm:h-[1.75rem]"
               style={{ color: effectiveBrandColor }}
             />
           ) : (
@@ -570,16 +594,20 @@ export function SmallVerticalCard({
         {/* PROFILE PICTURE */}
         <div
           className={`relative ${
-            showHeadshotPlaceholder
+            showAvatarPlaceholder
               ? "h-[90px] w-[90px] sm:h-[135px] sm:w-[135px]"
               : "h-[60px] w-[60px] sm:h-[90px] sm:w-[90px]"
           } overflow-hidden rounded-full mb-3 sm:mb-6 flex-shrink-0 ${
-            showHeadshotPlaceholder
+            showAvatarPlaceholder
               ? "flex items-center justify-center bg-gray-50"
               : ""
           }`}
         >
-          {showHeadshotPlaceholder ? (
+          {showTeamLogoPlaceholder ? (
+            <span className="text-xs sm:text-sm font-medium text-gray-400 text-center leading-tight px-1">
+              [Company Logo]
+            </span>
+          ) : showHeadshotPlaceholder ? (
             <span className="text-xs sm:text-sm font-medium italic text-gray-400">
               [Headshot]
             </span>

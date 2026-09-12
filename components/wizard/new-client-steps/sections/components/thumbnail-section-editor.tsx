@@ -32,7 +32,7 @@ export function ThumbnailSectionEditor({
   return (
     <div className="rounded-xl border border-[#efefef] dark:border-[#1c1c1c] bg-card dark:bg-gray-800 text-card-foreground p-6">
       <CardTitle className="flex items-center gap-2 text-base font-semibold dark:text-gray-100">
-        Square Thumbnail <span className="text-xs text-red-500">*</span>
+        Square Thumbnail
       </CardTitle>
       <p className="text-sm text-muted-foreground mt-2 dark:text-gray-400">
         This image is used in square thumbnail placements across your Employee Hub. Upload a centered image with space around the edges.

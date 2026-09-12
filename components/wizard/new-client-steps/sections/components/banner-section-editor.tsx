@@ -439,7 +439,11 @@ export function BannerSectionEditor({
       </Card>
 
       {/* Hero Background Image */}
-      <Card className="dark:bg-gray-800" ref={heroBackgroundCardRef}>
+      <Card
+        className="dark:bg-gray-800"
+        ref={heroBackgroundCardRef}
+        data-field="brandImages.header"
+      >
         <CardHeader>
           <CardTitle className="flex items-center gap-2 dark:text-gray-100">
             <ImageIcon2 className="w-5 h-5 text-accent-blue" />

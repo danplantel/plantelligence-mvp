@@ -317,7 +317,10 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
     scrollToMissionFields,
   );
 
-  // ── Scroll to the top-most required field when validation errors appear ──
+  // ── Scroll to the top-most errored required field when validation errors
+  //    appear. Target the actual input/textarea (via its `data-field`
+  //    attribute) so the user lands directly on the invalid control inside the
+  //    editing panel, rather than just its surrounding section. ──
   useEffect(() => {
     if (!errorFields || errorFields.length === 0) return;
 
@@ -329,25 +332,8 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
       "missionHeadline",
       "missionBody",
     ];
-    const errored = step2Fields.filter((f) => errorFields.includes(f));
-    if (errored.length === 0) return;
-
-    // Resolve the top-most errored section
-    let targetRef: React.RefObject<HTMLDivElement> | null = null;
-    let align: "top" | "bottom" = "top";
-    if (errored.includes("brandImages.header")) {
-      targetRef = heroBackgroundCardRef;
-    } else if (errored.includes("headline") || errored.includes("bodyText")) {
-      targetRef = heroContentRef;
-    } else if (
-      errored.includes("missionHeadline") ||
-      errored.includes("missionBody")
-    ) {
-      targetRef = missionFieldsRef;
-      align = "bottom";
-    }
-    if (!targetRef) return;
-    const resolvedTargetRef: React.RefObject<HTMLDivElement> = targetRef;
+    const erroredField = step2Fields.find((f) => errorFields.includes(f));
+    if (!erroredField) return;
 
     // Ensure the editor is open so the scroll is visible
     if (!editorState.isEditorOpen) {
@@ -357,8 +343,41 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
 
     // Wait for the editor to render/animate before scrolling
     const timer = setTimeout(() => {
-      if (resolvedTargetRef.current) {
-        scrollEditorToElement(resolvedTargetRef.current, align);
+      const container = editorScrollContainerRef.current;
+      const selector = `[data-field="${erroredField}"]`;
+
+      // Prefer the actual input/textarea for the errored field.
+      const input =
+        (container?.querySelector(selector) as HTMLElement | null) ??
+        (document.querySelector(selector) as HTMLElement | null);
+
+      if (input) {
+        scrollEditorToElement(input, "top");
+        // Focus text controls so the user can start correcting immediately.
+        // `preventScroll` keeps our container scroll from being overridden.
+        if (
+          input instanceof HTMLInputElement ||
+          input instanceof HTMLTextAreaElement
+        ) {
+          input.focus({ preventScroll: true });
+        }
+        return;
+      }
+
+      // Fallback: scroll to the section/card that contains the field.
+      const fallbackRef =
+        erroredField === "brandImages.header"
+          ? heroBackgroundCardRef
+          : erroredField === "headline" || erroredField === "bodyText"
+            ? heroContentRef
+            : missionFieldsRef;
+      if (fallbackRef.current) {
+        scrollEditorToElement(
+          fallbackRef.current,
+          erroredField === "missionHeadline" || erroredField === "missionBody"
+            ? "bottom"
+            : "top",
+        );
       }
     }, 400);
 
@@ -1202,6 +1221,8 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
               categoryPortalVisibility={null}
               benefits={null}
               enableNavigation={false}
+              scale={scale}
+              referenceWidth={DESKTOP_WIDTH}
             />
           </div>
         )}

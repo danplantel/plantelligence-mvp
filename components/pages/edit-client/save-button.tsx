@@ -9,6 +9,9 @@ interface SaveButtonProps {
   saving: boolean;
   clientStatus: string;
   isFormValid: boolean;
+  /** Invoked when the "Complete all required fields" indicator is clicked
+   *  (jumps to the first missing required field). */
+  onInvalidClick?: () => void;
 }
 
 export function SaveButton({
@@ -16,6 +19,7 @@ export function SaveButton({
   saving,
   clientStatus,
   isFormValid,
+  onInvalidClick,
 }: SaveButtonProps) {
   const canSave =
     clientStatus === "Draft" || (clientStatus === "Active" && isFormValid);
@@ -23,10 +27,22 @@ export function SaveButton({
   return (
     <div className="flex items-center gap-3">
       {clientStatus === "Active" && !isFormValid && (
-        <div className="flex items-center gap-2 text-sm text-amber-600">
-          <AlertTriangle className="w-4 h-4" />
-          <span>Complete all required fields to activate</span>
-        </div>
+        onInvalidClick ? (
+          <button
+            type="button"
+            onClick={onInvalidClick}
+            title="Show the first missing required field"
+            className="flex items-center gap-2 text-sm text-amber-600 hover:text-amber-700 underline-offset-2 hover:underline"
+          >
+            <AlertTriangle className="w-4 h-4" />
+            <span>Complete all required fields to activate</span>
+          </button>
+        ) : (
+          <div className="flex items-center gap-2 text-sm text-amber-600">
+            <AlertTriangle className="w-4 h-4" />
+            <span>Complete all required fields to activate</span>
+          </div>
+        )
       )}
 
       <LoadingButton

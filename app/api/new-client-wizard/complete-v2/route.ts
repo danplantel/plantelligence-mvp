@@ -97,12 +97,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No active wizard session" }, { status: 404 });
     }
 
-    // Latest Step 5 preview (visibility toggles may not be on the in-memory include)
-    const latestPreview = await prisma.newClientEmployeePortalPreview.findUnique({
-      where: { sessionId: wizardSession.id },
-    });
-    let previewDataForClient = (latestPreview?.previewData ??
-      wizardSession.employeePortalPreview?.previewData) as any;
+    // The wizard session query above already `include`s employeePortalPreview, so
+    // use it directly. Only fall back to a standalone lookup if it wasn't populated.
+    let previewDataForClient = wizardSession.employeePortalPreview?.previewData as any;
+    if (!previewDataForClient) {
+      const latestPreview = await prisma.newClientEmployeePortalPreview.findUnique({
+        where: { sessionId: wizardSession.id },
+      });
+      previewDataForClient = latestPreview?.previewData as any;
+    }
 
     const [primaryCatsForCategoryAssets, onboardingAdvisorBg] =
       await Promise.all([
@@ -129,28 +132,29 @@ export async function POST(request: NextRequest) {
     // Newly created plans default all 4 benefit hubs to hidden; the advisor
     // publishes each hub explicitly from the Benefits wizard (benefits/step-1).
 
-    // Mark wizard session as completed (only after publish gates pass)
-    await prisma.newClientWizardSession.update({
-      where: { id: wizardSession.id },
-      data: {
-        completed: true,
-        currentStep: 5,
-        updatedAt: new Date(),
-      },
-    });
-
-    // Mark all other incomplete sessions as completed
-    await prisma.newClientWizardSession.updateMany({
-      where: {
-        userId: session.user.id,
-        completed: false,
-        id: { not: wizardSession.id }
-      },
-      data: {
-        completed: true,
-        updatedAt: new Date(),
-      }
-    });
+    // Mark this wizard session (and all other incomplete sessions) completed.
+    // These two writes target different rows, so run them in parallel.
+    await Promise.all([
+      prisma.newClientWizardSession.update({
+        where: { id: wizardSession.id },
+        data: {
+          completed: true,
+          currentStep: 5,
+          updatedAt: new Date(),
+        },
+      }),
+      prisma.newClientWizardSession.updateMany({
+        where: {
+          userId: session.user.id,
+          completed: false,
+          id: { not: wizardSession.id }
+        },
+        data: {
+          completed: true,
+          updatedAt: new Date(),
+        }
+      }),
+    ]);
 
     // Create Client record from new wizard data structure
     // Check if we have the required data, either from the session or by querying directly
@@ -159,30 +163,38 @@ export async function POST(request: NextRequest) {
     let keyContacts = wizardSession.keyContacts;
     let complianceDocuments = wizardSession.complianceDocuments;
 
-    // If any of the required data is missing, try to fetch it directly
-    if (!companyBasics) {
-      companyBasics = await prisma.newClientCompanyBasics.findFirst({
-        where: { sessionId: wizardSession.id }
-      });
-    }
-
-    if (!welcomeStatement) {
-      welcomeStatement = await prisma.newClientWelcomeStatement.findFirst({
-        where: { sessionId: wizardSession.id }
-      });
-    }
-
-    if (!keyContacts) {
-      keyContacts = await prisma.newClientKeyContacts.findFirst({
-        where: { sessionId: wizardSession.id }
-      });
-    }
-
-    if (!complianceDocuments) {
-      complianceDocuments = await prisma.newClientComplianceDocuments.findFirst({
-        where: { sessionId: wizardSession.id }
-      });
-    }
+    // If any of the required data is missing, fetch the missing pieces in parallel.
+    const [
+      companyBasicsFallback,
+      welcomeStatementFallback,
+      keyContactsFallback,
+      complianceDocumentsFallback,
+    ] = await Promise.all([
+      companyBasics
+        ? null
+        : prisma.newClientCompanyBasics.findFirst({
+            where: { sessionId: wizardSession.id },
+          }),
+      welcomeStatement
+        ? null
+        : prisma.newClientWelcomeStatement.findFirst({
+            where: { sessionId: wizardSession.id },
+          }),
+      keyContacts
+        ? null
+        : prisma.newClientKeyContacts.findFirst({
+            where: { sessionId: wizardSession.id },
+          }),
+      complianceDocuments
+        ? null
+        : prisma.newClientComplianceDocuments.findFirst({
+            where: { sessionId: wizardSession.id },
+          }),
+    ]);
+    if (!companyBasics) companyBasics = companyBasicsFallback;
+    if (!welcomeStatement) welcomeStatement = welcomeStatementFallback;
+    if (!keyContacts) keyContacts = keyContactsFallback;
+    if (!complianceDocuments) complianceDocuments = complianceDocumentsFallback;
 
     const contactBuilder = await prisma.newClientContactBuilder.findUnique({
       where: { sessionId: wizardSession.id },
@@ -435,7 +447,13 @@ export async function POST(request: NextRequest) {
         //     plan (the draft Client row is deleted below, so a draft-scoped key
         //     would otherwise be fragile)
         //   - https / other non-org URLs → kept as stored
-        if (isR2Configured()) {
+        // Run branding persistence as a background task so it OVERLAPS with the
+        // document-persistence phase below. R2 image uploads/copies are the
+        // slowest part of publish and previously blocked every document insert
+        // (and vice-versa), serialising the two slowest phases. `await
+        // brandingTask` runs after documents are created, before cleanup.
+        const brandingTask = (async () => {
+          if (!isR2Configured()) return;
           const orgId = session.user.id;
           const planId = client.id;
           const brandingUpdate: Record<string, string | null> = {};
@@ -547,7 +565,7 @@ export async function POST(request: NextRequest) {
               data: brandingUpdate,
             });
           }
-        }
+        })();
 
         // Create Document records for uploaded files
         const documents = [];
@@ -826,26 +844,26 @@ export async function POST(request: NextRequest) {
           }
         }
 
+        // Wait for the background branding (R2) task to finish before cleanup.
+        await brandingTask;
+
         // Clean up the wizard session and related data after successful client creation
         // If draftClientId is provided, delete only that specific draft client
         // Otherwise, find and delete the draft client that matches the current company name
         if (draftClientId) {
           // Delete only the specific draft client that was loaded
 
-          // Delete all Documents associated with this draft client first
-          await prisma.document.deleteMany({
-            where: {
-              clientId: draftClientId,
-            },
-          });
-
-          // Benefit rows have a required BenefitToClient relation — remove them
-          // before the draft client so prisma.client.delete() does not throw P2014.
-          await prisma.benefit.deleteMany({
-            where: {
-              clientId: draftClientId,
-            },
-          });
+          // Delete Documents + Benefits in parallel, then the draft client.
+          // (Benefit rows have a required BenefitToClient relation — remove them
+          // before prisma.client.delete() so it does not throw P2014.)
+          await Promise.all([
+            prisma.document.deleteMany({
+              where: { clientId: draftClientId },
+            }),
+            prisma.benefit.deleteMany({
+              where: { clientId: draftClientId },
+            }),
+          ]);
 
           // Now delete the specific Draft Client
           await prisma.client.delete({
@@ -868,20 +886,17 @@ export async function POST(request: NextRequest) {
 
             if (draftClient) {
 
-              // Delete all Documents associated with this draft client first
-              await prisma.document.deleteMany({
-                where: {
-                  clientId: draftClient.id,
-                },
-              });
-
-              // Benefit rows have a required BenefitToClient relation — remove them
-              // before the draft client so prisma.client.delete() does not throw P2014.
-              await prisma.benefit.deleteMany({
-                where: {
-                  clientId: draftClient.id,
-                },
-              });
+              // Delete Documents + Benefits in parallel, then the draft client.
+              // (Benefit rows have a required BenefitToClient relation — remove
+              // them before prisma.client.delete() so it does not throw P2014.)
+              await Promise.all([
+                prisma.document.deleteMany({
+                  where: { clientId: draftClient.id },
+                }),
+                prisma.benefit.deleteMany({
+                  where: { clientId: draftClient.id },
+                }),
+              ]);
 
               // Now delete the Draft Client
               await prisma.client.delete({

@@ -112,7 +112,7 @@ export function BenefitsStep2() {
     // Disable main Lenis smooth scroll — the preview uses native scrolling,
     // and the page scroll is locked. Lenis would intercept wheel events and
     // prevent them from reaching the preview container.
-    const { editorScrollContainerRef } = useBenefitsLenisScroll(editorState.isEditorOpen, true);
+    const { editorScrollContainerRef, scrollEditorTo } = useBenefitsLenisScroll(editorState.isEditorOpen, true);
     const { currentStep, stepData } = useBenefitsWizardStore();
     const step1Data = stepData.step1;
     const [editorInitialized, setEditorInitialized] = useState(false);
@@ -293,6 +293,14 @@ export function BenefitsStep2() {
         || resolveCompanyLogo(step1Data?.selectedPlan)
         || undefined;
 
+    // Plan/company name shown next to the benefit category badge in the editor
+    // header. Prefer the freshly fetched plan (authoritative after a reload,
+    // since the store's selectedPlan is stripped from persistence).
+    const planCompanyName =
+        ((planDetails?.companyName as string | undefined) || "").trim()
+        || (((step1Data?.selectedPlan as any)?.companyName as string | undefined) || "").trim()
+        || "";
+
     // Auto-save the "How Can We Help You Today?" cards (Section 4) to the Benefit
     // row so the live Benefits Hub pages reflect edits even before the wizard is
     // completed. (The Step 1 auto-save only runs while Step 1 is mounted, so Step
@@ -330,6 +338,67 @@ export function BenefitsStep2() {
 
         return () => clearTimeout(timer);
     }, [step1Data?.helpCards, step1Data?.planId, step1Data?.benefitCategory]);
+
+    // ── Error Validation Scroll-to ──
+    // The benefits page's Next handler flags the Step 2 required fields. Record
+    // them (so the editor panel can render red borders) and open the editor on
+    // the owning section + field so the panel scrolls straight to the control.
+    const [errorFields, setErrorFields] = useState<string[]>([]);
+
+    useEffect(() => {
+        const handleValidationError = (raw: Event | string[]) => {
+            const fields: string[] | undefined = Array.isArray(raw)
+                ? raw
+                : (raw as CustomEvent<{ fields?: string[] }>).detail?.fields;
+            if (!fields || fields.length === 0) return;
+
+            setErrorFields(fields);
+
+            // Step 2 required fields, in document order, mapped to the editor
+            // section + field id they live in.
+            const step2Fields = [
+                "companyLogo",
+                "brandImages.header",
+                "benefitTitle",
+                "shortDescription",
+                "insuranceLoginUrl",
+            ];
+            const sectionForField: Record<string, string> = {
+                companyLogo: "branding",
+                "brandImages.header": "branding",
+                benefitTitle: "messaging",
+                shortDescription: "messaging",
+                insuranceLoginUrl: "insurance",
+            };
+            const firstMissing = step2Fields.find((f) => fields.includes(f));
+            if (!firstMissing) return;
+
+            window.dispatchEvent(
+                new CustomEvent("openBenefitsEditor", {
+                    detail: {
+                        sectionId: sectionForField[firstMissing],
+                        fieldId: firstMissing,
+                    },
+                }),
+            );
+        };
+
+        // Guaranteed direct entry point (in addition to the event).
+        (window as any).__benefitsStep2ScrollToFields = (fields: string[]) =>
+            handleValidationError(fields);
+
+        window.addEventListener(
+            "benefitsStep2ValidationError",
+            handleValidationError as EventListener,
+        );
+        return () => {
+            window.removeEventListener(
+                "benefitsStep2ValidationError",
+                handleValidationError as EventListener,
+            );
+            delete (window as any).__benefitsStep2ScrollToFields;
+        };
+    }, []);
 
     const togglePreviewMode = () => {
         setPreviewMode((prev) => (prev === "desktop" ? "mobile" : "desktop"));
@@ -422,7 +491,10 @@ export function BenefitsStep2() {
                 onClose={editorState.handleCloseEditor}
                 activeSection={editorState.activeSection}
                 highlightedField={editorState.highlightedField}
+                planCompanyName={planCompanyName}
+                errorFields={errorFields}
                 editorScrollContainerRef={editorScrollContainerRef}
+                onScrollEditorTo={scrollEditorTo}
                 onHeroSegmentModeChange={(mode) => {
                     if (mode === "desktop" && previewMode !== "desktop") {
                         setPreviewMode("desktop");
@@ -456,6 +528,8 @@ export function BenefitsStep2() {
                             categoryPortalVisibility={step1Data?.benefitVisibility ?? null}
                             benefits={(step1Data?.selectedPlan as any)?.employeePortalPreview?.benefits ?? null}
                             enableNavigation={false}
+                            scale={scale}
+                            referenceWidth={DESKTOP_WIDTH}
                         />
                     </div>
                 )}

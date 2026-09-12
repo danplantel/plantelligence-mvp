@@ -630,6 +630,10 @@ export function useEditClient() {
       errors.push("Portal URL is required");
     }
 
+    const heroTitle = ((companyData as any).heroTitle ?? "").toString().trim();
+    if (!heroTitle) {
+      errors.push("Banner Headline is required");
+    }
     if (!companyData.heroDescription || !companyData.heroDescription.trim()) {
       errors.push("Banner Text is required");
     }
@@ -687,6 +691,9 @@ export function useEditClient() {
     // Background Header Image and Square Thumbnail validation removed - no longer required
 
     // Hero/Banner section validation (heroTitle/heroDescription)
+    if (!((companyData as any).heroTitle ?? "").toString().trim()) {
+      fieldErrors.heroTitle = ["Banner Headline is required"];
+    }
     if (!companyData.heroDescription || !companyData.heroDescription.trim()) {
       fieldErrors.heroDescription = ["Banner Text is required"];
     }

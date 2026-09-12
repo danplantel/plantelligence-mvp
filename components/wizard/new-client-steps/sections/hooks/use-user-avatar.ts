@@ -1,16 +1,23 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import { fetchProfileOnce } from "@/lib/fetch-profile";
 
 export function useUserAvatar() {
   const [userAvatar, setUserAvatar] = useState<string | null>(null);
   const [isLoadingAvatar, setIsLoadingAvatar] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+
     const fetchUserAvatar = async () => {
       setIsLoadingAvatar(true);
       try {
-        const response = await axios.get("/api/profile");
-        const profile = response.data;
+        // Reuse the single-flight, TTL-cached profile fetcher so this hook does
+        // NOT fire a redundant GET /api/profile when Step 2 mounts — the page
+        // already fetched the profile via SWR on mount. The previous raw axios
+        // call here bypassed that cache and re-hit the slow /api/profile route
+        // (~2.7s), which made the step-1 → step-2 transition feel slow.
+        const profile = await fetchProfileOnce();
+        if (cancelled || !profile) return;
 
         if (profile?.wizardSessions?.[0]?.userSetup) {
           const userSetup = profile.wizardSessions[0].userSetup;
@@ -25,11 +32,14 @@ export function useUserAvatar() {
       } catch (error) {
         console.error("Failed to fetch user avatar:", error);
       } finally {
-        setIsLoadingAvatar(false);
+        if (!cancelled) setIsLoadingAvatar(false);
       }
     };
 
     fetchUserAvatar();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return {
@@ -37,4 +47,3 @@ export function useUserAvatar() {
     isLoadingAvatar,
   };
 }
-

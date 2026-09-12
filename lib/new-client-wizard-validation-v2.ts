@@ -568,8 +568,8 @@ export const validateNewClientCurrentStepV2 = async (step: number, stepData: any
                 : step3bData.displayName,
               // Carry over the action-visibility flags so the "Contact Action
               // Buttons" validation doesn't falsely fail a fully-filled form.
-              displayEmail: step3bData.displayEmail ?? true,
-              displayPhone: step3bData.displayPhone ?? true,
+              displayEmail: step3bData.displayEmail ?? false,
+              displayPhone: step3bData.displayPhone ?? false,
               displayScheduleAppointment: step3bData.displayScheduleAppointment,
               displayUrl: step3bData.displayUrl,
               // Carry over CTA fields so scheduling/contact-form URL validation works.
@@ -606,34 +606,9 @@ export const validateNewClientCurrentStepV2 = async (step: number, stepData: any
             );
           }
 
-          // Also validate the current contact in step3b local state (unsaved form data)
-          if (step3bData) {
-            // Check if all actions are false/undefined in the current form
-            const hasActionsInForm =
-              step3bData.displayEmail ||
-              step3bData.displayPhone ||
-              step3bData.displayScheduleAppointment ||
-              step3bData.displayWebsite ||
-              step3bData.displayUrl;
-
-            if (!hasActionsInForm) {
-              const contactName =
-                step3bData.firstName || step3bData.lastName
-                  ? `${step3bData.firstName || ""} ${step3bData.lastName || ""}`.trim()
-                  : step3bData.displayName || "Current Contact";
-
-              step3Errors.push({
-                field: "contactActions",
-                contactId: step3bData.selectedContactId || "new",
-                contactName: contactName,
-              });
-              step3Errors.push({
-                field: `contact_${step3bData.selectedContactId || "new"}_contactActions`,
-                contactId: step3bData.selectedContactId || "new",
-                contactName: contactName,
-              });
-            }
-          }
+          // The "Show on contact card" checkboxes (Email / Phone) are optional —
+          // a contact may be saved with neither selected, so no `contactActions`
+          // error is raised for the unsaved step3b form.
 
           // Validate each contact (using merged form data for the current contact)
           contactsToValidate.forEach((contact: any, index: number) => {
@@ -838,24 +813,8 @@ export const validateNewClientCurrentStepV2 = async (step: number, stepData: any
               });
             }
 
-            // Contact Action Buttons validation
-            if (
-              !contact.displayEmail &&
-              !contact.displayPhone &&
-              !contact.displayScheduleAppointment &&
-              !contact.displayUrl
-            ) {
-              step3Errors.push({
-                field: `contactActions`,
-                contactId: contactId,
-                contactName: contactIdentifier,
-              });
-              step3Errors.push({
-                field: `contact_${contactId}_contactActions`,
-                contactId: contactId,
-                contactName: contactIdentifier,
-              });
-            }
+            // "Show on contact card" (Email / Phone) is optional — no
+            // `contactActions` error is raised when none are selected.
           });
 
           // Milestone 2 §5: Each category with contacts must have at least one Primary contact

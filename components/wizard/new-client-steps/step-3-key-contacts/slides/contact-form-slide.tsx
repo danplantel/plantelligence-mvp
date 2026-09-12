@@ -146,8 +146,8 @@ function ContactCardPreview({
   category,
   enableCtaButton = false,
   ctaType = "schedule",
-  displayEmail = true,
-  displayPhone = true,
+  displayEmail = false,
+  displayPhone = false,
   ctaColor = "#1F3A60",
 }: ContactCardPreviewProps) {
   const resolvedName =
@@ -465,11 +465,14 @@ export function ContactFormSlide({
   // Display toggles for Email / Phone on the card. Both default to unchecked
   // when there is no value to display, and are auto-checked once the user adds
   // a value (otherwise they respect the saved preference).
+  // "Show on contact card" starts UNCHECKED — entering an email/phone must not
+  // auto-enable the corresponding toggle (it is only restored from an explicit
+  // saved preference).
   const [displayEmail, setDisplayEmail] = useState(
-    email ? (step3bData.displayEmail ?? true) : false,
+    step3bData.displayEmail ?? false,
   );
   const [displayPhone, setDisplayPhone] = useState(
-    phone ? (step3bData.displayPhone ?? true) : false,
+    step3bData.displayPhone ?? false,
   );
 
   // Custom Benefits description — only shown when category is "Other Benefits"
@@ -588,8 +591,8 @@ export function ContactFormSlide({
           return sb.isPrimaryOverall ?? isFirstContact;
         })(),
       );
-      setDisplayEmail(sb.email ? (sb.displayEmail ?? true) : false);
-      setDisplayPhone(sb.phone ? (sb.displayPhone ?? true) : false);
+      setDisplayEmail(sb.displayEmail ?? false);
+      setDisplayPhone(sb.displayPhone ?? false);
       setEnableCtaButton(sb.enableContactButton ?? false);
       setCtaType(sb.ctaType || "schedule");
       setSchedulingUrl(sb.schedulingUrl || "");
@@ -601,32 +604,20 @@ export function ContactFormSlide({
   }, [(stepData as any)?.step3b?.editingContactId]);
 
   // Keep the Phone "show on card" toggle in sync with the phone field: uncheck
-  // when there is no phone value, and auto-check when the user first adds one.
-  // An explicit display preference on an already-populated contact is preserved
-  // (the ref ensures we only auto-check on the empty → non-empty transition).
-  const prevPhoneRef = useRef(phone);
+  // when there is no phone value. It is intentionally NOT auto-checked when the
+  // user adds a phone — the user must enable it explicitly.
   useEffect(() => {
-    const prevPhone = prevPhoneRef.current;
-    prevPhoneRef.current = phone;
     if (!phone) {
       setDisplayPhone(false);
-    } else if (!prevPhone) {
-      setDisplayPhone(true);
     }
   }, [phone]);
 
-  // Keep the Email "show on card" toggle in sync with the email field — same
-  // behavior as Phone above: uncheck when there is no email value, and
-  // auto-check when the user first adds one (preserving an explicit choice on
-  // an already-populated contact).
-  const prevEmailRef = useRef(email);
+  // Keep the Email "show on card" toggle in sync with the email field — uncheck
+  // when there is no email value. It is intentionally NOT auto-checked when the
+  // user adds an email — the user must enable it explicitly.
   useEffect(() => {
-    const prevEmail = prevEmailRef.current;
-    prevEmailRef.current = email;
     if (!email) {
       setDisplayEmail(false);
-    } else if (!prevEmail) {
-      setDisplayEmail(true);
     }
   }, [email]);
 
@@ -1246,6 +1237,44 @@ export function ContactFormSlide({
     </div>
   ) : null;
 
+  // Contact Company Logo — shown for all non-Plan-Sponsor contacts. Hoisted into
+  // a variable so it can render at different positions depending on contact type:
+  //   • Team/Support Line → ABOVE the Company / Organization input (see the
+  //     Team/Support branch below).
+  //   • Individual        → at its original position further down the form.
+  const contactCompanyLogoInput =
+    category !== "Company / Plan Sponsor" ? (
+      <div className="border-t border-gray-100 dark:border-gray-700 pt-3 mt-2 space-y-2.5">
+        <Label className="dark:text-gray-300 text-xs font-medium">
+          Upload Contact Company Logo
+        </Label>
+        <p className="text-[10px] text-gray-400 dark:text-gray-500">
+          Upload a logo to display on this contact&rsquo;s portal card instead of the plan&rsquo;s company logo.
+        </p>
+
+        {/* Upload logo */}
+        <div className="pt-1">
+          <UniversalImageEditorModal
+            value={externalAdminLogo || ""}
+            fileName={externalAdminLogoFileName || ""}
+            onChange={(value, fileName) => {
+              setExternalAdminLogo(value);
+              setExternalAdminLogoFileName(fileName || "");
+            }}
+            onRemove={() => {
+              setExternalAdminLogo("");
+              setExternalAdminLogoFileName("");
+            }}
+            placeholder="Upload Contact Company Logo"
+            modalTitle="Edit Contact Company Logo"
+            modalDescription="Upload a logo for this contact's portal card."
+            saveButtonText="Save Logo"
+            type="logo"
+          />
+        </div>
+      </div>
+    ) : null;
+
   return (
     <div className="flex flex-col items-center space-y-4 py-2">
       {/* Company Logo above header */}
@@ -1503,8 +1532,10 @@ export function ContactFormSlide({
               </>
             ) : (
               <>
-                {/* Company / Organization first, then the team name — matches
-                    the desired field order for Team/Support Line contacts. */}
+                {/* Upload Contact Company Logo first, then Company / Organization,
+                    then the team name — the desired field order for Team/Support
+                    Line contacts. */}
+                {contactCompanyLogoInput}
                 {companyNameInput}
                 <div className="space-y-1" data-field="displayName">
                   <Label className="dark:text-gray-300 text-xs font-medium">
@@ -1848,38 +1879,10 @@ export function ContactFormSlide({
               )}
             </div>
 
-            {/* Contact Company Logo — shown for all non-Plan-Sponsor contacts */}
-            {category !== "Company / Plan Sponsor" && (
-              <div className="border-t border-gray-100 dark:border-gray-700 pt-3 mt-2 space-y-2.5">
-                <Label className="dark:text-gray-300 text-xs font-medium">
-                  Upload Contact Company Logo
-                </Label>
-                <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                  Upload a logo to display on this contact&rsquo;s portal card instead of the plan&rsquo;s company logo.
-                </p>
-
-                {/* Upload logo */}
-                <div className="pt-1">
-                  <UniversalImageEditorModal
-                    value={externalAdminLogo || ""}
-                    fileName={externalAdminLogoFileName || ""}
-                    onChange={(value, fileName) => {
-                      setExternalAdminLogo(value);
-                      setExternalAdminLogoFileName(fileName || "");
-                    }}
-                    onRemove={() => {
-                      setExternalAdminLogo("");
-                      setExternalAdminLogoFileName("");
-                    }}
-                    placeholder="Upload Contact Company Logo"
-                    modalTitle="Edit Contact Company Logo"
-                    modalDescription="Upload a logo for this contact's portal card."
-                    saveButtonText="Save Logo"
-                    type="logo"
-                  />
-                </div>
-              </div>
-            )}
+            {/* Contact Company Logo — for Individual contacts. Team/Support Line
+                contacts render it earlier (above the Company / Organization
+                input); see the Team/Support branch above. */}
+            {contactType !== "team_support" && contactCompanyLogoInput}
 
           </CardContent>
           </Card>

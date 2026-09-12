@@ -4,6 +4,12 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
+/**
+ * Minimum time (ms) the "Save and exit" button shows its saving spinner so the
+ * user always gets visible feedback, even when the save resolves instantly.
+ */
+const MIN_SAVE_FEEDBACK_MS = 1000;
+
 type PendingNavigation =
   | { type: "href"; href: string }
   | { type: "back" }
@@ -157,8 +163,18 @@ export function useNavigateAwayGuard({
     if (isSaving) return;
 
     setIsSaving(true);
+    const startedAt = Date.now();
     try {
       await onSaveAndExit?.();
+      // Keep the saving spinner visible for at least MIN_SAVE_FEEDBACK_MS before
+      // closing the dialog and navigating, so the user always sees the feedback
+      // (many onSaveAndExit handlers resolve instantly / are no-ops).
+      const elapsed = Date.now() - startedAt;
+      if (elapsed < MIN_SAVE_FEEDBACK_MS) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, MIN_SAVE_FEEDBACK_MS - elapsed),
+        );
+      }
       skipStayOnCloseRef.current = true;
       continuePendingNavigation();
     } catch (error) {

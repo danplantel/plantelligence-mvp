@@ -442,6 +442,42 @@ function consumeStep2NextPreSaved(): boolean {
   return wasPreSaved;
 }
 
+// ── Step-1 "pre-save before Next" guard ────────────────────────────────────
+// Same idea as the step-2/step-3d guards: leaving step-1 (company basics) does
+// not need to wait for the full save-draft POST — the wizard fires it in the
+// background before transitioning and marks this flag so nextStep() skips its
+// own redundant, sequential save-draft POST that was making "Next" from step-1
+// stall for ~14s (the save-draft endpoint is slow because it upserts every
+// wizard-session sub-record and the Client row in a single request).
+let step1NextPreSaved = false;
+
+export function markStep1NextPreSaved() {
+  step1NextPreSaved = true;
+}
+
+function consumeStep1NextPreSaved(): boolean {
+  const wasPreSaved = step1NextPreSaved;
+  step1NextPreSaved = false;
+  return wasPreSaved;
+}
+
+// ── Step-4 "pre-save before Next" guard ────────────────────────────────────
+// Leaving step-4 (compliance documents) likewise does not need to wait for the
+// dedicated /compliance-documents POST + save-draft — the wizard fires both in
+// the background before transitioning and marks this flag so nextStep() skips
+// its redundant sequential copy of those saves.
+let step4NextPreSaved = false;
+
+export function markStep4NextPreSaved() {
+  step4NextPreSaved = true;
+}
+
+function consumeStep4NextPreSaved(): boolean {
+  const wasPreSaved = step4NextPreSaved;
+  step4NextPreSaved = false;
+  return wasPreSaved;
+}
+
 // ── Wizard "transition in progress" flag ─────────────────────────────────────
 // The wizard (new-client-wizard.tsx) sets this while it is processing a Next /
 // Complete click. The page-level debounced autosave checks it and stands down,
@@ -876,6 +912,20 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
         // If nextStep() is reached WITHOUT that pre-save (e.g. a direct invocation),
         // fall through to the generic save below so nothing is silently lost.
         if (currentStep === 2 && consumeStep2NextPreSaved()) {
+          if (currentStep < totalSteps) {
+            set({ currentStep: currentStep + 1, errorFields: [] });
+          }
+          return { isValid: true, errors: [] };
+        }
+
+        if (currentStep === 1 && consumeStep1NextPreSaved()) {
+          if (currentStep < totalSteps) {
+            set({ currentStep: currentStep + 1, errorFields: [] });
+          }
+          return { isValid: true, errors: [] };
+        }
+
+        if (currentStep === 4 && consumeStep4NextPreSaved()) {
           if (currentStep < totalSteps) {
             set({ currentStep: currentStep + 1, errorFields: [] });
           }
@@ -1320,90 +1370,64 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
         let anySaveSucceeded = false;
 
         try {
-          // ── 1. Best-effort: persist ALL data via save-draft ──
-          // The complete-v2 endpoint reads from wizard session records
-          // (newClientCompanyBasics, etc.), which save-draft writes to.
-          // If this fails (e.g. 413 Payload Too Large for bundled data),
-          // the individual step saves below become the fallback.
-          try {
-            await get().saveAsDraft({ showDuplicatePlanDialog: false });
-            anySaveSucceeded = true;
-            console.log("✅ completeWizard: saveAsDraft succeeded before publishing");
-          } catch (draftError) {
-            console.warn(
-              "⚠️ completeWizard: saveAsDraft failed (non-blocking) — falling back to individual step saves:",
-              draftError instanceof Error ? draftError.message : String(draftError),
+          // ── Persist every wizard-session sub-record via the FAST dedicated
+          //     endpoints, in parallel — this is exactly what complete-v2 reads.
+          //     We deliberately skip the bundled saveAsDraft() here: it also
+          //     rewrites the draft Client row and re-saves documents, neither of
+          //     which complete-v2 needs (it deletes the draft and builds the final
+          //     plan from the session sub-records), and it was adding a ~10s
+          //     round-trip (stacking with queued autosaves) before publish started.
+          const stepSaveOrder: Array<keyof typeof stepData> = [
+            // companyBasics is intentionally NOT re-saved here: it was persisted
+            // when the user left Steps 1–2, and its dedicated endpoint performs
+            // server-side image processing (slow). complete-v2 reads the already
+            // persisted record.
+            "welcomeStatement",
+            "keyContacts",
+            "contactBuilder",
+            "complianceDocuments",
+            "disclaimers",
+            "employeePortalPreview",
+          ];
+
+          const stepSaves: Array<{ stepType: string; data: any }> = [];
+          for (const stepType of stepSaveOrder) {
+            const data = stepData[stepType];
+            if (!data) continue;
+            if (
+              stepType === "contactBuilder" &&
+              (!(data as any).fullName ||
+                !(data as any).title ||
+                !(data as any).companyName ||
+                !(data as any).orgType)
+            ) {
+              continue;
+            }
+            stepSaves.push({ stepType: String(stepType), data });
+          }
+
+          if (stepSaves.length > 0) {
+            const results = await Promise.all(
+              stepSaves.map(({ stepType, data }) =>
+                get()
+                  .saveStepDataToServer(stepType, data)
+                  .then((saved: boolean) => ({ stepType, saved })),
+              ),
             );
-          }
-
-          // ── 2. Individual step saves — ONLY when save-draft failed ──
-          // saveAsDraft already upserts every wizard-session sub-record
-          // (newClientCompanyBasics, newClientWelcomeStatement, keyContacts,
-          // complianceDocuments, and the disclaimers inside previewData), so when
-          // it succeeds there is nothing left to persist — re-running the per-step
-          // POSTs just stacks ~5 more multi-second requests on the publish path
-          // before complete-v2 even starts. They exist purely as a fallback for
-          // when the bundled save-draft fails (e.g. 413 Payload Too Large).
-          if (!anySaveSucceeded) {
-            // Each request has a much smaller payload than the bundled save-draft,
-            // so even if save-draft hit a body-size limit, these are more likely
-            // to succeed. With retry logic in saveStepDataToServer, transient
-            // failures are also handled.
-            const stepSaveOrder: Array<keyof typeof stepData> = [
-              "companyBasics",
-              "welcomeStatement",
-              "keyContacts",
-              "contactBuilder",
-              "complianceDocuments",
-              "disclaimers",
-              "employeePortalPreview",
-            ];
-
-            // Run the per-step saves concurrently — each writes an independent
-            // wizard-session sub-record, so awaiting them one-by-one (each is a
-            // slow POST that could take several seconds) needlessly serialized the
-            // publish path and made "Complete Setup" take ~20s before complete-v2
-            // even started.
-            const stepSaves: Array<{ stepType: string; data: any }> = [];
-            for (const stepType of stepSaveOrder) {
-              const data = stepData[stepType];
-              if (!data) continue;
-              if (
-                stepType === "contactBuilder" &&
-                (!(data as any).fullName ||
-                  !(data as any).title ||
-                  !(data as any).companyName ||
-                  !(data as any).orgType)
-              ) {
-                continue;
-              }
-              stepSaves.push({ stepType: String(stepType), data });
-            }
-
-            if (stepSaves.length > 0) {
-              const results = await Promise.all(
-                stepSaves.map(({ stepType, data }) =>
-                  get()
-                    .saveStepDataToServer(stepType, data)
-                    .then((saved: boolean) => ({ stepType, saved })),
-                ),
-              );
-              for (const { stepType, saved } of results) {
-                if (saved) {
-                  anySaveSucceeded = true;
-                } else {
-                  console.warn(
-                    `⚠️ completeWizard: saveStepDataToServer("${String(stepType)}") returned false — proceeding anyway`,
-                  );
-                }
+            for (const { stepType, saved } of results) {
+              if (saved) {
+                anySaveSucceeded = true;
+              } else {
+                console.warn(
+                  `⚠️ completeWizard: saveStepDataToServer("${String(stepType)}") returned false — proceeding anyway`,
+                );
               }
             }
           }
 
-          // ── 3. Fail only if NO save method succeeded ──
           if (!anySaveSucceeded) {
             throw new Error(
-              "Failed to persist wizard data before publishing: neither saveAsDraft nor individual step saves succeeded. Check network connectivity and try again.",
+              "Failed to persist wizard data before publishing. Check network connectivity and try again.",
             );
           }
 

@@ -312,6 +312,52 @@ export function NewClientStep1({
     return null;
   };
 
+  // ── Scroll to the top-most errored required field when validation errors
+  //    appear. Resolve the field's control via its `data-field` attribute so
+  //    the user lands directly on the invalid input instead of an arbitrary
+  //    spot on the page. Mirrors the Step 2 behavior. ──
+  useEffect(() => {
+    if (!errorFields || errorFields.length === 0) return;
+
+    // Step 1 required fields, in document order within the page.
+    const step1Fields = [
+      "planType",
+      "companyName",
+      "companyWebsite",
+      "portalUrl",
+      "companyLogo",
+      "primaryColor",
+      "secondaryColor",
+    ];
+    const erroredField = step1Fields.find((f) => errorFields.includes(f));
+    if (!erroredField) return;
+
+    const timer = setTimeout(() => {
+      const target = document.querySelector(
+        `[data-field="${erroredField}"]`,
+      ) as HTMLElement | null;
+      if (!target) return;
+
+      target.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+        inline: "nearest",
+      });
+
+      // Focus the first text control inside (if any) so the user can correct
+      // it immediately. `preventScroll` keeps our scroll position intact.
+      const focusable = target.matches("input, textarea")
+        ? target
+        : (target.querySelector("input, textarea") as HTMLElement | null);
+      if (focusable) {
+        focusable.focus({ preventScroll: true });
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [errorFields]);
+
   // Only the branding sub-step is shown (welcomeMission moved to Step 2)
   const currentSubStep: CompanyBasicsSubStep = "branding";
   // No auto-initialization to default to avoid user frustration
@@ -633,7 +679,7 @@ export function NewClientStep1({
       {currentSubStep === "branding" && (
         <>
           {/* Plan Type Selection */}
-          <Card className="dark:bg-gray-800">
+          <Card className="dark:bg-gray-800" data-field="planType">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 dark:text-gray-100">
                 <Building2 className="w-5 h-5 text-accent-blue" />
@@ -967,7 +1013,7 @@ export function NewClientStep1({
           </Card>
 
           {/* Company Logo */}
-          <Card className="dark:bg-gray-800">
+          <Card className="dark:bg-gray-800" data-field="companyLogo">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 dark:text-gray-100">
                 <ImageIcon className="w-5 h-5 text-accent-blue" />

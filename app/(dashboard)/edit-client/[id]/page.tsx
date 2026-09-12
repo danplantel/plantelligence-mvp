@@ -57,7 +57,8 @@ import { DocumentPreviewTab } from "@/components/pages/documents/tabs/document-p
 import { DocumentListTab } from "@/components/pages/documents/tabs/document-list-tab";
 import { DocumentPreviewModal } from "@/components/pages/documents/components/document-preview-modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { DismissibleAlert } from "@/components/ui/dismissible-alert";
 import { toast } from "sonner";
 import {
   formatPhoneNumber,
@@ -218,14 +219,23 @@ function ContactRow({
 
   return (
     <div className="flex items-center gap-3 py-2.5 border-b border-gray-100 dark:border-gray-700 last:border-0">
-      {/* Headshot aligned to the left */}
+      {/* Avatar aligned to the left — Team/Support Line contacts show their
+          Company Logo in place of a headshot. */}
       <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600">
-        <Headshot
-          src={contact.headshot || undefined}
-          alt={displayName}
-          monogramName={displayName}
-          className="w-full h-full object-cover"
-        />
+        {contact.contactType === "team_support" && contact.companyLogo ? (
+          <BrandingImage
+            src={contact.companyLogo}
+            alt={displayName}
+            className="w-full h-full object-contain p-1 bg-white dark:bg-gray-800"
+          />
+        ) : (
+          <Headshot
+            src={contact.headshot || undefined}
+            alt={displayName}
+            monogramName={displayName}
+            className="w-full h-full object-cover"
+          />
+        )}
       </div>
 
       {/* All contact info on one row */}
@@ -389,7 +399,9 @@ function EditContactDialog({
     ctaType: "schedule",
     schedulingUrl: "",
     websiteUrl: "",
-    displayEmail: true,
+    // "Show on contact card" starts unchecked — adding an email/phone must not
+    // auto-enable these toggles.
+    displayEmail: false,
     displayPhone: false,
   });
   const [errors, setErrors] = useState<string[]>([]);
@@ -459,7 +471,8 @@ function EditContactDialog({
         ctaType: "schedule",
         schedulingUrl: "",
         websiteUrl: "",
-        displayEmail: true,
+        // "Show on contact card" starts unchecked (no auto-enable on email/phone).
+        displayEmail: false,
         displayPhone: false,
       });
       setErrors([]);
@@ -498,8 +511,10 @@ function EditContactDialog({
               : "schedule",
       schedulingUrl: contact.schedulingUrl || "",
       websiteUrl: contact.websiteUrl || "",
-      displayEmail: contact.displayEmail ?? true,
-      displayPhone: contact.displayPhone ?? Boolean(contact.phone),
+      // Preserve an explicit saved preference, but never auto-enable based on
+      // whether the contact has an email/phone.
+      displayEmail: contact.displayEmail ?? false,
+      displayPhone: contact.displayPhone ?? false,
     });
     setErrors([]);
   }, [
@@ -776,6 +791,42 @@ function EditContactDialog({
         : undefined,
   };
 
+  // Upload Contact Company Logo — non-Plan-Sponsor only. Hoisted into a variable
+  // so Team/Support Line contacts can render it ABOVE the Company / Organization
+  // input (Individual contacts keep it at its original position further down).
+  const contactCompanyLogoInput = !isPlanSponsorContact ? (
+    <div className="space-y-1.5 pt-1 border-t border-gray-100 dark:border-gray-700">
+      <Label className="dark:text-gray-300 text-xs font-medium">
+        Upload Contact Company Logo
+      </Label>
+      <p className="text-[10px] text-gray-400 dark:text-gray-500">
+        Upload a logo to display on this contact&rsquo;s portal card
+        instead of the plan&rsquo;s company logo.
+      </p>
+      <UniversalImageEditorModal
+        value={form.companyLogo || ""}
+        fileName={form.companyLogoFileName || ""}
+        onChange={(value, fileName) =>
+          updateForm({
+            companyLogo: value,
+            companyLogoFileName: fileName || "",
+          })
+        }
+        onRemove={() =>
+          updateForm({
+            companyLogo: "",
+            companyLogoFileName: "",
+          })
+        }
+        placeholder="Upload Contact Company Logo"
+        modalTitle="Edit Contact Company Logo"
+        modalDescription="Upload a logo for this contact's portal card."
+        saveButtonText="Save Logo"
+        type="logo"
+      />
+    </div>
+  ) : null;
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -930,6 +981,10 @@ function EditContactDialog({
               errorFields={errors}
             />
 
+            {/* Upload Contact Company Logo first for Team/Support Line contacts,
+                above the Company / Organization input. */}
+            {form.contactType === "team_support" && contactCompanyLogoInput}
+
             {/* Company / Organization — required for non-Plan-Sponsor contacts */}
             {!isPlanSponsorContact && (
               <div className="space-y-1.5">
@@ -1032,39 +1087,9 @@ function EditContactDialog({
               </div>
             </div>
 
-            {/* Contact Company Logo — non-Plan-Sponsor only */}
-            {!isPlanSponsorContact && (
-              <div className="space-y-1.5 pt-1 border-t border-gray-100 dark:border-gray-700">
-                <Label className="dark:text-gray-300 text-xs font-medium">
-                  Upload Contact Company Logo
-                </Label>
-                <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                  Upload a logo to display on this contact&rsquo;s portal card
-                  instead of the plan&rsquo;s company logo.
-                </p>
-                <UniversalImageEditorModal
-                  value={form.companyLogo || ""}
-                  fileName={form.companyLogoFileName || ""}
-                  onChange={(value, fileName) =>
-                    updateForm({
-                      companyLogo: value,
-                      companyLogoFileName: fileName || "",
-                    })
-                  }
-                  onRemove={() =>
-                    updateForm({
-                      companyLogo: "",
-                      companyLogoFileName: "",
-                    })
-                  }
-                  placeholder="Upload Contact Company Logo"
-                  modalTitle="Edit Contact Company Logo"
-                  modalDescription="Upload a logo for this contact's portal card."
-                  saveButtonText="Save Logo"
-                  type="logo"
-                />
-              </div>
-            )}
+            {/* Contact Company Logo — Individual contacts. Team/Support Line
+                contacts render it earlier (above Company / Organization). */}
+            {form.contactType !== "team_support" && contactCompanyLogoInput}
 
             {/* Call-to-Action Button */}
             <div className="border-t border-gray-100 dark:border-gray-700 pt-3 space-y-2.5">
@@ -1323,11 +1348,25 @@ function EditKeyContactsSection({
     c.benefitsCategory === "Company / Plan Sponsor"
   );
 
-  // Determine which contacts are external
-  const isExternalContact = (c: KeyContact) =>
-    c.contactType === "team_support" ||
-    (c.role === "Other" && c.roleOther === "External HR / Administrator") ||
-    (c.role as string) === "External HR / Administrator";
+  // Determine which contacts are External HR / Administrator contacts.
+  //
+  // A contact is external when it carries the External HR role markers, OR it is
+  // a legacy Team/Support contact that has NO benefits category (External HR
+  // contacts intentionally live outside the category accordions). A Team/Support
+  // contact that IS assigned to a benefits category belongs to that category and
+  // must NOT be treated as external — previously every `team_support` contact
+  // was, so e.g. a Retirement Team/Support contact also showed under External HR.
+  const isExternalContact = (c: KeyContact) => {
+    if (
+      (c.role === "Other" && c.roleOther === "External HR / Administrator") ||
+      (c.role as string) === "External HR / Administrator"
+    ) {
+      return true;
+    }
+    const hasBenefitsCategory =
+      (c.benefitsCategories?.length ?? 0) > 0 || !!c.benefitsCategory;
+    return c.contactType === "team_support" && !hasBenefitsCategory;
+  };
 
   const externalContacts = contacts.filter(isExternalContact);
 
@@ -1348,12 +1387,7 @@ function EditKeyContactsSection({
     CATEGORY_ACCORDIONS.forEach((cat) => {
       if (hasCategory(cat.id)) defaults.push(cat.value);
     });
-    const hasExternal = contacts.some(
-      (c) =>
-        c.contactType === "team_support" ||
-        (c.role === "Other" && c.roleOther === "External HR / Administrator") ||
-        (c.role as string) === "External HR / Administrator"
-    );
+    const hasExternal = contacts.some(isExternalContact);
     if (hasExternal) defaults.push("external-hr");
     setOpenAccordions(defaults);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2323,14 +2357,17 @@ function EditComplianceDocumentsSection({
         </TabsContent>
 
         <TabsContent value="list" className="mt-6">
-          <Alert className="mb-6 border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30">
+          <DismissibleAlert
+            alertKey="plan-documents-overview-edit-client-list"
+            className="mb-6 border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30"
+          >
             <AlertTitle className="text-sm font-semibold text-blue-800 dark:text-blue-300">
               Plan Documents Overview
             </AlertTitle>
             <AlertDescription className="text-xs text-blue-700 dark:text-blue-400">
               Review all uploaded plan documents, forms, and notices below. Use the column headers to sort, and expand rows to preview or edit. Documents with missing categories will need to be assigned before proceeding.
             </AlertDescription>
-          </Alert>
+          </DismissibleAlert>
           <DocumentListTab
             selectedPlan="current-plan"
             isLoading={false}
@@ -2552,6 +2589,15 @@ export default function EditClientPage() {
   } = useEditClient();
 
   const [activeTab, setActiveTab] = useState<EditTabId>("company");
+  // True while the Preview tab inline Editing Panel is open (dispatched as
+  // step5EditorStateChange). Used to right-align the Edit Page tabs.
+  const [planEditorOpen, setPlanEditorOpen] = useState(false);
+  useEffect(() => {
+    const handler = (e: any) => setPlanEditorOpen(!!e?.detail?.isOpen);
+    window.addEventListener("step5EditorStateChange" as any, handler);
+    return () =>
+      window.removeEventListener("step5EditorStateChange" as any, handler);
+  }, []);
   const [isLogoModalOpen, setIsLogoModalOpen] = useState(false);
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [isPreviewLayoutModalOpen, setIsPreviewLayoutModalOpen] =
@@ -2559,6 +2605,11 @@ export default function EditClientPage() {
   // Number of newly-uploaded documents still awaiting the "I confirm these
   // documents are accurate..." checkbox. Blocks Save Changes until confirmed.
   const [pendingDocumentUploads, setPendingDocumentUploads] = useState(0);
+  // Step 1 (Company Basics) error scroll-to target. Set when Save finds missing
+  // required fields; the effect below switches to the Company tab and scrolls.
+  const [step1ScrollTarget, setStep1ScrollTarget] = useState<string | null>(null);
+  // Tab 2 (Preview) field to scroll to after a failed Save.
+  const [tab2ScrollField, setTab2ScrollField] = useState<string | null>(null);
 
   // Preset for the Add Contact dialog. Entry points just open the dialog with a
   // pre-seeded category/type — the contact is created only when the user saves.
@@ -2784,6 +2835,129 @@ export default function EditClientPage() {
     return fields;
   }, [getValidationErrors]);
 
+  // Map the Tab 2 (Preview) validation errors to the field names the shared
+  // editor inputs use, so red borders + error scroll-to work like the
+  // new-client wizard Step 2.
+  const tab2ErrorFields = useMemo(() => {
+    const fields: string[] = [];
+    if (errorFields.includes("heroTitle")) fields.push("headline");
+    if (errorFields.includes("heroDescription")) fields.push("bodyText");
+    if (errorFields.includes("missionHeadline")) fields.push("missionHeadline");
+    if (errorFields.includes("missionBody")) fields.push("missionBody");
+    return fields;
+  }, [errorFields]);
+
+  // ── Step 1 (Company Basics & Branding): required fields ──
+  // Mirrors the new-client wizard Step 1 — the red-asterisk fields are Plan
+  // Type, Company Name, Portal URL, Company Logo, and the two brand colors.
+  // Company Name / Company Logo / Portal URL come from getValidationErrors();
+  // The brand colors also carry red asterisks, so an empty value counts
+  // as missing here.
+  const step1MissingFields = useMemo(() => {
+    // Draft / Archived clients skip validation entirely (matches isFormValid).
+    if (clientStatus === "Draft" || clientStatus === "Archived") return [];
+    const errors = getValidationErrors();
+    const fields: string[] = [];
+    if (!(companyData.planType || "client").trim())
+      fields.push("planType");
+    if (errors.companyName?.length) fields.push("companyName");
+    if (!companyData.companyLogo) fields.push("companyLogo");
+    if (errors.portalUrl?.length) fields.push("portalUrl");
+    if (!companyData.primaryColor || !String(companyData.primaryColor).trim())
+      fields.push("primaryColor");
+    if (
+      !companyData.secondaryColor ||
+      !String(companyData.secondaryColor).trim()
+    )
+      fields.push("secondaryColor");
+    return fields;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    clientStatus,
+    getValidationErrors,
+    companyData.planType,
+    companyData.companyLogo,
+    companyData.primaryColor,
+    companyData.secondaryColor,
+  ]);
+
+  const isStep1Invalid = (field: string) => step1MissingFields.includes(field);
+  const step1ColorFields = step1MissingFields.filter(
+    (f) => f === "primaryColor" || f === "secondaryColor",
+  );
+
+  // Scroll the page to the requested Step 1 field (switching to the Company tab
+  // first so it is mounted). Uses the nearest scrollable ancestor — the
+  // dashboard renders content inside <main class="overflow-y-auto">.
+  useEffect(() => {
+    if (!step1ScrollTarget) return;
+    setActiveTab("company");
+
+    let attempts = 0;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const go = () => {
+      const el = document.querySelector(
+        `[data-field="${step1ScrollTarget}"]`,
+      ) as HTMLElement | null;
+      if (!el) {
+        if (attempts < 15) {
+          attempts += 1;
+          timer = setTimeout(go, 100);
+        }
+        return;
+      }
+
+      let scroller: HTMLElement | null = el.parentElement;
+      while (scroller) {
+        const style = window.getComputedStyle(scroller);
+        if (
+          /(auto|scroll|overlay)/.test(style.overflowY) &&
+          scroller.scrollHeight > scroller.clientHeight
+        ) {
+          break;
+        }
+        scroller = scroller.parentElement;
+      }
+
+      const rect = el.getBoundingClientRect();
+      if (scroller) {
+        const scrollerRect = scroller.getBoundingClientRect();
+        scroller.scrollTo({
+          top: Math.max(
+            0,
+            scroller.scrollTop +
+              (rect.top - scrollerRect.top) -
+              scroller.clientHeight / 2 +
+              rect.height / 2,
+          ),
+          behavior: "smooth",
+        });
+      } else {
+        window.scrollTo({
+          top: Math.max(
+            0,
+            window.scrollY + rect.top - window.innerHeight / 2 + rect.height / 2,
+          ),
+          behavior: "smooth",
+        });
+      }
+
+      const focusable = el.matches("input, textarea")
+        ? el
+        : (el.querySelector("input, textarea") as HTMLElement | null);
+      if (focusable) focusable.focus({ preventScroll: true });
+
+      setStep1ScrollTarget(null);
+    };
+
+    timer = setTimeout(go, 150);
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step1ScrollTarget]);
+
   const updateField = (field: "headline" | "bodyText", value: string) => {
     handleWelcomeChange(field, value);
   };
@@ -2917,9 +3091,15 @@ export default function EditClientPage() {
   };
 
   useEffect(() => {
+    // Hide the page title on the Preview tab.
+    // (The editing panel provides its own surrounding context.)
+    if (activeTab === "preview") {
+      setTitle("");
+      return;
+    }
     const companyName = companyData.companyName?.trim();
     setTitle(companyName ? `Edit Plan - ${companyName}` : "Edit Plan");
-  }, [setTitle, companyData.companyName]);
+  }, [setTitle, companyData.companyName, activeTab]);
 
   // Fetch the current user's email + organization name. Used to show the
   // user's Organization Name on their own contact card in the Contact Card
@@ -2955,7 +3135,7 @@ export default function EditClientPage() {
     };
   }, []);
 
-  const handleSaveClick = () => {
+  const handleSaveClick = async () => {
     // Block saving while newly-uploaded documents haven't been confirmed via
     // the "I confirm these documents are accurate..." checkbox in the
     // Documents tab.
@@ -2972,7 +3152,29 @@ export default function EditClientPage() {
       setShowDisclaimerConfirmDialog(true);
       return;
     }
-    handleSave();
+    // Surface Step 1 errors first: jump to the Company tab and scroll to the
+    // first missing required field (mirrors the new-client wizard Step 1) so the
+    // advisor lands directly on the offending control.
+    if (step1MissingFields.length > 0) {
+      setActiveTab("company");
+      setStep1ScrollTarget(step1MissingFields[0]);
+    }
+    // Tab 2 (Preview) errors: open the Preview tab and scroll its editor to the first one.
+    if (tab2ErrorFields.length > 0) {
+      setActiveTab("preview");
+      setTab2ScrollField(tab2ErrorFields[0]);
+    }
+    await handleSave();
+  };
+
+  // The Save button is disabled for an invalid Active client, so the "Complete
+  // all required fields to activate" indicator invokes this to jump straight to
+  // the first missing Step 1 field.
+  const handleShowStep1Errors = () => {
+    if (step1MissingFields.length > 0) {
+      setActiveTab("company");
+      setStep1ScrollTarget(step1MissingFields[0]);
+    }
   };
 
   const handleConfirmDisclaimerSave = async () => {
@@ -3104,7 +3306,12 @@ export default function EditClientPage() {
                 is rendered by the Header component. */}
             {headerPortalTarget &&
               createPortal(
-                <TabsList className="w-full justify-center gap-1 bg-transparent dark:bg-transparent p-0 border-b rounded-none flex-nowrap h-auto min-h-fit overflow-x-auto">
+                <TabsList
+                  className={cn(
+                    "w-full gap-1 bg-transparent dark:bg-transparent p-0 border-b rounded-none flex-nowrap h-auto min-h-fit overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]",
+                    planEditorOpen ? "justify-start" : "justify-center",
+                  )}
+                >
                   {EDIT_TABS.map((tab) => (
                     <TabsTrigger
                       key={tab.id}
@@ -3121,7 +3328,13 @@ export default function EditClientPage() {
             {/* ── Tab 1: Company Basics & Branding ── */}
             <TabsContent value="company" className="space-y-6 mt-0">
               {/* Plan Type */}
-              <Card className="dark:bg-gray-800">
+              <Card
+                className={cn(
+                  "dark:bg-gray-800",
+                  isStep1Invalid("planType") && "ring-2 ring-red-500",
+                )}
+                data-field="planType"
+              >
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Building2 className="w-5 h-5 text-accent-blue" />
@@ -3204,6 +3417,7 @@ export default function EditClientPage() {
                       <Input
                         icon={<Building2 className="h-4 w-4" />}
                         id="companyName"
+                        data-field="companyName"
                         value={companyData.companyName}
                         onChange={(e) => {
                           const value = e.target.value.slice(0, 65);
@@ -3355,7 +3569,7 @@ export default function EditClientPage() {
               </Card>
 
               {/* Company Logo */}
-              <Card className="dark:bg-gray-800">
+              <Card className="dark:bg-gray-800" data-field="companyLogo">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <ImageIcon className="w-5 h-5 text-accent-blue" />
@@ -3472,6 +3686,7 @@ export default function EditClientPage() {
                 }
                 websiteUrl={companyData.companyWebsite}
                 organizationName={companyData.companyName}
+                errorFields={step1ColorFields}
               />
 
               {/* Brand Images */}
@@ -3484,6 +3699,9 @@ export default function EditClientPage() {
 
             {/* ── Tab 2: Preview ── */}
             <TabsContent value="preview" className="mt-0">
+              {/* The EditClientHeader is hidden on the Preview tab, so the
+                  preview's fixed toolbar/panel must sit directly below the 64px
+                  fixed app header instead of clearing the removed header. */}
               <EditPlanPreviewSection
                 companyData={companyData}
                 onCompanyDataChange={handleInputChange}
@@ -3511,7 +3729,10 @@ export default function EditClientPage() {
                 bodyCharCount={bodyCharCount}
                 isHeadlineValid={isHeadlineValid}
                 isBodyValid={isBodyValid}
-                errorFields={errorFields}
+                errorFields={tab2ErrorFields}
+                scrollToField={tab2ScrollField}
+                onScrollToFieldHandled={() => setTab2ScrollField(null)}
+                topOffset={64}
               />
             </TabsContent>
 
@@ -3927,7 +4148,21 @@ export default function EditClientPage() {
 
       {/* Fixed Save Button Bar */}
       <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background shadow-lg">
-        <div className="mx-auto max-w-5xl px-4 py-4 flex justify-end gap-3">
+        <div
+          className={cn(
+            "px-4 py-4 flex justify-end gap-3 transition-all duration-200",
+            // Default: center the actions in the same max-width column the page
+            // content uses. While the Editing Panel is open, the preview shifts
+            // right by the widened sidebar, so align the actions to the right of
+            // the bar (offset past the editor panel) instead of centering them.
+            !planEditorOpen && "mx-auto max-w-5xl",
+          )}
+          style={
+            planEditorOpen
+              ? { marginLeft: "var(--sidebar-width, 18rem)" }
+              : undefined
+          }
+        >
           <Button
             variant="outline"
             onClick={() => router.push("/clients")}
@@ -3937,6 +4172,7 @@ export default function EditClientPage() {
           </Button>
           <SaveButton
             onSave={handleSaveClick}
+            onInvalidClick={handleShowStep1Errors}
             saving={saving}
             clientStatus={clientStatus}
             isFormValid={isFormValid()}

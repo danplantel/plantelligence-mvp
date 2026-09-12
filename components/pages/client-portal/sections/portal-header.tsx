@@ -52,6 +52,14 @@ interface PortalHeaderProps {
   categoryPortalVisibility?: Record<string, boolean> | null;
   /** Benefits from Step 5 (employeePortalPreview.benefits); if a benefit has isEnabled: false, its nav item is hidden */
   benefits?: { id?: string; isEnabled?: boolean }[] | null;
+  /**
+   * When < 1, proportionally scales the header's content *and* height to match
+   * the scaled preview beneath it — e.g. while the editing panel narrows the
+   * available width. 1 (default) renders at natural size.
+   */
+  scale?: number;
+  /** Design width the header content is laid out at before being scaled. */
+  referenceWidth?: number;
 }
 
 export function PortalHeader({
@@ -65,6 +73,8 @@ export function PortalHeader({
   onLogoClick,
   categoryPortalVisibility: categoryPortalVisibilityRaw,
   benefits: benefitsFromStep5,
+  scale = 1,
+  referenceWidth = 1400,
 }: PortalHeaderProps) {
   const visibility = getCategoryPortalVisibility(categoryPortalVisibilityRaw);
   // A category made Visible via Portal Visibility can still have a matching
@@ -111,6 +121,27 @@ export function PortalHeader({
   const logoHoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+
+  // ── Proportional scaling ──
+  // When the editing panel narrows the preview (scale < 1), lay the header
+  // content out at `referenceWidth` and shrink it with a CSS transform, then
+  // clamp the header's height to the scaled content height so the sticky
+  // header (and the preview beneath it) stays flush.
+  const isScaled = scale < 1;
+  const headerContentRef = useRef<HTMLDivElement>(null);
+  const [naturalHeaderHeight, setNaturalHeaderHeight] = useState<number | null>(
+    null,
+  );
+
+  useEffect(() => {
+    const el = headerContentRef.current;
+    if (!el) return;
+    const update = () => setNaturalHeaderHeight(el.offsetHeight);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const isActive = (path: string) => pathname?.includes(path);
   const baseUrl = clientId ? `/${clientId}` : "";
@@ -223,7 +254,29 @@ export function PortalHeader({
     <>
 
       {/* Header */}
-      <header className="bg-white px-4 py-2 sm:py-4 shadow-md transition-all duration-300 sm:px-6 lg:px-20">
+      <header
+        className="bg-white shadow-md transition-all duration-300 overflow-hidden"
+        style={
+          isScaled && naturalHeaderHeight != null
+            ? { height: naturalHeaderHeight * scale }
+            : undefined
+        }
+      >
+        {/* Content is laid out at `referenceWidth` and scaled down when the
+            editing panel narrows the preview, so the nav never overflows. */}
+        <div
+          ref={headerContentRef}
+          className="px-4 py-2 sm:py-4 sm:px-6 lg:px-20"
+          style={
+            isScaled
+              ? {
+                  width: `${referenceWidth}px`,
+                  transform: `scale(${scale})`,
+                  transformOrigin: "top left",
+                }
+              : undefined
+          }
+        >
         <div className="flex h-full items-center justify-between">
           {/* Logo */}
           {enableNavigation ? (
@@ -458,6 +511,7 @@ export function PortalHeader({
             version.
           </div>
         )}
+        </div>
       </header>
 
       {/* Mobile side nav drawer with animation */}

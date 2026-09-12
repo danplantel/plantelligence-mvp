@@ -3,7 +3,7 @@
 import { BenefitsWizard } from "@/components/wizard/benefits-wizard";
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
 import { persistPlanSelection } from "@/lib/plan-selector-storage";
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { toast } from "sonner";
 import { useSearchParams } from "next/navigation";
@@ -17,7 +17,10 @@ import {
 import { BenefitsCategory } from "@/types/new-client-wizard";
 import { resolvePersistedDocumentCategory } from "@/lib/document-category";
 import { mergeUserBenefitWithHubDefaults } from "@/lib/hub-benefit-defaults";
-import { hasUnsavedBenefitsWork } from "@/lib/benefits-wizard-dirty";
+import {
+  hasUnsavedBenefitsWork,
+  serializeBenefitsSnapshot,
+} from "@/lib/benefits-wizard-dirty";
 import { useNavigateAwayGuard } from "@/hooks/use-navigate-away-guard";
 import { NavigateAwayWarningDialog } from "@/components/ui/navigate-away-warning-dialog";
 import { PublishingAttestationDialog } from "@/components/wizard/benefits-steps/publishing-attestation-dialog";
@@ -51,6 +54,11 @@ function isR2DocumentRow(doc: {
 function BenefitsPageInner() {
   const { setTitle, setSubtitle } = usePageTitleContext();
   const [isLoading, setIsLoading] = useState(false);
+  // True until the persisted store is rehydrated (or the deep-link state is
+  // applied) and a clean baseline has been captured. The leave guard stays
+  // disabled during this window so a resume never flashes the warning dialog.
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const benefitsBaselineRef = useRef<string | null>(null);
   const [isAttestationOpen, setIsAttestationOpen] = useState(false);
   const searchParams = useSearchParams();
   const planIdParam = searchParams.get("planId");
@@ -84,14 +92,17 @@ function BenefitsPageInner() {
     (s) => s.stepData.step1?.benefitCategory ?? "",
   );
   const hasUnsavedChanges = useBenefitsWizardStore((s) =>
-    hasUnsavedBenefitsWork({
-      currentStep: s.currentStep,
-      stepData: s.stepData,
-    }),
+    hasUnsavedBenefitsWork(
+      {
+        currentStep: s.currentStep,
+        stepData: s.stepData,
+      },
+      benefitsBaselineRef.current,
+    ),
   );
   const leaveGuard = useNavigateAwayGuard({
-    enabled: true,
-    hasUnsavedChanges: !isLoading && hasUnsavedChanges,
+    enabled: !isInitialLoading && !isLoading,
+    hasUnsavedChanges,
     onSaveAndExit: async () => {
       // Benefits wizard uses persisted zustand storage as its draft source.
       // Save-and-exit is satisfied once local persisted state is current.
@@ -174,8 +185,20 @@ function BenefitsPageInner() {
       persistPlanSelection("benefits", planIdParam);
     };
 
+    // Snapshot the store after the initial state is settled (URL-driven or
+    // rehydrated). Anything that changes after this point is real user work.
+    const captureBaseline = () => {
+      const state = useBenefitsWizardStore.getState();
+      benefitsBaselineRef.current = serializeBenefitsSnapshot({
+        currentStep: state.currentStep,
+        stepData: state.stepData,
+      });
+    };
+
     if (hasPlanParam) {
       applyFromUrl();
+      captureBaseline();
+      setIsInitialLoading(false);
       const t0 = setTimeout(applyFromUrl, 0);
       const t1 = setTimeout(applyFromUrl, 50);
       const t2 = setTimeout(applyFromUrl, 200);
@@ -195,6 +218,8 @@ function BenefitsPageInner() {
       if (!sd.step1?.planId && !sd.step1?.benefitCategory) {
         resetWizard();
       }
+      captureBaseline();
+      setIsInitialLoading(false);
     };
     init();
     return () => {
@@ -206,15 +231,34 @@ function BenefitsPageInner() {
     if (currentStep === 1) {
       const step1Data = useBenefitsWizardStore.getState().stepData.step1;
 
-      // Validate 1a - Selection + Branding
-      if (
-        !step1Data?.planId ||
-        !step1Data?.benefitCategory ||
-        !step1Data?.contactId ||
-        !step1Data?.companyLogo
-      ) {
+      // Validate 1a - Selection, Branding & Messaging. Collect the specific
+      // missing required fields so Step 1 can open the owning accordion and
+      // scroll straight to the offending control.
+      const missingFields: string[] = [];
+      if (!step1Data?.planId) missingFields.push("planId");
+      if (!step1Data?.benefitCategory) missingFields.push("benefitCategory");
+      if (!step1Data?.companyLogo) missingFields.push("companyLogo");
+      if (!step1Data?.benefitTitle?.trim()) missingFields.push("benefitTitle");
+      if (!step1Data?.shortDescription?.trim())
+        missingFields.push("shortDescription");
+      if (!step1Data?.contactId) missingFields.push("contactId");
+
+      if (missingFields.length > 0) {
+        // Prefer the direct handler registered by Step 1 (guaranteed to exist
+        // once the step is mounted); fall back to the event for decoupling.
+        const scrollToFields = (window as any).__benefitsStep1ScrollToFields;
+        if (typeof scrollToFields === "function") {
+          scrollToFields(missingFields);
+        } else {
+          window.dispatchEvent(
+            new CustomEvent("benefitsStep1ValidationError", {
+              detail: { fields: missingFields },
+            }),
+          );
+        }
         toast.error("Please fill in all required fields", {
-          description: "Select a plan, category, contact, and upload a logo.",
+          description:
+            "Select a plan, category, contact, upload a logo, and complete the Intro Headline & Message.",
         });
         return;
       }
@@ -230,11 +274,33 @@ function BenefitsPageInner() {
       // Validate Insurance fields: only the Login URL is required. The Plan /
       // Group ID is optional — the editor panel shows it without a required
       // marker, so it must not block moving to the next step.
-      if (
-        !step1Data?.insuranceLoginUrl?.trim()
-      ) {
-        toast.error("Login URL is required", {
-          description: "Please enter a Register or Login Here Button URL in Section 5.",
+      // Flag any missing required Step 2 fields (in document order) so the
+      // editor paints them red and scrolls to the first one. Prefer the direct
+      // handler registered by Step 2; fall back to the editor event.
+      const missingFields: string[] = [];
+      if (!step1Data?.companyLogo?.url?.trim()) missingFields.push("companyLogo");
+      if (!step1Data?.brandImages?.header?.url?.trim())
+        missingFields.push("brandImages.header");
+      if (!step1Data?.benefitTitle?.trim()) missingFields.push("benefitTitle");
+      if (!step1Data?.shortDescription?.trim())
+        missingFields.push("shortDescription");
+      if (!step1Data?.insuranceLoginUrl?.trim())
+        missingFields.push("insuranceLoginUrl");
+
+      if (missingFields.length > 0) {
+        const scrollToFields = (window as any).__benefitsStep2ScrollToFields;
+        if (typeof scrollToFields === "function") {
+          scrollToFields(missingFields);
+        } else {
+          window.dispatchEvent(
+            new CustomEvent("openBenefitsEditor", {
+              detail: { sectionId: "insurance", fieldId: "insuranceLoginUrl" },
+            }),
+          );
+        }
+        toast.error("Please complete the required fields", {
+          description:
+            "Add a Provider Logo, Header Background, Intro Headline, Intro Message, and the Register/Login Button URL.",
         });
         return;
       }

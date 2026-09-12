@@ -282,7 +282,6 @@ export function NewClientStep5({
     stepData: newClientStepData,
     saveStepDataLocally,
     saveStepDataToServer,
-    saveAsDraft,
     draftClientId,
     advisorProfile,
   } = useNewClientWizardStore();
@@ -570,16 +569,20 @@ export function NewClientStep5({
         footerBackground: { mode, customColor },
       });
       try {
+        // Persist via the dedicated /disclaimers endpoint (fast) — this is the
+        // exact record complete-v2 reads. Do NOT fire a full saveAsDraft(): it
+        // rewrites the draft Client row and re-saves documents, which made every
+        // footer-background edit take ~10s and stacked redundant saves before
+        // Complete Setup.
         await saveStepDataToServer("disclaimers", {
           disclaimers: d ? [d] : [],
           footerBackground: { mode, customColor },
         });
-        await saveAsDraft();
       } catch (error) {
-        console.error("Failed to save draft when persisting footer background:", error);
+        console.error("Failed to persist footer background:", error);
       }
     },
-    [disclaimer, saveStepDataLocally, saveStepDataToServer, saveAsDraft],
+    [disclaimer, saveStepDataLocally, saveStepDataToServer],
   );
 
   // ── Persist disclaimer to client record ──
@@ -590,16 +593,18 @@ export function NewClientStep5({
         footerBackground: { mode: footerBgMode, customColor: footerBgCustomColor },
       });
       try {
+        // Persist via the dedicated /disclaimers endpoint (fast) — the exact
+        // record complete-v2 reads. Do NOT fire a full saveAsDraft() here (see
+        // persistFooterBg above).
         await saveStepDataToServer("disclaimers", {
           disclaimers: [d],
           footerBackground: { mode: footerBgMode, customColor: footerBgCustomColor },
         });
-        await saveAsDraft();
       } catch (error) {
-        console.error("Failed to save draft when persisting disclaimer:", error);
+        console.error("Failed to persist disclaimer:", error);
       }
     },
-    [saveStepDataLocally, saveStepDataToServer, saveAsDraft, footerBgMode, footerBgCustomColor],
+    [saveStepDataLocally, saveStepDataToServer, footerBgMode, footerBgCustomColor],
   );
 
   // ── Create / Update handler ──

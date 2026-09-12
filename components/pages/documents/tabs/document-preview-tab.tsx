@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { DismissibleAlert } from "@/components/ui/dismissible-alert";
 import { DocumentsCardsView } from "../views/documents-cards-view";
 import type { RetirementDocumentItem } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
 import { BenefitsCategory } from "@/types/new-client-wizard";
@@ -40,8 +39,6 @@ export function DocumentPreviewTab({
   brandColor,
   accentColor,
 }: DocumentPreviewTabProps) {
-  const [isInfoVisible, setIsInfoVisible] = useState(true);
-
   if (!selectedPlan) {
     return (
       <Card className="dark:bg-gray-800 dark:border-gray-700">
@@ -67,25 +64,19 @@ export function DocumentPreviewTab({
 
   return (
     <div className="space-y-6">
-      {isInfoVisible && (
-        <Alert className="relative mb-6 border-blue-200 bg-blue-50 pr-10 dark:border-blue-800 dark:bg-blue-950/30">
-          <AlertTitle className="text-sm font-semibold text-blue-800 dark:text-blue-300">
-            Plan Documents Overview
-          </AlertTitle>
-          {showWizardNextHint && (
-            <AlertDescription className="text-xs text-blue-700 dark:text-blue-400">
-              This is how the documents will display on the Benefits Hub. Please confirm order, titles and descriptions of document cards, you can edit them here.            </AlertDescription>
-          )}
-          <button
-            type="button"
-            onClick={() => setIsInfoVisible(false)}
-            className="absolute top-2 right-2 p-1 rounded-md text-blue-500 hover:text-blue-700 hover:bg-blue-100 dark:text-accent-blue-light dark:hover:text-white dark:hover:bg-accent-blue/20 transition-colors"
-            aria-label="Close info banner"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </Alert>
-      )}
+      <DismissibleAlert
+        alertKey="plan-documents-overview-preview"
+        className="relative mb-6 border-blue-200 bg-blue-50 pr-10 dark:border-blue-800 dark:bg-blue-950/30"
+        closeButtonClassName="text-blue-500 hover:text-blue-700 hover:bg-blue-100 dark:text-accent-blue-light dark:hover:text-white dark:hover:bg-accent-blue/20"
+      >
+        <AlertTitle className="text-sm font-semibold text-blue-800 dark:text-blue-300">
+          Plan Documents Overview
+        </AlertTitle>
+        {showWizardNextHint && (
+          <AlertDescription className="text-xs text-blue-700 dark:text-blue-400">
+            This is how the documents will display on the Benefits Hub. Please confirm order, titles and descriptions of document cards, you can edit them here.            </AlertDescription>
+        )}
+      </DismissibleAlert>
 
       {documents.length === 0 ? (
         <div className="flex items-center justify-center py-20">

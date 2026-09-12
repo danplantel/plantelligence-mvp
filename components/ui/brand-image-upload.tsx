@@ -133,6 +133,21 @@ export function BrandImageUpload({
       ? displayUrl ?? undefined
       : displayUrl ?? storedLogoUrl ?? undefined);
 
+  // Show a spinner in the preview box while the image decodes. Without it, an
+  // object-contain <img> has no intrinsic size during load and collapses to a
+  // thin vertical line inside the centred flex container.
+  //
+  // Reset SYNCHRONOUSLY during render (not in an effect) when the source
+  // changes, so the spinner + hidden image apply in the very same render that a
+  // new previewSrc first appears. An effect-based reset leaves a frame where the
+  // collapsed <img> is painted before the spinner.
+  const [isPreviewLoading, setIsPreviewLoading] = useState(Boolean(previewSrc));
+  const [lastPreviewSrc, setLastPreviewSrc] = useState(previewSrc);
+  if (previewSrc !== lastPreviewSrc) {
+    setLastPreviewSrc(previewSrc);
+    setIsPreviewLoading(Boolean(previewSrc));
+  }
+
   useEffect(() => {
   }, [pendingImageData]);
   // Sync editedDescription with slot.description when it changes externally
@@ -503,24 +518,46 @@ export function BrandImageUpload({
                   className={`relative overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 ${
                     universalModalType === "headshot"
                       ? "h-[140px] w-[140px] rounded-full"
-                      : "flex items-center justify-center w-full max-w-[300px] h-[150px] rounded-xl"
+                      : // Fixed width (capped to the available space) so the box never
+                        // collapses to a thin line while the object-contain <img> is
+                        // still decoding — a collapsed box also hides the absolutely
+                        // positioned loading spinner inside it.
+                        "flex items-center justify-center w-[300px] max-w-full h-[150px] rounded-xl"
                   }`}
                 >
                   {previewSrc ? (
-                    <img
-                      src={previewSrc}
-                      alt={currentImage.fileName}
-                      onLoad={() => onPreviewLoaded?.()}
-                      className={`max-h-full max-w-full ${
-                        universalModalType === "headshot"
-                          ? "h-full w-full object-cover rounded-full"
-                          : previewObjectFit === "cover"
-                            ? "w-full h-full object-cover"
-                            : "object-contain"
-                      }`}
-                    />
+                    <>
+                      <img
+                        src={previewSrc}
+                        alt={currentImage.fileName}
+                        ref={(el) => {
+                          // A cached image can finish before React attaches onLoad;
+                          // sync from the element so the spinner never gets stuck.
+                          if (el?.complete) setIsPreviewLoading(false);
+                        }}
+                        onLoad={() => {
+                          setIsPreviewLoading(false);
+                          onPreviewLoaded?.();
+                        }}
+                        onError={() => setIsPreviewLoading(false)}
+                        className={`max-h-full max-w-full transition-opacity duration-200 ${
+                          universalModalType === "headshot"
+                            ? "h-full w-full object-cover rounded-full"
+                            : previewObjectFit === "cover"
+                              ? "w-full h-full object-cover"
+                              : "object-contain"
+                        } ${isPreviewLoading ? "opacity-0" : "opacity-100"}`}
+                      />
+                      {isPreviewLoading && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <Loader2 className="h-6 w-6 animate-spin text-accent-blue" />
+                        </div>
+                      )}
+                    </>
                   ) : isStoredR2Key ? (
-                    <div className="h-full w-full animate-pulse bg-muted/50" aria-hidden />
+                    <div className="absolute inset-0 flex items-center justify-center animate-pulse bg-muted/50" aria-hidden>
+                      <Loader2 className="h-6 w-6 animate-spin text-accent-blue" />
+                    </div>
                   ) : null}
                 </div>
               </div>
