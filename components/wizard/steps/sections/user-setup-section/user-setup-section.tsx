@@ -348,9 +348,14 @@ export function UserSetupSection({
               placeholder="(555) 123-4567"
               required
               data-field="phone"
-              // Only show the red validation border after the user has actually
-              // touched the phone field — prevents a premature error on load.
-              destructive={errorFields.includes("phone") && !!touchedFields.phone}
+              // errorFields is cleared on mount and only populated by explicit
+              // validation, so it is safe (and consistent with the other required
+              // fields in this step) to drive the red border directly from it.
+              // The touched/errors check remains as a fallback for RHF validation.
+              destructive={
+                errorFields.includes("phone") ||
+                (!!touchedFields.phone && !!errors.phone)
+              }
             />
           )}
         />

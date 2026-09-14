@@ -53,12 +53,21 @@ export function ServicesSection({
 
   const content = (
     <div className="space-y-4">
-      <PrimaryServiceCategoriesSelect
-        selectedValues={selectedCategories}
-        onSelectionChange={handleCategoriesChange}
-        placeholder="Select service categories..."
-        maxSelections={4}
-      />
+      <div>
+        <PrimaryServiceCategoriesSelect
+          selectedValues={selectedCategories}
+          onSelectionChange={handleCategoriesChange}
+          placeholder="Select service categories..."
+          maxSelections={4}
+          dataField="services"
+          destructive={errorFields.includes("services")}
+        />
+        {errorFields.includes("services") && (
+          <p className="text-xs text-red-500 dark:text-red-400 mt-1">
+            Please select at least one service
+          </p>
+        )}
+      </div>
 
       {/* Custom input when "Other" is selected */}
       {isOtherSelected && (
@@ -75,10 +84,7 @@ export function ServicesSection({
             }}
             placeholder="Enter custom benefits..."
             maxLength={50}
-            destructive={
-              errorFields.includes("services") ||
-              errorFields.includes("customService")
-            }
+            destructive={errorFields.includes("customService")}
             className="w-full"
             data-field="customService"
           />

@@ -75,6 +75,7 @@ import {
    createRemoveHandlers,
  } from "./step-3-branding.funcs";
 import { formatUsDate } from "@/lib/date";
+import { useScrollToErrorField } from "@/hooks/use-scroll-to-error-field";
 
 const DEFAULT_WELCOME_STATEMENT = `Welcome to <Organization_Name>!
 We consider it a privilege to have been selected by <Client_Name> to represent your 401(k) Savings & Investment Plan. Whether you're just starting your employment journey or are a long-time participant, we share your company's commitment to educating you about the importance of this valuable retirement benefit.
@@ -100,6 +101,18 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
      validateCurrentStepFields,
      clearErrorFields,
    } = useOnboardingWizardStore();
+
+   // Scroll to the top-most errored required field (document order) whenever
+   // validation errors appear — mirrors new-client step 1. Order matches the
+   // rendered layout: org name → subdomain → website → logo → colors.
+   useScrollToErrorField(errorFields, [
+     "organizationName",
+     "subdomain",
+     "website",
+     "logo",
+     "primaryColor",
+     "secondaryColor",
+   ]);
 
    // Initialize form with validation
    const methods = useForm({

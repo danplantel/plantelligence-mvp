@@ -7,6 +7,7 @@ import { UserProfileSection } from "./sections/user-profile-section/user-profile
 import { TeamSizeSection } from "./sections/team-size-section/team-size-section";
 import { clientProfileSchema, teamSizeSchema } from "@/lib/wizard-validation";
 import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
+import { useScrollToErrorField } from "@/hooks/use-scroll-to-error-field";
 import { useEffect, useState } from "react";
 
 interface Step1UserProfileProps {
@@ -15,6 +16,14 @@ interface Step1UserProfileProps {
 
 export function Step1UserProfile({ errorFields = [] }: Step1UserProfileProps) {
   const { stepData, saveStepDataLocally } = useOnboardingWizardStore();
+
+  // Scroll to the top-most errored required field (document order) whenever
+  // validation errors appear — mirrors new-client step 1.
+  useScrollToErrorField(errorFields, [
+    "organizationType",
+    "teamSize",
+    "customOrganization",
+  ]);
 
   // State for Progressive Disclosure
   const [showTeamSize, setShowTeamSize] = useState(false);

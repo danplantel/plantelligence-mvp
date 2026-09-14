@@ -22,6 +22,7 @@ import { UniversalImageEditorModal } from "@/components/ui/universal-image-edito
 import { Headshot } from "@/components/ui/headshot";
 import { deleteFromR2 } from "@/lib/upload-to-r2";
 import { X, Save } from "lucide-react";
+import { useScrollToErrorField } from "@/hooks/use-scroll-to-error-field";
 
 interface Step4UserSetupProps {
   errorFields?: string[];
@@ -37,6 +38,15 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
     setErrorFields,
     clearErrorFields,
   } = useOnboardingWizardStore();
+
+  // Scroll to the top-most errored required field (document order) whenever
+  // validation errors appear — mirrors new-client step 1.
+  useScrollToErrorField(errorFields, [
+    "name",
+    "title",
+    "organizationEmail",
+    "phone",
+  ]);
 
   // Track if user is actively editing to prevent overwrites
   const [isEditing, setIsEditing] = useState(false);

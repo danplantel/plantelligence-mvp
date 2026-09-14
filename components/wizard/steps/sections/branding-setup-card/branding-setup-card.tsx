@@ -432,7 +432,7 @@ export function BrandingSetupCard({
       </div>
 
       {/* Organization Logo */}
-      <div>
+      <div data-field="logo">
         <label className="block text-sm font-medium mb-1 flex items-center gap-1">
           Organization Logo <span className="text-red-500">*</span>
           <button
