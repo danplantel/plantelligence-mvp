@@ -185,16 +185,12 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
           await saveStepData("userSetup", userSetupData, true);
         } else if (session?.user) {
           // Fallback to session data — Organization Email is intentionally left
-          // BLANK (never prefilled with the login email).
+          // BLANK (never prefilled with the login email), and the headshot is
+          // intentionally left BLANK (never prefilled with the Google profile picture).
           setValue("name", session.user.name || "");
           setValue("email", session.user.email || "");
           setValue("organizationEmail", "");
-          setValue("headshot", session.user.image || "");
-
-          // Generate default filename for headshot if it exists
-          const headshotFileName = session.user.image
-            ? `${session.user.name || "Headshot"}.jpg`
-            : "";
+          setValue("headshot", "");
 
           // Also save to store immediately
           const userSetupData = {
@@ -204,20 +200,21 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
             phone: "",
             title: "",
             designations: [],
-            headshot: session.user.image || "",
-            headshotFileName: headshotFileName,
+            headshot: "",
+            headshotFileName: "",
             primaryServiceCategories: [],
           };
           await saveStepData("userSetup", userSetupData, false);
         }
       } catch (error) {
         console.error("Error loading step data:", error);
-        // Fallback to session data — Organization Email stays blank.
+        // Fallback to session data — Organization Email stays blank and the
+        // headshot stays blank (never prefilled with the Google profile picture).
         if (session?.user) {
           setValue("name", session.user.name || "");
           setValue("email", session.user.email || "");
           setValue("organizationEmail", "");
-          setValue("headshot", session.user.image || "");
+          setValue("headshot", "");
 
           // Also save to store immediately
           const userSetupData = {
@@ -227,7 +224,7 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
             phone: "",
             title: "",
             designations: [],
-            headshot: session.user.image || "",
+            headshot: "",
             headshotFileName: "",
             primaryServiceCategories: [],
           };
