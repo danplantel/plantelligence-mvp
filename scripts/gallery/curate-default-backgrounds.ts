@@ -3,20 +3,29 @@
  *
  * The full data/gallery-metadata.json manifest is ~600 KB and every record is a
  * wide, 16:9, "Default Image Library" banner — so importing the whole manifest
- * into a client picker is both heavy and unfiltered. Instead this script picks
- * small editorial subsets and writes lightweight derived files that client
- * pickers import directly.
+ * into a client picker is heavy and unfiltered. Instead this script writes
+ * lightweight derived files (id, title, category, mode, src, altText only) that
+ * client pickers import directly.
+ *
+ * Goal: every one of the 250 library images is offered somewhere. The curated
+ * ids below only control the *order* (editorial, best-first) at the top of each
+ * gallery; the remaining eligible records are appended so nothing goes unused.
  *
  * Produced datasets:
  *
- * 1. data/gallery-default-backgrounds.json — benefit-hub / advisor backgrounds.
- *    Chosen to read well behind an advisor profile / benefit-hub header
- *    (aspirational, corporate, people/lifestyle, financial & retirement scenes).
+ * 1. data/gallery-default-backgrounds.json — the shared "Choose a Default Image"
+ *    fallback used by the benefit-hub / advisor background picks, the new-client
+ *    banner / welcome-thumbnail / hero-background pickers, the onboarding Step 3
+ *    background, and the video wizard. Now contains the ENTIRE 250-image library
+ *    (curated picks first, then every other record in manifest order).
  *
  * 2. data/gallery-homepage-backgrounds.json — company "home page of the website"
- *    backgrounds (used by the new-client Step 1 Brand Images picker). Chosen as
- *    general / corporate / workplace / community / aspirational scenes — with NO
- *    medical/clinical or tabletop benefit-prop imagery.
+ *    backgrounds (used by the new-client Step 1 Brand Images picker). Starts with
+ *    the curated general / corporate / workplace / community / aspirational scenes
+ *    and then appends every remaining homepage-appropriate record. Medical /
+ *    clinical (Group Health) and tabletop benefit-prop scenes are intentionally
+ *    excluded so the site-home picker stays on-brand (those still appear in the
+ *    default gallery and the per-category gallery).
  *
  * 3. data/gallery-benefit-category-backgrounds.json — per-benefit-category
  *    gallery for the Create Benefits wizard. Each list is derived from the
@@ -29,8 +38,8 @@
  * - Source of truth: data/gallery-metadata.json (id, title, category, src, altText)
  * - Aborts with a clear message if a curated id is missing from the manifest,
  *   its `src` does not resolve to a real file under public/gallery, or the image
- *   is not banner-appropriate. Category subsets skip (with a warning) any record
- *   that isn't banner-safe or whose file is missing.
+ *   is not banner-appropriate. Appended (non-curated) and category records skip
+ *   (with a warning) any record that isn't banner-safe or whose file is missing.
  */
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve, join } from "node:path";
@@ -64,8 +73,14 @@ interface GalleryRecord {
   visualStyles?: string[];
   composition?: string[];
   useCases?: string[];
+  environments?: string[];
 }
 
+/**
+ * Editorial ordering hints. These ids are placed first (in this order) so the
+ * strongest imagery leads each gallery; every remaining eligible record is
+ * appended afterwards so the full library is reachable.
+ */
 /** Benefit-hub / advisor profile backgrounds (editorial order). */
 const BENEFIT_CURATED_IDS = [
   "7c8bd5a07bb4", // 001 Destination Possibility
@@ -126,31 +141,16 @@ const CATEGORY_KEYS: Record<string, string> = {
   Wellness: "Wellness", // used for "Custom" / "Company / Plan Sponsor"
 };
 
-interface CuratedSet {
-  outputPath: string;
-  ids: string[];
-  label: string;
-}
-
-const SETS: CuratedSet[] = [
-  {
-    outputPath: BENEFIT_OUTPUT_PATH,
-    ids: BENEFIT_CURATED_IDS,
-    label: "benefit-hub default backgrounds",
-  },
-  {
-    outputPath: HOMEPAGE_OUTPUT_PATH,
-    ids: HOMEPAGE_CURATED_IDS,
-    label: "homepage default backgrounds",
-  },
-];
-
 if (!existsSync(MANIFEST_PATH)) {
-  console.error("[gallery:curate] data/gallery-metadata.json is missing. Run `pnpm gallery:sync` first.");
+  console.error(
+    "[gallery:curate] data/gallery-metadata.json is missing. Run `pnpm gallery:sync` first.",
+  );
   process.exit(1);
 }
 
-const manifest = JSON.parse(readFileSync(MANIFEST_PATH, "utf8")) as GalleryRecord[];
+const manifest = JSON.parse(
+  readFileSync(MANIFEST_PATH, "utf8"),
+) as GalleryRecord[];
 const byId = new Map(manifest.map((r) => [r.id, r]));
 
 const has = (value: unknown, term: string) =>
@@ -164,17 +164,26 @@ const isBannerSafe = (record: GalleryRecord) =>
 const fileExists = (record: GalleryRecord) =>
   existsSync(join(IMAGES_DIR, record.src.replace("/gallery/", "")));
 
-// Resolve + validate every curated id.
+/** Every manifest record that is safe to show in a banner picker. */
+const bannerSafe = manifest.filter(isBannerSafe);
+
+// Resolve + validate the curated (editorial) ids. A curated id that is missing,
+// has no file, or isn't banner-appropriate is a hard error so a broken manifest
+// is caught during curation rather than at runtime.
 const resolveCurated = (ids: string[]): GalleryRecord[] => {
   const curated: GalleryRecord[] = [];
   for (const id of ids) {
     const record = byId.get(id);
     if (!record) {
-      console.error(`[gallery:curate] curated id "${id}" was not found in data/gallery-metadata.json.`);
+      console.error(
+        `[gallery:curate] curated id "${id}" was not found in data/gallery-metadata.json.`,
+      );
       process.exit(1);
     }
     if (!fileExists(record)) {
-      console.error(`[gallery:curate] "${record.id}" src does not resolve to a real file: ${record.src}`);
+      console.error(
+        `[gallery:curate] "${record.id}" src does not resolve to a real file: ${record.src}`,
+      );
       process.exit(1);
     }
     if (!isBannerSafe(record)) {
@@ -190,6 +199,28 @@ const resolveCurated = (ids: string[]): GalleryRecord[] => {
   return curated;
 };
 
+/** Curated ids first (editorial order), then every remaining eligible record. */
+const withCuratedFirst = (
+  curatedIds: string[],
+  eligible: GalleryRecord[],
+): GalleryRecord[] => {
+  const ordered = resolveCurated(curatedIds);
+  const seen = new Set(ordered.map((r) => r.id));
+  for (const record of eligible) {
+    if (!fileExists(record)) {
+      console.warn(
+        `[gallery:curate] skipping "${record.id}" (${record.title}) — file missing.`,
+      );
+      continue;
+    }
+    if (!seen.has(record.id)) {
+      ordered.push(record);
+      seen.add(record.id);
+    }
+  }
+  return ordered;
+};
+
 // Emit only the fields the picker needs (keeps the client payload tiny).
 const toPayload = (records: GalleryRecord[]) =>
   records.map(({ id, title, category, mode, src, altText }) => ({
@@ -201,15 +232,43 @@ const toPayload = (records: GalleryRecord[]) =>
     altText,
   }));
 
-for (const set of SETS) {
-  const payload = toPayload(resolveCurated(set.ids));
-  writeFileSync(set.outputPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
-  console.log(
-    `[gallery:curate] wrote ${payload.length} ${set.label} to ${set.outputPath}`,
-  );
-}
+// ── 1. Default "Choose a Default Image" gallery: the ENTIRE library ─────────
+// Curated picks lead, then every remaining banner-safe record (manifest order)
+// so no library image is unreachable from the shared default picker.
+const benefitRecords = withCuratedFirst(BENEFIT_CURATED_IDS, bannerSafe);
+const benefitPayload = toPayload(benefitRecords);
+writeFileSync(
+  BENEFIT_OUTPUT_PATH,
+  `${JSON.stringify(benefitPayload, null, 2)}\n`,
+  "utf8",
+);
+console.log(
+  `[gallery:curate] wrote ${benefitPayload.length} benefit-hub default backgrounds ` +
+    `(full library) to ${BENEFIT_OUTPUT_PATH}`,
+);
 
-// ── Per-benefit-category gallery (Create Benefits wizard) ─────────────────
+// ── 2. Homepage / website-home backgrounds ──────────────────────────────────
+// Curated general/corporate picks first, then every remaining record that is not
+// medical/clinical (Group Health) or a tabletop benefit-prop scene.
+const isHomepageAppropriate = (record: GalleryRecord) =>
+  record.category !== "Group Health" &&
+  !has(record.environments, "Studio / Tabletop");
+
+const homepageRecords = withCuratedFirst(
+  HOMEPAGE_CURATED_IDS,
+  bannerSafe.filter(isHomepageAppropriate),
+);
+const homepagePayload = toPayload(homepageRecords);
+writeFileSync(
+  HOMEPAGE_OUTPUT_PATH,
+  `${JSON.stringify(homepagePayload, null, 2)}\n`,
+  "utf8",
+);
+console.log(
+  `[gallery:curate] wrote ${homepagePayload.length} homepage backgrounds to ${HOMEPAGE_OUTPUT_PATH}`,
+);
+
+// ── 3. Per-benefit-category gallery (Create Benefits wizard) ────────────────
 // Every image whose metadata `category` matches the benefit is included, so the
 // "Choose a Default Image" modal offers category-relevant banners. Records that
 // aren't banner-safe or whose file is missing are skipped (never fatal).
@@ -235,4 +294,6 @@ writeFileSync(
   `${JSON.stringify(categoryPayload, null, 2)}\n`,
   "utf8",
 );
-console.log(`[gallery:curate] wrote per-category gallery to ${CATEGORY_OUTPUT_PATH}`);
+console.log(
+  `[gallery:curate] wrote per-category gallery to ${CATEGORY_OUTPUT_PATH}`,
+);
