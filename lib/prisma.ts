@@ -35,27 +35,41 @@ import path from 'path'
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
+  databaseUrl: string | undefined
 }
 
 function createPrismaClient(): PrismaClient {
   return new PrismaClient()
 }
 
-let prisma: PrismaClient
+// Reuse a single PrismaClient across route bundles and HMR reloads. Creating a
+// fresh client (and disconnecting the previous one) on every module evaluation
+// in `next dev` causes connection churn: each route bundle ends up holding a
+// disconnected client and the next query pays the full MongoDB handshake
+// (observed as multi-second portal page loads). We still recreate the client
+// only when the DATABASE_URL actually changes (e.g. after editing `.env`).
+const currentDatabaseUrl = process.env.DATABASE_URL
 
-// Always create a fresh client in development to avoid stale connection URLs
-// that may have been baked into a cached instance during webpack compilation.
-if (process.env.NODE_ENV !== 'production') {
-  // Invalidate any previously cached client that may have the wrong URL
-  if (globalForPrisma.prisma) {
-    globalForPrisma.prisma.$disconnect().catch(() => {})
-    globalForPrisma.prisma = undefined
-  }
-  prisma = createPrismaClient()
-  globalForPrisma.prisma = prisma
-} else {
-  prisma = globalForPrisma.prisma ?? createPrismaClient()
+if (
+  globalForPrisma.prisma &&
+  globalForPrisma.databaseUrl &&
+  globalForPrisma.databaseUrl !== currentDatabaseUrl
+) {
+  globalForPrisma.prisma.$disconnect().catch(() => {})
+  globalForPrisma.prisma = undefined
+  globalForPrisma.databaseUrl = undefined
 }
+
+if (!globalForPrisma.prisma) {
+  globalForPrisma.prisma = createPrismaClient()
+  globalForPrisma.databaseUrl = currentDatabaseUrl
+}
+
+if (!globalForPrisma.databaseUrl) {
+  globalForPrisma.databaseUrl = currentDatabaseUrl
+}
+
+const prisma = globalForPrisma.prisma
 
 export { prisma }
 export default prisma

@@ -86,11 +86,18 @@ export async function GET(
     const devPublic = forPortal && isLocalDevLoopback(request);
     let ownerId: string | undefined = portalAdvisorId;
     if (!ownerId) {
-      const session = await getServerSession(authOptions);
-      if (session?.user?.id) {
-        ownerId = session.user.id;
-      } else if (!devPublic) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      // Local loopback portal previews are intentionally open in development —
+      // skip the session lookup entirely so preview page loads don't pay for
+      // NextAuth JWT decoding / DB backfills.
+      if (devPublic) {
+        // ownerId stays undefined → unscoped (development-only) lookup below.
+      } else {
+        const session = await getServerSession(authOptions);
+        if (session?.user?.id) {
+          ownerId = session.user.id;
+        } else {
+          return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
       }
     }
 
@@ -131,46 +138,50 @@ export async function GET(
     // footer renders the advisor's disclosures instead of the client's. Resolved
     // server-side so it works for both the logged-in dashboard flow (dev) and the
     // public subdomain portal (production).
-    let advisorDisclaimer = "";
-    try {
-      const advisorUser = await prisma.user.findUnique({
-        where: { id: client.userId },
-        select: { disclaimer: true },
-      });
-      advisorDisclaimer = normalizeUserDisclaimerToText(
-        (advisorUser as any)?.disclaimer,
-      );
-    } catch (err) {
-      console.error("Error fetching advisor disclaimer:", err);
-    }
-
     // Portal requests must exclude soft-archived docs (`archivedAt` set). Do not use
     // `where: { archivedAt: null }` in Prisma MongoDB: it omits rows where the field is
     // missing on the BSON document (common for older rows), so `forPortal=1` returned [] while
     // the advisor GET (no filter) showed all documents. Filter active docs in JS instead.
-    const documentsRaw = await (prisma.document.findMany as any)({
-      where: {
-        clientId: clientId,
-      },
-      select: {
-        id: true,
-        title: true,
-        fileName: true,
-        fileUrl: true,
-        storageKey: true,
-        type: true,
-        shortDescription: true,
-        language: true,
-        category: true,
-        uploadedAt: true,
-        expirationDate: true,
-        showQrCode: true,
-        archivedAt: true,
-      },
-      orderBy: {
-        uploadedAt: "desc",
-      },
-    });
+    // The advisor disclaimer and document rows are independent — run them in parallel
+    // to avoid two serial MongoDB round trips on every portal load.
+    const [advisorUser, documentsRaw] = await Promise.all([
+      prisma.user
+        .findUnique({
+          where: { id: client.userId },
+          select: { disclaimer: true },
+        })
+        .catch((err) => {
+          console.error("Error fetching advisor disclaimer:", err);
+          return null;
+        }),
+      (prisma.document.findMany as any)({
+        where: {
+          clientId: clientId,
+        },
+        select: {
+          id: true,
+          title: true,
+          fileName: true,
+          fileUrl: true,
+          storageKey: true,
+          type: true,
+          shortDescription: true,
+          language: true,
+          category: true,
+          uploadedAt: true,
+          expirationDate: true,
+          showQrCode: true,
+          archivedAt: true,
+        },
+        orderBy: {
+          uploadedAt: "desc",
+        },
+      }),
+    ]);
+
+    const advisorDisclaimer = normalizeUserDisclaimerToText(
+      (advisorUser as any)?.disclaimer,
+    );
 
     const documents = forPortal
       ? documentsRaw.filter(

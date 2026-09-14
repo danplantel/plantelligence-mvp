@@ -80,6 +80,8 @@ model User {
 
   futureContacts    FutureContact[]   @relation("UserFutureContacts")
   meetingCustomTypes MeetingCustomType[]
+
+  @@index([subdomain])
 }
 
 // Plan model

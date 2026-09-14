@@ -45,7 +45,41 @@ export async function GET(request: NextRequest) {
       }
     }
     // forPortal set but no resolvable advisor (e.g. apex/localhost preview while
-    // logged in) — fall through to the normal session flow below.
+    // logged in) — return the same lightweight public signature profile instead
+    // of falling through to the heavy full-profile flow below. The full profile
+    // includes every wizard session relation and runs getEffectiveWizardUserSetup,
+    // which adds several serial DB round trips and slows portal first paint.
+    const session = await getServerSession(authOptions);
+    const sessionUserId = session?.user?.id;
+    if (sessionUserId) {
+      const publicUser = await prisma.user.findUnique({
+        where: { id: sessionUserId },
+        select: {
+          name: true,
+          email: true,
+          organizationName: true,
+          title: true,
+          headshot: true,
+          designations: true,
+        },
+      });
+      if (publicUser) {
+        const publicProfile = {
+          name: publicUser.name,
+          email: publicUser.email,
+          organizationName: publicUser.organizationName ?? '',
+          title: publicUser.title ?? '',
+          headshot: publicUser.headshot ?? null,
+          designations: publicUser.designations ?? [],
+        };
+        return NextResponse.json({
+          ...publicProfile,
+          // Some portal components read the profile under `.user.*`.
+          user: publicProfile,
+        });
+      }
+    }
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const session = await getServerSession(authOptions);
