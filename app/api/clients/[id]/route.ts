@@ -8,6 +8,11 @@ import {
   isLocalDevLoopback,
 } from "@/lib/portal-access";
 import {
+  renameClientSlug,
+  isSlugTaken,
+  resolvePortalSlug,
+} from "@/lib/slug-registry";
+import {
   processBase64Image,
   processBase64ImageWithCrop,
   isBase64Image,
@@ -119,6 +124,29 @@ export async function GET(
       client = await prisma.client.findFirst({ where: slugWhere });
     }
 
+    // Retired (alias) slug — a slug this plan previously used. Resolve the
+    // owning plan so old QR/printed links still load, and report the canonical
+    // slug so the portal can redirect to it.
+    let isAlias = false;
+    let canonicalSlug: string | null = null;
+    if (!client) {
+      const resolved = await resolvePortalSlug(clientId);
+      if (resolved) {
+        const found = ownerId
+          ? await prisma.client.findFirst({
+              where: { id: resolved.clientId, userId: ownerId },
+            })
+          : await prisma.client.findUnique({
+              where: { id: resolved.clientId },
+            });
+        if (found) {
+          client = found;
+          isAlias = !resolved.isCurrent;
+          canonicalSlug = resolved.currentSlug;
+        }
+      }
+    }
+
     if (!client) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
@@ -127,6 +155,10 @@ export async function GET(
     // the dev-local preview is intentionally open in development).
     if (ownerId && client.userId !== ownerId) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    if (!canonicalSlug) {
+      canonicalSlug = ((client as any).slug as string) || null;
     }
 
     // After resolving by slug, use the actual MongoDB ObjectId for all subsequent
@@ -302,6 +334,10 @@ export async function GET(
     return NextResponse.json({
       success: true,
       data: dataPayload,
+      // Canonical (current) slug + whether the requested URL was a retired
+      // alias — lets the portal redirect old links to the current URL.
+      canonicalSlug,
+      isAlias,
     });
   } catch (error) {
     console.error("Error fetching client:", error);
@@ -501,9 +537,11 @@ export async function PUT(
     }
 
     // ── Portal URL → slug ────────────────────────────────────────────────
-    // The client's `slug` is the unique portal URL. When the user edits the
-    // Portal URL field, sanitize it and ensure it's not already claimed by
-    // another client (excluding this one). Falls back to the existing slug.
+    // The plan's `slug` is its portal URL. When the user edits the Portal URL,
+    // sanitize it and pick a value free across the WHOLE namespace (current
+    // slugs + retired aliases), excluding this plan. The rename is applied via
+    // the registry so the OLD slug is retained as an alias (old links keep
+    // working); the old slug stays reserved to this plan.
     let newSlug: string | null = null;
     if (portalUrl && typeof portalUrl === "string" && portalUrl.trim()) {
       const sanitized = portalUrl
@@ -514,35 +552,24 @@ export async function PUT(
         .replace(/^-+|-+$/g, "")
         .slice(0, 30);
 
-      if (sanitized) {
-        const conflict = await prisma.client.findFirst({
-          where: {
-            slug: sanitized,
-            id: { not: existingClient.id },
-          },
-          select: { id: true },
-        });
-        if (!conflict) {
-          newSlug = sanitized;
-        } else {
-          // Collision — append a numeric suffix until unique
-          let suffix = 2;
-          let candidate = `${sanitized}-${suffix}`;
-          while (suffix <= 999) {
-            const exists = await prisma.client.findFirst({
-              where: { slug: candidate, id: { not: existingClient.id } },
-              select: { id: true },
-            });
-            if (!exists) {
-              newSlug = candidate;
-              break;
-            }
-            suffix++;
-            candidate = `${sanitized}-${suffix}`;
+      if (sanitized && sanitized !== existingClient.slug) {
+        let candidate = sanitized;
+        let suffix = 2;
+        while (await isSlugTaken(candidate, existingClient.id)) {
+          candidate = `${sanitized}-${suffix}`;
+          suffix++;
+          if (suffix > 999) {
+            candidate = `${sanitized}-${Date.now().toString(36)}`;
+            break;
           }
-          if (!newSlug) {
-            newSlug = `${sanitized}-${Date.now().toString(36)}`;
-          }
+        }
+        newSlug = candidate;
+
+        try {
+          await renameClientSlug(existingClient.id, newSlug);
+        } catch (renameError) {
+          console.error("Failed to rename portal slug:", renameError);
+          newSlug = null; // leave the existing slug unchanged
         }
       }
     }

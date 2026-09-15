@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
 interface ClientData {
@@ -79,6 +79,8 @@ export function ClientPortalProvider({
 }) {
   const params = useParams();
   const clientId = params.id as string;
+  const pathname = usePathname();
+  const router = useRouter();
 
   const [clientData, setClientData] = useState<ClientData | null>(null);
   const [profile, setProfile] = useState<ClientPortalProfile | null>(null);
@@ -112,6 +114,19 @@ export function ClientPortalProvider({
           return;
         }
         setClientData(result.data);
+
+        // Old (retired) slug → redirect to the plan's canonical URL so refresh
+        // and bookmarks land on the current slug. Old QR/printed links keep
+        // working via this hop.
+        if (
+          result.isAlias &&
+          result.canonicalSlug &&
+          result.canonicalSlug !== clientId
+        ) {
+          const suffix = pathname.replace(/^\/[^/]+/, "");
+          router.replace(`/${result.canonicalSlug}${suffix}`);
+          return;
+        }
       } else {
         setError("Failed to load client data");
       }
@@ -119,7 +134,7 @@ export function ClientPortalProvider({
       console.error("Error fetching client:", err);
       setError("Failed to load client data");
     }
-  }, [clientId]);
+  }, [clientId, pathname, router]);
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -250,8 +265,8 @@ export function ClientPortalProvider({
           <div className="text-6xl">🔒</div>
           <h2 className="text-2xl font-bold text-gray-900">Page Not Found</h2>
           <p className="text-gray-600">
-            The client portal you're looking for doesn't exist or is no longer
-            available.
+            The client portal you are looking for does not exist or is no
+            longer available.
           </p>
         </div>
       </div>

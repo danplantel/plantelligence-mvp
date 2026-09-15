@@ -16,6 +16,7 @@ import {
 import { resolvePersistedDocumentCategory } from "@/lib/document-category";
 import { getOnboardingAdvisorBackgroundImage } from "@/lib/wizard-onboarding-background";
 import { generateUniquePlanSlug, ensureUniqueSlug } from "@/lib/slug";
+import { registerClientSlug } from "@/lib/slug-registry";
 
 function isR2Key(s: string | null | undefined): boolean {
   return typeof s === "string" && s.startsWith("org/");
@@ -436,6 +437,14 @@ export async function POST(request: NextRequest) {
           clientId: client.id,
           disclaimersData: disclaimersData,
         });
+
+        // Register the plan's portal slug in the global registry so it is
+        // reserved (and so a later rename can alias the old slug back to it).
+        try {
+          await registerClientSlug(client.id, planSlug);
+        } catch (slugError) {
+          console.error("Failed to register portal slug:", slugError);
+        }
 
         // Upload base64 branding to R2 and update client with keys.
         // Robustly "materializes" every brand image (logo, background/hero header,

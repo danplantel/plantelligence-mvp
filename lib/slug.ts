@@ -33,7 +33,29 @@ export function generatePlanSlug(companyName: string): string {
 }
 
 /**
- * Generate a unique slug for a plan, ensuring no collision in the database.
+ * Whether a slug is already occupied in the global namespace.
+ *
+ * Checks BOTH the current-slug column (`Client.slug`, for legacy rows that
+ * predate the registry) AND the `PortalSlug` registry — which also contains
+ * retired aliases, so a previously-used-but-retired slug still counts as taken.
+ */
+async function slugExists(slug: string): Promise<boolean> {
+  const client = await prisma.client.findFirst({
+    where: { slug },
+    select: { id: true },
+  });
+  if (client) return true;
+
+  const registered = await prisma.portalSlug.findUnique({
+    where: { slug },
+    select: { id: true },
+  });
+  return !!registered;
+}
+
+/**
+ * Generate a unique slug for a plan, ensuring no collision in the database
+ * (including retired aliases).
  *
  * If the base slug already exists, appends "-2", "-3", etc.
  *
@@ -58,26 +80,13 @@ export async function generateUniquePlanSlug(
 export async function ensureUniqueSlug(rawSlug: string): Promise<string> {
   if (!rawSlug) return "plan";
 
-  // Check if the base slug is already taken
-  const existing = await (prisma.client as any).findFirst({
-    where: { slug: rawSlug },
-    select: { id: true },
-  });
-
-  if (!existing) return rawSlug;
+  if (!(await slugExists(rawSlug))) return rawSlug;
 
   // Collision detected — append numeric suffix
   let suffix = 2;
   let candidate = `${rawSlug}-${suffix}`;
 
-  while (true) {
-    const conflict = await (prisma.client as any).findFirst({
-      where: { slug: candidate },
-      select: { id: true },
-    });
-
-    if (!conflict) return candidate;
-
+  while (await slugExists(candidate)) {
     suffix++;
     candidate = `${rawSlug}-${suffix}`;
 
@@ -85,4 +94,6 @@ export async function ensureUniqueSlug(rawSlug: string): Promise<string> {
       return `${rawSlug}-${Date.now().toString(36)}`;
     }
   }
+
+  return candidate;
 }

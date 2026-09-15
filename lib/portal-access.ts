@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { ObjectId } from "mongodb";
 import prisma from "@/lib/prisma";
+import { resolvePortalSlug } from "@/lib/slug-registry";
 
 export const PORTAL_ADVISOR_HEADER = "x-advisor-id";
 
@@ -62,6 +63,19 @@ export async function resolvePortalAdvisorId(
       select: { userId: true },
     });
     if (client?.userId) return client.userId;
+
+    // Retired (alias) slug — the plan's current slug differs, so resolve the
+    // registry to find the owning plan before giving up.
+    if (!ObjectId.isValid(candidate)) {
+      const resolved = await resolvePortalSlug(candidate);
+      if (resolved) {
+        const owner = await prisma.client.findUnique({
+          where: { id: resolved.clientId },
+          select: { userId: true },
+        });
+        if (owner?.userId) return owner.userId;
+      }
+    }
   }
 
   return undefined;

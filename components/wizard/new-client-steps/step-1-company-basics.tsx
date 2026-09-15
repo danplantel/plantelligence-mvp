@@ -898,6 +898,14 @@ export function NewClientStep1({
                     "your-plan"}
                 </span>
               </div>
+              <p className="text-[11px] text-muted-foreground dark:text-gray-400 bg-muted/50 dark:bg-gray-900/50 rounded px-2.5 py-2 leading-relaxed">
+                This is your plan&rsquo;s portal URL, and it can be changed later
+                in <span className="font-medium">Edit Plan</span>. If you change
+                it, the old URL keeps working &mdash; we automatically redirect it
+                to the new one &mdash; and the old URL stays reserved to this plan
+                so no one else can take it. Change it in Edit Plan if you ever
+                need to free an old URL (e.g. it was never shared).
+              </p>
               <div className="relative">
                 <Input
                   id="portalUrl"

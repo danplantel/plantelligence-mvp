@@ -997,3 +997,30 @@ model Headshot {
   @@index([userId])
   @@index([createdAt])
 }
+
+// Global portal-slug registry.
+//
+// Holds a plan's CURRENT slug and every historical (retired) slug so old
+// QR/printed/shared links keep resolving. `slug` is globally @unique across
+// BOTH current and retired rows — that single constraint is what makes a
+// retired slug permanently reserved (another advisor cannot claim it), which
+// prevents old links from silently pointing at a different company.
+//
+// Renaming demotes the old row (isCurrent = false → it becomes an "alias") and
+// inserts/promotes the new one. Aliases are never mutated or auto-deleted; a
+// slug leaves the namespace only via an explicit release (row deleted).
+model PortalSlug {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  slug       String    @unique
+  clientId   String    @db.ObjectId
+  isCurrent  Boolean   @default(true)
+  // When the row was demoted to an alias (null while it is the current slug).
+  retiredAt  DateTime?
+  // The slug that replaced this one (traceability; null when current).
+  replacedBy String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([clientId])
+  @@index([clientId, isCurrent])
+}
