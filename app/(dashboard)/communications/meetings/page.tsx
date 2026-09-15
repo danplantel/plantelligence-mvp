@@ -63,7 +63,12 @@ import {
   LayoutGrid,
 } from "lucide-react";
 import { format, addDays, startOfDay, isBefore } from "date-fns";
-import { formatUsDate } from "@/lib/date";
+import {
+  formatScheduleDayKey,
+  scheduleDayKeyToDate,
+  toScheduleDayKey,
+  todayScheduleDayKey,
+} from "@/lib/date";
 import { toast } from "sonner";
 import { AddressSearch } from "@/components/ui/address-search";
 import {
@@ -734,7 +739,9 @@ export default function MeetingsPage() {
     setSubtitle(c?.companyName ?? "");
   }, [clients, selectedPlan, setSubtitle]);
 
-  const fetchMeetings = useCallback(async () => { refreshMeetings(); }, [refreshMeetings]);
+  // Awaited so callers can rely on fresh data landing before the modal closes —
+  // a date change can move a meeting to a different calendar day.
+  const fetchMeetings = useCallback(async () => { await refreshMeetings(); }, [refreshMeetings]);
   const handlePlanClientChange = (clientId: string) => {
     const c = clients.find((x) => x.id === clientId);
     setFormData((prev) => ({ ...prev, clientId, client: c?.companyName || "" }));
@@ -797,9 +804,10 @@ export default function MeetingsPage() {
   }, [errors.time]);
   const getOccupiedTimes = useCallback((date: string, address: string, format: string) => {
     if (!date) return [];
-    const normalizeDate = (dateStr: string) => parseLocalDate(dateStr).toISOString().split("T")[0];
-    const formDateNormalized = normalizeDate(date);
-    return meetings.filter((meeting) => { const mdn = normalizeDate(meeting.date); const dm = mdn === formDateNormalized; if (format === "In-Person" && meeting.format === "In-Person" && address) return dm && meeting.address === address; return dm; }).map((m) => m.time);
+    // Compare scheduling days, never instants: the viewer's timezone must not
+    // decide which day a meeting occupies.
+    const formDateNormalized = toScheduleDayKey(date);
+    return meetings.filter((meeting) => { const mdn = toScheduleDayKey(meeting.date); const dm = mdn === formDateNormalized; if (format === "In-Person" && meeting.format === "In-Person" && address) return dm && meeting.address === address; return dm; }).map((m) => m.time);
   }, [meetings]);
   const isTimeOccupied = useCallback((hour: string, minute: string, ampm: string) => {
     if (!formData.date) return false;
@@ -809,11 +817,10 @@ export default function MeetingsPage() {
   const checkTimeConflict = useCallback((date: string, time: string, address: string, format: string, excludeMeetingId?: string) => {
     if (!date || !time) { setTimeConflictWarning(""); return false; }
     if (meetings.length === 0) { setTimeConflictWarning(""); return false; }
-    const normalizeDate = (dateStr: string) => new Date(dateStr).toISOString().split("T")[0];
-    const fdn = normalizeDate(date);
+    const fdn = toScheduleDayKey(date);
     const conflict = meetings.filter((m) => {
       if (excludeMeetingId && m.id === excludeMeetingId) return false;
-      const mdn = normalizeDate(m.date);
+      const mdn = toScheduleDayKey(m.date);
       const dm = mdn === fdn;
       const tm = m.time === time;
       let ic = dm && tm;
@@ -1047,7 +1054,9 @@ export default function MeetingsPage() {
       meetingType: isCustomType ? "Custom" : (meeting.meetingType || ""),
       customMeetingType: isCustomType ? (meeting.meetingType || "") : "",
       client: meeting.client || "", clientId: resolveClientIdForMeeting(meeting),
-      date: meeting.date || "", time: meeting.time || "",
+      // Normalize to a scheduling day key so the Date field, the picker and the
+      // submitted payload all agree for any viewer.
+      date: toScheduleDayKey(meeting.date), time: meeting.time || "",
       hour: (h24 === 0 ? 12 : h24 > 12 ? h24 - 12 : h24).toString(), minute: minute || "00", ampm: h24 >= 12 ? "PM" : "AM",
       endTime: end.endTime, endHour: end.endHour, endMinute: end.endMinute, endAmpm: end.endAmpm,
       timezone: meeting.timezone || "", duration: end.duration || meeting.duration || "", customDuration: "",
@@ -1071,7 +1080,7 @@ export default function MeetingsPage() {
       meetingType: isCustomType ? "Custom" : (meeting.meetingType || ""),
       customMeetingType: isCustomType ? (meeting.meetingType || "") : "",
       client: meeting.client || "", clientId: resolveClientIdForMeeting(meeting),
-      date: meeting.date || "", time: meeting.time || "",
+      date: toScheduleDayKey(meeting.date), time: meeting.time || "",
       hour: (h24 === 0 ? 12 : h24 > 12 ? h24 - 12 : h24).toString(), minute: minute || "00", ampm: h24 >= 12 ? "PM" : "AM",
       endTime: end.endTime, endHour: end.endHour, endMinute: end.endMinute, endAmpm: end.endAmpm,
       timezone: meeting.timezone || "", duration: end.duration || meeting.duration || "", customDuration: "",
@@ -1153,8 +1162,10 @@ export default function MeetingsPage() {
     setSelectedDay(null);
     setDayDrawerOpen(false);
   }, [selectedPlan]);
-  // Earliest selectable meeting date: tomorrow (disable today and all past days).
-  const minSelectableDate = addDays(startOfDay(new Date()), 1);
+  // Earliest selectable meeting date: tomorrow in the app's US scheduling
+  // timezone (not the viewer's), so a meeting that is still upcoming in the US
+  // is never blocked just because the viewer's clock already rolled over.
+  const minSelectableDate = addDays(scheduleDayKeyToDate(todayScheduleDayKey()), 1);
   // Show all meetings (upcoming + past + drafts) — the Upcoming/Past toggle was removed.
   const currentMeetings = meetings;
   const filteredMeetings = currentMeetings.filter((m) => (statusFilter === "all" || m.status === statusFilter) && (clientFilter === "all" || m.client.toLowerCase() === clientFilter.toLowerCase()) && (benefitsCategoryFilter === "all" || m.benefitsCategory === benefitsCategoryFilter));
@@ -1187,7 +1198,9 @@ export default function MeetingsPage() {
       .map((m) => ({
         id: m.id,
         title: m.meeting,
-        date: m.date,
+        // Calendar consumes day keys (`YYYY-MM-DD`), so the grid resolves the
+        // same day for every viewer.
+        date: toScheduleDayKey(m.date),
         time: m.time,
         status: m.status,
       }));
@@ -1209,9 +1222,7 @@ export default function MeetingsPage() {
   // Meetings for the currently selected day, shown in the day drawer.
   const dayMeetings = useMemo(() => {
     if (!selectedDay) return [];
-    return planMeetings.filter(
-      (m) => format(parseLocalDate(m.date), "yyyy-MM-dd") === selectedDay,
-    );
+    return planMeetings.filter((m) => toScheduleDayKey(m.date) === selectedDay);
   }, [planMeetings, selectedDay]);
 
   return (
@@ -1270,7 +1281,7 @@ export default function MeetingsPage() {
                         <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">Get started by scheduling your first meeting session for a client.</p>
                         <Button onClick={() => { resetMeetingForm(); setMeetingModalOpen(true); }} className="gap-2 mt-5"><Plus className="h-4 w-4" />Add Meeting</Button>
                       </div>
-                    ) : sortedMeetings.map((meeting) => { const FormatIcon = formatIcons[meeting.format as keyof typeof formatIcons]; const meetingDate = formatUsDate(parseLocalDate(meeting.date)); const sc: Record<string, string> = { Upcoming: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200 border-blue-200 dark:border-blue-700/50", Past: "bg-gray-100 dark:bg-gray-800/50 text-gray-700 dark:text-gray-100 border-gray-200 dark:border-gray-700/50", Draft: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-200 border-amber-200 dark:border-amber-700/50" }; const ds = STATUS_LABEL_MAP[meeting.status] || meeting.status; return (
+                    ) : sortedMeetings.map((meeting) => { const FormatIcon = formatIcons[meeting.format as keyof typeof formatIcons]; const meetingDate = formatScheduleDayKey(toScheduleDayKey(meeting.date)); const sc: Record<string, string> = { Upcoming: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200 border-blue-200 dark:border-blue-700/50", Past: "bg-gray-100 dark:bg-gray-800/50 text-gray-700 dark:text-gray-100 border-gray-200 dark:border-gray-700/50", Draft: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-200 border-amber-200 dark:border-amber-700/50" }; const ds = STATUS_LABEL_MAP[meeting.status] || meeting.status; return (
                       <div key={meeting.id} className={`p-4 dark:bg-gray-800 border border-border/60 rounded-xl bg-card flex flex-col h-full relative ${deletingMeetingId === meeting.id ? "opacity-50 pointer-events-none" : ""}`}>
                         {deletingMeetingId === meeting.id && <div className="absolute inset-0 flex items-center justify-center bg-background/40 rounded-xl z-10"><div className="flex items-center gap-2 px-3 py-2 bg-card border border-border/60 rounded-lg shadow-sm"><RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" /><span className="text-xs text-muted-foreground font-medium">Deleting...</span></div></div>}
                         <div className="flex items-start justify-between mb-3 pl-1">

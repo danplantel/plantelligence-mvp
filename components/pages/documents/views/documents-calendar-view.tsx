@@ -30,7 +30,13 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
-import { formatUsDate } from "@/lib/date";
+import {
+  daysBetweenScheduleDays,
+  formatScheduleDayKey,
+  scheduleDayKeyToDate,
+  toScheduleDayKey,
+  todayScheduleDayKey,
+} from "@/lib/date";
 
 interface DocumentsCalendarViewProps {
   /** Documents for the selected plan (used for review dates). */
@@ -56,10 +62,11 @@ const parseLocalDate = (value: string): Date => {
 const formatDayKey = (date: Date): string => format(date, "yyyy-MM-dd");
 
 function getStatus(doc: Document) {
-  const date = doc.expirationDate ? parseLocalDate(doc.expirationDate) : null;
-  if (!date) return null;
-  const today = startOfDay(new Date());
-  if (isBefore(date, today)) return { label: "Past review", tone: "red" } as const;
+  const dayKey = doc.expirationDate ? toScheduleDayKey(doc.expirationDate) : "";
+  if (!dayKey) return null;
+  // Scheduling days, not instants: "past review" must not depend on the viewer.
+  const daysUntil = daysBetweenScheduleDays(todayScheduleDayKey(), dayKey);
+  if (daysUntil < 0) return { label: "Past review", tone: "red" } as const;
   return { label: "Upcoming", tone: "teal" } as const;
 }
 
@@ -68,7 +75,11 @@ export function DocumentsCalendarView({
   onPreview,
   onUpdateReviewDate,
 }: DocumentsCalendarViewProps) {
-  const today = useMemo(() => startOfDay(new Date()), []);
+  // The app's US scheduling day, so the today ring stays put for any viewer.
+  const today = useMemo(
+    () => startOfDay(scheduleDayKeyToDate(todayScheduleDayKey())),
+    [],
+  );
 
   // 15 month anchors starting at the current month (current + 14 months).
   const monthAnchors = useMemo(
@@ -83,9 +94,12 @@ export function DocumentsCalendarView({
     const map = new Map<string, Document[]>();
     for (const doc of documents) {
       if (!doc.expirationDate) continue;
-      const date = parseLocalDate(doc.expirationDate);
+      // Plot by scheduling day so the same document lands on the same cell for
+      // every viewer, then use local midnights only for grid-bound comparisons.
+      const key = toScheduleDayKey(doc.expirationDate);
+      if (!key) continue;
+      const date = scheduleDayKeyToDate(key);
       if (date < windowStart || date > windowEnd) continue;
-      const key = formatDayKey(date);
       const list = map.get(key);
       if (list) list.push(doc);
       else map.set(key, [doc]);
@@ -114,7 +128,12 @@ export function DocumentsCalendarView({
 
   const startEdit = (doc: Document) => {
     setDateDocId(doc.id);
-    setTempDate(doc.expirationDate ? parseLocalDate(doc.expirationDate) : undefined);
+    // Prefill the scheduling day, so the picker's selected cell matches the date shown.
+    setTempDate(
+      doc.expirationDate
+        ? scheduleDayKeyToDate(toScheduleDayKey(doc.expirationDate))
+        : undefined,
+    );
   };
 
   const cancelEdit = () => {
@@ -310,7 +329,7 @@ export function DocumentsCalendarView({
                           <p className="mt-1.5 text-[11px] text-muted-foreground">
                             Review date:{" "}
                             <span className="font-medium text-foreground">
-                              {doc.expirationDate ? formatUsDate(doc.expirationDate) : "Not set"}
+                              {doc.expirationDate ? formatScheduleDayKey(toScheduleDayKey(doc.expirationDate)) : "Not set"}
                             </span>
                           </p>
                         </div>

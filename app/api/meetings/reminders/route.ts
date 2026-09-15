@@ -13,9 +13,9 @@ import {
   dateKeyToUtcDate,
   isDateKey,
   resolveMeetingReminderStatus,
+  toMeetingDateKey,
   todayDateKey,
 } from "@/lib/notifications/meeting-reminders";
-import { isTimeZone, localDateKey } from "@/lib/notifications/date-keys";
 
 /**
  * Upcoming meeting reminders for the header Notifications menu.
@@ -23,9 +23,14 @@ import { isTimeZone, localDateKey } from "@/lib/notifications/date-keys";
  * Mirrors `app/api/documents/expiring/route.ts`: user-scoped, capped, and
  * limited to the exact day-of / 2-day / 7-day marks.
  *
- * The client passes its local calendar day as `?today=yyyy-MM-dd` and its IANA
- * zone as `?tz=`, so the tiers match the day the meetings dashboard shows (that
- * page reads dates in browser-local time, not UTC).
+ * Meeting dates are date-only values, so every tier and label is resolved from
+ * the stored date's calendar day (see `toMeetingDateKey`). The viewer's
+ * timezone is deliberately not consulted: this is a US-based scheduling app and
+ * reminders must fire on the day the meeting is scheduled for, matching the
+ * meetings calendar, wherever the viewer happens to be.
+ *
+ * The client still passes `?today=yyyy-MM-dd`; it is used only as a fallback
+ * when the request arrives without a usable day key.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -40,8 +45,6 @@ export async function GET(request: NextRequest) {
       ? (requestedToday as string)
       : todayDateKey();
 
-    const requestedTimeZone = searchParams.get("tz");
-    const timeZone = isTimeZone(requestedTimeZone) ? requestedTimeZone : null;
 
     // Pad the DB window by a day on each side so rows shifted by a timezone
     // offset are still fetched; the exact day keys are filtered below.
@@ -72,7 +75,7 @@ export async function GET(request: NextRequest) {
 
     const reminders = meetings
       .map((meeting) => {
-        const dateKey = localDateKey(meeting.date, timeZone);
+        const dateKey = toMeetingDateKey(meeting.date);
         if (!dateKey) return null;
 
         const daysUntil = daysBetweenDateKeys(today, dateKey);

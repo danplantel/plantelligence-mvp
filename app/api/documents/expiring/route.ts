@@ -14,8 +14,7 @@ import {
   dateKeyToUtcDate,
   daysBetweenDateKeys,
   isDateKey,
-  isTimeZone,
-  localDateKey,
+  toDateKey,
   todayDateKey,
 } from "@/lib/notifications/date-keys";
 
@@ -25,9 +24,13 @@ import {
  * Mirrors `app/api/meetings/reminders/route.ts`: user-scoped, soft-archived
  * documents excluded, and limited to the exact day-of / 2-day / 7-day marks.
  *
- * The client passes its local calendar day as `?today=yyyy-MM-dd` and its IANA
- * zone as `?tz=`, so the tiers match the day the documents dashboard shows
- * (that page compares browser-local days, not UTC days).
+ * Review dates are date-only values, so every tier is resolved from the stored
+ * date's calendar day (see `toDateKey`). The viewer's timezone is deliberately
+ * not consulted: this is a US-based app and a reminder must fire on the day the
+ * document is due, matching the documents dashboard, wherever the viewer is.
+ *
+ * The client still passes `?today=yyyy-MM-dd`; it is used only as a fallback
+ * when the request arrives without a usable day key.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -42,8 +45,6 @@ export async function GET(request: NextRequest) {
       ? (requestedToday as string)
       : todayDateKey();
 
-    const requestedTimeZone = searchParams.get("tz");
-    const timeZone = isTimeZone(requestedTimeZone) ? requestedTimeZone : null;
 
     // Pad the DB window by a day on each side so rows shifted by a timezone
     // offset are still fetched; the exact day keys are filtered below.
@@ -87,7 +88,7 @@ export async function GET(request: NextRequest) {
     const expiringDocuments = documents
       .filter((document) => document.archivedAt == null)
       .map((document) => {
-        const dateKey = localDateKey(document.expirationDate, timeZone);
+        const dateKey = toDateKey(document.expirationDate);
         if (!dateKey) return null;
 
         const daysUntilExpiration = daysBetweenDateKeys(today, dateKey);

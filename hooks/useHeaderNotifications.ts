@@ -61,16 +61,9 @@ export function useHeaderNotifications(): HeaderNotificationsResult {
     }
 
     const today = todayDateKey();
-    // Send the viewer's IANA zone too: the dashboard pages read these dates in
-    // browser-local time, so the server must resolve the same calendar day to
-    // keep the reminder tiers in agreement with the page-level alerts.
-    const timeZone =
-      typeof Intl !== "undefined"
-        ? Intl.DateTimeFormat().resolvedOptions().timeZone
-        : "";
-    const params = new URLSearchParams({ today });
-    if (timeZone) params.set("tz", timeZone);
-    const query = params.toString();
+    // A day key only: both reminder types resolve the calendar day from the
+    // stored date-only value, so the viewer's timezone is never sent or used.
+    const query = new URLSearchParams({ today }).toString();
 
     const [meetingsResult, documentsResult] = await Promise.allSettled([
       fetch(`/api/meetings/reminders?${query}`),

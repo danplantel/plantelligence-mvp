@@ -89,6 +89,35 @@ export async function PUT(
       }
     }
 
+    // `date` reaches us in two shapes: a full ISO timestamp (the field was left
+    // untouched, so the value came back from the API) or a bare `yyyy-MM-dd` key
+    // (the date picker changed it). Prisma requires a DateTime and rejects the
+    // bare key with "premature end of input. Expected ISO-8601 DateTime", which
+    // surfaced as a 500 on every date change. Normalize it here, mirroring the
+    // POST route. A bare key is parsed as UTC midnight, matching how POST stores it.
+    let nextDate: Date | undefined;
+    if (date !== undefined) {
+      const parsedDate =
+        date instanceof Date ? date : new Date(String(date).trim());
+      if (Number.isNaN(parsedDate.getTime())) {
+        return NextResponse.json({ error: "Invalid date" }, { status: 400 });
+      }
+      nextDate = parsedDate;
+    }
+
+    // Guard the Int column the same way: an empty value clears it, a non-numeric
+    // value is rejected rather than passed through as NaN.
+    const parsedMaxAttendees =
+      maxAttendees === null || maxAttendees === undefined || maxAttendees === ""
+        ? null
+        : Number.parseInt(String(maxAttendees), 10);
+    if (parsedMaxAttendees !== null && Number.isNaN(parsedMaxAttendees)) {
+      return NextResponse.json(
+        { error: "Invalid maxAttendees" },
+        { status: 400 },
+      );
+    }
+
     // Update meeting with all provided data
     const updatedMeeting = await prisma.meeting.update({
       where: { id },
@@ -98,14 +127,14 @@ export async function PUT(
         meetingType,
         client,
         clientId: nextClientId ?? null,
-        date,
+        date: nextDate,
         time,
         timezone,
         duration,
         format,
         platform,
         meetingLink,
-        maxAttendees: maxAttendees ? parseInt(maxAttendees) : null,
+        maxAttendees: parsedMaxAttendees,
         description,
         address,
         city,

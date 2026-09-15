@@ -55,7 +55,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { formatUsDate } from "@/lib/date";
+import {
+  daysBetweenScheduleDays,
+  formatScheduleDayKey,
+  toScheduleDayKey,
+  todayScheduleDayKey,
+} from "@/lib/date";
 
 const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -713,11 +718,14 @@ export default function DocumentsPage() {
 
   const getExpirationStatus = (doc: Document) => {
     if (!doc.expirationDate) return null;
-    const expirationDate = new Date(doc.expirationDate);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    expirationDate.setHours(0, 0, 0, 0);
-    const daysUntilExpiration = Math.ceil((expirationDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    // Day-key math against the app's US scheduling day, so a review date and its
+    // countdown never shift with the viewer's timezone.
+    const expirationKey = toScheduleDayKey(doc.expirationDate);
+    if (!expirationKey) return null;
+    const daysUntilExpiration = daysBetweenScheduleDays(
+      todayScheduleDayKey(),
+      expirationKey,
+    );
     if (daysUntilExpiration < 0) return { status: "expired", days: Math.abs(daysUntilExpiration) };
     if (daysUntilExpiration <= 30) return { status: "expiring_soon", days: daysUntilExpiration };
     return null;
@@ -1197,7 +1205,7 @@ export default function DocumentsPage() {
                                     <td className="px-3 py-3">
                                       <Badge className="text-[10px] h-5 px-1.5 bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-100 border-transparent">{doc.language}</Badge>
                                     </td>
-                                    <td className="px-3 py-3 text-xs text-gray-600 dark:!text-gray-200 whitespace-nowrap">{expiration ? formatUsDate(expiration) : "â€”"}</td>
+                                    <td className="px-3 py-3 text-xs text-gray-600 dark:!text-gray-200 whitespace-nowrap">{expiration ? formatScheduleDayKey(toScheduleDayKey(expiration)) : "â€”"}</td>
                                     <td className="px-3 py-3">
                                       <div className="flex items-center gap-0.5">
                                         <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" title="View" onClick={(e) => { e.stopPropagation(); handlePreviewFromTable(docId, doc.title); }}>
@@ -1296,7 +1304,7 @@ export default function DocumentsPage() {
                                             {expiration ? (
                                               <span className="text-[10px] text-gray-500 dark:text-gray-400 ml-auto flex items-center gap-1">
                                                 <span className="font-medium text-gray-400 dark:text-gray-500">Review Date:</span>
-                                                {formatUsDate(expiration)}
+                                                {formatScheduleDayKey(toScheduleDayKey(expiration))}
                                               </span>
                                             ) : (
                                               <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-auto">No review date</span>
