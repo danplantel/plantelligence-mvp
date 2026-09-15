@@ -16,9 +16,13 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
   useHeaderNotifications,
-  type ExpiringDocument,
   type MeetingReminder,
 } from "@/hooks/useHeaderNotifications";
+import {
+  DOCUMENT_EXPIRATION_LABEL,
+  formatDocumentExpirationWhen,
+  type ExpiringDocument,
+} from "@/lib/notifications/document-expirations";
 import {
   MEETING_REMINDER_LABEL,
   formatMeetingReminderWhen,
@@ -98,10 +102,15 @@ export function NotificationsMenu() {
   };
 
   const handleDocumentClick = (document: ExpiringDocument) => {
-    const searchParams = new URLSearchParams({
-      company: document.client.companyName,
-    });
-    router.push(`/new/documents?${searchParams.toString()}`);
+    // Same shape as the meeting rows: plan-scoped first, company name as the
+    // human-readable fallback for documents whose client row was removed.
+    const params = new URLSearchParams();
+    if (document.client.id) params.set("planId", document.client.id);
+    if (document.client.companyName) {
+      params.set("company", document.client.companyName);
+    }
+    const query = params.toString();
+    router.push(query ? `/documents?${query}` : "/documents");
   };
 
   return (
@@ -265,18 +274,29 @@ export function NotificationsMenu() {
                           <p className="text-xs text-muted-foreground truncate">
                             {document.client.companyName}
                           </p>
-                          <div
-                            className={cn(
-                              TIER_PILL_CLASS,
-                              tier.pillClassName,
-                            )}
-                          >
-                            {document.status === "expiring_today"
-                              ? "Expires today"
-                              : `Expires in ${document.daysUntilExpiration} day${
-                                  document.daysUntilExpiration !== 1 ? "s" : ""
-                                }`}
+                          <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                            <div
+                              className={cn(
+                                TIER_PILL_CLASS,
+                                tier.pillClassName,
+                              )}
+                            >
+                              {DOCUMENT_EXPIRATION_LABEL[document.status]}
+                            </div>
+                            <span className="text-xs text-muted-foreground truncate">
+                              {formatDocumentExpirationWhen(
+                                document.dateKey,
+                                document.status,
+                              )}
+                            </span>
                           </div>
+                          {(document.category || document.type) && (
+                            <div className="mt-1 text-[10px] text-muted-foreground/70 truncate">
+                              {[document.category, document.type]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </DropdownMenuItem>
@@ -303,7 +323,7 @@ export function NotificationsMenu() {
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="cursor-pointer"
-              onClick={() => router.push("/new/documents")}
+              onClick={() => router.push("/documents")}
             >
               <span className="text-sm">View all documents</span>
             </DropdownMenuItem>

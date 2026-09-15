@@ -5,6 +5,9 @@ import {
   todayDateKey,
   type MeetingReminderStatus,
 } from "@/lib/notifications/meeting-reminders";
+import type { ExpiringDocument } from "@/lib/notifications/document-expirations";
+
+export type { ExpiringDocument };
 
 /** A meeting reminder returned by `GET /api/meetings/reminders`. */
 export interface MeetingReminder {
@@ -22,19 +25,6 @@ export interface MeetingReminder {
   status: string;
   daysUntil: number;
   reminderStatus: MeetingReminderStatus;
-}
-
-/** A document expiration returned by `GET /api/documents/expiring`. */
-export interface ExpiringDocument {
-  id: string;
-  title: string;
-  client: {
-    id: string;
-    companyName: string;
-  };
-  expirationDate: string;
-  daysUntilExpiration: number;
-  status: "expiring_week" | "expiring_2days" | "expiring_today";
 }
 
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
@@ -71,10 +61,20 @@ export function useHeaderNotifications(): HeaderNotificationsResult {
     }
 
     const today = todayDateKey();
+    // Send the viewer's IANA zone too: the dashboard pages read these dates in
+    // browser-local time, so the server must resolve the same calendar day to
+    // keep the reminder tiers in agreement with the page-level alerts.
+    const timeZone =
+      typeof Intl !== "undefined"
+        ? Intl.DateTimeFormat().resolvedOptions().timeZone
+        : "";
+    const params = new URLSearchParams({ today });
+    if (timeZone) params.set("tz", timeZone);
+    const query = params.toString();
 
     const [meetingsResult, documentsResult] = await Promise.allSettled([
-      fetch(`/api/meetings/reminders?today=${today}`),
-      fetch("/api/documents/expiring"),
+      fetch(`/api/meetings/reminders?${query}`),
+      fetch(`/api/documents/expiring?${query}`),
     ]);
 
     if (!isMountedRef.current) return;

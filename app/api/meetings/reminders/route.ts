@@ -13,9 +13,9 @@ import {
   dateKeyToUtcDate,
   isDateKey,
   resolveMeetingReminderStatus,
-  toMeetingDateKey,
   todayDateKey,
 } from "@/lib/notifications/meeting-reminders";
+import { isTimeZone, localDateKey } from "@/lib/notifications/date-keys";
 
 /**
  * Upcoming meeting reminders for the header Notifications menu.
@@ -23,8 +23,9 @@ import {
  * Mirrors `app/api/documents/expiring/route.ts`: user-scoped, capped, and
  * limited to the exact day-of / 2-day / 7-day marks.
  *
- * The client passes its local calendar day as `?today=yyyy-MM-dd` so tiers
- * follow the viewer's day rather than the server's (UTC) day when deployed.
+ * The client passes its local calendar day as `?today=yyyy-MM-dd` and its IANA
+ * zone as `?tz=`, so the tiers match the day the meetings dashboard shows (that
+ * page reads dates in browser-local time, not UTC).
  */
 export async function GET(request: NextRequest) {
   try {
@@ -38,6 +39,9 @@ export async function GET(request: NextRequest) {
     const today = isDateKey(requestedToday)
       ? (requestedToday as string)
       : todayDateKey();
+
+    const requestedTimeZone = searchParams.get("tz");
+    const timeZone = isTimeZone(requestedTimeZone) ? requestedTimeZone : null;
 
     // Pad the DB window by a day on each side so rows shifted by a timezone
     // offset are still fetched; the exact day keys are filtered below.
@@ -68,7 +72,7 @@ export async function GET(request: NextRequest) {
 
     const reminders = meetings
       .map((meeting) => {
-        const dateKey = toMeetingDateKey(meeting.date);
+        const dateKey = localDateKey(meeting.date, timeZone);
         if (!dateKey) return null;
 
         const daysUntil = daysBetweenDateKeys(today, dateKey);
