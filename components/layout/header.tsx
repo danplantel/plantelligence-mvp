@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { DocumentExpirationNotifications } from "./document-expiration-notifications";
+import { NotificationsMenu } from "./notifications-menu";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { useEffect, useState, type ReactNode } from "react";
 import { useTheme } from "next-themes";
@@ -196,7 +196,7 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
             editorOpen && portalHasContent ? "flex-none" : "flex-[1]",
           )}
         >
-          <DocumentExpirationNotifications />
+          <NotificationsMenu />
           {/* Collapse the user menu to just the avatar while the Editing Panel is
               open so its name can never overlap the Light/Dark toggle. */}
           <div className="min-w-0">
