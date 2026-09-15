@@ -270,6 +270,17 @@ export function EditPlanPreviewSection({
   const [isEditorAnimating, setIsEditorAnimating] = useState(false);
   const editorIsOpen = isEditorOpen || isEditorAnimating;
 
+  // Auto-open the editing panel when the Preview tab mounts so the advisor lands
+  // straight in the editor — matching the Create Plan / Create Benefits Step 2
+  // behaviour. The panel renders off-screen until `isAnimating` flips, so both
+  // setters are needed. Empty deps keep the cleanup for unmount only (a cleanup
+  // tied to a re-render would clear the animation timer before it fires).
+  useEffect(() => {
+    setIsEditorOpen(true);
+    const timer = setTimeout(() => setIsEditorAnimating(true), 10);
+    return () => clearTimeout(timer);
+  }, []);
+
   // ── Sidebar widening (matches Step 2's approach to push content right) ──
   const originalSidebarWidthRef = useRef<string | null>(null);
 

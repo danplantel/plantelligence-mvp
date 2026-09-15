@@ -149,7 +149,6 @@ export function BenefitsStep2() {
             step1Data?.typographyTheme,
         );
     }, [step1Data?.typographyTheme]);
-    const [editorInitialized, setEditorInitialized] = useState(false);
     const barRef = useRef<HTMLDivElement>(null);
     const [barHeight, setBarHeight] = useState(52);
 
@@ -163,17 +162,22 @@ export function BenefitsStep2() {
     // Refs for the scrollable preview area and its container
     const scrollableRef = useRef<HTMLDivElement>(null);
 
-    // Initialize editor as open on mount with default section
+    // Auto-open the editing panel when Step 2 mounts — this is the step the
+    // advisor actually edits on, so arriving here should show the panel already
+    // open (matching the Create Plan wizard's Step 2).
+    //
+    // NOTE: this must not depend on state it also mutates. The previous version
+    // guarded on `editorInitialized` and listed `editorState` as a dependency, so
+    // setting the flag re-rendered the component, React ran the cleanup for the
+    // re-run and cleared the timer that was meant to open the panel — and because
+    // the wrapper renders off-screen until `isAnimating` is true, the panel never
+    // appeared at all. An empty dependency list keeps the cleanup for unmount only.
     useEffect(() => {
-        if (!editorInitialized) {
-            setEditorInitialized(true);
-            const timer = setTimeout(() => {
-                editorState.setIsEditorOpen(true);
-                setTimeout(() => editorState.setIsEditorAnimating(true), 10);
-            }, 300);
-            return () => clearTimeout(timer);
-        }
-    }, [editorInitialized, editorState]);
+        editorState.setIsEditorOpen(true);
+        const timer = setTimeout(() => editorState.setIsEditorAnimating(true), 10);
+        return () => clearTimeout(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Close editor immediately (no animation) when leaving Step 2
     const prevStepRef = useRef(currentStep);
