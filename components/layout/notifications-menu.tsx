@@ -100,9 +100,17 @@ export function NotificationsMenu() {
   const totalCount = meetings.length + documents.length;
 
   const handleMeetingClick = (reminder: MeetingReminder) => {
+    // Plan id FIRST, and deliberately on its own. The meetings page resolves a
+    // `planId` only when no `client` name is present; if both are supplied it
+    // takes the name branch and matches on the denormalized company name, which
+    // can differ from Client.companyName and leave no plan selected. The name is
+    // sent only as a fallback for legacy meetings that have no clientId.
     const params = new URLSearchParams();
-    if (reminder.clientId) params.set("planId", reminder.clientId);
-    if (reminder.client) params.set("client", reminder.client);
+    if (reminder.clientId) {
+      params.set("planId", reminder.clientId);
+    } else if (reminder.client) {
+      params.set("client", reminder.client);
+    }
     const query = params.toString();
     router.push(
       query ? `/communications/meetings?${query}` : "/communications/meetings",
@@ -110,15 +118,34 @@ export function NotificationsMenu() {
   };
 
   const handleDocumentClick = (document: ExpiringDocument) => {
-    // Same shape as the meeting rows: plan-scoped first, company name as the
-    // human-readable fallback for documents whose client row was removed.
+    // Same id-first rule: the documents page resolves a valid `planId` via
+    // resolveStickyPlanId and opens that plan.
     const params = new URLSearchParams();
-    if (document.client.id) params.set("planId", document.client.id);
-    if (document.client.companyName) {
+    if (document.client.id) {
+      params.set("planId", document.client.id);
+    } else if (document.client.companyName) {
       params.set("company", document.client.companyName);
     }
     const query = params.toString();
     router.push(query ? `/documents?${query}` : "/documents");
+  };
+
+  /**
+   * Row activation. Both handlers are wired to Radix's `onSelect`, not `onClick`:
+   * a menu item dismisses on pointer-up/select, which unmounts the row's subtree
+   * before a `click` event can be delivered — so an `onClick` handler on a
+   * `DropdownMenuItem` is unreliable. `onSelect` also covers keyboard activation
+   * (Enter/Space). The menu is closed explicitly so the UI is consistent either
+   * way.
+   */
+  const handleMeetingSelect = (reminder: MeetingReminder) => {
+    setOpen(false);
+    handleMeetingClick(reminder);
+  };
+
+  const handleDocumentSelect = (document: ExpiringDocument) => {
+    setOpen(false);
+    handleDocumentClick(document);
   };
 
   return (
@@ -204,7 +231,7 @@ export function NotificationsMenu() {
                     <DropdownMenuItem
                       key={reminder.id}
                       className="flex w-full min-w-0 flex-col items-start p-3 cursor-pointer"
-                      onClick={() => handleMeetingClick(reminder)}
+                      onSelect={() => handleMeetingSelect(reminder)}
                     >
                       <div className="flex w-full min-w-0 items-start gap-2">
                         <TierIcon
@@ -270,7 +297,7 @@ export function NotificationsMenu() {
                     <DropdownMenuItem
                       key={document.id}
                       className="flex w-full min-w-0 flex-col items-start p-3 cursor-pointer"
-                      onClick={() => handleDocumentClick(document)}
+                      onSelect={() => handleDocumentSelect(document)}
                     >
                       <div className="flex w-full min-w-0 items-start gap-2">
                         <TierIcon
