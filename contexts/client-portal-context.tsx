@@ -12,6 +12,8 @@ interface ClientData {
   logoFileName?: string;
   brandColor: string;
   secondaryColor: string;
+  /** Portal typography theme id (see lib/typography-themes.ts). */
+  typographyTheme?: string | null;
   insurancePlanId?: string;
   insuranceLoginUrl?: string;
   insuranceBackgroundImage?: string;

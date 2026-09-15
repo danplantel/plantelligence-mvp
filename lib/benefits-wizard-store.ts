@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { CompanyLogoData, BrandImagesData, Document } from "@/types/new-client-wizard";
+import type { TypographyThemeId } from "@/lib/typography-themes";
 
 export interface WizardStep {
     id: number;
@@ -21,6 +22,9 @@ export interface HelpCardData {
 export interface BenefitsStep1Data {
     planId: string;
     benefitCategory: string;
+    /** Portal typography theme for the plan (see lib/typography-themes.ts).
+     *  Edited on Step 2; persisted to the Client record on completion. */
+    typographyTheme?: TypographyThemeId;
     contactId: string;
     benefitTitle: string;
     shortDescription?: string;

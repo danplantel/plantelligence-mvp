@@ -2170,6 +2170,7 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
               companyLogo,
               primaryColor: client.brandColor || "",
               secondaryColor: client.secondaryColor || "",
+              typographyTheme: (client as any).typographyTheme || undefined,
               brandImages: {
                 header: client.backgroundImg
                   ? {

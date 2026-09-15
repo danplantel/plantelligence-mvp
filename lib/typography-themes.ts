@@ -50,10 +50,17 @@ export interface TypographyTheme {
 // Each stack references the next/font variable for the family, followed by a
 // sensible system fallback for the brief window before the webfont loads.
 
-const PLAYFAIR = "var(--font-playfair), Georgia, 'Times New Roman', serif";
-const SORA = "var(--font-sora), system-ui, -apple-system, sans-serif";
-const LORA = "var(--font-lora), Georgia, 'Times New Roman', serif";
-const OUTFIT = "var(--font-outfit), system-ui, -apple-system, sans-serif";
+// Each `var()` carries an inline fallback so the stack stays valid even if the
+// custom property is missing at the element where the theme is applied (a
+// missing custom property otherwise makes the whole font-family declaration
+// invalid at computed-value time, silently dropping the font).
+const PLAYFAIR =
+  "var(--font-playfair, 'Playfair Display'), Georgia, 'Times New Roman', serif";
+const SORA =
+  "var(--font-sora, Sora), system-ui, -apple-system, sans-serif";
+const LORA = "var(--font-lora, Lora), Georgia, 'Times New Roman', serif";
+const OUTFIT =
+  "var(--font-outfit, Outfit), system-ui, -apple-system, sans-serif";
 
 // ── Themes ──────────────────────────────────────────────────────────────────
 

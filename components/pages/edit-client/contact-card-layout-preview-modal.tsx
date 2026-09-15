@@ -728,7 +728,7 @@ export function ContactCardLayoutPreviewModal({
                             previewMode === "mobile" ? "text-2xl" : "text-4xl",
                           )}
                           style={{
-                            fontFamily: '"DM Serif Display", serif',
+                            fontFamily: "var(--font-headline)",
                             color: brandColor || "#1F3A60",
                           }}
                         >

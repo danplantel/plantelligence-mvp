@@ -32,6 +32,11 @@ import { deleteFromR2 } from "@/lib/upload-to-r2";
 import { Smartphone, Monitor } from "lucide-react";
 import { PortalHeader } from "@/components/pages/client-portal/sections/portal-header";
 import { ClientPortal } from "@/components/pages/client-portal/client-portal";
+import { TypographySection } from "./sections/typography-section";
+import {
+  applyTypographyToElement,
+  type TypographyThemeId,
+} from "@/lib/typography-themes";
 
 const defaultWelcomeBodyText =
   "This website was created as your central source for exploring and taking advantage of your company benefits. Our goal is to make it easy for you to stay informed, engaged, and confident in the resources available to you.\n\nWhether you're just getting started or continuing your journey, this site is here to help you make the most of everything our company has to offer.";
@@ -50,7 +55,16 @@ const REFERENCE_MOBILE_WIDTH = 390;
 type PreviewMode = "desktop" | "mobile";
 
 /** Mobile preview iframe with CSS-transform scaling */
-function MobilePreviewFrame({ children, width }: { children: React.ReactNode; width: number }) {
+function MobilePreviewFrame({
+  children,
+  width,
+  themeKey,
+}: {
+  children: React.ReactNode;
+  width: number;
+  /** Changing this re-syncs the iframe's root CSS variables (typography theme). */
+  themeKey?: string | null;
+}) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [mountNode, setMountNode] = useState<HTMLElement | null>(null);
 
@@ -92,6 +106,22 @@ function MobilePreviewFrame({ children, width }: { children: React.ReactNode; wi
     setMountNode(doc.body);
     return () => setMountNode(null);
   }, [width]);
+
+  // Re-sync the root CSS variables (typography theme) into the iframe whenever
+  // the theme changes, so the mobile preview updates live without a remount.
+  useEffect(() => {
+    const doc = iframeRef.current?.contentDocument;
+    if (!doc) return;
+    const rootStyles = getComputedStyle(document.documentElement);
+    Array.from(document.documentElement.style)
+      .filter((k) => k.startsWith("--"))
+      .forEach((k) =>
+        doc.documentElement.style.setProperty(
+          k,
+          rootStyles.getPropertyValue(k),
+        ),
+      );
+  }, [themeKey]);
 
   const height = Math.round(width * MOBILE_ASPECT_RATIO);
 
@@ -638,6 +668,33 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
     }
   };
 
+  // ── Portal typography theme ──────────────────────────────────────────────
+  // Edited here on Step 2 so the live preview reflects the choice immediately.
+  // Persisted onto companyBasics so save-draft / completion carry it to the
+  // Client record (see lib/typography-themes.ts).
+  const typographyTheme = stepData.companyBasics?.typographyTheme;
+
+  const handleTypographyChange = (id: TypographyThemeId) => {
+    const store = useNewClientWizardStore.getState();
+    const currentCompanyBasics = store.stepData.companyBasics;
+    if (!currentCompanyBasics) return;
+    saveStepDataLocally("companyBasics", {
+      ...currentCompanyBasics,
+      typographyTheme: id,
+    });
+  };
+
+  // Apply the theme's font variables to the document root while Step 2 is
+  // mounted so both preview modes pick them up — the desktop preview reads the
+  // inherited variables, and the mobile preview iframe copies the root custom
+  // properties. Restored on unmount and when the theme changes.
+  useEffect(() => {
+    return applyTypographyToElement(
+      typeof document !== "undefined" ? document.documentElement : null,
+      typographyTheme,
+    );
+  }, [typographyTheme]);
+
   const handleHeadshotChange = (newHeadshot: string) => {
     if (stepData.companyBasics?.brandImages) {
       const updatedBrandImages = {
@@ -1084,6 +1141,16 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
         }
         sections={[
           {
+            title: "Typography",
+            content: (
+              <TypographySection
+                value={typographyTheme}
+                onChange={handleTypographyChange}
+                compact
+              />
+            ),
+          },
+          {
             title: "Hero Section",
             content: (
               <div>
@@ -1248,7 +1315,10 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
                 <div className="absolute top-36 -left-[3px] w-[3px] h-12 bg-gray-700 dark:bg-gray-600 rounded-l" />
                 <div className="absolute top-20 -right-[3px] w-[3px] h-10 bg-gray-700 dark:bg-gray-600 rounded-r" />
                 <div className="flex items-center justify-center py-2">
-                  <MobilePreviewFrame width={MOBILE_WIDTH}>
+                  <MobilePreviewFrame
+                    width={MOBILE_WIDTH}
+                    themeKey={typographyTheme}
+                  >
                     <div className="sticky top-0 w-full z-50 shrink-0">
                       <PortalHeader
                         companyData={{ companyLogo: planCompanyLogo }}

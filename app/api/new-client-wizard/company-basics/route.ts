@@ -22,8 +22,9 @@ export async function POST(request: NextRequest) {
       companyWebsite, 
       companyLogo, 
       logoFileName, 
-      primaryColor, 
-      secondaryColor, 
+      primaryColor,
+      secondaryColor,
+      typographyTheme,
       brandImages,
       missionHeadline,
       missionBody,
@@ -146,6 +147,7 @@ export async function POST(request: NextRequest) {
       logoFileName: fileName,
       primaryColor,
       secondaryColor,
+      ...(typographyTheme !== undefined && { typographyTheme }),
       brandImages: brandImagesToSave,
     };
 

@@ -215,7 +215,7 @@ export default function MyBenefitsTeamPage() {
           <h1
             className="text-4xl font-semibold mb-8"
             style={{
-              fontFamily: '"DM Serif Display", serif',
+              fontFamily: "var(--font-headline)",
               color: brandColor,
             }}
           >

@@ -566,6 +566,9 @@ model NewClientCompanyBasics {
   logoFileName   String?
   primaryColor   String  @default("#1F3A60")
   secondaryColor String  @default("#6B7280")
+  // Portal typography theme: "classic" | "modern" | "editorial" | "contemporary"
+  // (see lib/typography-themes.ts). Null/unknown resolves to "classic".
+  typographyTheme String?
   brandImages    Json // Array of image URLs
   planType       String  @default("client") // "client" (active plan) or "prospect" (draft plan for demos)
   portalUrl      String? // User-customized portal URL slug (max 20 chars, alphanumeric + hyphens)
@@ -662,6 +665,10 @@ model Client {
   logoFileName    String?
   brandColor      String  @default("#1F3A60")
   secondaryColor  String  @default("#6B7280")
+  // Portal typography theme: "classic" | "modern" | "editorial" | "contemporary"
+  // (see lib/typography-themes.ts). Null/unknown resolves to "classic", so
+  // existing plans render the default theme without a backfill.
+  typographyTheme String?
   missionHeadline String?
   missionBody     String?
   appointmentLink String?

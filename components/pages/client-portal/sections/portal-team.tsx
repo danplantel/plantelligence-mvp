@@ -35,7 +35,7 @@ export function PortalTeam({
             fontSize: "48px",
             fontWeight: 700,
             marginBottom: "50px",
-            fontFamily: "DM Serif Display, serif",
+            fontFamily: "var(--font-headline)",
           }}
         >
           Contact Us
@@ -132,7 +132,7 @@ export function PortalTeam({
                   fontSize: "24px",
                   fontWeight: 700,
                   lineHeight: "1.3",
-                  fontFamily: "DM Serif Display, serif",
+                  fontFamily: "var(--font-headline)",
                 }}
               >
                 {contact.title || contact.customRole || "Contact"}

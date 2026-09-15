@@ -948,7 +948,7 @@ function SortableCard({
               </div>
               <h4
                 className="mb-2 text-base font-semibold line-clamp-2 break-words"
-                style={{ color: brandColor, fontFamily: '"DM Serif Display", serif' }}
+                style={{ color: brandColor, fontFamily: "var(--font-headline)" }}
                 title={doc.title}
               >
                 {doc.title}
@@ -1481,7 +1481,7 @@ export function DocsGrid({
                         ? "border-red-500 focus:border-red-500"
                         : ""
                         }`}
-                      style={{ fontFamily: '"DM Serif Display", serif' }}
+                      style={{ fontFamily: "var(--font-headline)" }}
                     />
                     <span
                       className={`mt-1 block text-right text-xs ${(editTitles.get(doc.id) || "").length > 85
@@ -1797,7 +1797,7 @@ export function DocsGrid({
 
                 <h4
                   className="mb-2 text-base font-semibold line-clamp-2 break-words"
-                  style={{ fontFamily: '"DM Serif Display", serif' }}
+                  style={{ fontFamily: "var(--font-headline)" }}
                   title={activeDoc.title}
                 >
                   {activeDoc.title}

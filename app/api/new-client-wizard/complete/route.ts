@@ -87,6 +87,9 @@ export async function POST(request: NextRequest) {
           logoFileName: wizardSession.companyBasics.logoFileName,
           brandColor: wizardSession.companyBasics.primaryColor,
           secondaryColor: wizardSession.companyBasics.secondaryColor,
+          ...((wizardSession.companyBasics as any).typographyTheme !== undefined && {
+            typographyTheme: (wizardSession.companyBasics as any).typographyTheme,
+          }),
           missionHeadline,
           missionBody,
           heroTitle,

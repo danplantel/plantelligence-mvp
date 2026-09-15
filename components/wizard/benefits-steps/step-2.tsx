@@ -7,6 +7,7 @@ import { BenefitsEditorPanel } from "./benefits-editor-panel";
 import { useBenefitsEditorState } from "./hooks/use-benefits-editor-state";
 import { useBenefitsLenisScroll } from "./hooks/use-benefits-lenis-scroll";
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
+import { applyTypographyToElement } from "@/lib/typography-themes";
 import { PortalHeader } from "@/components/pages/client-portal/sections/portal-header";
 import { Smartphone, Monitor } from "lucide-react";
 
@@ -30,7 +31,16 @@ type PreviewMode = "desktop" | "mobile";
  * (Tailwind sm:, md:, lg:, etc.) evaluate against the iframe's actual width
  * rather than the parent browser window.
  */
-function MobilePreviewFrame({ children, width }: { children: React.ReactNode; width: number }) {
+function MobilePreviewFrame({
+    children,
+    width,
+    themeKey,
+}: {
+    children: React.ReactNode;
+    width: number;
+    /** Changing this re-syncs the iframe's root CSS variables (typography theme). */
+    themeKey?: string | null;
+}) {
     const iframeRef = useRef<HTMLIFrameElement>(null);
     const [mountNode, setMountNode] = useState<HTMLElement | null>(null);
 
@@ -68,6 +78,19 @@ function MobilePreviewFrame({ children, width }: { children: React.ReactNode; wi
         setMountNode(doc.body);
         return () => { setMountNode(null); };
     }, [width]);
+
+    // Re-sync the root CSS variables (typography theme) into the iframe whenever
+    // the theme changes, so the mobile preview updates live without a remount.
+    useEffect(() => {
+        const doc = iframeRef.current?.contentDocument;
+        if (!doc) return;
+        const rootStyles = getComputedStyle(document.documentElement);
+        Array.from(document.documentElement.style)
+            .filter((k) => k.startsWith("--"))
+            .forEach((k) =>
+                doc.documentElement.style.setProperty(k, rootStyles.getPropertyValue(k)),
+            );
+    }, [themeKey]);
 
     const height = Math.round(width * MOBILE_ASPECT_RATIO);
 
@@ -115,6 +138,17 @@ export function BenefitsStep2() {
     const { editorScrollContainerRef, scrollEditorTo } = useBenefitsLenisScroll(editorState.isEditorOpen, true);
     const { currentStep, stepData } = useBenefitsWizardStore();
     const step1Data = stepData.step1;
+
+    // ── Portal typography theme ──
+    // Applied to the document root while Step 2 is mounted so both the desktop
+    // preview (inherited CSS variables) and the mobile preview iframe (which
+    // copies root custom properties) reflect the selected theme live.
+    useEffect(() => {
+        return applyTypographyToElement(
+            typeof document !== "undefined" ? document.documentElement : null,
+            step1Data?.typographyTheme,
+        );
+    }, [step1Data?.typographyTheme]);
     const [editorInitialized, setEditorInitialized] = useState(false);
     const barRef = useRef<HTMLDivElement>(null);
     const [barHeight, setBarHeight] = useState(52);
@@ -281,6 +315,18 @@ export function BenefitsStep2() {
             .catch(() => {});
         return () => { cancelled = true; };
     }, [step1Data?.planId]);
+
+    // Prefill the typography theme from the plan's saved value when this session
+    // has none (e.g. resuming an existing plan to add another benefit), so the
+    // theme shown here matches what the live portal already uses.
+    useEffect(() => {
+        const savedTheme = planDetails?.typographyTheme;
+        if (!savedTheme) return;
+        const store = useBenefitsWizardStore.getState();
+        const latest = store.stepData.step1;
+        if (!latest || latest.typographyTheme) return;
+        store.saveStepData(1, { ...latest, typographyTheme: savedTheme });
+    }, [planDetails?.typographyTheme]);
 
     const resolveCompanyLogo = (p: any): string | undefined => {
         if (!p) return undefined;
@@ -556,7 +602,10 @@ export function BenefitsStep2() {
                                 <div className="absolute top-36 -left-[3px] w-[3px] h-12 bg-gray-700 dark:bg-gray-600 rounded-l" />
                                 <div className="absolute top-20 -right-[3px] w-[3px] h-10 bg-gray-700 dark:bg-gray-600 rounded-r" />
                                 <div className="flex items-center justify-center py-2">
-                                    <MobilePreviewFrame width={MOBILE_WIDTH}>
+                                    <MobilePreviewFrame
+                                        width={MOBILE_WIDTH}
+                                        themeKey={step1Data?.typographyTheme}
+                                    >
                                         <div className="sticky top-0 w-full z-50 shrink-0">
                                             <PortalHeader
                                                 companyData={{ companyLogo: planCompanyLogo }}

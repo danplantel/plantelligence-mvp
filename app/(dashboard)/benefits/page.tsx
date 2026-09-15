@@ -609,6 +609,8 @@ function BenefitsPageInner() {
 
       const updatePayload = {
         keyContacts: finalContactsList,
+        // Portal typography theme (Step 2 selection — see lib/typography-themes.ts).
+        typographyTheme: step1Data?.typographyTheme,
         employeePortalPreview: {
           ...client.employeePortalPreview,
           benefits: updatedBenefits,

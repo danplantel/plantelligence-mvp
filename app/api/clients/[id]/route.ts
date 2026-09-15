@@ -401,6 +401,7 @@ export async function PUT(
       primaryColor,
       brandColor,
       secondaryColor,
+      typographyTheme,
       missionHeadline,
       missionBody,
       appointmentLink,
@@ -583,6 +584,10 @@ export async function PUT(
       logoFileName: logoFileName ?? existingClient.logoFileName,
       brandColor: brandColor || primaryColor || existingClient.brandColor,
       secondaryColor: secondaryColor || existingClient.secondaryColor,
+      typographyTheme:
+        typographyTheme !== undefined
+          ? typographyTheme
+          : (existingClient as any)?.typographyTheme,
       missionHeadline: missionHeadline ?? existingClient.missionHeadline,
       missionBody: missionBody ?? existingClient.missionBody,
       appointmentLink: appointmentLink ?? existingClient.appointmentLink,

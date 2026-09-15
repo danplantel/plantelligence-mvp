@@ -57,6 +57,13 @@
     --font-geist: "Manrope", -apple-system, BlinkMacSystemFont, system-ui,
       sans-serif;
     --font-manrope: var(--font-manrope);
+
+    /* Portal typography theme roles (see lib/typography-themes.ts).
+       These defaults preserve the legacy look everywhere. The client portal
+       container overrides them per-plan to activate a typography theme. */
+    --font-headline: var(--font-dm-serif-display), "DM Serif Display", serif;
+    --font-body: var(--font-red-hat-display), "Red Hat Display", sans-serif;
+    --font-ui: "Manrope", system-ui, -apple-system, sans-serif;
   }
 
   .dark {
@@ -113,10 +120,13 @@
     height: 100dvh;
   }
   .dm-serif {
-    font-family: var(--font-dm-serif-display), serif;
+    font-family: var(--font-headline);
   }
   .red-hat {
-    font-family: var(--font-red-hat-display), sans-serif;
+    font-family: var(--font-body);
+  }
+  .portal-ui {
+    font-family: var(--font-ui);
   }
   .font-geist {
     font-family: var(--font-geist);

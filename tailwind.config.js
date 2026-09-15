@@ -27,12 +27,14 @@ module.exports = {
         ],
         manrope: ["Manrope", "sans-serif"],
         inter: ["Inter", "sans-serif"],
-        "dm-serif": [
-          "var(--font-dm-serif-display)",
-          "DM Serif Display",
-          "serif",
-        ],
-        "red-hat": ["var(--font-red-hat-display)", "sans-serif"],
+        // Portal typography theme roles (see lib/typography-themes.ts).
+        // `--font-headline` / `--font-body` / `--font-ui` default to the legacy
+        // DM Serif / Red Hat / Manrope stacks at :root (see app/globals.css) and
+        // are overridden per-plan by the portal container, so the dashboard and
+        // every non-portal surface render exactly as before.
+        "dm-serif": ["var(--font-headline)", "DM Serif Display", "serif"],
+        "red-hat": ["var(--font-body)", "Red Hat Display", "sans-serif"],
+        "portal-ui": ["var(--font-ui)", "Outfit", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",

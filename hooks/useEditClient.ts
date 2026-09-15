@@ -25,6 +25,8 @@ interface Client {
   logoFileName?: string;
   brandColor: string;
   secondaryColor: string;
+  /** Portal typography theme id (see lib/typography-themes.ts). */
+  typographyTheme?: string | null;
   missionHeadline?: string;
   missionBody?: string;
   appointmentLink?: string;
@@ -308,6 +310,7 @@ export function useEditClient() {
             } : null,
             primaryColor: result.data.brandColor || "",
             secondaryColor: result.data.secondaryColor || "",
+            typographyTheme: result.data.typographyTheme || undefined,
             brandImages: brandImagesData,
             isPrimaryColorPickerOpen: false,
             isSecondaryColorPickerOpen: false,

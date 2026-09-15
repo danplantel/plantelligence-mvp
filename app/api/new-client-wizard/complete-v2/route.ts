@@ -355,6 +355,9 @@ export async function POST(request: NextRequest) {
             logoFileName: companyBasics.logoFileName,
             brandColor: companyBasics.primaryColor,
             secondaryColor: companyBasics.secondaryColor,
+            ...((companyBasics as any).typographyTheme !== undefined && {
+              typographyTheme: (companyBasics as any).typographyTheme,
+            }),
             missionHeadline: missionHeadline || null,
             missionBody: missionBody || null,
             heroTitle,

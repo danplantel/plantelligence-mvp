@@ -13,6 +13,11 @@ import { HeroBackgroundCard, type HeroSegmentMode } from "@/components/wizard/ne
 import { WelcomeStatementCard } from "@/components/wizard/new-client-steps/sections/components/welcome-statement-card";
 import { BannerOverlaySettingsCard } from "@/components/wizard/new-client-steps/sections/components/banner-overlay-settings-card";
 import { useHeroOverlaySettings } from "@/components/wizard/new-client-steps/sections/hooks/use-hero-overlay-settings";
+import { TypographySection } from "@/components/wizard/new-client-steps/sections/typography-section";
+import {
+  applyTypographyToElement,
+  type TypographyThemeId,
+} from "@/lib/typography-themes";
 import type {
   CompanyBasicsData,
   CompanyLogoData,
@@ -36,7 +41,16 @@ type PreviewMode = "desktop" | "mobile";
 // Content renders at REFERENCE_MOBILE_WIDTH (390 px) so Tailwind responsive
 // breakpoints fire correctly, then the portal wrapper scales it down with
 // CSS transform to match the requested visual width.
-function MobilePreviewFrame({ children, width }: { children: React.ReactNode; width: number }) {
+function MobilePreviewFrame({
+  children,
+  width,
+  themeKey,
+}: {
+  children: React.ReactNode;
+  width: number;
+  /** Changing this re-syncs the iframe's root CSS variables (typography theme). */
+  themeKey?: string | null;
+}) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [mountNode, setMountNode] = useState<HTMLElement | null>(null);
 
@@ -81,6 +95,22 @@ function MobilePreviewFrame({ children, width }: { children: React.ReactNode; wi
     setMountNode(doc.body);
     return () => setMountNode(null);
   }, [width]);
+
+  // Re-sync the root CSS variables (typography theme) into the iframe whenever
+  // the theme changes, so the mobile preview updates live without a remount.
+  useEffect(() => {
+    const doc = iframeRef.current?.contentDocument;
+    if (!doc) return;
+    const rootStyles = getComputedStyle(document.documentElement);
+    Array.from(document.documentElement.style)
+      .filter((k) => k.startsWith("--"))
+      .forEach((k) =>
+        doc.documentElement.style.setProperty(
+          k,
+          rootStyles.getPropertyValue(k),
+        ),
+      );
+  }, [themeKey]);
 
   const height = Math.round(width * MOBILE_ASPECT_RATIO);
 
@@ -274,6 +304,18 @@ export function EditPlanPreviewSection({
       }
     };
   }, [isEditorOpen, isEditorAnimating]);
+
+  // ── Portal typography theme ──
+  // Applied to the document root so both the desktop preview (inherited CSS
+  // variables) and the mobile preview iframe (which copies root custom
+  // properties) reflect the selected theme live. Restored on unmount / change.
+  const typographyTheme = companyData?.typographyTheme;
+  useEffect(() => {
+    return applyTypographyToElement(
+      typeof document !== "undefined" ? document.documentElement : null,
+      typographyTheme,
+    );
+  }, [typographyTheme]);
 
   // ── Preview mode ──
   const [previewMode, setPreviewMode] = useState<PreviewMode>("desktop");
@@ -651,6 +693,18 @@ export function EditPlanPreviewSection({
   // ── Editor panel sections ──
   const editorSections = [
     {
+      title: "Typography",
+      content: (
+        <TypographySection
+          value={typographyTheme}
+          onChange={(id: TypographyThemeId) =>
+            onCompanyDataChange("typographyTheme", id)
+          }
+          compact
+        />
+      ),
+    },
+    {
       title: "Images",
       content: (
         <div className="space-y-4">
@@ -874,7 +928,10 @@ export function EditPlanPreviewSection({
                 <div className="absolute top-36 -left-[3px] w-[3px] h-12 bg-gray-700 dark:bg-gray-600 rounded-l" />
                 <div className="absolute top-20 -right-[3px] w-[3px] h-10 bg-gray-700 dark:bg-gray-600 rounded-r" />
                 <div className="flex items-center justify-center py-2">
-                  <MobilePreviewFrame width={MOBILE_WIDTH}>
+                  <MobilePreviewFrame
+                    width={MOBILE_WIDTH}
+                    themeKey={typographyTheme}
+                  >
                     <div className="sticky top-0 w-full z-50 shrink-0">
                       <PortalHeader
                         companyData={{ companyLogo: companyData?.companyLogo?.url ?? undefined }}

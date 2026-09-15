@@ -14,6 +14,7 @@ import { isValidDomain, normalizeCleanDomain } from "@/lib/url-utils";
 import { deleteFromR2 } from "@/lib/upload-to-r2";
 import { BrandImagesSection } from "./sections/brand-images-section";
 import { BrandColorsSection } from "./sections/brand-colors-section";
+import { DEFAULT_TYPOGRAPHY_THEME } from "@/lib/typography-themes";
 import {
   CompanyBasicsData,
   CompanyLogoData,
@@ -42,6 +43,7 @@ const normalizeCompanyBasicsData = (
   companyLogo: data?.companyLogo || null,
   primaryColor: data?.primaryColor || "",
   secondaryColor: data?.secondaryColor || "",
+  typographyTheme: data?.typographyTheme || DEFAULT_TYPOGRAPHY_THEME,
   brandImages: {
     header: data?.brandImages?.header || defaultBrandImages.header,
     thumbnail: data?.brandImages?.thumbnail || defaultBrandImages.thumbnail,

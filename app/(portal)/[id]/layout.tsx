@@ -16,6 +16,7 @@ import {
   resolveDefaultDisclosuresText,
   resolveOrgOnlyDisclaimerText,
 } from "@/lib/disclaimer-constants";
+import { getTypographyCssVars } from "@/lib/typography-themes";
 
 interface BannerAsset {
   id: string;
@@ -60,6 +61,9 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
   }, []);
   const brandColor = clientData?.brandColor || "#1F3A60";
   const secondaryColor = clientData?.secondaryColor || "#6B7280";
+  // Portal typography theme (portal-only — the dashboard stays on Manrope).
+  // Unset/unknown values resolve to Classic inside getTypographyCssVars.
+  const typographyTheme = clientData?.typographyTheme;
 
   // Resolve portal footer background color from the plan's footerBackground
   // preference (selected during plan creation wizard Step 5a). Falls back to
@@ -382,7 +386,17 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
   }, [showBanner]);
 
   return (
-    <div className="min-h-screen bg-white portal-root">
+    <div
+      className="min-h-screen bg-white portal-root"
+      style={{
+        ...(getTypographyCssVars(
+          typographyTheme,
+        ) as unknown as React.CSSProperties),
+        // UI chrome (nav, buttons, labels, inputs) always uses Outfit in the
+        // portal; headline/body text overrides this via the font utilities.
+        fontFamily: "var(--font-ui)",
+      }}
+    >
       <div ref={fixedHeaderRef} className="fixed top-0 left-0 w-full z-50">
         {/* Published Top Banner — rendered above the header */}
         {showBanner && (

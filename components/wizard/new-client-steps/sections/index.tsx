@@ -1,4 +1,5 @@
 export { CompanyInformationSection } from "./company-information-section";
+export { TypographySection } from "./typography-section";
 export { SetupCompleteSection } from "./setup-complete-section";
 export { OptionalDocumentsSection } from "./optional-documents-section";
 export { KeyContactsSection } from "./key-contacts-section";

@@ -1,5 +1,7 @@
 // New Client Wizard Types
 
+import type { TypographyThemeId } from "@/lib/typography-themes";
+
 // Step 1: Company Basics & Branding
 // Crop metadata in percentages (0-100) relative to original image
 export interface CropMetadata {
@@ -75,6 +77,8 @@ export interface CompanyBasicsData {
   companyLogo: CompanyLogoData | null;
   primaryColor: string;
   secondaryColor: string;
+  /** Portal typography theme (see lib/typography-themes.ts). */
+  typographyTheme?: TypographyThemeId;
   brandImages: BrandImagesData;
   appointmentLink?: string;
   planType?: string;
