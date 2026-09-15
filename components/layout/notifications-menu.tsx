@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ComponentType } from "react";
+import { useMemo, useState, type ComponentType } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
@@ -26,6 +26,11 @@ import {
   useHeaderNotifications,
   type MeetingReminder,
 } from "@/hooks/useHeaderNotifications";
+import {
+  documentNotificationKey,
+  meetingNotificationKey,
+  useDismissedNotifications,
+} from "@/hooks/useDismissedNotifications";
 import {
   DOCUMENT_EXPIRATION_LABEL,
   formatDocumentExpirationWhen,
@@ -95,9 +100,27 @@ const TIER_PILL_CLASS =
 export function NotificationsMenu() {
   const router = useRouter();
   const { meetings, documents, isLoading } = useHeaderNotifications();
+  const { isDismissed, dismiss } = useDismissedNotifications();
   const [open, setOpen] = useState(false);
 
-  const totalCount = meetings.length + documents.length;
+  // Rows the user has closed are filtered out before anything is counted, so the
+  // bell badge and the per-section counts always match what is actually listed.
+  const visibleMeetings = useMemo(
+    () =>
+      meetings.filter(
+        (reminder) => !isDismissed(meetingNotificationKey(reminder)),
+      ),
+    [meetings, isDismissed],
+  );
+  const visibleDocuments = useMemo(
+    () =>
+      documents.filter(
+        (document) => !isDismissed(documentNotificationKey(document)),
+      ),
+    [documents, isDismissed],
+  );
+
+  const totalCount = visibleMeetings.length + visibleDocuments.length;
 
   const handleMeetingClick = (reminder: MeetingReminder) => {
     // Plan id FIRST, and deliberately on its own. The meetings page resolves a
@@ -213,24 +236,27 @@ export function NotificationsMenu() {
                   <CalendarClock className="h-3 w-3 shrink-0 text-muted-foreground" />
                   <span className={SECTION_LABEL_CLASS}>Meetings</span>
                 </div>
-                {meetings.length > 0 && (
+                {visibleMeetings.length > 0 && (
                   <span className="shrink-0 text-[10px] font-medium text-muted-foreground">
-                    {meetings.length}
+                    {visibleMeetings.length}
                   </span>
                 )}
               </div>
-              {meetings.length === 0 ? (
+              {visibleMeetings.length === 0 ? (
                 <p className="px-2 pb-2 text-xs text-muted-foreground">
                   No upcoming meetings.
                 </p>
               ) : (
-                meetings.map((reminder) => {
+                visibleMeetings.map((reminder) => {
                   const tier = MEETING_TIER_STYLES[reminder.reminderStatus];
                   const TierIcon = tier.icon;
                   return (
-                    <DropdownMenuItem
+                    <div
                       key={reminder.id}
-                      className="flex w-full min-w-0 flex-col items-start p-3 cursor-pointer"
+                      className="flex w-full min-w-0 items-start"
+                    >
+                    <DropdownMenuItem
+                      className="flex flex-1 min-w-0 flex-col items-start p-3 cursor-pointer"
                       onSelect={() => handleMeetingSelect(reminder)}
                     >
                       <div className="flex w-full min-w-0 items-start gap-2">
@@ -265,6 +291,16 @@ export function NotificationsMenu() {
                         </div>
                       </div>
                     </DropdownMenuItem>
+                    <button
+                      type="button"
+                      aria-label={`Close notification: ${reminder.title}`}
+                      title="Close"
+                      onClick={() => dismiss(meetingNotificationKey(reminder))}
+                      className="mr-1 mt-1.5 shrink-0 self-start rounded-md p-1 text-muted-foreground opacity-60 transition-colors hover:bg-black/5 hover:opacity-100 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring dark:hover:bg-white/10"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                    </div>
                   );
                 })
               )}
@@ -279,24 +315,27 @@ export function NotificationsMenu() {
                   <FileText className="h-3 w-3 shrink-0 text-muted-foreground" />
                   <span className={SECTION_LABEL_CLASS}>Documents</span>
                 </div>
-                {documents.length > 0 && (
+                {visibleDocuments.length > 0 && (
                   <span className="shrink-0 text-[10px] font-medium text-muted-foreground">
-                    {documents.length}
+                    {visibleDocuments.length}
                   </span>
                 )}
               </div>
-              {documents.length === 0 ? (
+              {visibleDocuments.length === 0 ? (
                 <p className="px-2 pb-2 text-xs text-muted-foreground">
                   No expiring documents.
                 </p>
               ) : (
-                documents.map((document) => {
+                visibleDocuments.map((document) => {
                   const tier = DOCUMENT_TIER_STYLES[document.status];
                   const TierIcon = tier.icon;
                   return (
-                    <DropdownMenuItem
+                    <div
                       key={document.id}
-                      className="flex w-full min-w-0 flex-col items-start p-3 cursor-pointer"
+                      className="flex w-full min-w-0 items-start"
+                    >
+                    <DropdownMenuItem
+                      className="flex flex-1 min-w-0 flex-col items-start p-3 cursor-pointer"
                       onSelect={() => handleDocumentSelect(document)}
                     >
                       <div className="flex w-full min-w-0 items-start gap-2">
@@ -329,6 +368,16 @@ export function NotificationsMenu() {
                         </div>
                       </div>
                     </DropdownMenuItem>
+                    <button
+                      type="button"
+                      aria-label={`Close notification: ${document.title}`}
+                      title="Close"
+                      onClick={() => dismiss(documentNotificationKey(document))}
+                      className="mr-1 mt-1.5 shrink-0 self-start rounded-md p-1 text-muted-foreground opacity-60 transition-colors hover:bg-black/5 hover:opacity-100 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring dark:hover:bg-white/10"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                    </div>
                   );
                 })
               )}
