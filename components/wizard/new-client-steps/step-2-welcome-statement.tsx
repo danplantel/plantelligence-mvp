@@ -531,6 +531,32 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
     };
   }, [editorState.isEditorOpen, editorState.isEditorAnimating]);
 
+  // Tell the shared Header (and WizardStepper) that this step's editing panel is
+  // open. Both already listen for `step2EditorStateChange`, but nothing on the
+  // Create Plan flow was dispatching it — so the header never entered its editor
+  // layout. It kept rendering the page title and an in-flow stepper while this
+  // effect widened --sidebar-width to 36rem, leaving too little room and squeezing
+  // the Light/Dark toggle + UserNav until their right-aligned contents spilled
+  // left over the stepper.
+  useEffect(() => {
+    const isOpen = editorState.isEditorOpen || editorState.isEditorAnimating;
+    window.dispatchEvent(
+      new CustomEvent("step2EditorStateChange", {
+        detail: { isOpen },
+      }),
+    );
+  }, [editorState.isEditorOpen, editorState.isEditorAnimating]);
+
+  // Report "closed" on unmount so navigating away (or to another step) can never
+  // leave the header stuck in its editor layout.
+  useEffect(() => {
+    return () => {
+      window.dispatchEvent(
+        new CustomEvent("step2EditorStateChange", { detail: { isOpen: false } }),
+      );
+    };
+  }, []);
+
   // Scroll to top when component mounts
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1143,11 +1169,16 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
           {
             title: "Typography",
             content: (
+              // Only the Create Plan flow offers the AI suggestion, sourced from
+              // the plan's company website (entered on Step 1).
               <TypographySection
                 title="Typography Theme"
                 value={typographyTheme}
                 onChange={handleTypographyChange}
                 compact
+                enableAiSuggestion
+                websiteUrl={stepData.companyBasics?.companyWebsite}
+                companyName={stepData.companyBasics?.companyName}
               />
             ),
           },
