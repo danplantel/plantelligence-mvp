@@ -235,11 +235,6 @@ export function NotificationsMenu() {
                               )}
                             </span>
                           </div>
-                          {reminder.meetingType && (
-                            <div className="mt-1 text-[10px] text-muted-foreground/70 truncate">
-                              {reminder.meetingType}
-                            </div>
-                          )}
                         </div>
                       </div>
                     </DropdownMenuItem>
@@ -304,13 +299,6 @@ export function NotificationsMenu() {
                               )}
                             </span>
                           </div>
-                          {(document.category || document.type) && (
-                            <div className="mt-1 text-[10px] text-muted-foreground/70 truncate">
-                              {[document.category, document.type]
-                                .filter(Boolean)
-                                .join(" · ")}
-                            </div>
-                          )}
                         </div>
                       </div>
                     </DropdownMenuItem>
