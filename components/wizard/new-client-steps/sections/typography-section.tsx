@@ -50,7 +50,7 @@ export function TypographySection({
         </CardTitle>
         <p className="text-sm text-muted-foreground dark:text-gray-400">
           {description ??
-            "Choose a style for your portal. Headline and body fonts change together. This theme is applied to every page on the website."}
+            "Choose a style for this plan's portal. The headline and body fonts change together across every page."}
         </p>
       </CardHeader>
       <CardContent>
@@ -76,9 +76,13 @@ export function TypographySection({
                 aria-label={`${theme.label} typography theme`}
                 className={cn(
                   "relative flex flex-col gap-3 rounded-xl border-2 p-4 text-left transition-all",
+                  // Keyboard focus ring — visible in both light and dark themes
+                  // without relying on a ring-offset colour that would differ
+                  // between the editor panels this component is mounted in.
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue",
                   isSelected
-                    ? "border-accent-blue bg-accent-blue/5 shadow-sm ring-1 ring-accent-blue"
-                    : "border-gray-200 bg-white hover:border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500",
+                    ? "border-accent-blue bg-accent-blue/5 shadow-sm ring-1 ring-accent-blue dark:bg-accent-blue/10 dark:shadow-none"
+                    : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500 dark:hover:bg-gray-700/40",
                 )}
               >
                 <div className="flex items-center justify-between">
@@ -94,17 +98,17 @@ export function TypographySection({
 
                 {/* Live preview — rendered in this theme's fonts. */}
                 <div
-                  className="rounded-lg border border-gray-100 bg-white px-3 py-3 dark:border-gray-700 dark:bg-gray-900/40"
+                  className="rounded-lg border border-gray-100 bg-white px-3 py-3 dark:border-gray-700 dark:bg-gray-900/60"
                   style={previewVars as React.CSSProperties}
                 >
                   <p
-                    className="text-[22px] leading-tight font-semibold text-gray-900"
+                    className="text-[22px] leading-tight font-semibold text-gray-900 dark:text-gray-100"
                     style={{ fontFamily: theme.headline }}
                   >
                     Benefits Hub
                   </p>
                   <p
-                    className="mt-2 text-[12px] leading-relaxed text-gray-600"
+                    className="mt-2 text-[12px] leading-relaxed text-gray-600 dark:text-gray-300"
                     style={{ fontFamily: theme.body }}
                   >
                     Explore your benefits, find resources, and connect with your

@@ -430,7 +430,7 @@ export function BenefitsEditorPanel({
                         onChange={(id) =>
                             saveStepData(1, { ...step1Data, typographyTheme: id })
                         }
-                        title="Theme"
+                        title="Typography"
                         compact
                         className="border-none shadow-none bg-transparent dark:bg-transparent"
                     />

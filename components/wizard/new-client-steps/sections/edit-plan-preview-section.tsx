@@ -696,6 +696,7 @@ export function EditPlanPreviewSection({
       title: "Typography",
       content: (
         <TypographySection
+          title="Typography Theme"
           value={typographyTheme}
           onChange={(id: TypographyThemeId) =>
             onCompanyDataChange("typographyTheme", id)

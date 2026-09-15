@@ -1144,6 +1144,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
             title: "Typography",
             content: (
               <TypographySection
+                title="Typography Theme"
                 value={typographyTheme}
                 onChange={handleTypographyChange}
                 compact
