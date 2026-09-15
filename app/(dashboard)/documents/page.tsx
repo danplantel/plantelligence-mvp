@@ -726,6 +726,17 @@ export default function DocumentsPage() {
   const expiredDocuments = useMemo(() => documents.filter((doc) => getExpirationStatus(doc)?.status === "expired"), [documents]);
   const expiringSoonDocuments = useMemo(() => documents.filter((doc) => getExpirationStatus(doc)?.status === "expiring_soon"), [documents]);
 
+  // Identity of the current "Documents Due for Review" alert. Keying the
+  // dismissal on the exact set of documents being reported means dismissing it
+  // hides it permanently for those documents, while a different set — e.g. one
+  // more document coming due — produces a new key and surfaces the alert again.
+  // Day counts are deliberately excluded so the dismissal survives midnight and
+  // the daily countdown ticking down.
+  const dueForReviewAlertKey = useMemo(() => {
+    const docIds = expiringSoonDocuments.map((doc) => doc.id).sort();
+    return `documents-due-for-review:${docIds.join(",")}`;
+  }, [expiringSoonDocuments]);
+
   const sortedDocuments = [...documents].sort((a, b) => {
     const aType = getDocumentType(a);
     const bType = getDocumentType(b);
@@ -968,7 +979,7 @@ export default function DocumentsPage() {
           <Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertTitle>Documents Past Review Date</AlertTitle><AlertDescription>{expiredDocuments.length} document{expiredDocuments.length > 1 ? "s have" : " has"} passed their review date. Please update or remove them.<ul className="mt-2 list-disc list-inside">{expiredDocuments.slice(0, 5).map((doc) => (<li key={doc.id}>{doc.title} - {getExpirationStatus(doc)?.days} day{getExpirationStatus(doc)?.days !== 1 ? "s" : ""} past review date</li>))}{expiredDocuments.length > 5 && <li>...and {expiredDocuments.length - 5} more</li>}</ul></AlertDescription></Alert>
         )}
         {expiringSoonDocuments.length > 0 && (
-          <Alert className="border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"><Clock className="h-4 w-4" /><AlertTitle>Documents Due for Review</AlertTitle><AlertDescription>{expiringSoonDocuments.length} document{expiringSoonDocuments.length > 1 ? "s are" : " is"} due for review within the next 30 days. Please review and update them.<ul className="mt-2 list-disc list-inside">{expiringSoonDocuments.slice(0, 5).map((doc) => (<li key={doc.id}>{doc.title} - Due for review in {getExpirationStatus(doc)?.days} day{getExpirationStatus(doc)?.days !== 1 ? "s" : ""}</li>))}{expiringSoonDocuments.length > 5 && <li>...and {expiringSoonDocuments.length - 5} more</li>}</ul></AlertDescription></Alert>
+          <DismissibleAlert alertKey={dueForReviewAlertKey} closeButtonClassName="text-amber-700 hover:bg-amber-200/70 dark:text-amber-200 dark:hover:bg-amber-900/50" className="border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"><Clock className="h-4 w-4" /><AlertTitle>Documents Due for Review</AlertTitle><AlertDescription>{expiringSoonDocuments.length} document{expiringSoonDocuments.length > 1 ? "s are" : " is"} due for review within the next 30 days. Please review and update them.<ul className="mt-2 list-disc list-inside">{expiringSoonDocuments.slice(0, 5).map((doc) => (<li key={doc.id}>{doc.title} - Due for review in {getExpirationStatus(doc)?.days} day{getExpirationStatus(doc)?.days !== 1 ? "s" : ""}</li>))}{expiringSoonDocuments.length > 5 && <li>...and {expiringSoonDocuments.length - 5} more</li>}</ul></AlertDescription></DismissibleAlert>
         )}
         <Card className="shadow-sm">
           <CardContent className="p-6">

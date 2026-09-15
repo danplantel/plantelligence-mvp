@@ -2,7 +2,15 @@
 
 import { useState, type ComponentType } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Bell, Calendar, Clock, X } from "lucide-react";
+import {
+  AlertTriangle,
+  Bell,
+  Calendar,
+  CalendarClock,
+  Clock,
+  FileText,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -170,13 +178,16 @@ export function NotificationsMenu() {
             </p>
           </div>
         ) : (
-          <div className="max-h-[420px] overflow-y-auto py-1">
+          <div className="max-h-[420px] w-full min-w-0 overflow-y-auto overflow-x-hidden py-1">
             {/* Meetings */}
-            <div className="px-2">
-              <div className="flex items-center justify-between px-2 py-1.5">
-                <span className={SECTION_LABEL_CLASS}>Meetings</span>
+            <div className="w-full min-w-0 px-2">
+              <div className="flex w-full min-w-0 items-center justify-between gap-2 px-2 py-1.5">
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <CalendarClock className="h-3 w-3 shrink-0 text-muted-foreground" />
+                  <span className={SECTION_LABEL_CLASS}>Meetings</span>
+                </div>
                 {meetings.length > 0 && (
-                  <span className="text-[10px] font-medium text-muted-foreground">
+                  <span className="shrink-0 text-[10px] font-medium text-muted-foreground">
                     {meetings.length}
                   </span>
                 )}
@@ -192,10 +203,10 @@ export function NotificationsMenu() {
                   return (
                     <DropdownMenuItem
                       key={reminder.id}
-                      className="flex flex-col items-start p-3 cursor-pointer"
+                      className="flex w-full min-w-0 flex-col items-start p-3 cursor-pointer"
                       onClick={() => handleMeetingClick(reminder)}
                     >
-                      <div className="flex items-start gap-2 w-full">
+                      <div className="flex w-full min-w-0 items-start gap-2">
                         <TierIcon
                           className={cn("h-4 w-4 shrink-0", tier.iconClassName)}
                         />
@@ -215,7 +226,7 @@ export function NotificationsMenu() {
                             >
                               {MEETING_REMINDER_LABEL[reminder.reminderStatus]}
                             </div>
-                            <span className="text-xs text-muted-foreground truncate">
+                            <span className="min-w-0 text-xs text-muted-foreground truncate">
                               {formatMeetingReminderWhen(
                                 reminder.dateKey,
                                 reminder.time,
@@ -240,11 +251,14 @@ export function NotificationsMenu() {
             <DropdownMenuSeparator />
 
             {/* Documents */}
-            <div className="px-2">
-              <div className="flex items-center justify-between px-2 py-1.5">
-                <span className={SECTION_LABEL_CLASS}>Documents</span>
+            <div className="w-full min-w-0 px-2">
+              <div className="flex w-full min-w-0 items-center justify-between gap-2 px-2 py-1.5">
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <FileText className="h-3 w-3 shrink-0 text-muted-foreground" />
+                  <span className={SECTION_LABEL_CLASS}>Documents</span>
+                </div>
                 {documents.length > 0 && (
-                  <span className="text-[10px] font-medium text-muted-foreground">
+                  <span className="shrink-0 text-[10px] font-medium text-muted-foreground">
                     {documents.length}
                   </span>
                 )}
@@ -260,10 +274,10 @@ export function NotificationsMenu() {
                   return (
                     <DropdownMenuItem
                       key={document.id}
-                      className="flex flex-col items-start p-3 cursor-pointer"
+                      className="flex w-full min-w-0 flex-col items-start p-3 cursor-pointer"
                       onClick={() => handleDocumentClick(document)}
                     >
-                      <div className="flex items-start gap-2 w-full">
+                      <div className="flex w-full min-w-0 items-start gap-2">
                         <TierIcon
                           className={cn("h-4 w-4 shrink-0", tier.iconClassName)}
                         />
@@ -283,7 +297,7 @@ export function NotificationsMenu() {
                             >
                               {DOCUMENT_EXPIRATION_LABEL[document.status]}
                             </div>
-                            <span className="text-xs text-muted-foreground truncate">
+                            <span className="min-w-0 text-xs text-muted-foreground truncate">
                               {formatDocumentExpirationWhen(
                                 document.dateKey,
                                 document.status,
@@ -305,29 +319,6 @@ export function NotificationsMenu() {
               )}
             </div>
           </div>
-        )}
-
-        {meetings.length > 0 && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="cursor-pointer"
-              onClick={() => router.push("/communications/meetings")}
-            >
-              <span className="text-sm">View all meetings</span>
-            </DropdownMenuItem>
-          </>
-        )}
-        {documents.length > 0 && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="cursor-pointer"
-              onClick={() => router.push("/documents")}
-            >
-              <span className="text-sm">View all documents</span>
-            </DropdownMenuItem>
-          </>
         )}
       </DropdownMenuContent>
     </DropdownMenu>
