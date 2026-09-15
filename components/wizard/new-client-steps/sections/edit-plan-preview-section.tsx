@@ -702,6 +702,10 @@ export function EditPlanPreviewSection({
             onCompanyDataChange("typographyTheme", id)
           }
           compact
+          // Same AI suggestion as Create Plan, using this plan's saved website.
+          enableAiSuggestion
+          websiteUrl={companyData?.companyWebsite}
+          companyName={companyData?.companyName}
         />
       ),
     },

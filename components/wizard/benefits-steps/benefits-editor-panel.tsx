@@ -74,6 +74,8 @@ interface BenefitsEditorPanelProps {
     variant?: 'fixed' | 'inline';
     /** Plan/company name shown next to the benefit category badge in the header */
     planCompanyName?: string;
+    /** The plan's company website — analysis target for the AI typography suggestion */
+    companyWebsite?: string;
     /** Fields flagged by the last failed step validation (renders red borders) */
     errorFields?: string[];
     /** Lenis-backed scroll for the editor panel (falls back to native scroll) */
@@ -87,6 +89,7 @@ export function BenefitsEditorPanel({
     activeSection,
     highlightedField,
     planCompanyName,
+    companyWebsite,
     errorFields = [],
     onScrollEditorTo,
     editorScrollContainerRef: externalScrollRef,
@@ -433,6 +436,11 @@ export function BenefitsEditorPanel({
                         title="Typography"
                         compact
                         className="border-none shadow-none bg-transparent dark:bg-transparent"
+                        // Same AI suggestion as Create Plan, using the selected
+                        // plan's company website.
+                        enableAiSuggestion
+                        websiteUrl={companyWebsite}
+                        companyName={planCompanyName}
                     />
                 </div>
 

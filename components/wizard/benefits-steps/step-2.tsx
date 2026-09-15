@@ -538,6 +538,14 @@ export function BenefitsStep2() {
                 activeSection={editorState.activeSection}
                 highlightedField={editorState.highlightedField}
                 planCompanyName={planCompanyName}
+                // Thread the plan's website through so the Typography section can
+                // offer the AI suggestion (planDetails is authoritative after a
+                // reload, since the store's selectedPlan is stripped on persist).
+                companyWebsite={
+                    planDetails?.companyWebsite ||
+                    (step1Data?.selectedPlan as any)?.companyWebsite ||
+                    ""
+                }
                 errorFields={errorFields}
                 editorScrollContainerRef={editorScrollContainerRef}
                 onScrollEditorTo={scrollEditorTo}

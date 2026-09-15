@@ -33,8 +33,9 @@ interface TypographySectionProps {
   /** Renders the cards in a single column (useful inside narrow editor panels). */
   compact?: boolean;
   /**
-   * Shows the "suggest from website" action. Only the Create Plan flow enables
-   * this, so Edit Plan / Create Benefits stay purely manual.
+   * Shows the "Suggest from Website" action, which analyses the plan's company
+   * website and applies the closest-matching theme. Enabled by all three flows
+   * (Create Plan, Edit Plan, Create Benefits) — each passes the plan's website.
    */
   enableAiSuggestion?: boolean;
   /** The plan's company website, used as the analysis target. */
