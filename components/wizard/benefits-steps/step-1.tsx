@@ -160,7 +160,6 @@ export function BenefitsStep1() {
     dedupingInterval: 60_000,
     revalidateOnFocus: false,
   });
-  const userSubdomain: string | undefined = profileData?.subdomain || undefined;
   const accordionRef = useRef<HTMLDivElement>(null);
   const [plans, setPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -2570,10 +2569,7 @@ export function BenefitsStep1() {
                   const plan = plans.find((p: any) => p.id === resolvedPlanId);
                   const slug = (plan as any)?.slug;
                   const resolvedSlug = slug || resolvedPlanId;
-                  const url = getBenefitsHubOpenPortalUrl(
-                    resolvedSlug,
-                    userSubdomain,
-                  );
+                  const url = getBenefitsHubOpenPortalUrl(resolvedSlug);
                   window.open(url, "_blank");
                 }}
                 className="gap-1.5 shrink-0 bg-accent-blue text-white hover:bg-accent-blue/90"

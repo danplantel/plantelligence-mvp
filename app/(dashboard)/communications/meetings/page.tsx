@@ -480,7 +480,7 @@ const SORT_OPTIONS: { value: string; label: string; column: SortColumn; directio
   { value: "date-asc", label: "Closest Meeting Date", column: "date", direction: "asc" },
 ];
 
-function PlanSearchBar({ plans, value, onChange, disabled, userSubdomain }: { plans: Client[]; value: string; onChange: (planId: string) => void; disabled?: boolean; userSubdomain?: string; }) {
+function PlanSearchBar({ plans, value, onChange, disabled }: { plans: Client[]; value: string; onChange: (planId: string) => void; disabled?: boolean; }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [highlight, setHighlight] = useState(0);
@@ -519,10 +519,7 @@ function PlanSearchBar({ plans, value, onChange, disabled, userSubdomain }: { pl
               const slug =
                 (selectedPlan as any)?.slug;
               const resolvedSlug = slug || value;
-              const url = getBenefitsHubOpenPortalUrl(
-                resolvedSlug,
-                userSubdomain,
-              );
+              const url = getBenefitsHubOpenPortalUrl(resolvedSlug);
               window.open(url, "_blank");
             }}
             className="gap-1.5 shrink-0 bg-accent-blue text-white hover:bg-accent-blue/90"
@@ -617,12 +614,6 @@ export default function MeetingsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const meetingFormRef = useRef<HTMLFormElement | null>(null);
   const isSubmittingRef = useRef(false);
-  const { data: profileData } = useSWR("/api/profile", jsonFetcher, {
-    keepPreviousData: true,
-    dedupingInterval: 60_000,
-    revalidateOnFocus: false,
-  });
-  const userSubdomain: string | undefined = profileData?.subdomain || undefined;
   const { data: clientsData, isLoading: isLoadingClients } = useSWR("/api/clients", jsonFetcher, { keepPreviousData: true, dedupingInterval: 60_000, revalidateOnFocus: false });
   const clients: Client[] = useMemo(() => (clientsData?.data ?? []).filter((c: Client) => c.status !== "Archived"), [clientsData]);
   const meetingsKey = useMemo(() => { const params = new URLSearchParams(); if (statusFilter !== "all") params.append("status", statusFilter); return `/api/meetings?${params.toString()}`; }, [statusFilter]);
@@ -1236,7 +1227,7 @@ export default function MeetingsPage() {
                 <div className="relative"><Skeleton className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 rounded" /><Skeleton className="h-9 w-full rounded-md" /></div>
               </div>
             ) : (
-              <><PlanSearchBar plans={clients} value={selectedPlan} onChange={handlePlanChange} disabled={clients.length === 0} userSubdomain={userSubdomain} /></>
+              <><PlanSearchBar plans={clients} value={selectedPlan} onChange={handlePlanChange} disabled={clients.length === 0} /></>
             )}
           </CardContent>
         </Card>

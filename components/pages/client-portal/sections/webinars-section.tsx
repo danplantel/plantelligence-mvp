@@ -744,9 +744,10 @@ export function WebinarsSection({
 
       setIsLoadingReplays(true);
       try {
-        const response = await fetch(`/api/webinars`, {
-          cache: "no-store",
-        });
+        const response = await fetch(
+          `/api/webinars?clientId=${encodeURIComponent(clientId)}`,
+          { cache: "no-store" },
+        );
         const result = await response.json();
 
         if (response.ok && result.success && Array.isArray(result.data)) {

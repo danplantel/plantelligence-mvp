@@ -8,9 +8,9 @@ import { resolvePortalAdvisorId } from "@/lib/portal-access";
 // GET all webinars
 export async function GET(request: NextRequest) {
   try {
-    // Public portal (News & Events on an advisor subdomain) resolves the owning
-    // advisor from x-advisor-id / the Host subdomain; the dashboard
-    // (Communications → Webinars) requires the session as before.
+    // Public portal (News & Events) resolves the owning advisor from the plan
+    // (clientId query param); the dashboard (Communications → Webinars)
+    // requires the session as before.
     const portalAdvisorId = await resolvePortalAdvisorId(request, true);
     let userId: string | undefined = portalAdvisorId;
     if (!userId) {

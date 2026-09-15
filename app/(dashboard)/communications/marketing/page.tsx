@@ -150,13 +150,11 @@ function PlanSearchBar({
   value,
   onChange,
   disabled,
-  userSubdomain,
 }: {
   plans: Client[];
   value: string;
   onChange: (planId: string) => void;
   disabled?: boolean;
-  userSubdomain?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -279,10 +277,7 @@ function PlanSearchBar({
               const slug =
                 (selectedPlan as any)?.slug;
               const resolvedSlug = slug || value;
-              const url = getBenefitsHubOpenPortalUrl(
-                resolvedSlug,
-                userSubdomain,
-              );
+              const url = getBenefitsHubOpenPortalUrl(resolvedSlug);
               window.open(url, "_blank");
             }}
             className="gap-1.5 shrink-0 bg-accent-blue text-white hover:bg-accent-blue/90"
@@ -945,12 +940,12 @@ export default function MarketingPage() {
   const [selectedPlan, setSelectedPlan] = useState<string>("");
   // Loading dialog shown while the newly selected plan's data is being loaded.
   const [isPlanLoading, setIsPlanLoading] = useState(false);
+  // Advisor profile (for the flyer advisor logo).
   const { data: profileData } = useSWR("/api/profile", jsonFetcher, {
     keepPreviousData: true,
     dedupingInterval: 60_000,
     revalidateOnFocus: false,
   });
-  const userSubdomain: string | undefined = profileData?.subdomain || undefined;
 
   // Fetch plan details (for company logo)
   const { data: planData } = useSWR(
@@ -1087,7 +1082,6 @@ export default function MarketingPage() {
                   value={selectedPlan}
                   onChange={handlePlanChange}
                   disabled={clients.length === 0}
-                  userSubdomain={userSubdomain}
                 />
               </>
             )}

@@ -27,7 +27,7 @@ interface ContactPageProps {
 /**
  * Resolve a contact image (headshot or company logo) for anonymous visitors.
  * Stored values are R2 keys (org/...) which the advisor-scoped /api/r2/object
- * proxy cannot serve on this public apex page (no session, no plan subdomain).
+ * proxy cannot serve on this public apex page (no session, no plan context).
  * Sign them into a fresh presigned GET URL so the <img> loads for anyone.
  * Non-R2 http(s) values pass through; base64 data URLs are not carried in links.
  */

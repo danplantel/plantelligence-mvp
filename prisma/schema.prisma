@@ -44,7 +44,6 @@ model User {
   primaryColor                String?
   secondaryColor              String?
   organizationName            String?
-  subdomain                   String?
   advisorName                 String?
   advisorEmail                String?
   advisorPhone                String?
@@ -80,8 +79,6 @@ model User {
 
   futureContacts    FutureContact[]   @relation("UserFutureContacts")
   meetingCustomTypes MeetingCustomType[]
-
-  @@index([subdomain])
 }
 
 // Plan model
@@ -466,14 +463,12 @@ model WizardBranding {
   secondaryColor     String? // Secondary HEX color (extracted from logo)
   aiAvatar           String? // URL
   avatarFileName     String? // Original filename
-  subdomain          String // custom subdomain
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
   session WizardSession @relation(fields: [sessionId], references: [id])
 
   @@index([brandColor])
-  @@index([subdomain])
 }
 
 // Wizard Step 6: Benefit Types

@@ -102,7 +102,6 @@ export default function SettingsPage() {
       backgroundFileName: "",
       aiAvatar: "",
       avatarFileName: "",
-      subdomain: "",
       isColorPickerOpen: false,
       isGenerating: false,
     },
@@ -249,7 +248,6 @@ export default function SettingsPage() {
             backgroundFileName: branding.backgroundFileName || "",
             aiAvatar: branding.aiAvatar || "",
             avatarFileName: branding.avatarFileName || "",
-            subdomain: branding.subdomain || profileFallback?.subdomain || "",
             isColorPickerOpen: false,
             isGenerating: false,
           };
@@ -410,11 +408,6 @@ export default function SettingsPage() {
       aiAvatar: branding.aiAvatar || completedBranding?.aiAvatar || "",
       avatarFileName:
         branding.avatarFileName || completedBranding?.avatarFileName || "",
-      subdomain:
-        branding.subdomain ||
-        completedBranding?.subdomain ||
-        userProfile?.subdomain ||
-        "",
       isColorPickerOpen: false,
       isGenerating: false,
     };
@@ -587,15 +580,14 @@ export default function SettingsPage() {
         backgroundFileName: data.backgroundFileName || "",
         aiAvatar: data.aiAvatar || "",
         avatarFileName: data.avatarFileName || "",
-        subdomain: data.subdomain || "",
       };
 
       // Persist branding fields (logo, colors, background) to the User record
       // FIRST — User.backgroundImage is what the benefits wizard step-1
       // pre-populates the Background Header Image from. This must not be blocked
-      // by the wizard-session save below, which can reject (e.g. validateBranding
-      // requires `subdomain`) and previously aborted the whole save — leaving the
-      // background un-saved and un-pre-populated.
+      // by the wizard-session save below, which can reject and previously
+      // aborted the whole save — leaving the background un-saved and
+      // un-pre-populated.
       //
       // When the user deletes the background, data.backgroundImage is "" — it MUST
       // be sent as an empty string so Prisma clears User.backgroundImage. Sending
@@ -612,7 +604,6 @@ export default function SettingsPage() {
             website: data.website || undefined,
             primaryColor: data.primaryColor || undefined,
             secondaryColor: data.secondaryColor || undefined,
-            subdomain: data.subdomain || undefined,
             backgroundImage: data.backgroundImage || "",
           }),
         });
@@ -627,8 +618,8 @@ export default function SettingsPage() {
         console.error("Error updating user profile:", profileError);
       }
 
-      // Best-effort wizard-session save (logo, colors, subdomain, etc.). A
-      // validation failure here must not prevent the User-record save above.
+      // Best-effort wizard-session save (logo, colors, etc.). A validation
+      // failure here must not prevent the User-record save above.
       try {
         const ok = await saveStepDataToServer("branding", brandingPayload);
         if (!ok) {
@@ -857,7 +848,6 @@ export default function SettingsPage() {
             backgroundFileName: branding.backgroundFileName || "",
             aiAvatar: branding.aiAvatar || "",
             avatarFileName: branding.avatarFileName || "",
-            subdomain: branding.subdomain || "",
             isColorPickerOpen: false,
             isGenerating: false,
           });

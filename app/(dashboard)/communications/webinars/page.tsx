@@ -115,13 +115,6 @@ const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
 export default function WebinarsPage() {
   const router = useRouter();
   const { setTitle } = usePageTitleContext();
-  const { data: profileData } = useSWR("/api/profile", jsonFetcher, {
-    keepPreviousData: true,
-    dedupingInterval: 60_000,
-    revalidateOnFocus: false,
-  });
-  const userSubdomain: string | undefined = profileData?.subdomain || undefined;
-
   // Set page title
   useEffect(() => {
     setTitle("Webinars & Replays");
@@ -496,10 +489,7 @@ export default function WebinarsPage() {
                           const slug =
                             (client as any)?.slug;
                           const resolvedSlug = slug || clientId;
-                          const url = getBenefitsHubOpenPortalUrl(
-                            resolvedSlug,
-                            userSubdomain,
-                          );
+                          const url = getBenefitsHubOpenPortalUrl(resolvedSlug);
                           window.open(url, "_blank");
                         }
                       }}

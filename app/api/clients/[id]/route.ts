@@ -71,17 +71,16 @@ export async function GET(
     const forPortal = request.nextUrl.searchParams.get("forPortal") === "1";
 
     // Public portal: identify the advisor that owns this plan so anonymous
-    // employees can load it. Middleware attaches x-advisor-id only on the page
-    // document and /api/r2/object, so the browser's JSON fetch is resolved via
-    // the Host subdomain here. When no advisor can be resolved (e.g. apex or
-    // local dev with no session) the session check below still applies.
+    // employees can load it. The plan slug/ObjectId from the path resolves the
+    // owning advisor here. When none can be resolved (e.g. local dev with no
+    // session) the session check below still applies.
     const portalAdvisorId = forPortal
       ? await resolvePortalAdvisorId(request)
       : undefined;
 
     // Resolve the owner used to scope lookups:
-    //  - public portal (advisor subdomain) → the advisor from x-advisor-id/Host
-    //  - dashboard / logged-in portal      → the session user
+    //  - public portal (plan slug) → the advisor derived from the plan
+    //  - dashboard / logged-in portal → the session user
     //  - development-only localhost preview → no owner (id/slug lookup is open)
     const devPublic = forPortal && isLocalDevLoopback(request);
     let ownerId: string | undefined = portalAdvisorId;
@@ -124,7 +123,7 @@ export async function GET(
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
 
-    // Ownership check for session requests (subdomain-portal is pre-scoped and
+    // Ownership check for session requests (plan-portal is pre-scoped and
     // the dev-local preview is intentionally open in development).
     if (ownerId && client.userId !== ownerId) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -137,7 +136,7 @@ export async function GET(
     // Attach the advisor's (User's) disclaimer from their profile so the portal
     // footer renders the advisor's disclosures instead of the client's. Resolved
     // server-side so it works for both the logged-in dashboard flow (dev) and the
-    // public subdomain portal (production).
+    // public portal (production).
     // Portal requests must exclude soft-archived docs (`archivedAt` set). Do not use
     // `where: { archivedAt: null }` in Prisma MongoDB: it omits rows where the field is
     // missing on the BSON document (common for older rows), so `forPortal=1` returned [] while
@@ -226,12 +225,12 @@ export async function GET(
         keyContacts: keyContactsToReturn,
         advisorDisclaimer,
       },
-      client.userId, // advisor ID (from session or subdomain-derived)
+      client.userId, // advisor ID (from session or plan-derived)
       clientId,
     );
 
     // Generate presigned URLs for R2-backed portal media (plan videos + branding
-    // images) so public portal viewers (subdomain, no session) can load them.
+    // images) so public portal viewers (no session) can load them.
     // Portal pages cannot use the authenticated /api/r2/object proxy or the
     // logged-in Benefit API directly, so we sign R2 keys here using the
     // dual-written employeePortalPreview.benefits data. This also fixes the

@@ -81,10 +81,6 @@ const areCompanyBasicsEqual = (
 
 interface NewClientStep1Props {
   errorFields?: string[];
-  /** Advisor's portal subdomain (User.subdomain) for the Portal URL preview.
-   *  Provided by the host page from its already-fetched profile — Step 1 must
-   *  NOT fire its own `/api/profile` request just to read this. */
-  userSubdomain?: string;
 }
 
 const normalizeWelcomeStatement = (
@@ -99,8 +95,10 @@ const normalizeWelcomeStatement = (
 
 export function NewClientStep1({
   errorFields = [],
-  userSubdomain = "",
 }: NewClientStep1Props) {
+  const portalRootDomain = (
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN || "plantel.pro"
+  ).replace(/^\./, "");
   const { stepData, saveStepDataLocally, loadDraftById, currentStep, draftClientId, saveAsDraft } =
     useNewClientWizardStore();
   const normalizedInitialCompanyData = normalizeCompanyBasicsData(
@@ -185,8 +183,6 @@ export function NewClientStep1({
   const [logoPreviewDataUrl, setLogoPreviewDataUrl] = useState<string | undefined>(undefined);
   const [isLogoModalOpen, setIsLogoModalOpen] = useState(false);
 
-  // Note: the advisor portal subdomain comes in via the `userSubdomain` prop
-  // (the host page already fetches /api/profile). No local profile fetch.
 
   // Track whether the user has manually edited the Portal URL, so we stop
   // auto-populating it from the company name once they take control.
@@ -891,10 +887,7 @@ export function NewClientStep1({
             <CardContent className="space-y-3">
               <div className="flex items-center gap-2 text-sm text-muted-foreground dark:text-gray-400 bg-muted/50 dark:bg-gray-900/50 rounded-lg px-3 py-2">
                 <span className="shrink-0">https://</span>
-                <span className="font-medium text-foreground dark:text-gray-200">
-                  {userSubdomain || "your-org"}
-                </span>
-                <span className="shrink-0">.plantel.pro/</span>
+                <span className="shrink-0">{portalRootDomain}/</span>
                 <span className="font-medium text-foreground dark:text-gray-200">
                   {companyData.portalUrl ||
                     companyData.companyName

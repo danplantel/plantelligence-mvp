@@ -25,20 +25,9 @@ export default function NotFound() {
         </Button>
         <Button
           onClick={() => {
-            // Navigate to the dashboard on the current host. On Plantel hosts
-            // (apex/subdomains of plantel.pro) always go to the apex domain's
-            // dashboard, never to a subdomain (subdomains only serve the public
-            // portal, e.g. /{slug}). On any other host — e.g. a Vercel
-            // preview/dev domain like plantel-dev.vercel.app — stay on that
-            // host instead of bouncing the user to production.
-            const rootDomain =
-              process.env.NEXT_PUBLIC_ROOT_DOMAIN || "plantel.pro";
-            const host = (window.location.hostname || "").toLowerCase();
-            const isPlantelHost =
-              host === rootDomain || host.endsWith(`.${rootDomain}`);
-            window.location.href = isPlantelHost
-              ? `https://${rootDomain}/dashboard`
-              : `${window.location.origin}/dashboard`;
+            // Stay on the current host so a Vercel preview/dev deployment
+            // doesn't bounce the user to production.
+            window.location.href = `${window.location.origin}/dashboard`;
           }}
           variant="ghost"
           size="lg"

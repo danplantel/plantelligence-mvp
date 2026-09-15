@@ -97,13 +97,8 @@ export const authOptions: NextAuthOptions = {
         path: "/",
         secure: process.env.NODE_ENV === "production",
         // The Domain attribute is intentionally left unset here (host-only).
-        // NextAuth v4 resolves cookie options statically and cannot see the
-        // request host, so the auth route wrapper (see
-        // app/api/auth/[...nextauth]/route.ts) adds `Domain=.plantel.pro` on
-        // Plantel hosts — to share the session across the apex and subdomains
-        // — and leaves it host-only everywhere else (e.g. the Vercel dev
-        // domain plantel-dev.vercel.app, where a `.plantel.pro` cookie would
-        // be rejected by the browser).
+        // Portal pages now live at the environment root (no advisor
+        // subdomains), so no cross-subdomain session sharing is needed.
       },
     },
   },

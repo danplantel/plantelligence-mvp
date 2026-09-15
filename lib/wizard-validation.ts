@@ -19,7 +19,6 @@ const getFieldFromError = (message: string): string[] => {
   if (message.includes("brandColor")) fields.push("brandColor");
   if (message.includes("primaryColor")) fields.push("primaryColor");
   if (message.includes("secondaryColor")) fields.push("secondaryColor");
-  if (message.includes("subdomain")) fields.push("subdomain");
   if (message.includes("name")) fields.push("name");
   // Organization Email maps to its own field (not the login "email" field).
   if (
@@ -47,7 +46,6 @@ const getFieldFromError = (message: string): string[] => {
     if (message.includes("describe your organization")) return ["customOrganization"];
     if (message.includes("specify other benefits")) return ["customService"];
     if (message.includes("color")) return ["brandColor"];
-    if (message.includes("subdomain")) return ["subdomain"];
     if (message.includes("branding") || message.includes("Branding")) return ["branding"];
     if (message.includes("name")) return ["name"];
     if (message.includes("email")) return ["email"];
@@ -220,13 +218,6 @@ export const brandingSchema = z.object({
     secondaryColor: z.string().optional(),
     aiAvatar: z.string().optional(),
     avatarFileName: z.string().optional(),
-    subdomain: z.string().min(1, "Subdomain is required").refine(
-      (subdomain) => {
-        // Allow subdomains with dots and basic characters
-        return subdomain && subdomain.trim().length > 0;
-      },
-      { message: "Subdomain is required" }
-    ),
   });
 
 
@@ -437,7 +428,6 @@ export const validateCurrentStep = async (step: number, stepData: any) => {
           secondaryColor: stepData.branding?.secondaryColor || "",
           aiAvatar: stepData.branding?.aiAvatar || "",
           avatarFileName: stepData.branding?.avatarFileName || "",
-          subdomain: stepData.branding?.subdomain || ""
         };
         
         
@@ -450,9 +440,6 @@ export const validateCurrentStep = async (step: number, stepData: any) => {
         }
         if (!cleanBranding.website || cleanBranding.website.trim() === "") {
           step3Errors.push("website");
-        }
-        if (!cleanBranding.subdomain || cleanBranding.subdomain.trim() === "") {
-          step3Errors.push("subdomain");
         }
         // Brand colors are required — the legacy single brandColor field has been
         // replaced by primaryColor/secondaryColor (rendered by the shared

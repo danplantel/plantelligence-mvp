@@ -2739,7 +2739,9 @@ export default function EditClientPage() {
   // the [Organization Name] placeholder in the disclaimer text.
   const [userEmail, setUserEmail] = useState<string>("");
   const [userOrgName, setUserOrgName] = useState<string>("");
-  const [userSubdomain, setUserSubdomain] = useState<string>("");
+  const portalRootDomain = (
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN || "plantel.pro"
+  ).replace(/^\./, "");
 
   // Portal URL availability check
   type PortalUrlAvailability = "idle" | "checking" | "available" | "taken";
@@ -3119,11 +3121,9 @@ export default function EditClientPage() {
           "";
         const email =
           profile?.email || profile?.advisorEmail || "";
-        const subdomain = profile?.subdomain || "";
         if (!cancelled) {
           setUserOrgName(orgName);
           setUserEmail(email);
-          setUserSubdomain(subdomain);
         }
       } catch {
         // Silent — best-effort fetch for the organization name.
@@ -3466,10 +3466,7 @@ export default function EditClientPage() {
                 <CardContent className="space-y-3">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground dark:text-gray-400 bg-muted/50 dark:bg-gray-900/50 rounded-lg px-3 py-2">
                     <span className="shrink-0">https://</span>
-                    <span className="font-medium text-foreground dark:text-gray-200">
-                      {userSubdomain || "your-org"}
-                    </span>
-                    <span className="shrink-0">.plantel.pro/</span>
+                    <span className="shrink-0">{portalRootDomain}/</span>
                     <span className="font-medium text-foreground dark:text-gray-200">
                       {companyData.portalUrl ||
                         companyData.companyName

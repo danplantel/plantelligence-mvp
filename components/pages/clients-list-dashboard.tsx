@@ -143,14 +143,6 @@ export function ClientsListDashboardPage() {
   const { data: session } = useSession();
   const router = useRouter();
 
-  // Fetch the advisor's subdomain for building portal URLs
-  const { data: profileData } = useSWR(
-    "/api/profile",
-    jsonFetcher,
-    { keepPreviousData: true, dedupingInterval: 60_000, revalidateOnFocus: false },
-  );
-  const userSubdomain: string | undefined = profileData?.subdomain || undefined;
-
   // Format date as mm/dd/yy
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -648,10 +640,7 @@ export function ClientsListDashboardPage() {
                                       className="h-8 w-8"
                                       onClick={() => {
                                         const slug = client.slug || client.id;
-                                        const url = getBenefitsHubOpenPortalUrl(
-                                          slug,
-                                          userSubdomain,
-                                        );
+                                        const url = getBenefitsHubOpenPortalUrl(slug);
                                         window.open(url, "_blank");
                                       }}
                                     >

@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
 
   // Public portal: return only the advisor's public signature fields so the
   // welcome banner renders for anonymous employees. Never expose the full
-  // profile (wizard sessions, compliance data, etc.) over the public subdomain.
+  // profile (wizard sessions, compliance data, etc.) over the public portal.
   if (forPortal) {
     const portalAdvisorId = await resolvePortalAdvisorId(request);
     if (portalAdvisorId) {
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
         });
       }
     }
-    // forPortal set but no resolvable advisor (e.g. apex/localhost preview while
+    // forPortal set but no resolvable plan (e.g. localhost preview while
     // logged in) — return the same lightweight public signature profile instead
     // of falling through to the heavy full-profile flow below. The full profile
     // includes every wizard session relation and runs getEffectiveWizardUserSetup,

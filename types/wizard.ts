@@ -110,7 +110,6 @@ export interface WizardBranding {
   logo?: string;
   brandColor: string;
   aiAvatar?: string;
-  subdomain: string;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -196,7 +195,6 @@ export interface BrandingFormData {
    secondaryColor?: string;
    aiAvatar?: string;
    avatarFileName?: string;
-   subdomain: string;
  }
 
 

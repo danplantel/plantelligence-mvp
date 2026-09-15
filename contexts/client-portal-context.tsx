@@ -123,12 +123,14 @@ export function ClientPortalProvider({
 
   const fetchProfile = useCallback(async () => {
     try {
-      // forPortal=1 returns a reduced public profile on an advisor subdomain so
-      // anonymous employees see the advisor's signature; on apex/localhost it
-      // falls back to the logged-in session profile.
-      const response = await fetch("/api/profile?forPortal=1", {
-        credentials: "same-origin",
-      });
+      // forPortal=1 returns a reduced public profile for the plan's advisor so
+      // anonymous employees see the advisor's signature. The plan slug scopes
+      // the lookup (the portal is served at /{slug}); with a session it falls
+      // back to the logged-in profile.
+      const response = await fetch(
+        `/api/profile?forPortal=1&clientSlug=${encodeURIComponent(clientId)}`,
+        { credentials: "same-origin" },
+      );
       if (!response.ok) return;
       const data = await response.json();
       setProfile({
@@ -143,7 +145,7 @@ export function ClientPortalProvider({
     } catch {
       // non-blocking — profile stays null and the banner falls back gracefully
     }
-  }, []);
+  }, [clientId]);
 
   // Initial load — fetch the client and the advisor profile together, and only
   // replace the skeleton once BOTH resolve so the welcome banner's signature

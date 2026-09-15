@@ -254,7 +254,7 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
     // The footer disclosures come from the advisor's profile (User.disclaimer)
     // when available. This is resolved server-side in GET /api/clients/[id] and
     // attached as advisorDisclaimer, so it works for both the logged-in dashboard
-    // flow and the public subdomain portal. On the Benefits Hub main page (no
+    // flow and the public portal. On the Benefits Hub main page (no
     // per-category disclaimer) and as a fallback for category pages without a
     // per-category disclaimer, the advisor's disclosures remain the source.
     const advisorDisclaimer = (clientData as any)?.advisorDisclaimer;

@@ -328,8 +328,8 @@ export function PortalWelcomeBanner({
   const backgroundRawForBanner = persistedImage || wizardMatch || categoryDefaultBg;
 
   // R2 keys (org/...) are streamed through the same-origin /api/r2/object proxy
-  // (session-authenticated on the advisor dashboard, x-advisor-id on portal
-  // subdomains) rather than a presigned URL. Presigned R2 URLs can fail to render
+  // (session-authenticated on the dashboard, plan-scoped on the public portal)
+  // rather than a presigned URL. Presigned R2 URLs can fail to render
   // inside an <img> on production even when /api/r2/signed-url returns 200 (see
   // useBrandingImageUrl) — which is why the same dev flow shows locally but not
   // after deploy. The proxy returns the original full-quality bytes. Absolute

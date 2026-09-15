@@ -83,7 +83,6 @@ export async function POST(request: NextRequest) {
         secondaryColor: data.secondaryColor,
         aiAvatar: data.aiAvatar,
         avatarFileName: data.avatarFileName,
-        subdomain: data.subdomain,
         updatedAt: new Date(),
       },
       create: {
@@ -100,7 +99,6 @@ export async function POST(request: NextRequest) {
         secondaryColor: data.secondaryColor,
         aiAvatar: data.aiAvatar,
         avatarFileName: data.avatarFileName,
-        subdomain: data.subdomain,
       },
     });
     console.log("📥 [branding POST] Saved branding ID:", branding.id);
