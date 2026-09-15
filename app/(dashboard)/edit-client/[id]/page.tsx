@@ -89,6 +89,7 @@ import {
   Check,
   CheckCircle2,
   XCircle,
+  AlertCircle,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { PRIMARY_SERVICE_CATEGORY_OPTIONS } from "@/lib/service-categories";
@@ -3816,7 +3817,11 @@ export default function EditClientPage() {
                   <DialogContent className="sm:max-w-[520px] dark:bg-gray-800 dark:border-gray-700">
                     <DialogHeader>
                       <DialogTitle className="flex items-center gap-2">
-                        <Globe className="w-5 h-5 text-accent-blue" />
+                        {portalUrlInfoMode === "confirmSave" ? (
+                          <AlertCircle className="w-5 h-5 text-red-500 dark:text-red-400" />
+                        ) : (
+                          <Globe className="w-5 h-5 text-accent-blue" />
+                        )}
                         {portalUrlInfoMode === "confirmSave"
                           ? "Save with a new Portal URL?"
                           : "About your Portal URL"}
@@ -3867,11 +3872,11 @@ export default function EditClientPage() {
                           </li>
                         </ul>
                       </div>
-                      <div>
-                        <p className="font-medium text-gray-900 dark:text-gray-100">
+                      <div className="rounded-lg border border-red-200 bg-red-50/70 px-3 py-2.5 dark:border-red-900/60 dark:bg-red-950/30">
+                        <p className="font-medium text-red-900 dark:text-red-200">
                           Releasing an old URL
                         </p>
-                        <p className="mt-1">
+                        <p className="mt-1 text-red-800/90 dark:text-red-200/80">
                           If you need to free a previous URL (for example, it was
                           never shared), use <strong>Release</strong> in the
                           Previous URLs list. Released URLs become available to
@@ -3899,10 +3904,10 @@ export default function EditClientPage() {
                           </p>
                         );
                       })()}
-                      <p className="text-xs text-gray-400 dark:text-gray-500">
+                      <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-700/40 dark:text-gray-400">
                         Renaming only changes the portal web address. It does not
                         affect your plan, benefits, contacts, or documents.
-                      </p>
+                      </div>
                     </div>
                     <DialogFooter className="gap-2">
                       {portalUrlInfoMode === "confirmSave" ? (
