@@ -11,22 +11,34 @@
  * organization email. Seeded advisor contacts store the *organization* email,
  * so matching only the login email would miss them.
  */
+/**
+ * True when this contact belongs to the currently logged-in user.
+ *
+ * Same matching rule as {@link resolveContactCompanyName} — the user's login email
+ * and/or organization email — extracted so other per-user overrides (e.g. the
+ * Organization Logo on the contact card) can share it instead of re-implementing it.
+ */
+export function isLoggedInUserContact(
+  contact: { email?: string | null },
+  currentUserEmails?: string | string[] | null,
+): boolean {
+  const contactEmail = (contact.email || "").trim().toLowerCase();
+  if (!contactEmail) return false;
+
+  return (
+    Array.isArray(currentUserEmails) ? currentUserEmails : [currentUserEmails]
+  )
+    .map((email) => (email || "").trim().toLowerCase())
+    .filter(Boolean)
+    .includes(contactEmail);
+}
+
 export function resolveContactCompanyName(
   contact: { email?: string | null; companyName?: string | null },
   currentUserEmails?: string | string[] | null,
   currentUserOrgName?: string | null,
 ): string {
-  const contactEmail = (contact.email || "").trim().toLowerCase();
-
-  const userEmails = (
-    Array.isArray(currentUserEmails)
-      ? currentUserEmails
-      : [currentUserEmails]
-  )
-    .map((email) => (email || "").trim().toLowerCase())
-    .filter(Boolean);
-
-  if (contactEmail && userEmails.includes(contactEmail)) {
+  if (isLoggedInUserContact(contact, currentUserEmails)) {
     return (currentUserOrgName || "").trim() || (contact.companyName || "").trim();
   }
 

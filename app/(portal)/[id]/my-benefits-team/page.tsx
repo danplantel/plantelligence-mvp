@@ -1,10 +1,14 @@
 "use client";
 
-import { useMemo, useEffect } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useClientPortal } from "@/contexts/client-portal-context";
-import { resolveContactCompanyName } from "@/lib/resolve-contact-company-name";
+import {
+  resolveContactCompanyName,
+  isLoggedInUserContact,
+} from "@/lib/resolve-contact-company-name";
+import { fetchProfileOnce } from "@/lib/fetch-profile";
 import {
   isContactVisibleInPortal,
   getCategoryPortalVisibility,
@@ -97,6 +101,41 @@ export default function MyBenefitsTeamPage() {
   useEffect(() => {
     refetch();
   }, [refetch]);
+
+  /**
+   * The logged-in user's CURRENT Organization Logo.
+   *
+   * Contact cards are seeded with the advisor's Organization Logo
+   * (`seed-onboarding-advisor-contacts` writes `companyLogo: profile.advisorLogo ||
+   * profile.advisorLogoUrl`), so the stored copy goes stale as soon as Settings →
+   * Branding changes it. `/api/profile` is the authoritative source — and it is
+   * single-flight with a cache that `invalidateProfileCache()` clears on save, so this
+   * resolves to the new logo on the next visit. Only fetched when the viewer is signed
+   * in, and only applied to their own card below.
+   */
+  const [currentUserLogo, setCurrentUserLogo] = useState<string | null>(null);
+  useEffect(() => {
+    if (currentUserEmails.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      const profile: any = await fetchProfileOnce().catch(() => null);
+      if (cancelled || !profile) return;
+
+      const logo =
+        profile.advisorLogoUrl ||
+        profile.advisorLogo ||
+        profile.wizardSessions?.[0]?.branding?.logo ||
+        null;
+      setCurrentUserLogo(logo ? String(logo) : null);
+    })().catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+    // Keyed on the joined emails: the array itself is rebuilt on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUserEmails.join("|")]);
 
   const brandColor = clientData?.brandColor || "#0D315F";
   const secondaryColor = clientData?.secondaryColor || "#C89B5B";
@@ -198,6 +237,17 @@ export default function MyBenefitsTeamPage() {
           currentUserEmails,
           currentUserOrgName,
         );
+        // The logged-in user's own card shows their CURRENT Organization Logo: its
+        // logo was pre-populated from that same value at seed time, so a later change
+        // in Settings must win over the stored copy.
+        //
+        // Scoped to this branch on purpose — a Company / Plan Sponsor contact goes
+        // through the branch above and represents the plan's company, so it must keep
+        // THAT company's logo even when the card belongs to the logged-in user.
+        if (currentUserLogo && isLoggedInUserContact(contact, currentUserEmails)) {
+          normalized.companyLogo = currentUserLogo;
+          normalized.logo = currentUserLogo;
+        }
       }
 
       normalized.cardBackgroundColor = contact.cardBackgroundColor;
@@ -213,6 +263,7 @@ export default function MyBenefitsTeamPage() {
     currentUserEmail,
     currentUserOrgEmail,
     currentUserOrgName,
+    currentUserLogo,
     planCompanyName,
     planCompanyLogo,
   ]);

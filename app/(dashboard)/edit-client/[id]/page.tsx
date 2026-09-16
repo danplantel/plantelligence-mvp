@@ -87,6 +87,8 @@ import { PlanMeetingsSection } from "@/components/pages/edit-client/plan-meeting
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { isLoggedInUserContact } from "@/lib/resolve-contact-company-name";
+import { isOnboardingAdvisorContactId } from "@/lib/seed-onboarding-advisor-contacts";
 import { ContactCardLayoutPreviewModal } from "@/components/pages/edit-client/contact-card-layout-preview-modal";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -2827,6 +2829,12 @@ export default function EditClientPage() {
   // the [Organization Name] placeholder in the disclaimer text.
   const [userEmail, setUserEmail] = useState<string>("");
   const [userOrgName, setUserOrgName] = useState<string>("");
+  // Seeded advisor contacts store the *organization* email, so matching the
+  // logged-in user needs both the login and the organization email.
+  const [userOrgEmail, setUserOrgEmail] = useState<string>("");
+  /** Current Organization Logo (`User.advisorLogoUrl`) — the Company Logo the
+   *  logged-in user's own contact carries, so a Settings change reaches it. */
+  const [userOrgLogo, setUserOrgLogo] = useState<string>("");
   const portalRootDomain = (
     process.env.NEXT_PUBLIC_ROOT_DOMAIN || "plantel.pro"
   ).replace(/^\./, "");
@@ -3290,9 +3298,17 @@ export default function EditClientPage() {
           "";
         const email =
           profile?.email || profile?.advisorEmail || "";
+        const orgEmail = profile?.organizationEmail || "";
+        const logo =
+          profile?.advisorLogoUrl ||
+          profile?.advisorLogo ||
+          profile?.wizardSessions?.[0]?.branding?.logo ||
+          "";
         if (!cancelled) {
           setUserOrgName(orgName);
           setUserEmail(email);
+          setUserOrgEmail(orgEmail);
+          setUserOrgLogo(logo ? String(logo) : "");
         }
       } catch {
         // Silent — best-effort fetch for the organization name.
@@ -3303,6 +3319,63 @@ export default function EditClientPage() {
       cancelled = true;
     };
   }, []);
+
+  // Keep the logged-in user's own contact in step with their Organization Logo.
+  //
+  // That contact's Company Logo was seeded from the profile
+  // (`seed-onboarding-advisor-contacts` writes `companyLogo: profile.advisorLogo ||
+  // profile.advisorLogoUrl`), so a logo changed in Settings would otherwise stay
+  // stale on the Key Contacts tab — the row avatar, the Edit Contact dialog and its
+  // live portal preview — and in whatever this page saves.
+  //
+  // Company / Plan Sponsor contacts are skipped on purpose: that card represents the
+  // plan's company and must keep that company's logo, matching the portal.
+  useEffect(() => {
+    if (!userOrgLogo) return;
+    const userEmails = [userEmail, userOrgEmail].filter(Boolean);
+
+    let matched = 0;
+    let changed = false;
+    const next = keyContacts.map((contact) => {
+      // Two signals, because either alone is unreliable:
+      //  - the stable id prefix on the rows seeded from the advisor's
+      //    `primaryServiceCategories`, which survives an edited email; and
+      //  - the email match, which covers contacts created/edited through the
+      //    wizard's own "same company" pre-fill.
+      // The seeded row's email is only a snapshot of `User.organizationEmail`, so
+      // changing that in Settings would break an email-only match.
+      const isOwnContact =
+        isOnboardingAdvisorContactId(contact.id) ||
+        (userEmails.length > 0 &&
+          isLoggedInUserContact(contact, userEmails));
+      if (!isOwnContact) return contact;
+
+      matched += 1;
+
+      const categories =
+        contact.benefitsCategories ??
+        (contact.benefitsCategory ? [contact.benefitsCategory] : []);
+      if (categories.includes("Company / Plan Sponsor")) return contact;
+      if ((contact.companyLogo || "") === userOrgLogo) return contact;
+
+      changed = true;
+      return { ...contact, companyLogo: userOrgLogo };
+    });
+
+    if (process.env.NODE_ENV !== "production") {
+      console.debug("[edit-client] organization logo → key contacts", {
+        orgLogo: userOrgLogo,
+        userEmails,
+        contacts: keyContacts.length,
+        matched,
+        updated: changed,
+      });
+    }
+
+    // Only write when something actually changed — `keyContacts` identity feeds the
+    // unsaved-changes detection behind the Save button.
+    if (changed) setKeyContacts(next);
+  }, [userOrgLogo, userEmail, userOrgEmail, keyContacts, setKeyContacts]);
 
   const handleSaveClick = async () => {
     // When the Portal URL changed, explain renaming/releasing before we persist
