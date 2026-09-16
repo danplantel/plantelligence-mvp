@@ -465,7 +465,7 @@ export function BenefitsEditorPanel({
                             onMouseDown={() => focusPreviewField("companyLogo")}
                         >
                             <Label className="text-xs font-bold text-foreground">
-                                Provider Logo <span className="text-red-500">*</span>
+                                Benefit Logo <span className="text-red-500">*</span>
                             </Label>
                             <BrandImageUpload
                                 slotKey="companyLogo"
