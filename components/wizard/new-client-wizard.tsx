@@ -59,6 +59,7 @@ export function NewClientWizard({
     saveStepDataToServer,
     stepData,
     selectedCategoryStep3a,
+    step3SlideIndex,
     duplicatePlanNameConflict,
     clearDuplicatePlanNameConflict,
     resolveDuplicatePlanOverwrite,
@@ -77,6 +78,22 @@ export function NewClientWizard({
   // Next is enabled for all Step 3 slides — navigation is delegated to the
   // bottom bar (Previous/Next). Each slide's own buttons have been removed.
   const isNextEnabled = currentStep === 3 ? true : hasStep3Contact;
+
+  // Step 3, slide 1 is the contact form. Its bottom-bar action saves the contact
+  // (the slide listens for `step3SaveContactRequest`), so label the button
+  // accordingly instead of the generic "Next".
+  const isContactFormSlide = currentStep === 3 && step3SlideIndex === 1;
+  // "Save Contact" wins over the scroll hint so the label always describes what
+  // the click does (the contact form is long, so the scroll gate would otherwise
+  // replace the label).
+  const nextButtonLabel = isContactFormSlide
+    ? "Save Contact"
+    : needsScroll
+      ? "Scroll to Continue"
+      : "Next";
+  const nextButtonLoadingLabel = isContactFormSlide
+    ? "Saving contact..."
+    : "Saving client data...";
 
   // Check if user needs to scroll to see all content
   const checkIfScrollNeeded = () => {
@@ -143,12 +160,12 @@ export function NewClientWizard({
     }
   };
 
-  const handleNextWithScroll = async () => {
+  const handleNextWithScroll = async (force = false) => {
     if (isProcessing || isLoading) {
       return;
     }
 
-    const scrollNeeded = checkIfScrollNeeded();
+    const scrollNeeded = force ? false : checkIfScrollNeeded();
 
     if (scrollNeeded) {
       scrollToBottom();
@@ -582,9 +599,9 @@ export function NewClientWizard({
                   ) : (
                     <LoadingButton
                       size="lg"
-                      onClick={handleNextWithScroll}
+                      onClick={() => handleNextWithScroll(isContactFormSlide)}
                       isLoading={isLoading || isProcessing}
-                      loadingText="Saving client data..."
+                      loadingText={nextButtonLoadingLabel}
                       variant="default"
                       disabled={!isNextEnabled}
                       className={cn(
@@ -592,7 +609,7 @@ export function NewClientWizard({
                         !isNextEnabled && "opacity-50 cursor-not-allowed",
                       )}
                     >
-                      {needsScroll ? "Scroll to Continue" : "Next"}
+                      {nextButtonLabel}
                       <ChevronRight className="size-5" />
                     </LoadingButton>
                   )}

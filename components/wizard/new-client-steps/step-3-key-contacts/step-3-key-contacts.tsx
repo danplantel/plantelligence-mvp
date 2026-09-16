@@ -92,7 +92,13 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
       targetSlide = computeInitialSlide(contacts);
     }
     setSlideIndexLocal(targetSlide);
+    // Keep the store in sync with the slide actually shown — the bottom bar
+    // reads step3SlideIndex to label its action (e.g. "Save Contact").
+    if (targetSlide !== step3SlideIndex) {
+      setStep3SlideIndex(targetSlide);
+    }
     setInitialSlideSynced(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contacts.length, step3SlideIndex, initialSlideSynced]);
   const prevSlideIndexRef = useRef(slideIndex);
   const [direction, setDirection] = useState<SlideDirection>(1);
