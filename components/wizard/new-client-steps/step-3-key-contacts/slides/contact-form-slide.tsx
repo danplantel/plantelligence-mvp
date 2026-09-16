@@ -468,6 +468,43 @@ export function ContactFormSlide({
     return stored;
   };
 
+  /**
+   * When adding ANOTHER contact to a category that already holds the logged-in
+   * user's own (profile-seeded) contact, assume the new contact works for the same
+   * company: reuse that primary contact's Company / Organization and Contact
+   * Company Logo, falling back to the advisor profile's logo
+   * (User.advisorLogoUrl / User.advisorLogo).
+   *
+   * Returns `null` when the assumption does not apply: editing an existing
+   * contact, an external "Someone Else" contact, or a category whose contacts
+   * belong to other companies.
+   */
+  const sameCompanyPrefill: {
+    companyName: string;
+    logo: string;
+  } | null = (() => {
+    if (step3bData.editingContactId) return null;
+    if (isFromSomeoneElse) return null;
+    const existingContacts = (stepData.keyContacts?.contacts || []) as any[];
+    const siblings = existingContacts.filter((c: any) => {
+      const cats: BenefitsCategory[] =
+        c.benefitsCategories ||
+        (c.benefitsCategory ? [c.benefitsCategory] : []);
+      return cats.includes(category);
+    });
+    const ownContact = siblings.find((c: any) => isOwnContactEmail(c.email));
+    if (!ownContact) return null;
+    const profileLogo = String(
+      (advisorProfile as any)?.advisorLogoUrl ||
+        (advisorProfile as any)?.advisorLogo ||
+        "",
+    ).trim();
+    return {
+      companyName: String(ownContact.companyName || userOrganizationName || ""),
+      logo: String(ownContact.companyLogo || profileLogo || ""),
+    };
+  })();
+
   // Form state
   const [contactType, setContactType] = useState<"individual" | "team_support">(
     (step3bData.contactType as "individual" | "team_support") || "individual",
@@ -495,7 +532,7 @@ export function ContactFormSlide({
   const [companyName, setCompanyName] = useState(
     restoreCompanyName
       ? resolveCompanyName(step3bData.email, step3bData.companyName)
-      : "",
+      : sameCompanyPrefill?.companyName || "",
   );
   const [isPrimary, setIsPrimary] = useState(
     (() => {
@@ -550,7 +587,12 @@ export function ContactFormSlide({
 
   // External Admin Logo state — only shown for "Third Party Contact" category
   const [externalAdminLogo, setExternalAdminLogo] = useState(
-    (step3bData as any).externalAdminLogo || storedCustomContactLogo,
+    (step3bData as any).externalAdminLogo ||
+      storedCustomContactLogo ||
+      // New contact in a category that already contains the logged-in user's own
+      // contact → prefill with their company logo (same-company assumption).
+      sameCompanyPrefill?.logo ||
+      "",
   );
   const [externalAdminLogoFileName, setExternalAdminLogoFileName] = useState(
     (step3bData as any).externalAdminLogoFileName || "",
@@ -644,12 +686,22 @@ export function ContactFormSlide({
       setHeadshot(sb.headshot || "");
       setHeadshotFileName(sb.headshotFileName || "");
       setCustomBenefits(sb.benefitsCategoryOther || "");
-      setExternalAdminLogo(sb.externalAdminLogo || storedCustomContactLogo);
+      setExternalAdminLogo(
+        sb.externalAdminLogo ||
+          storedCustomContactLogo ||
+          sameCompanyPrefill?.logo ||
+          "",
+      );
       setExternalAdminLogoFileName(sb.externalAdminLogoFileName || "");
       setUseCustomLogo(
-        sb.useCustomLogo === true || Boolean(storedCustomContactLogo),
+        sb.useCustomLogo === true ||
+          Boolean(storedCustomContactLogo || sameCompanyPrefill?.logo),
       );
-      setCompanyName(resolveCompanyName(sb.email, sb.companyName));
+      setCompanyName(
+        sb.editingContactId || isFromSomeoneElse
+          ? resolveCompanyName(sb.email, sb.companyName)
+          : sameCompanyPrefill?.companyName || "",
+      );
       setIsPrimary(
         (() => {
           const existingContacts = (
