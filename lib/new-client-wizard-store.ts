@@ -1426,8 +1426,17 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
           }
 
           if (!anySaveSucceeded) {
-            throw new Error(
-              "Failed to persist wizard data before publishing. Check network connectivity and try again.",
+            // Do NOT abort the publish here.
+            //
+            // These are session-scoped endpoints, so a 404 means "no open wizard
+            // session" (e.g. a previous attempt marked it completed), not a
+            // network problem. Throwing produced the misleading "check network
+            // connectivity and try again" message and hid the real server error.
+            // complete-v2 reads the session records already persisted as the user
+            // moved through the steps, so let it run and surface the true reason
+            // if the publish genuinely cannot proceed.
+            console.warn(
+              "⚠️ completeWizard: no pre-publish step save succeeded — attempting publish anyway so the server can report the real error",
             );
           }
 

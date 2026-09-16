@@ -7,15 +7,20 @@ import { Button } from "./button";
 import { Label } from "./label";
 import { ImageEditorControls } from "./image-editor-controls";
 import { ConfirmDialog } from "./confirm-dialog";
+import { Slider } from "./slider";
 import {
   FlipHorizontal,
   FlipVertical,
   Upload,
   X,
   AlertTriangle,
+  Eraser,
+  Info,
   Maximize2,
   Loader2,
   Plus,
+  RotateCcw,
+  Wand2,
 } from "lucide-react";
 import { CropMetadata } from "./simple-image-editor-modal";
 import {
@@ -40,6 +45,34 @@ import {
   type ExtractedImage,
 } from "@/lib/zip-image-extract";
 import { ZipFilePickerModal } from "@/components/ui/zip-file-picker-modal";
+import {
+  MEANINGFUL_REMOVAL_RATIO,
+  removeImageBackground,
+  type RemovalResult,
+} from "@/lib/image-background-removal";
+
+/**
+ * Checkerboard backdrop shown behind any transparent image. Shared between the
+ * editing canvas and the previews so a logo with a removed background is visible
+ * rather than blending into the surface — and so the two cannot drift apart.
+ */
+const TRANSPARENCY_CHECKERBOARD =
+  "repeating-conic-gradient(#f0f0f0 0% 25%, #ffffff 0% 50%) 50% / 20px 20px";
+
+/** Format an RGB triple as #RRGGBB for the detected-backdrop readout. */
+function formatRgbHex(colour: [number, number, number]): string {
+  return (
+    "#" +
+    colour
+      .map((channel) =>
+        Math.max(0, Math.min(255, Math.round(channel)))
+          .toString(16)
+          .padStart(2, "0"),
+      )
+      .join("")
+      .toUpperCase()
+  );
+}
 
 // Types for different use cases
 export type ImageEditorType = "headshot" | "logo" | "normalizer" | "custom";
@@ -89,6 +122,9 @@ export interface ImageEditorConfig {
   outlinePadding?: number; // Padding around the image in the crop output (default: 0.1 = 10%)
   // Separate recommended display size (e.g. for background images: 1920×1080)
   recommendedDisplaySize?: { width: number; height: number };
+  // Background removal (logo and normalizer only). Shows the Background card
+  // with the button-driven Remove Background action.
+  allowBackgroundRemoval?: boolean;
 }
 
 // Default configurations for different use cases
@@ -138,6 +174,7 @@ export const IMAGE_EDITOR_CONFIGS: Record<ImageEditorType, ImageEditorConfig> =
     showWarnings: false,
     showLayoutButtons: true,
     saveToAPI: false,
+    allowBackgroundRemoval: true,
   },
 
   normalizer: {
@@ -162,6 +199,7 @@ export const IMAGE_EDITOR_CONFIGS: Record<ImageEditorType, ImageEditorConfig> =
     showWarnings: true,
     showLayoutButtons: true,
     saveToAPI: false,
+    allowBackgroundRemoval: true,
   },
 
   custom: {
@@ -224,6 +262,16 @@ interface UniversalImageEditorModalProps {
   // Hide "Perfect" message
   hidePerfectMessage?: boolean;
   forceCircularGuidelines?: boolean;
+
+  /**
+   * Explicit per-call-site opt-in / opt-out for logo background removal.
+   *
+   * Wins over `customConfig.allowBackgroundRemoval` and over the shared type
+   * default, so a slot that reuses the `normalizer` type for a non-logo image
+   * (a hero background, an inner header image) can switch it off, and a logo slot
+   * can assert it on, without inventing a new editor type.
+   */
+  allowBackgroundRemoval?: boolean;
 
   /**
    * Immediate data URL for the trigger-area preview.
@@ -315,6 +363,7 @@ export function UniversalImageEditorModal({
   autoSizeOnOpen = false,
   hidePerfectMessage = false,
   forceCircularGuidelines = false,
+  allowBackgroundRemoval,
   previewDataUrl,
   onUploadStateChange,
 }: UniversalImageEditorModalProps) {
@@ -343,6 +392,12 @@ export function UniversalImageEditorModal({
   // Update preview sizes based on canvas mode
   const config: ImageEditorConfig = {
     ...baseConfig,
+    // Precedence: this call site's prop > customConfig > the shared type default.
+    // `baseConfig` already folds in customConfig, so a single nullish coalesce
+    // gives the prop the final say while leaving every existing call site on the
+    // type-based behaviour.
+    allowBackgroundRemoval:
+      allowBackgroundRemoval ?? baseConfig.allowBackgroundRemoval,
     previewSizes: {
       ...baseConfig.previewSizes,
       rectangular: { width: 300, height: 250 },
@@ -399,6 +454,48 @@ export function UniversalImageEditorModal({
     renderedLogoHeightPx: number;
     status: "perfect" | "ok" | "too_large";
   } | null>(null);
+
+  // --- Logo background removal ---
+  // Button-driven only: the pipeline runs from the Remove Background button and
+  // nowhere else. No detection on upload, none on modal open, and none while the
+  // tolerance slider is dragged. See plans/logo-background-removal.md.
+  const [bgRemoval, setBgRemoval] = useState<{
+    tolerance: number;
+    trimEnabled: boolean;
+    isProcessing: boolean;
+    isRemoved: boolean;
+    detectedColor: [number, number, number] | null;
+    removedPercent: number | null;
+    trimmed: boolean;
+    artworkRisk: boolean;
+    info: string | null;
+    error: string | null;
+  }>({
+    tolerance: 12,
+    trimEnabled: true,
+    isProcessing: false,
+    isRemoved: false,
+    detectedColor: null,
+    removedPercent: null,
+    trimmed: false,
+    artworkRisk: false,
+    info: null,
+    error: null,
+  });
+
+  // True when the source file is an SVG. Vector logos already carry their own
+  // transparency, so the control is replaced by an explanatory note.
+  const [sourceIsSvg, setSourceIsSvg] = useState(false);
+
+  // Gates the canvas-init effect while a re-seed is pending, so the canvas is not
+  // rebuilt with the previous bitmap's dimensions before the mode-detection
+  // effect has measured the new bitmap's aspect ratio.
+  const reseedPendingRef = useRef(false);
+
+  // Set when a re-seed should be followed by an auto-size. A re-seed rebuilds the
+  // Fabric canvas asynchronously, so the fit has to wait until the new object
+  // exists — see the effect next to `autoSizeImage`.
+  const pendingAutoSizeRef = useRef(false);
 
   // Responsive canvas dimensions
   const [responsiveCanvasWidth, setResponsiveCanvasWidth] = useState(
@@ -630,6 +727,9 @@ export function UniversalImageEditorModal({
 
       setImageSrc(dataURL);
       setOriginalImageSrc(dataURL);
+      setSourceIsSvg(
+        file.type === "image/svg+xml" || /\.svg$/i.test(file.name || ""),
+      );
       generateWarnings(dataURL);
       // Open the modal regardless of mode (standalone or controlled)
       setInternalModalOpen(true);
@@ -1201,9 +1301,12 @@ export function UniversalImageEditorModal({
           setResponsiveCanvasWidth(config.canvasWidth);
           setResponsiveCanvasHeight(config.canvasHeight);
         }
+        // Dimensions are now correct, so a pending re-seed may build the canvas.
+        reseedPendingRef.current = false;
         setIsDetectingMode(false);
       };
       img.onerror = () => {
+        reseedPendingRef.current = false;
         setIsDetectingMode(false);
       };
       img.src = imageSrc;
@@ -1217,7 +1320,8 @@ export function UniversalImageEditorModal({
       imageSrc &&
       canvasRef.current &&
       !fabricCanvasRef.current &&
-      !isDetectingMode
+      !isDetectingMode &&
+      !reseedPendingRef.current
     ) {
       const canvas = new Canvas(canvasRef.current, {
         width: responsiveCanvasWidth,
@@ -1436,6 +1540,20 @@ export function UniversalImageEditorModal({
       setCanvasMode("normal");
       setResponsiveCanvasWidth(config.canvasWidth);
       setResponsiveCanvasHeight(config.canvasHeight);
+      reseedPendingRef.current = false;
+      setSourceIsSvg(false);
+      setBgRemoval({
+        tolerance: 12,
+        trimEnabled: true,
+        isProcessing: false,
+        isRemoved: false,
+        detectedColor: null,
+        removedPercent: null,
+        trimmed: false,
+        artworkRisk: false,
+        info: null,
+        error: null,
+      });
     }
   }, [modalOpen, config.canvasWidth, config.canvasHeight]);
 
@@ -1897,9 +2015,34 @@ export function UniversalImageEditorModal({
     }
   };
 
+  /**
+   * Clear the background-removal state: the toggle label, the backdrop swatch,
+   * the trimmed/cleared readout and any warning from the last run.
+   *
+   * Shared by the toolbar Undo and by Reset. Reset rebuilds the image from
+   * `originalImageSrc` — the untouched upload — so it undoes a removal by
+   * definition, and leaving this state behind would strand the toolbar button on
+   * "Undo Background Removal" with nothing left to undo.
+   */
+  const clearBgRemovalState = () => {
+    pendingAutoSizeRef.current = false;
+    setBgRemoval((prev) => ({
+      ...prev,
+      isRemoved: false,
+      detectedColor: null,
+      removedPercent: null,
+      trimmed: false,
+      artworkRisk: false,
+      info: null,
+      error: null,
+    }));
+  };
+
   const resetImage = () => {
     if (fabricCanvasRef.current && originalImageSrc) {
       const canvas = fabricCanvasRef.current;
+
+      clearBgRemovalState();
 
       const objects = canvas.getObjects();
       objects.forEach((obj) => {
@@ -2143,6 +2286,103 @@ export function UniversalImageEditorModal({
     }
   };
 
+  /**
+   * Hand a freshly processed bitmap back to the existing mode-detection and
+   * canvas-init effects by disposing the current Fabric canvas and swapping
+   * `imageSrc`.
+   *
+   * Re-seeding this way means the auto-fit scale, the safe-zone state, the
+   * aspect-ratio cap, the normalizer header metrics and the save crop rect are all
+   * recomputed against the new artwork bounds — without duplicating the ~170-line
+   * canvas-init block that `resetImage` above had to clone.
+   *
+   * `reseedPendingRef` holds the init effect back until the mode-detection effect
+   * has measured the new bitmap, otherwise the canvas would be rebuilt at the
+   * previous bitmap's dimensions.
+   */
+  const applySourceImage = (nextSrc: string) => {
+    if (fabricCanvasRef.current) {
+      fabricCanvasRef.current.dispose();
+      fabricCanvasRef.current = null;
+    }
+    reseedPendingRef.current = true;
+    setPreviews({});
+    setImageSrc(nextSrc);
+  };
+
+  /**
+   * The single entry point into the removal pipeline — wired only to the
+   * Remove Background / Re-apply button.
+   *
+   * Always reads from `originalImageSrc` (the untouched upload) rather than the
+   * current `imageSrc`, so pressing the button again with a different tolerance
+   * re-derives from a clean source instead of compounding one removal on top of
+   * another.
+   */
+  const handleRemoveBackground = async () => {
+    if (!originalImageSrc || bgRemoval.isProcessing) return;
+
+    setBgRemoval((prev) => ({
+      ...prev,
+      isProcessing: true,
+      error: null,
+      info: null,
+    }));
+
+    try {
+      const result: RemovalResult = await removeImageBackground(
+        originalImageSrc,
+        {
+          tolerance: bgRemoval.tolerance,
+          trim: bgRemoval.trimEnabled,
+        },
+      );
+
+      applySourceImage(result.dataUrl);
+      // The trimmed artwork has a different aspect ratio, so fit it back to the
+      // guide immediately rather than leaving it at the pre-removal scale.
+      pendingAutoSizeRef.current = true;
+
+      let info: string | null = null;
+      if (result.noChange) {
+        info = result.trimmed
+          ? "This logo already had a transparent background, so there were no background pixels to remove. The empty edges have been trimmed."
+          : "This logo already had a transparent background, so there were no background pixels to remove.";
+      } else if (result.removedRatio < MEANINGFUL_REMOVAL_RATIO) {
+        info =
+          "No background pixels matched at this tolerance. Raise the tolerance and press Re-apply.";
+      }
+
+      setBgRemoval((prev) => ({
+        ...prev,
+        isProcessing: false,
+        isRemoved: true,
+        detectedColor: result.detectedColor,
+        removedPercent: result.removedRatio * 100,
+        trimmed: result.trimmed,
+        artworkRisk: result.artworkRisk,
+        info,
+        error: null,
+      }));
+    } catch (err) {
+      setBgRemoval((prev) => ({
+        ...prev,
+        isProcessing: false,
+        error:
+          err instanceof Error
+            ? err.message
+            : "Could not remove the background from this image.",
+      }));
+    }
+  };
+
+  /** Restore the original upload, discarding the removal. */
+  const handleResetBackground = () => {
+    if (!originalImageSrc) return;
+    clearBgRemovalState();
+    applySourceImage(originalImageSrc);
+  };
+
   const autoSizeImage = () => {
     if (!fabricCanvasRef.current) return;
 
@@ -2270,6 +2510,21 @@ export function UniversalImageEditorModal({
     setIsTooSmall(false);
     setIsNotScaledEnough(false);
   };
+
+  /**
+   * Fit the artwork to the guide once a re-seed has landed.
+   *
+   * Deliberately has no dependency array: the rebuilt canvas arrives a render or
+   * two after the re-seed (mode detection, then the Fabric image load) and no
+   * piece of state signals that readiness. The guards make repeat runs free.
+   */
+  useEffect(() => {
+    if (!pendingAutoSizeRef.current) return;
+    const canvas = fabricCanvasRef.current;
+    if (!canvas || !canvas.getActiveObject()) return;
+    pendingAutoSizeRef.current = false;
+    autoSizeImage();
+  });
 
   useEffect(() => {
     if (imageSrc) {
@@ -2420,7 +2675,7 @@ export function UniversalImageEditorModal({
               <div className="flex items-center justify-center flex-shrink-0">
                 <div
                   className={
-                    "relative overflow-hidden border border-gray-200 bg-white dark:bg-gray-700 " +
+                    "relative overflow-hidden border border-gray-200 " +
                     (type === "headshot"
                       ? "h-[140px] w-[140px] rounded-full"
                       : // Fixed width (capped to the available space) so the box
@@ -2428,6 +2683,9 @@ export function UniversalImageEditorModal({
                         // image is still decoding.
                         "flex items-center justify-center w-[300px] max-w-full h-[150px] rounded-xl")
                   }
+                  // Checkerboard rather than a flat surface so a logo with a
+                  // removed background stays visible in light and dark mode.
+                  style={{ background: TRANSPARENCY_CHECKERBOARD }}
                 >
                   <img
                     src={previewSrc}
@@ -2552,10 +2810,7 @@ export function UniversalImageEditorModal({
                     <div className="w-full h-full flex items-center justify-center">
                       <div
                         style={{
-                          background: `
-                          repeating-conic-gradient(#f0f0f0 0% 25%, #ffffff 0% 50%) 
-                          50% / 20px 20px
-                        `,
+                          background: TRANSPARENCY_CHECKERBOARD,
                           padding: "2px",
                           width: `${responsiveCanvasWidth}px`,
                           height: `${responsiveCanvasHeight}px`,
@@ -2575,6 +2830,160 @@ export function UniversalImageEditorModal({
                 {/* Right: Info Panel */}
                 <div className="w-1/3 p-2 sm:p-3 md:p-4 space-y-1.5 sm:space-y-2 md:space-y-3 flex flex-col overflow-y-auto text-xs sm:text-sm bg-white dark:bg-gray-800 dark:text-gray-100">
                   <div className="space-y-1.5 sm:space-y-2 md:space-y-3">
+                    {/* Logo Background Removal — button-driven, inert until pressed */}
+                    {config.allowBackgroundRemoval && (
+                      <div className="p-2 sm:p-2.5 md:p-3 bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 rounded-md space-y-2 sm:space-y-2.5">
+                        <div className="flex items-center gap-1.5">
+                          <Wand2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-accent-blue flex-shrink-0" />
+                          <h4 className="text-[10px] sm:text-xs md:text-sm font-semibold text-gray-900 dark:text-gray-100">
+                            Background
+                          </h4>
+                        </div>
+
+                        {sourceIsSvg ? (
+                          <p className="text-[9px] sm:text-[10px] md:text-xs text-gray-600 dark:text-gray-400">
+                            This is a vector logo, so it already carries its own
+                            transparency and scales cleanly. Background removal
+                            does not apply.
+                          </p>
+                        ) : (
+                          <>
+                            <p className="text-[9px] sm:text-[10px] md:text-xs text-gray-600 dark:text-gray-400">
+                              Removes a solid white or black backdrop, trims the
+                              empty space around the artwork and fits the result
+                              to the guide, so the logo is sized by the artwork
+                              itself. Press{" "}
+                              <strong>
+                                {bgRemoval.isRemoved
+                                  ? "Undo Background Removal"
+                                  : "Remove Background"}
+                              </strong>{" "}
+                              next to Auto-size.
+                            </p>
+
+                            {/* Tolerance is a value the next press consumes — dragging it alone never re-runs. */}
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between">
+                                <Label className="text-[10px] sm:text-xs md:text-sm">
+                                  Tolerance
+                                </Label>
+                                <span className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground">
+                                  {Math.round(bgRemoval.tolerance)}%
+                                </span>
+                              </div>
+                              <Slider
+                                value={[bgRemoval.tolerance]}
+                                onValueChange={([value]) =>
+                                  setBgRemoval((prev) => ({
+                                    ...prev,
+                                    tolerance: value,
+                                  }))
+                                }
+                                min={0}
+                                max={100}
+                                step={1}
+                                disabled={
+                                  isSaving ||
+                                  isLoading ||
+                                  bgRemoval.isProcessing
+                                }
+                                className="w-full"
+                              />
+                              <p className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground">
+                                Undo first, then press again to re-run with a new
+                                tolerance.
+                              </p>
+                            </div>
+
+                            <div className="flex items-center space-x-1.5 sm:space-x-2">
+                              <input
+                                type="checkbox"
+                                id="trimTransparentEdges"
+                                checked={bgRemoval.trimEnabled}
+                                onChange={(e) =>
+                                  setBgRemoval((prev) => ({
+                                    ...prev,
+                                    trimEnabled: e.target.checked,
+                                  }))
+                                }
+                                disabled={
+                                  isSaving ||
+                                  isLoading ||
+                                  bgRemoval.isProcessing
+                                }
+                                className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                              />
+                              <label
+                                htmlFor="trimTransparentEdges"
+                                className="text-[10px] sm:text-xs md:text-sm font-medium"
+                              >
+                                Trim transparent edges
+                              </label>
+                            </div>
+
+                            {(bgRemoval.isRemoved ||
+                              bgRemoval.detectedColor) && (
+                              <div className="space-y-1 pt-0.5">
+                                {bgRemoval.detectedColor && (
+                                  <div className="flex items-center gap-2">
+                                    <span
+                                      className="h-3.5 w-3.5 rounded border border-gray-300 dark:border-gray-600 flex-shrink-0"
+                                      style={{
+                                        backgroundColor: `rgb(${bgRemoval.detectedColor[0]}, ${bgRemoval.detectedColor[1]}, ${bgRemoval.detectedColor[2]})`,
+                                      }}
+                                      aria-hidden="true"
+                                    />
+                                    <span className="text-[9px] sm:text-[10px] md:text-xs text-gray-600 dark:text-gray-400">
+                                      Backdrop{" "}
+                                      {formatRgbHex(bgRemoval.detectedColor)}
+                                      {bgRemoval.removedPercent != null
+                                        ? ` — ${Math.round(
+                                            bgRemoval.removedPercent,
+                                          )}% cleared`
+                                        : ""}
+                                      {bgRemoval.trimmed
+                                        ? " — trimmed to artwork"
+                                        : ""}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {bgRemoval.artworkRisk && (
+                              <div className="flex items-start space-x-1.5 sm:space-x-2 p-1.5 sm:p-2 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-md">
+                                <AlertTriangle className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
+                                <p className="text-[9px] sm:text-[10px] md:text-xs text-orange-600 dark:text-orange-400">
+                                  This logo&rsquo;s artwork may use the same
+                                  colour as the background. Check the preview, and
+                                  press Undo Background Removal if anything
+                                  disappeared.
+                                </p>
+                              </div>
+                            )}
+
+                            {bgRemoval.error && (
+                              <div className="flex items-start space-x-1.5 sm:space-x-2 p-1.5 sm:p-2 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-md">
+                                <AlertTriangle className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+                                <p className="text-[9px] sm:text-[10px] md:text-xs text-red-600 dark:text-red-400">
+                                  {bgRemoval.error}
+                                </p>
+                              </div>
+                            )}
+
+                            {bgRemoval.info && !bgRemoval.error && (
+                              <div className="flex items-start space-x-1.5 sm:space-x-2 p-1.5 sm:p-2 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md">
+                                <Info className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                                <p className="text-[9px] sm:text-[10px] md:text-xs text-blue-800 dark:text-blue-200">
+                                  {bgRemoval.info}
+                                </p>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+
                     {/* Logo Guidelines */}
                     {(type === "logo" || type === "normalizer") &&
                       (tip === "no-text" ? null : (
@@ -2867,13 +3276,14 @@ export function UniversalImageEditorModal({
                             ) : (
                               // Standard preview for other formats
                               <div
-                                className={`overflow-hidden bg-white flex items-center justify-center border-2 border-gray-300 dark:border-gray-600 ${format === "circle"
+                                className={`overflow-hidden flex items-center justify-center border-2 border-gray-300 dark:border-gray-600 ${format === "circle"
                                   ? "rounded-full"
                                   : "rounded-lg"
                                   }`}
                                 style={{
                                   width: `${size.width}px`,
                                   height: `${size.height}px`,
+                                  background: TRANSPARENCY_CHECKERBOARD,
                                 }}
                               >
                                 {previews[format] ? (
@@ -2967,7 +3377,12 @@ export function UniversalImageEditorModal({
 
               {/* Controls */}
               <div className="p-4 border-t space-y-3">
-                <div className="flex items-center justify-between">
+                {/* flex-wrap: the action row now carries 4 buttons plus the scale
+                    slider and the guidelines checkbox. Without wrapping, the
+                    left group overflows the row and its last child is clipped by
+                    the modal's `overflow-hidden` wrapper — which silently hid the
+                    Remove Background button. */}
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <ImageEditorControls
                     scale={scale}
                     baseScale={baseScale}
@@ -2979,6 +3394,49 @@ export function UniversalImageEditorModal({
                     onAutoSize={autoSizeImage}
                     disabled={isLoading}
                     showScale={config.allowScaling}
+                    actions={
+                      config.allowBackgroundRemoval && !sourceIsSvg ? (
+                        // One button, two modes: remove, then undo. Undoing
+                        // restores the original upload, so a second press with a
+                        // different tolerance re-runs from a clean source.
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={
+                            bgRemoval.isRemoved
+                              ? handleResetBackground
+                              : handleRemoveBackground
+                          }
+                          disabled={
+                            isSaving || isLoading || bgRemoval.isProcessing
+                          }
+                          title={
+                            bgRemoval.isRemoved
+                              ? "Restore the original background"
+                              : "Remove a solid white or black backdrop, trim the empty space around the artwork, then fit it to the guide"
+                          }
+                          className="flex-1 text-[9px] sm:text-[10px] md:text-xs h-7 sm:h-8 md:h-9 whitespace-nowrap"
+                        >
+                          {bgRemoval.isProcessing ? (
+                            <span className="flex items-center gap-1">
+                              <Loader2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 animate-spin flex-shrink-0" />
+                              <span>Removing…</span>
+                            </span>
+                          ) : bgRemoval.isRemoved ? (
+                            <span className="flex items-center gap-1">
+                              <RotateCcw className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" />
+                              <span>Undo Background Removal</span>
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1">
+                              <Eraser className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" />
+                              <span>Remove Background</span>
+                            </span>
+                          )}
+                        </Button>
+                      ) : null
+                    }
                   >
                     {/* Show Guidelines Checkbox */}
                     <div className="flex items-center space-x-1.5 sm:space-x-2">

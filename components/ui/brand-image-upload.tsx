@@ -43,6 +43,13 @@ interface BrandImageUploadProps {
   useUniversalModal?: boolean; // Use UniversalImageEditorModal instead of onFileSelect
   universalModalType?: "headshot" | "logo" | "normalizer" | "custom"; // Type for UniversalImageEditorModal
   universalModalCustomConfig?: Partial<import("@/components/ui/universal-image-editor-modal").ImageEditorConfig>; // Custom config overrides
+  /**
+   * Explicit opt-in / opt-out for logo background removal, forwarded to the
+   * universal modal where it overrides the shared type default. Lets a slot that
+   * borrows the `normalizer` type for a non-logo image (hero background, inner
+   * header image) turn the action off without defining a new editor type.
+   */
+  universalModalAllowBackgroundRemoval?: boolean;
   maxFileSize?: number; // Max file size in MB (default: 15)
   editableDescription?: boolean; // Allow editing description
   onDescriptionChange?: (description: string) => void; // Callback when description changes
@@ -94,6 +101,7 @@ export function BrandImageUpload({
   onModalStateChange,
   isHighlighted = false,
   universalModalCustomConfig = {},
+  universalModalAllowBackgroundRemoval,
   onFocus,
   previewObjectFit = "contain",
   headerAction,
@@ -640,6 +648,7 @@ export function BrandImageUpload({
         <UniversalImageEditorModal
           type={universalModalType}
           customConfig={universalModalCustomConfig}
+          allowBackgroundRemoval={universalModalAllowBackgroundRemoval}
           value={pendingImageData.url || ""}
           originalValue={pendingImageData.originalUrl}
           fileName={pendingImageData.fileName || ""}

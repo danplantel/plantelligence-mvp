@@ -3106,6 +3106,8 @@ export function BenefitsStep1() {
                         hideButtons={true}
                         useUniversalModal={true}
                         universalModalType="normalizer"
+                        // Benefit / provider logo — opt in explicitly.
+                        universalModalAllowBackgroundRemoval={true}
                         maxFileSize={10}
                       />
                     </CardContent>
@@ -3534,6 +3536,10 @@ export function BenefitsStep1() {
                         hideButtons={true}
                         useUniversalModal={true}
                         universalModalType="headshot"
+                        // Headshots must never offer background removal. The
+                        // `headshot` type already excludes it; this makes the
+                        // guarantee explicit at the call site.
+                        universalModalAllowBackgroundRemoval={false}
                         maxFileSize={5}
                       />
                     </div>

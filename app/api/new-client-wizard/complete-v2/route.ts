@@ -164,6 +164,11 @@ export async function POST(request: NextRequest) {
     let keyContacts = wizardSession.keyContacts;
     let complianceDocuments = wizardSession.complianceDocuments;
 
+    // The session is marked completed up-front (above), so the error path uses
+    // this to distinguish a publish that never committed (safe to retry) from one
+    // where the plan already exists (a retry would duplicate it).
+    let clientCreated = false;
+
     // If any of the required data is missing, fetch the missing pieces in parallel.
     const [
       companyBasicsFallback,
@@ -435,6 +440,9 @@ export async function POST(request: NextRequest) {
             categoryPortalVisibility: { ...HIDDEN_CATEGORY_PORTAL_VISIBILITY },
           },
         });
+
+        // The Client row now exists — this is the publish commit point.
+        clientCreated = true;
 
         console.log("=== Saved disclaimersData to client ===", {
           clientId: client.id,
@@ -862,60 +870,76 @@ export async function POST(request: NextRequest) {
         // Clean up the wizard session and related data after successful client creation
         // If draftClientId is provided, delete only that specific draft client
         // Otherwise, find and delete the draft client that matches the current company name
+        // Draft cleanup is housekeeping and must never fail the publish. The
+        // Client row was already created above (with its documents copied), so an
+        // error here used to surface as "Cannot complete wizard" for a plan that
+        // was in fact created — and the user's retry then created a DUPLICATE
+        // plan.
+        //
+        // `delete` throws P2025 when the row is gone, which is a normal outcome:
+        // the draft may have been deleted from the drafts list, already consumed
+        // by an earlier publish, or the resumed session may carry a stale
+        // draftClientId. `deleteMany` is a no-op in that case and is what
+        // delete-draft/route.ts already uses for the same job.
         if (draftClientId) {
-          // Delete only the specific draft client that was loaded
+          // Delete only the specific draft client that was loaded.
+          try {
+            // Delete Documents + Benefits first — Benefit rows have a required
+            // BenefitToClient relation, so they must go before the client row or
+            // the delete throws P2014.
+            await Promise.all([
+              prisma.document.deleteMany({
+                where: { clientId: draftClientId },
+              }),
+              prisma.benefit.deleteMany({
+                where: { clientId: draftClientId },
+              }),
+            ]);
 
-          // Delete Documents + Benefits in parallel, then the draft client.
-          // (Benefit rows have a required BenefitToClient relation — remove them
-          // before prisma.client.delete() so it does not throw P2014.)
-          await Promise.all([
-            prisma.document.deleteMany({
-              where: { clientId: draftClientId },
-            }),
-            prisma.benefit.deleteMany({
-              where: { clientId: draftClientId },
-            }),
-          ]);
-
-          // Now delete the specific Draft Client
-          await prisma.client.delete({
-            where: {
-              id: draftClientId,
-            },
-          });
+            await prisma.client.deleteMany({
+              where: { id: draftClientId },
+            });
+          } catch (draftCleanupError) {
+            console.warn(
+              "⚠️ Draft client cleanup failed (non-fatal, publish succeeded):",
+              draftCleanupError,
+            );
+          }
         } else {
           // Fallback: Find and delete draft client by company name (for backward compatibility)
           const companyName = companyBasics?.companyName;
           if (companyName) {
-            const draftClient = await prisma.client.findFirst({
-              where: {
-                userId: session.user.id,
-                status: "Draft",
-                companyName: companyName,
-              },
-              select: { id: true },
-            });
-
-            if (draftClient) {
-
-              // Delete Documents + Benefits in parallel, then the draft client.
-              // (Benefit rows have a required BenefitToClient relation — remove
-              // them before prisma.client.delete() so it does not throw P2014.)
-              await Promise.all([
-                prisma.document.deleteMany({
-                  where: { clientId: draftClient.id },
-                }),
-                prisma.benefit.deleteMany({
-                  where: { clientId: draftClient.id },
-                }),
-              ]);
-
-              // Now delete the Draft Client
-              await prisma.client.delete({
+            try {
+              const draftClient = await prisma.client.findFirst({
                 where: {
-                  id: draftClient.id,
+                  userId: session.user.id,
+                  status: "Draft",
+                  companyName: companyName,
                 },
+                select: { id: true },
               });
+
+              if (draftClient) {
+                // Delete Documents + Benefits first (required BenefitToClient
+                // relation on Benefit rows — see above).
+                await Promise.all([
+                  prisma.document.deleteMany({
+                    where: { clientId: draftClient.id },
+                  }),
+                  prisma.benefit.deleteMany({
+                    where: { clientId: draftClient.id },
+                  }),
+                ]);
+
+                await prisma.client.deleteMany({
+                  where: { id: draftClient.id },
+                });
+              }
+            } catch (draftCleanupError) {
+              console.warn(
+                "⚠️ Draft client cleanup by name failed (non-fatal, publish succeeded):",
+                draftCleanupError,
+              );
             }
           }
         }
@@ -943,8 +967,10 @@ export async function POST(request: NextRequest) {
           }),
         ]);
 
-        // Now delete the wizard session
-        await prisma.newClientWizardSession.delete({
+        // Now delete the wizard session. `deleteMany` rather than `delete`: the
+        // session may already have been cleared by the cleanup route, and a
+        // missing housekeeping row must not fail an otherwise successful publish.
+        await prisma.newClientWizardSession.deleteMany({
           where: { id: wizardSession.id }
         });
 
@@ -958,6 +984,34 @@ export async function POST(request: NextRequest) {
 
       } catch (clientError) {
         console.error("❌ Error creating client:", clientError);
+
+        // The wizard session is marked completed up-front, so a failure here used
+        // to leave the user permanently stuck: every step-save endpoint (and
+        // complete-v2 itself) then 404s with "no active wizard session", which the
+        // client reported as the misleading "check network connectivity".
+        //
+        // Reopen the session only when the Client row was never created — the
+        // publish did not commit, so a retry is safe. If the Client WAS created,
+        // leaving it closed is deliberate: reopening would invite a retry that
+        // creates a duplicate plan.
+        try {
+          if (!clientCreated) {
+            await prisma.newClientWizardSession.updateMany({
+              where: { id: wizardSession.id, userId: session.user.id },
+              data: { completed: false },
+            });
+          } else {
+            console.warn(
+              "⚠️ Publish failed AFTER the plan was created. The session stays closed on purpose so a retry cannot create a duplicate plan — check the plans list before retrying.",
+            );
+          }
+        } catch (reopenError) {
+          console.error(
+            "❌ Failed to reopen the wizard session after a publish error:",
+            reopenError,
+          );
+        }
+
         return NextResponse.json({
           error: "Failed to create client",
           details: clientError instanceof Error ? clientError.message : "Unknown error"

@@ -872,6 +872,7 @@ function EditContactDialog({
         modalDescription="Upload a logo for this contact's portal card."
         saveButtonText="Save Logo"
         type="logo"
+        allowBackgroundRemoval
       />
     </div>
   ) : null;
@@ -4049,6 +4050,7 @@ export default function EditClientPage() {
                 <CardContent>
                   <UniversalImageEditorModal
                     type="logo"
+                    allowBackgroundRemoval
                     icon={<ImageIcon className="w-4 h-4" />}
                     value={companyData.companyLogo?.url || ""}
                     fileName={companyData.companyLogo?.fileName || ""}

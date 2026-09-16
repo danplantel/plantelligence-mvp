@@ -31,6 +31,11 @@ interface ImageEditorControlsProps {
    * (e.g. a "Show Guidelines" checkbox).
    */
   children?: React.ReactNode;
+  /**
+   * Optional extra button(s) rendered after Auto-size, inside the same button
+   * row (e.g. the logo Remove Background action).
+   */
+  actions?: React.ReactNode;
 }
 
 /**
@@ -51,6 +56,7 @@ export function ImageEditorControls({
   disabled = false,
   showScale = true,
   children,
+  actions,
 }: ImageEditorControlsProps) {
   const range = maxScale - minScale;
   const rangeIsValid = Number.isFinite(range) && range !== 0;
@@ -113,6 +119,7 @@ export function ImageEditorControls({
         >
           Auto-size
         </Button>
+        {actions}
       </div>
     </div>
   );

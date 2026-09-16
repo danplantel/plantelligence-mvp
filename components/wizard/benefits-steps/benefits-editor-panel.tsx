@@ -493,6 +493,8 @@ export function BenefitsEditorPanel({
                                 hideButtons={true}
                                 useUniversalModal={true}
                                 universalModalType="normalizer"
+                                // Provider logo — a real logo, so opt in explicitly.
+                                universalModalAllowBackgroundRemoval={true}
                             />
                         </div>
                         <div
@@ -574,6 +576,10 @@ export function BenefitsEditorPanel({
                                 hideButtons={true}
                                 useUniversalModal={true}
                                 universalModalType="normalizer"
+                                // Full-height hero photo, not a logo — background
+                                // removal would punch it full of holes. It borrows
+                                // the normalizer type only for the header-bar fit.
+                                universalModalAllowBackgroundRemoval={false}
                                 universalModalCustomConfig={{
                                     outlinePadding: 0,
                                 }}
@@ -1117,6 +1123,8 @@ export function BenefitsEditorPanel({
                                 hideButtons={true}
                                 useUniversalModal={true}
                                 universalModalType="normalizer"
+                                // 1920×1080 section background, not a logo.
+                                universalModalAllowBackgroundRemoval={false}
                             />
                         </div>
 
