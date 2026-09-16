@@ -1,10 +1,21 @@
 import { uploadFileToR2 } from "@/lib/upload-to-r2";
+import {
+  encodeContactFormTopics,
+  getActiveContactFormTopicLabels,
+  normalizeContactTopicCategory,
+  resolveContactFormTopics,
+} from "@/lib/contact-form-topics";
+import type { ContactFormTopic } from "@/lib/contact-form-topics";
 
 /**
  * Build the first-party Plantelligence `/contact` URL for a contact's CTA.
  * `to` (the contact's email), `company`, `name`, `avatar` (headshot), and `logo`
  * (company logo) are included when present. base64 `data:` images are skipped —
  * they are too large for a query string.
+ *
+ * `topics` carries the advisor-configured "Topic of Interest" choices (already
+ * active and ordered) so the public page can render them without a session.
+ * `category` is passed along for context/labelling.
  */
 export function buildContactFormHref(
   to: string,
@@ -13,6 +24,9 @@ export function buildContactFormHref(
   avatar?: string,
   logo?: string,
   title?: string,
+  topics?: string[] | string | null,
+  category?: string | null,
+  planId?: string | null,
 ): string {
   const base = typeof window !== "undefined" ? window.location.origin : "";
   const params = new URLSearchParams();
@@ -22,6 +36,22 @@ export function buildContactFormHref(
   if (title) params.set("title", title);
   if (avatar && !avatar.startsWith("data:")) params.set("avatar", avatar);
   if (logo && !logo.startsWith("data:")) params.set("logo", logo);
+  if (category) params.set("category", category);
+  // The plan id lets the public /contact page re-resolve the topic choices from
+  // the saved plan, so links generated before the topics existed still work.
+  if (planId) params.set("plan", planId);
+
+  const encodedTopics = Array.isArray(topics)
+    ? encodeContactFormTopics(topics)
+    : (topics || "").trim();
+  if (encodedTopics) {
+    params.set("topics", encodedTopics);
+  } else if (Array.isArray(topics)) {
+    // An explicit empty list means "the advisor turned every topic off" —
+    // carry an empty param so the page doesn't fall back to the defaults.
+    params.set("topics", "");
+  }
+
   const qs = params.toString();
   return `${base}/contact${qs ? `?${qs}` : ""}`;
 }
@@ -34,6 +64,13 @@ export interface ContactFormCtaContact {
   companyLogo?: string | null;
   headshot?: string | null;
   title?: string | null;
+  /** Benefits category (drives the suggested topics). */
+  benefitsCategory?: string | null;
+  benefitsCategories?: string[] | null;
+  /** Advisor-configured topics for this contact. */
+  contactFormTopics?: ContactFormTopic[] | null;
+  /** Plan (client) id — lets /contact resolve the live topic list. */
+  planId?: string | null;
 }
 
 /** Convert a base64 `data:` URL into a File for R2 upload. */
@@ -71,7 +108,20 @@ export async function resolveContactFormUrl(
     );
     if (u.pathname !== "/contact") return url;
 
-    if (!u.searchParams.has("to") && c.email) {
+    const rawCategory =
+      c.benefitsCategory ||
+      (c.benefitsCategories && c.benefitsCategories.length > 0
+        ? c.benefitsCategories[0]
+        : "") ||
+      "";
+    // Canonicalize legacy/display names ("Health Insurance" → "Group Health")
+    // so the topic list always resolves.
+    const category =
+      normalizeContactTopicCategory(rawCategory) || rawCategory || "";
+
+    if (c.email) {
+      // The recipient is defined by the contact, so keep it authoritative —
+      // otherwise a stale `to` would also break the plan-side topic lookup.
       u.searchParams.set("to", c.email);
     }
     if (!u.searchParams.has("company") && c.companyName) {
@@ -110,6 +160,40 @@ export async function resolveContactFormUrl(
             error,
           );
         }
+      }
+    }
+
+    // Keep the "Topic of Interest" choices in sync with the contact's current
+    // configuration. A saved topic configuration is the source of truth, so it
+    // always replaces whatever is in the link; when the contact has none, only
+    // backfill links that predate the feature.
+    const savedTopics = Array.isArray(c.contactFormTopics)
+      ? c.contactFormTopics
+      : null;
+    if (category) {
+      u.searchParams.set("category", category);
+    }
+    if (c.planId) {
+      u.searchParams.set("plan", c.planId);
+    }
+    if (c.planId) {
+      u.searchParams.set("plan", c.planId);
+    }
+    if (savedTopics) {
+      u.searchParams.set(
+        "topics",
+        encodeContactFormTopics(
+          getActiveContactFormTopicLabels(
+            resolveContactFormTopics(category, savedTopics),
+          ),
+        ),
+      );
+    } else if (!u.searchParams.has("topics")) {
+      const activeLabels = getActiveContactFormTopicLabels(
+        resolveContactFormTopics(category, undefined),
+      );
+      if (activeLabels.length > 0) {
+        u.searchParams.set("topics", encodeContactFormTopics(activeLabels));
       }
     }
 

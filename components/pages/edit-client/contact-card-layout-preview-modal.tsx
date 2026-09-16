@@ -207,6 +207,10 @@ function transformContactToPreview(
     websiteUrl: contact.websiteUrl,
     enableContactButton: contact.enableContactButton,
     contactButtonType: contact.contactButtonType,
+    // Carried through so the Contact Form CTA can resolve the contact's current
+    // "Topic of Interest" configuration when clicked (see resolveContactFormUrl).
+    contactFormTopics: (contact as any).contactFormTopics,
+    planId: (contact as any).planId,
   };
 }
 

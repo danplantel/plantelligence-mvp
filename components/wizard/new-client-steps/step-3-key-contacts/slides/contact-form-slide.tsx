@@ -24,6 +24,13 @@ import { SmallVerticalCard } from "@/components/pages/my-benefits-team/small-ver
 import { useContactStyles } from "../../sections/hooks/use-contact-styles";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ContactFormPage } from "@/components/pages/contact-form-page";
+import { buildContactFormHref } from "@/lib/contact-form-link";
+import { ContactFormTopicBuilder } from "@/components/ui/contact-form-topic-builder";
+import {
+  getActiveContactFormTopicLabels,
+  resolveContactFormTopics,
+} from "@/lib/contact-form-topics";
+import type { ContactFormTopic } from "@/lib/contact-form-topics";
 
 // ==================== Types ====================
 
@@ -56,37 +63,9 @@ const formatPhoneNumber = (value: string): string => {
   return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
 };
 
-/**
- * Build the URL for the Plantelligence-branded `/contact` page. The form emails
- * submissions to `to` (this contact's email), so the CTA link is derived from
- * the contact's email rather than an arbitrary external URL.
- */
-const buildContactFormHref = (
-  to: string,
-  company?: string,
-  name?: string,
-  avatar?: string,
-  logo?: string,
-  title?: string,
-): string => {
-  const base = typeof window !== "undefined" ? window.location.origin : "";
-  const params = new URLSearchParams();
-  if (to) params.set("to", to);
-  if (company) params.set("company", company);
-  if (name) params.set("name", name);
-  if (title) params.set("title", title);
-  // Only carry short non-data image URLs (R2 keys / http(s)) — base64 data
-  // URLs are far too large for a query string. The Headshot/BrandingImage
-  // components on the /contact page resolve R2 keys client-side.
-  if (avatar && !avatar.startsWith("data:")) {
-    params.set("avatar", avatar);
-  }
-  if (logo && !logo.startsWith("data:")) {
-    params.set("logo", logo);
-  }
-  const qs = params.toString();
-  return `${base}/contact${qs ? `?${qs}` : ""}`;
-};
+// The Plantelligence-branded `/contact` URL is built by the shared
+// `buildContactFormHref` helper (lib/contact-form-link.ts) so the contact's
+// configured "Topic of Interest" choices travel with the link.
 
 /** Compute a two-letter monogram from a contact name */
 const getInitials = (name?: string): string => {
@@ -505,6 +484,12 @@ export function ContactFormSlide({
   const [websiteUrl, setWebsiteUrl] = useState(
     step3bData.websiteUrl || "",
   );
+  // "Topic of Interest" choices for the Plantelligence `/contact` form. Defaults
+  // to the benefits category's suggested list on first open, then the advisor's
+  // own configuration once they touch it.
+  const [contactFormTopics, setContactFormTopics] = useState<ContactFormTopic[]>(
+    () => resolveContactFormTopics(category, (step3bData as any).contactFormTopics),
+  );
   // Whether the live Plantelligence `/contact` page preview modal is open.
   const [contactPreviewOpen, setContactPreviewOpen] = useState(false);
 
@@ -597,6 +582,9 @@ export function ContactFormSlide({
       setCtaType(sb.ctaType || "schedule");
       setSchedulingUrl(sb.schedulingUrl || "");
       setWebsiteUrl(sb.websiteUrl || "");
+      setContactFormTopics(
+        resolveContactFormTopics(category, sb.contactFormTopics),
+      );
       setValidationAttempted(false);
       setLocalErrors([]);
     }
@@ -669,6 +657,7 @@ export function ContactFormSlide({
       ctaType,
       schedulingUrl,
       websiteUrl,
+      contactFormTopics,
     });
   }, [
     contactType,
@@ -694,6 +683,7 @@ export function ContactFormSlide({
     ctaType,
     schedulingUrl,
     websiteUrl,
+    contactFormTopics,
     saveStepDataLocally,
   ]);
 
@@ -732,6 +722,7 @@ export function ContactFormSlide({
         ctaType,
         schedulingUrl,
         websiteUrl,
+        contactFormTopics,
       });
     };
     return () => {
@@ -761,6 +752,7 @@ export function ContactFormSlide({
     ctaType,
     schedulingUrl,
     websiteUrl,
+    contactFormTopics,
     saveStepDataLocally,
   ]);
 
@@ -888,9 +880,12 @@ export function ContactFormSlide({
                     ? externalAdminLogo
                     : defaultCompanyLogo,
                   title,
+                  getActiveContactFormTopicLabels(contactFormTopics),
+                  category,
                 )
               : undefined,
           benefitsCategoryOther: category === "Other Benefits" ? customBenefits || undefined : undefined,
+          contactFormTopics,
         };
 
         // If this contact is being saved as primary, demote only contacts that
@@ -1003,9 +998,12 @@ export function ContactFormSlide({
                   ? externalAdminLogo
                   : defaultCompanyLogo,
                 title,
+                getActiveContactFormTopicLabels(contactFormTopics),
+                category,
               )
             : undefined,
         benefitsCategoryOther: category === "Other Benefits" ? customBenefits || undefined : undefined,
+        contactFormTopics,
       };
 
       const updatedContacts = [...demotedContacts, newContact];
@@ -1046,6 +1044,7 @@ export function ContactFormSlide({
       ctaType,
       schedulingUrl,
       websiteUrl,
+      contactFormTopics,
       saveStepDataLocally,
     ],
   );
@@ -1849,6 +1848,17 @@ export function ContactFormSlide({
                           ? ` Incoming messages will be sent to ${email}.`
                           : " Enter this contact's email above to receive incoming messages."}
                       </p>
+
+                      {/* Participant-facing "Topic of Interest" choices. The
+                          category's suggestions are pre-loaded; the advisor
+                          decides which ones participants actually see. */}
+                      <div className="border-t border-gray-100 dark:border-gray-700 pt-3 mt-1">
+                        <ContactFormTopicBuilder
+                          category={category}
+                          topics={contactFormTopics}
+                          onChange={setContactFormTopics}
+                        />
+                      </div>
                     </div>
                   )}
 
@@ -1935,6 +1945,8 @@ export function ContactFormSlide({
               // For the preview, derive the contact-form URL live from the form's
               // email so the Contact Form CTA button actually renders (the saved
               // websiteUrl is only written on save).
+              // The topic choices are embedded in the built URL below so the
+              // preview card opens the same form employees will see.
               websiteUrl:
                 enableCtaButton && ctaType === "contact"
                   ? buildContactFormHref(
@@ -1948,6 +1960,8 @@ export function ContactFormSlide({
                         ? externalAdminLogo
                         : defaultCompanyLogo,
                       title,
+                      getActiveContactFormTopicLabels(contactFormTopics),
+                      category,
                     )
                   : undefined,
             }}
@@ -1996,6 +2010,8 @@ export function ContactFormSlide({
                   ? externalAdminLogo
                   : defaultCompanyLogo
               }
+              topics={getActiveContactFormTopicLabels(contactFormTopics)}
+              category={category}
               embedded
               preview
             />

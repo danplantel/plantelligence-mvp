@@ -20,6 +20,15 @@ export async function POST(request: Request) {
     const fromEmail = typeof body.fromEmail === "string" ? body.fromEmail.trim().slice(0, 254) : "";
     const message = typeof body.message === "string" ? body.message.trim().slice(0, 5000) : "";
     const company = typeof body.company === "string" ? body.company.trim().slice(0, 160) : undefined;
+    // Participant-selected "Topic of Interest" choices (already active/filtered
+    // on the page). Capped defensively — this endpoint is public.
+    const topics = Array.isArray(body.topics)
+      ? body.topics
+          .filter((t: unknown): t is string => typeof t === "string")
+          .map((t: string) => t.trim().slice(0, 160))
+          .filter((t: string) => t.length > 0)
+          .slice(0, 40)
+      : [];
 
     if (!to || !EMAIL_RE.test(to)) {
       return NextResponse.json({ error: "A valid recipient email is required." }, { status: 400 });
@@ -40,6 +49,7 @@ export async function POST(request: Request) {
       fromEmail,
       message,
       company: company || undefined,
+      topics: topics.length ? topics : undefined,
     });
 
     return NextResponse.json({ ok: true });

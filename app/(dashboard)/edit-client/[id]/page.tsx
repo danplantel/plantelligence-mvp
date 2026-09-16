@@ -50,6 +50,13 @@ import { UniversalImageEditorModal } from "@/components/ui/universal-image-edito
 import { ContactFormFields } from "@/components/ui/contact-form-fields";
 import { ContactFormPage } from "@/components/pages/contact-form-page";
 import { buildContactFormHref } from "@/lib/contact-form-link";
+import { ContactFormTopicBuilder } from "@/components/ui/contact-form-topic-builder";
+import {
+  getActiveContactFormTopicLabels,
+  normalizeContactTopicCategory,
+  resolveContactFormTopics,
+} from "@/lib/contact-form-topics";
+import type { ContactFormTopic } from "@/lib/contact-form-topics";
 import { SmallVerticalCard } from "@/components/pages/my-benefits-team/small-vertical-card";
 import { BrandImagesSection } from "@/components/wizard/new-client-steps/sections/brand-images-section";
 import { ComplianceDocumentsUpload } from "@/components/pages/documents/components/compliance-documents-upload";
@@ -327,6 +334,8 @@ function EditContactDialog({
   brandColor = "#1F3A60",
   secondaryColor = "#6B7280",
   appointmentLink = "",
+  /** Plan (client) id — lets the /contact page resolve the live topic list. */
+  planId = "",
   mode = "edit",
   addCategory = null,
   addContactType = "individual",
@@ -342,6 +351,8 @@ function EditContactDialog({
   brandColor?: string;
   secondaryColor?: string;
   appointmentLink?: string;
+  /** Plan (client) id carried into the generated /contact link. */
+  planId?: string;
   /** "add" turns this into a create form; the new contact is appended on save. */
   mode?: "edit" | "add";
   /** Category pre-selected when the dialog opens in add mode. */
@@ -378,6 +389,8 @@ function EditContactDialog({
     websiteUrl: string;
     displayEmail: boolean;
     displayPhone: boolean;
+    /** "Topic of Interest" choices for the Plantelligence /contact form. */
+    contactFormTopics: ContactFormTopic[];
   }>({
     contactType: "individual",
     benefitsCategory: null,
@@ -404,6 +417,7 @@ function EditContactDialog({
     // auto-enable these toggles.
     displayEmail: false,
     displayPhone: false,
+    contactFormTopics: [],
   });
   const [errors, setErrors] = useState<string[]>([]);
   // Whether the live Plantelligence /contact page preview modal is open.
@@ -427,6 +441,12 @@ function EditContactDialog({
       ? `${form.firstName} ${form.lastName}`.trim()
       : form.displayName;
   const ctaCompany = isPlanSponsorContact ? companyName : form.companyName;
+  // Benefits category driving the contact-form CTA link and its topic choices.
+  // Canonicalized so legacy/display names ("Health Insurance") still map to a
+  // topic set and match what the /contact page shows.
+  const rawCtaCategory = form.benefitsCategory ?? contactCategories[0] ?? null;
+  const ctaCategory =
+    normalizeContactTopicCategory(rawCtaCategory) ?? rawCtaCategory;
   const ctaLogo = isPlanSponsorContact ? companyLogo : form.companyLogo;
   const ctaHeadshot =
     form.contactType === "individual" ? form.headshot || "" : "";
@@ -475,6 +495,8 @@ function EditContactDialog({
         // "Show on contact card" starts unchecked (no auto-enable on email/phone).
         displayEmail: false,
         displayPhone: false,
+        // Pre-load the suggested topics for the preset category.
+        contactFormTopics: resolveContactFormTopics(addCategory, undefined),
       });
       setErrors([]);
       return;
@@ -516,6 +538,11 @@ function EditContactDialog({
       // whether the contact has an email/phone.
       displayEmail: contact.displayEmail ?? false,
       displayPhone: contact.displayPhone ?? false,
+      // Saved configuration wins; otherwise seed the category's suggestions.
+      contactFormTopics: resolveContactFormTopics(
+        contact.benefitsCategory ?? contactCategories[0] ?? null,
+        (contact as any).contactFormTopics,
+      ),
     });
     setErrors([]);
   }, [
@@ -719,8 +746,12 @@ function EditContactDialog({
               ctaHeadshot,
               ctaLogo,
               ctaTitle,
+              getActiveContactFormTopicLabels(form.contactFormTopics),
+              ctaCategory,
+              planId,
             )
           : undefined,
+      contactFormTopics: form.contactFormTopics,
     };
 
     onSave(updated);
@@ -788,8 +819,13 @@ function EditContactDialog({
             ctaHeadshot,
             ctaLogo,
             ctaTitle,
+            getActiveContactFormTopicLabels(form.contactFormTopics),
+            ctaCategory,
+            planId,
           )
         : undefined,
+    // Carried so the card's Contact Form CTA can re-resolve the live topics.
+    planId,
   };
 
   // Upload Contact Company Logo — non-Plan-Sponsor only. Hoisted into a variable
@@ -852,7 +888,15 @@ function EditContactDialog({
                       type="button"
                       onClick={() =>
                         updateForm(
-                          { benefitsCategory: opt.id },
+                          {
+                            benefitsCategory: opt.id,
+                            // Re-seed the topic suggestions for the newly
+                            // chosen category (fully editable afterwards).
+                            contactFormTopics: resolveContactFormTopics(
+                              opt.id,
+                              undefined,
+                            ),
+                          },
                           ["benefitsCategory"],
                         )
                       }
@@ -1192,6 +1236,19 @@ function EditContactDialog({
                           ? ` Incoming messages will be sent to ${form.email}.`
                           : " Enter this contact's email above to receive incoming messages."}
                       </p>
+
+                      {/* Participant-facing "Topic of Interest" choices. The
+                          category's suggestions are pre-loaded; the advisor
+                          decides which ones participants actually see. */}
+                      <div className="border-t border-gray-100 dark:border-gray-700 pt-3 mt-1">
+                        <ContactFormTopicBuilder
+                          category={ctaCategory}
+                          topics={form.contactFormTopics}
+                          onChange={(topics) =>
+                            updateForm({ contactFormTopics: topics })
+                          }
+                        />
+                      </div>
                     </div>
                   )}
 
@@ -1300,6 +1357,8 @@ function EditContactDialog({
               contactTitle={ctaTitle}
               avatar={ctaHeadshot}
               companyLogo={ctaLogo}
+              topics={getActiveContactFormTopicLabels(form.contactFormTopics)}
+              category={ctaCategory || ""}
               embedded
               preview
             />
@@ -1320,6 +1379,7 @@ function EditKeyContactsSection({
   onHeadshotRemove,
   validationErrors = {},
   onAddContact,
+  planId = "",
 }: {
   contacts: KeyContact[];
   companyData: CompanyBasicsData;
@@ -1336,6 +1396,8 @@ function EditKeyContactsSection({
       external?: boolean;
     },
   ) => void;
+  /** Plan (client) id passed to the contact editor so /contact links resolve. */
+  planId?: string;
 }) {
   const [editingContact, setEditingContact] = useState<KeyContact | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -1755,6 +1817,7 @@ function EditKeyContactsSection({
         brandColor={companyData.primaryColor || "#1F3A60"}
         secondaryColor={companyData.secondaryColor || "#6B7280"}
         appointmentLink={companyData.appointmentLink || ""}
+        planId={planId}
       />
 
       {/* Delete Contact confirmation dialog */}
@@ -3413,6 +3476,7 @@ export default function EditClientPage() {
           />
         )}
 
+        {/* Tab Content */}
         <div className="mx-auto max-w-5xl px-4">
           <Tabs
             value={activeTab}
@@ -4185,6 +4249,7 @@ export default function EditClientPage() {
                     onHeadshotRemove={handleHeadshotRemove}
                     validationErrors={getValidationErrors()}
                     onAddContact={openAddContact}
+                    planId={clientId || ""}
                   />
                 </CardContent>
               </Card>
@@ -4485,6 +4550,7 @@ export default function EditClientPage() {
             brandColor={companyData.primaryColor || "#1F3A60"}
             secondaryColor={companyData.secondaryColor || "#6B7280"}
             appointmentLink={companyData.appointmentLink || ""}
+            planId={clientId || ""}
           />
         )}
 

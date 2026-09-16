@@ -1,6 +1,7 @@
 // New Client Wizard Types
 
 import type { TypographyThemeId } from "@/lib/typography-themes";
+import type { ContactFormTopic } from "@/lib/contact-form-topics";
 
 // Step 1: Company Basics & Branding
 // Crop metadata in percentages (0-100) relative to original image
@@ -180,6 +181,14 @@ export interface KeyContact {
   cardSecondaryColor?: string;
   cardBackgroundColor?: string;
   logoScale?: number;
+
+  /**
+   * "Topic of Interest" choices rendered on the PlanTelligence-branded
+   * `/contact` form for this contact. `undefined` = use the benefits
+   * category's suggested defaults; an empty array = show no topics.
+   * See lib/contact-form-topics.ts.
+   */
+  contactFormTopics?: ContactFormTopic[];
 
   // Legacy fields for backward compatibility
   benefitsCategory?: BenefitsCategory;

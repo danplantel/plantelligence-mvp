@@ -143,6 +143,12 @@ export default function MyBenefitsTeamPage() {
     );
     return filtered.map((contact: any) => {
       const normalized: Contact = { ...contact };
+      // Carry the plan id so the Contact Form CTA can resolve the plan's live
+      // "Topic of Interest" configuration at click time (see
+      // resolveContactFormUrl).
+      if (clientData?.id) {
+        (normalized as any).planId = clientData.id;
+      }
       if (!normalized.name && (normalized.firstName || normalized.lastName)) {
         normalized.name = `${normalized.firstName || ""} ${normalized.lastName || ""}`.trim();
       }
@@ -179,6 +185,7 @@ export default function MyBenefitsTeamPage() {
   }, [
     contacts,
     visibility,
+    clientData?.id,
     globalLogoScale,
     currentUserEmail,
     currentUserOrgEmail,

@@ -4,11 +4,13 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Headshot } from "@/components/ui/headshot";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { cn } from "@/lib/utils";
 import { Loader2, Send, CheckCircle2, AlertCircle, Building2, User } from "lucide-react";
 import { motion } from "framer-motion";
+import { OTHER_TOPIC_LABEL } from "@/lib/contact-form-topics";
 
 interface ContactFormPageProps {
   /** Recipient email (the contact/advisor the message goes to). */
@@ -27,11 +29,26 @@ interface ContactFormPageProps {
   embedded?: boolean;
   /** Disable real submission — for previewing the form inside the editor. */
   preview?: boolean;
+  /**
+   * Advisor-configured "Topic of Interest" choices for this contact's benefits
+   * category, in the order the advisor arranged them. Only the active topics
+   * are passed here. When omitted/empty no topic section is rendered.
+   */
+  topics?: string[];
+  /**
+   * Benefits category of the contact (e.g. "Retirement"). Shown under the
+   * contact's name/company at the top of the page and used in the topics
+   * heading. Hidden when empty.
+   */
+  category?: string;
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 /** Reasonable cap for a contact-form message (matches the API's 5000-char limit). */
 const MESSAGE_MAX_LENGTH = 1000;
+/** Cap for the free-text "Other" topic details. */
+const OTHER_TOPIC_MAX_LENGTH = 200;
+const OTHER_TOPIC_LOWER = OTHER_TOPIC_LABEL.toLowerCase();
 
 export function ContactFormPage({
   to = "",
@@ -42,7 +59,17 @@ export function ContactFormPage({
   companyLogo = "",
   embedded = false,
   preview = false,
+  topics,
+  category = "",
 }: ContactFormPageProps) {
+  // Defensive normalization: these values arrive from URL params and editor
+  // state, so trim them (and collapse stray internal whitespace) before they are
+  // rendered — otherwise a trailing space shows up around the name in the header.
+  const cleanContactName = contactName.trim().replace(/\s+/g, " ");
+  const cleanContactTitle = contactTitle.trim().replace(/\s+/g, " ");
+  const cleanCompany = company.trim().replace(/\s+/g, " ");
+  const cleanCategory = category.trim();
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
@@ -50,6 +77,49 @@ export function ContactFormPage({
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string | null>>({});
+  /** Topics the participant selected (ordered as they appear in the list). */
+  const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
+  /** Free-text details captured when the participant picks "Other". */
+  const [otherTopicDetail, setOtherTopicDetail] = useState("");
+
+  // Only the advisor-active topics reach the participant, de-duplicated and
+  // trimmed in the advisor-defined order — except "Other", which is always
+  // pinned to the bottom of the list regardless of how the advisor ordered it.
+  const topicOptions = (() => {
+    const deduped = Array.from(
+      new Set(
+        (topics || [])
+          .map((t) => (t || "").trim())
+          .filter((t) => t.length > 0),
+      ),
+    );
+    const other = deduped.filter((t) => t.toLowerCase() === OTHER_TOPIC_LOWER);
+    const rest = deduped.filter((t) => t.toLowerCase() !== OTHER_TOPIC_LOWER);
+    return [...rest, ...other];
+  })();
+  const otherTopicSelected = selectedTopics.some(
+    (t) => t.toLowerCase() === OTHER_TOPIC_LOWER,
+  );
+
+  const toggleTopic = (topic: string) => {
+    setSelectedTopics((prev) =>
+      prev.some((t) => t.toLowerCase() === topic.toLowerCase())
+        ? prev.filter((t) => t.toLowerCase() !== topic.toLowerCase())
+        : [...prev, topic],
+    );
+  };
+
+  /** Selected topics in list order, with the "Other" detail folded in. */
+  const buildSubmittedTopics = (): string[] =>
+    topicOptions
+      .filter((t) =>
+        selectedTopics.some((s) => s.toLowerCase() === t.toLowerCase()),
+      )
+      .map((t) =>
+        t.toLowerCase() === OTHER_TOPIC_LOWER && otherTopicDetail.trim()
+          ? `${t}: ${otherTopicDetail.trim().slice(0, OTHER_TOPIC_MAX_LENGTH)}`
+          : t,
+      );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,6 +136,7 @@ export function ContactFormPage({
 
     setIsSubmitting(true);
     try {
+      const submittedTopics = buildSubmittedTopics();
       const res = await fetch("/api/contact-form", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -74,7 +145,8 @@ export function ContactFormPage({
           fromName: name.trim(),
           fromEmail: email.trim(),
           message: message.trim(),
-          company: company || undefined,
+          company: cleanCompany || undefined,
+          topics: submittedTopics.length ? submittedTopics : undefined,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -119,7 +191,7 @@ export function ContactFormPage({
             <div className="flex items-center justify-center">
               <BrandingImage
                 src={companyLogo}
-                alt={company || "Company logo"}
+                alt={cleanCompany || "Company logo"}
                 className="h-12 w-auto max-w-[200px] object-contain"
               />
             </div>
@@ -128,14 +200,21 @@ export function ContactFormPage({
             <div className="my-2 w-20 h-20 rounded-full overflow-hidden ring-4 ring-gray-200 bg-white shadow-md flex-shrink-0">
               <Headshot
                 src={avatar}
-                alt={contactName || "Contact"}
-                monogramName={contactName || ""}
+                alt={cleanContactName || "Contact"}
+                monogramName={cleanContactName}
               />
             </div>
           )}
-          {company && contactName && contactTitle && (
+          {cleanCompany && cleanContactName && cleanContactTitle && (
             <p className="text-sm text-gray-600 dark:text-gray-600 mt-2 flex items-center gap-1.5">
-              <span className="font-semibold">{contactName}</span>, {contactTitle} at {company}
+              <span className="font-semibold">{cleanContactName}</span>
+              {`, ${cleanContactTitle} at ${cleanCompany}`}
+            </p>
+          )}
+          {cleanCategory && (
+            <p className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-200 bg-gray-100 dark:bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600 dark:text-gray-600">
+              <Building2 className="w-3.5 h-3.5" />
+              {cleanCategory}
             </p>
           )}
         </motion.div>
@@ -190,6 +269,72 @@ export function ContactFormPage({
                   <p className="text-xs text-red-500">{fieldErrors.email}</p>
                 )}
               </div>
+
+              {topicOptions.length > 0 && (
+                <div className="space-y-2">
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-700">
+                      Topic of Interest
+                    </Label>
+                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-0.5">
+                      {cleanCategory
+                        ? `What would you like help with? Select any that apply to ${cleanCategory}.`
+                        : "What would you like help with? Select any that apply."}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    {topicOptions.map((topic) => {
+                      const id = `cf-topic-${topic
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]+/g, "-")
+                        .replace(/^-+|-+$/g, "")}`;
+                      return (
+                        <div
+                          key={topic}
+                          className="flex items-start gap-2.5 rounded-lg border border-gray-300 dark:border-gray-300 bg-white dark:bg-white px-3 py-2 transition-colors hover:border-accent-blue/50 hover:bg-accent-blue/5 dark:hover:bg-accent-blue/5"
+                        >
+                          <Checkbox
+                            id={id}
+                            checked={selectedTopics.some(
+                              (t) => t.toLowerCase() === topic.toLowerCase(),
+                            )}
+                            onCheckedChange={() => toggleTopic(topic)}
+                            className="mt-0.5 border-gray-400 dark:border-gray-400 data-[state=checked]:bg-accent-blue data-[state=checked]:border-accent-blue"
+                          />
+                          <Label
+                            htmlFor={id}
+                            className="flex-1 text-sm font-normal text-gray-800 dark:text-gray-800 leading-snug cursor-pointer"
+                          >
+                            {topic}
+                          </Label>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {otherTopicSelected && (
+                    <div className="space-y-1 pl-1">
+                      <Label
+                        htmlFor="cf-topic-other"
+                        className="text-xs font-medium text-gray-700 dark:text-gray-700"
+                      >
+                        Please tell us more (optional)
+                      </Label>
+                      <Input
+                        id="cf-topic-other"
+                        value={otherTopicDetail}
+                        onChange={(e) =>
+                          setOtherTopicDetail(
+                            e.target.value.slice(0, OTHER_TOPIC_MAX_LENGTH),
+                          )
+                        }
+                        placeholder="Briefly describe what you need help with"
+                        className="h-10 border-gray-300 dark:border-gray-300 bg-white dark:bg-white text-gray-900 dark:text-gray-900 placeholder:text-gray-400"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
