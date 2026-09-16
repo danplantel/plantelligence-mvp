@@ -46,6 +46,11 @@ interface ContactFormPageProps {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 /** Reasonable cap for a contact-form message (matches the API's 5000-char limit). */
 const MESSAGE_MAX_LENGTH = 1000;
+/** Name / email caps, matching what `/api/contact-form` accepts (fromName 120,
+ *  fromEmail 254 — the RFC maximum address length). No character counter is shown
+ *  for these two; only the message field has one. */
+const NAME_MAX_LENGTH = 120;
+const EMAIL_MAX_LENGTH = 254;
 /** Cap for the free-text "Other" topic details. */
 const OTHER_TOPIC_MAX_LENGTH = 200;
 const OTHER_TOPIC_LOWER = OTHER_TOPIC_LABEL.toLowerCase();
@@ -244,7 +249,10 @@ export function ContactFormPage({
                 <Input
                   id="cf-name"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  // Slice as well as maxLength: paste/autofill can exceed the attribute,
+                  // and the API truncates fromName at this same length.
+                  onChange={(e) => setName(e.target.value.slice(0, NAME_MAX_LENGTH))}
+                  maxLength={NAME_MAX_LENGTH}
                   placeholder="e.g. Jordan Smith"
                   className="h-10 border-gray-300 dark:border-gray-300 bg-white dark:bg-white text-gray-900 dark:text-gray-900 placeholder:text-gray-400"
                 />
@@ -261,7 +269,9 @@ export function ContactFormPage({
                   id="cf-email"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  // Same rationale as the name field; 254 is the maximum address length.
+                  onChange={(e) => setEmail(e.target.value.slice(0, EMAIL_MAX_LENGTH))}
+                  maxLength={EMAIL_MAX_LENGTH}
                   placeholder="e.g. jordan@company.com"
                   className="h-10 border-gray-300 dark:border-gray-300 bg-white dark:bg-white text-gray-900 dark:text-gray-900 placeholder:text-gray-400"
                 />
