@@ -32,6 +32,9 @@ import {
   resolveContactFormTopics,
 } from "@/lib/contact-form-topics";
 import type { ContactFormTopic } from "@/lib/contact-form-topics";
+import { SupportIconPicker } from "@/components/ui/support-icon-picker";
+import { normalizeSupportIconId } from "@/lib/support-icons";
+import type { SupportIconId } from "@/lib/support-icons";
 
 // ==================== Types ====================
 
@@ -621,6 +624,10 @@ export function ContactFormSlide({
   const [contactFormTopics, setContactFormTopics] = useState<ContactFormTopic[]>(
     () => resolveContactFormTopics(category, (step3bData as any).contactFormTopics),
   );
+  // Badge icon for Team / Support Line contacts (headset / multi-person / phone).
+  const [supportIcon, setSupportIcon] = useState<SupportIconId>(() =>
+    normalizeSupportIconId((step3bData as any).supportIcon),
+  );
   // Whether the live Plantelligence `/contact` page preview modal is open.
   const [contactPreviewOpen, setContactPreviewOpen] = useState(false);
 
@@ -697,6 +704,7 @@ export function ContactFormSlide({
         sb.useCustomLogo === true ||
           Boolean(storedCustomContactLogo || sameCompanyPrefill?.logo),
       );
+      setSupportIcon(normalizeSupportIconId(sb.supportIcon));
       setCompanyName(
         sb.editingContactId || isFromSomeoneElse
           ? resolveCompanyName(sb.email, sb.companyName)
@@ -821,6 +829,7 @@ export function ContactFormSlide({
       schedulingUrl,
       websiteUrl,
       contactFormTopics,
+      supportIcon,
     });
   }, [
     contactType,
@@ -847,6 +856,7 @@ export function ContactFormSlide({
     schedulingUrl,
     websiteUrl,
     contactFormTopics,
+    supportIcon,
     saveStepDataLocally,
   ]);
 
@@ -886,6 +896,7 @@ export function ContactFormSlide({
         schedulingUrl,
         websiteUrl,
         contactFormTopics,
+        supportIcon,
       });
     };
     return () => {
@@ -916,6 +927,7 @@ export function ContactFormSlide({
     schedulingUrl,
     websiteUrl,
     contactFormTopics,
+    supportIcon,
     saveStepDataLocally,
   ]);
 
@@ -1048,6 +1060,7 @@ export function ContactFormSlide({
                 )
               : undefined,
           benefitsCategoryOther: category === "Other Benefits" ? customBenefits || undefined : undefined,
+          supportIcon: contactType === "team_support" ? supportIcon : undefined,
           contactFormTopics,
         };
 
@@ -1166,6 +1179,7 @@ export function ContactFormSlide({
               )
             : undefined,
         benefitsCategoryOther: category === "Other Benefits" ? customBenefits || undefined : undefined,
+        supportIcon: contactType === "team_support" ? supportIcon : undefined,
         contactFormTopics,
       };
 
@@ -1208,6 +1222,7 @@ export function ContactFormSlide({
       schedulingUrl,
       websiteUrl,
       contactFormTopics,
+      supportIcon,
       saveStepDataLocally,
     ],
   );
@@ -1434,6 +1449,15 @@ export function ContactFormSlide({
             type="logo"
           />
         </div>
+      </div>
+    ) : null;
+
+  // Support Icon picker — Team / Support Line contacts only. Sits directly under
+  // the Contact Company Logo section in the Team/Support branch below.
+  const supportIconPicker =
+    contactType === "team_support" && category !== "Company / Plan Sponsor" ? (
+      <div className="border-t border-gray-100 dark:border-gray-700 pt-3 mt-2">
+        <SupportIconPicker value={supportIcon} onChange={setSupportIcon} />
       </div>
     ) : null;
 
@@ -1698,6 +1722,7 @@ export function ContactFormSlide({
                     then the team name — the desired field order for Team/Support
                     Line contacts. */}
                 {contactCompanyLogoInput}
+                {supportIconPicker}
                 {companyNameInput}
                 <div className="space-y-1" data-field="displayName">
                   <Label className="dark:text-gray-300 text-xs font-medium">
@@ -2097,6 +2122,7 @@ export function ContactFormSlide({
                     ? "Life Insurance"
                     : (category as any),
               benefitsCategoryOther: customBenefits,
+              supportIcon,
               isPrimary,
               displayEmail,
               displayPhone,

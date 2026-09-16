@@ -211,6 +211,8 @@ function transformContactToPreview(
     // "Topic of Interest" configuration when clicked (see resolveContactFormUrl).
     contactFormTopics: (contact as any).contactFormTopics,
     planId: (contact as any).planId,
+    // Badge icon choice for Team / Support Line cards.
+    supportIcon: (contact as any).supportIcon,
   };
 }
 

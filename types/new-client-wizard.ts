@@ -2,6 +2,7 @@
 
 import type { TypographyThemeId } from "@/lib/typography-themes";
 import type { ContactFormTopic } from "@/lib/contact-form-topics";
+import type { SupportIconId } from "@/lib/support-icons";
 
 // Step 1: Company Basics & Branding
 // Crop metadata in percentages (0-100) relative to original image
@@ -166,6 +167,8 @@ export interface KeyContact {
   teamImage?: string;
   teamImageFileName?: string;
   teamImageAssetId?: string;
+  /** Badge icon shown on the card for Team / Support Line contacts. */
+  supportIcon?: SupportIconId;
 
   // Common fields
   companyName?: string;

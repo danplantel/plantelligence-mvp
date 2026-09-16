@@ -2,7 +2,8 @@
 
 import { Button } from "@/components/ui/button";
 import { BrandingImage } from "@/components/ui/branding-image";
-import { Mail, Phone, Headset } from "lucide-react";
+import { Mail, Phone } from "lucide-react";
+import { getSupportIcon } from "@/lib/support-icons";
 import { motion } from "framer-motion";
 import { PrimaryVisual } from "@/components/pages/my-benefits-team/primary-visual";
 import { readableColor, mix } from "polished";
@@ -50,6 +51,8 @@ interface Contact {
   cardSecondaryColor?: string;
   cardBackgroundColor?: string;
   logoScale?: number;
+  /** Advisor-selected badge icon for Team / Support Line contacts. */
+  supportIcon?: string;
 }
 
 interface PrimaryContactCardProps {
@@ -105,6 +108,7 @@ export function PrimaryContactCard({
   const buttons = [];
   let primaryIndex = -1;
   const isTeamSupport = contact.contactType === "team_support";
+  const SupportIcon = getSupportIcon(contact.supportIcon);
 
   // Check if a CTA button was explicitly configured via the wizard
   const hasEnabledCta = contact.enableContactButton === true;
@@ -221,7 +225,7 @@ export function PrimaryContactCard({
               circular slot on the left. */}
           {isTeamSupport ? (
             <div className="mb-1 flex items-center">
-              <Headset
+              <SupportIcon
                 className="w-8 h-8 sm:w-9 sm:h-9"
                 style={{ color: effectiveBrandColor }}
               />

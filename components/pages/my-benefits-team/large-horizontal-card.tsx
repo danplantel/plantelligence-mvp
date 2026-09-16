@@ -2,7 +2,8 @@
 
 import { Button } from "@/components/ui/button";
 import { BrandingImage } from "@/components/ui/branding-image";
-import { Mail, Phone, Clock, Headset } from "lucide-react";
+import { Mail, Phone, Clock } from "lucide-react";
+import { getSupportIcon } from "@/lib/support-icons";
 import { motion } from "framer-motion";
 import { readableColor, mix } from "polished";
 import { ContactAvatar } from "@/components/pages/my-benefits-team/contact-avatar";
@@ -51,6 +52,8 @@ interface Contact {
   cardBackgroundColor?: string;
   logoScale?: number;
   teamImage?: string;
+  /** Advisor-selected badge icon for Team / Support Line contacts. */
+  supportIcon?: string;
 }
 
 interface LargeHorizontalCardProps {
@@ -108,6 +111,7 @@ export function LargeHorizontalCard({
   const buttons = [];
   let primaryIndex = -1;
   const isTeamSupport = contact.contactType === "team_support";
+  const SupportIcon = getSupportIcon(contact.supportIcon);
 
   // Check if a CTA button was explicitly configured via the wizard
   const hasEnabledCta = contact.enableContactButton === true;
@@ -210,7 +214,7 @@ export function LargeHorizontalCard({
           style={{ height: `${logoSlotHeightPx}px` }}
         >
           {isTeamSupport ? (
-            <Headset
+            <SupportIcon
               className="w-10 h-10 sm:w-12 sm:h-12"
               style={{ color: effectiveBrandColor }}
             />

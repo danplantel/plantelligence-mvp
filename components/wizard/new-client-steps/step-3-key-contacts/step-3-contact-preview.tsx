@@ -832,6 +832,7 @@ export function NewClientStep3d({
         contactType: contact.contactType,
         displayName: contact.displayName,
         teamImage: contact.teamImage,
+        supportIcon: contact.supportIcon,
         isPrimary: contact.isPrimary || false,
         isPrimaryOverall: contact.isPrimaryOverall || false,
         cardPrimaryColor: contact.cardPrimaryColor,

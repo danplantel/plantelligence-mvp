@@ -51,12 +51,15 @@ import { ContactFormFields } from "@/components/ui/contact-form-fields";
 import { ContactFormPage } from "@/components/pages/contact-form-page";
 import { buildContactFormHref } from "@/lib/contact-form-link";
 import { ContactFormTopicBuilder } from "@/components/ui/contact-form-topic-builder";
+import { SupportIconPicker } from "@/components/ui/support-icon-picker";
 import {
   getActiveContactFormTopicLabels,
   normalizeContactTopicCategory,
   resolveContactFormTopics,
 } from "@/lib/contact-form-topics";
 import type { ContactFormTopic } from "@/lib/contact-form-topics";
+import { normalizeSupportIconId } from "@/lib/support-icons";
+import type { SupportIconId } from "@/lib/support-icons";
 import { SmallVerticalCard } from "@/components/pages/my-benefits-team/small-vertical-card";
 import { BrandImagesSection } from "@/components/wizard/new-client-steps/sections/brand-images-section";
 import { ComplianceDocumentsUpload } from "@/components/pages/documents/components/compliance-documents-upload";
@@ -391,6 +394,8 @@ function EditContactDialog({
     displayPhone: boolean;
     /** "Topic of Interest" choices for the Plantelligence /contact form. */
     contactFormTopics: ContactFormTopic[];
+    /** Badge icon for Team / Support Line cards. */
+    supportIcon: SupportIconId;
   }>({
     contactType: "individual",
     benefitsCategory: null,
@@ -418,6 +423,7 @@ function EditContactDialog({
     displayEmail: false,
     displayPhone: false,
     contactFormTopics: [],
+    supportIcon: normalizeSupportIconId(undefined),
   });
   const [errors, setErrors] = useState<string[]>([]);
   // Whether the live Plantelligence /contact page preview modal is open.
@@ -497,6 +503,7 @@ function EditContactDialog({
         displayPhone: false,
         // Pre-load the suggested topics for the preset category.
         contactFormTopics: resolveContactFormTopics(addCategory, undefined),
+        supportIcon: normalizeSupportIconId(undefined),
       });
       setErrors([]);
       return;
@@ -543,6 +550,7 @@ function EditContactDialog({
         contact.benefitsCategory ?? contactCategories[0] ?? null,
         (contact as any).contactFormTopics,
       ),
+      supportIcon: normalizeSupportIconId((contact as any).supportIcon),
     });
     setErrors([]);
   }, [
@@ -752,6 +760,8 @@ function EditContactDialog({
             )
           : undefined,
       contactFormTopics: form.contactFormTopics,
+      supportIcon:
+        form.contactType === "team_support" ? form.supportIcon : undefined,
     };
 
     onSave(updated);
@@ -826,6 +836,8 @@ function EditContactDialog({
         : undefined,
     // Carried so the card's Contact Form CTA can re-resolve the live topics.
     planId,
+    // Badge icon for Team / Support Line cards.
+    supportIcon: form.supportIcon,
   };
 
   // Upload Contact Company Logo — non-Plan-Sponsor only. Hoisted into a variable
@@ -1029,6 +1041,17 @@ function EditContactDialog({
             {/* Upload Contact Company Logo first for Team/Support Line contacts,
                 above the Company / Organization input. */}
             {form.contactType === "team_support" && contactCompanyLogoInput}
+
+            {/* Support Icon — Team/Support Line contacts only, directly under the
+                Contact Company Logo section. */}
+            {form.contactType === "team_support" && !isPlanSponsorContact && (
+              <div className="border-t border-gray-100 dark:border-gray-700 pt-3">
+                <SupportIconPicker
+                  value={form.supportIcon}
+                  onChange={(supportIcon) => updateForm({ supportIcon })}
+                />
+              </div>
+            )}
 
             {/* Company / Organization — required for non-Plan-Sponsor contacts */}
             {!isPlanSponsorContact && (

@@ -2,7 +2,8 @@
 
 import { Button } from "@/components/ui/button";
 import { BrandingImage } from "@/components/ui/branding-image";
-import { Mail, Phone, Clock, Headset } from "lucide-react";
+import { Mail, Phone, Clock } from "lucide-react";
+import { getSupportIcon } from "@/lib/support-icons";
 import { motion } from "framer-motion";
 import { ContactAvatar } from "@/components/pages/my-benefits-team/contact-avatar";
 import { formatPhone } from "@/components/pages/my-benefits-team/utils";
@@ -51,6 +52,8 @@ interface Contact {
   cardBackgroundColor?: string;
   logoScale?: number;
   teamImage?: string;
+  /** Advisor-selected badge icon for Team / Support Line contacts. */
+  supportIcon?: string;
 }
 
 interface SmallVerticalCardProps {
@@ -121,6 +124,8 @@ export function SmallVerticalCard({
   const buttons = [];
   let primaryIndex = -1;
   const isTeamSupport = contact.contactType === "team_support";
+  // Team / Support Line cards show an advisor-selected icon in the badge slot.
+  const SupportIcon = getSupportIcon(contact.supportIcon);
 
   const showPlaceholders = previewPlaceholders === true;
 
@@ -317,7 +322,7 @@ export function SmallVerticalCard({
               </span>
             ) : isTeamSupport ? (
               <div className="w-full h-full flex items-center justify-center">
-                <Headset
+                <SupportIcon
                   className="w-1/2 h-1/2"
                   style={{ color: effectiveBrandColor }}
                 />
@@ -584,7 +589,7 @@ export function SmallVerticalCard({
             </span>
           ) : isTeamSupport ? (
             <div className="w-full h-full flex items-center justify-center">
-              <Headset
+              <SupportIcon
                 className="w-1/2 h-1/2"
                 style={{ color: effectiveBrandColor }}
               />
