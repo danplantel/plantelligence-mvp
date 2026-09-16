@@ -1554,17 +1554,53 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
           });
 
           // Save all current step data to server as draft using the new API
-          const response = await fetch("/api/new-client-wizard/save-draft", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              stepData: cleanedStepData,
-              currentStep,
-              clientId: (get() as any).draftClientId,
-            }),
-          });
+          const postSaveDraft = () =>
+            fetch("/api/new-client-wizard/save-draft", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                stepData: cleanedStepData,
+                currentStep,
+                clientId: (get() as any).draftClientId,
+              }),
+            });
+
+          let response = await postSaveDraft();
+
+          // `/save-draft` needs an ACTIVE (completed: false) wizard session and 404s
+          // with "No active wizard session found" without one. Two flows leave the
+          // user without it: resuming a draft (the resume path loads data but never
+          // opens a session) and returning after a publish (the previous session was
+          // marked completed). The leave-guard's "Save and Exit" then showed that raw
+          // API message as an error toast, so open a session server-side and retry.
+          if (response.status === 404) {
+            const missingSession = await response
+              .clone()
+              .json()
+              .then((body: any) =>
+                /no active wizard session/i.test(String(body?.error || "")),
+              )
+              .catch(() => false);
+
+            if (missingSession) {
+              // Deliberately NOT `createNewSession()`: that helper also resets the
+              // store (stepData / draftClientId / currentStep), which would discard
+              // the very data this save is about to send. Only the server-side
+              // session is created here, then the same payload is retried.
+              const sessionResponse = await fetch(
+                "/api/new-client-wizard/session",
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                },
+              );
+              if (sessionResponse.ok) {
+                response = await postSaveDraft();
+              }
+            }
+          }
 
           const errorData = (await response.json().catch(() => ({}))) as {
             success?: boolean;

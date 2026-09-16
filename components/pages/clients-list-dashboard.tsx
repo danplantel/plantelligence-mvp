@@ -451,7 +451,6 @@ export function ClientsListDashboardPage() {
                     </TableHead>
                     <TableHead className="py-4">Key Contacts</TableHead>
                     <TableHead className="py-4">Quick Actions</TableHead>
-                    <TableHead className="py-4"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -501,21 +500,19 @@ export function ClientsListDashboardPage() {
                               ))}
                             </div>
                           </TableCell>
-                          {/* Finish Setup */}
-                          <TableCell className="py-4">
-                            <div className="h-8 w-24 bg-gray-200 rounded animate-pulse" />
-                          </TableCell>
                         </TableRow>
                       ))}
                     </>
                   ) : clients.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="h-24 text-center">
+                      <TableCell colSpan={7} className="h-24 text-center">
                         No plans found.
                       </TableCell>
                     </TableRow>
                   ) : (
                     clients.map((client) => {
+                      const isDraft =
+                        (client.status || "active").toLowerCase() === "draft";
                       return (
                         <TableRow key={client.id}>
                           <TableCell className="font-medium px-3 py-4">
@@ -632,6 +629,12 @@ export function ClientsListDashboardPage() {
                           <TableCell className="py-4">
                             <TooltipProvider>
                               <div className="flex items-center space-x-1">
+                                {/* Drafts are not published yet, so Hub, Documents,
+                                    Meetings, Marketing and Edit are hidden — Quick
+                                    Actions shows Delete only, next to the Finish
+                                    Setup button in the final column. */}
+                                {!isDraft && (
+                                  <>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <Button
@@ -737,6 +740,10 @@ export function ClientsListDashboardPage() {
                                   </TooltipContent>
                                 </Tooltip>
 
+                                {/* Delete is always available — a draft can be
+                                    discarded, and every other action needs a
+                                    completed plan (see the isDraft guard above). */}
+                                </>)}
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <Button
@@ -752,22 +759,24 @@ export function ClientsListDashboardPage() {
                                     <p>Delete</p>
                                   </TooltipContent>
                                 </Tooltip>
+
+                                {/* Drafts get the wizard resume right beside Delete. It
+                                    used to live in its own column after Quick Actions,
+                                    where the table's column sizing pushed it away from
+                                    the actions it belongs to. */}
+                                {isDraft && (
+                                  <Button
+                                    variant="default"
+                                    size="sm"
+                                    onClick={() => handleFinishSetup(client)}
+                                    className="h-8"
+                                  >
+                                    <CheckCircle className="mr-2 h-4 w-4" />
+                                    Finish Setup
+                                  </Button>
+                                )}
                               </div>
                             </TooltipProvider>
-                          </TableCell>
-                          <TableCell className="py-4">
-                            {(client.status || "active").toLowerCase() ===
-                            "draft" ? (
-                              <Button
-                                variant="default"
-                                size="sm"
-                                onClick={() => handleFinishSetup(client)}
-                                className="h-8"
-                              >
-                                <CheckCircle className="mr-2 h-4 w-4" />
-                                Finish Setup
-                              </Button>
-                            ) : null}
                           </TableCell>
                         </TableRow>
                       );
