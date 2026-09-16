@@ -84,7 +84,8 @@ interface Contact {
  *       3) Render only those contacts; layouts also filter again before render (defensive).
  */
 export default function MyBenefitsTeamPage() {
-  const { clientData, loading, refetch } = useClientPortal();
+  const { clientData, profile: advisorProfile, loading, refetch } =
+    useClientPortal();
 
   // Currently logged-in user — used to show the user's Organization Name on
   // their own contact card instead of the plan/contact company name.
@@ -97,6 +98,15 @@ export default function MyBenefitsTeamPage() {
   const currentUserEmails = [currentUserEmail, currentUserOrgEmail].filter(
     Boolean,
   ) as string[];
+
+  // The plan's ADVISOR profile, resolved server-side by the portal provider
+  // (`/api/profile?forPortal=1&clientSlug=…`). Unlike the session JWT it is read on
+  // every portal load, so it reflects a rename in Settings → Branding, and it is
+  // returned to anonymous viewers too — which is what the advisor's own contact card
+  // actually needs. It identifies the advisor's card by their real email rather than
+  // by whoever happens to be signed in.
+  const advisorOrgName = (advisorProfile?.organizationName || "").trim();
+  const advisorEmail = (advisorProfile?.email || "").trim();
 
   useEffect(() => {
     refetch();
@@ -114,6 +124,13 @@ export default function MyBenefitsTeamPage() {
    * in, and only applied to their own card below.
    */
   const [currentUserLogo, setCurrentUserLogo] = useState<string | null>(null);
+  /** CURRENT Organization Name from /api/profile — see the comment in the effect below. */
+  const [currentUserOrgNameLive, setCurrentUserOrgNameLive] = useState<string | null>(
+    null,
+  );
+  /** The login + organization email from /api/profile, used to match the advisor's
+   *  own contact row even when the stored copy still holds a previous address. */
+  const [profileEmails, setProfileEmails] = useState<string[]>([]);
   useEffect(() => {
     if (currentUserEmails.length === 0) return;
 
@@ -128,6 +145,21 @@ export default function MyBenefitsTeamPage() {
         profile.wizardSessions?.[0]?.branding?.logo ||
         null;
       setCurrentUserLogo(logo ? String(logo) : null);
+
+      // Same source, same reason: the current Organization Name for the user's own
+      // contact card, rather than the stale value baked into the session JWT.
+      const orgName =
+        profile.organizationName ||
+        profile.wizardSessions?.[0]?.branding?.organizationName ||
+        profile.organizationType ||
+        null;
+      setCurrentUserOrgNameLive(orgName ? String(orgName).trim() : null);
+
+      setProfileEmails(
+        [profile.email, profile.organizationEmail]
+          .filter((value: unknown) => typeof value === "string" && value.trim())
+          .map((value: string) => value.trim()),
+      );
     })().catch(() => {});
 
     return () => {
@@ -198,6 +230,18 @@ export default function MyBenefitsTeamPage() {
   const planCompanyName = clientData?.companyName || "";
   const planCompanyLogo = (clientData as any)?.companyLogo || "";
 
+  /** Every email we can resolve for the plan's advisor, de-duplicated. Identifies which
+   *  contact row is theirs: the portal-resolved advisor profile (works for anonymous
+   *  viewers), the session, and the full profile. */
+  const matchEmails = Array.from(
+    new Set(
+      [advisorEmail, currentUserEmail, currentUserOrgEmail, ...profileEmails]
+        .filter(Boolean)
+        .map((value) => String(value).trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  );
+
   // 2) Only contacts that are NOT hidden by category — fetch → check isHidden → then we only render these
   const visibleContacts: Contact[] = useMemo(() => {
     const filtered = contacts.filter(
@@ -219,10 +263,25 @@ export default function MyBenefitsTeamPage() {
       const isPlanSponsor =
         categories.includes("Company / Plan Sponsor") ||
         contact.benefitsCategory === "Company / Plan Sponsor";
+      // Whether this row is the ADVISOR's own contact. Matching uses every email we can
+      // resolve for them (portal advisor profile + session + full profile) because the
+      // seeded row stores whichever address the user had at seed time — often the
+      // organization email, and possibly one that has since been changed.
+      const isOwnContact = isLoggedInUserContact(contact, matchEmails);
+      // The advisor's CURRENT Organization Name, preferring the portal-resolved advisor
+      // profile (read on every request) over the session JWT snapshot.
+      const ownOrgName = (
+        advisorOrgName ||
+        currentUserOrgNameLive ||
+        currentUserOrgName ||
+        ""
+      ).trim();
 
       if (isPlanSponsor) {
-        // Every Company / Plan Sponsor card shows the plan's company name and
-        // logo, matching the Main Contact card.
+        // Every Company / Plan Sponsor card keeps the PLAN's company name and logo,
+        // matching the Main Contact card — even when the row happens to belong to the
+        // advisor. A Company / Plan Sponsor card represents the plan sponsor, so it
+        // must never be relabelled with the advisor's organization.
         normalized.companyName = planCompanyName || normalized.companyName || "";
         normalized.companyLogo = contact.companyLogo || planCompanyLogo || undefined;
         normalized.logo = normalized.companyLogo;
@@ -230,21 +289,22 @@ export default function MyBenefitsTeamPage() {
         if (normalized.companyLogo && !normalized.logo) {
           normalized.logo = normalized.companyLogo;
         }
-        // If this contact is the logged-in user, show their Organization Name
-        // as the company name on the card.
+        // The advisor's own card shows their Organization Name; every other contact
+        // keeps their own company name (resolveContactCompanyName falls back to the
+        // contact's stored value).
         normalized.companyName = resolveContactCompanyName(
           contact,
-          currentUserEmails,
-          currentUserOrgName,
+          matchEmails,
+          ownOrgName || null,
         );
-        // The logged-in user's own card shows their CURRENT Organization Logo: its
-        // logo was pre-populated from that same value at seed time, so a later change
-        // in Settings must win over the stored copy.
+        // The advisor's own card shows their CURRENT Organization Logo: its logo was
+        // pre-populated from that same value at seed time, so a later change in
+        // Settings must win over the stored copy.
         //
         // Scoped to this branch on purpose — a Company / Plan Sponsor contact goes
         // through the branch above and represents the plan's company, so it must keep
         // THAT company's logo even when the card belongs to the logged-in user.
-        if (currentUserLogo && isLoggedInUserContact(contact, currentUserEmails)) {
+        if (currentUserLogo && isOwnContact) {
           normalized.companyLogo = currentUserLogo;
           normalized.logo = currentUserLogo;
         }
@@ -263,7 +323,11 @@ export default function MyBenefitsTeamPage() {
     currentUserEmail,
     currentUserOrgEmail,
     currentUserOrgName,
+    currentUserOrgNameLive,
     currentUserLogo,
+    advisorOrgName,
+    advisorEmail,
+    profileEmails,
     planCompanyName,
     planCompanyLogo,
   ]);

@@ -243,10 +243,10 @@ export function PrimaryContactCard({
             )
           )}
 
-          {/* NAME */}
+          {/* NAME — brand (primary) color, matching SmallVerticalCard's card name. */}
           <h2
             className="text-xl sm:text-2xl lg:text-3xl font-semibold font-dm-serif leading-tight w-full max-w-full whitespace-nowrap overflow-hidden text-ellipsis"
-            style={{ color: textColor }}
+            style={{ color: effectiveBrandColor }}
           >
             {contact.contactType === "team_support"
               ? contact.displayName || contact.name
@@ -261,9 +261,9 @@ export function PrimaryContactCard({
             </p>
           )}
 
-          {/* COMPANY NAME */}
+          {/* COMPANY NAME — brand (primary) color, same as the name above. */}
           {(contact.companyName || companyName) && (
-            <p className="text-sm sm:text-base font-bold" style={{ color: textColor }}>
+            <p className="text-sm sm:text-base font-bold" style={{ color: effectiveBrandColor }}>
               {contact.companyName || companyName}
             </p>
           )}
