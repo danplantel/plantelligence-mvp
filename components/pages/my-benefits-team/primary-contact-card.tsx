@@ -308,8 +308,11 @@ export function PrimaryContactCard({
             {buttons.length > 0 ? (
               buttons.map((button, idx) => {
                 const isPrimaryButton = idx === primaryIndex;
+                // Primary CTA uses the SECONDARY color, matching
+                // SmallVerticalCard / LargeHorizontalCard so the portal page and
+                // every portal preview render the same button color.
                 const buttonBg = isPrimaryButton
-                  ? effectiveBrandColor
+                  ? effectiveSecondaryColor
                   : "#F3F4F6";
                 const buttonColor = isPrimaryButton ? "#ffffff" : readableColor(buttonBg);
 
@@ -344,7 +347,9 @@ export function PrimaryContactCard({
             ) : (
               <Button
                 className="w-full rounded-lg px-5 py-3 text-sm font-semibold uppercase tracking-wide text-white hover:opacity-90 font-red-hat transition-all duration-200 hover:scale-105"
-                style={{ backgroundColor: effectiveBrandColor }}
+                // Same secondary-color CTA as above — this is the button rendered
+                // when the contact has no configured action buttons.
+                style={{ backgroundColor: effectiveSecondaryColor }}
                 onClick={() => window.open(appointmentLink, "_blank")}
               >
                 Schedule Appointment
