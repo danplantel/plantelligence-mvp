@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { X, Upload, AlertTriangle, Plus, Edit2, Loader2 } from "lucide-react";
+import { X, Upload, AlertTriangle, Plus, Edit2, Loader2, Pencil } from "lucide-react";
 import { BrandImageData } from "@/types/new-client-wizard";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
@@ -576,7 +576,30 @@ export function BrandImageUpload({
                   {currentImage.fileName}
                 </p>
 
-                <div className="flex gap-2">
+                {/* Edit · New Image · Delete, in one row for every logo /
+                    headshot / background preview. Edit works in both modes:
+                    internally it opens this component's modal, and with
+                    `renderModalOutside` the existing state-sync effect hands the
+                    open request to the parent that owns the modal. */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleEditClickWithModal}
+                    disabled={isRemoving}
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleUploadClick}
+                    disabled={isRemoving}
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-accent-blue dark:text-accent-blue bg-accent-blue-light dark:bg-accent-blue/15 border border-accent-blue/30 dark:border-accent-blue/50 rounded-full hover:bg-accent-blue/10 dark:hover:bg-accent-blue/25 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    New Image
+                  </button>
                   <button
                     type="button"
                     onClick={handleRemove}
