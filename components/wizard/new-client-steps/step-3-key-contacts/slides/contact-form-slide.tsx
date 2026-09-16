@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useSession } from "next-auth/react";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -83,6 +84,31 @@ const categoryAccent: Record<string, string> = {
   "Other Benefits": "#7C3AED",
   "Company / Plan Sponsor": "#1E40AF",
   "External HR / Administrator": "#6B7280",
+};
+
+/**
+ * Organization *type* values (User.organizationType) that older seeded advisor
+ * contacts stored as their Company / Organization name. They are types, not
+ * company names, so they are treated as "empty" and replaced with the user's
+ * Organization Name (User.organizationName).
+ */
+const ORG_TYPE_PLACEHOLDERS = [
+  "advisor firm",
+  "client",
+  "recordkeeper",
+  "partner/custom",
+  "independent",
+  "ria",
+  "hybrid",
+  "broker",
+  "insurance",
+  "other",
+];
+
+/** True when a stored Company / Organization value is empty or an org type. */
+const isOrgTypePlaceholder = (value?: string | null): boolean => {
+  const v = (value || "").trim().toLowerCase();
+  return v.length === 0 || ORG_TYPE_PLACEHOLDERS.includes(v);
 };
 
 // ==================== Contact Card Preview ====================
@@ -365,7 +391,8 @@ export function ContactFormSlide({
   isFromSomeoneElse = false,
   errorFields: externalErrorFields = [],
 }: ContactFormSlideProps) {
-  const { stepData, saveStepDataLocally } = useNewClientWizardStore();
+  const { stepData, saveStepDataLocally, advisorProfile } =
+    useNewClientWizardStore();
 
   // Match the card styling used in the Step 3 preview (step-3d.tsx).
   const { styles } = useContactStyles();
@@ -394,6 +421,44 @@ export function ContactFormSlide({
       ? contactBeingEdited.companyLogo
       : "";
 
+  // The logged-in Plantelligence user's own contact card is pre-populated from
+  // their profile, so its Company / Organization must be the user's Organization
+  // Name (User.organizationName) — not the plan's company name and never the
+  // organization *type* ("Advisor Firm") that older seeded contacts stored.
+  const { data: session } = useSession();
+  const userOrganizationName = String(
+    session?.user?.organizationName ||
+      (advisorProfile as any)?.organizationName ||
+      "",
+  ).trim();
+  // Emails that identify the logged-in user's own contact (seeded contacts use
+  // the organization email; the login email is used when none is set).
+  const userEmails = [
+    session?.user?.email,
+    session?.user?.organizationEmail,
+    (advisorProfile as any)?.email,
+    (advisorProfile as any)?.organizationEmail,
+  ]
+    .filter(Boolean)
+    .map((value) => String(value).trim().toLowerCase());
+  const isOwnContactEmail = (value?: string | null): boolean =>
+    !!value && userEmails.includes(String(value).trim().toLowerCase());
+  /** Company / Organization to show for a contact, repairing stale seeds. */
+  const resolveCompanyName = (
+    contactEmail: string | undefined | null,
+    storedCompanyName: string | undefined | null,
+  ): string => {
+    const stored = storedCompanyName || "";
+    if (
+      userOrganizationName &&
+      isOwnContactEmail(contactEmail) &&
+      isOrgTypePlaceholder(stored)
+    ) {
+      return userOrganizationName;
+    }
+    return stored;
+  };
+
   // Form state
   const [contactType, setContactType] = useState<"individual" | "team_support">(
     (step3bData.contactType as "individual" | "team_support") || "individual",
@@ -419,7 +484,9 @@ export function ContactFormSlide({
   const restoreCompanyName =
     Boolean(step3bData.editingContactId) || isFromSomeoneElse;
   const [companyName, setCompanyName] = useState(
-    restoreCompanyName ? step3bData.companyName || "" : "",
+    restoreCompanyName
+      ? resolveCompanyName(step3bData.email, step3bData.companyName)
+      : "",
   );
   const [isPrimary, setIsPrimary] = useState(
     (() => {
@@ -560,7 +627,7 @@ export function ContactFormSlide({
       setUseCustomLogo(
         sb.useCustomLogo === true || Boolean(storedCustomContactLogo),
       );
-      setCompanyName(sb.companyName || "");
+      setCompanyName(resolveCompanyName(sb.email, sb.companyName));
       setIsPrimary(
         (() => {
           const existingContacts = (
@@ -590,6 +657,18 @@ export function ContactFormSlide({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [(stepData as any)?.step3b?.editingContactId]);
+
+  // Backfill the Company / Organization for the logged-in user's own contact when
+  // the session/advisor profile resolves after first render (useSession is async),
+  // or when the stored value is a stale organization *type*.
+  useEffect(() => {
+    if (!userOrganizationName) return;
+    if (!isOwnContactEmail(email) && !isOwnContactEmail(step3bData.email)) return;
+    setCompanyName((prev) =>
+      isOrgTypePlaceholder(prev) ? userOrganizationName : prev,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userOrganizationName, email, step3bData.email]);
 
   // Keep the Phone "show on card" toggle in sync with the phone field: uncheck
   // when there is no phone value. It is intentionally NOT auto-checked when the

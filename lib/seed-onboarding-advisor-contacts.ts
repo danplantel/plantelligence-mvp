@@ -70,6 +70,8 @@ export function buildOnboardingAdvisorContactsForCategories(
     title?: string;
     headshot?: string | null;
     organizationType?: string;
+    /** User.organizationName — the advisor's organization, shown on their card. */
+    organizationName?: string | null;
     advisorLogo?: string;
     advisorLogoUrl?: string;
     advisorLink?: string;
@@ -106,7 +108,12 @@ export function buildOnboardingAdvisorContactsForCategories(
       title: profile.title || "",
       headshot: profile.headshot || undefined,
       name: fullName || `${firstName} ${lastName}`.trim(),
-      companyName: profile.organizationType || "",
+      // The advisor's own contact card shows their Organization Name
+      // (User.organizationName). The organization *type* ("Advisor Firm") is not
+      // a company name, so it is only a last-resort fallback.
+      companyName:
+        (profile.organizationName || "").trim() ||
+        (profile.organizationType || "").trim(),
       companyLogo: profile.advisorLogo || profile.advisorLogoUrl || undefined,
       websiteUrl: profile.advisorLink || undefined,
       showOnPortal: true,

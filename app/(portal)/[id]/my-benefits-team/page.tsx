@@ -22,6 +22,27 @@ function isContactHiddenByCategory(
     visibility
   );
 }
+
+/**
+ * Portal desktop layouts are stored as 0 (default) / 2 / 3 / 4. Coerce anything
+ * else (legacy 1-based values, numeric strings, null, garbage) so a stray value
+ * can never leave the desktop area empty.
+ */
+function normalizeDisplayStyle(value: unknown): 0 | 2 | 3 | 4 | null {
+  if (value === null || value === undefined || value === "") return null;
+  const n = typeof value === "string" ? Number(value) : value;
+  if (typeof n !== "number" || !Number.isFinite(n)) return null;
+  if (n === 2 || n === 3 || n === 4) return n;
+  // 0, 1 and anything unexpected fall back to the default layout.
+  return 0;
+}
+
+/** Mobile layouts are 0 (stacked) / 1 (2-col) / 2 (hero + grid). */
+function normalizeMobileDisplayStyle(value: unknown): 0 | 1 | 2 {
+  const n = typeof value === "string" ? Number(value) : value;
+  if (n === 1 || n === 2) return n;
+  return 0;
+}
 import { PrimaryContactCard } from "@/components/pages/my-benefits-team/primary-contact-card";
 import { SmallVerticalCard } from "@/components/pages/my-benefits-team/small-vertical-card";
 import { LargeHorizontalCard } from "@/components/pages/my-benefits-team/large-horizontal-card";
@@ -85,30 +106,32 @@ export default function MyBenefitsTeamPage() {
 
   // Normalize keyContacts to handle both old format (array) and new format (object with contacts and displayStyle)
   let contacts: Contact[] = [];
-  let displayStyle: number | null = null;
-  let mobileDisplayStyle: number | null = null;
+  let displayStyle: 0 | 2 | 3 | 4 | null = null;
+  let mobileDisplayStyle: 0 | 1 | 2 = 0;
   let globalBackgroundColor: string | undefined = undefined;
   /** Wizard saves logoScale on keyContacts root (same as card colors), not per contact */
   let globalLogoScale: number | undefined = undefined;
 
   if (clientData?.keyContacts) {
-    if (Array.isArray(clientData.keyContacts)) {
+    const keyContactsData = clientData.keyContacts as any;
+    if (Array.isArray(keyContactsData)) {
       // Old format: just an array
-      contacts = clientData.keyContacts.filter(
+      contacts = keyContactsData.filter(
         (c: Contact) => c.showOnPortal !== false,
       );
-    } else if (
-      typeof clientData.keyContacts === "object" &&
-      clientData.keyContacts !== null
-    ) {
+    } else if (typeof keyContactsData === "object" && keyContactsData !== null) {
       // New format: { contacts: [...], displayStyle: ..., mobileDisplayStyle: ... }
-      const keyContactsData = clientData.keyContacts as any;
+      // Accept both `contacts` and legacy `Contacts` keys.
       const contactsArray = Array.isArray(keyContactsData.contacts)
         ? keyContactsData.contacts
-        : [];
+        : Array.isArray(keyContactsData.Contacts)
+          ? keyContactsData.Contacts
+          : [];
       contacts = contactsArray.filter((c: Contact) => c.showOnPortal !== false);
-      displayStyle = keyContactsData.displayStyle ?? null;
-      mobileDisplayStyle = keyContactsData.mobileDisplayStyle ?? null;
+      displayStyle = normalizeDisplayStyle(keyContactsData.displayStyle);
+      mobileDisplayStyle = normalizeMobileDisplayStyle(
+        keyContactsData.mobileDisplayStyle,
+      );
       globalBackgroundColor = keyContactsData.cardBackgroundColor;
       globalLogoScale =
         typeof keyContactsData.logoScale === "number"
@@ -299,7 +322,7 @@ export default function MyBenefitsTeamPage() {
         <div className="md:hidden">
           <MobileLayout
             contacts={visibleContacts}
-            mobileDisplayStyle={mobileDisplayStyle ?? 0}
+            mobileDisplayStyle={mobileDisplayStyle}
             brandColor={brandColor}
             secondaryColor={secondaryColor}
             appointmentLink={appointmentLink}

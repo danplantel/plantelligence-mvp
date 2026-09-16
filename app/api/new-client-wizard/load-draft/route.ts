@@ -136,6 +136,7 @@ export async function GET(request: NextRequest) {
         phoneExtension: true,
         title: true,
         organizationType: true,
+        organizationName: true,
         advisorLogo: true,
         advisorLogoUrl: true,
         advisorLink: true,
@@ -174,6 +175,9 @@ export async function GET(request: NextRequest) {
         title: (userSetup?.title ?? user?.title) ?? undefined,
         headshot: userSetup?.headshot ?? undefined,
         organizationType: user?.organizationType ?? undefined,
+        // Advisor's organization name — shown as the Company / Organization on
+        // their own seeded key contact card.
+        organizationName: user?.organizationName ?? undefined,
         advisorLogo: user?.advisorLogo ?? undefined,
         advisorLogoUrl: user?.advisorLogoUrl ?? undefined,
         advisorLink: user?.advisorLink ?? undefined,

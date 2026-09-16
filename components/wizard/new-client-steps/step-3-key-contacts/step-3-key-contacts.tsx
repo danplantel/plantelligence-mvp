@@ -212,6 +212,9 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
             title: profile.title,
             headshot: profile.headshot,
             organizationType: profile.organizationType,
+            // The advisor's Company / Organization on their own contact card is
+            // their Organization Name, not the organization type.
+            organizationName: profile.organizationName,
             advisorLogo: profile.advisorLogo,
             advisorLogoUrl: profile.advisorLogoUrl,
             advisorLink: profile.advisorLink,
