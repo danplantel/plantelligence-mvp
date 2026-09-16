@@ -111,6 +111,15 @@ const isOrgTypePlaceholder = (value?: string | null): boolean => {
   return v.length === 0 || ORG_TYPE_PLACEHOLDERS.includes(v);
 };
 
+/**
+ * True when a contact carries either primary flag. The Category Explorer (and
+ * the rest of the app) treat a contact as primary when EITHER `isPrimaryOverall`
+ * or the legacy `isPrimary` is set — seeded advisor contacts only have the
+ * latter — so the form's Primary Contact checkbox must use the same rule.
+ */
+const isContactPrimary = (contact: any): boolean =>
+  Boolean(contact?.isPrimaryOverall || contact?.isPrimary);
+
 // ==================== Contact Card Preview ====================
 
 interface ContactCardPreviewProps {
@@ -497,6 +506,19 @@ export function ContactFormSlide({
       const existingContacts = (
         stepData.keyContacts?.contacts || []
       ) as any[];
+      // Editing an existing contact → mirror the primary state the Category
+      // Explorer shows for it (either primary flag), so a contact that is
+      // already the primary for its category opens with the box checked.
+      const editingContact = step3bData.editingContactId
+        ? existingContacts.find((c: any) => c.id === step3bData.editingContactId)
+        : null;
+      if (
+        editingContact &&
+        (editingContact.isPrimaryOverall !== undefined ||
+          editingContact.isPrimary !== undefined)
+      ) {
+        return isContactPrimary(editingContact);
+      }
       const contactsInCategory = existingContacts.filter((c: any) => {
         const cats: BenefitsCategory[] =
           c.benefitsCategories ||
@@ -633,6 +655,16 @@ export function ContactFormSlide({
           const existingContacts = (
             stepData.keyContacts?.contacts || []
           ) as any[];
+          const editingContact = sb.editingContactId
+            ? existingContacts.find((c: any) => c.id === sb.editingContactId)
+            : null;
+          if (
+            editingContact &&
+            (editingContact.isPrimaryOverall !== undefined ||
+              editingContact.isPrimary !== undefined)
+          ) {
+            return isContactPrimary(editingContact);
+          }
           const contactsInCategory = existingContacts.filter((c: any) => {
             const cats: BenefitsCategory[] =
               c.benefitsCategories ||
