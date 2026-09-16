@@ -160,18 +160,10 @@ export function SmallVerticalCard({
   // in the avatar slot instead, so never show a [Headshot] placeholder for them.
   const showHeadshotPlaceholder =
     showPlaceholders && !isTeamSupport && !hasAvatarImage;
-  // Team/Support Line contacts render the Company Logo in the avatar slot. In
-  // the wizard's Portal Preview, when no logo has been uploaded, show a
-  // [Company Logo] placeholder in that slot instead of the support-line icon.
-  // (The support icon above the avatar stays as-is.)
-  const showTeamLogoPlaceholder =
-    showPlaceholders &&
-    isTeamSupport &&
-    !(contact.companyLogo || contact.logo);
-  // Shared sizing/centering for the avatar slot when it holds a text placeholder
-  // (either the [Headshot] placeholder or the Team/Support [Company Logo] one).
-  const showAvatarPlaceholder =
-    showHeadshotPlaceholder || showTeamLogoPlaceholder;
+  // Team/Support Line contacts show their Company Logo in the logo bar (top) and
+  // the support-line icon in the avatar slot, so the avatar slot never needs a
+  // text placeholder of its own — only a missing headshot does.
+  const showAvatarPlaceholder = showHeadshotPlaceholder;
 
   // Check if a CTA button was explicitly configured via the wizard
   const hasEnabledCta = contact.enableContactButton === true;
@@ -285,43 +277,31 @@ export function SmallVerticalCard({
         style={{ backgroundColor }}
       >
         <div className="flex flex-col items-center flex-1 w-full">
-          {/* SUPPORT-LINE ICON OR COMPANY LOGO — Team/Support Line contacts show
-              a support icon here because their company logo moves into the
-              circular avatar slot below. */}
+          {/* COMPANY LOGO BAR — Team/Support Line contacts show their Company
+              Logo here, with the support-line icon in the circular avatar slot
+              below (positions swapped). */}
           <div className={`flex flex-col items-center justify-center gap-2 ${gapLogo} flex-shrink-0`} style={{ height: `${logoHeight * (contact.logoScale || baselineLogoScale || 1)}px` }}>
-            {isTeamSupport ? (
-              // Team/Support Line contacts keep the support icon in the logo bar
-              // here (their Company Logo moves into the circular avatar slot
-              // below, which shows its own [Company Logo] placeholder). The icon
-              // is rendered 30% smaller than the original size.
-              <Headset
-                className="w-[1.4rem] h-[1.4rem] sm:w-[1.75rem] sm:h-[1.75rem]"
-                style={{ color: effectiveBrandColor }}
+            {(contact.companyLogo || contact.logo) && (
+              <BrandingImage
+                src={contact.companyLogo || contact.logo || ""}
+                alt="Logo"
+                className="w-auto object-contain transition-all duration-200"
+                style={{ height: "100%" }}
               />
-            ) : (
-              <>
-                {(contact.companyLogo || contact.logo) && (
-                  <BrandingImage
-                    src={contact.companyLogo || contact.logo || ""}
-                    alt="Logo"
-                    className="w-auto object-contain transition-all duration-200"
-                    style={{ height: "100%" }}
-                  />
-                )}
-                {/* Preview-only placeholder so the wizard's Portal Preview shows
-                    what's expected when no contact company logo has been uploaded. */}
-                {showPlaceholders && !(contact.companyLogo || contact.logo) && (
-                  <div className="w-full h-full flex items-center justify-center rounded bg-gray-50 border border-dashed border-gray-200 px-2">
-                    <span className="text-[10px] text-gray-400 font-medium text-center leading-tight">
-                      [Upload Company Logo]
-                    </span>
-                  </div>
-                )}
-              </>
+            )}
+            {/* Preview-only placeholder so the wizard's Portal Preview shows
+                what's expected when no contact company logo has been uploaded. */}
+            {showPlaceholders && !(contact.companyLogo || contact.logo) && (
+              <div className="w-full h-full flex items-center justify-center rounded bg-gray-50 border border-dashed border-gray-200 px-2">
+                <span className="text-[10px] text-gray-400 font-medium text-center leading-tight">
+                  [Upload Company Logo]
+                </span>
+              </div>
             )}
           </div>
 
-          {/* PROFILE PICTURE */}
+          {/* PROFILE PICTURE — Team/Support Line contacts show the support-line
+              icon here (their Company Logo is in the logo bar above). */}
           <div
             className={`relative ${
               showAvatarPlaceholder ? "h-[90px] w-[90px]" : avatarSize
@@ -331,14 +311,17 @@ export function SmallVerticalCard({
                 : ""
             }`}
           >
-            {showTeamLogoPlaceholder ? (
-              <span className="text-[10px] sm:text-xs font-medium text-gray-400 text-center leading-tight px-1">
-                [Company Logo]
-              </span>
-            ) : showHeadshotPlaceholder ? (
+            {showHeadshotPlaceholder ? (
               <span className="text-[10px] sm:text-xs font-medium italic text-gray-400">
                 [Headshot]
               </span>
+            ) : isTeamSupport ? (
+              <div className="w-full h-full flex items-center justify-center">
+                <Headset
+                  className="w-1/2 h-1/2"
+                  style={{ color: effectiveBrandColor }}
+                />
+              </div>
             ) : (
               <ContactAvatar contact={contact} />
             )}
@@ -568,30 +551,22 @@ export function SmallVerticalCard({
       style={{ backgroundColor }}
     >
       <div className="flex flex-col items-center flex-1 w-full">
-        {/* SUPPORT-LINE ICON OR COMPANY LOGO — Team/Support Line contacts show
-            a support icon here because their company logo moves into the
-            circular avatar slot below. */}
+        {/* COMPANY LOGO BAR — Team/Support Line contacts show their Company Logo
+            here, with the support-line icon in the circular avatar slot below
+            (positions swapped). */}
         <div className="flex flex-col items-center justify-center gap-2 mb-3 sm:mb-6 flex-shrink-0 min-h-[60px]">
-          {isTeamSupport ? (
-            // Support icon in the logo bar (30% smaller). The Company Logo
-            // renders in the avatar slot below — see the compact branch above.
-            <Headset
-              className="w-[1.4rem] h-[1.4rem] sm:w-[1.75rem] sm:h-[1.75rem]"
-              style={{ color: effectiveBrandColor }}
+          {(contact.companyLogo || contact.logo) && (
+            <BrandingImage
+              src={contact.companyLogo || contact.logo || ""}
+              alt="Logo"
+              className="h-[40px] sm:h-[60px] w-auto object-contain transition-transform duration-200"
+              style={{ transform: `scale(${contact.logoScale || baselineLogoScale || 1})` }}
             />
-          ) : (
-            (contact.companyLogo || contact.logo) && (
-              <BrandingImage
-                src={contact.companyLogo || contact.logo || ""}
-                alt="Logo"
-                className="h-[40px] sm:h-[60px] w-auto object-contain transition-transform duration-200"
-                style={{ transform: `scale(${contact.logoScale || baselineLogoScale || 1})` }}
-              />
-            )
           )}
         </div>
 
-        {/* PROFILE PICTURE */}
+        {/* PROFILE PICTURE — Team/Support Line contacts show the support-line
+            icon here (their Company Logo is in the logo bar above). */}
         <div
           className={`relative ${
             showAvatarPlaceholder
@@ -603,14 +578,17 @@ export function SmallVerticalCard({
               : ""
           }`}
         >
-          {showTeamLogoPlaceholder ? (
-            <span className="text-xs sm:text-sm font-medium text-gray-400 text-center leading-tight px-1">
-              [Company Logo]
-            </span>
-          ) : showHeadshotPlaceholder ? (
+          {showHeadshotPlaceholder ? (
             <span className="text-xs sm:text-sm font-medium italic text-gray-400">
               [Headshot]
             </span>
+          ) : isTeamSupport ? (
+            <div className="w-full h-full flex items-center justify-center">
+              <Headset
+                className="w-1/2 h-1/2"
+                style={{ color: effectiveBrandColor }}
+              />
+            </div>
           ) : (
             <ContactAvatar contact={contact} />
           )}
