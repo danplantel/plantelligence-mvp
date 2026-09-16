@@ -357,7 +357,14 @@ export default function SettingsPage() {
     setInitialUserSetup(JSON.parse(JSON.stringify(userData)));
 
     const branding = stepData.branding || ({} as any);
-    const completedBranding = userProfile?.wizardSessions?.[0]?.branding;
+    // Read the FALLBACKS from the freshest profile available. `userProfile` is frozen
+    // by `profileSyncedRef` at the first sync and never picks up the refetch that
+    // `invalidateProfileCache()` triggers after a save, so a value that had just been
+    // cleared here (e.g. a removed logo save) could still be resurrected from it.
+    // `cachedProfile` is the same source `loadTabData` trusts, and the store above
+    // remains the primary value.
+    const persistedProfile: any = cachedProfile ?? userProfile;
+    const completedBranding = persistedProfile?.wizardSessions?.[0]?.branding;
 
     const brandingData = {
       organizationName:
@@ -374,7 +381,7 @@ export default function SettingsPage() {
       logo:
         branding.logo ||
         completedBranding?.logo ||
-        userProfile?.advisorLogo ||
+        persistedProfile?.advisorLogo ||
         "",
       logoFileName:
         branding.logoFileName || completedBranding?.logoFileName || "",
@@ -550,6 +557,19 @@ export default function SettingsPage() {
         }
       }
 
+      // Keep the shared wizard store in step with what was just persisted.
+      // `saveStepDataToServer` only POSTs — nothing writes back locally — so without
+      // this the store kept the pre-save values and the tab re-population effect
+      // (which reads it) showed the old data on the next visit.
+      try {
+        const { saveStepDataLocally } = useOnboardingWizardStore.getState();
+        const localUserSetup =
+          useOnboardingWizardStore.getState().stepData?.userSetup || {};
+        await saveStepDataLocally("userSetup", { ...localUserSetup, ...data });
+      } catch (localError) {
+        console.warn("Failed to sync user setup to the wizard store", localError);
+      }
+
       invalidateProfileCache();
       userSetupForm.reset(data, { keepDirtyValues: false });
       setInitialUserSetup(JSON.parse(JSON.stringify(data)));
@@ -648,6 +668,20 @@ export default function SettingsPage() {
         } catch (setupError) {
           console.error("Error clearing userSetup background:", setupError);
         }
+      }
+
+      // Same rationale as the userSetup sync above: without this the store keeps the
+      // pre-save logo and the tab re-population effect resurrects it.
+      try {
+        const { saveStepDataLocally } = useOnboardingWizardStore.getState();
+        const localBranding =
+          useOnboardingWizardStore.getState().stepData?.branding || {};
+        await saveStepDataLocally("branding", {
+          ...localBranding,
+          ...brandingPayload,
+        });
+      } catch (localError) {
+        console.warn("Failed to sync branding to the wizard store", localError);
       }
 
       invalidateProfileCache();

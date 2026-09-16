@@ -3,6 +3,7 @@
 import { BenefitsWizard } from "@/components/wizard/benefits-wizard";
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
 import { persistPlanSelection } from "@/lib/plan-selector-storage";
+import { fetchProfileOnce } from "@/lib/fetch-profile";
 import { useEffect, useRef, useState, Suspense } from "react";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { toast } from "sonner";
@@ -226,6 +227,93 @@ function BenefitsPageInner() {
       cancelled = true;
     };
   }, [planIdParam, categoryParam, saveStepData, resetWizard]);
+
+  /**
+   * ── Propagate a changed Organization Logo into this benefit ──
+   *
+   * Settings → Branding changes `User.advisorLogoUrl`, but the Benefit Logo (Step 1)
+   * and Provider Logo (Step 2) both read `step1.companyLogo` from a draft hydrated out
+   * of localStorage — and the pre-fill prefers the Benefit row's `partnerLogo`, which
+   * normally holds the PREVIOUS org logo because this page's auto-save writes it back.
+   * Without this the new org logo only appeared after re-saving the benefit by hand.
+   *
+   * Deliberately page-level rather than only in Step 1's pre-fill: the wizard resumes on
+   * whatever step was persisted, so landing directly on Step 2 would otherwise never run
+   * the Step 1 effect. `orgLogoSnapshot` makes this fire only on an actual change, so a
+   * deliberately chosen provider logo is left alone.
+   */
+  useEffect(() => {
+    if (isInitialLoading) return;
+
+    let cancelled = false;
+    (async () => {
+      const profile: any = await fetchProfileOnce().catch(() => null);
+      if (cancelled || !profile) return;
+
+      const orgLogo: string | null =
+        profile.advisorLogoUrl ||
+        profile.advisorLogo ||
+        profile.wizardSessions?.[0]?.branding?.logo ||
+        null;
+      if (!orgLogo || !String(orgLogo).trim()) return;
+
+      const latest = useBenefitsWizardStore.getState().stepData.step1;
+      if (!latest?.planId || !latest.benefitCategory) return;
+
+      // The org logo is only the default logo for the advisor's PRIMARY categories —
+      // mirrors the Step 1 pre-fill so both agree.
+      const primaryCats: string[] = Array.isArray(profile.primaryServiceCategories)
+        ? profile.primaryServiceCategories
+        : [];
+      const apiCat =
+        latest.benefitCategory === "Custom"
+          ? "Company / Plan Sponsor"
+          : latest.benefitCategory;
+      const isPrimary = primaryCats.some(
+        (pc) =>
+          normalizeCategory(String(pc)) === normalizeCategory(apiCat) ||
+          (normalizeCategory(String(pc)) === "other" &&
+            normalizeCategory(apiCat) === "company / plan sponsor"),
+      );
+      if (!isPrimary) return;
+
+      const snapshot = String(latest.orgLogoSnapshot ?? "").trim();
+      if (String(orgLogo).trim() === snapshot) return;
+
+      // Mirror the new logo into the read-once Benefit snapshot too, so
+      // `handleCategoryChange` and the Step 1 pre-fill (both of which rebuild the logo
+      // from it) can't re-read the previous image.
+      const rowKey = normalizeCategory(apiCat);
+      const existingRow = latest.categoryBenefitByApi?.[rowKey];
+      const categoryBenefitByApi =
+        existingRow && latest.categoryBenefitByApi
+          ? {
+              ...latest.categoryBenefitByApi,
+              [rowKey]: { ...existingRow, partnerLogo: orgLogo },
+            }
+          : latest.categoryBenefitByApi;
+
+      useBenefitsWizardStore.getState().saveStepData(1, {
+        ...latest,
+        companyLogo: {
+          url: orgLogo,
+          fileName: latest.companyLogo?.fileName || "logo.png",
+          fileSize: 0,
+          width: 0,
+          height: 0,
+          hasTransparency: false,
+          warnings: [],
+        },
+        orgLogoSnapshot: orgLogo,
+        categoryBenefitByApi,
+      });
+    })().catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isInitialLoading]);
 
   const onNext = async () => {
     if (currentStep === 1) {

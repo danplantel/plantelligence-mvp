@@ -1362,15 +1362,36 @@ export function BenefitsStep1() {
           null)
       : null;
 
-    // Benefit-table row wins; the User profile is the fallback for logo/header only.
-    const savedLogo = benefit?.partnerLogo || userLogo;
+    // A changed Organization Logo (Settings → Branding) is authoritative for this
+    // benefit: it must replace the logo rather than be shadowed by the persisted
+    // Benefit row's `partnerLogo`, which is usually the previous org logo written back
+    // by the step-1 auto-save PUT. Compared against the snapshot stamped on the draft
+    // below, so an UNCHANGED org logo still leaves a deliberately chosen provider logo
+    // alone.
+    const orgLogoChanged =
+      !!userLogo &&
+      userLogo.trim() !== (currentStepData.orgLogoSnapshot ?? "").trim();
+    const applyOrgLogo = orgLogoChanged;
+    // Benefit-table row wins; the User profile is the fallback for logo/header only —
+    // except when the org logo just changed, where it takes precedence.
+    const savedLogo = orgLogoChanged ? userLogo : benefit?.partnerLogo || userLogo;
     const savedDescription = benefit?.shortDescription || "";
     const savedHeaderImage =
       (benefit?.backgroundImage || benefit?.image) || userHeader;
+    // A logo the advisor set or cleared for THIS category in this session wins over
+    // both sources above. Without this the pre-fill re-derived `companyLogo` from the
+    // advisor's profile logo (or nulled it for a category with no Benefit row), so a
+    // freshly saved logo reverted to the previous image mid-edit. An org-logo change
+    // still wins over such an edit — the advisor asked for it to propagate.
+    const logoEditedLocally = (
+      currentStepData.benefitLogoEditedCategories ?? []
+    ).includes(cat);
 
     const next: BenefitsStep1Data = {
       ...currentStepData,
       benefitFieldsLoadedCategories: [...loadedCats, cat],
+      // Record which org logo this draft now reflects, so the NEXT change propagates.
+      orgLogoSnapshot: userLogo ?? currentStepData.orgLogoSnapshot,
     };
 
     // When there is no Benefit row (deleted / never created), clear stale persisted content from
@@ -1383,7 +1404,9 @@ export function BenefitsStep1() {
       // NOTE: contactId (Key Contact selection) is deliberately NOT cleared here — it is
       // managed by the contact-prefill effect / prefillContact, so clearing it on a different
       // render would wipe the pre-selected Primary Contact for every category.
-      next.companyLogo = null;
+      // Keep a logo the advisor just set for this category — clearing it here is what
+      // made a new upload vanish until the category was re-entered.
+      if (!logoEditedLocally && !applyOrgLogo) next.companyLogo = null;
       next.innerHeaderImage = null;
       next.brandImages = {
         header: null,
@@ -1405,7 +1428,7 @@ export function BenefitsStep1() {
     if (savedDescription) {
       next.shortDescription = savedDescription;
     }
-    if (savedLogo) {
+    if (savedLogo && (!logoEditedLocally || applyOrgLogo)) {
       next.companyLogo = {
         url: savedLogo,
         fileName: "logo.png",
@@ -2264,6 +2287,16 @@ export function BenefitsStep1() {
           null)
       : null;
 
+    // A changed Organization Logo (Settings → Branding) replaces this benefit's logo
+    // rather than being shadowed by the persisted row's `partnerLogo`, which normally
+    // holds the PREVIOUS org logo written back by this page's auto-save.
+    const orgLogoChanged =
+      !!userLogo &&
+      userLogo.trim() !== (currentStepData.orgLogoSnapshot ?? "").trim();
+    const nextLogo = orgLogoChanged
+      ? userLogo
+      : existingBenefit?.partnerLogo || userLogo;
+
     // Build a clean per-category state: every benefit-scoped field comes from the selected
     // category's OWN Benefit row (or is reset), so switching categories never carries over
     // another category's title/copy/images/journey/insurance/signature/video/help cards/hero
@@ -2277,9 +2310,12 @@ export function BenefitsStep1() {
       planVideo: existingBenefit?.planVideo || undefined,
       planVideoFileName: existingBenefit?.planVideoFileName || undefined,
       planVideoRemoved: false,
-      companyLogo: (existingBenefit?.partnerLogo || userLogo)
+      // Remember the org logo this draft was built from so a later change in Settings
+      // is detected here instead of only on a fresh mount.
+      orgLogoSnapshot: userLogo ?? currentStepData.orgLogoSnapshot,
+      companyLogo: nextLogo
         ? ({
-            url: existingBenefit?.partnerLogo || userLogo,
+            url: nextLogo,
             fileName: "logo.png",
             fileSize: 0,
             width: 0,
@@ -2456,10 +2492,67 @@ export function BenefitsStep1() {
     }
   };
 
+  /**
+   * Merge a locally edited benefit-scoped field into the two derived sources the
+   * wizard reads back later:
+   *
+   * 1. `benefitLogoEditedCategories` — marks the logo of THIS category as locally
+   *    authoritative, so the Benefit-row pre-fill effect (see "Load persisted
+   *    Benefit Logo (partnerLogo)..." above) stops re-deriving `companyLogo` from
+   *    the persisted row / the advisor's profile logo. That effect also nulls the
+   *    logo outright for a category with no Benefit row yet, so without this the
+   *    preview kept showing the previous logo until the category was re-entered.
+   * 2. `categoryBenefitByApi` — the read-once Benefit-table snapshot that
+   *    `handleCategoryChange` rebuilds every benefit-scoped field from. It is
+   *    fetched once per plan and never invalidated after a save, so leaving the
+   *    category and coming back re-read the pre-save logo.
+   *
+   * Only EXISTING snapshot rows are touched: inventing a row here would flip
+   * `getCategoryStatus().exists` and the Completeness badges for a category that
+   * has no Benefit record yet.
+   */
+  const withLocalBenefitEdit = (
+    patch: Partial<BenefitsStep1Data>,
+  ): Partial<BenefitsStep1Data> => {
+    const cat = currentStepData.benefitCategory || "";
+    const apiCat = normalizeApiCategory(
+      cat === "Custom" ? "Company / Plan Sponsor" : cat,
+    );
+    const touchesLogo = "companyLogo" in patch;
+    const logoCats = currentStepData.benefitLogoEditedCategories ?? [];
+    const benefitLogoEditedCategories =
+      touchesLogo && cat.length > 0 && !logoCats.includes(cat)
+        ? [...logoCats, cat]
+        : logoCats;
+
+    const rowPatch: Record<string, unknown> = {};
+    if (touchesLogo) {
+      rowPatch.partnerLogo = patch.companyLogo?.url ?? null;
+    }
+    if ("brandImages" in patch) {
+      rowPatch.backgroundImage = patch.brandImages?.header?.url ?? null;
+    }
+
+    const existingRow = apiCat
+      ? currentStepData.categoryBenefitByApi?.[apiCat]
+      : undefined;
+    const categoryBenefitByApi =
+      existingRow && Object.keys(rowPatch).length > 0
+        ? {
+            ...currentStepData.categoryBenefitByApi,
+            [apiCat]: { ...existingRow, ...rowPatch },
+          }
+        : currentStepData.categoryBenefitByApi;
+
+    return { ...patch, benefitLogoEditedCategories, categoryBenefitByApi };
+  };
+
   const handleLogoChange = (imageData: BrandImageData) => {
     saveStepData(1, {
       ...currentStepData,
-      companyLogo: convertBrandImageToLogo(imageData),
+      ...withLocalBenefitEdit({
+        companyLogo: convertBrandImageToLogo(imageData),
+      }),
     });
   };
 
@@ -2468,10 +2561,12 @@ export function BenefitsStep1() {
   const handleBrandImagesChange = (brandImages: BrandImagesData) => {
     saveStepData(1, {
       ...currentStepData,
-      brandImages: {
-        ...brandImages,
-        header: brandImages.header ?? null,
-      },
+      ...withLocalBenefitEdit({
+        brandImages: {
+          ...brandImages,
+          header: brandImages.header ?? null,
+        },
+      }),
     });
   };
 
@@ -3100,7 +3195,7 @@ export function BenefitsStep1() {
                         onImageRemove={() =>
                           saveStepData(1, {
                             ...currentStepData,
-                            companyLogo: null,
+                            ...withLocalBenefitEdit({ companyLogo: null }),
                           })
                         }
                         hideButtons={true}

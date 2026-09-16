@@ -373,6 +373,11 @@ export function UniversalImageEditorModal({
   const fabricCanvasRef = useRef<Canvas | null>(null);
   const isInitializedRef = useRef(false);
   const autoSizeInitializedRef = useRef(false);
+  // Set when the user picks a file in this session. It makes the freshly chosen
+  // image win over the parent's `value`, which would otherwise overwrite it the
+  // moment the modal opens — see the value effect below. Reset on close so the
+  // next open loads `value` again.
+  const fileSelectionRef = useRef(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -632,11 +637,18 @@ export function UniversalImageEditorModal({
   useEffect(() => {
     if (!modalOpen) {
       isInitializedRef.current = false;
+      fileSelectionRef.current = false;
       setOriginalImageSrc(null);
       setImageSrc(null);
       return;
     }
     if (!value) return;
+
+    // A file the user just selected must not be replaced by the value already
+    // saved against this slot. Opening the modal for that selection flips
+    // `modalOpen` (a dependency below), which used to re-apply `value` and show
+    // the current logo instead of the one just chosen.
+    if (fileSelectionRef.current) return;
 
     const loadable = toFabricImageLoadUrl(value);
     if (!loadable) return;
@@ -726,6 +738,9 @@ export function UniversalImageEditorModal({
     reader.onload = () => {
       const dataURL = reader.result as string;
 
+      // Claim the working image for this selection before the modal opens, so the
+      // value effect (triggered by `modalOpen`) cannot restore the old image.
+      fileSelectionRef.current = true;
       setImageSrc(dataURL);
       setOriginalImageSrc(dataURL);
       setSourceIsSvg(
