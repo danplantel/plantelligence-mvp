@@ -58,6 +58,42 @@ export function QuickInsights({
     if (selectedId) setLastOpenedId(selectedId);
   }, [selectedId]);
 
+  const isOpen = selectedId !== null;
+  const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
+  const [contentEl, setContentEl] = useState<HTMLDivElement | null>(null);
+  const [isScrollable, setIsScrollable] = useState(false);
+
+  /**
+   * Whether the panel body actually has content to scroll.
+   *
+   * `overscroll-contain` is applied only when it does. The property disables scroll
+   * chaining outright, so on a short list it swallowed the wheel gesture and the
+   * dashboard stopped scrolling under the cursor even though there was nothing to scroll
+   * inside the panel. Left alone, the browser propagates the gesture to the page.
+   *
+   * Callback refs are used so the observer re-attaches whenever the panel content unmounts
+   * and remounts as it collapses and expands, and a ResizeObserver covers both cases that
+   * change the answer: the content growing once a fetch resolves, and the panel box
+   * growing through its open animation.
+   */
+  useEffect(() => {
+    if (!scrollEl || !contentEl) return;
+
+    const measure = () => {
+      // +1 absorbs sub-pixel rounding, which otherwise reports a 1px overflow for content
+      // that fits exactly and would keep the wheel contained when it need not be.
+      setIsScrollable(scrollEl.scrollHeight > scrollEl.clientHeight + 1);
+    };
+
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver(measure);
+    observer.observe(scrollEl);
+    observer.observe(contentEl);
+    return () => observer.disconnect();
+  }, [scrollEl, contentEl]);
+
   // Falling back to `lastOpenedId` means the content is present in the same commit that
   // opens or closes the panel, so neither direction animates an empty box.
   const contentId = selectedId ?? lastOpenedId;
@@ -136,7 +172,7 @@ export function QuickInsights({
 
       <CollapsiblePanel
         id={panelId}
-        open={selectedId !== null}
+        open={isOpen}
         label={contentInsight ? `${contentInsight.title} details` : undefined}
       >
         {contentInsight && (
@@ -169,14 +205,24 @@ export function QuickInsights({
               </div>
 
               {/* `min-h-0` is required for the flex child to shrink and scroll rather
-                  than expand the fixed-height panel. `overscroll-contain` stops the
-                  scroll from chaining to the page at either end of the list. */}
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
-                {detail ?? (
-                  <p className="text-sm text-muted-foreground">
-                    No detail view is available for this metric yet.
-                  </p>
+                  than expand the fixed-height panel. Chaining is contained only while the
+                  panel is open *and* its content overflows, so a short list lets the wheel
+                  through to the dashboard. */}
+              <div
+                ref={setScrollEl}
+                className={cn(
+                  "min-h-0 flex-1 overflow-y-auto pr-1",
+                  isOpen && isScrollable && "overscroll-contain",
                 )}
+              >
+                {/* Wrapper exists purely so the ResizeObserver can track content height. */}
+                <div ref={setContentEl}>
+                  {detail ?? (
+                    <p className="text-sm text-muted-foreground">
+                      No detail view is available for this metric yet.
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
