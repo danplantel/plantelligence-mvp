@@ -1,6 +1,7 @@
 "use client";
 
 import { Card, CardContent } from "@/components/ui/card";
+import { QuickInsights } from "@/components/ui/quick-insights";
 import { QuickActions } from "@/components/ui/quick-actions";
 import { ResetOnboardingButton } from "@/components/ui/reset-onboarding-button";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
@@ -9,8 +10,8 @@ import { Headshot } from "@/components/ui/headshot";
 import { BrandingImage } from "@/components/ui/branding-image";
 import useSWR from "swr";
 import {
-  demoStats as defaultDemoStats,
   quickActions,
+  quickInsights as defaultQuickInsights,
   userInfo as defaultUserInfo,
 } from "./dashboard.funcs";
 import { resolveBrandingImageUrl } from "@/lib/branding-image-url";
@@ -73,22 +74,17 @@ export function Dashboard() {
     return () => { cancelled = true; };
   }, [userInfo.rawAvatar]);
 
-  const demoStats = useMemo(() => {
+  // Quick Insights — overlay live counts onto the placeholder tile definitions.
+  // Tiles with no `statsKey` have no backing query yet, so they keep their demo value.
+  const quickInsightItems = useMemo(() => {
     const stats = statsData?.data;
-    if (!stats) return defaultDemoStats;
-    const filtered = defaultDemoStats.filter((stat) => {
-      switch (stat.title) {
-        case "Active Plans": return stats.activePlans > 0;
-        case "Upcoming Meetings": return stats.upcomingMeetings > 0;
-        default: return true;
-      }
-    });
-    return filtered.map((stat) => {
-      switch (stat.title) {
-        case "Active Plans": return { ...stat, value: stats.activePlans };
-        case "Upcoming Meetings": return { ...stat, value: stats.upcomingMeetings };
-        default: return stat;
-      }
+    if (!stats) return defaultQuickInsights;
+    return defaultQuickInsights.map((insight) => {
+      if (!insight.statsKey) return insight;
+      const liveValue = stats[insight.statsKey];
+      return typeof liveValue === "number"
+        ? { ...insight, value: liveValue }
+        : insight;
     });
   }, [statsData]);
 
@@ -148,7 +144,10 @@ export function Dashboard() {
           )}
         </CardContent>
       </Card>
-      
+
+      {/* Quick Insights */}
+      <QuickInsights insights={quickInsightItems} isLoading={isLoadingStats} />
+
       {/* Quick Actions */}
       <QuickActions actions={quickActions} />
       </div>
