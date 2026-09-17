@@ -4,10 +4,11 @@ import Link from "next/link";
 import useSWR from "swr";
 import { Button } from "@/components/ui/button";
 import { Headshot } from "@/components/ui/headshot";
-import type {
-  PlanAttentionIssue,
-  PlanAttentionIssueKind,
-} from "@/lib/plan-needs-attention";
+import {
+  issueDestinations,
+  type IssueDestination,
+} from "@/lib/plan-attention-actions";
+import type { PlanAttentionIssue } from "@/lib/plan-needs-attention";
 
 const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -46,11 +47,6 @@ interface NeedsAttentionResponse {
   };
 }
 
-interface IssueAction {
-  label: string;
-  href: string;
-}
-
 interface IssueChip {
   key: string;
   text: string;
@@ -85,63 +81,6 @@ function chipsForIssues(issues: PlanAttentionIssue[]): IssueChip[] {
   }
 
   return chips;
-}
-
-/**
- * Where each issue sends the advisor. These are the app's supported deep links:
- *
- * - Create Benefits reads `?planId` and, optionally, `?category` (see
- *   `app/(dashboard)/benefits/page.tsx`), which opens that benefit ready to fix.
- * - The Documents page reads `?planId` to preselect the plan.
- * - The plan editor reads `?tab` to open a specific tab.
- *
- * Grouped by issue kind so a row shows one button per destination rather than one per
- * issue, which would repeat identical labels when several benefits are incomplete.
- */
-function actionsForIssues(planId: string, issues: PlanAttentionIssue[]): IssueAction[] {
-  const byKind = new Map<PlanAttentionIssueKind, PlanAttentionIssue[]>();
-  for (const issue of issues) {
-    byKind.set(issue.kind, [...(byKind.get(issue.kind) ?? []), issue]);
-  }
-
-  const actions: IssueAction[] = [];
-  const id = encodeURIComponent(planId);
-
-  const benefits = byKind.get("incomplete-benefit");
-  if (benefits?.length) {
-    const categories = benefits
-      .map((issue) => issue.category)
-      .filter((category): category is string => Boolean(category));
-
-    // A single category links straight into it. With several, the plan-only link is used
-    // instead: picking one category's link would silently hide the other broken ones.
-    actions.push(
-      categories.length === 1
-        ? {
-            label: "View Benefit",
-            href: `/benefits?planId=${id}&category=${encodeURIComponent(categories[0])}`,
-          }
-        : { label: "View Benefits", href: `/benefits?planId=${id}` },
-    );
-  }
-
-  if (byKind.has("uncategorized-documents")) {
-    actions.push({ label: "Categorize Documents", href: `/documents?planId=${id}` });
-  }
-
-  if (byKind.has("missing-disclaimers")) {
-    actions.push({
-      label: "Add Disclaimers",
-      href: `/edit-client/${id}?tab=disclaimers`,
-    });
-  }
-
-  // Never leave a row without a way in, even for a kind this panel does not recognise.
-  if (actions.length === 0) {
-    actions.push({ label: "View/Edit", href: `/edit-client/${id}` });
-  }
-
-  return actions;
 }
 
 /**
@@ -230,7 +169,7 @@ export function NeedsAttentionPanel() {
             </div>
 
             <div className="ml-auto flex shrink-0 items-center gap-1.5">
-              {actionsForIssues(plan.id, plan.issues).map((action) => (
+              {issueDestinations(plan.id, plan.issues).map((action: IssueDestination) => (
                 <Button
                   key={action.href}
                   asChild

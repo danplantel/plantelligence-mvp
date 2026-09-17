@@ -14,11 +14,15 @@ import {
  * produced by the same rule.
  */
 
-/** Exactly the plan fields `evaluatePlanAttention` reads. */
-const PLAN_ATTENTION_SELECT = {
+/**
+ * Exactly the plan fields `evaluatePlanAttention` reads, plus `status` for callers that need
+ * to tell a published plan from a draft.
+ */
+export const PLAN_ATTENTION_SELECT = {
   id: true,
   companyName: true,
   companyLogo: true,
+  status: true,
   keyContacts: true,
   employeePortalPreview: true,
   categoryPortalVisibility: true,
