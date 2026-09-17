@@ -125,6 +125,11 @@ export function QuickInsights({
           : insights.map((insight) => {
               const isSelected = insight.id === selectedId;
 
+              // Press animation mirrors the `outline` button variant's `active:scale-95`
+              // with `ease-linear duration-100`. It sits on the button rather than the Card
+              // so the whole tile — border, fill and shadow — scales together, and
+              // `transition-transform` is scoped to the transform so it cannot interfere
+              // with the Card's own colour transitions.
               return (
                 <button
                   key={insight.id}
@@ -132,11 +137,16 @@ export function QuickInsights({
                   onClick={() => setSelectedId(isSelected ? null : insight.id)}
                   aria-expanded={isSelected}
                   aria-controls={isSelected ? panelId : undefined}
-                  className="h-full rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900"
+                  className="h-full rounded-xl text-left transition-transform duration-100 ease-linear active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900"
                 >
+                  {/* The dark hover background is not redundant: this element also sets
+                      `dark:bg-gray-800`, which has the same specificity as `hover:bg-*`
+                      and is emitted later, so it would win in dark mode without an
+                      explicit dark:hover. `transition-all` rather than `transition-colors`
+                      so the hover shadow eases in with the rest of the state change. */}
                   <Card
                     className={cn(
-                      "h-full cursor-pointer border-[#efefef] transition-colors hover:border-accent-blue dark:border-gray-700 dark:bg-gray-800",
+                      "h-full cursor-pointer border-[#efefef] transition-all hover:border-accent-blue hover:bg-accent-blue-light hover:shadow-md dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-accent-blue-light",
                       isSelected && "border-accent-blue dark:border-accent-blue",
                     )}
                   >

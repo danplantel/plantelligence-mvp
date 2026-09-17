@@ -32,7 +32,12 @@ export function QuickActions({
           <Button
             key={action.label}
             variant="outline"
-            className="flex h-[112px] w-full flex-col items-center gap-2 p-0 dark:hover:border-accent-blue"
+            /* The dark hover background is not redundant: the `outline` variant already sets
+               `dark:bg-gray-800`, which has the same specificity as `hover:bg-*` and is
+               emitted later, so it would win in dark mode without an explicit dark:hover.
+               The shadow needs no dark counterpart — the variant's resting `shadow-sm` has
+               no dark: variant, so hover:shadow-md wins on specificity alone. */
+            className="flex h-[112px] w-full flex-col items-center gap-2 p-0 hover:border-accent-blue hover:bg-accent-blue-light hover:shadow-md dark:hover:border-accent-blue dark:hover:bg-accent-blue-light"
             asChild
           >
             <Link href={action.href}>
