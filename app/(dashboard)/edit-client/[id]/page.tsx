@@ -2679,6 +2679,18 @@ export default function EditClientPage() {
   } = useEditClient();
 
   const [activeTab, setActiveTab] = useState<EditTabId>("company");
+  // Deep links may target a tab, e.g. "/edit-client/<id>?tab=disclaimers" from the
+  // dashboard's Needs Attention panel, or "?tab=contacts" from the client list. Read via
+  // window.location rather than useSearchParams so the page needs no Suspense boundary,
+  // matching how the Documents page reads its own `tab` param. Unknown values are ignored
+  // and leave the default "company" tab in place.
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get("tab");
+    if (!requested) return;
+    if (EDIT_TABS.some((tab) => tab.id === requested)) {
+      setActiveTab(requested as EditTabId);
+    }
+  }, []);
   // True while the Preview tab inline Editing Panel is open (dispatched as
   // step5EditorStateChange). Used to right-align the Edit Page tabs.
   const [planEditorOpen, setPlanEditorOpen] = useState(false);

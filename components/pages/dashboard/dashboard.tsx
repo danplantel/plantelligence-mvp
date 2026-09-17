@@ -11,6 +11,7 @@ import { BrandingImage } from "@/components/ui/branding-image";
 import useSWR from "swr";
 import { ActivePlansPanel } from "./active-plans-panel";
 import { MeetingsThisWeekPanel } from "./meetings-this-week-panel";
+import { NeedsAttentionPanel } from "./needs-attention-panel";
 import {
   quickActions,
   quickInsights as defaultQuickInsights,
@@ -163,6 +164,8 @@ export function Dashboard() {
               return <ActivePlansPanel />;
             case "meetings-this-week":
               return <MeetingsThisWeekPanel />;
+            case "needs-attention":
+              return <NeedsAttentionPanel />;
             default:
               return null;
           }

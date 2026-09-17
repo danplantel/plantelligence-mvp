@@ -113,6 +113,21 @@ export function resolvePersistedDocumentCategory(
   if (trimmed) {
     return normalizeExplicitCategoryToHub(trimmed);
   }
+
+  return (
+    inferCategoryFromDocumentArtifacts(documentType, storageKey) ??
+    "Other Benefits"
+  );
+}
+
+/**
+ * Category implied by a document's own type or R2 path, or `null` when the row carries
+ * nothing to derive a category from.
+ */
+function inferCategoryFromDocumentArtifacts(
+  documentType: string | null | undefined,
+  storageKey?: string | null,
+): string | null {
   const t = (documentType || "Document").toUpperCase();
   if (t === "SPD") return "Retirement";
   if (t === "SBC") return "Group Health";
@@ -129,7 +144,27 @@ export function resolvePersistedDocumentCategory(
     }
   }
 
-  return "Other Benefits";
+  return null;
+}
+
+/**
+ * True when a document was never explicitly categorized and neither its type nor its R2
+ * path implies a category — i.e. {@link resolvePersistedDocumentCategory} fell back to
+ * "Other Benefits" by default.
+ *
+ * The resolver's output alone cannot express this: a document deliberately filed under
+ * Other Benefits and one that was never categorized both resolve to the same label, so
+ * this predicate shares the derivation logic above rather than re-deriving it.
+ */
+export function isDocumentCategoryUnresolved(
+  documentType: string | null | undefined,
+  explicitCategory: string | null | undefined,
+  storageKey?: string | null,
+): boolean {
+  if (explicitCategory != null && String(explicitCategory).trim() !== "") {
+    return false;
+  }
+  return inferCategoryFromDocumentArtifacts(documentType, storageKey) === null;
 }
 
 /** Sort key for Benefits Hub / portal document lists (lower = earlier). */
