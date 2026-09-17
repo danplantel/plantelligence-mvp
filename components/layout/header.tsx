@@ -224,11 +224,8 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
           )}
         >
           <NotificationsMenu />
-          {/* Collapse the user menu to just the avatar while the Editing Panel is
-              open so its name can never overlap the Light/Dark toggle. */}
-          <div className="min-w-0">
-            <UserNav compact={editorOpen} />
-          </div>
+          {/* Light/Dark toggle sits immediately beside the notifications bell — both
+              are compact icon buttons, so they read as a single control cluster. */}
           {mounted && (
             <Button
               variant="ghost"
@@ -244,6 +241,11 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
               )}
             </Button>
           )}
+          {/* Collapse the user menu to just the avatar while the Editing Panel is
+              open so its name can never overlap the Light/Dark toggle. */}
+          <div className="min-w-0">
+            <UserNav compact={editorOpen} />
+          </div>
         </div>
       </nav>
 
