@@ -93,60 +93,57 @@ export function Dashboard() {
   }, [statsData]);
 
   return (
-    <div className="p-6">
-      <div className="w-full space-y-6 max-w-8xl mx-auto">
+    <div className="px-6">
+      <div className="w-full space-y-6 max-w-6xl mx-auto">
 
       {/* User Info */}
-      <Card className="px-6 py-[30px] bg-transparent">
-        <CardContent className="flex flex-col items-start gap-4 p-0">
+      <Card className="px-5 mt-4 bg-transparent">
+        <CardContent className="flex items-center justify-between gap-4 p-0">
           {isLoadingUserInfo ? (
             <>
-              {/* Logo skeleton */}
-              <div className="animate-pulse">
-                <div className="w-[120px] h-[80px] bg-gray-200 dark:bg-gray-700 rounded"></div>
-              </div>
-
-              <div className="flex items-center gap-4">
-                {/* Avatar skeleton */}
-                <div className="animate-pulse">
-                  <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
-                </div>
-
-                {/* Text skeleton */}
-                <div className="animate-pulse space-y-2">
-                  <div className="w-48 h-6 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                  <div className="w-24 h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
+              {/* Identity skeleton: avatar + greeting lines (left) */}
+              <div className="flex min-w-0 flex-1 items-center gap-4">
+                <div className="size-16 flex-shrink-0 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="h-6 w-48 max-w-full animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
+                  <div className="h-4 w-24 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
                 </div>
               </div>
+
+              {/* Logo skeleton (right) */}
+              <div className="h-[104px] w-[156px] flex-shrink-0 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
             </>
           ) : (
             <>
-              <section className="flex gap-4 items-center">
-                <div className="size-16 rounded-full overflow-hidden flex-shrink-0 border border-border dark:border-gray-600">
+              {/* Identity: avatar + greeting — flush left */}
+              <div className="flex min-w-0 flex-1 items-center gap-4 text-left">
+                <div className="size-16 flex-shrink-0 overflow-hidden rounded-full border border-border dark:border-gray-600">
                   <Headshot
                     src={resolvedAvatar || userInfo.rawAvatar || undefined}
                     monogramName={userInfo.name}
                     alt="Avatar"
                   />
                 </div>
-                <section>
-                  {userInfo.logo && (
-                    <div className="w-[120px] h-[80px] flex items-center justify-center overflow-hidden rounded">
-                      <BrandingImage
-                        src={userInfo.logo}
-                        alt="Logo"
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                  )}
-                  <h4 className="text-xl font-semibold dark:text-gray-100">
+                <div className="min-w-0 text-left">
+                  <h4 className="truncate text-xl font-semibold dark:text-gray-100">
                     Welcome back, {userInfo.name}!
                   </h4>
-                  <p className="text-sm text-muted-foreground font-regular">
+                  <p className="truncate text-sm font-normal text-muted-foreground">
                     {userInfo.title || "Advisor"}
                   </p>
-                </section>
-              </section>
+                </div>
+              </div>
+
+              {/* Advisor branding logo — flush right */}
+              {userInfo.logo && (
+                <div className="ml-auto flex h-[104px] w-[156px] flex-shrink-0 items-center justify-center overflow-hidden rounded">
+                  <BrandingImage
+                    src={userInfo.logo}
+                    alt="Logo"
+                    className="h-full w-full object-contain"
+                  />
+                </div>
+              )}
             </>
           )}
         </CardContent>
