@@ -52,6 +52,15 @@ function isR2DocumentRow(doc: {
   return f.trim() === "r2:stored";
 }
 
+/** Serialize the wizard's current state for comparison against the dirty baseline. */
+function snapshotBenefitsStore(): string {
+  const state = useBenefitsWizardStore.getState();
+  return serializeBenefitsSnapshot({
+    currentStep: state.currentStep,
+    stepData: state.stepData,
+  });
+}
+
 function BenefitsPageInner() {
   const { setTitle, setSubtitle } = usePageTitleContext();
   const [isLoading, setIsLoading] = useState(false);
@@ -60,6 +69,10 @@ function BenefitsPageInner() {
   // disabled during this window so a resume never flashes the warning dialog.
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const benefitsBaselineRef = useRef<string | null>(null);
+  // True once the user has interacted with the page. Until then every store write is
+  // treated as the app's own pre-fill rather than user work — see the subscription below.
+  const userInteractedRef = useRef(false);
+  const [, bumpBaselineVersion] = useState(0);
   const [isAttestationOpen, setIsAttestationOpen] = useState(false);
   const searchParams = useSearchParams();
   const planIdParam = searchParams.get("planId");
@@ -110,6 +123,41 @@ function BenefitsPageInner() {
       return;
     },
   });
+
+  /**
+   * Keep the dirty baseline in step with the app's own writes.
+   *
+   * On entry the wizard fills itself in programmatically: Step 1's pre-fill rebuilds the
+   * benefit fields from the API, and the org-logo sync further down writes `companyLogo`
+   * and `orgLogoSnapshot`. Both land *after* the initial baseline is captured, so before
+   * the user had touched anything the page already compared as dirty and navigating away
+   * raised "Leave this setup?".
+   *
+   * The baseline therefore follows every store update until the user interacts with the
+   * page, and freezes on the first pointer or key event. Programmatic pre-fill is
+   * absorbed, while anything the user does afterwards still counts as unsaved work.
+   */
+  useEffect(() => {
+    const freezeBaseline = () => {
+      userInteractedRef.current = true;
+    };
+    window.addEventListener("pointerdown", freezeBaseline, true);
+    window.addEventListener("keydown", freezeBaseline, true);
+
+    const unsubscribe = useBenefitsWizardStore.subscribe(() => {
+      if (userInteractedRef.current) return;
+      benefitsBaselineRef.current = snapshotBenefitsStore();
+      // `hasUnsavedChanges` reads the baseline through a ref, which is not a reactive
+      // dependency, so nudge a re-render to re-evaluate it against the new baseline.
+      bumpBaselineVersion((version) => version + 1);
+    });
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener("pointerdown", freezeBaseline, true);
+      window.removeEventListener("keydown", freezeBaseline, true);
+    };
+  }, []);
 
   useEffect(() => {
     setTitle("Create Benefits");
@@ -189,11 +237,7 @@ function BenefitsPageInner() {
     // Snapshot the store after the initial state is settled (URL-driven or
     // rehydrated). Anything that changes after this point is real user work.
     const captureBaseline = () => {
-      const state = useBenefitsWizardStore.getState();
-      benefitsBaselineRef.current = serializeBenefitsSnapshot({
-        currentStep: state.currentStep,
-        stepData: state.stepData,
-      });
+      benefitsBaselineRef.current = snapshotBenefitsStore();
     };
 
     if (hasPlanParam) {
@@ -307,6 +351,13 @@ function BenefitsPageInner() {
         orgLogoSnapshot: orgLogo,
         categoryBenefitByApi,
       });
+
+      // This write is the app's, not the user's, and it resolves asynchronously — so it
+      // can land after the subscription above has already been frozen by a click. Keep
+      // it out of the comparison unless the user has genuinely started editing.
+      if (!userInteractedRef.current) {
+        benefitsBaselineRef.current = snapshotBenefitsStore();
+      }
     })().catch(() => {});
 
     return () => {
