@@ -5,7 +5,8 @@ import type { LucideIcon } from "lucide-react";
 export interface QuickInsightItem {
   id: string;
   title: string;
-  value: number | string;
+  /** Live metric, or a placeholder. Omitted when a metric has no value yet. */
+  value?: number | string;
   hint?: string;
   icon: LucideIcon;
   /** Tailwind text-colour class applied to the icon accent. */
@@ -67,7 +68,7 @@ export function QuickInsights({
 
                   <div className="min-w-0">
                     <p className="text-2xl font-semibold leading-none tabular-nums dark:text-gray-100">
-                      {insight.value}
+                      {insight.value ?? "—"}
                     </p>
                     <p className="mt-1.5 truncate text-sm text-muted-foreground">
                       {insight.title}

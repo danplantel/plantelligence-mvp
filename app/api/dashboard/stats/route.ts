@@ -5,6 +5,13 @@ import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 
+/**
+ * `Client.status` is written as both "Active" (schema default, complete-v2) and
+ * "active" (clients/create, new-client-wizard/complete), so both spellings are counted.
+ * Anything else — "Draft", "Archived" — is excluded.
+ */
+const ACTIVE_CLIENT_STATUSES = ["Active", "active"];
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -13,74 +20,37 @@ export async function GET(request: NextRequest) {
     }
 
     const userId = session.user.id;
+    const now = new Date();
 
-    // Get active plans count (from Plan table)
-    const activePlansCount = await prisma.plan.count({
-      where: {
-        userId
-      }
-    });
-
-    // Get upcoming meetings count (scheduled and in-progress meetings in the future)
-          const now = new Date();
-          const upcomingMeetingsCount = await prisma.meeting.count({
-            where: {
-              OR: [
-                {
-                  status: "In Progress"
-                },
-                {
-                  status: "Scheduled",
-                  date: {
-                    gte: now
-                  }
-                }
-              ]
-            }
-          });
-
-    // Also get all meetings for debugging
-    const allMeetings = await prisma.meeting.findMany({
-      select: {
-        id: true,
-        meeting: true,
-        status: true,
-        date: true,
-        time: true
-      }
-    });
-    
-    // Log each meeting's date comparison
-    allMeetings.forEach((meeting, index) => {
-      const meetingDate = new Date(meeting.date);
-      const isUpcoming = meetingDate >= now;
-    });
-
-    // Get upcoming meetings for debugging
-    const upcomingMeetings = await prisma.meeting.findMany({
-      where: {
-        status: {
-          in: ["Scheduled", "In Progress"]
+    const [activePlansCount, upcomingMeetingsCount] = await Promise.all([
+      // "Plans" are Client rows (Benefits Hubs) — the same records served by /api/clients —
+      // so this counts the user's clients that are neither Draft nor Archived.
+      prisma.client.count({
+        where: {
+          userId,
+          status: { in: ACTIVE_CLIENT_STATUSES },
         },
-        date: {
-          gte: now
-        }
-      },
-      select: {
-        id: true,
-        meeting: true,
-        status: true,
-        date: true,
-        time: true
-      }
-    });
+      }),
+
+      // Mirrors /api/meetings: scoped to the current user and excluding archived rows.
+      prisma.meeting.count({
+        where: {
+          userId,
+          archived: false,
+          OR: [
+            { status: "In Progress" },
+            { status: "Scheduled", date: { gte: now } },
+          ],
+        },
+      }),
+    ]);
 
     return NextResponse.json({
       success: true,
       data: {
         activePlans: activePlansCount,
-        upcomingMeetings: upcomingMeetingsCount
-      }
+        upcomingMeetings: upcomingMeetingsCount,
+      },
     });
   } catch (error) {
     console.error("Error fetching dashboard stats:", error);

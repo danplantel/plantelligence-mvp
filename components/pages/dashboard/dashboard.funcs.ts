@@ -15,7 +15,8 @@ export interface QuickInsight {
   /** Stable identity for keying/rendering. */
   id: string;
   title: string;
-  value: number;
+  /** Placeholder shown before live data arrives. Omit for tiles driven by `statsKey`. */
+  value?: number;
   /** Supporting line shown beneath the title. */
   hint?: string;
   icon: LucideIcon;
@@ -39,7 +40,6 @@ export const quickInsights: QuickInsight[] = [
   {
     id: "active-plans",
     title: "Active Plans",
-    value: 24,
     hint: "Currently published",
     icon: TrendingUp,
     color: "text-accent-blue",

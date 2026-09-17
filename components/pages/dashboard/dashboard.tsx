@@ -74,17 +74,20 @@ export function Dashboard() {
     return () => { cancelled = true; };
   }, [userInfo.rawAvatar]);
 
-  // Quick Insights — overlay live counts onto the placeholder tile definitions.
-  // Tiles with no `statsKey` have no backing query yet, so they keep their demo value.
+  // Quick Insights — overlay live counts onto the tile definitions.
+  // Tiles with no `statsKey` have no backing query yet and keep their placeholder value.
+  // Live-backed tiles fall back to an em dash rather than a fabricated number, so a failed
+  // or partial stats response can never render a misleading count.
   const quickInsightItems = useMemo(() => {
     const stats = statsData?.data;
-    if (!stats) return defaultQuickInsights;
     return defaultQuickInsights.map((insight) => {
       if (!insight.statsKey) return insight;
-      const liveValue = stats[insight.statsKey];
-      return typeof liveValue === "number"
-        ? { ...insight, value: liveValue }
-        : insight;
+      const liveValue = stats?.[insight.statsKey];
+      return {
+        ...insight,
+        value:
+          typeof liveValue === "number" ? liveValue : (insight.value ?? "—"),
+      };
     });
   }, [statsData]);
 
@@ -145,11 +148,12 @@ export function Dashboard() {
         </CardContent>
       </Card>
 
+      {/* Quick Actions */}
+      <QuickActions actions={quickActions} />
+      
       {/* Quick Insights */}
       <QuickInsights insights={quickInsightItems} isLoading={isLoadingStats} />
 
-      {/* Quick Actions */}
-      <QuickActions actions={quickActions} />
       </div>
     </div>
   );

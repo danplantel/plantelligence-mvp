@@ -1,5 +1,4 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LucideIcon } from "lucide-react";
 import Link from "next/link";
 
@@ -15,39 +14,39 @@ interface QuickActionsProps {
   title?: string;
 }
 
+/**
+ * Quick action row. Mirrors `QuickInsights`: the heading sits outside the tiles and the
+ * section itself is unbordered, so each `outline` button reads as an individual tile
+ * rather than being boxed inside a second card.
+ */
 export function QuickActions({
   actions,
   title = "Quick Actions",
 }: QuickActionsProps) {
   return (
-    <Card className="dark:bg-gray-800 dark:border-gray-700">
-      <CardHeader>
-        <CardTitle className="text-base dark:text-gray-100">{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="flex gap-2.5">
-          {actions.map((action) => (
-            <Button
-              key={action.label}
-              variant="outline"
-              className="flex flex-col items-center gap-2 w-full h-[112px] p-0 dark:hover:border-accent-blue"
-              asChild
-            >
-              <Link href={action.href}>
-                <action.icon className="size-6 text-accent-blue" />
-                <div className="text-center">
-                  <div className="font-medium text-sm font-regular">
-                    {action.label}
-                  </div>
-                  <div className="text-xs text-muted-foreground font-normal">
-                    {action.description}
-                  </div>
+    <section className="space-y-3">
+      <h3 className="text-base font-semibold dark:text-gray-100">{title}</h3>
+
+      <div className="flex gap-2.5">
+        {actions.map((action) => (
+          <Button
+            key={action.label}
+            variant="outline"
+            className="flex h-[112px] w-full flex-col items-center gap-2 p-0 dark:hover:border-accent-blue"
+            asChild
+          >
+            <Link href={action.href}>
+              <action.icon className="size-6 text-accent-blue" />
+              <div className="text-center">
+                <div className="text-sm font-medium">{action.label}</div>
+                <div className="text-[0.7em] font-normal text-muted-foreground">
+                  {action.description}
                 </div>
-              </Link>
-            </Button>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+              </div>
+            </Link>
+          </Button>
+        ))}
+      </div>
+    </section>
   );
 }
