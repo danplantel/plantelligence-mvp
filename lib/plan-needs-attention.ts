@@ -52,6 +52,8 @@ export interface PlanAttentionIssue {
   label: string;
   /** Benefit category this issue is scoped to, when the issue is category-specific. */
   category?: string;
+  /** Specific fields still to be completed, when the issue is a completeness failure. */
+  missing?: string[];
   /** Affected document count, when the issue is document-scoped. */
   count?: number;
 }
@@ -123,16 +125,24 @@ export function countUncategorizedDocuments(
   }, 0);
 }
 
+export interface IncompleteBenefit {
+  category: string;
+  /** The specific fields `getBenefitCompleteness` reported as missing. */
+  missing: string[];
+}
+
 /**
- * Visible benefit categories whose hub content is not complete.
+ * Visible benefit categories whose hub content is not complete, each paired with what is
+ * missing so the dashboard can say what still needs doing rather than only which
+ * category failed.
  *
  * Categories come from the plan's own benefit cards, so only the tabs this plan actually
  * publishes are judged. Cards hidden via `categoryPortalVisibility` are skipped, which
  * keeps a deliberately hidden hub from counting against the plan.
  */
-export function findIncompleteBenefitCategories(
+export function findIncompleteBenefits(
   plan: PlanAttentionInput,
-): string[] {
+): IncompleteBenefit[] {
   const cards = getBenefitsArrayFromPortalPreview(plan);
   const visibility = getCategoryPortalVisibility(plan.categoryPortalVisibility);
 
@@ -148,27 +158,38 @@ export function findIncompleteBenefitCategories(
     categories.add(canonical);
   }
 
-  return Array.from(categories).filter(
-    (category) =>
-      !getBenefitCompleteness(category as BenefitsCategory, plan).isComplete,
-  );
+  const incomplete: IncompleteBenefit[] = [];
+  for (const category of categories) {
+    const completeness = getBenefitCompleteness(
+      category as BenefitsCategory,
+      plan,
+    );
+    if (completeness.isComplete) continue;
+    incomplete.push({ category, missing: completeness.missingInfo });
+  }
+
+  return incomplete;
 }
 
 export function evaluatePlanAttention(
   plan: PlanAttentionInput,
 ): PlanAttentionResult {
-  const incompleteCategories = findIncompleteBenefitCategories(plan);
+  const incompleteBenefits = findIncompleteBenefits(plan);
+  const incompleteCategories = incompleteBenefits.map(
+    (benefit) => benefit.category,
+  );
   const uncategorizedDocumentCount = countUncategorizedDocuments(plan.documents);
   const disclaimerContentPresent = hasDisclaimerContent(plan.disclaimers);
 
   const issues: PlanAttentionIssue[] = [];
 
-  // One issue per incomplete category, each carrying its category so the panel can deep
-  // link into that specific benefit rather than the plan as a whole.
-  for (const category of incompleteCategories) {
+  // One issue per incomplete category, carrying both the category (for the deep link)
+  // and the specific fields that failed (so the chip can name what is missing).
+  for (const { category, missing } of incompleteBenefits) {
     issues.push({
       kind: "incomplete-benefit",
       category,
+      missing,
       label: `Incomplete benefit: ${category}`,
     });
   }

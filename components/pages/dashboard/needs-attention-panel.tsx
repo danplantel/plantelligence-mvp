@@ -16,6 +16,21 @@ const SWR_OPTS = {
   dedupingInterval: 60_000,
 } as const;
 
+/** Amber chip naming the problem, e.g. "Incomplete benefit: Retirement". */
+const ALERT_CHIP =
+  "rounded-full bg-[#FF6900]/10 px-2 py-0.5 text-[0.7em] font-medium text-[#FF6900]";
+
+/** Muted chip naming a specific missing field, e.g. "Description missing". */
+const DETAIL_CHIP =
+  "rounded-full bg-muted px-2 py-0.5 text-[0.7em] text-muted-foreground";
+
+/**
+ * Cap on detail chips per issue. `getBenefitCompleteness` can report six missing fields
+ * for a single category, and several categories can be broken at once, so an uncapped
+ * list would make the row taller than the panel. The remainder is summarised.
+ */
+const MAX_DETAIL_CHIPS = 4;
+
 interface FlaggedPlan {
   id: string;
   companyName: string;
@@ -34,6 +49,42 @@ interface NeedsAttentionResponse {
 interface IssueAction {
   label: string;
   href: string;
+}
+
+interface IssueChip {
+  key: string;
+  text: string;
+  tone: "alert" | "detail";
+}
+
+/**
+ * Flattens issues into chips: the headline for each issue followed by the fields that
+ * still need completing.
+ */
+function chipsForIssues(issues: PlanAttentionIssue[]): IssueChip[] {
+  const chips: IssueChip[] = [];
+
+  for (const issue of issues) {
+    chips.push({ key: `alert-${issue.label}`, text: issue.label, tone: "alert" });
+
+    const missing = issue.missing ?? [];
+    for (const field of missing.slice(0, MAX_DETAIL_CHIPS)) {
+      chips.push({
+        key: `detail-${issue.label}-${field}`,
+        text: field,
+        tone: "detail",
+      });
+    }
+    if (missing.length > MAX_DETAIL_CHIPS) {
+      chips.push({
+        key: `detail-${issue.label}-more`,
+        text: `+${missing.length - MAX_DETAIL_CHIPS} more`,
+        tone: "detail",
+      });
+    }
+  }
+
+  return chips;
 }
 
 /**
@@ -95,9 +146,9 @@ function actionsForIssues(planId: string, issues: PlanAttentionIssue[]): IssueAc
 
 /**
  * Detail panel for the "Needs Attention" tile: active plans with incomplete benefit
- * content, uncategorized documents or no disclaimer content. Each issue is labelled and
- * routed to the surface that resolves it. Fetches lazily — it only mounts once the tile
- * is selected.
+ * content, uncategorized documents or no disclaimer content. Each plan shows why it was
+ * flagged — including the specific fields still to complete — and the action that fixes
+ * it. Fetches lazily — it only mounts once the tile is selected.
  */
 export function NeedsAttentionPanel() {
   const { data, isLoading, error } = useSWR<NeedsAttentionResponse>(
@@ -147,7 +198,10 @@ export function NeedsAttentionPanel() {
           key={plan.id}
           className="border-b border-[#efefef] py-3 transition-colors hover:bg-muted/50 dark:border-gray-700"
         >
-          <div className="flex items-center gap-3">
+          {/* One row: logo, plan name + issue chips, and the actions on the right. The
+              row is allowed to wrap, so on narrow widths the actions drop below rather
+              than squeezing the plan name down to nothing. */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <div className="size-9 shrink-0 overflow-hidden rounded-full border border-[#efefef] bg-muted dark:border-gray-600">
               <Headshot
                 src={plan.companyLogo || undefined}
@@ -157,44 +211,42 @@ export function NeedsAttentionPanel() {
               />
             </div>
 
-            <div className="min-w-0 flex-1">
+            <div className="min-w-[14rem] flex-1">
               <p className="truncate text-sm font-medium dark:text-gray-100">
                 {plan.companyName}
               </p>
               {plan.issues.length > 0 && (
                 <ul className="mt-1 flex flex-wrap gap-1">
-                  {plan.issues.map((issue) => (
+                  {chipsForIssues(plan.issues).map((chip) => (
                     <li
-                      key={`${issue.kind}-${issue.label}`}
-                      className="rounded-full bg-[#FF6900]/10 px-2 py-0.5 text-[0.7em] font-medium text-[#FF6900]"
+                      key={chip.key}
+                      className={chip.tone === "alert" ? ALERT_CHIP : DETAIL_CHIP}
                     >
-                      {issue.label}
+                      {chip.text}
                     </li>
                   ))}
                 </ul>
               )}
             </div>
-          </div>
 
-          {/* Actions sit on their own line so a plan with several issues can show one
-              button per destination without squeezing the plan name. */}
-          <div className="mt-2 flex flex-wrap justify-end gap-1.5">
-            {actionsForIssues(plan.id, plan.issues).map((action) => (
-              <Button
-                key={action.href}
-                asChild
-                variant="outline"
-                size="sm"
-                className="shrink-0"
-              >
-                <Link
-                  href={action.href}
-                  aria-label={`${action.label} for ${plan.companyName}`}
+            <div className="ml-auto flex shrink-0 items-center gap-1.5">
+              {actionsForIssues(plan.id, plan.issues).map((action) => (
+                <Button
+                  key={action.href}
+                  asChild
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
                 >
-                  {action.label}
-                </Link>
-              </Button>
-            ))}
+                  <Link
+                    href={action.href}
+                    aria-label={`${action.label} for ${plan.companyName}`}
+                  >
+                    {action.label}
+                  </Link>
+                </Button>
+              ))}
+            </div>
           </div>
         </li>
       ))}
