@@ -19,6 +19,10 @@ interface MeetingSummary {
   time: string;
   timezone: string | null;
   status: string;
+  /** Denormalised plan name stored on the meeting. */
+  client: string;
+  /** Authoritative plan record, used in preference to `client`. */
+  clientRecord: { companyName: string } | null;
 }
 
 interface MeetingsResponse {
@@ -73,6 +77,7 @@ export function MeetingsThisWeekPanel() {
       {meetings.map((meeting) => {
         const dayLabel = formatMeetingDay(meeting.date);
         const isToday = dayLabel === "Today";
+        const planName = meeting.clientRecord?.companyName || meeting.client;
 
         return (
           <li
@@ -80,10 +85,24 @@ export function MeetingsThisWeekPanel() {
             className="flex items-center gap-3 border-b border-[#efefef] py-3 transition-colors hover:bg-muted/50 dark:border-gray-700"
           >
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium dark:text-gray-100">
+              {/* Meeting name and its plan share one line so the row reads as a single
+                  statement of what and for whom. Kept as one element so a long pair
+                  truncates at a single point instead of two flex children fighting for
+                  space. The plan is omitted for meetings with no plan attached. */}
+              <p
+                className="truncate text-sm font-medium dark:text-gray-100"
+                title={
+                  planName ? `${meeting.meeting} · ${planName}` : meeting.meeting
+                }
+              >
                 {meeting.meeting}
+                {planName && (
+                  <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                    · {planName}
+                  </span>
+                )}
               </p>
-              <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                 <span className={isToday ? "font-semibold text-accent-blue" : ""}>
                   {dayLabel}
                 </span>

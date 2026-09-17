@@ -35,6 +35,11 @@ export async function GET(request: NextRequest) {
         time: true,
         timezone: true,
         status: true,
+        // Plan the meeting belongs to. `client` is the denormalised name written at creation
+        // time, while the relation is the authoritative source — reading both means the row
+        // still shows a plan name if that denormalised copy is blank or stale.
+        client: true,
+        clientRecord: { select: { companyName: true } },
       },
     });
 
