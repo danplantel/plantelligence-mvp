@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
+import { computeStartAtUtc } from "@/lib/meeting-start-at";
+import { toScheduleDayKey } from "@/lib/date";
 
 export async function PUT(
   request: NextRequest,
@@ -130,6 +132,14 @@ export async function PUT(
         date: nextDate,
         time,
         timezone,
+        // Keep the derived instant in step with the schedule, so an edited time is what
+        // instant-based filters compare against. Falls back to the stored values when this
+        // call omits a field.
+        startAtUtc: computeStartAtUtc(
+          toScheduleDayKey(nextDate ?? existingMeeting.date),
+          String(time ?? existingMeeting.time),
+          (timezone ?? existingMeeting.timezone) ?? null,
+        ),
         duration,
         format,
         platform,

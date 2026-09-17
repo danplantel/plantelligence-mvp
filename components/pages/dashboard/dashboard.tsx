@@ -12,6 +12,7 @@ import useSWR from "swr";
 import { ActivePlansPanel } from "./active-plans-panel";
 import { MeetingsThisWeekPanel } from "./meetings-this-week-panel";
 import { NeedsAttentionPanel } from "./needs-attention-panel";
+import { TasksAndMeetings } from "./tasks-and-meetings";
 import {
   quickActions,
   quickInsights as defaultQuickInsights,
@@ -96,7 +97,7 @@ export function Dashboard() {
 
   return (
     <div className="px-6">
-      <div className="w-full space-y-6 max-w-6xl mx-auto">
+      <div className="w-full space-y-6 max-w-7xl mx-auto">
 
       {/* User Info */}
       <Card className="px-5 mt-4 bg-transparent">
@@ -171,6 +172,10 @@ export function Dashboard() {
           }
         }}
       />
+
+      {/* Tasks & Meetings */}
+      <TasksAndMeetings />
+
 
       </div>
     </div>

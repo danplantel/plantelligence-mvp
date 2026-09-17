@@ -3,7 +3,7 @@
 import Link from "next/link";
 import useSWR from "swr";
 import { Button } from "@/components/ui/button";
-import { formatUsDate, toScheduleDayKey, todayScheduleDayKey } from "@/lib/date";
+import { formatMeetingDay, formatMeetingTime } from "@/lib/meeting-display";
 
 const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -11,29 +11,6 @@ const SWR_OPTS = {
   revalidateOnFocus: false,
   dedupingInterval: 60_000,
 } as const;
-
-/** Abbreviations for the scheduling timezones the app offers. */
-const TIME_ZONE_LABELS: Record<string, string> = {
-  "America/New_York": "ET",
-  "America/Chicago": "CT",
-  "America/Denver": "MT",
-  "America/Los_Angeles": "PT",
-  "America/Anchorage": "AT",
-  "Pacific/Honolulu": "HT",
-};
-
-/** `12:00` + `America/New_York` → `12:00 PM ET`. Returns the raw value if unparseable. */
-function formatMeetingTime(time: string, timezone?: string | null): string {
-  const [hours, minutes] = time.split(":");
-  const hour = Number(hours);
-  if (Number.isNaN(hour)) return time;
-
-  const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-  const suffix = hour >= 12 ? "PM" : "AM";
-  const zone = timezone ? TIME_ZONE_LABELS[timezone] : undefined;
-
-  return `${hour12}:${minutes ?? "00"} ${suffix}${zone ? ` ${zone}` : ""}`;
-}
 
 interface MeetingSummary {
   id: string;
@@ -91,13 +68,11 @@ export function MeetingsThisWeekPanel() {
     );
   }
 
-  // Resolved once so every row is measured against the same "today".
-  const todayKey = todayScheduleDayKey();
-
   return (
     <ul>
       {meetings.map((meeting) => {
-        const isToday = toScheduleDayKey(meeting.date) === todayKey;
+        const dayLabel = formatMeetingDay(meeting.date);
+        const isToday = dayLabel === "Today";
 
         return (
           <li
@@ -110,7 +85,7 @@ export function MeetingsThisWeekPanel() {
               </p>
               <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
                 <span className={isToday ? "font-semibold text-accent-blue" : ""}>
-                  {isToday ? "Today" : formatUsDate(meeting.date)}
+                  {dayLabel}
                 </span>
                 <span aria-hidden>·</span>
                 <span>{formatMeetingTime(meeting.time, meeting.timezone)}</span>

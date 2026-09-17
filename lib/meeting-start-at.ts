@@ -2,6 +2,7 @@ import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
+import { toScheduleDayKey } from "@/lib/date";
 
 dayjs.extend(customParseFormat);
 dayjs.extend(utc);
@@ -84,4 +85,33 @@ export function getMeetingSortInstantMs(input: {
     if (!Number.isNaN(t)) return t;
   }
   return legacyMeetingInstantMs({ date: input.date, time: input.time });
+}
+
+/**
+ * Effective start instant (ms) for a meeting, preferring the stored `startAtUtc`.
+ *
+ * Falls back to a timezone-aware computation for rows created before `startAtUtc` was
+ * populated — the generic `/api/meetings` routes historically stored only `date` + `time`.
+ * Deliberately not {@link legacyMeetingInstantMs}, which interprets the time in the
+ * server's zone and would be hours off for a meeting carrying an explicit `timezone`.
+ *
+ * Returns null when the instant is unknown and cannot be derived; callers decide whether
+ * that means "include" or "exclude" rather than having it decided here.
+ */
+export function resolveMeetingStartMs(input: {
+  startAtUtc: Date | string | null | undefined;
+  date: Date | string;
+  time: string;
+  timezone?: string | null;
+}): number | null {
+  if (input.startAtUtc) {
+    const stored = new Date(input.startAtUtc).getTime();
+    if (!Number.isNaN(stored)) return stored;
+  }
+
+  const dayKey = toScheduleDayKey(input.date);
+  if (!dayKey) return null;
+
+  const computed = computeStartAtUtc(dayKey, input.time, input.timezone);
+  return computed ? computed.getTime() : null;
 }
