@@ -10,6 +10,7 @@ import { Headshot } from "@/components/ui/headshot";
 import { BrandingImage } from "@/components/ui/branding-image";
 import useSWR from "swr";
 import { ActivePlansPanel } from "./active-plans-panel";
+import { MeetingsThisWeekPanel } from "./meetings-this-week-panel";
 import {
   quickActions,
   quickInsights as defaultQuickInsights,
@@ -156,9 +157,16 @@ export function Dashboard() {
       <QuickInsights
         insights={quickInsightItems}
         isLoading={isLoadingStats}
-        renderDetail={(insight) =>
-          insight.id === "active-plans" ? <ActivePlansPanel /> : null
-        }
+        renderDetail={(insight) => {
+          switch (insight.id) {
+            case "active-plans":
+              return <ActivePlansPanel />;
+            case "meetings-this-week":
+              return <MeetingsThisWeekPanel />;
+            default:
+              return null;
+          }
+        }}
       />
 
       </div>

@@ -26,7 +26,7 @@ export interface QuickInsight {
    * Field on `/api/dashboard/stats` (`data[statsKey]`) that supplies `value`.
    * Omit while a metric has no backing query yet — the tile then keeps its placeholder value.
    */
-  statsKey?: "activePlans" | "upcomingMeetings";
+  statsKey?: "activePlans" | "meetingsThisWeek";
 }
 
 export interface QuickAction {
@@ -56,10 +56,10 @@ export const quickInsights: QuickInsight[] = [
   {
     id: "meetings-this-week",
     title: "Meetings this Week",
-    value: 3,
-    hint: "Scheduled sessions",
+    hint: "Sunday to Saturday",
     icon: Calendar,
     color: "text-[#155DFC]",
+    statsKey: "meetingsThisWeek",
   },
   {
     // Metric not chosen yet — no statsKey means the tile shows this placeholder.

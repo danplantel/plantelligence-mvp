@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { ACTIVE_CLIENT_STATUS_FILTER } from "@/lib/active-client-status";
+import { meetingsThisWeekWhere } from "@/lib/meetings-this-week";
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,9 +15,8 @@ export async function GET(request: NextRequest) {
     }
 
     const userId = session.user.id;
-    const now = new Date();
 
-    const [activePlansCount, upcomingMeetingsCount] = await Promise.all([
+    const [activePlansCount, meetingsThisWeekCount] = await Promise.all([
       // "Plans" are Client rows (Benefits Hubs) — the same records served by /api/clients —
       // so this counts the user's clients that are neither Draft nor Archived.
       prisma.client.count({
@@ -26,16 +26,10 @@ export async function GET(request: NextRequest) {
         },
       }),
 
-      // Mirrors /api/meetings: scoped to the current user and excluding archived rows.
+      // Counts the current scheduling week (Sunday–Saturday) using the same shared
+      // window as the "Meetings this Week" panel, so the number and the list agree.
       prisma.meeting.count({
-        where: {
-          userId,
-          archived: false,
-          OR: [
-            { status: "In Progress" },
-            { status: "Scheduled", date: { gte: now } },
-          ],
-        },
+        where: meetingsThisWeekWhere(userId),
       }),
     ]);
 
@@ -43,7 +37,7 @@ export async function GET(request: NextRequest) {
       success: true,
       data: {
         activePlans: activePlansCount,
-        upcomingMeetings: upcomingMeetingsCount,
+        meetingsThisWeek: meetingsThisWeekCount,
       },
     });
   } catch (error) {
