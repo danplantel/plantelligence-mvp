@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Headshot } from "@/components/ui/headshot";
 import { BrandingImage } from "@/components/ui/branding-image";
 import useSWR from "swr";
+import { ActivePlansPanel } from "./active-plans-panel";
 import {
   quickActions,
   quickInsights as defaultQuickInsights,
@@ -152,7 +153,13 @@ export function Dashboard() {
       <QuickActions actions={quickActions} />
       
       {/* Quick Insights */}
-      <QuickInsights insights={quickInsightItems} isLoading={isLoadingStats} />
+      <QuickInsights
+        insights={quickInsightItems}
+        isLoading={isLoadingStats}
+        renderDetail={(insight) =>
+          insight.id === "active-plans" ? <ActivePlansPanel /> : null
+        }
+      />
 
       </div>
     </div>

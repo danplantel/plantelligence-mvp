@@ -4,13 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
-
-/**
- * `Client.status` is written as both "Active" (schema default, complete-v2) and
- * "active" (clients/create, new-client-wizard/complete), so both spellings are counted.
- * Anything else — "Draft", "Archived" — is excluded.
- */
-const ACTIVE_CLIENT_STATUSES = ["Active", "active"];
+import { ACTIVE_CLIENT_STATUS_FILTER } from "@/lib/active-client-status";
 
 export async function GET(request: NextRequest) {
   try {
@@ -28,7 +22,7 @@ export async function GET(request: NextRequest) {
       prisma.client.count({
         where: {
           userId,
-          status: { in: ACTIVE_CLIENT_STATUSES },
+          status: ACTIVE_CLIENT_STATUS_FILTER,
         },
       }),
 
