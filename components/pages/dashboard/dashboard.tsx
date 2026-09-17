@@ -12,6 +12,7 @@ import useSWR from "swr";
 import { ActivePlansPanel } from "./active-plans-panel";
 import { MeetingsThisWeekPanel } from "./meetings-this-week-panel";
 import { NeedsAttentionPanel } from "./needs-attention-panel";
+import { RecentActivity } from "./recent-activity";
 import { TasksAndMeetings } from "./tasks-and-meetings";
 import {
   quickActions,
@@ -175,6 +176,9 @@ export function Dashboard() {
 
       {/* Tasks & Meetings */}
       <TasksAndMeetings />
+
+      {/* Recent Activity */}
+      <RecentActivity />
 
 
       </div>

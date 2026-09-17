@@ -659,6 +659,10 @@ model Client {
 
   // Company Information
   companyName     String
+  // Name-change tracking for the dashboard activity feed. `null` until the plan is
+  // renamed; `updatedAt` cannot serve this purpose because every edit touches it.
+  previousName    String?
+  nameUpdatedAt   DateTime?
   companyWebsite  String?
   companyLogo     String? // Base64 or URL
   companyLogoCropData Json? // Crop metadata incl. originalImage for re-editing in modal

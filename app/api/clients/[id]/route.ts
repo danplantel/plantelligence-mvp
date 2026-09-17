@@ -576,8 +576,19 @@ export async function PUT(
     }
 
     // Prepare update data
+    // Detect a real rename so the activity feed can report it. Every save writes
+    // `companyName` (falling back to the stored value), so equality here means unchanged.
+    const nextCompanyName = companyName || existingClient.companyName;
+    const isRename =
+      Boolean(nextCompanyName) && nextCompanyName !== existingClient.companyName;
+
     const updateData: any = {
-      companyName: companyName || existingClient.companyName,
+      companyName: nextCompanyName,
+      // Written only on an actual change — `updatedAt` cannot stand in, because every edit
+      // touches it. `previousName` lets the feed say what the plan was renamed from.
+      ...(isRename
+        ? { previousName: existingClient.companyName, nameUpdatedAt: new Date() }
+        : {}),
       companyWebsite: companyWebsite ?? existingClient.companyWebsite,
       ...(newSlug !== null && { slug: newSlug }),
       companyLogo: logoUrl ?? existingClient.companyLogo,
