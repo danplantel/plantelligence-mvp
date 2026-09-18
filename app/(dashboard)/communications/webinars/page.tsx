@@ -190,6 +190,21 @@ export default function WebinarsPage() {
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
   const [editingWebinarId, setEditingWebinarId] = useState<string | null>(null);
+  // Whether the row being edited already carries an uploaded video. An edit keeps
+  // that file unless a new one is sent, so treating the file input as always
+  // required meant re-uploading a multi-MB video just to fix a typo in the title.
+  const [editingHasStoredFile, setEditingHasStoredFile] = useState(false);
+  // Preview of the stored video, tagged with the row it came from so a preview can
+  // never leak onto the next webinar the modal opens for.
+  const [editVideoPreview, setEditVideoPreview] = useState<{
+    id: string;
+    url: string;
+  } | null>(null);
+  const [isLoadingEditVideo, setIsLoadingEditVideo] = useState(false);
+  const editVideoPreviewUrl =
+    editVideoPreview && editVideoPreview.id === editingWebinarId
+      ? editVideoPreview.url
+      : null;
   // Add/Edit Webinar dialog — the form that used to sit inline on the page.
   const [webinarModalOpen, setWebinarModalOpen] = useState(false);
   // Webinar awaiting delete confirmation
@@ -362,6 +377,7 @@ export default function WebinarsPage() {
       videoUrl: "",
     });
     setEditingWebinarId(null);
+    setEditingHasStoredFile(false);
     setErrors({});
     setWebinarModalOpen(false);
     // The list changes wholesale with the plan — a selection made against the
@@ -425,6 +441,34 @@ export default function WebinarsPage() {
         return;
       }
       handleInputChange("videoFile", file);
+      // A new file supersedes the stored one, so the old preview no longer applies.
+      setEditVideoPreview(null);
+    }
+  };
+
+  // A file input can never be pre-filled (the browser refuses to let script set its
+  // value), which is why opening an edit looked like the video had gone missing.
+  // The payload is fetched only when the user asks to see it: pulling the base64
+  // whenever the modal opens would stall every edit by a minute.
+  const loadCurrentVideoPreview = async () => {
+    if (!editingWebinarId) return;
+    setIsLoadingEditVideo(true);
+    try {
+      const response = await fetch(`/api/webinars/${editingWebinarId}`);
+      const result = await response.json();
+      const base64 = result?.data?.videoFileUrl;
+      if (!response.ok || !result.success || !base64) {
+        throw new Error(result.error || "Failed to load video");
+      }
+      setEditVideoPreview({
+        id: editingWebinarId,
+        url: `data:video/mp4;base64,${base64}`,
+      });
+    } catch (error) {
+      console.error("Error loading video preview:", error);
+      toast.error("Failed to load that video");
+    } finally {
+      setIsLoadingEditVideo(false);
     }
   };
 
@@ -534,6 +578,7 @@ export default function WebinarsPage() {
   const openAddWebinar = () => {
     setFormData(blankWebinarForm());
     setEditingWebinarId(null);
+    setEditingHasStoredFile(false);
     setErrors({});
     setDatePickerOpen(false);
     setWebinarModalOpen(true);
@@ -545,6 +590,7 @@ export default function WebinarsPage() {
     setWebinarModalOpen(open);
     if (!open) {
       setEditingWebinarId(null);
+      setEditingHasStoredFile(false);
       setErrors({});
       setDatePickerOpen(false);
     }
@@ -566,7 +612,13 @@ export default function WebinarsPage() {
     if (!formData.thumbnail) newErrors.thumbnail = true;
     // Unchecking every page would hide the video from the whole portal.
     if (formData.placements.length === 0) newErrors.placements = true;
-    if (formData.sourceType === "upload" && !formData.videoFile)
+    // Only required when there is no stored video to fall back on: while creating,
+    // or when editing a row whose video came from a file that was never uploaded.
+    if (
+      formData.sourceType === "upload" &&
+      !formData.videoFile &&
+      !editingHasStoredFile
+    )
       newErrors.videoFile = true;
     if (formData.sourceType === "url" && !formData.videoUrl)
       newErrors.videoUrl = true;
@@ -643,6 +695,7 @@ export default function WebinarsPage() {
       // Reset the form and close the dialog.
       setFormData(blankWebinarForm());
       setEditingWebinarId(null);
+      setEditingHasStoredFile(false);
       setErrors({});
       setWebinarModalOpen(false);
 
@@ -676,6 +729,18 @@ export default function WebinarsPage() {
       videoUrl: webinar.videoUrl || "",
     });
     setEditingWebinarId(webinar.id);
+    // The stored video is kept unless a replacement is chosen (see the PUT
+    // handler), so the form must not demand a file just to save a change to the
+    // title, description, thumbnail, date or placements.
+    // `sourceType.upload` is included because the list response reports the file
+    // through `hasVideoFile`/`videoFileUrl`, which are only populated when the
+    // stored size is known — a row that says it was an upload must never ask for
+    // the file again.
+    setEditingHasStoredFile(
+      Boolean(
+        webinar.hasVideoFile || webinar.videoFileUrl || webinar.sourceType.upload,
+      ),
+    );
     setErrors({});
     setDatePickerOpen(false);
     setWebinarModalOpen(true);
@@ -880,11 +945,11 @@ export default function WebinarsPage() {
             </DialogTitle>
             <DialogDescription>
               {editingWebinarId
-                ? "Make your changes below and submit to update the webinar."
+                ? "Make your changes below and submit to update the webinar. The video currently on it is kept unless you choose a new file."
                 : "Fill out the details below to add a webinar replay, podcast, or other custom video."}
             </DialogDescription>
           </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-5">
 
               {/* Webinar Title */}
               <div className="space-y-2">
@@ -1054,14 +1119,14 @@ export default function WebinarsPage() {
               </div>
 
               {/* Source Type */}
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <Label>
                   Source Type <span className="text-red-500">*</span>
                 </Label>
                 {errors.sourceType && (
                   <p className="text-sm text-red-500">This field is required</p>
                 )}
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {/* Upload Option */}
                   <div
                     className={`relative p-3 border rounded-lg transition-colors cursor-pointer ${
@@ -1145,20 +1210,94 @@ export default function WebinarsPage() {
 
               {/* Video Upload (if Upload is selected) */}
               {formData.sourceType === "upload" && (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <Label htmlFor="videoFile">
-                    Video File <span className="text-red-500">*</span>
+                    Video File{" "}
+                    {!editingHasStoredFile && (
+                      <span className="text-red-500">*</span>
+                    )}
                   </Label>
+
+                  {/* A file input can never be pre-filled — the browser refuses to
+                      let script set its value — which is exactly why editing looked
+                      like the video had gone missing ("Choose File / No file
+                      chosen"). The stored video is shown here instead: its
+                      thumbnail for identification, and the file itself only if the
+                      user asks for it, since the base64 payload lives in MongoDB
+                      and pulling it on open would stall every edit. */}
+                  {editingHasStoredFile && (
+                    <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
+                      <div className="flex items-center gap-4">
+                        <div className="relative h-16 w-28 shrink-0 overflow-hidden rounded-md border bg-muted/40">
+                          {formData.thumbnail ? (
+                            <img
+                              src={formData.thumbnail}
+                              alt=""
+                              className="absolute inset-0 h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <Video className="h-4 w-4 text-muted-foreground/60" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0 space-y-1">
+                          <p className="text-sm font-medium">
+                            {formData.videoFile
+                              ? "Replacing this video"
+                              : "Current video"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {formData.videoFile
+                              ? `Saving swaps it for ${formData.videoFile.name}.`
+                              : "Stays on this webinar unless you replace it."}
+                          </p>
+                        </div>
+                        {!formData.videoFile && !editVideoPreviewUrl && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="ml-auto shrink-0"
+                            disabled={isLoadingEditVideo}
+                            onClick={loadCurrentVideoPreview}
+                          >
+                            {isLoadingEditVideo ? (
+                              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Play className="mr-1.5 h-3.5 w-3.5" />
+                            )}
+                            Preview
+                          </Button>
+                        )}
+                      </div>
+                      {editVideoPreviewUrl && !formData.videoFile && (
+                        <video
+                          src={editVideoPreviewUrl}
+                          controls
+                          className="w-full aspect-video rounded-md bg-black"
+                        />
+                      )}
+                    </div>
+                  )}
+
+                  {/* File inputs bring their own cramped control, so the box gets
+                      padding and the native "Choose File" button is styled — it is
+                      the one row in the form that can't use our Button component. */}
                   <Input
                     id="videoFile"
                     type="file"
                     accept="video/*"
                     onChange={handleFileChange}
-                    className={errors.videoFile ? "border-red-500" : ""}
+                    className={cn(
+                      "h-auto cursor-pointer py-2 file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-foreground hover:file:bg-muted/80",
+                      errors.videoFile && "border-red-500",
+                    )}
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Maximum file size: 10MB. For larger files, use YouTube/Vimeo
-                    URL.
+                  <p className="text-xs text-muted-foreground">
+                    {editingHasStoredFile && !formData.videoFile
+                      ? "Choose a file here only if you want to replace the current video."
+                      : "Maximum file size: 10MB. For larger files, use YouTube/Vimeo URL."}
                   </p>
                   {formData.videoFile && (
                     <p className="text-sm text-muted-foreground">
@@ -1175,7 +1314,7 @@ export default function WebinarsPage() {
 
               {/* Video URL (if URL is selected) */}
               {formData.sourceType === "url" && (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <Label htmlFor="videoUrl">
                     Video URL <span className="text-red-500">*</span>
                   </Label>
@@ -1199,14 +1338,44 @@ export default function WebinarsPage() {
 
               {/* Thumbnail — an uploaded image, or a frame captured from the
                   selected video. Required: it is what the video card displays. */}
-              <div className="space-y-2">
-                <Label>
-                  Thumbnail <span className="text-red-500">*</span>
-                </Label>
-                {errors.thumbnail && (
-                  <p className="text-sm text-red-500">This field is required</p>
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Label>
+                    Thumbnail <span className="text-red-500">*</span>
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    What the video card shows in the portal — an uploaded image, or
+                    a frame captured from the video itself.
+                  </p>
+                  {errors.thumbnail && (
+                    <p className="text-sm text-red-500">This field is required</p>
+                  )}
+                </div>
+                {formData.thumbnail && (
+                  <div className="flex items-center gap-4 rounded-lg border bg-muted/30 p-3">
+                    <img
+                      src={formData.thumbnail}
+                      alt="Thumbnail preview"
+                      className="h-20 w-32 shrink-0 rounded-md border object-cover"
+                    />
+                    <div className="min-w-0 space-y-1">
+                      <p className="text-sm font-medium">Current thumbnail</p>
+                      <p className="text-xs text-muted-foreground">
+                        This is the image the video card shows.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="ml-auto shrink-0 text-destructive hover:text-destructive"
+                      onClick={() => handleInputChange("thumbnail", "")}
+                    >
+                      <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                      Remove
+                    </Button>
+                  </div>
                 )}
-                <br />
                 {/* Segmented toggle: the two sources are alternatives, so the
                     active one reads as pressed rather than as a second button. */}
                 <div className="inline-flex overflow-hidden rounded-md border">
@@ -1247,19 +1416,20 @@ export default function WebinarsPage() {
                 </div>
 
                 {thumbnailMode === "upload" ? (
-                  <>
+                  <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
                     <Input
                       id="thumbnailFile"
                       type="file"
                       accept="image/*"
                       onChange={handleThumbnailFileChange}
+                      className="h-auto cursor-pointer py-2 file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-foreground hover:file:bg-muted/80"
                     />
                     <p className="text-xs text-muted-foreground">
                       JPG, PNG or WebP. Large images are resized automatically.
                     </p>
-                  </>
+                  </div>
                 ) : thumbnailVideoUrl ? (
-                  <div className="space-y-2 rounded-lg border p-3">
+                  <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
                     <video
                       ref={thumbnailVideoRef}
                       src={thumbnailVideoUrl}
@@ -1298,25 +1468,6 @@ export default function WebinarsPage() {
                   </p>
                 )}
 
-                {formData.thumbnail && (
-                  <div className="flex items-center gap-3 pt-1">
-                    <img
-                      src={formData.thumbnail}
-                      alt="Thumbnail preview"
-                      className="h-16 w-28 rounded-md border object-cover"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => handleInputChange("thumbnail", "")}
-                    >
-                      <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-                      Remove thumbnail
-                    </Button>
-                  </div>
-                )}
               </div>
 
               {/* Submit Button */}
@@ -1329,6 +1480,7 @@ export default function WebinarsPage() {
                     onClick={() => {
                       setFormData(blankWebinarForm());
                       setEditingWebinarId(null);
+                      setEditingHasStoredFile(false);
                       setErrors({});
                       setWebinarModalOpen(false);
                     }}
