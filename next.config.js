@@ -31,10 +31,40 @@ const nextConfig = {
     // (bundling rewrites import.meta.url which breaks internal path resolution).
     // Note: serverExternalPackages is Next.js 15+ only. For Next.js 14.x,
     // use experimental.serverComponentsExternalPackages instead.
-    serverComponentsExternalPackages: ["@sparticuz/chromium"],
+    //
+    // onnxruntime-node is the same class of problem for /api/remove-background: it
+    // resolves a platform-specific .node binding relative to its own package directory,
+    // and a bundled copy loses that path. sharp needs no entry — Next.js externalizes it
+    // by default.
+    serverComponentsExternalPackages: [
+      "@sparticuz/chromium",
+      "onnxruntime-node",
+    ],
 
     outputFileTracingIncludes: {
       "/api/extract-site-colors": ["./chromium-bin/**"],
+      // The background-removal weights are not imported by any module, so the tracer
+      // cannot see them; they are read from disk at runtime by path.
+      //
+      // Whether they ship is decided by whether the file exists at build time: the
+      // weights are gitignored, so a Vercel build has none and the route falls back to
+      // fetching them into the instance's temp directory. A container build that runs
+      // `pnpm run models:fetch` before `next build` carries them inside the image.
+      //
+      // Measured, so nobody has to rediscover it: this route's trace is ~341 MB with the
+      // weights present — 168 MB of model plus 287 MB of onnxruntime-node platform
+      // binaries (darwin 85, linux 68, win32 133; the package ships all three and the
+      // tracer follows them). ~173 MB of that is foreign-platform binaries, which
+      // `experimental.outputFileTracingExcludes` does NOT remove in Next 14.2 — both the
+      // `./` and `**/` glob forms were tested against a regenerated trace and changed
+      // nothing. Vercel's unzipped function limit is 250 MB, so:
+      //
+      //   - no `models/` in the build (the default for a git-cloned Vercel build) →
+      //     ~173 MB, fits, and the first request per instance downloads the weights to
+      //     /tmp once;
+      //   - a container, or a function allowance above 341 MB → ship `models/` and skip
+      //     that cold-start download entirely.
+      "/api/remove-background": ["./models/**"],
     },
   },
 

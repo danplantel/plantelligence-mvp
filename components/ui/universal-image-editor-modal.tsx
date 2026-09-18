@@ -7,7 +7,6 @@ import { Button } from "./button";
 import { Label } from "./label";
 import { ImageEditorControls } from "./image-editor-controls";
 import { ConfirmDialog } from "./confirm-dialog";
-import { Slider } from "./slider";
 import {
   FlipHorizontal,
   FlipVertical,
@@ -48,9 +47,15 @@ import {
 import { ZipFilePickerModal } from "@/components/ui/zip-file-picker-modal";
 import {
   MEANINGFUL_REMOVAL_RATIO,
+  detectImageBackground,
   removeImageBackground,
+  type BackgroundDetection,
   type RemovalResult,
 } from "@/lib/image-background-removal";
+import {
+  isAiRemovalAvailable,
+  removeBackgroundWithAi,
+} from "@/lib/ai-background-removal";
 
 /**
  * Checkerboard backdrop shown behind any transparent image. Shared between the
@@ -60,19 +65,132 @@ import {
 const TRANSPARENCY_CHECKERBOARD =
   "repeating-conic-gradient(#f0f0f0 0% 25%, #ffffff 0% 50%) 50% / 20px 20px";
 
-/** Format an RGB triple as #RRGGBB for the detected-backdrop readout. */
-function formatRgbHex(colour: [number, number, number]): string {
-  return (
-    "#" +
-    colour
-      .map((channel) =>
-        Math.max(0, Math.min(255, Math.round(channel)))
-          .toString(16)
-          .padStart(2, "0"),
-      )
-      .join("")
-      .toUpperCase()
-  );
+
+/**
+ * Background-removal settings, fixed rather than offered.
+ *
+ * The editor is aimed at people who do not think in terms of colour distance, so the
+ * pipeline runs on one considered default instead of asking them to judge it:
+ *
+ * - Tolerance 12 maps to a ~13/255 RGB distance — enough to absorb the compression
+ *   noise around a nominally solid white or black backdrop, not enough to eat light
+ *   artwork.
+ * - Trimming the transparent margin is what makes the result usable at all: it is
+ *   what re-fits the logo to the artwork instead of to the backdrop frame.
+ *
+ * These are constants, not state, because nothing can change them — a control that
+ * cannot move is not state.
+ */
+const BACKGROUND_REMOVAL_TOLERANCE = 12;
+const BACKGROUND_REMOVAL_TRIM = true;
+
+/**
+ * Plain-language name for a backdrop colour — "white", "dark blue", "light gray".
+ *
+ * Used by the "Background Detected" offer, where the point is to confirm *which*
+ * part of the image we mean rather than to act as a colour picker.
+ *
+ * Naming by nearest reference colour (in RGB or in Lab) misfiles ordinary brand
+ * colours: pure blue is an outlier in Lab, so realistic navies such as #1F3A60 land
+ * nearer "teal" or "dark gray", and off-whites drift to "beige" on the strength of a
+ * single channel. Reading the hue family first and then the shade keeps the cases
+ * that actually occur exact — every near-white backdrop reads "white".
+ */
+
+/** Saturation (HSV) below which a colour carries no meaningful hue. */
+const NEUTRAL_MAX_SATURATION = 0.12;
+
+/** Hue-family boundaries, in degrees on the HSV wheel. */
+const HUE_RED_TO_ORANGE = 15;
+const HUE_ORANGE_TO_YELLOW = 45;
+const HUE_YELLOW_TO_GREEN = 70;
+const HUE_GREEN_TO_TEAL = 160;
+const HUE_TEAL_TO_BLUE = 190;
+const HUE_BLUE_TO_PURPLE = 255;
+const HUE_PURPLE_TO_PINK = 320;
+const HUE_PINK_TO_RED = 345;
+
+/** sRGB (0-255) → HSV, plus the HSL lightness used to pick a shade. */
+function toHsv(
+  rgb: [number, number, number],
+): { hue: number; saturation: number; value: number; lightness: number } {
+  const [r, g, b] = [rgb[0] / 255, rgb[1] / 255, rgb[2] / 255];
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const delta = max - min;
+
+  let hue = 0;
+  if (delta > 0) {
+    if (max === r) hue = 60 * (((g - b) / delta) % 6);
+    else if (max === g) hue = 60 * ((b - r) / delta + 2);
+    else hue = 60 * ((r - g) / delta + 4);
+  }
+  if (hue < 0) hue += 360;
+
+  return {
+    hue,
+    saturation: max === 0 ? 0 : delta / max,
+    value: max,
+    lightness: (max + min) / 2,
+  };
+}
+
+/** Greyscale shade from brightness — near-white backdrops all read "white". */
+function describeNeutralShade(brightness: number): string {
+  if (brightness >= 0.93) return "white";
+  if (brightness <= 0.08) return "black";
+  if (brightness >= 0.72) return "light gray";
+  if (brightness >= 0.35) return "gray";
+  return "dark gray";
+}
+
+function describeRgbColour(colour: [number, number, number]): string {
+  const rgb = colour.map((channel) =>
+    Math.max(0, Math.min(255, Math.round(channel))),
+  ) as [number, number, number];
+
+  const { hue, saturation, value, lightness } = toHsv(rgb);
+
+  // A near-grey has no meaningful hue, so naming it after one would be misleading.
+  if (saturation < NEUTRAL_MAX_SATURATION) {
+    return describeNeutralShade(value);
+  }
+
+  if (hue < HUE_RED_TO_ORANGE || hue >= HUE_PINK_TO_RED) {
+    if (lightness >= 0.8) return "pink";
+    if (lightness <= 0.32) return "dark red";
+    return "red";
+  }
+
+  if (hue < HUE_ORANGE_TO_YELLOW) {
+    if (lightness >= 0.85 && hue >= 30) return "beige";
+    if (lightness < 0.45) return "brown";
+    return "orange";
+  }
+
+  if (hue < HUE_YELLOW_TO_GREEN) {
+    return lightness >= 0.85 ? "beige" : "yellow";
+  }
+
+  if (hue < HUE_GREEN_TO_TEAL) {
+    if (lightness <= 0.2) return "dark green";
+    if (lightness >= 0.7) return "light green";
+    return "green";
+  }
+
+  if (hue < HUE_TEAL_TO_BLUE) {
+    return lightness >= 0.42 ? "cyan" : "teal";
+  }
+
+  if (hue < HUE_BLUE_TO_PURPLE) {
+    if (lightness <= 0.32) return "dark blue";
+    if (lightness >= 0.75) return "light blue";
+    return "blue";
+  }
+
+  if (hue < HUE_PURPLE_TO_PINK) return "purple";
+
+  return lightness <= 0.35 ? "purple" : "pink";
 }
 
 // Types for different use cases
@@ -462,28 +580,20 @@ export function UniversalImageEditorModal({
   } | null>(null);
 
   // --- Logo background removal ---
-  // Button-driven only: the pipeline runs from the Remove Background button and
-  // nowhere else. No detection on upload, none on modal open, and none while the
-  // tolerance slider is dragged. See plans/logo-background-removal.md.
+  // Button-driven: the removal runs from the Remove Background button and from the
+  // offer dialog's confirm, nowhere else. What used to be the user's two knobs —
+  // tolerance and trim — are now the locked BACKGROUND_REMOVAL_* constants, so this
+  // state holds only what the last run reported. The model itself is on the server, so
+  // there is no download to track here either. See plans/logo-background-removal.md.
   const [bgRemoval, setBgRemoval] = useState<{
-    tolerance: number;
-    trimEnabled: boolean;
     isProcessing: boolean;
     isRemoved: boolean;
-    detectedColor: [number, number, number] | null;
-    removedPercent: number | null;
-    trimmed: boolean;
     artworkRisk: boolean;
     info: string | null;
     error: string | null;
   }>({
-    tolerance: 12,
-    trimEnabled: true,
     isProcessing: false,
     isRemoved: false,
-    detectedColor: null,
-    removedPercent: null,
-    trimmed: false,
     artworkRisk: false,
     info: null,
     error: null,
@@ -492,6 +602,41 @@ export function UniversalImageEditorModal({
   // True when the source file is an SVG. Vector logos already carry their own
   // transparency, so the control is replaced by an explanatory note.
   const [sourceIsSvg, setSourceIsSvg] = useState(false);
+
+  /**
+   * Set when an uploaded logo arrives with a detectable backdrop, so the offer
+   * dialog can name the colour it found. Null means nothing to ask about — it is
+   * never populated for an image that was not just picked.
+   */
+  const [bgPrompt, setBgPrompt] = useState<BackgroundDetection | null>(null);
+
+  /** Source string already offered the prompt. Records the upload as soon as the
+   *  question is asked, and each processed source in `applySourceImage`, so the
+   *  question is asked once per picked file and never for a re-seeded canvas. */
+  const bgPromptedForRef = useRef<string | null>(null);
+
+  /**
+   * Before/after pair shown inside the offer dialog. `before` is the untouched
+   * upload; `result` is the removal the dialog is offering, kept whole rather than
+   * as a bare data URL so confirming can apply precisely what was previewed.
+   *
+   * `status` describes the pair's own work. The removal takes long enough to see on
+   * a large logo, so the dialog is told the panes are pending from the first frame
+   * rather than rendering an empty slot that fills in late; and when the work fails
+   * the dialog can say so instead of showing nothing. A preview is an aid, not the
+   * feature — a failure is reported, never allowed to block the offer.
+   */
+  const [bgPromptPreview, setBgPromptPreview] = useState<{
+    before: string;
+    status: "loading" | "ready" | "failed";
+    result: RemovalResult | null;
+    /**
+     * Which engine produced `result`. The confirm only reuses it when it matches the
+     * engine the confirm itself will run, so a quick colour preview can never be
+     * passed off as the model's result.
+     */
+    engine: "ai" | "colour";
+  } | null>(null);
 
   // Gates the canvas-init effect while a re-seed is pending, so the canvas is not
   // rebuilt with the previous bitmap's dimensions before the mode-detection
@@ -1559,13 +1704,8 @@ export function UniversalImageEditorModal({
       reseedPendingRef.current = false;
       setSourceIsSvg(false);
       setBgRemoval({
-        tolerance: 12,
-        trimEnabled: true,
         isProcessing: false,
         isRemoved: false,
-        detectedColor: null,
-        removedPercent: null,
-        trimmed: false,
         artworkRisk: false,
         info: null,
         error: null,
@@ -2032,8 +2172,8 @@ export function UniversalImageEditorModal({
   };
 
   /**
-   * Clear the background-removal state: the toggle label, the backdrop swatch,
-   * the trimmed/cleared readout and any warning from the last run.
+   * Clear the background-removal state: the toolbar toggle label and whatever the
+   * last run had to say about itself.
    *
    * Shared by the toolbar Undo and by Reset. Reset rebuilds the image from
    * `originalImageSrc` — the untouched upload — so it undoes a removal by
@@ -2045,9 +2185,6 @@ export function UniversalImageEditorModal({
     setBgRemoval((prev) => ({
       ...prev,
       isRemoved: false,
-      detectedColor: null,
-      removedPercent: null,
-      trimmed: false,
       artworkRisk: false,
       info: null,
       error: null,
@@ -2324,18 +2461,26 @@ export function UniversalImageEditorModal({
     reseedPendingRef.current = true;
     setPreviews({});
     setImageSrc(nextSrc);
+    // The re-seeded source must never re-open the "Background Detected" prompt:
+    // a removal result is not a new upload, and its backdrop was just removed.
+    bgPromptedForRef.current = nextSrc;
   };
 
   /**
    * The single entry point into the removal pipeline — wired only to the
-   * Remove Background / Re-apply button.
+   * Remove Background button and to the offer dialog's confirm.
    *
    * Always reads from `originalImageSrc` (the untouched upload) rather than the
-   * current `imageSrc`, so pressing the button again with a different tolerance
-   * re-derives from a clean source instead of compounding one removal on top of
-   * another.
+   * current `imageSrc`, so undoing and running again re-derives from a clean source
+   * instead of compounding one removal on top of another. Both options come from the
+   * locked BACKGROUND_REMOVAL_* constants — the user is never asked to judge a
+   * colour distance.
+   *
+   * `precomputed` carries the result the offer dialog already produced for its
+   * "After" pane, so the applied image is exactly the previewed one and the pixels
+   * are not processed a second time.
    */
-  const handleRemoveBackground = async () => {
+  const handleRemoveBackground = async (precomputed?: RemovalResult) => {
     if (!originalImageSrc || bgRemoval.isProcessing) return;
 
     setBgRemoval((prev) => ({
@@ -2345,14 +2490,42 @@ export function UniversalImageEditorModal({
       info: null,
     }));
 
+    // Set inside the AI branch when the model cannot run, and reported once the removal
+    // has finished either way.
+    let aiFailureReason: string | null = null;
+
     try {
-      const result: RemovalResult = await removeImageBackground(
-        originalImageSrc,
-        {
-          tolerance: bgRemoval.tolerance,
-          trim: bgRemoval.trimEnabled,
-        },
-      );
+      let result: RemovalResult;
+      let usedAi = false;
+
+      if (precomputed) {
+        result = precomputed;
+      } else if (isAiRemovalAvailable()) {
+        // The model first: it handles what a colour key cannot — a gradient, a shadow,
+        // a scene behind the mark. The colour pipeline is the fallback rather than the
+        // default, and when it takes over the card says so instead of quietly
+        // delivering a different result than the button promises.
+        try {
+          result = await removeBackgroundWithAi(originalImageSrc);
+          usedAi = true;
+        } catch (aiError) {
+          result = await removeImageBackground(originalImageSrc, {
+            tolerance: BACKGROUND_REMOVAL_TOLERANCE,
+            trim: BACKGROUND_REMOVAL_TRIM,
+          });
+          // The card reports this after the run; carrying it out of the catch keeps the
+          // "what actually happened" note in one place.
+          aiFailureReason =
+            aiError instanceof Error
+              ? aiError.message
+              : "The background model could not run.";
+        }
+      } else {
+        result = await removeImageBackground(originalImageSrc, {
+          tolerance: BACKGROUND_REMOVAL_TOLERANCE,
+          trim: BACKGROUND_REMOVAL_TRIM,
+        });
+      }
 
       applySourceImage(result.dataUrl);
       // The trimmed artwork has a different aspect ratio, so fit it back to the
@@ -2365,17 +2538,22 @@ export function UniversalImageEditorModal({
           ? "This logo already had a transparent background, so there were no background pixels to remove. The empty edges have been trimmed."
           : "This logo already had a transparent background, so there were no background pixels to remove.";
       } else if (result.removedRatio < MEANINGFUL_REMOVAL_RATIO) {
-        info =
-          "No background pixels matched at this tolerance. Raise the tolerance and press Re-apply.";
+        // There is no slider to point at any more, so this explains instead of
+        // instructing — and it has to explain the right engine: the colour pass looks
+        // for a flat backdrop, the model looks for a subject.
+        info = usedAi
+          ? "The model found nothing to remove — this image may already have a transparent background."
+          : "Nothing could be removed automatically. This logo's edges may not be one flat colour.";
+      }
+
+      if (aiFailureReason) {
+        info = `Used the quick colour method instead — ${aiFailureReason}`;
       }
 
       setBgRemoval((prev) => ({
         ...prev,
         isProcessing: false,
         isRemoved: true,
-        detectedColor: result.detectedColor,
-        removedPercent: result.removedRatio * 100,
-        trimmed: result.trimmed,
         artworkRisk: result.artworkRisk,
         info,
         error: null,
@@ -2398,6 +2576,116 @@ export function UniversalImageEditorModal({
     clearBgRemovalState();
     applySourceImage(originalImageSrc);
   };
+
+  /**
+   * Offer the removal feature when an upload arrives with a solid backdrop.
+   *
+   * `detectImageBackground()` is a dry run — pixels are read and reported, never
+   * written — so running it here does not alter the brand asset. The user still has
+   * to accept the offer, and the manual button remains available either way.
+   *
+   * Gated twice so it asks exactly once per uploaded file:
+   *  - `fileSelectionRef` is true only for a file the user just picked, so
+   *    re-opening the editor on an existing image never triggers it;
+   *  - `bgPromptedForRef` records the source string, so re-seeding the canvas
+   *    mid-edit, and undoing a removal back to the original, do not ask again.
+   */
+  useEffect(() => {
+    if (!config.allowBackgroundRemoval) return;
+    if (!imageSrc || sourceIsSvg) return;
+    if (!fileSelectionRef.current) return;
+    if (bgPromptedForRef.current === imageSrc) return;
+    bgPromptedForRef.current = imageSrc;
+
+    let cancelled = false;
+    void (async () => {
+      const detection = await detectImageBackground(imageSrc, {
+        tolerance: BACKGROUND_REMOVAL_TOLERANCE,
+      });
+      if (cancelled || !detection.hasBackground) return;
+      setBgPrompt(detection);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // Only a new source re-runs this. With the tolerance locked there is no control
+    // left that could invalidate a previous answer, so nothing else needs to re-run
+    // it — and re-asking about a file the user has already answered for would be
+    // exactly the nagging the gating above exists to prevent.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imageSrc, sourceIsSvg, config.allowBackgroundRemoval]);
+
+
+  /**
+   * Build the before/after pair while the offer is on screen: the untouched upload
+   * beside the removal being offered, so the user sees what changes rather than
+   * having to take the wording on trust.
+   *
+   * Runs the same call the confirm action would, and keeps the whole result so the
+   * preview and the applied image cannot diverge.
+   */
+  useEffect(() => {
+    if (!bgPrompt || !originalImageSrc) {
+      setBgPromptPreview(null);
+      return;
+    }
+
+    // Render the pair immediately with the "After" pane pending, so the dialog has
+    // its final shape while the pixels are processed rather than growing under the
+    // user's cursor when they land. The engine is filled in below; with no result on
+    // screen yet, the provisional value is invisible.
+    setBgPromptPreview({
+      before: originalImageSrc,
+      status: "loading",
+      result: null,
+      engine: isAiRemovalAvailable() ? "ai" : "colour",
+    });
+
+    let cancelled = false;
+    void (async () => {
+      // The model when the route is reachable — its result is exactly what the confirm
+      // will apply, so the pair shows the real thing — and the colour pass otherwise.
+      // Nothing here downloads anything: the weights live on the server, so this costs a
+      // request instead of 168 MB. The caption under the pair still names the engine, so
+      // a colour pass can never be read as the model's work.
+      const engine: "ai" | "colour" = isAiRemovalAvailable() ? "ai" : "colour";
+      const useModel = engine === "ai";
+      if (cancelled) return;
+
+      try {
+        const result = useModel
+          ? await removeBackgroundWithAi(originalImageSrc)
+          : await removeImageBackground(originalImageSrc, {
+              tolerance: BACKGROUND_REMOVAL_TOLERANCE,
+              trim: BACKGROUND_REMOVAL_TRIM,
+            });
+        if (cancelled) return;
+        setBgPromptPreview({
+          before: originalImageSrc,
+          status: "ready",
+          result,
+          engine,
+        });
+      } catch {
+        // The preview is an aid, not the feature — the offer still stands without it.
+        if (cancelled) return;
+        setBgPromptPreview({
+          before: originalImageSrc,
+          status: "failed",
+          result: null,
+          engine,
+        });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // Built once per offer. The engine choice is settled at that moment and the card's
+    // own controls are behind the dialog, so nothing can change what it refers to.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bgPrompt, originalImageSrc]);
 
   const autoSizeImage = () => {
     if (!fabricCanvasRef.current) return;
@@ -2885,7 +3173,7 @@ export function UniversalImageEditorModal({
                         <div className="flex items-center gap-1.5">
                           <Wand2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-accent-blue flex-shrink-0" />
                           <h4 className="text-[10px] sm:text-xs md:text-sm font-semibold text-gray-900 dark:text-gray-100">
-                            Background
+                            Remove Background
                           </h4>
                         </div>
 
@@ -2898,10 +3186,10 @@ export function UniversalImageEditorModal({
                         ) : (
                           <>
                             <p className="text-[9px] sm:text-[10px] md:text-xs text-gray-600 dark:text-gray-400">
-                              Removes a solid white or black backdrop, trims the
-                              empty space around the artwork and fits the result
-                              to the guide, so the logo is sized by the artwork
-                              itself. Press{" "}
+                              Removes the background — a solid colour, a gradient
+                              or a photo behind the logo — trims the empty space
+                              around the artwork and fits the result to the guide,
+                              so the logo is sized by the artwork itself. Press{" "}
                               <strong>
                                 {bgRemoval.isRemoved
                                   ? "Undo Background Removal"
@@ -2910,93 +3198,17 @@ export function UniversalImageEditorModal({
                               next to Auto-size.
                             </p>
 
-                            {/* Tolerance is a value the next press consumes — dragging it alone never re-runs. */}
-                            <div className="space-y-1">
-                              <div className="flex items-center justify-between">
-                                <Label className="text-[10px] sm:text-xs md:text-sm">
-                                  Tolerance
-                                </Label>
-                                <span className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground">
-                                  {Math.round(bgRemoval.tolerance)}%
-                                </span>
-                              </div>
-                              <Slider
-                                value={[bgRemoval.tolerance]}
-                                onValueChange={([value]) =>
-                                  setBgRemoval((prev) => ({
-                                    ...prev,
-                                    tolerance: value,
-                                  }))
-                                }
-                                min={0}
-                                max={100}
-                                step={1}
-                                disabled={
-                                  isSaving ||
-                                  isLoading ||
-                                  bgRemoval.isProcessing
-                                }
-                                className="w-full"
-                              />
+                            {/* The model runs on the server, so a removal is a request
+                                rather than a local computation. Saying so is the honest
+                                version of a spinner: it explains the wait on the first
+                                run of a cold instance, when the weights are still being
+                                loaded. Nothing is downloaded here — that was the point of
+                                moving it. */}
+                            {bgRemoval.isProcessing && (
                               <p className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground">
-                                Undo first, then press again to re-run with a new
-                                tolerance.
+                                Removing the background on the server — this can take
+                                a few seconds the first time.
                               </p>
-                            </div>
-
-                            <div className="flex items-center space-x-1.5 sm:space-x-2">
-                              <input
-                                type="checkbox"
-                                id="trimTransparentEdges"
-                                checked={bgRemoval.trimEnabled}
-                                onChange={(e) =>
-                                  setBgRemoval((prev) => ({
-                                    ...prev,
-                                    trimEnabled: e.target.checked,
-                                  }))
-                                }
-                                disabled={
-                                  isSaving ||
-                                  isLoading ||
-                                  bgRemoval.isProcessing
-                                }
-                                className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                              />
-                              <label
-                                htmlFor="trimTransparentEdges"
-                                className="text-[10px] sm:text-xs md:text-sm font-medium"
-                              >
-                                Trim transparent edges
-                              </label>
-                            </div>
-
-                            {(bgRemoval.isRemoved ||
-                              bgRemoval.detectedColor) && (
-                              <div className="space-y-1 pt-0.5">
-                                {bgRemoval.detectedColor && (
-                                  <div className="flex items-center gap-2">
-                                    <span
-                                      className="h-3.5 w-3.5 rounded border border-gray-300 dark:border-gray-600 flex-shrink-0"
-                                      style={{
-                                        backgroundColor: `rgb(${bgRemoval.detectedColor[0]}, ${bgRemoval.detectedColor[1]}, ${bgRemoval.detectedColor[2]})`,
-                                      }}
-                                      aria-hidden="true"
-                                    />
-                                    <span className="text-[9px] sm:text-[10px] md:text-xs text-gray-600 dark:text-gray-400">
-                                      Backdrop{" "}
-                                      {formatRgbHex(bgRemoval.detectedColor)}
-                                      {bgRemoval.removedPercent != null
-                                        ? ` — ${Math.round(
-                                            bgRemoval.removedPercent,
-                                          )}% cleared`
-                                        : ""}
-                                      {bgRemoval.trimmed
-                                        ? " — trimmed to artwork"
-                                        : ""}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
                             )}
 
                             {bgRemoval.artworkRisk && (
@@ -3455,7 +3667,9 @@ export function UniversalImageEditorModal({
                           onClick={
                             bgRemoval.isRemoved
                               ? handleResetBackground
-                              : handleRemoveBackground
+                              : // Wrapped so the click event is not read as the
+                                // optional precomputed result.
+                                () => void handleRemoveBackground()
                           }
                           disabled={
                             isSaving || isLoading || bgRemoval.isProcessing
@@ -3581,6 +3795,115 @@ export function UniversalImageEditorModal({
         cancelText="Cancel"
         variant="warning"
       />
+
+      {/* Uploaded logo with a solid backdrop — ask before altering a brand asset.
+          Declining leaves the image exactly as uploaded; the Remove Background
+          button stays available for a manual press. Two ways to say no, because
+          "no" means two things here: Keep Original answers the offer ("don't touch
+          my logo") while Cancel just closes the question. Both are byte-for-byte
+          no-ops on the asset. */}
+      <ConfirmDialog
+        open={!!bgPrompt}
+        onOpenChange={(open) => {
+          if (!open) setBgPrompt(null);
+        }}
+        onConfirm={async () => {
+          // Apply the previewed pixels only when they came from the engine the confirm
+          // will itself use — otherwise the dialog would show the colour pass while
+          // promising the model's result. Awaited so the dialog's busy state covers real
+          // work rather than closing over a removal that has not finished.
+          const preview = bgPromptPreview;
+          const engineNow: "ai" | "colour" = isAiRemovalAvailable()
+            ? "ai"
+            : "colour";
+          const precomputed =
+            preview?.status === "ready" && preview.engine === engineNow
+              ? preview.result ?? undefined
+              : undefined;
+          setBgPrompt(null);
+          await handleRemoveBackground(precomputed);
+        }}
+        title="Background Detected"
+        description={
+          bgPrompt?.color
+            ? `This logo was uploaded with a solid ${describeRgbColour(
+                bgPrompt.color,
+              )} background covering about ${Math.max(
+                1,
+                Math.round(bgPrompt.coverage * 100),
+              )}% of the image. Remove it?`
+            : "This logo was uploaded with a solid background. Remove it?"
+        }
+        confirmText="Remove Background"
+        cancelText="Keep Original"
+        extraCancelText="Cancel"
+        loadingText="Removing…"
+        variant="info"
+      >
+        {/* Side-by-side pair, so the offer shows the change it is describing. The
+            "After" pane keeps the checkerboard used elsewhere in the editor, which
+            is what makes the removed backdrop legible. Both panes are rendered at
+            their final height from the first frame: the pair is what the dialog is
+            sized around, so the "After" pane holds a spinner until the removal lands
+            instead of leaving an empty slot that fills in late. */}
+        {bgPromptPreview && (
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-3">
+              <figure className="m-0 space-y-1.5">
+                <div className="flex h-28 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-white p-2 dark:border-gray-700 dark:bg-gray-800">
+                  <img
+                    src={bgPromptPreview.before}
+                    alt="Logo as uploaded"
+                    className="max-h-full max-w-full object-contain"
+                  />
+                </div>
+                <figcaption className="text-center text-xs font-medium text-gray-600 dark:text-gray-400">
+                  Before
+                </figcaption>
+              </figure>
+              <figure className="m-0 space-y-1.5">
+                <div
+                  className="flex h-28 items-center justify-center overflow-hidden rounded-lg border border-gray-200 p-2 dark:border-gray-700"
+                  style={{ background: TRANSPARENCY_CHECKERBOARD }}
+                >
+                  {bgPromptPreview.status === "ready" &&
+                  bgPromptPreview.result ? (
+                    <img
+                      src={bgPromptPreview.result.dataUrl}
+                      alt="Logo with the background removed"
+                      className="max-h-full max-w-full object-contain"
+                    />
+                  ) : bgPromptPreview.status === "failed" ? (
+                    <span className="px-2 text-center text-[11px] leading-tight text-gray-500 dark:text-gray-400">
+                      Preview unavailable
+                    </span>
+                  ) : (
+                    <Loader2 className="h-4 w-4 animate-spin text-accent-blue" />
+                  )}
+                </div>
+                <figcaption className="text-center text-xs font-medium text-gray-600 dark:text-gray-400">
+                  After
+                </figcaption>
+              </figure>
+            </div>
+            {bgPromptPreview.status === "failed" && (
+              <p className="text-center text-[11px] text-gray-500 dark:text-gray-400">
+                The preview could not be generated, but the background can still
+                be removed.
+              </p>
+            )}
+            {/* Says which engine the pair shows, because confirm runs the model: a
+                colour-key approximation must not read as the promise. */}
+            {bgPromptPreview.status === "ready" &&
+              bgPromptPreview.engine === "colour" &&
+              isAiRemovalAvailable() && (
+                <p className="text-center text-[11px] text-gray-500 dark:text-gray-400">
+                  Quick preview. The background model runs when you confirm.
+                </p>
+              )}
+          </div>
+        )}
+      </ConfirmDialog>
     </div>
   );
 }

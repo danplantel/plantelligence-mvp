@@ -44,6 +44,12 @@ next-env.d.ts
 # chromium binaries (copied from node_modules during postinstall)
 chromium-bin/
 
+# Background-removal model weights — fetched by `npm run models:fetch`.
+# Kept out of git deliberately: the file is ~168 MB and belongs to the deployment,
+# not the repository. The API route reads it from here (or downloads it to a temp
+# cache when the deployment cannot carry it — see lib/server/background-removal.ts).
+models/
+
 # package managers — pnpm is canonical (see packageManager in package.json)
 package-lock.json
 yarn.lock

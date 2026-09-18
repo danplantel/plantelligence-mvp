@@ -22,17 +22,30 @@ margins must also be trimmed, or the math stays wrong.
 
 ## Decision
 
-Client-side only. No new dependencies, no API routes, works offline, instant.
+No third-party service, no API key, no per-image cost. The colour pipeline runs entirely
+in the browser; the segmentation model (Phase 5) runs in our own API route, because its
+weights are 168 MB and no visitor should pay for them.
 
-Pipeline: **detect the backdrop colour from the image border → flood-fill it away
-with a tolerance slider → soft-edge the anti-aliased rim → trim the transparent
-margins → re-seed the editor.**
+Two engines, one interface, one result type:
 
-**Button-driven, never automatic.** The entire pipeline runs only when the user
-presses the Remove Background button. Nothing runs on upload, nothing runs when
-the modal opens, and nothing runs while the tolerance slider is dragged. The
-tolerance and trim controls are inputs that the next button press consumes.
-Logos are brand assets; the editor must never alter one on its own initiative.
+- **The model** (Phase 5) — ISNet segmentation in our API route, which is how a
+  gradient, a shadow or a photo behind the subject gets removed at all. The default.
+- **The colour key** — detect the backdrop colour from the image border → flood-fill
+  it away → matte the blended rim. Instant, no download; the fallback when the model
+  cannot run, and the dry run the offer dialogue asks its question with.
+
+Both end the same way: **trim the transparent margins → re-seed the editor.**
+
+**Button-driven, never automatic.** The pipeline proper runs only when the user
+presses Remove Background, or confirms the one offer described in §2.6 — and that
+offer is a question that edits nothing. Logos are brand assets; the editor never
+alters one on its own initiative.
+
+**No knobs.** Tolerance and trim are *not* exposed. This editor is aimed at people
+who do not think in terms of colour distance, so both are fixed constants in the
+modal — `BACKGROUND_REMOVAL_TOLERANCE = 12` and `BACKGROUND_REMOVAL_TRIM = true`.
+The library still accepts them as options, which is what keeps the choice
+reversible without touching the pipeline.
 
 ```mermaid
 flowchart TD
@@ -41,7 +54,7 @@ flowchart TD
     B --> C[Detect backdrop from 1px border ring]
     C -->|uniform backdrop found| D[Connected flood fill from border]
     C -->|non-uniform| E[Report no solid background]
-    D --> F[Soft edge / halo pass]
+    D --> F[Matte the blended rim]
     F --> G[Trim transparent margins]
     G --> H[PNG data URL]
     H --> I[Re-seed Fabric canvas]
@@ -54,15 +67,21 @@ flowchart TD
 In scope:
 
 - `type="logo"` and `type="normalizer"` only — the two configs that edit logos.
-- **Button-driven only.** The pipeline runs exclusively from the Remove
-  Background button press, and the button lives in the card for these two types.
+- **Button-driven only.** The removal runs exclusively from the Remove Background
+  button press, or from the offer dialogue's confirm, and the button lives in the
+  card for these two types.
 - Transparency-safe presentation of the result in the editor and previews.
+- Photographic, gradient and textured backdrops — via the browser-side segmentation
+  model in Phase 5.
 
 Out of scope:
 
 - `headshot` and `custom` — a face photo or a hero background has no backdrop to
   remove; the control stays hidden.
-- AI/model-based removal for photographic or gradient backdrops.
+- Any hosted removal service. No API keys, no credits, no image leaving the browser:
+  the model is downloaded once and the pixels never move.
+- Subject-matter segmentation for its own sake (cutting a product out of a scene,
+  say) — the control exists to fix a logo, not to become an editor.
 - [`simple-image-editor-modal.tsx`](components/ui/simple-image-editor-modal.tsx:1).
   The helper library will be written so it can be adopted there later.
 
@@ -87,7 +106,7 @@ export interface BorderDetection {
 }
 
 export interface RemovalOptions {
-  /** 0-100 from the UI slider. */
+  /** 0-100. The editor passes a fixed default, not a user-facing slider. */
   tolerance: number;
   /** Remove the anti-aliased rim / colour fringe. Default true. */
   softEdge?: boolean;
@@ -176,11 +195,11 @@ inside a coloured badge or a white highlight inside a mark. Instead:
   **reachable from the border** and within `tolerance` of the backdrop colour.
 - Expansion stops naturally at the artwork, so all enclosed regions survive.
 
-Tolerance mapping: slider 0-100 → RGB Euclidean distance `4 + (t / 100) * 76`.
-Default 12 (~13/255), which covers JPEG compression noise around a nominally
+Tolerance mapping: 0-100 → RGB Euclidean distance `4 + (t / 100) * 76`. The editor
+passes 12 (~13/255), which covers JPEG compression noise around a nominally
 white backdrop without eating light artwork.
 
-### 1.4 Soft edges
+### 1.4 Soft edges and the contaminated rim
 
 Anti-aliased artwork edges leave a rim of half-backdrop pixels, which reads as a
 grey halo on a white backdrop. After the fill, for each transparent pixel with an
@@ -189,7 +208,32 @@ opaque neighbour at distance `d` from the backdrop colour:
 - `d < tolerance` → clear it as well.
 - `tolerance <= d < tolerance * 2` → set
   `alpha = clamp((d - tolerance) / tolerance, 0, 1) * 255` — a cheap alpha-matte
-  approximation that fades the halo out instead of leaving a hard step.
+  approximation that fades the halo out instead of leaving a hard step — **and**
+  un-premultiply the colour at that coverage:
+  `artwork = (observed - (1 - coverage) * backdrop) / coverage`.
+
+The colour half is not optional. Lowering alpha alone leaves a pixel whose RGB is
+still mostly backdrop, which is exactly the pale edge people report as "some of the
+background is still there": at 40 % coverage on a white backdrop it stays white
+wherever it is composited.
+
+Neither rule reaches a pixel blended *heavily* with the backdrop. A 50/50 blend of
+dark navy and white sits ~180 from white — and even a 95 %-artwork blend stays
+~330 away — so no tolerance catches it, and cutting it away geometrically would shave
+real artwork off the silhouette to hide the symptom.
+
+What identifies such a pixel is the mix itself: `observed = coverage * artwork +
+(1 - coverage) * backdrop`, solvable because the artwork colour is the colour of the
+ring just inside it. `matteBoundaryRing()` projects the observed colour onto the line
+from the backdrop to that colour, writes the coverage it finds as the pixel's alpha,
+and un-premultiplies the colour. The pale, backdrop-tinged ring becomes the
+anti-aliased edge the artwork actually has. It runs `EDGE_MATTE_PASSES` (2) rings
+deep, so a wider JPEG fringe is worked inward — each pass takes its reference from the
+next ring in and skips what it already solved. Nothing is ever removed: where there is
+no interior colour to solve against (a 1-2 px wireframe, or artwork whose colour *is*
+the backdrop colour) the pixel is left exactly as it was, and the artwork-risk warning
+covers the latter. The soft edge above then runs only over what the matte deliberately
+left alone.
 
 ### 1.5 Trim
 
@@ -200,7 +244,9 @@ Return `trimmed: false` when the box already matches the full frame.
 
 ### 1.6 Reporting
 
-- `removedRatio < 0.005` → "No background pixels matched. Increase the tolerance."
+- `removedRatio < 0.005` → "Nothing could be removed automatically. This logo's
+  edges may not be one flat colour." There is no tolerance for the user to raise,
+  so the line explains rather than instructs.
 - `alreadyTransparent && removedRatio < 0.005` → "This logo already has a
   transparent background." (still offer trim, which is independently useful)
 
@@ -292,18 +338,17 @@ matching the existing cleanup at
 
 ### 2.3 State
 
-Add `backgroundRemoval` state: `tolerance` (12), `isProcessing`, `isRemoved`,
-`detectedColor`, `alreadyTransparent`, `error`, `trimEnabled` (true), plus a ref
-holding the bitmap the pipeline reads from.
+Add `bgRemoval` state holding only what the last run reported: `isProcessing`,
+`isRemoved`, `artworkRisk`, `info`, `error`. The locked settings are module
+constants, not state — a control that cannot move is not state.
 
-There is no effect, watcher, or on-load call anywhere in this state — the only
-entry point into the pipeline is the `onRemove` handler wired to the button.
-`tolerance` and `trimEnabled` sit inert until the next press.
+There is no effect, watcher, or on-load call anywhere in this state — the entry
+points into the pipeline are the toolbar button and the offer dialog's confirm.
 
 The pipeline always processes from the **original upload**, never from its own
-output, so pressing the button a second time re-derives from a clean source
-instead of compounding — a second press with a higher tolerance is not a second
-removal pass over already-cleared pixels. That same ref makes
+output, so undoing and running again re-derives from a clean source instead of
+compounding — it is never a second removal pass over already-cleared pixels. That
+same ref makes
 "Reset Background" a one-liner.
 
 Reset all of this in the modal-close effect at
@@ -330,13 +375,13 @@ existing at all — it rendered, in the DOM, off the edge. `flex-wrap` plus `gap
 on the row is what keeps it visible; removing those classes silently hides the
 button again.
 
-The **settings and status** stay in a card at the top of the right info panel
-([line 2757](components/ui/universal-image-editor-modal.tsx:2757)), above the
-existing Logo Guidelines card: Tolerance, Trim transparent edges, Reset
-Background, the detected-backdrop readout and the warning/info lines. Splitting
-them this way keeps one primary action (in the toolbar) while the panel holds the
-inputs that action consumes. The panel is already `overflow-y-auto`; the toolbar
-is not scrollable, which is why the action belongs there.
+The **status** stays in a card at the top of the right info panel, above the
+existing Logo Guidelines card: the header, the one-paragraph explanation of what
+the button does, and the warning/info lines — including the artwork-risk warning,
+whose escape hatch is the toolbar undo. Splitting them this way keeps one primary
+action (in the toolbar) while the panel explains it. The panel is already
+`overflow-y-auto`; the toolbar is not scrollable, which is why the action belongs
+there.
 
 **The button is a two-state toggle.** One control, no separate undo affordance:
 
@@ -345,10 +390,10 @@ is not scrollable, which is why the action belongs there.
 | Nothing removed yet | **Remove Background** | Runs the pipeline, then auto-sizes |
 | Removal applied | **Undo Background Removal** | Re-seeds the original upload |
 
-Undoing restores the untouched original, so a second removal always re-runs from
-a clean source rather than compounding on the first result — which is also how a
-user re-runs with a different tolerance: undo, adjust, press again. The card's
-hint says exactly that.
+Undoing restores the untouched original, so a second removal always re-runs from a
+clean source rather than compounding on the first result. Nothing has to be
+re-tuned between runs — the settings are fixed — so the card says only what the
+button does, never what to adjust first.
 
 **Reset undoes a removal too.** `resetImage()` already rebuilds from
 `originalImageSrc`, so it undid the *image* — but it left `bgRemoval` untouched,
@@ -373,17 +418,19 @@ make the repeat runs free.
 
 Card contents:
 
-- **Tolerance** slider — a plain value consumed by the next press. Dragging it
-  changes nothing on its own.
-- **Trim transparent edges** — checkbox, consumed by the same press.
-- Detected backdrop swatch, "No solid background detected", or the
-  already-transparent note — populated only from the last completed run, so the
-  card is blank until the first press.
-- Inline error/info line for the two reporting cases above.
+- The **Background** header and one paragraph naming the button in whichever state
+  it is in and saying what it does — including that the background may be a solid
+  colour, a gradient or a photo, now that a model rather than a colour key decides.
+- One line while a removal is in flight, saying it is running on the server and that the
+  first time can take a few seconds — the honest version of a spinner, since there is no
+  download to report progress for any more.
+- Inline error/info line for the two reporting cases above, populated only from the
+  last completed run, so the card says nothing extra until the first press.
 - The artwork-risk warning, whose escape hatch is the toolbar undo.
 
-The card deliberately holds **no** action button: undo and re-run both live on
-the single toolbar control, so there is exactly one press to find.
+Nothing the user can set. The card deliberately holds **no** action button either:
+undo and re-run both live on the single toolbar control, so there is exactly one
+press to find and no dials to wonder about.
 
 ### 2.5 SVG
 
@@ -393,6 +440,42 @@ an SVG through an `<img>` yields its intrinsic size, which is often small, and
 detection on vector art is unreliable. Recommended default: hide the control for
 SVG sources and show a short note that SVG logos are already vector and carry
 their own transparency. Revisit only if a real SVG case needs it.
+
+### 2.6 The offer dialog — the one automatic path, and why it is safe
+
+A logo picked with a solid backdrop is shown a **Background Detected** dialog. It
+names the colour it found, states how much of the frame the backdrop covers, and
+shows the removal as a before/after pair so the user sees the change being
+described rather than taking the wording on trust.
+
+This is the only feature code that runs without a press, so the safeguards are
+load-bearing:
+
+- **Detection is a dry run.** [`detectImageBackground()`](lib/image-background-removal.ts:700)
+  reads pixels and reports (`hasBackground`, `color`, `uniformity`, `coverage`).
+  [`removeImageBackground()`](lib/image-background-removal.ts:582) is still the only
+  function that writes a pixel, and it is reached only from the dialog's confirm or
+  from the toolbar button.
+- **Asked once per picked file.** Gated on `fileSelectionRef` (a file chosen in
+  this session) so re-opening the editor on a stored logo never asks, and on
+  `bgPromptedForRef` so a re-seed or an undo back to the original does not re-ask.
+  `applySourceImage()` records each processed source in the same ref, so a removal
+  result never re-opens the prompt.
+- **Declining changes nothing.** The dialog has two dismiss actions, because "no"
+  carries two readings: **Keep Original** answers the offer, **Cancel** closes the
+  question. Both leave the image exactly as uploaded and the toolbar button
+  available for a manual press. (`ConfirmDialog.extraCancelText` exists for this
+  second dismissive; it sizes beside the cancel button rather than replacing it.)
+- **The pair and the applied image cannot diverge.** The preview runs the same call
+  the confirm would, and the whole [`RemovalResult`](lib/image-background-removal.ts:88)
+  is kept — confirming applies precisely what was previewed instead of processing
+  the pixels a second time.
+- **A failure is reported, never blocking.** The pair renders at its final height
+  from the first frame, the "After" pane holds a spinner while the removal runs, and
+  a failed preview says so; the offer still stands and the confirm falls back to
+  running the pipeline itself.
+- **A flat block is not offered.** `OFFER_MAX_COVERAGE` (0.985) suppresses the
+  prompt when the backdrop is essentially the whole frame.
 
 ## Phase 3 — Transparency-safe presentation
 
@@ -432,10 +515,70 @@ which is the point of the feature.
 - Adopt the helper in [`simple-image-editor-modal.tsx`](components/ui/simple-image-editor-modal.tsx:1)
   if banner or thumbnail artwork ever needs it.
 
-Deliberately excluded: any upload-time detection, modal-open detection, or
-automatic "we noticed a solid backdrop" suggestion. Every one of those requires
-analysing the user's image before they ask for it, which is the behaviour being
-avoided. The card stays inert until the button is pressed.
+Deliberately excluded: automatic removal, any tuning UI (tolerance, trim, colour
+override, eyedropper), and any detection beyond the one-shot offer in §2.6. The
+single default is meant to be right often enough that a dial would only add a way
+to get it wrong. The offer is a *question*, asked once per picked file, and it edits
+nothing: the dry run is the only reason it may run before the user asks.
+
+## Phase 5 — The segmentation model (the remove.bg-grade path)
+
+Everything above clears a backdrop by *colour*. That works on the flat backdrops the
+feature was designed around, and it is instant and free — but it cannot touch a
+gradient, a drop shadow, or a photo behind the subject, and no amount of tolerance or
+edge matting changes that. A colour key assumes the background is one colour the user
+can see; those cases have no such colour.
+
+remove.bg solves it with a segmentation model, and so does this now — but **on the
+server**, not in the browser:
+
+```mermaid
+flowchart LR
+    A[Editor holds the upload] --> B[Downscale to 1024², flatten onto white]
+    B --> C[POST /api/remove-background]
+    C --> D[sharp decodes]
+    D --> E[ISNet predicts a 1024² matte]
+    E --> F[Mask PNG back to the browser]
+    F --> G[Applied to the full-resolution original]
+    G --> H[Trim, re-seed, auto-fit]
+```
+
+The client applies the mask to the artwork it already holds, so **the file that gets
+saved never leaves the browser**: only a downscaled derivative goes up, and only the
+matte comes back. [`lib/background-removal.server.ts`](lib/background-removal.server.ts:1)
+owns the model; [`lib/ai-background-removal.ts`](lib/ai-background-removal.ts:1) is the
+client half, returning the same
+[`RemovalResult`](lib/image-background-removal.ts:88) as the colour pipeline so nothing
+downstream can tell which engine ran.
+
+| Decision | Why |
+| --- | --- |
+| **Server, not browser** | The weights are ~168 MB. In the browser every visitor paid that once; here it is paid once per deployment, by the deployer, at a time they choose. That is the entire reason for the move. |
+| **Model**: ISNet general-use, `imgly/isnet-general-onnx` | MIT weights, the same model class remove.bg's lineage uses. The IMG.LY *package* that ships it is AGPL-3.0 — a problem for a commercial product — so only the weights are used, from their MIT model repo. |
+| **Runtime**: `onnxruntime-node` (Apache-2.0) plus `sharp` | Both already dependencies. `serverComponentsExternalPackages` lists ORT so its platform binding stays loadable — bundling rewrites the path it resolves the `.node` file by. |
+| **Weights in `models/`, gitignored** | Fetched by `pnpm run models:fetch`; `outputFileTracingIncludes` adds them to the route's trace. 168 MB does not belong in git, and a truncated file is rejected rather than loaded — a partial graph fails deep inside the protobuf parser, where it reads like corruption. |
+| **Fallback: download to temp, once per instance** | For deployments that cannot carry 168 MB inside the function (Vercel's unzipped limit is 250 MB, and the native runtime takes a sizeable bite of it). `BG_MODEL_PATH` and `BG_MODEL_URL` pick the path; either way a warm instance serves from disk. |
+| **Input: a 1024² derivative, not the original** | The model's input is 1024², so uploading more buys no accuracy and would breach the platform's request-body limit. Transparency is flattened onto white client-side, mirroring the server, so a logo that already has alpha is segmented as the opaque image the model was trained on. |
+| **Mask returned as the alpha channel of an RGBA PNG** | That is the channel `destination-in` composites with. A greyscale PNG would come back fully opaque and do nothing. |
+| **Output normalisation: min-max → alpha** | The head emits logits, not probabilities. Min-max scaling is what the reference implementations do with it, and it is what keeps an anti-aliased edge soft. |
+| **Engine order: model first, colour key as fallback** | The model handles strictly more cases. When the request fails — no session, route unreachable, weights missing — the colour pass takes over and **the card says so**, rather than quietly delivering a different result than the button promised. |
+
+### The offer dialog stays honest
+
+The dialog must never show one result and apply another, so the preview records which
+engine produced it and the confirm reuses the precomputed pixels **only** when that
+engine matches the one the confirm will run. The pair is captioned when it is the colour
+pass, so an approximation can never be read as the model's work.
+
+Detection (whether to *offer* at all) stays the cheap colour dry run in the browser: it
+is a question, not an edit, and asking it should not need a round trip.
+
+### Verified, which the browser version could not be
+
+`npx tsx` against a synthetic 512² disc, through the real server module: the model loads
+from `models/`, the mask comes back 1024×1024 with 4 channels, the corner is alpha 0,
+the centre 255, and the rim carries partial alphas — a matte, not a threshold. Inference
+plus PNG encode took ~3 s on this machine's CPU, including the first load.
 
 ## Risks and edge cases
 
@@ -449,10 +592,21 @@ avoided. The card stays inert until the button is pressed.
 | Double-dispose of the Fabric canvas during re-seed | Null the ref immediately after `dispose()`, mirroring the existing cleanup |
 | Silent or surprise modification of a brand asset | Nothing runs without a button press — no detection on upload and none on modal open |
 | Compounding removals on repeated presses | Every run re-derives from the original bitmap, never from the previous output |
-| User drags tolerance and sees no change | The card hint states that undo then press is what re-runs with a new tolerance |
+| The one fixed tolerance is wrong for an unusual logo | The artwork-risk warning and the undo toggle are the escape hatch; the library still takes `tolerance` / `trim` / `colorOverride`, so exposing a dial later is additive and leaves the pipeline untouched |
 | Trimmed artwork left at the pre-removal scale | `pendingAutoSizeRef` triggers a fit once the rebuilt canvas exists |
 | Large source images | Cap the working canvas at 4096 px longest side |
-| Existing transparent PNGs | `alreadyTransparent` short-circuit with an informational message |
+| Cold start: the first request on a new instance loads 168 MB from disk (or downloads it, where the model is not bundled) | The card says "this can take a few seconds the first time"; every later request on that instance is ~3 s of inference |
+| Function size limits (Vercel: 250 MB unzipped) | Measured, not estimated: the route's trace is **341 MB** with the weights present — 168 MB of model plus 287 MB of `onnxruntime-node` platform binaries (the package ships darwin, linux and win32 and the tracer follows all three). `outputFileTracingExcludes` does **not** remove them in Next 14.2; both glob forms were tested against a regenerated trace and changed nothing. So: a git-cloned Vercel build has no `models/` (it is gitignored), traces ~173 MB, and downloads the weights to `/tmp` once per instance; a container — or a function allowance above 341 MB — ships `models/` and skips that download |
+| The uploaded derivative leaves the browser | Only a downscaled copy of the *input* is sent, at most 1024²; the artwork that gets saved is masked locally from the full-resolution original, and the response is a matte containing none of the image's pixels |
+| An unauthenticated surface (a public portal) calling the route | NextAuth session required; the colour pipeline runs instead, and the card reports that the quick method was used |
+| A hostile or oversized upload | Session required, multipart only, and an 8 MB cap enforced before `sharp` decodes anything |
+| Vendor risk in the model or the runtime | Weights are MIT (Hugging Face), the runtime is Apache-2.0 `onnxruntime-node` — both already-pinned dependencies, with the weight URL overridable to a mirror |
+| Model licence drift — re-uploads of the same weights carry different licences | Pinned to `imgly/isnet-general-onnx` (MIT); swapping to the fp16 sibling or a quantised build is a URL change plus precision-aware input, behind the same interface |
+| Existing transparent PNGs | `alreadyTransparent` short-circuit with an informational message; the matte is gated on `removed > 0`, so an untouched transparent logo is never touched |
+| Pale halo survives the fill (edge pixels blended heavily with the backdrop) | `matteBoundaryRing()` solves the blend — alpha from coverage, colour un-premultiplied — instead of trying to threshold it by colour distance |
+| A fringe two pixels wide | A later matte pass works one ring further in, taking its reference from the ring below it; `EDGE_MATTE_PASSES` is the depth knob |
+| Solving against a contaminated neighbour (a blend used as the artwork colour) | Candidates are ranked by how well they explain the pixel, and collinear candidates tie-break toward the one furthest from the backdrop — the uncontaminated colour |
+| No interior colour to solve against (1-2 px wireframe, artwork the same colour as the backdrop) | The pixel is left exactly as it was — nothing is removed by guesswork |
 | Aspect-ratio bucket changes after trim | Expected — the aspect-ratio cap warning and normalizer header bucket recompute on re-seed |
 
 ## Files
@@ -460,6 +614,12 @@ avoided. The card stays inert until the button is pressed.
 | Action | File |
 | --- | --- |
 | Create | [`lib/image-background-removal.ts`](lib/image-background-removal.ts:1) |
+| Create | [`lib/ai-background-removal.ts`](lib/ai-background-removal.ts:1) |
+| Create | [`lib/background-removal.server.ts`](lib/background-removal.server.ts:1) |
+| Create | [`app/api/remove-background/route.ts`](app/api/remove-background/route.ts:1) |
+| Create | [`scripts/models/fetch-bg-model.ts`](scripts/models/fetch-bg-model.ts:1) |
+| Modify | [`next.config.js`](next.config.js:29) — ORT externalised, `./models/**` traced into the route |
+| Modify | [`.gitignore`](.gitignore:44) — `models/` |
 | Modify | [`components/ui/universal-image-editor-modal.tsx`](components/ui/universal-image-editor-modal.tsx:294) |
 | Modify | [`components/ui/image-editor-controls.tsx`](components/ui/image-editor-controls.tsx:41) |
 
@@ -474,11 +634,20 @@ configs, which all 14 logo entry points already use.
 
 - Upload or open a logo with a solid white backdrop → the canvas, the previews,
   and the eventual export are unchanged until Remove Background is pressed.
-- Drag the tolerance slider without pressing the button → nothing changes. Press
-  the button → the new tolerance applies.
+- The card shows only the header, the explanation and — after a run — the status
+  lines: no slider, no trim checkbox, no backdrop readout.
+- Press the button → the locked defaults apply. There is no control to drag, and
+  nothing re-runs on its own.
 - White-backdrop JPEG logo → removal yields a PNG, the auto-fit scale jumps up,
   and the saved `.png` crop is tight to the artwork.
 - Black-backdrop PNG logo → same, with the dark artwork preserved.
+- White-backdrop JPEG logo → no pale white rim in the saved PNG: at 100 % zoom the
+  edge is clean, and the artwork still touches the trim box on every side.
+- Outline-only mark (a 1-2 px stroke on a white backdrop) → the mark survives intact
+  at full opacity, because there is no interior colour to solve against and the matte
+  leaves such pixels alone.
+- Two-pixel JPEG fringe → both rings matte: the outer one to its own coverage and the
+  artwork's colour, not to a wash of the backdrop.
 - Transparent-background PNG → "already transparent" message; trim still tightens it.
 - Logo with white text inside a coloured badge → text survives (connectivity check).
 - Logo whose artwork touches the border → flood fill leaves the artwork intact and
@@ -492,4 +661,33 @@ configs, which all 14 logo entry points already use.
   contact form slide, benefits Step 1, summary edit modal, edit-client page,
   branding setup card, key contacts, video Step 1, company logo section,
   benefits section editor) renders the control and saves correctly.
-- Re-open a saved logo → the removal is re-runnable from the stored original.
+- Re-open a saved logo → no offer dialog appears, and the removal is re-runnable
+  from the stored original.
+- Pick a white-backdrop logo → the offer appears with the colour named and the
+  before/after pair; "Keep Original" changes nothing, "Remove Background" applies
+  exactly the pictured result.
+- Pick a logo on a photo or gradient → no offer (the dry run needs a uniform border to
+  name a colour), and the manual button runs the model on it.
+
+### Model engine (Phase 5)
+
+- `pnpm run models:fetch` → the weights land in `models/`; running it again says it is
+  already present rather than re-downloading.
+- First removal → the card's "running on the server" line appears, the rest of the
+  editor keeps painting, and the artwork comes back with a clean, soft edge.
+- Second removal in the same instance → noticeably faster (the session and the file are
+  both warm).
+- Delete `models/` and set `BG_MODEL_URL` → the first request downloads to the temp
+  directory and works; `BG_MODEL_PATH` pointing at a different file is honoured.
+- Sign out (or hit the route unauthenticated) → 401, and the editor falls back to the
+  colour pass with the card saying which method ran, rather than failing the removal.
+- A logo on a gradient, a drop shadow, or a photograph → the subject survives with a
+  clean edge, which is the case the colour pipeline could never do.
+- WebAssembly unavailable, or the CDN blocked → the colour pipeline runs, the card says
+  the quick method was used, and no removal is silently wrong.
+- Open the offer dialog on a first visit → the pair is the colour pass and carries the
+  "Quick preview" caption; confirm then applies the model, not the sample.
+- Open it again with the model cached → the pair is the model's own result, and confirm
+  applies exactly those pixels.
+- 1-2 px wireframe logo → the mark survives: the model predicts a matte per pixel and
+  does not shave edges to tidy a matte it never needed to tidy.
