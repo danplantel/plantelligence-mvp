@@ -37,12 +37,21 @@ type WebinarLanguage = "EN" | "ES";
 
 export interface WebinarReplay {
   id: number | string;
+  /** The plan this video belongs to (ObjectId) — identifies it to the on-demand file fetch. */
+  clientId?: string;
   title: string;
+  /** Advisor-authored copy from the Upload Video modal (200 char cap). */
+  description?: string;
   duration?: string;
   isPopular?: boolean;
   thumbnail?: string;
   videoUrl?: string | null;
   videoFileUrl?: string | null;
+  /**
+   * True when an uploaded file exists. List responses report the file's presence
+   * (and size) without the multi-MB base64 payload, which is fetched on play.
+   */
+  hasVideoFile?: boolean;
   eventDate?: Date | string;
   language?: WebinarLanguage;
 }
@@ -468,12 +477,52 @@ export function WebinarReplayCard({
   secondaryColor?: string;
 }) {
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
-  const hasVideo = Boolean(replay.videoUrl || replay.videoFileUrl);
+  // Uploaded videos are multi-MB base64 strings. The list endpoints deliberately
+  // leave them out (shipping them is what made portal pages take tens of seconds),
+  // so the file is fetched here only once the visitor actually presses play.
+  const [fetchedFileUrl, setFetchedFileUrl] = useState<string | null>(null);
+  const [isLoadingVideo, setIsLoadingVideo] = useState(false);
+  const [videoError, setVideoError] = useState(false);
+
+  const fileUrl = replay.videoFileUrl ?? fetchedFileUrl;
+  // `hasVideoFile` is the list payload reporting that a file exists (with its size)
+  // without carrying the payload itself.
+  const hasVideo = Boolean(replay.videoUrl || fileUrl || replay.hasVideoFile);
+  const needsFileFetch =
+    !replay.videoUrl && !fileUrl && Boolean(replay.hasVideoFile);
+
+  const resolveVideoFile = async () => {
+    setIsLoadingVideo(true);
+    setVideoError(false);
+    try {
+      // `clientId` is what lets this through for an anonymous portal visitor: the
+      // endpoint derives the owning advisor from the plan and then requires the
+      // webinar to belong to that plan.
+      const query = replay.clientId
+        ? `?forPortal=1&clientId=${encodeURIComponent(replay.clientId)}`
+        : "";
+      const response = await fetch(`/api/webinars/${replay.id}${query}`, {
+        cache: "no-store",
+      });
+      const result = await response.json();
+      const url = result?.data?.videoFileUrl;
+      if (response.ok && result?.success && typeof url === "string" && url) {
+        setFetchedFileUrl(url);
+      } else {
+        setVideoError(true);
+      }
+    } catch (error) {
+      console.error("Failed to load webinar video:", error);
+      setVideoError(true);
+    } finally {
+      setIsLoadingVideo(false);
+    }
+  };
 
   const handleVideoClick = () => {
-    if (hasVideo) {
-      setIsVideoModalOpen(true);
-    }
+    if (!hasVideo) return;
+    setIsVideoModalOpen(true);
+    if (needsFileFetch) void resolveVideoFile();
   };
 
   const getVideoSrc = () => {
@@ -481,8 +530,8 @@ export function WebinarReplayCard({
       const embedUrl = getEmbedUrl(replay.videoUrl);
       return embedUrl || replay.videoUrl;
     }
-    if (replay.videoFileUrl) {
-      return `data:video/mp4;base64,${replay.videoFileUrl}`;
+    if (fileUrl) {
+      return `data:video/mp4;base64,${fileUrl}`;
     }
     return null;
   };
@@ -506,60 +555,12 @@ export function WebinarReplayCard({
           className="relative aspect-video bg-gray-900"
           onClick={handleVideoClick}
         >
-          {hasVideo ? (
-            replay.videoUrl ? (
-              (() => {
-                const embedUrl = getEmbedUrl(replay.videoUrl);
-                if (embedUrl) {
-                  // YouTube or Vimeo embed - thumbnail preview
-                  return (
-                    <>
-                      <img
-                        src={`https://img.youtube.com/vi/${
-                          embedUrl.match(/embed\/([^?]+)/)?.[1] || ""
-                        }/maxresdefault.jpg`}
-                        alt={replay.title}
-                        className="w-full h-full object-cover opacity-90"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = "none";
-                        }}
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                        <div className="bg-red-600 rounded-full w-20 h-20 flex items-center justify-center hover:bg-red-700 transition-colors shadow-lg">
-                          <div className="w-0 h-0 border-l-[24px] border-l-white border-t-[15px] border-t-transparent border-b-[15px] border-b-transparent ml-1"></div>
-                        </div>
-                      </div>
-                    </>
-                  );
-                } else {
-                  // Direct video URL - show video preview
-                  return (
-                    <video
-                      className="absolute top-0 left-0 w-full h-full"
-                      controls={false}
-                      src={replay.videoUrl}
-                      muted
-                      playsInline
-                    >
-                      Your browser does not support the video tag.
-                    </video>
-                  );
-                }
-              })()
-            ) : replay.videoFileUrl ? (
-              // Base64 uploaded video - show video preview
-              <video
-                className="absolute top-0 left-0 w-full h-full"
-                controls={false}
-                src={`data:video/mp4;base64,${replay.videoFileUrl}`}
-                muted
-                playsInline
-              >
-                Your browser does not support the video tag.
-              </video>
-            ) : null
-          ) : replay.thumbnail ? (
-            // Thumbnail with play button
+          {replay.thumbnail ? (
+            // The advisor's chosen image (uploaded, or a frame captured from the
+            // video) wins over the video itself. Painting a frame from a base64
+            // <video> forces the browser to decode the whole file for every card
+            // on the page, which is a large part of why this grid arrived long
+            // after the rest of the page.
             <>
               <img
                 src={replay.thumbnail}
@@ -572,8 +573,60 @@ export function WebinarReplayCard({
                 </div>
               </div>
             </>
+          ) : replay.videoUrl ? (
+            (() => {
+              const embedUrl = getEmbedUrl(replay.videoUrl);
+              if (embedUrl) {
+                // YouTube or Vimeo embed - thumbnail preview
+                return (
+                  <>
+                    <img
+                      src={`https://img.youtube.com/vi/${
+                        embedUrl.match(/embed\/([^?]+)/)?.[1] || ""
+                      }/maxresdefault.jpg`}
+                      alt={replay.title}
+                      className="w-full h-full object-cover opacity-90"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = "none";
+                      }}
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                      <div className="bg-red-600 rounded-full w-20 h-20 flex items-center justify-center hover:bg-red-700 transition-colors shadow-lg">
+                        <div className="w-0 h-0 border-l-[24px] border-l-white border-t-[15px] border-t-transparent border-b-[15px] border-b-transparent ml-1"></div>
+                      </div>
+                    </div>
+                  </>
+                );
+              } else {
+                // Direct video URL - show video preview
+                return (
+                  <video
+                    className="absolute top-0 left-0 w-full h-full"
+                    controls={false}
+                    src={replay.videoUrl}
+                    muted
+                    playsInline
+                  >
+                    Your browser does not support the video tag.
+                  </video>
+                );
+              }
+            })()
+          ) : fileUrl ? (
+            // Base64 uploaded video already in hand (the dashboard fetches full
+            // rows, so it lands here without an extra request).
+            <video
+              className="absolute top-0 left-0 w-full h-full"
+              controls={false}
+              src={`data:video/mp4;base64,${fileUrl}`}
+              muted
+              playsInline
+            >
+              Your browser does not support the video tag.
+            </video>
           ) : (
-            // Placeholder
+            // Placeholder — also the surface for an uploaded video whose file is
+            // fetched only when play is pressed.
             <div className="w-full h-full flex items-center justify-center bg-gray-800">
               <div className="bg-red-600 rounded-full w-20 h-20 flex items-center justify-center hover:bg-red-700 transition-colors shadow-lg">
                 <div className="w-0 h-0 border-l-[24px] border-l-white border-t-[15px] border-t-transparent border-b-[15px] border-b-transparent ml-1"></div>
@@ -585,6 +638,14 @@ export function WebinarReplayCard({
           <h3 className="text-2xl font-bold text-[#002B5B] leading-tight">
             {replay.title}
           </h3>
+          {/* Advisor-authored copy from the Upload Video modal (200 char cap).
+              Clamped so a long description can't make one card taller than its
+              neighbours in the grid. */}
+          {Boolean(replay.description?.trim()) && (
+            <p className="text-sm text-gray-600 leading-relaxed line-clamp-3">
+              {replay.description}
+            </p>
+          )}
           <div className="flex items-center gap-4">
             {replay.duration && (
               <div className="flex items-center gap-2 text-gray-600 text-base">
@@ -638,7 +699,19 @@ export function WebinarReplayCard({
                   </svg>
                 </button>
               </div>
-              {videoSrc && (
+              {isLoadingVideo && (
+                <div className="relative w-full pt-[56.25%] bg-black flex items-center justify-center">
+                  <p className="text-sm text-white/80">Loading video…</p>
+                </div>
+              )}
+              {!isLoadingVideo && videoError && (
+                <div className="relative w-full pt-[56.25%] bg-black flex items-center justify-center">
+                  <p className="text-sm text-white/80">
+                    This video could not be loaded.
+                  </p>
+                </div>
+              )}
+              {!isLoadingVideo && !videoError && videoSrc && (
                 <div className="relative w-full pt-[56.25%] bg-black">
                   {isEmbed ? (
                     <iframe
@@ -752,28 +825,32 @@ export function WebinarsSection({
       try {
         // News & Events shows only videos published to it: a video filed solely
         // under a benefit hub page belongs to that page's section, not this one.
+        // `includeVideoFiles=0` also keeps every video's multi-MB base64 string out
+        // of the response; the card fetches a file only when one is played.
         const response = await fetch(
           `/api/webinars?clientId=${encodeURIComponent(
             clientId,
-          )}&placement=news-events`,
+          )}&placement=news-events&includeVideoFiles=0`,
           { cache: "no-store" },
         );
         const result = await response.json();
 
         if (response.ok && result.success && Array.isArray(result.data)) {
-          // Filter webinars by clientId (plan ID) - only show webinars assigned to this client
-          const filtered = result.data.filter(
-            (webinar: any) => webinar.clientId === clientId,
-          );
-
-          // Transform to WebinarReplay format with language detection
-          const transformed: WebinarReplay[] = filtered.map((webinar: any) => ({
+          // Transform to WebinarReplay format with language detection. No
+          // client-side plan filter: the server narrows the response to the plan we
+          // named, and `clientId` here can be a slug, which would never equal a
+          // row's `clientId` ObjectId.
+          const transformed: WebinarReplay[] = result.data.map((webinar: any) => ({
             id: webinar.id,
+            clientId: webinar.clientId,
             title: webinar.webinarTitle,
+            description: webinar.description ?? undefined,
             eventDate: webinar.eventDate,
             thumbnail: webinar.thumbnail ?? undefined,
             videoUrl: webinar.videoUrl,
-            videoFileUrl: webinar.videoFileUrl,
+            // No videoFileUrl: the list request omits the base64 payload, so the
+            // card fetches a video's file on demand when play is pressed.
+            hasVideoFile: Boolean(webinar.hasVideoFile),
             language: guessLanguageFromWebinar(webinar),
             // Optional: calculate duration if available
             // duration: webinar.duration || "N/A",

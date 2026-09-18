@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useClientPortal } from "@/contexts/client-portal-context";
+import { useParams } from "next/navigation";
 import {
   WebinarReplayCard,
   guessLanguageFromWebinar,
@@ -36,13 +36,14 @@ export function BenefitsHubWebinarsSection({
   secondaryColor = "#FBBF24",
   title = "Webinars",
 }: BenefitsHubWebinarsSectionProps) {
-  const { clientData } = useClientPortal();
-
-  // The plan id comes from the portal context, NOT the route segment: portal URLs
-  // are slugs (`/{plan-slug}`), while stored webinars reference the plan's
-  // ObjectId. Comparing a slug against `webinar.clientId` matched nothing, which is
-  // why this section rendered empty. The News & Events section reads the same id.
-  const planId = clientData?.id;
+  // Take the plan identifier from the route segment, which is known on the very
+  // first render. The portal context's `clientData` only arrives after its own
+  // profile request resolves, so waiting for it pushed this section's fetch to the
+  // end of a waterfall — that, together with the video payloads, is why the band
+  // appeared seconds after the rest of the page. Portal URLs carry the plan slug
+  // and the API accepts a slug or an ObjectId, so the segment is enough here.
+  const params = useParams();
+  const planRef = typeof params?.id === "string" ? params.id : "";
 
   const [replays, setReplays] = useState<WebinarReplay[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -51,7 +52,7 @@ export function BenefitsHubWebinarsSection({
     let cancelled = false;
 
     const load = async () => {
-      if (!planId) {
+      if (!planRef) {
         setReplays([]);
         setIsLoading(false);
         return;
@@ -59,12 +60,15 @@ export function BenefitsHubWebinarsSection({
 
       setIsLoading(true);
       try {
-        // `placement` is filtered server-side, so this section never receives the
-        // other pages' video payloads.
+        // Both filters run server-side. `includeVideoFiles=0` is the important one:
+        // without it this response carried every video's multi-MB base64 string, so
+        // a visitor waited for the whole account's videos before a single card
+        // appeared. `WebinarReplayCard` fetches a video's file only when play is
+        // pressed.
         const response = await fetch(
           `/api/webinars?clientId=${encodeURIComponent(
-            planId,
-          )}&placement=${encodeURIComponent(placement)}`,
+            planRef,
+          )}&placement=${encodeURIComponent(placement)}&includeVideoFiles=0`,
           { cache: "no-store" },
         );
         const result = await response.json();
@@ -72,19 +76,19 @@ export function BenefitsHubWebinarsSection({
         if (cancelled) return;
 
         if (response.ok && result.success && Array.isArray(result.data)) {
-          // The endpoint is advisor-scoped; keep only this plan's videos.
-          const filtered = result.data.filter(
-            (webinar: any) => webinar.clientId === planId,
-          );
-
+          // No client-side filtering: the response is already narrowed to this plan
+          // by the server, and the identifier we sent may be a slug, which would
+          // never equal a row's `clientId` ObjectId.
           setReplays(
-            filtered.map((webinar: any) => ({
+            result.data.map((webinar: any) => ({
               id: webinar.id,
+              clientId: webinar.clientId,
               title: webinar.webinarTitle,
+              description: webinar.description ?? undefined,
               eventDate: webinar.eventDate,
               thumbnail: webinar.thumbnail ?? undefined,
               videoUrl: webinar.videoUrl,
-              videoFileUrl: webinar.videoFileUrl,
+              hasVideoFile: Boolean(webinar.hasVideoFile),
               language: guessLanguageFromWebinar(webinar),
             })),
           );
@@ -104,7 +108,7 @@ export function BenefitsHubWebinarsSection({
     return () => {
       cancelled = true;
     };
-  }, [planId, placement]);
+  }, [planRef, placement]);
 
   if (isLoading || replays.length === 0) return null;
 
@@ -118,6 +122,14 @@ export function BenefitsHubWebinarsSection({
           {title}
         </h2>
 
+        {/*
+          Deliberately start-aligned at every count, including a lone card.
+          With 4 videos the last one already sits alone at the left of row 2 and
+          can't be centered without breaking the grid, so centering a
+          single-video page would be the same visual situation treated two ways.
+          It also keeps the card's own left-aligned content on the page's left
+          gutter, and matches the News & Events grid that renders the same card.
+        */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {replays.map((replay) => (
             <WebinarReplayCard

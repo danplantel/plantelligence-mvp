@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { ObjectId } from "mongodb";
+import { resolvePortalAdvisorId } from "@/lib/portal-access";
 import { normalizeWebinarPlacements } from "@/lib/webinar-placements";
 
 /**
@@ -50,9 +51,19 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // The public portal fetches an uploaded video from here on demand: the list
+    // endpoints omit the multi-MB base64 payload, so this route has to work for
+    // anonymous visitors too. Same shape as the list route — the plan named in
+    // `?clientId=` (slug or ObjectId) identifies the owning advisor, and the
+    // webinar must belong to that plan, not merely to that advisor.
+    const portalAdvisorId = await resolvePortalAdvisorId(request, true);
+    let userId: string | undefined = portalAdvisorId;
+    if (!userId) {
+      const session = await getServerSession(authOptions);
+      if (!session?.user?.id) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      userId = session.user.id;
     }
 
     const webinarId = params.id;
@@ -63,8 +74,34 @@ export async function GET(
       );
     }
 
+    const clientIdParam =
+      request.nextUrl.searchParams.get("clientId")?.trim() ?? "";
+    let planId: string | null = null;
+    if (clientIdParam) {
+      const plan = await prisma.client.findFirst({
+        where: {
+          userId,
+          ...(ObjectId.isValid(clientIdParam)
+            ? { id: clientIdParam }
+            : { slug: clientIdParam }),
+        },
+        select: { id: true },
+      });
+      if (!plan) {
+        return NextResponse.json(
+          { error: "Webinar not found" },
+          { status: 404 }
+        );
+      }
+      planId = plan.id;
+    }
+
     const webinar = await prisma.webinar.findFirst({
-      where: { id: webinarId, userId: session.user.id },
+      where: {
+        id: webinarId,
+        userId,
+        ...(planId ? { clientId: planId } : {}),
+      },
     });
 
     if (!webinar) {

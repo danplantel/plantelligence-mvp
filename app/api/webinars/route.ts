@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
+import { ObjectId } from "mongodb";
 import { resolvePortalAdvisorId } from "@/lib/portal-access";
 import {
   hasWebinarPlacement,
@@ -68,9 +69,9 @@ function serializeWebinar(
 // GET all webinars
 export async function GET(request: NextRequest) {
   try {
-    // Public portal (News & Events) resolves the owning advisor from the plan
-    // (clientId query param); the dashboard (Communications → Webinars)
-    // requires the session as before.
+    // Public portal (News & Events, and the benefit hub pages) resolves the owning
+    // advisor from the plan named in `?clientId=` (a slug or an ObjectId); the
+    // dashboard (Communications → Webinars) requires the session as before.
     const portalAdvisorId = await resolvePortalAdvisorId(request, true);
     let userId: string | undefined = portalAdvisorId;
     if (!userId) {
@@ -80,6 +81,35 @@ export async function GET(request: NextRequest) {
       }
       userId = session.user.id;
     }
+
+    // Narrow to one plan when the caller named one (portal pages pass the route's
+    // plan slug, the News & Events section passes the same plan's ObjectId). The
+    // *server* does this filtering on purpose: sending every plan's rows to a
+    // portal page and hiding all but its own client-side meant each visitor
+    // downloaded every video on the account, and the response body exposed other
+    // plans' videos even though the UI never showed them.
+    const clientIdParam =
+      request.nextUrl.searchParams.get("clientId")?.trim() ?? "";
+    let planId: string | null = null;
+    if (clientIdParam) {
+      const plan = await prisma.client.findFirst({
+        where: {
+          userId,
+          ...(ObjectId.isValid(clientIdParam)
+            ? { id: clientIdParam }
+            : { slug: clientIdParam }),
+        },
+        select: { id: true },
+      });
+      // An unresolvable plan returns nothing rather than falling through to the
+      // unrestricted query, which would leak the advisor's other plans.
+      if (!plan) {
+        return NextResponse.json({ success: true, data: [] });
+      }
+      planId = plan.id;
+    }
+
+    const where = planId ? { userId, clientId: planId } : { userId };
 
     // Typed Prisma, not $runCommandRaw: the raw command serializes BSON values
     // (ObjectId, Date) to strings, so rows written that way are stored as
@@ -111,9 +141,9 @@ export async function GET(request: NextRequest) {
     // it only to drop it is what made this endpoint take ~13s. The stored
     // `videoSize` column keeps the "Size" sort meaningful without the payload.
     const webinars: WebinarRow[] = includeVideoFiles
-      ? await prisma.webinar.findMany({ where: { userId } })
+      ? await prisma.webinar.findMany({ where })
       : await prisma.webinar.findMany({
-          where: { userId },
+          where,
           select: {
             id: true,
             clientId: true,
