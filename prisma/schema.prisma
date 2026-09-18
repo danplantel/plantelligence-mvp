@@ -907,6 +907,8 @@ model Webinar {
   clientId     String   @db.ObjectId // Reference to Client (Plan)
   clientName   String   // Client company name (denormalized for easier queries)
   webinarTitle String   // Webinar title
+  description  String?  // Optional description shown alongside the replay
+  thumbnail    String?  // Base64 data URL for the replay card image (uploaded or a captured video frame)
   eventDate    DateTime // Event date
   sourceType   Json     // { upload: boolean, url: boolean }
   videoFileUrl String?  // URL/path if uploaded file

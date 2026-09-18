@@ -2,8 +2,36 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
-import { ObjectId } from "mongodb";
 import { resolvePortalAdvisorId } from "@/lib/portal-access";
+
+/** Row shape handed to the dashboard list and the portal Webinars section. */
+type WebinarRow = {
+  id: string;
+  clientId: string;
+  clientName: string;
+  webinarTitle: string;
+  description: string | null;
+  eventDate: Date;
+  sourceType: unknown;
+  videoFileUrl: string | null;
+  videoUrl: string | null;
+  createdAt: Date;
+};
+
+function serializeWebinar(webinar: WebinarRow) {
+  return {
+    id: webinar.id,
+    clientId: webinar.clientId,
+    clientName: webinar.clientName,
+    webinarTitle: webinar.webinarTitle,
+    description: webinar.description,
+    eventDate: webinar.eventDate,
+    sourceType: webinar.sourceType as { upload: boolean; url: boolean },
+    videoFileUrl: webinar.videoFileUrl,
+    videoUrl: webinar.videoUrl,
+    createdAt: webinar.createdAt,
+  };
+}
 
 // GET all webinars
 export async function GET(request: NextRequest) {
@@ -21,59 +49,19 @@ export async function GET(request: NextRequest) {
       userId = session.user.id;
     }
 
-    // Use MongoDB aggregation to fetch webinars with client info
-    // This works even if Prisma client doesn't know about Webinar model yet
-    const webinarsResult = await prisma.$runCommandRaw({
-      aggregate: "Webinar",
-      pipeline: [
-        {
-          $match: {
-            userId: new ObjectId(userId),
-          },
-        },
-        {
-          $lookup: {
-            from: "Client",
-            localField: "clientId",
-            foreignField: "_id",
-            as: "client",
-          },
-        },
-        {
-          $unwind: {
-            path: "$client",
-            preserveNullAndEmptyArrays: true,
-          },
-        },
-        {
-          $sort: { eventDate: -1 },
-        },
-      ],
-      cursor: {},
-    });
-
-    // Transform MongoDB result to frontend format
-    const webinars = (webinarsResult as any).cursor?.firstBatch || [];
-    const transformedWebinars = webinars.map((webinar: any) => {
-      const hasVideoFile = webinar.videoFileUrl && webinar.videoFileUrl.length > 0;
-      const hasVideoUrl = webinar.videoUrl && webinar.videoUrl.length > 0;
-      
-      return {
-        id: webinar._id?.toString(),
-        clientId: webinar.clientId?.toString(),
-        clientName: webinar.clientName,
-        webinarTitle: webinar.webinarTitle,
-        eventDate: webinar.eventDate,
-        sourceType: webinar.sourceType as { upload: boolean; url: boolean },
-        videoFileUrl: webinar.videoFileUrl,
-        videoUrl: webinar.videoUrl,
-        createdAt: webinar.createdAt,
-      };
+    // Typed Prisma, not $runCommandRaw: the raw command serializes BSON values
+    // (ObjectId, Date) to strings, so rows written that way are stored as
+    // `clientId: "<hex>"` / `eventDate: "<iso>"` and can never be matched by the
+    // ObjectId filters used elsewhere in the app. Writing through the model keeps
+    // `userId`, `clientId` and `eventDate` in the types the schema declares.
+    const webinars = await prisma.webinar.findMany({
+      where: { userId },
+      orderBy: { eventDate: "desc" },
     });
 
     return NextResponse.json({
       success: true,
-      data: transformedWebinars,
+      data: webinars.map(serializeWebinar),
     });
   } catch (error) {
     console.error("Error fetching webinars:", error);
@@ -97,6 +85,7 @@ export async function POST(request: NextRequest) {
       client,
       sourceType,
       webinarTitle,
+      description,
       eventDate,
       videoFile,
       videoUrl,
@@ -172,48 +161,32 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
-      // For now, store as base64. In production, you might want to upload to S3 or similar
-      // videoFile should be base64 string from frontend
+      // Stored as base64 for now; a future revision should move this to R2.
       videoFileUrl = videoFile;
     }
 
-    // Create webinar using MongoDB insertOne
-    // This works even if Prisma client doesn't know about Webinar model yet
-    const webinarData = {
-      _id: new ObjectId(),
-      userId: new ObjectId(session.user.id),
-      clientId: new ObjectId(clientRecord.id),
-      clientName: clientRecord.companyName,
-      webinarTitle,
-      eventDate: new Date(eventDate),
-      sourceType: sourceType,
-      videoFileUrl: videoFileUrl,
-      videoUrl: sourceType.url ? videoUrl : null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    await prisma.$runCommandRaw({
-      insert: "Webinar",
-      documents: [webinarData],
+    // Create through the Prisma model so the ids land as real ObjectIds and
+    // `eventDate` as a BSON date — the raw command stringified all of them, which
+    // is what made freshly added webinars invisible to the ObjectId-filtered read.
+    const webinar = await prisma.webinar.create({
+      data: {
+        userId: session.user.id,
+        clientId: clientRecord.id,
+        clientName: clientRecord.companyName,
+        webinarTitle,
+        description: typeof description === "string" && description.trim()
+          ? description.trim()
+          : null,
+        eventDate: new Date(eventDate),
+        sourceType,
+        videoFileUrl,
+        videoUrl: sourceType.url ? videoUrl : null,
+      },
     });
-
-    // Transform for response
-    const webinar = {
-      id: webinarData._id.toString(),
-      clientId: webinarData.clientId.toString(),
-      clientName: webinarData.clientName,
-      webinarTitle: webinarData.webinarTitle,
-      eventDate: webinarData.eventDate,
-      sourceType: webinarData.sourceType,
-      videoFileUrl: webinarData.videoFileUrl,
-      videoUrl: webinarData.videoUrl,
-      createdAt: webinarData.createdAt,
-    };
 
     return NextResponse.json({
       success: true,
-      data: webinar,
+      data: serializeWebinar(webinar),
     });
   } catch (error) {
     console.error("Error creating webinar:", error);

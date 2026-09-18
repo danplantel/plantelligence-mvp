@@ -4,6 +4,38 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { ObjectId } from "mongodb";
 
+/**
+ * These routes go through the Prisma model rather than `$runCommandRaw`: the raw
+ * command serializes BSON values (ObjectId, Date) to strings, so rows written
+ * that way held `_id`/`userId`/`clientId` as hex strings — invisible to the
+ * ObjectId filters used here and elsewhere, and unable to join to Client.
+ */
+function serializeWebinar(webinar: {
+  id: string;
+  clientId: string;
+  clientName: string;
+  webinarTitle: string;
+  description: string | null;
+  eventDate: Date;
+  sourceType: unknown;
+  videoFileUrl: string | null;
+  videoUrl: string | null;
+  createdAt: Date;
+}) {
+  return {
+    id: webinar.id,
+    clientId: webinar.clientId,
+    clientName: webinar.clientName,
+    webinarTitle: webinar.webinarTitle,
+    description: webinar.description,
+    eventDate: webinar.eventDate,
+    sourceType: webinar.sourceType as { upload: boolean; url: boolean },
+    videoFileUrl: webinar.videoFileUrl,
+    videoUrl: webinar.videoUrl,
+    createdAt: webinar.createdAt,
+  };
+}
+
 // GET single webinar
 export async function GET(
   request: NextRequest,
@@ -16,18 +48,16 @@ export async function GET(
     }
 
     const webinarId = params.id;
+    if (!ObjectId.isValid(webinarId)) {
+      return NextResponse.json(
+        { error: "Webinar not found" },
+        { status: 404 }
+      );
+    }
 
-    // Use MongoDB findOne to fetch webinar
-    const webinarResult = await prisma.$runCommandRaw({
-      find: "Webinar",
-      filter: {
-        _id: new ObjectId(webinarId),
-        userId: new ObjectId(session.user.id),
-      },
+    const webinar = await prisma.webinar.findFirst({
+      where: { id: webinarId, userId: session.user.id },
     });
-
-    const webinars = (webinarResult as any).cursor?.firstBatch || [];
-    const webinar = webinars[0];
 
     if (!webinar) {
       return NextResponse.json(
@@ -38,17 +68,7 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
-      data: {
-        id: webinar._id?.toString(),
-        clientId: webinar.clientId?.toString(),
-        clientName: webinar.clientName,
-        webinarTitle: webinar.webinarTitle,
-        eventDate: webinar.eventDate,
-        sourceType: webinar.sourceType as { upload: boolean; url: boolean },
-        videoFileUrl: webinar.videoFileUrl,
-        videoUrl: webinar.videoUrl,
-        createdAt: webinar.createdAt,
-      },
+      data: serializeWebinar(webinar),
     });
   } catch (error) {
     console.error("Error fetching webinar:", error);
@@ -71,27 +91,28 @@ export async function PUT(
     }
 
     const webinarId = params.id;
+    if (!ObjectId.isValid(webinarId)) {
+      return NextResponse.json(
+        { error: "Webinar not found" },
+        { status: 404 }
+      );
+    }
+
     const body = await request.json();
     const {
       client,
       sourceType,
       webinarTitle,
+      description,
       eventDate,
       videoFile,
       videoUrl,
     } = body;
 
     // Check if webinar exists and user owns it
-    const existingResult = await prisma.$runCommandRaw({
-      find: "Webinar",
-      filter: {
-        _id: new ObjectId(webinarId),
-        userId: new ObjectId(session.user.id),
-      },
+    const existingWebinar = await prisma.webinar.findFirst({
+      where: { id: webinarId, userId: session.user.id },
     });
-
-    const existingWebinars = (existingResult as any).cursor?.firstBatch || [];
-    const existingWebinar = existingWebinars[0];
 
     if (!existingWebinar) {
       return NextResponse.json(
@@ -119,7 +140,7 @@ export async function PUT(
         );
       }
 
-      clientId = new ObjectId(clientRecord.id);
+      clientId = clientRecord.id;
       clientName = clientRecord.companyName;
     }
 
@@ -131,57 +152,34 @@ export async function PUT(
       videoFileUrl = null;
     }
 
-    // Update webinar using MongoDB updateOne
-    await prisma.$runCommandRaw({
-      update: "Webinar",
-      updates: [
-        {
-          q: {
-            _id: new ObjectId(webinarId),
-            userId: new ObjectId(session.user.id),
-          },
-          u: {
-            $set: {
-              clientId: clientId,
-              clientName: clientName,
-              webinarTitle: webinarTitle ?? existingWebinar.webinarTitle,
-              eventDate: eventDate
-                ? new Date(eventDate)
-                : existingWebinar.eventDate,
-              sourceType: sourceType ?? existingWebinar.sourceType,
-              videoFileUrl: videoFileUrl,
-              videoUrl: sourceType?.url ? videoUrl : null,
-              updatedAt: new Date(),
-            },
-          },
-        },
-      ],
-    });
+    // An explicit empty string clears the description; omitting the key keeps the
+    // stored one, which is what the partial-update path relies on.
+    const nextDescription =
+      description === undefined
+        ? existingWebinar.description
+        : typeof description === "string" && description.trim()
+        ? description.trim()
+        : null;
 
-    // Fetch updated webinar
-    const updatedResult = await prisma.$runCommandRaw({
-      find: "Webinar",
-      filter: {
-        _id: new ObjectId(webinarId),
+    const updatedWebinar = await prisma.webinar.update({
+      where: { id: existingWebinar.id },
+      data: {
+        clientId,
+        clientName,
+        webinarTitle: webinarTitle ?? existingWebinar.webinarTitle,
+        description: nextDescription,
+        eventDate: eventDate
+          ? new Date(eventDate)
+          : existingWebinar.eventDate,
+        sourceType: (sourceType ?? existingWebinar.sourceType) as any,
+        videoFileUrl,
+        videoUrl: sourceType?.url ? videoUrl : null,
       },
     });
-
-    const updatedWebinars = (updatedResult as any).cursor?.firstBatch || [];
-    const updatedWebinar = updatedWebinars[0];
 
     return NextResponse.json({
       success: true,
-      data: {
-        id: updatedWebinar._id?.toString(),
-        clientId: updatedWebinar.clientId?.toString(),
-        clientName: updatedWebinar.clientName,
-        webinarTitle: updatedWebinar.webinarTitle,
-        eventDate: updatedWebinar.eventDate,
-        sourceType: updatedWebinar.sourceType,
-        videoFileUrl: updatedWebinar.videoFileUrl,
-        videoUrl: updatedWebinar.videoUrl,
-        createdAt: updatedWebinar.createdAt,
-      },
+      data: serializeWebinar(updatedWebinar),
     });
   } catch (error) {
     console.error("Error updating webinar:", error);
@@ -204,18 +202,17 @@ export async function DELETE(
     }
 
     const webinarId = params.id;
+    if (!ObjectId.isValid(webinarId)) {
+      return NextResponse.json(
+        { error: "Webinar not found" },
+        { status: 404 }
+      );
+    }
 
     // Check if webinar exists and user owns it
-    const existingResult = await prisma.$runCommandRaw({
-      find: "Webinar",
-      filter: {
-        _id: new ObjectId(webinarId),
-        userId: new ObjectId(session.user.id),
-      },
+    const existingWebinar = await prisma.webinar.findFirst({
+      where: { id: webinarId, userId: session.user.id },
     });
-
-    const existingWebinars = (existingResult as any).cursor?.firstBatch || [];
-    const existingWebinar = existingWebinars[0];
 
     if (!existingWebinar) {
       return NextResponse.json(
@@ -224,18 +221,8 @@ export async function DELETE(
       );
     }
 
-    // Delete webinar using MongoDB deleteOne
-    await prisma.$runCommandRaw({
-      delete: "Webinar",
-      deletes: [
-        {
-          q: {
-            _id: new ObjectId(webinarId),
-            userId: new ObjectId(session.user.id),
-          },
-          limit: 1,
-        },
-      ],
+    await prisma.webinar.delete({
+      where: { id: existingWebinar.id },
     });
 
     return NextResponse.json({

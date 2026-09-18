@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { PlanSearchBar } from "@/components/plan-selector/plan-search-bar";
 import {
   getLastPlanId,
@@ -34,7 +35,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { format } from "date-fns";
+import { format, isValid } from "date-fns";
 import {
   Calendar,
   Video,
@@ -43,6 +44,7 @@ import {
   MoreHorizontal,
   Edit,
   Trash2,
+  Loader2,
   Clock,
   Play,
   Search,
@@ -63,6 +65,7 @@ interface WebinarFormData {
   client: string;
   sourceType: "upload" | "url" | "";
   webinarTitle: string;
+  description: string;
   eventDate: Date | undefined;
   videoFile: File | null;
   videoUrl: string;
@@ -77,6 +80,7 @@ interface Webinar {
     url: boolean;
   };
   webinarTitle: string;
+  description?: string | null;
   eventDate: Date;
   videoFileUrl: string | null;
   videoUrl: string | null;
@@ -121,6 +125,11 @@ function getEmbedUrl(url: string): string | null {
   return null;
 }
 
+// Field limits for the Upload/Edit Video form, kept in one place so the input
+// caps and the counters can never drift apart.
+const MAX_VIDEO_TITLE_LENGTH = 60;
+const MAX_DESCRIPTION_LENGTH = 200;
+
 const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
 
 export default function WebinarsPage() {
@@ -136,6 +145,7 @@ export default function WebinarsPage() {
     client: "",
     sourceType: "",
     webinarTitle: "",
+    description: "",
     eventDate: undefined,
     videoFile: null,
     videoUrl: "",
@@ -154,6 +164,8 @@ export default function WebinarsPage() {
   // Webinar awaiting delete confirmation
   const [webinarPendingDelete, setWebinarPendingDelete] =
     useState<Webinar | null>(null);
+  // In-flight add/update — drives the submit button's spinner.
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Filter and search state
   const [searchTerm, setSearchTerm] = useState("");
@@ -290,6 +302,7 @@ export default function WebinarsPage() {
       client: plan?.companyName || "",
       sourceType: "",
       webinarTitle: "",
+      description: "",
       eventDate: undefined,
       videoFile: null,
       videoUrl: "",
@@ -351,6 +364,7 @@ export default function WebinarsPage() {
     client: selectedPlanClientName,
     sourceType: "",
     webinarTitle: "",
+    description: "",
     eventDate: undefined,
     videoFile: null,
     videoUrl: "",
@@ -378,6 +392,10 @@ export default function WebinarsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Guard against double submits — the button is disabled while in flight,
+    // but Enter inside a field can still re-fire the form.
+    if (isSubmitting) return;
+
     // Validation
     const newErrors: Record<string, boolean> = {};
     if (!formData.client) newErrors.client = true;
@@ -396,6 +414,10 @@ export default function WebinarsPage() {
     }
 
     try {
+      // Flipped before the base64 read below: encoding a large video is the
+      // slowest part of this handler, so the spinner must cover it too.
+      setIsSubmitting(true);
+
       // Convert video file to base64 if uploaded
       let videoFileBase64 = null;
       if (formData.sourceType === "upload" && formData.videoFile) {
@@ -432,6 +454,7 @@ export default function WebinarsPage() {
             url: formData.sourceType === "url",
           },
           webinarTitle: formData.webinarTitle,
+          description: formData.description,
           eventDate: formData.eventDate?.toISOString(),
           videoFile: videoFileBase64,
           videoUrl: formData.videoUrl,
@@ -463,6 +486,8 @@ export default function WebinarsPage() {
       toast.error(
         error instanceof Error ? error.message : "Failed to save webinar",
       );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -475,6 +500,7 @@ export default function WebinarsPage() {
         ? "url"
         : "",
       webinarTitle: webinar.webinarTitle,
+      description: webinar.description ?? "",
       eventDate: new Date(webinar.eventDate),
       videoFile: null, // Don't reload file on edit
       videoUrl: webinar.videoUrl || "",
@@ -561,12 +587,12 @@ export default function WebinarsPage() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto dark:bg-gray-800">
           <DialogHeader>
             <DialogTitle>
-              {editingWebinarId ? "Edit Webinar" : "Add New Webinar"}
+              {editingWebinarId ? "Edit Video" : "Upload Video"}
             </DialogTitle>
             <DialogDescription>
               {editingWebinarId
                 ? "Make your changes below and submit to update the webinar."
-                : "Fill out the details below to add a webinar or replay."}
+                : "Fill out the details below to add a webinar replay, podcast, or other custom video."}
             </DialogDescription>
           </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -717,13 +743,14 @@ export default function WebinarsPage() {
               {/* Webinar Title */}
               <div className="space-y-2">
                 <Label htmlFor="webinarTitle">
-                  Webinar Title <span className="text-red-500">*</span>
+                  Video Title <span className="text-red-500">*</span>
                 </Label>
                 <Input
                   id="webinarTitle"
                   type="text"
                   placeholder="Enter webinar title"
                   value={formData.webinarTitle}
+                  maxLength={MAX_VIDEO_TITLE_LENGTH}
                   onChange={(e) =>
                     handleInputChange("webinarTitle", e.target.value)
                   }
@@ -732,6 +759,43 @@ export default function WebinarsPage() {
                 {errors.webinarTitle && (
                   <p className="text-sm text-red-500">This field is required</p>
                 )}
+                <p
+                  className={cn(
+                    "text-xs text-right",
+                    (formData.webinarTitle?.length ?? 0) >
+                      MAX_VIDEO_TITLE_LENGTH
+                      ? "text-red-500"
+                      : "text-muted-foreground",
+                  )}
+                >
+                  {formData.webinarTitle?.length ?? 0}/{MAX_VIDEO_TITLE_LENGTH}
+                </p>
+              </div>
+
+              {/* Description */}
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  rows={3}
+                  placeholder="Add a short description of this video..."
+                  value={formData.description}
+                  maxLength={MAX_DESCRIPTION_LENGTH}
+                  onChange={(e) =>
+                    handleInputChange("description", e.target.value)
+                  }
+                />
+                <p
+                  className={cn(
+                    "text-xs text-right",
+                    (formData.description?.length ?? 0) >
+                      MAX_DESCRIPTION_LENGTH
+                      ? "text-red-500"
+                      : "text-muted-foreground",
+                  )}
+                >
+                  {formData.description?.length ?? 0}/{MAX_DESCRIPTION_LENGTH}
+                </p>
               </div>
 
               {/* Event Date */}
@@ -790,6 +854,7 @@ export default function WebinarsPage() {
                   <Button
                     type="button"
                     variant="outline"
+                    disabled={isSubmitting}
                     onClick={() => {
                       setFormData(blankWebinarForm());
                       setEditingWebinarId(null);
@@ -803,9 +868,19 @@ export default function WebinarsPage() {
                 )}
                 <Button
                   type="submit"
+                  disabled={isSubmitting}
                   className="flex-1 bg-accent-blue hover:bg-accent-blue/90 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {editingWebinarId ? "Update Webinar" : "Add Webinar"}
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {editingWebinarId ? "Updating..." : "Adding..."}
+                    </>
+                  ) : editingWebinarId ? (
+                    "Update Webinar"
+                  ) : (
+                    "Add Video"
+                  )}
                 </Button>
               </div>
             </form>
@@ -866,7 +941,7 @@ export default function WebinarsPage() {
                   className="gap-1.5 shrink-0 h-9 bg-accent-blue text-white hover:bg-accent-blue/90"
                 >
                   <Plus className="h-4 w-4" />
-                  Add Webinar
+                  Add Video
                 </Button>
               </div>
 
@@ -884,16 +959,18 @@ export default function WebinarsPage() {
                   <p className="text-sm text-muted-foreground">
                     {searchTerm
                       ? "Try adjusting your search term"
-                      : "Add your first webinar with the Add Webinar button above"}
+                      : "Add your first webinar with the Add Video button above"}
                   </p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {sortedWebinars.map((webinar) => {
-                    const webinarDate = format(
-                      new Date(webinar.eventDate),
-                      "MM/dd/yyyy",
-                    );
+                    // Guarded: date-fns `format` throws "Invalid time value" on a
+                    // bad date, and one malformed row would blank the entire list.
+                    const parsedEventDate = new Date(webinar.eventDate);
+                    const webinarDate = isValid(parsedEventDate)
+                      ? format(parsedEventDate, "MM/dd/yyyy")
+                      : "—";
                     const hasVideo = webinar.videoUrl || webinar.videoFileUrl;
 
                     return (

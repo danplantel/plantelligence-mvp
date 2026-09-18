@@ -1114,18 +1114,12 @@ export async function DELETE(
       ]),
     );
 
-    // Delete webinars outside the transaction (raw command + MongoDB transactions can conflict)
-    await prisma.$runCommandRaw({
-      delete: "Webinar",
-      deletes: [
-        {
-          q: {
-            clientId: new ObjectId(clientId),
-            userId: new ObjectId(session.user.id),
-          },
-          limit: 0,
-        },
-      ],
+    // Delete webinars outside the transaction (raw command + MongoDB transactions
+    // can conflict). Typed Prisma, not $runCommandRaw: the raw command serializes
+    // ObjectId filter values to strings, so it matched nothing once webinars were
+    // stored with real ObjectIds — the plan's webinars were silently left behind.
+    await prisma.webinar.deleteMany({
+      where: { clientId, userId: session.user.id },
     });
 
     // Delete related records individually (avoids MongoDB multi-document transaction write conflicts)
