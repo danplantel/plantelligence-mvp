@@ -13,18 +13,31 @@ export default function NewsEventsPage() {
   const secondaryColor = clientData?.secondaryColor || "#6B7280";
   const clientId = clientData?.id;
 
-  // Resolve the Secondary Banner image (uploaded in wizard Step 1 → Brand Images)
-  // as the background image for the News & Events header. Falls back to the
-  // default static banner when no custom image has been uploaded.
-  const { url: resolvedSecondaryBannerUrl } = useBrandingImageUrl(
-    clientData?.secondaryBannerImg ?? null,
+  // Background for the News & Events header.
+  //
+  // The "Secondary Banner" Brand Images slot is documented as this page's header
+  // background, so it wins when set. Otherwise fall back to the plan's hero
+  // background (`backgroundImg`, the "Header Background" slot that every other
+  // portal hero uses) before letting the header show its static default — an
+  // advisor who only set the Header slot still gets a real banner here instead
+  // of a generic one.
+  //
+  // Resolved through useBrandingImageUrl because the value can be an R2 key
+  // (`org/…`) as well as an absolute/data URL; a bare key would otherwise be
+  // requested as the relative path /org/… and 404.
+  const heroBackgroundSource =
+    (clientData?.secondaryBannerImg || "").trim() ||
+    (clientData?.backgroundImg || "").trim();
+
+  const { url: resolvedHeroBackgroundUrl } = useBrandingImageUrl(
+    heroBackgroundSource || null,
   );
 
   return (
     <div className="min-h-screen bg-white">
       <main>
         <NewsEventsHeader
-          backgroundImage={resolvedSecondaryBannerUrl ?? undefined}
+          backgroundImage={resolvedHeroBackgroundUrl ?? undefined}
         />
 
         {/* Published news posts from Marketing */}
