@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 import {
   WebinarReplayCard,
   guessLanguageFromWebinar,
@@ -18,6 +20,38 @@ interface BenefitsHubWebinarsSectionProps {
   title?: string;
 }
 
+/** Placeholders shown while the videos load — one full row at `lg`. */
+const SKELETON_CARDS = 3;
+
+/**
+ * Placeholder mirroring `WebinarReplayCard`: media, title, the fixed-height
+ * description box, then the details row. Reserving that space is the whole point —
+ * this band used to render nothing and then push everything below it down.
+ */
+function WebinarCardSkeleton({ className }: { className?: string }) {
+  return (
+    <div
+      className={cn(
+        "overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm",
+        className,
+      )}
+    >
+      <Skeleton className="aspect-video w-full rounded-none" />
+      <div className="space-y-4 p-6">
+        <Skeleton className="h-7 w-4/5" />
+        {/* Four lines to match the card's fixed 80px description box. */}
+        <div className="space-y-1">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-11/12" />
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-4 w-1/2" />
+        </div>
+        <Skeleton className="h-6 w-24" />
+      </div>
+    </div>
+  );
+}
+
 /**
  * The "Webinars" section for a benefit hub page (Retirement, Health Insurance,
  * Life Insurance, Wellness Programs).
@@ -27,8 +61,9 @@ interface BenefitsHubWebinarsSectionProps {
  * only the videos published to it, as one grid. Videos are assigned to a page in
  * Communications → Webinars, so this is a read-only view of that choice.
  *
- * Renders nothing while loading or when the page has no videos, so a plan that
- * hasn't filed any doesn't get an empty band in the middle of its page.
+ * While its videos load it shows a skeleton shaped like the real cards, so the band
+ * reserves its height instead of shoving the page down when the cards arrive. A plan
+ * that hasn't filed any videos renders nothing at all rather than an empty band.
  */
 export function BenefitsHubWebinarsSection({
   placement,
@@ -110,7 +145,9 @@ export function BenefitsHubWebinarsSection({
     };
   }, [planRef, placement]);
 
-  if (isLoading || replays.length === 0) return null;
+  // Nothing at all for a plan that has filed no videos — an empty band in the
+  // middle of the page is worse than no band.
+  if (!isLoading && replays.length === 0) return null;
 
   return (
     <section className="bg-white py-16 px-4 sm:px-6 lg:px-8">
@@ -122,23 +159,32 @@ export function BenefitsHubWebinarsSection({
           {title}
         </h2>
 
-        {/*
-          Deliberately start-aligned at every count, including a lone card.
-          With 4 videos the last one already sits alone at the left of row 2 and
-          can't be centered without breaking the grid, so centering a
-          single-video page would be the same visual situation treated two ways.
-          It also keeps the card's own left-aligned content on the page's left
-          gutter, and matches the News & Events grid that renders the same card.
-        */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {replays.map((replay) => (
-            <WebinarReplayCard
-              key={replay.id}
-              replay={replay}
-              secondaryColor={secondaryColor}
-            />
-          ))}
-        </div>
+        {isLoading ? (
+          <div
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
+            aria-busy="true"
+          >
+            <span className="sr-only">Loading videos…</span>
+            {Array.from({ length: SKELETON_CARDS }).map((_, index) => (
+              <WebinarCardSkeleton
+                key={index}
+                // Third placeholder only exists in the three-column layout; on a
+                // phone it would just be a long stack of grey boxes.
+                className={index === 2 ? "hidden lg:block" : undefined}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {replays.map((replay) => (
+              <WebinarReplayCard
+                key={replay.id}
+                replay={replay}
+                secondaryColor={secondaryColor}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );
