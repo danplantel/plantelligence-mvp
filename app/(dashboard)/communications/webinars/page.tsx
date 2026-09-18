@@ -1,15 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { getBenefitsHubOpenPortalUrl } from "@/lib/marketing/hub-url";
+import { PlanSearchBar } from "@/components/plan-selector/plan-search-bar";
+import {
+  getLastPlanId,
+  resolveStickyPlanId,
+} from "@/lib/plan-selector-storage";
 import {
   Select,
   SelectContent,
@@ -42,8 +47,15 @@ import {
   Clock,
   Building2,
   Play,
-  ExternalLink,
+  Plus,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -114,7 +126,7 @@ const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
 
 export default function WebinarsPage() {
   const router = useRouter();
-  const { setTitle } = usePageTitleContext();
+  const { setTitle, setSubtitle } = usePageTitleContext();
   // Set page title
   useEffect(() => {
     setTitle("Webinars & Replays");
@@ -138,6 +150,8 @@ export default function WebinarsPage() {
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
   const [editingWebinarId, setEditingWebinarId] = useState<string | null>(null);
+  // Add/Edit Webinar dialog — the form that used to sit inline on the page.
+  const [webinarModalOpen, setWebinarModalOpen] = useState(false);
   // Webinar awaiting delete confirmation
   const [webinarPendingDelete, setWebinarPendingDelete] =
     useState<Webinar | null>(null);
@@ -148,7 +162,10 @@ export default function WebinarsPage() {
   const [sortBy, setSortBy] = useState<"date" | "size">("date");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
-  const hasClients = clients.length > 0;
+  // Selected plan — the flow's entry point, mirroring the Meetings page. The
+  // search bar at the top sets it; the form targets it and the replays list is
+  // filtered to it (the list's own filter can still be widened to All Plans).
+  const [selectedPlan, setSelectedPlan] = useState("");
 
   // Filter webinars by search and plan
   const filteredWebinars = webinars.filter((webinar) => {
@@ -237,6 +254,52 @@ export default function WebinarsPage() {
     fetchWebinars();
   }, []);
 
+  // Restore the last-used plan once the plans load — but only when one was
+  // actually stored before, so a first-time visitor searches for a plan instead
+  // of being handed one.
+  const stickyPlanInitRef = useRef(false);
+  useEffect(() => {
+    if (clients.length === 0 || stickyPlanInitRef.current) return;
+    stickyPlanInitRef.current = true;
+    if (!getLastPlanId("communications")) return;
+    const resolved = resolveStickyPlanId(clients, "communications", null);
+    if (!resolved) return;
+    const plan = clients.find((c) => c.id === resolved);
+    if (!plan) return;
+    setSelectedPlan(resolved);
+    setFormData((prev) =>
+      prev.client ? prev : { ...prev, client: plan.companyName },
+    );
+    setClientFilter(plan.companyName);
+  }, [clients]);
+
+  // Surface the selected plan next to the page title, as the Meetings page does,
+  // so the scoping stays visible outside the search bar.
+  useEffect(() => {
+    const c = clients.find((x) => x.id === selectedPlan);
+    setSubtitle(c?.companyName ?? "");
+  }, [clients, selectedPlan, setSubtitle]);
+
+  const handlePlanChange = (planId: string) => {
+    if (planId === selectedPlan) return;
+    const plan = clients.find((c) => c.id === planId);
+    setSelectedPlan(planId);
+    setClientFilter(plan?.companyName || "all");
+    // Reset any half-finished edit: it belonged to the previously selected plan,
+    // so submitting it now would file that webinar under the new plan.
+    setFormData({
+      client: plan?.companyName || "",
+      sourceType: "",
+      webinarTitle: "",
+      eventDate: undefined,
+      videoFile: null,
+      videoUrl: "",
+    });
+    setEditingWebinarId(null);
+    setErrors({});
+    setWebinarModalOpen(false);
+  };
+
   const handleInputChange = (field: keyof WebinarFormData, value: any) => {
     setFormData((prev) => ({
       ...prev,
@@ -282,6 +345,38 @@ export default function WebinarsPage() {
         return;
       }
       handleInputChange("videoFile", file);
+    }
+  };
+
+  // The plan the form saves under — whatever the search bar selected.
+  const selectedPlanClientName =
+    clients.find((c) => c.id === selectedPlan)?.companyName || "";
+
+  const blankWebinarForm = (): WebinarFormData => ({
+    client: selectedPlanClientName,
+    sourceType: "",
+    webinarTitle: "",
+    eventDate: undefined,
+    videoFile: null,
+    videoUrl: "",
+  });
+
+  const openAddWebinar = () => {
+    setFormData(blankWebinarForm());
+    setEditingWebinarId(null);
+    setErrors({});
+    setDatePickerOpen(false);
+    setWebinarModalOpen(true);
+  };
+
+  // Closing the dialog abandons an in-progress edit — the form is blanked when
+  // the dialog is next opened.
+  const handleWebinarModalOpenChange = (open: boolean) => {
+    setWebinarModalOpen(open);
+    if (!open) {
+      setEditingWebinarId(null);
+      setErrors({});
+      setDatePickerOpen(false);
     }
   };
 
@@ -360,17 +455,11 @@ export default function WebinarsPage() {
           : "Webinar added successfully",
       );
 
-      // Reset form
-      setFormData({
-        client: "",
-        sourceType: "",
-        webinarTitle: "",
-        eventDate: undefined,
-        videoFile: null,
-        videoUrl: "",
-      });
+      // Reset the form and close the dialog.
+      setFormData(blankWebinarForm());
       setEditingWebinarId(null);
       setErrors({});
+      setWebinarModalOpen(false);
 
       // Refresh webinars list
       await fetchWebinars();
@@ -396,8 +485,9 @@ export default function WebinarsPage() {
       videoUrl: webinar.videoUrl || "",
     });
     setEditingWebinarId(webinar.id);
-    // Scroll to form
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setErrors({});
+    setDatePickerOpen(false);
+    setWebinarModalOpen(true);
   };
 
   const handleDelete = async () => {
@@ -428,80 +518,63 @@ export default function WebinarsPage() {
 
   return (
     <div className="p-6 bg-background">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left Panel: Add New Webinar Form */}
+      {/* The plan search starts the flow — the same section the Meetings page
+          uses — and everything below is scoped to the chosen plan. Both blocks
+          share the reduced width so the page reads as a single column. */}
+      <div className="w-full max-w-4xl mx-auto space-y-6 mb-6">
         <Card className="shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg font-semibold">
-              {editingWebinarId ? "Edit Webinar" : "Add New Webinar"}
-            </CardTitle>
-            <p className="text-sm text-muted-foreground">
-              {editingWebinarId
-                ? "Make your changes below and submit to update the webinar"
-                : "Fill out the details below to add a webinar or replay"}
-            </p>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Select Plan */}
-              <div className="space-y-2">
-                <Label htmlFor="client">
-                  Select Plan <span className="text-red-500">*</span>
-                </Label>
-                <Select
-                  value={formData.client}
-                  onValueChange={(value) => handleInputChange("client", value)}
-                  disabled={!hasClients || isLoadingClients}
-                >
-                  <SelectTrigger
-                    className={errors.client ? "border-red-500" : ""}
-                  >
-                    <SelectValue>
-                      {formData.client ||
-                        (isLoadingClients
-                          ? "Loading plans..."
-                          : "Choose a plan...")}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clients.map((client) => (
-                      <SelectItem key={client.id} value={client.companyName}>
-                        {client.companyName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.client && (
-                  <p className="text-sm text-red-500">This field is required</p>
-                )}
-                {formData.client && (
-                  <div className="flex justify-end">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const client = clients.find(
-                          (c) => c.companyName === formData.client
-                        );
-                        const clientId = client?.id;
-                        if (clientId) {
-                          const slug =
-                            (client as any)?.slug;
-                          const resolvedSlug = slug || clientId;
-                          const url = getBenefitsHubOpenPortalUrl(resolvedSlug);
-                          window.open(url, "_blank");
-                        }
-                      }}
-                      className="gap-1.5 bg-accent-blue text-white hover:bg-accent-blue/90"
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                      Open Portal
-                    </Button>
-                  </div>
-                )}
+          <CardContent className="p-6">
+            {isLoadingClients ? (
+              <div className="space-y-3">
+                <Skeleton className="h-4 w-24" />
+                <div className="relative">
+                  <Skeleton className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 rounded" />
+                  <Skeleton className="h-9 w-full rounded-md" />
+                </div>
               </div>
+            ) : (
+              <PlanSearchBar
+                plans={clients}
+                value={selectedPlan}
+                onChange={handlePlanChange}
+                title="Webinars & Replays"
+                disabled={clients.length === 0}
+              />
+            )}
+          </CardContent>
+        </Card>
 
+        {!selectedPlan && (
+          <Card className="shadow-sm">
+            <CardContent className="py-12 text-center">
+              <div className="mx-auto w-14 h-14 rounded-full bg-muted/60 flex items-center justify-center mb-4">
+                <Video className="h-7 w-7 text-muted-foreground/70" />
+              </div>
+              <h3 className="text-base font-semibold text-foreground mb-1.5">
+                Select a plan to get started
+              </h3>
+              <p className="text-sm text-muted-foreground max-w-sm mx-auto leading-relaxed">
+                Search for a plan above to add webinars and manage its replays.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Add / Edit Webinar — the form that used to sit inline beside the list. */}
+      <Dialog open={webinarModalOpen} onOpenChange={handleWebinarModalOpenChange}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto dark:bg-gray-800">
+          <DialogHeader>
+            <DialogTitle>
+              {editingWebinarId ? "Edit Webinar" : "Add New Webinar"}
+            </DialogTitle>
+            <DialogDescription>
+              {editingWebinarId
+                ? "Make your changes below and submit to update the webinar."
+                : "Fill out the details below to add a webinar or replay."}
+            </DialogDescription>
+          </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
               {/* Source Type */}
               <div className="space-y-2">
                 <Label>
@@ -603,7 +676,6 @@ export default function WebinarsPage() {
                     type="file"
                     accept="video/*"
                     onChange={handleFileChange}
-                    disabled={!formData.client}
                     className={errors.videoFile ? "border-red-500" : ""}
                   />
                   <p className="text-xs text-muted-foreground mt-1">
@@ -637,7 +709,6 @@ export default function WebinarsPage() {
                     onChange={(e) =>
                       handleInputChange("videoUrl", e.target.value)
                     }
-                    disabled={!formData.client}
                     className={errors.videoUrl ? "border-red-500" : ""}
                   />
                   {errors.videoUrl && (
@@ -661,7 +732,6 @@ export default function WebinarsPage() {
                   onChange={(e) =>
                     handleInputChange("webinarTitle", e.target.value)
                   }
-                  disabled={!formData.client}
                   className={errors.webinarTitle ? "border-red-500" : ""}
                 />
                 {errors.webinarTitle && (
@@ -726,16 +796,10 @@ export default function WebinarsPage() {
                     type="button"
                     variant="outline"
                     onClick={() => {
-                      setFormData({
-                        client: "",
-                        sourceType: "",
-                        webinarTitle: "",
-                        eventDate: undefined,
-                        videoFile: null,
-                        videoUrl: "",
-                      });
+                      setFormData(blankWebinarForm());
                       setEditingWebinarId(null);
                       setErrors({});
+                      setWebinarModalOpen(false);
                     }}
                     className="flex-1"
                   >
@@ -744,17 +808,30 @@ export default function WebinarsPage() {
                 )}
                 <Button
                   type="submit"
-                  disabled={!formData.client}
                   className="flex-1 bg-accent-blue hover:bg-accent-blue/90 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {editingWebinarId ? "Update Webinar" : "Add Webinar"}
                 </Button>
               </div>
             </form>
-          </CardContent>
-        </Card>
+        </DialogContent>
+      </Dialog>
 
-        {/* Right Panel: Webinars List */}
+      {/* Replays list. It keeps the page width; the form it used to share the row
+          with now lives in the dialog above. */}
+      <div
+        className={cn("w-full max-w-4xl mx-auto", selectedPlan ? "" : "hidden")}
+      >
+        <div className="flex items-center justify-end mb-4">
+          <Button
+            onClick={openAddWebinar}
+            className="gap-1.5 shrink-0 bg-accent-blue text-white hover:bg-accent-blue/90"
+          >
+            <Plus className="h-4 w-4" />
+            Add Webinar
+          </Button>
+        </div>
+
         <Card className="shadow-sm">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between mb-3">
@@ -832,7 +909,7 @@ export default function WebinarsPage() {
                   <p className="text-sm text-muted-foreground">
                     {searchTerm || clientFilter !== "all"
                       ? "Try adjusting your filters or search terms"
-                      : "Add your first webinar using the form on the left"}
+                      : "Add your first webinar with the Add Webinar button above"}
                   </p>
                 </div>
               ) : (
