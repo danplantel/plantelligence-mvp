@@ -302,19 +302,29 @@ export default function WebinarsPage() {
   // Restore the last-used plan once the plans load — but only when one was
   // actually stored before, so a first-time visitor searches for a plan instead
   // of being handed one.
+  const [planSelectionSettled, setPlanSelectionSettled] = useState(false);
   const stickyPlanInitRef = useRef(false);
   useEffect(() => {
     if (clients.length === 0 || stickyPlanInitRef.current) return;
     stickyPlanInitRef.current = true;
-    if (!getLastPlanId("communications")) return;
-    const resolved = resolveStickyPlanId(clients, "communications", null);
-    if (!resolved) return;
-    const plan = clients.find((c) => c.id === resolved);
-    if (!plan) return;
-    setSelectedPlan(resolved);
-    setFormData((prev) =>
-      prev.client ? prev : { ...prev, client: plan.companyName },
-    );
+
+    // The restore runs in an effect, i.e. one render after the plans arrive, so
+    // "nothing selected" isn't a real answer until it has run. `planSelectionSettled`
+    // is what lets the empty state tell the two apart instead of flashing.
+    const stored = getLastPlanId("communications");
+    const resolved = stored
+      ? resolveStickyPlanId(clients, "communications", null)
+      : null;
+    const plan = resolved ? clients.find((c) => c.id === resolved) : undefined;
+
+    if (plan && resolved) {
+      setSelectedPlan(resolved);
+      setFormData((prev) =>
+        prev.client ? prev : { ...prev, client: plan.companyName },
+      );
+    }
+
+    setPlanSelectionSettled(true);
   }, [clients]);
 
   // Surface the selected plan next to the page title, as the Meetings page does,
@@ -812,7 +822,7 @@ export default function WebinarsPage() {
         {/* Hidden while the plan list is still loading: showing "Select a plan to
             get started" next to the search skeleton reads as if the list were
             already empty. */}
-        {!isLoadingClients && !selectedPlan && (
+        {!isLoadingClients && planSelectionSettled && !selectedPlan && (
           <Card className="shadow-sm">
             <CardContent className="py-12 text-center">
               <div className="mx-auto w-14 h-14 rounded-full bg-muted/60 flex items-center justify-center mb-4">
