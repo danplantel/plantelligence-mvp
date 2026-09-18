@@ -72,6 +72,13 @@ import {
 const TRANSPARENCY_CHECKERBOARD =
   "repeating-conic-gradient(#f0f0f0 0% 25%, #ffffff 0% 50%) 50% / 20px 20px";
 
+/**
+ * Scale applied to the preview boxes in the info panel. A preview is a check on
+ * framing, not a working surface, so it renders well below full size and leaves
+ * the panel's vertical space to the guidance and the controls. The header mock's
+ * caption reads this value, so changing it cannot leave the wording behind.
+ */
+const PREVIEW_DISPLAY_SCALE = 0.3;
 
 /**
  * Background-removal settings, fixed rather than offered.
@@ -2993,6 +3000,106 @@ export function UniversalImageEditorModal({
     checkSafeZone();
   };
 
+  /**
+   * Preview panel body. Rendered first in the info column — the preview is what
+   * the advisor came to check — and at `PREVIEW_DISPLAY_SCALE` of its configured
+   * size so it does not dominate the panel.
+   */
+  const previewsPanel = (
+    <>
+      {config.previewFormats.map((format) => {
+        const size = config.previewSizes[format];
+        if (!size) return null;
+
+        // Special styling for Header Bar preview in normalizer
+        const isHeaderBarPreview = type === "normalizer" && format === "custom";
+
+        // Half-scale mock of the real header geometry.
+        const barHeight = HEADER_LOGO_BAR_HEIGHT_PX * PREVIEW_DISPLAY_SCALE;
+        const bandHeight = HEADER_LOGO_BAND_PX * PREVIEW_DISPLAY_SCALE;
+        const bandMaxWidth = HEADER_LOGO_MAX_WIDTH_PX * PREVIEW_DISPLAY_SCALE;
+
+        return (
+          <div key={format}>
+            <Label className="text-sm font-medium text-gray-400">
+              {type === "logo" && format === "rectangular"
+                ? "Logo Preview"
+                : previewText || previewTitle || modalTitle || config.modalTitle}
+            </Label>
+            <div className="mt-2">
+              {isHeaderBarPreview ? (
+                <div className="space-y-2">
+                  {/* Mirrors the real header at half scale: a fixed band the logo
+                      is contain-fitted into, showing the same tight crop the save
+                      path stores. */}
+                  <div
+                    className="border-[1px] border-gray-200 rounded-lg bg-white relative mx-auto overflow-hidden flex items-center px-2"
+                    style={{ width: `100%`, height: `${barHeight}px` }}
+                  >
+                    {previews[format] ? (
+                      <div
+                        className="relative inline-flex shrink-0 items-center justify-center overflow-hidden"
+                        style={{
+                          height: `${bandHeight}px`,
+                          minHeight: `${bandHeight}px`,
+                          maxWidth: `${bandMaxWidth}px`,
+                        }}
+                      >
+                        <img
+                          src={previews[format]}
+                          alt="Header Bar Preview"
+                          className="block h-auto w-auto max-h-full max-w-full object-contain object-center"
+                        />
+                      </div>
+                    ) : (
+                      <span className="text-gray-400 text-xs">Adjusting...</span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-gray-400 text-center">
+                    {Math.round(PREVIEW_DISPLAY_SCALE * 100)}% scale mock of the
+                    portal header.
+                  </p>
+                </div>
+              ) : (
+                // Standard preview for other formats
+                <div
+                  className={`overflow-hidden flex items-center justify-center border-2 border-gray-300 dark:border-gray-600 ${format === "circle"
+                    ? "rounded-full"
+                    : "rounded-lg"
+                    }`}
+                  style={{
+                    width: `${size.width * PREVIEW_DISPLAY_SCALE}px`,
+                    height: `${size.height * PREVIEW_DISPLAY_SCALE}px`,
+                    background: TRANSPARENCY_CHECKERBOARD,
+                  }}
+                >
+                  {previews[format] ? (
+                    <img
+                      src={previews[format]}
+                      alt={`${format} Preview`}
+                      className="w-full h-full object-contain"
+                    />
+                  ) : (
+                    <span className="text-gray-400 text-xs">Adjusting...</span>
+                  )}
+                </div>
+              )}
+            </div>
+            {previewTitle === "Thumbnail image" && (
+              <div className="flex items-start space-x-1.5 sm:space-x-2 p-2 sm:p-2.5 md:p-3 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-md mt-3">
+                <AlertTriangle className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
+                <p className="text-[9px] sm:text-[10px] md:text-xs text-orange-600 dark:text-orange-400">
+                  The preview is square (900×900). Make sure your image fits well
+                  within these dimensions for best results.
+                </p>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </>
+  );
+
   return (
     <div>
       <input
@@ -3219,6 +3326,10 @@ export function UniversalImageEditorModal({
                 {/* Right: Info Panel */}
                 <div className="w-1/3 p-2 sm:p-3 md:p-4 space-y-1.5 sm:space-y-2 md:space-y-3 flex flex-col overflow-y-auto text-xs sm:text-sm bg-white dark:bg-gray-800 dark:text-gray-100">
                   <div className="space-y-1.5 sm:space-y-2 md:space-y-3">
+                    {/* Preview leads the panel — it is what the advisor came to
+                        check, and everything below explains or refines it. */}
+                    {previewsPanel}
+
                     {/* Logo Background Removal — button-driven, inert until pressed */}
                     {config.allowBackgroundRemoval && (
                       <div className="p-2 sm:p-2.5 md:p-3 bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 rounded-md space-y-2 sm:space-y-2.5">
@@ -3241,13 +3352,7 @@ export function UniversalImageEditorModal({
                               Removes the background — a solid colour, a gradient
                               or a photo behind the logo — trims the empty space
                               around the artwork and fits the result to the guide,
-                              so the logo is sized by the artwork itself. Press{" "}
-                              <strong>
-                                {bgRemoval.isRemoved
-                                  ? "Undo Background Removal"
-                                  : "Remove Background"}
-                              </strong>{" "}
-                              next to Auto-size.
+                              so the logo is sized by the artwork itself.
                             </p>
 
                             {/* The model runs on the server, so a removal is a request
@@ -3532,106 +3637,6 @@ export function UniversalImageEditorModal({
                           )}
                       </>
                     )}
-
-                    {/* Previews based on configuration */}
-                    {config.previewFormats.map((format) => {
-                      const size = config.previewSizes[format];
-                      if (!size) return null;
-
-                      // Special styling for Header Bar preview in normalizer
-                      const isHeaderBarPreview =
-                        type === "normalizer" && format === "custom";
-
-                      return (
-                        <div key={format}>
-                          <Label className="text-sm font-medium text-gray-400">
-                            {type === "logo" && format === "rectangular"
-                              ? "Logo Preview"
-                              : previewText ||
-                                previewTitle ||
-                                modalTitle ||
-                                config.modalTitle}
-                          </Label>
-                          <div className="mt-2">
-                            {isHeaderBarPreview ? (
-                              <div className="space-y-2">
-                                {/* Mirrors the real header: a fixed band the logo is
-                                    contain-fitted into. The preview image is the
-                                    same tight crop the save path stores, so what
-                                    the advisor sees here is what the portal
-                                    renders. */}
-                                <div
-                                  className="border-[1px] border-gray-200 rounded-lg bg-white relative mx-auto overflow-hidden flex items-center px-4"
-                                  style={{
-                                    width: `100%`,
-                                    height: `${HEADER_LOGO_BAR_HEIGHT_PX}px`,
-                                  }}
-                                >
-                                  {previews[format] ? (
-                                    <div
-                                      className="relative inline-flex shrink-0 items-center justify-center overflow-hidden"
-                                      style={{
-                                        height: `${HEADER_LOGO_BAND_PX}px`,
-                                        minHeight: `${HEADER_LOGO_BAND_PX}px`,
-                                        maxWidth: `${HEADER_LOGO_MAX_WIDTH_PX}px`,
-                                      }}
-                                    >
-                                      <img
-                                        src={previews[format]}
-                                        alt="Header Bar Preview"
-                                        className="block h-auto w-auto max-h-full max-w-full object-contain object-center"
-                                      />
-                                    </div>
-                                  ) : (
-                                    <span className="text-gray-400 text-xs">
-                                      Adjusting...
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="text-[10px] text-gray-400 text-center">
-                                  Shown at its real size in the portal header.
-                                </p>
-                              </div>
-                            ) : (
-                              // Standard preview for other formats
-                              <div
-                                className={`overflow-hidden flex items-center justify-center border-2 border-gray-300 dark:border-gray-600 ${format === "circle"
-                                  ? "rounded-full"
-                                  : "rounded-lg"
-                                  }`}
-                                style={{
-                                  width: `${size.width}px`,
-                                  height: `${size.height}px`,
-                                  background: TRANSPARENCY_CHECKERBOARD,
-                                }}
-                              >
-                                {previews[format] ? (
-                                  <img
-                                    src={previews[format]}
-                                    alt={`${format} Preview`}
-                                    className="w-full h-full object-contain"
-                                  />
-                                ) : (
-                                  <span className="text-gray-400 text-xs">
-                                    Adjusting...
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                          {previewTitle === "Thumbnail image" && (
-                            <div className="flex items-start space-x-1.5 sm:space-x-2 p-2 sm:p-2.5 md:p-3 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-md mt-3">
-                              <AlertTriangle className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
-                              <p className="text-[9px] sm:text-[10px] md:text-xs text-orange-600 dark:text-orange-400">
-                                The preview is square (900×900). Make sure your
-                                image fits well within these dimensions for best
-                                results.
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
 
                     {/* Headshot Crop Warning - Show under previews for headshot type */}
                     {type === "headshot" && isHeadshotCropped && (
