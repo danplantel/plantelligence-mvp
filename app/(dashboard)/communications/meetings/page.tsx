@@ -226,6 +226,16 @@ function hasMeaningfulMeetingChanges(formData: MeetingFormData, editingMeetingId
   return keysToCheck.some((key) => formData[key] !== DEFAULT_MEETING_FORM_DATA[key]);
 }
 
+/**
+ * Meeting Type label for read-only summaries. A custom type is stored as the
+ * placeholder option ("Custom") plus the name the advisor typed, so a summary
+ * should show the name rather than the word "Custom" that selected it.
+ */
+function getMeetingTypeLabel(formData: Pick<MeetingFormData, "meetingType" | "customMeetingType">): string {
+  if (formData.meetingType === "Custom") return formData.customMeetingType.trim() || "Custom";
+  return formData.meetingType || "—";
+}
+
 const FORMATS = ["Virtual", "In-Person", "Virtual & In-Person"];
 
 const PLATFORMS = [
@@ -235,9 +245,6 @@ const PLATFORMS = [
   { value: "Other", label: "Other" },
 ];
 
-const HOURS = Array.from({ length: 12 }, (_, i) => i + 1);
-const MINUTES = Array.from({ length: 12 }, (_, i) => i * 5);
-const AMPM_OPTIONS = ["AM", "PM"];
 const TIME_OPTIONS = Array.from({ length: 96 }, (_, i) => {
   const minutes = i * 15;
   const h24 = Math.floor(minutes / 60) % 24;
@@ -622,9 +629,6 @@ export default function MeetingsPage() {
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [tempDate, setTempDate] = useState("");
   const [timePickerOpen, setTimePickerOpen] = useState(false);
-  const [tempHour, setTempHour] = useState("");
-  const [tempMinute, setTempMinute] = useState("");
-  const [tempAmpm, setTempAmpm] = useState("");
   const [endTimePickerOpen, setEndTimePickerOpen] = useState(false);
   const [startTimeText, setStartTimeText] = useState("");
   const [endTimeText, setEndTimeText] = useState("");
@@ -997,6 +1001,10 @@ export default function MeetingsPage() {
   const handleCreateDuplicate = async () => {
     if (!formData.clientId) { toast.error("You must select a plan before scheduling a meeting"); return; }
     if (!formData.date || !formData.time) { toast.error("Date and time are required to duplicate the meeting"); return; }
+    // The end time is required here — as it is for scheduling — because the
+    // duration is derived from the start/end pair. Duplicating with a start time
+    // alone would recompute the inherited duration to blank and submit it empty.
+    if (!formData.endTime) { toast.error("Please choose an end time for the duplicated meeting"); return; }
     setIsSubmitting(true);
     try {
       const response = await fetch("/api/meetings", {
@@ -1708,7 +1716,7 @@ export default function MeetingsPage() {
                 </div>
                 <DialogTitle>Duplicate Meeting</DialogTitle>
                 <DialogDescription>
-                  Adjust the language, date, time, and meeting link for the duplicated meeting.
+                  Adjust the description, language, date, and times for the duplicated meeting.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-2">
@@ -1716,7 +1724,9 @@ export default function MeetingsPage() {
                 <div className="bg-muted/50 rounded-lg p-3 border border-border/60">
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                     <span className="text-muted-foreground">Meeting Type:</span>
-                    <span className="font-medium truncate">{formData.meetingType || "—"}</span>
+                    <span className="font-medium truncate" title={getMeetingTypeLabel(formData)}>
+                      {getMeetingTypeLabel(formData)}
+                    </span>
                     <span className="text-muted-foreground">Duration:</span>
                     <span className="font-medium">{formData.duration || "—"}</span>
                     <span className="text-muted-foreground">Plan:</span>
@@ -1724,9 +1734,30 @@ export default function MeetingsPage() {
                     <span className="text-muted-foreground">Benefit Category:</span>
                     <span className="font-medium truncate">{formData.benefitsCategory || "—"}</span>
                   </div>
-                  <div className="mt-2 pt-2 border-t border-border/60">
-                    <span className="block text-xs text-muted-foreground mb-0.5">Description</span>
-                    <p className="text-xs font-medium text-foreground leading-relaxed">{formData.description || "—"}</p>
+                </div>
+
+                {/* Description — editable and pre-filled with the description of
+                    the meeting being duplicated. */}
+                <div className="space-y-2">
+                  <Label>Description</Label>
+                  <Textarea
+                    value={formData.description}
+                    onChange={(e) => handleInputChange("description", e.target.value)}
+                    rows={3}
+                    placeholder={DEFAULT_MEETING_DESCRIPTION}
+                    maxLength={MAX_DESCRIPTION_LENGTH}
+                  />
+                  <div className="flex justify-end">
+                    <span className={cn(
+                      "text-xs tabular-nums",
+                      formData.description.length >= MAX_DESCRIPTION_LENGTH
+                        ? "text-red-500 font-medium"
+                        : formData.description.length >= MAX_DESCRIPTION_LENGTH * 0.9
+                          ? "text-amber-500"
+                          : "text-muted-foreground"
+                    )}>
+                      {formData.description.length}/{MAX_DESCRIPTION_LENGTH}
+                    </span>
                   </div>
                 </div>
 
@@ -1766,50 +1797,109 @@ export default function MeetingsPage() {
                   </Popover>
                 </div>
 
-                {/* Time */}
+                {/* Start Time — same input as Schedule: type it, or pick from the
+                    scrollable list, which centres the closest slot. */}
                 <div className="space-y-2">
-                  <Label>Time</Label>
-                  <Popover open={timePickerOpen} onOpenChange={(open) => { setTimePickerOpen(open); if (open) { setTempHour(formData.hour); setTempMinute(formData.minute); setTempAmpm(formData.ampm); } }}>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className={`w-full justify-start text-left font-normal ${!formData.time && "text-muted-foreground"} dark:bg-gray-800`}>
-                        <Clock className="mr-2 h-4 w-4" />
-                        {formData.time ? formatTime12h(formData.time) : "Select time"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-72 p-4" align="start">
-                      <div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
-                        <div className="space-y-1">
-                          <Label className="text-xs">Hour</Label>
-                          <Select value={tempHour} onValueChange={setTempHour}>
-                            <SelectTrigger className="dark:bg-gray-800"><SelectValue placeholder="-" /></SelectTrigger>
-                            <SelectContent position="popper" side="bottom" align="start" avoidCollisions={false} className="max-h-[200px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-track]:bg-transparent" style={{ scrollbarWidth: "thin" }}>{HOURS.map((h) => <SelectItem key={h} value={h.toString()}>{h}</SelectItem>)}</SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Minute</Label>
-                          <Select value={tempMinute} onValueChange={setTempMinute}>
-                            <SelectTrigger className="dark:bg-gray-800"><SelectValue placeholder="-" /></SelectTrigger>
-                            <SelectContent className="max-h-[200px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-track]:bg-transparent" style={{ scrollbarWidth: "thin" }}>{MINUTES.map((m) => <SelectItem key={m} value={m.toString().padStart(2, "0")}>{m.toString().padStart(2, "0")}</SelectItem>)}</SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">AM/PM</Label>
-                          <Select value={tempAmpm} onValueChange={setTempAmpm}>
-                            <SelectTrigger className="dark:bg-gray-800"><SelectValue placeholder="-" /></SelectTrigger>
-                            <SelectContent>{AMPM_OPTIONS.map((ap) => <SelectItem key={ap} value={ap}>{ap}</SelectItem>)}</SelectContent>
-                          </Select>
-                        </div>
+                  <Label>Start Time <span className="text-red-500">*</span></Label>
+                  <Popover open={timePickerOpen} onOpenChange={setTimePickerOpen}>
+                    <div className="relative">
+                      <Input
+                        value={startTimeText}
+                        onChange={(e) => handleStartTimeTextChange(e.target.value)}
+                        onBlur={handleStartTimeBlur}
+                        onFocus={() => setTimePickerOpen(true)}
+                        onKeyDown={(e) => { if (e.key === "Enter") setTimePickerOpen(false); }}
+                        placeholder="e.g. 1:30pm"
+                        className={`pr-9 ${errors.time ? "border-red-500 focus:border-red-500 focus:ring-red-500/20" : ""} dark:bg-gray-800`}
+                      />
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label="Pick start time"
+                          onClick={(e) => { e.preventDefault(); setTimePickerOpen(true); }}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground"
+                        >
+                          <Clock className="h-4 w-4" />
+                        </button>
+                      </PopoverTrigger>
+                    </div>
+                    <PopoverContent className="w-56 p-1" align="end" side="bottom">
+                      <div
+                        ref={startTimeListRef}
+                        className="max-h-[160px] overflow-y-auto overscroll-contain pr-1 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-track]:bg-transparent"
+                        style={{ scrollbarWidth: "thin" }}
+                        onWheel={(e) => e.stopPropagation()}
+                      >
+                        {TIME_OPTIONS.map((opt, index) => {
+                          const isHighlighted = startTimeHighlightIndex === index;
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => { applyStartTime(opt.value); setStartTimeText(opt.label); setTimePickerOpen(false); }}
+                              className={`w-full rounded-md px-3 py-1.5 text-left text-sm transition-colors ${isHighlighted ? "bg-accent-blue/20 text-accent-blue font-medium" : "hover:bg-muted"}`}
+                            >
+                              {opt.label}
+                            </button>
+                          );
+                        })}
                       </div>
-                      <div className="flex items-center justify-end gap-2 pt-3 border-t border-border mt-3">
-                        <Button type="button" size="sm" variant="outline" onClick={() => setTimePickerOpen(false)}>Cancel</Button>
-                        <Button type="button" size="sm" onClick={() => {
-                          if (tempHour && tempMinute && tempAmpm) {
-                            const hour24 = tempAmpm === "AM" ? (tempHour === "12" ? "00" : tempHour.padStart(2, "0")) : tempHour === "12" ? "12" : (parseInt(tempHour) + 12).toString();
-                            handleInputChange("time", `${hour24}:${tempMinute.padStart(2, "0")}`);
-                            setFormData((prev) => ({ ...prev, hour: tempHour, minute: tempMinute, ampm: tempAmpm }));
-                          }
-                          setTimePickerOpen(false);
-                        }}>OK</Button>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                {/* End Time — pickable only once a start time exists, and limited
+                    to later slots, each showing the resulting duration. */}
+                <div className="space-y-2">
+                  <Label>End Time <span className="text-red-500">*</span></Label>
+                  <Popover open={endTimePickerOpen} onOpenChange={setEndTimePickerOpen}>
+                    <div className="relative">
+                      <Input
+                        value={endTimeText}
+                        onChange={(e) => handleEndTimeTextChange(e.target.value)}
+                        onBlur={handleEndTimeBlur}
+                        onFocus={() => { if (formData.time) setEndTimePickerOpen(true); }}
+                        onKeyDown={(e) => { if (e.key === "Enter") setEndTimePickerOpen(false); }}
+                        placeholder="e.g. 2:00pm"
+                        disabled={!formData.time}
+                        className={`pr-9 ${errors.endTime ? "border-red-500 focus:border-red-500 focus:ring-red-500/20" : ""} dark:bg-gray-800`}
+                      />
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label="Pick end time"
+                          disabled={!formData.time}
+                          onClick={(e) => { e.preventDefault(); if (formData.time) setEndTimePickerOpen(true); }}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Clock className="h-4 w-4" />
+                        </button>
+                      </PopoverTrigger>
+                    </div>
+                    <PopoverContent className="w-64 p-1" align="end" side="bottom">
+                      <div
+                        ref={endTimeListRef}
+                        className="max-h-[160px] overflow-y-auto overscroll-contain pr-1 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-track]:bg-transparent"
+                        style={{ scrollbarWidth: "thin" }}
+                        onWheel={(e) => e.stopPropagation()}
+                      >
+                        {endTimeOptions.map((opt, index) => {
+                          const isHighlighted = endTimeHighlightIndex === index;
+                          const durationLabel = formatMeetingDuration(minutesBetweenTimes(formData.time, opt.value));
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => { applyEndTime(opt.value); setEndTimeText(opt.label); setEndTimePickerOpen(false); }}
+                              className={`w-full flex items-center justify-between gap-2 rounded-md px-3 py-1.5 text-left text-sm transition-colors ${isHighlighted ? "bg-accent-blue/20 text-accent-blue font-medium" : "hover:bg-muted"}`}
+                            >
+                              <span>{opt.label}</span>
+                              {durationLabel && (
+                                <span className="text-xs text-muted-foreground shrink-0">({durationLabel})</span>
+                              )}
+                            </button>
+                          );
+                        })}
                       </div>
                     </PopoverContent>
                   </Popover>
