@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { compressImage } from "@/lib/image-compression";
 import { PlanSearchBar } from "@/components/plan-selector/plan-search-bar";
 import {
   getLastPlanId,
@@ -38,6 +39,7 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format, isValid } from "date-fns";
 import {
   Calendar,
+  Check,
   Video,
   Upload,
   Link as LinkIcon,
@@ -66,6 +68,7 @@ interface WebinarFormData {
   sourceType: "upload" | "url" | "";
   webinarTitle: string;
   description: string;
+  thumbnail: string;
   eventDate: Date | undefined;
   videoFile: File | null;
   videoUrl: string;
@@ -81,8 +84,13 @@ interface Webinar {
   };
   webinarTitle: string;
   description?: string | null;
+  thumbnail?: string | null;
   eventDate: Date;
   videoFileUrl: string | null;
+  /** Set when a video exists but its payload was omitted from the list request. */
+  hasVideoFile?: boolean;
+  /** Length of the stored base64 video, sent in place of the payload itself. */
+  videoSize?: number;
   videoUrl: string | null;
   createdAt: Date;
 }
@@ -129,6 +137,8 @@ function getEmbedUrl(url: string): string | null {
 // caps and the counters can never drift apart.
 const MAX_VIDEO_TITLE_LENGTH = 60;
 const MAX_DESCRIPTION_LENGTH = 200;
+// Longest edge, in px, for the stored thumbnail (uploaded image or video frame).
+const THUMBNAIL_MAX_EDGE = 640;
 
 const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -146,6 +156,7 @@ export default function WebinarsPage() {
     sourceType: "",
     webinarTitle: "",
     description: "",
+    thumbnail: "",
     eventDate: undefined,
     videoFile: null,
     videoUrl: "",
@@ -166,6 +177,22 @@ export default function WebinarsPage() {
     useState<Webinar | null>(null);
   // In-flight add/update — drives the submit button's spinner.
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Multi-select for the replays list.
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // Rows captured when the bulk confirmation is opened (see `openBulkDelete`).
+  const [bulkDeleteIds, setBulkDeleteIds] = useState<string[]>([]);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
+  // Row being watched in the lazy video dialog (see `openVideoPreview`).
+  const [videoPreview, setVideoPreview] = useState<{
+    title: string;
+    videoUrl: string | null;
+    videoFileUrl: string | null;
+    isLoading: boolean;
+  } | null>(null);
 
   // Filter and search state
   const [searchTerm, setSearchTerm] = useState("");
@@ -202,21 +229,23 @@ export default function WebinarsPage() {
       const bDate = new Date(b.eventDate).getTime();
       return sortDirection === "asc" ? aDate - bDate : bDate - aDate;
     } else if (sortBy === "size") {
-      // Sort by file size (for uploaded videos) or URL length
-      const aSize = a.videoFileUrl
-        ? a.videoFileUrl.length
-        : a.videoUrl
-        ? a.videoUrl.length
-        : 0;
-      const bSize = b.videoFileUrl
-        ? b.videoFileUrl.length
-        : b.videoUrl
-        ? b.videoUrl.length
-        : 0;
+      // The list omits the base64 payload, so compare the size the API reports;
+      // URL-sourced rows fall back to their URL length.
+      const sizeOf = (w: Webinar) =>
+        w.videoSize && w.videoSize > 0 ? w.videoSize : w.videoUrl?.length ?? 0;
+      const aSize = sizeOf(a);
+      const bSize = sizeOf(b);
       return sortDirection === "asc" ? aSize - bSize : bSize - aSize;
     }
     return 0;
   });
+
+  // Only rows currently on screen can be acted on: a selection made before the
+  // search or the plan changed must never delete something the user cannot see.
+  const selectedWebinars = sortedWebinars.filter((w) => selectedIds.has(w.id));
+  const allVisibleSelected =
+    sortedWebinars.length > 0 &&
+    selectedWebinars.length === sortedWebinars.length;
 
   // Fetch clients (plans)
   useEffect(() => {
@@ -247,7 +276,10 @@ export default function WebinarsPage() {
   const fetchWebinars = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch("/api/webinars");
+      // `includeVideoFiles=0` keeps the multi-MB base64 videos out of the list
+      // payload: the cards only need the thumbnail, and playback fetches the one
+      // video it needs on demand.
+      const response = await fetch("/api/webinars?includeVideoFiles=0");
       const result = await response.json();
 
       if (result.success) {
@@ -303,6 +335,7 @@ export default function WebinarsPage() {
       sourceType: "",
       webinarTitle: "",
       description: "",
+      thumbnail: "",
       eventDate: undefined,
       videoFile: null,
       videoUrl: "",
@@ -310,6 +343,10 @@ export default function WebinarsPage() {
     setEditingWebinarId(null);
     setErrors({});
     setWebinarModalOpen(false);
+    // The list changes wholesale with the plan — a selection made against the
+    // previous one must not survive it.
+    setIsSelectMode(false);
+    setSelectedIds(new Set());
   };
 
   const handleInputChange = (field: keyof WebinarFormData, value: any) => {
@@ -360,11 +397,100 @@ export default function WebinarsPage() {
     }
   };
 
+  // ── Thumbnail picker ───────────────────────────────────────────────────────
+  // The thumbnail is either an uploaded image or a frame grabbed from the video
+  // the user selected. Both paths funnel through `applyThumbnail`, which
+  // downscales to `THUMBNAIL_MAX_EDGE` so the stored data URL stays small
+  // alongside the base64 video.
+  const [thumbnailMode, setThumbnailMode] = useState<"upload" | "frame">(
+    "upload",
+  );
+  const [frameTime, setFrameTime] = useState(0);
+  const [videoDuration, setVideoDuration] = useState(0);
+  const thumbnailVideoRef = useRef<HTMLVideoElement | null>(null);
+
+  // Object URL for the picked file — only ever created in the browser, since
+  // there is no file during the server render.
+  const thumbnailVideoUrl = useMemo(
+    () => (formData.videoFile ? URL.createObjectURL(formData.videoFile) : null),
+    [formData.videoFile],
+  );
+  useEffect(() => {
+    if (!thumbnailVideoUrl) return;
+    return () => URL.revokeObjectURL(thumbnailVideoUrl);
+  }, [thumbnailVideoUrl]);
+
+  const applyThumbnail = async (dataUrl: string) => {
+    try {
+      const compressed = await compressImage(dataUrl, {
+        maxWidth: THUMBNAIL_MAX_EDGE,
+        maxHeight: THUMBNAIL_MAX_EDGE,
+        quality: 0.8,
+        mimeType: "image/jpeg",
+      });
+      handleInputChange("thumbnail", compressed);
+    } catch (error) {
+      console.error("Error processing thumbnail:", error);
+      toast.error("Failed to process that image");
+    }
+  };
+
+  const handleThumbnailFileChange = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file");
+      e.target.value = "";
+      return;
+    }
+
+    const dataUrl = await new Promise<string | null>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    });
+
+    if (!dataUrl) {
+      toast.error("Failed to read that image");
+      e.target.value = "";
+      return;
+    }
+
+    await applyThumbnail(dataUrl);
+    e.target.value = ""; // Allow re-picking the same file
+  };
+
+  // Draw the frame under the playhead onto a canvas and use it as the thumbnail.
+  const captureFrameFromVideo = async () => {
+    const video = thumbnailVideoRef.current;
+    if (!video || !video.videoWidth) return;
+
+    const scale = Math.min(1, THUMBNAIL_MAX_EDGE / video.videoWidth);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(video.videoWidth * scale);
+    canvas.height = Math.round(video.videoHeight * scale);
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    await applyThumbnail(canvas.toDataURL("image/jpeg", 0.85));
+  };
+
+  const handleFrameScrub = (time: number) => {
+    setFrameTime(time);
+    const video = thumbnailVideoRef.current;
+    if (video) video.currentTime = time; // onSeeked captures the frame
+  };
+
   const blankWebinarForm = (): WebinarFormData => ({
     client: selectedPlanClientName,
     sourceType: "",
     webinarTitle: "",
     description: "",
+    thumbnail: "",
     eventDate: undefined,
     videoFile: null,
     videoUrl: "",
@@ -455,6 +581,7 @@ export default function WebinarsPage() {
           },
           webinarTitle: formData.webinarTitle,
           description: formData.description,
+          thumbnail: formData.thumbnail || null,
           eventDate: formData.eventDate?.toISOString(),
           videoFile: videoFileBase64,
           videoUrl: formData.videoUrl,
@@ -501,6 +628,7 @@ export default function WebinarsPage() {
         : "",
       webinarTitle: webinar.webinarTitle,
       description: webinar.description ?? "",
+      thumbnail: webinar.thumbnail ?? "",
       eventDate: new Date(webinar.eventDate),
       videoFile: null, // Don't reload file on edit
       videoUrl: webinar.videoUrl || "",
@@ -534,6 +662,122 @@ export default function WebinarsPage() {
       toast.error(
         error instanceof Error ? error.message : "Failed to delete webinar",
       );
+    }
+  };
+
+  // ── Multi-select ───────────────────────────────────────────────────────────
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (sortedWebinars.every((w) => prev.has(w.id))) {
+        // Clear only what is on screen; anything filtered out stays selected.
+        sortedWebinars.forEach((w) => next.delete(w.id));
+      } else {
+        sortedWebinars.forEach((w) => next.add(w.id));
+      }
+      return next;
+    });
+  };
+
+  const exitSelectMode = () => {
+    setIsSelectMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const openBulkDelete = () => {
+    // Freeze the target list: the rows being deleted must not change under the
+    // user while the confirmation is open.
+    setBulkDeleteIds(selectedWebinars.map((w) => w.id));
+    setBulkDeleteOpen(true);
+  };
+
+  const handleBulkDelete = async () => {
+    if (bulkDeleteIds.length === 0) return;
+
+    try {
+      setIsBulkDeleting(true);
+      const response = await fetch("/api/webinars/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: bulkDeleteIds }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Failed to delete webinars");
+      }
+
+      toast.success(
+        bulkDeleteIds.length === 1
+          ? "Webinar deleted successfully"
+          : `${bulkDeleteIds.length} webinars deleted successfully`,
+      );
+
+      // `bulkDeleteIds` is deliberately left alone: the dialog is still closing,
+      // and clearing it here would rewrite its own text to "0 webinars" mid-exit.
+      // The next `openBulkDelete` overwrites it.
+      exitSelectMode();
+      // Refresh webinars list
+      await fetchWebinars();
+    } catch (error) {
+      console.error("Error deleting webinars:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to delete webinars",
+      );
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
+  // ── Lazy video preview ─────────────────────────────────────────────────────
+  // The list response omits the base64 videos, so a click fetches just the one
+  // row about to play. URL-sourced webinars already have what they need.
+  const openVideoPreview = async (webinar: Webinar) => {
+    const needsFetch =
+      !webinar.videoUrl &&
+      !webinar.videoFileUrl &&
+      Boolean(webinar.hasVideoFile);
+
+    setVideoPreview({
+      title: webinar.webinarTitle,
+      videoUrl: webinar.videoUrl,
+      videoFileUrl: webinar.videoFileUrl,
+      isLoading: needsFetch,
+    });
+
+    if (!needsFetch) return;
+
+    try {
+      const response = await fetch(`/api/webinars/${webinar.id}`);
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Failed to load video");
+      }
+
+      setVideoPreview((prev) =>
+        prev
+          ? {
+              ...prev,
+              videoFileUrl: result.data?.videoFileUrl ?? null,
+              isLoading: false,
+            }
+          : prev,
+      );
+    } catch (error) {
+      console.error("Error loading video:", error);
+      toast.error("Failed to load that video");
+      setVideoPreview(null);
     }
   };
 
@@ -740,6 +984,106 @@ export default function WebinarsPage() {
                 </div>
               )}
 
+              {/* Thumbnail — an uploaded image, or a frame captured from the
+                  selected video. Optional; the replay card falls back to its
+                  default treatment when it's empty. */}
+              <div className="space-y-2">
+                <Label>Thumbnail</Label>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={thumbnailMode === "upload" ? "default" : "outline"}
+                    onClick={() => setThumbnailMode("upload")}
+                  >
+                    <Upload className="mr-1.5 h-3.5 w-3.5" />
+                    Upload image
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={thumbnailMode === "frame" ? "default" : "outline"}
+                    disabled={!thumbnailVideoUrl}
+                    onClick={() => setThumbnailMode("frame")}
+                  >
+                    <Video className="mr-1.5 h-3.5 w-3.5" />
+                    Use video frame
+                  </Button>
+                </div>
+
+                {thumbnailMode === "upload" ? (
+                  <>
+                    <Input
+                      id="thumbnailFile"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleThumbnailFileChange}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      JPG, PNG or WebP. Large images are resized automatically.
+                    </p>
+                  </>
+                ) : thumbnailVideoUrl ? (
+                  <div className="space-y-2 rounded-lg border p-3">
+                    <video
+                      ref={thumbnailVideoRef}
+                      src={thumbnailVideoUrl}
+                      className="w-full aspect-video rounded-md bg-black"
+                      muted
+                      playsInline
+                      preload="metadata"
+                      onLoadedMetadata={(e) => {
+                        const video = e.currentTarget;
+                        setVideoDuration(video.duration || 0);
+                        // Land on a frame near the start so there is something to
+                        // look at before the user scrubs.
+                        const start = Math.min(1, (video.duration || 0) / 2);
+                        setFrameTime(start);
+                        video.currentTime = start;
+                      }}
+                      onSeeked={captureFrameFromVideo}
+                    />
+                    <input
+                      type="range"
+                      min={0}
+                      max={videoDuration || 0}
+                      step={0.05}
+                      value={frameTime}
+                      onChange={(e) => handleFrameScrub(Number(e.target.value))}
+                      aria-label="Choose the video frame to use"
+                      className="w-full accent-primary"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Scrub to the frame you want — it is captured automatically.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Select a video file above to capture a frame from it.
+                  </p>
+                )}
+
+                {formData.thumbnail && (
+                  <div className="flex items-center gap-3 pt-1">
+                    <img
+                      src={formData.thumbnail}
+                      alt="Thumbnail preview"
+                      className="h-16 w-28 rounded-md border object-cover"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => handleInputChange("thumbnail", "")}
+                    >
+                      <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                      Remove thumbnail
+                    </Button>
+                  </div>
+                )}
+              </div>
+
               {/* Webinar Title */}
               <div className="space-y-2">
                 <Label htmlFor="webinarTitle">
@@ -937,6 +1281,16 @@ export default function WebinarsPage() {
                   {sortDirection === "asc" ? "↑" : "↓"}
                 </Button>
                 <Button
+                  variant={isSelectMode ? "default" : "outline"}
+                  size="sm"
+                  className="h-9 shrink-0"
+                  onClick={() =>
+                    isSelectMode ? exitSelectMode() : setIsSelectMode(true)
+                  }
+                >
+                  {isSelectMode ? "Done" : "Select"}
+                </Button>
+                <Button
                   onClick={openAddWebinar}
                   className="gap-1.5 shrink-0 h-9 bg-accent-blue text-white hover:bg-accent-blue/90"
                 >
@@ -944,6 +1298,44 @@ export default function WebinarsPage() {
                   Add Video
                 </Button>
               </div>
+
+              {/* Bulk selection bar — only shown once the user opts into
+                  selecting, so the default list stays uncluttered. */}
+              {isSelectMode && (
+                <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8"
+                    onClick={toggleSelectAll}
+                  >
+                    {allVisibleSelected ? "Clear all" : "Select all"}
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    {selectedWebinars.length} selected
+                  </span>
+                  <div className="ml-auto flex items-center gap-2">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="h-8 gap-1.5"
+                      disabled={selectedWebinars.length === 0}
+                      onClick={openBulkDelete}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Delete selected
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8"
+                      onClick={exitSelectMode}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               {/* Webinars List */}
               {isLoading ? (
@@ -971,16 +1363,45 @@ export default function WebinarsPage() {
                     const webinarDate = isValid(parsedEventDate)
                       ? format(parsedEventDate, "MM/dd/yyyy")
                       : "—";
-                    const hasVideo = webinar.videoUrl || webinar.videoFileUrl;
+                    // `hasVideoFile` stands in for `videoFileUrl`, which the list
+                    // request deliberately omits to keep the payload small.
+                    const hasVideo = Boolean(
+                      webinar.videoUrl ||
+                        webinar.videoFileUrl ||
+                        webinar.hasVideoFile,
+                    );
 
                     return (
                       <div
                         key={webinar.id}
-                        className="p-4 border rounded-lg hover:shadow-md transition-all bg-card flex flex-col h-full"
+                        className={cn(
+                          "p-4 border rounded-lg hover:shadow-md transition-all bg-card flex flex-col h-full",
+                          isSelectMode &&
+                            selectedIds.has(webinar.id) &&
+                            "ring-2 ring-primary border-primary",
+                        )}
                       >
                         {/* Header with Title and Source Badge */}
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <div className="flex items-center gap-2 min-w-0">
+                            {isSelectMode && (
+                              <button
+                                type="button"
+                                onClick={() => toggleSelected(webinar.id)}
+                                aria-pressed={selectedIds.has(webinar.id)}
+                                aria-label={`Select ${webinar.webinarTitle}`}
+                                className={cn(
+                                  "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
+                                  selectedIds.has(webinar.id)
+                                    ? "border-primary bg-primary text-white"
+                                    : "border-gray-300 hover:border-primary",
+                                )}
+                              >
+                                {selectedIds.has(webinar.id) && (
+                                  <Check className="h-3 w-3" />
+                                )}
+                              </button>
+                            )}
                             <h4 className="font-semibold text-sm leading-tight truncate">
                               {webinar.webinarTitle}
                             </h4>
@@ -1033,54 +1454,33 @@ export default function WebinarsPage() {
                           </DropdownMenu>
                         </div>
 
-                        {/* Video Preview */}
-                        {hasVideo && (
-                          <div className="mb-2 rounded-lg overflow-hidden border bg-black/5">
-                            <div className="relative w-full aspect-video">
-                              {webinar.videoUrl ? (
-                                (() => {
-                                  const embedUrl = getEmbedUrl(
-                                    webinar.videoUrl,
-                                  );
-                                  if (embedUrl) {
-                                    // YouTube or Vimeo embed
-                                    return (
-                                      <iframe
-                                        src={embedUrl}
-                                        className="absolute top-0 left-0 w-full h-full"
-                                        frameBorder="0"
-                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                        allowFullScreen
-                                        title={webinar.webinarTitle}
-                                      />
-                                    );
-                                  } else {
-                                    // Direct video URL
-                                    return (
-                                      <video
-                                        className="absolute top-0 left-0 w-full h-full"
-                                        controls
-                                        src={webinar.videoUrl}
-                                      >
-                                        Your browser does not support the video
-                                        tag.
-                                      </video>
-                                    );
-                                  }
-                                })()
-                              ) : webinar.videoFileUrl ? (
-                                // Base64 uploaded video
-                                <video
-                                  className="absolute top-0 left-0 w-full h-full"
-                                  controls
-                                  src={`data:video/mp4;base64,${webinar.videoFileUrl}`}
-                                >
-                                  Your browser does not support the video tag.
-                                </video>
-                              ) : null}
+                        {/* Thumbnail — the list is image-only so it never has to
+                            pull the base64 videos; playback loads on demand. */}
+                        <div className="relative mb-2 w-full aspect-video overflow-hidden rounded-lg border bg-muted/40">
+                          {webinar.thumbnail ? (
+                            <img
+                              src={webinar.thumbnail}
+                              alt=""
+                              className="absolute inset-0 h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <Video className="h-6 w-6 text-muted-foreground/50" />
                             </div>
-                          </div>
-                        )}
+                          )}
+                          {hasVideo && (
+                            <button
+                              type="button"
+                              onClick={() => openVideoPreview(webinar)}
+                              aria-label={`Play ${webinar.webinarTitle}`}
+                              className="absolute inset-0 flex items-center justify-center bg-black/20 transition-colors hover:bg-black/35"
+                            >
+                              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 shadow">
+                                <Play className="h-4 w-4 translate-x-[1px] text-gray-900" />
+                              </span>
+                            </button>
+                          )}
+                        </div>
 
                         {/* Webinar Details — Event Date and Source are built from
                             an identical tile so labels and values line up across
@@ -1127,6 +1527,58 @@ export default function WebinarsPage() {
         </Card>
       </div>
 
+      {/* Video preview — the list only carries thumbnails, so the heavy base64
+          payload is fetched here, for the single row the user wants to watch. */}
+      <Dialog
+        open={!!videoPreview}
+        onOpenChange={(open) => {
+          if (!open) setVideoPreview(null);
+        }}
+      >
+        <DialogContent className="max-w-3xl dark:bg-gray-800">
+          <DialogHeader>
+            <DialogTitle className="truncate">{videoPreview?.title}</DialogTitle>
+          </DialogHeader>
+          <div className="relative w-full aspect-video overflow-hidden rounded-lg border bg-black/5">
+            {videoPreview?.isLoading ? (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : videoPreview?.videoUrl ? (
+              (() => {
+                const embedUrl = getEmbedUrl(videoPreview.videoUrl);
+                return embedUrl ? (
+                  <iframe
+                    src={embedUrl}
+                    className="absolute inset-0 h-full w-full"
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    title={videoPreview.title}
+                  />
+                ) : (
+                  <video
+                    className="absolute inset-0 h-full w-full"
+                    controls
+                    src={videoPreview.videoUrl}
+                  />
+                );
+              })()
+            ) : videoPreview?.videoFileUrl ? (
+              <video
+                className="absolute inset-0 h-full w-full"
+                controls
+                src={`data:video/mp4;base64,${videoPreview.videoFileUrl}`}
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
+                No video available for this webinar.
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Delete webinar confirmation dialog */}
       <ConfirmDialog
         open={!!webinarPendingDelete}
@@ -1143,6 +1595,30 @@ export default function WebinarsPage() {
         confirmText="Delete"
         cancelText="Cancel"
         variant="destructive"
+      />
+
+      {/* Bulk delete confirmation — covers the multi-select delete above. The
+          targets are frozen when the dialog opens, so the count and the ids being
+          removed can't drift apart. */}
+      <ConfirmDialog
+        open={bulkDeleteOpen}
+        onOpenChange={(open) => {
+          if (!open) setBulkDeleteOpen(false);
+        }}
+        onConfirm={handleBulkDelete}
+        title={bulkDeleteIds.length === 1 ? "Delete Webinar" : "Delete Webinars"}
+        description={
+          bulkDeleteIds.length === 1
+            ? `Are you sure you want to delete "${
+                webinars.find((w) => w.id === bulkDeleteIds[0])?.webinarTitle ??
+                ""
+              }"?`
+            : `Are you sure you want to delete ${bulkDeleteIds.length} webinars? This cannot be undone.`
+        }
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
+        isLoading={isBulkDeleting}
       />
     </div>
   );

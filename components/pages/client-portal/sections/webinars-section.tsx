@@ -767,6 +767,7 @@ export function WebinarsSection({
             id: webinar.id,
             title: webinar.webinarTitle,
             eventDate: webinar.eventDate,
+            thumbnail: webinar.thumbnail ?? undefined,
             videoUrl: webinar.videoUrl,
             videoFileUrl: webinar.videoFileUrl,
             language: guessLanguageFromWebinar(webinar),
