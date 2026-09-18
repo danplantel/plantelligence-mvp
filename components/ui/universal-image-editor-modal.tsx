@@ -25,6 +25,7 @@ import {
 import { CropMetadata } from "./simple-image-editor-modal";
 import {
   buildCropMetadata,
+  computeLogoExportRect,
   detectTransparency,
   drawCroppedImage,
   getBackingScale,
@@ -36,6 +37,12 @@ import {
 import { uploadFileToR2 } from "@/lib/upload-to-r2";
 import { isR2BrandingKey, toR2BrandingKey, toFabricImageLoadUrl } from "@/lib/branding-image-url";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
+import {
+  HEADER_LOGO_BAND_PX,
+  HEADER_LOGO_BAR_HEIGHT_PX,
+  HEADER_LOGO_MAX_WIDTH_PX,
+  HEADER_LOGO_OUTLINE_RATIO,
+} from "@/lib/header-logo-band";
 import { Headshot } from "@/components/ui/headshot";
 import {
   isZipFile,
@@ -244,6 +251,15 @@ export interface ImageEditorConfig {
   // Background removal (logo and normalizer only). Shows the Background card
   // with the button-driven Remove Background action.
   allowBackgroundRemoval?: boolean;
+  /**
+   * Export logo slots with a crop windowed tightly on the artwork, so the logo
+   * fills the header band instead of the header band being spent on an empty box.
+   *
+   * Opt-in per call site, because the `normalizer` type is also borrowed for
+   * full-bleed images (hero photos, 1920×1080 section backgrounds) that must keep
+   * their existing fit. The `logo` type opts in by default.
+   */
+  normalizeLogoForHeader?: boolean;
 }
 
 // Default configurations for different use cases
@@ -294,6 +310,7 @@ export const IMAGE_EDITOR_CONFIGS: Record<ImageEditorType, ImageEditorConfig> =
     showLayoutButtons: true,
     saveToAPI: false,
     allowBackgroundRemoval: true,
+    normalizeLogoForHeader: true,
   },
 
   normalizer: {
@@ -393,6 +410,13 @@ interface UniversalImageEditorModalProps {
   allowBackgroundRemoval?: boolean;
 
   /**
+   * Explicit per-call-site opt-in for the header-logo export crop. See
+   * `ImageEditorConfig.normalizeLogoForHeader`. Wins over
+   * `customConfig.normalizeLogoForHeader` and over the shared type default.
+   */
+  normalizeLogoForHeader?: boolean;
+
+  /**
    * Immediate data URL for the trigger-area preview.
    * When provided, the trigger shows this data URL instead of waiting for
    * the async R2 URL resolution via useBrandingImageUrl(value).
@@ -483,6 +507,7 @@ export function UniversalImageEditorModal({
   hidePerfectMessage = false,
   forceCircularGuidelines = false,
   allowBackgroundRemoval,
+  normalizeLogoForHeader: normalizeLogoForHeaderProp,
   previewDataUrl,
   onUploadStateChange,
 }: UniversalImageEditorModalProps) {
@@ -522,6 +547,10 @@ export function UniversalImageEditorModal({
     // type-based behaviour.
     allowBackgroundRemoval:
       allowBackgroundRemoval ?? baseConfig.allowBackgroundRemoval,
+    // Same precedence: this call site's prop > customConfig > the shared type
+    // default (which opts the `logo` type in and leaves `normalizer` out).
+    normalizeLogoForHeader:
+      normalizeLogoForHeaderProp ?? baseConfig.normalizeLogoForHeader ?? false,
     previewSizes: {
       ...baseConfig.previewSizes,
       rectangular: { width: 300, height: 250 },
@@ -570,14 +599,6 @@ export function UniversalImageEditorModal({
   const [hasTooMuchBlankSpace, setHasTooMuchBlankSpace] = useState(false);
   const [isNotScaledEnough, setIsNotScaledEnough] = useState(false);
   const [baseScale, setBaseScale] = useState(1);
-  // Header-preview metrics (for normalizer)
-  const [headerMetrics, setHeaderMetrics] = useState<{
-    headerPx: number;
-    recommendedPx: number;
-    safePx: number;
-    renderedLogoHeightPx: number;
-    status: "perfect" | "ok" | "too_large";
-  } | null>(null);
 
   // --- Logo background removal ---
   // Button-driven: the removal runs from the Remove Background button and from the
@@ -1001,6 +1022,50 @@ export function UniversalImageEditorModal({
       config.previewFormats.forEach((format) => {
         const size = config.previewSizes[format];
         if (size) {
+          // Header logo: preview the exact image the save path will store, using
+          // the same helper and outline, so the preview and the stored logo cannot
+          // drift apart.
+          if (format === "custom" && config.normalizeLogoForHeader) {
+            const rect = computeLogoExportRect({
+              artworkBounds: activeObject.getBoundingRect(),
+              canvasWidth: canvas.getWidth(),
+              canvasHeight: canvas.getHeight(),
+              outlineRatio: HEADER_LOGO_OUTLINE_RATIO,
+            });
+            const headerMultiplier = 3;
+            const headerCanvas = document.createElement("canvas");
+            headerCanvas.width = Math.max(
+              1,
+              Math.round(rect.dw * headerMultiplier),
+            );
+            headerCanvas.height = Math.max(
+              1,
+              Math.round(rect.dh * headerMultiplier),
+            );
+            const headerCtx = headerCanvas.getContext("2d");
+            if (headerCtx) {
+              const headerImg = new Image();
+              headerImg.onload = () => {
+                headerCtx.imageSmoothingEnabled = true;
+                headerCtx.imageSmoothingQuality = "high";
+                headerCtx.drawImage(
+                  headerImg,
+                  rect.sx,
+                  rect.sy,
+                  rect.sw,
+                  rect.sh,
+                  0,
+                  0,
+                  headerCanvas.width,
+                  headerCanvas.height,
+                );
+                newPreviews[format] = headerCanvas.toDataURL("image/png", 0.9);
+                setPreviews({ ...newPreviews });
+              };
+              headerImg.src = dataURL;
+            }
+            return;
+          }
           // For rectangular, preserve existing preview in compact mode (but generate first time)
           if (
             format === "rectangular" &&
@@ -1106,49 +1171,14 @@ export function UniversalImageEditorModal({
           }
         }
       });
-
-      // Compute header metrics for normalizer based on AR buckets
-      if (type === "normalizer" && fabricCanvasRef.current) {
-        const c = fabricCanvasRef.current;
-        const obj = c.getActiveObject();
-        if (obj) {
-          const originalW = obj.width || 1;
-          const originalH = obj.height || 1;
-          const ar = originalW / originalH; // uploaded art AR
-          let headerPx = 140;
-          if (ar >= 1.4) headerPx = 140; // Wide
-          else if (ar >= 1.0) headerPx = 150; // Near-square
-          else if (ar >= 0.85) headerPx = 160; // Square
-          else headerPx = 140; // Tall/stacked
-
-          const recommendedPx = Math.round(headerPx * 0.385);
-          const safePx = Math.round(headerPx * 0.457);
-
-          // Rendered height of the logo in final header = (current object height / canvas height) * headerPx
-          const objBounds = obj.getBoundingRect();
-          const canvasHeightLocal = fabricCanvasRef.current?.getHeight() || 1;
-          const renderedLogoHeightPx = Math.round(
-            (objBounds.height / canvasHeightLocal) * headerPx,
-          );
-
-          let status: "perfect" | "ok" | "too_large" = "perfect";
-          if (renderedLogoHeightPx <= recommendedPx) status = "perfect";
-          else if (renderedLogoHeightPx <= safePx) status = "ok";
-          else status = "too_large";
-
-          setHeaderMetrics({
-            headerPx,
-            recommendedPx,
-            safePx,
-            renderedLogoHeightPx,
-            status,
-          });
-        }
-      }
     } catch (error) {
       console.error("Error generating previews:", error);
     }
-  }, [config.previewFormats, config.previewSizes]);
+  }, [
+    config.previewFormats,
+    config.previewSizes,
+    config.normalizeLogoForHeader,
+  ]);
 
   // Draw safe zone and guidelines
   const drawSafeZoneAndGuidelines = useCallback(() => {
@@ -1921,7 +1951,29 @@ export function UniversalImageEditorModal({
       cropWidth = 0,
       cropHeight = 0;
 
-    if (type === "logo" || type === "normalizer") {
+    if (
+      (type === "logo" || type === "normalizer") &&
+      config.normalizeLogoForHeader
+    ) {
+      // Header logo: window the export on the artwork itself with one uniform
+      // outline. The header fits this box into a fixed band with object-contain,
+      // so slack here would be paid for by shrinking the artwork.
+      const logoExportRect = computeLogoExportRect({
+        artworkBounds: {
+          left: currentRect.left,
+          top: currentRect.top,
+          width: currentRect.width,
+          height: currentRect.height,
+        },
+        canvasWidth: cw,
+        canvasHeight: ch,
+        outlineRatio: HEADER_LOGO_OUTLINE_RATIO,
+      });
+      cropX = logoExportRect.sx;
+      cropY = logoExportRect.sy;
+      cropWidth = logoExportRect.dw;
+      cropHeight = logoExportRect.dh;
+    } else if (type === "logo" || type === "normalizer") {
       if (ar > 2) {
         const solidHeight = Math.round(ch - safePad * 2);
         const solidWidth = Math.round(
@@ -3503,36 +3555,42 @@ export function UniversalImageEditorModal({
                           <div className="mt-2">
                             {isHeaderBarPreview ? (
                               <div className="space-y-2">
+                                {/* Mirrors the real header: a fixed band the logo is
+                                    contain-fitted into. The preview image is the
+                                    same tight crop the save path stores, so what
+                                    the advisor sees here is what the portal
+                                    renders. */}
                                 <div
-                                  className="border-[1px] border-white rounded-lg bg-white relative mx-auto overflow-hidden"
+                                  className="border-[1px] border-gray-200 rounded-lg bg-white relative mx-auto overflow-hidden flex items-center px-4"
                                   style={{
                                     width: `100%`,
-                                    height:
-                                      canvasMode === "compact"
-                                        ? "92px"
-                                        : "122px",
+                                    height: `${HEADER_LOGO_BAR_HEIGHT_PX}px`,
                                   }}
                                 >
                                   {previews[format] ? (
-                                    <img
-                                      src={previews[format]}
-                                      alt="Header Bar Preview"
-                                      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 object-cover"
+                                    <div
+                                      className="relative inline-flex shrink-0 items-center justify-center overflow-hidden"
                                       style={{
-                                        height:
-                                          canvasMode === "compact"
-                                            ? "100px"
-                                            : "150px",
-                                        imageRendering:
-                                          "-webkit-optimize-contrast",
+                                        height: `${HEADER_LOGO_BAND_PX}px`,
+                                        minHeight: `${HEADER_LOGO_BAND_PX}px`,
+                                        maxWidth: `${HEADER_LOGO_MAX_WIDTH_PX}px`,
                                       }}
-                                    />
+                                    >
+                                      <img
+                                        src={previews[format]}
+                                        alt="Header Bar Preview"
+                                        className="block h-auto w-auto max-h-full max-w-full object-contain object-center"
+                                      />
+                                    </div>
                                   ) : (
                                     <span className="text-gray-400 text-xs">
                                       Adjusting...
                                     </span>
                                   )}
                                 </div>
+                                <p className="text-[10px] text-gray-400 text-center">
+                                  Shown at its real size in the portal header.
+                                </p>
                               </div>
                             ) : (
                               // Standard preview for other formats

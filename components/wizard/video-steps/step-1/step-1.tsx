@@ -1272,6 +1272,8 @@ export function VideoStep1({ errorFields = [] }: VideoStep1Props) {
                 onFileSelect={handleLogoFileSelect}
                 useUniversalModal={true}
                 universalModalType="normalizer"
+                // Logo slot: export a tight crop so the mark fills the header band.
+                universalModalNormalizeLogoForHeader={true}
                 maxFileSize={10}
               />
             </div>
@@ -1633,6 +1635,7 @@ export function VideoStep1({ errorFields = [] }: VideoStep1Props) {
       {pendingImageData && pendingImageData.type === "logo" && (
         <UniversalImageEditorModal
           type="normalizer"
+          normalizeLogoForHeader
           value={pendingImageData.data.url || ""}
           originalValue={
             pendingImageData.data.cropData?.originalImage ||

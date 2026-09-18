@@ -1320,6 +1320,9 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
               categoryPortalVisibility={null}
               benefits={null}
               enableNavigation={false}
+              // Advisor mock — the only place the stacked-mark tip is useful;
+              // the live portal never receives it.
+              showLogoShapeTip
               scale={scale}
               referenceWidth={DESKTOP_WIDTH}
             />

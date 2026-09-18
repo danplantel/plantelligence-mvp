@@ -3203,6 +3203,7 @@ export function BenefitsStep1() {
                         universalModalType="normalizer"
                         // Benefit / provider logo — opt in explicitly.
                         universalModalAllowBackgroundRemoval={true}
+                        universalModalNormalizeLogoForHeader={true}
                         maxFileSize={10}
                       />
                     </CardContent>

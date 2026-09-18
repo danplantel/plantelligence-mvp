@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { BrandingImage } from "@/components/ui/branding-image";
+import { HEADER_LOGO_MAX_WIDTH_PX } from "@/lib/header-logo-band";
 import { Mail, Phone } from "lucide-react";
 import { getSupportIcon } from "@/lib/support-icons";
 import { motion } from "framer-motion";
@@ -237,7 +238,14 @@ export function PrimaryContactCard({
                   src={contact.companyLogo || contact.logo || ""}
                   alt="Company Logo"
                   className="object-contain w-auto"
-                  style={{ height: `${48 * (contact.logoScale || 1)}px`, maxHeight: "60px" }}
+                  style={{
+                    height: `${48 * (contact.logoScale || 1)}px`,
+                    maxHeight: "60px",
+                    // A tight logo crop renders wordmarks at their true width, so
+                    // bound the box. object-contain scales the mark down rather
+                    // than clipping it.
+                    maxWidth: HEADER_LOGO_MAX_WIDTH_PX,
+                  }}
                 />
               </div>
             )

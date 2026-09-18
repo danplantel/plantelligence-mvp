@@ -495,6 +495,7 @@ export function BenefitsEditorPanel({
                                 universalModalType="normalizer"
                                 // Provider logo — a real logo, so opt in explicitly.
                                 universalModalAllowBackgroundRemoval={true}
+                                universalModalNormalizeLogoForHeader={true}
                             />
                         </div>
                         <div

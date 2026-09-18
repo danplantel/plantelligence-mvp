@@ -50,6 +50,12 @@ interface BrandImageUploadProps {
    * header image) turn the action off without defining a new editor type.
    */
   universalModalAllowBackgroundRemoval?: boolean;
+  /**
+   * Explicit opt-in for the header-logo export crop, forwarded to the universal
+   * modal. Logo slots set it; slots that borrow the `normalizer` type for
+   * full-bleed images leave it off so their fit is unchanged.
+   */
+  universalModalNormalizeLogoForHeader?: boolean;
   maxFileSize?: number; // Max file size in MB (default: 15)
   editableDescription?: boolean; // Allow editing description
   onDescriptionChange?: (description: string) => void; // Callback when description changes
@@ -102,6 +108,7 @@ export function BrandImageUpload({
   isHighlighted = false,
   universalModalCustomConfig = {},
   universalModalAllowBackgroundRemoval,
+  universalModalNormalizeLogoForHeader,
   onFocus,
   previewObjectFit = "contain",
   headerAction,
@@ -672,6 +679,7 @@ export function BrandImageUpload({
           type={universalModalType}
           customConfig={universalModalCustomConfig}
           allowBackgroundRemoval={universalModalAllowBackgroundRemoval}
+          normalizeLogoForHeader={universalModalNormalizeLogoForHeader}
           value={pendingImageData.url || ""}
           originalValue={pendingImageData.originalUrl}
           fileName={pendingImageData.fileName || ""}

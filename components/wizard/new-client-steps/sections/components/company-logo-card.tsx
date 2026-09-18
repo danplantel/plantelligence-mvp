@@ -123,6 +123,8 @@ export const CompanyLogoCard = forwardRef<HTMLDivElement, CompanyLogoCardProps>(
           universalModalType="normalizer"
           // Company logo — opt in explicitly rather than inheriting the type default.
           universalModalAllowBackgroundRemoval={true}
+          // Header logo: export a tight crop so the mark fills the header band.
+          universalModalNormalizeLogoForHeader={true}
           maxFileSize={100}
           renderModalOutside={!!onLogoModalStateChange}
           onModalStateChange={handleLogoModalStateChangeFromUpload}
