@@ -639,13 +639,12 @@ export function WebinarReplayCard({
             {replay.title}
           </h3>
           {/* Advisor-authored copy from the Upload Video modal (200 char cap).
-              Clamped so a long description can't make one card taller than its
-              neighbours in the grid. */}
-          {Boolean(replay.description?.trim()) && (
-            <p className="text-sm text-gray-600 leading-relaxed line-clamp-3">
-              {replay.description}
-            </p>
-          )}
+              Always rendered, at a fixed four lines — four is what the maximum
+              takes at this column width, and reserving the box even when there is
+              no copy is what keeps every card in the grid the same height. */}
+          <p className="h-20 text-sm leading-5 text-gray-600 line-clamp-4">
+            {replay.description}
+          </p>
           <div className="flex items-center gap-4">
             {replay.duration && (
               <div className="flex items-center gap-2 text-gray-600 text-base">

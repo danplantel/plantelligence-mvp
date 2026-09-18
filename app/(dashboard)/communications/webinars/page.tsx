@@ -1612,6 +1612,15 @@ export default function WebinarsPage() {
                           )}
                         </div>
 
+                        {/* Description — the advisor's copy from the Upload Video
+                            modal. Always rendered, at a fixed three lines: three is
+                            what the 200-character maximum takes at this column
+                            width, and reserving the box even when there is no copy
+                            is what makes every card in the grid the same height. */}
+                        <p className="mb-2 h-12 text-xs leading-4 text-muted-foreground line-clamp-3">
+                          {webinar.description}
+                        </p>
+
                         {/* Webinar Details — Event Date and Source are built from
                             an identical tile so labels and values line up across
                             both columns. `mt-auto` pins the row to the card
