@@ -1470,25 +1470,25 @@ export default function WebinarsPage() {
 
               </div>
 
-              {/* Submit Button */}
+              {/* Actions — Cancel sits at the bottom of the dialog alongside the
+                  primary action, and is available whether adding or editing, so
+                  the modal is never escape-only (the X, or clicking backdrop). */}
               <div className="flex gap-2 pt-4">
-                {editingWebinarId && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={isSubmitting}
-                    onClick={() => {
-                      setFormData(blankWebinarForm());
-                      setEditingWebinarId(null);
-                      setEditingHasStoredFile(false);
-                      setErrors({});
-                      setWebinarModalOpen(false);
-                    }}
-                    className="flex-1"
-                  >
-                    Cancel
-                  </Button>
-                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isSubmitting}
+                  onClick={() => {
+                    setFormData(blankWebinarForm());
+                    setEditingWebinarId(null);
+                    setEditingHasStoredFile(false);
+                    setErrors({});
+                    setWebinarModalOpen(false);
+                  }}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
                 <Button
                   type="submit"
                   disabled={isSubmitting}
