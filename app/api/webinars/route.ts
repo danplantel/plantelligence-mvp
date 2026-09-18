@@ -14,7 +14,10 @@ type WebinarRow = {
   thumbnail: string | null;
   eventDate: Date;
   sourceType: unknown;
-  videoFileUrl: string | null;
+  /** Absent on list responses that omit the base64 payload. */
+  videoFileUrl?: string | null;
+  /** Length of the stored base64 video — stored so lists needn't read it. */
+  videoSize?: number | null;
   videoUrl: string | null;
   createdAt: Date;
 };
@@ -31,6 +34,9 @@ function serializeWebinar(
   options: { includeVideoFiles: boolean } = { includeVideoFiles: true },
 ) {
   const videoFileUrl = webinar.videoFileUrl ?? null;
+  // List queries omit the payload, so fall back to the stored size column.
+  const videoSize =
+    webinar.videoSize ?? (videoFileUrl ? videoFileUrl.length : 0);
 
   return {
     id: webinar.id,
@@ -42,8 +48,8 @@ function serializeWebinar(
     eventDate: webinar.eventDate,
     sourceType: webinar.sourceType as { upload: boolean; url: boolean },
     videoFileUrl: options.includeVideoFiles ? videoFileUrl : null,
-    hasVideoFile: Boolean(videoFileUrl),
-    videoSize: videoFileUrl ? videoFileUrl.length : 0,
+    hasVideoFile: Boolean(videoFileUrl) || videoSize > 0,
+    videoSize,
     videoUrl: webinar.videoUrl,
     createdAt: webinar.createdAt,
   };
@@ -75,19 +81,40 @@ export async function GET(request: NextRequest) {
     // 32MB with `QueryExceededMemoryLimitNoDiskUseAllowed` (error 292). Sorting
     // full documents is the expensive part, so fetch and sort the small per-user
     // set here instead.
-    const webinars = await prisma.webinar.findMany({
-      where: { userId },
-    });
-    webinars.sort(
-      (a, b) =>
-        new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime(),
-    );
-
     // The dashboard list sends `includeVideoFiles=0`; the portal (News & Events,
     // and the meetings preview that embeds it) omits the param and keeps getting
     // the videos it needs to play replays inline.
     const includeVideoFiles =
       request.nextUrl.searchParams.get("includeVideoFiles") !== "0";
+
+    // Two shapes on purpose. With videos included (portal) the full rows come
+    // back. Without them (dashboard list) `videoFileUrl` is left out of the
+    // projection entirely, so the multi-MB base64 never leaves MongoDB — reading
+    // it only to drop it is what made this endpoint take ~13s. The stored
+    // `videoSize` column keeps the "Size" sort meaningful without the payload.
+    const webinars: WebinarRow[] = includeVideoFiles
+      ? await prisma.webinar.findMany({ where: { userId } })
+      : await prisma.webinar.findMany({
+          where: { userId },
+          select: {
+            id: true,
+            clientId: true,
+            clientName: true,
+            webinarTitle: true,
+            description: true,
+            thumbnail: true,
+            eventDate: true,
+            sourceType: true,
+            videoUrl: true,
+            videoSize: true,
+            createdAt: true,
+          },
+        });
+
+    webinars.sort(
+      (a, b) =>
+        new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime(),
+    );
 
     return NextResponse.json({
       success: true,
@@ -214,6 +241,9 @@ export async function POST(request: NextRequest) {
         eventDate: new Date(eventDate),
         sourceType,
         videoFileUrl,
+        // Kept in sync so list queries can sort by size without ever reading the
+        // base64 payload.
+        videoSize: videoFileUrl ? videoFileUrl.length : 0,
         videoUrl: sourceType.url ? videoUrl : null,
       },
     });

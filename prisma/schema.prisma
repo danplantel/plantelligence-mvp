@@ -909,6 +909,9 @@ model Webinar {
   webinarTitle String   // Webinar title
   description  String?  // Optional description shown alongside the replay
   thumbnail    String?  // Base64 data URL for the replay card image (uploaded or a captured video frame)
+  // Length of videoFileUrl. Stored so list queries can sort by size without
+  // reading the multi-MB base64 payload (see the webinars list endpoint).
+  videoSize    Int?
   eventDate    DateTime // Event date
   sourceType   Json     // { upload: boolean, url: boolean }
   videoFileUrl String?  // URL/path if uploaded file

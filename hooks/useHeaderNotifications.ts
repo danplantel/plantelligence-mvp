@@ -29,6 +29,30 @@ export interface MeetingReminder {
 
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 
+/**
+ * How long a resolved snapshot stays usable across mounts.
+ *
+ * The dashboard header remounts on every route change, so without this each
+ * navigation re-requested both sources even when the counts were seconds old.
+ * Navigating now reuses the in-memory snapshot and only refetches once it is
+ * older than this — which bounds how stale the badge can get (the 5-minute
+ * interval alone can't, because remounting restarts it).
+ */
+const CACHE_TTL_MS = 2 * 60 * 1000;
+
+interface HeaderNotificationsSnapshot {
+  meetings: MeetingReminder[];
+  documents: ExpiringDocument[];
+  at: number;
+}
+
+let cachedSnapshot: HeaderNotificationsSnapshot | null = null;
+
+/** Drop the snapshot so the next mount refetches (e.g. after a reminder changes). */
+export function invalidateHeaderNotificationsCache(): void {
+  cachedSnapshot = null;
+}
+
 export interface HeaderNotificationsResult {
   meetings: MeetingReminder[];
   documents: ExpiringDocument[];
@@ -46,14 +70,35 @@ export interface HeaderNotificationsResult {
  * failure leaves the other source's data intact.
  */
 export function useHeaderNotifications(): HeaderNotificationsResult {
-  const [meetings, setMeetings] = useState<MeetingReminder[]>([]);
-  const [documents, setDocuments] = useState<ExpiringDocument[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Seeded from the snapshot so a remount renders the previous counts instead of
+  // flashing a loading state.
+  const [meetings, setMeetings] = useState<MeetingReminder[]>(
+    () => cachedSnapshot?.meetings ?? [],
+  );
+  const [documents, setDocuments] = useState<ExpiringDocument[]>(
+    () => cachedSnapshot?.documents ?? [],
+  );
+  const [isLoading, setIsLoading] = useState(() => cachedSnapshot === null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const isMountedRef = useRef(true);
-  const hasLoadedRef = useRef(false);
+  const hasLoadedRef = useRef(cachedSnapshot !== null);
 
   const load = useCallback(async () => {
+    // Reuse a recent snapshot rather than re-fetching on every remount.
+    if (
+      cachedSnapshot &&
+      Date.now() - cachedSnapshot.at < CACHE_TTL_MS
+    ) {
+      if (isMountedRef.current) {
+        setMeetings(cachedSnapshot.meetings);
+        setDocuments(cachedSnapshot.documents);
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
+      hasLoadedRef.current = true;
+      return;
+    }
+
     if (hasLoadedRef.current) {
       if (isMountedRef.current) setIsRefreshing(true);
     } else if (isMountedRef.current) {
@@ -72,10 +117,13 @@ export function useHeaderNotifications(): HeaderNotificationsResult {
 
     if (!isMountedRef.current) return;
 
+    let nextMeetings: MeetingReminder[] | null = null;
+    let nextDocuments: ExpiringDocument[] | null = null;
+
     if (meetingsResult.status === "fulfilled" && meetingsResult.value.ok) {
       try {
         const payload = await meetingsResult.value.json();
-        if (payload?.success) setMeetings(payload.data || []);
+        if (payload?.success) nextMeetings = payload.data || [];
       } catch (error) {
         console.error("Error parsing meeting reminders:", error);
       }
@@ -88,7 +136,7 @@ export function useHeaderNotifications(): HeaderNotificationsResult {
     if (documentsResult.status === "fulfilled" && documentsResult.value.ok) {
       try {
         const payload = await documentsResult.value.json();
-        if (payload?.success) setDocuments(payload.data || []);
+        if (payload?.success) nextDocuments = payload.data || [];
       } catch (error) {
         console.error("Error parsing expiring documents:", error);
       }
@@ -100,6 +148,17 @@ export function useHeaderNotifications(): HeaderNotificationsResult {
     }
 
     if (!isMountedRef.current) return;
+
+    // Apply and cache together: a source that failed keeps its previous value, so
+    // one outage never blanks the other source's data.
+    if (nextMeetings) setMeetings(nextMeetings);
+    if (nextDocuments) setDocuments(nextDocuments);
+
+    cachedSnapshot = {
+      meetings: nextMeetings ?? cachedSnapshot?.meetings ?? [],
+      documents: nextDocuments ?? cachedSnapshot?.documents ?? [],
+      at: Date.now(),
+    };
 
     hasLoadedRef.current = true;
     setIsLoading(false);
@@ -121,6 +180,8 @@ export function useHeaderNotifications(): HeaderNotificationsResult {
   }, [load]);
 
   const refresh = useCallback(() => {
+    // An explicit refresh must reach the network, so drop the snapshot first.
+    invalidateHeaderNotificationsCache();
     void load();
   }, [load]);
 

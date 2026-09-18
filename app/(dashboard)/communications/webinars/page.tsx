@@ -809,7 +809,10 @@ export default function WebinarsPage() {
           </CardContent>
         </Card>
 
-        {!selectedPlan && (
+        {/* Hidden while the plan list is still loading: showing "Select a plan to
+            get started" next to the search skeleton reads as if the list were
+            already empty. */}
+        {!isLoadingClients && !selectedPlan && (
           <Card className="shadow-sm">
             <CardContent className="py-12 text-center">
               <div className="mx-auto w-14 h-14 rounded-full bg-muted/60 flex items-center justify-center mb-4">

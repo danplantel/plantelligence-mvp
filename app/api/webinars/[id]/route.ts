@@ -185,6 +185,9 @@ export async function PUT(
           : existingWebinar.eventDate,
         sourceType: (sourceType ?? existingWebinar.sourceType) as any,
         videoFileUrl,
+        // Kept in sync with the payload so list queries can sort by size without
+        // reading the base64 video.
+        videoSize: videoFileUrl ? videoFileUrl.length : 0,
         videoUrl: sourceType?.url ? videoUrl : null,
       },
     });
