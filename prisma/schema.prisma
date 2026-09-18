@@ -911,6 +911,10 @@ model Webinar {
   thumbnail    String?  // Base64 data URL for the replay card image (uploaded or a captured video frame)
   // Benefit category the video belongs to: Retirement, Health, Life, Other or All.
   benefitsCategory String?
+  // Portal pages this video is published on: an array of placement keys
+  // ("news-events", "retirement", …). JSON rather than a scalar list so rows
+  // saved before this field existed read as null and can fall back to the default.
+  placements   Json?
   // Length of videoFileUrl. Stored so list queries can sort by size without
   // reading the multi-MB base64 payload (see the webinars list endpoint).
   videoSize    Int?

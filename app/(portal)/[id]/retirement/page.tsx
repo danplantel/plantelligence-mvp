@@ -11,6 +11,7 @@ import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/p
 import {
   RetirementJourneySection,
 } from "@/components/pages/client-portal/sections/retirement-journey-section";
+import { BenefitsHubWebinarsSection } from "@/components/pages/client-portal/sections/benefits-hub-webinars-section";
 import { PortalMaterialsHero } from "@/components/pages/client-portal/sections/portal-materials-hero";
 import { HowCanWeHelpSection } from "@/components/pages/client-portal/sections/how-can-we-help-section";
 import {
@@ -200,6 +201,13 @@ export default function RetirementPage() {
           description={(benefitData as any)?.journeyBodyText || "Take control of your financial future with our comprehensive retirement planning resources. Whether you're just starting your career or preparing for the next chapter, we provide the tools and guidance you need to build a secure retirement."}
           planVideoUrl={benefitData?.planVideo as string | undefined}
           planVideoFallbackImage={RETIREMENT_FALLBACK_IMAGE}
+        />
+
+        {/* Videos published to this page from Communications → Webinars. */}
+        <BenefitsHubWebinarsSection
+          placement="retirement"
+          brandColor={brandColor}
+          secondaryColor={secondaryColor}
         />
 
         <HowCanWeHelpSection

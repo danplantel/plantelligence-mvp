@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { ObjectId } from "mongodb";
+import { normalizeWebinarPlacements } from "@/lib/webinar-placements";
 
 /**
  * These routes go through the Prisma model rather than `$runCommandRaw`: the raw
@@ -18,6 +19,8 @@ function serializeWebinar(webinar: {
   description: string | null;
   thumbnail: string | null;
   benefitsCategory?: string | null;
+  /** Stored as JSON; normalised through `normalizeWebinarPlacements`. */
+  placements?: unknown;
   eventDate: Date;
   sourceType: unknown;
   videoFileUrl: string | null;
@@ -32,6 +35,7 @@ function serializeWebinar(webinar: {
     description: webinar.description,
     thumbnail: webinar.thumbnail,
     benefitsCategory: webinar.benefitsCategory ?? null,
+    placements: normalizeWebinarPlacements(webinar.placements),
     eventDate: webinar.eventDate,
     sourceType: webinar.sourceType as { upload: boolean; url: boolean },
     videoFileUrl: webinar.videoFileUrl,
@@ -110,6 +114,7 @@ export async function PUT(
       description,
       thumbnail,
       benefitsCategory,
+      placements,
       eventDate,
       videoFile,
       videoUrl,
@@ -183,6 +188,14 @@ export async function PUT(
         ? benefitsCategory
         : null;
 
+    // Placements replace the stored list wholesale — the modal always sends the
+    // full set of checked pages — and fall back to the stored list when the key
+    // is omitted entirely.
+    const nextPlacements =
+      placements === undefined
+        ? normalizeWebinarPlacements(existingWebinar.placements)
+        : normalizeWebinarPlacements(placements);
+
     const updatedWebinar = await prisma.webinar.update({
       where: { id: existingWebinar.id },
       data: {
@@ -192,6 +205,7 @@ export async function PUT(
         description: nextDescription,
         thumbnail: nextThumbnail,
         benefitsCategory: nextBenefitsCategory,
+        placements: nextPlacements,
         eventDate: eventDate
           ? new Date(eventDate)
           : existingWebinar.eventDate,

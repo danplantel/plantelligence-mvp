@@ -11,6 +11,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DEFAULT_WEBINAR_PLACEMENT,
+  WEBINAR_PLACEMENTS,
+} from "@/lib/webinar-placements";
 import { compressImage } from "@/lib/image-compression";
 import { PlanSearchBar } from "@/components/plan-selector/plan-search-bar";
 import {
@@ -69,6 +74,7 @@ interface WebinarFormData {
   description: string;
   thumbnail: string;
   benefitsCategory: string;
+  placements: string[];
   eventDate: Date | undefined;
   videoFile: File | null;
   videoUrl: string;
@@ -86,6 +92,8 @@ interface Webinar {
   description?: string | null;
   thumbnail?: string | null;
   benefitsCategory?: string | null;
+  /** Portal pages the video is published on (see `lib/webinar-placements`). */
+  placements?: string[] | null;
   eventDate: Date;
   videoFileUrl: string | null;
   /** Set when a video exists but its payload was omitted from the list request. */
@@ -168,6 +176,7 @@ export default function WebinarsPage() {
     description: "",
     thumbnail: "",
     benefitsCategory: "All",
+    placements: [DEFAULT_WEBINAR_PLACEMENT],
     eventDate: undefined,
     videoFile: null,
     videoUrl: "",
@@ -347,6 +356,7 @@ export default function WebinarsPage() {
       description: "",
       thumbnail: "",
       benefitsCategory: "All",
+      placements: [DEFAULT_WEBINAR_PLACEMENT],
       eventDate: undefined,
       videoFile: null,
       videoUrl: "",
@@ -372,6 +382,16 @@ export default function WebinarsPage() {
         [field]: false,
       }));
     }
+  };
+
+  /** Tick/untick one portal page for this video. */
+  const togglePlacement = (key: string, checked: boolean) => {
+    handleInputChange(
+      "placements",
+      checked
+        ? Array.from(new Set([...formData.placements, key]))
+        : formData.placements.filter((p) => p !== key),
+    );
   };
 
   const handleSourceTypeChange = (value: "upload" | "url") => {
@@ -504,6 +524,8 @@ export default function WebinarsPage() {
     thumbnail: "",
     // "All" is the catch-all choice, so a new video always has a category.
     benefitsCategory: "All",
+    // Every video starts on News & Events; benefits pages are opt-in.
+    placements: [DEFAULT_WEBINAR_PLACEMENT],
     eventDate: undefined,
     videoFile: null,
     videoUrl: "",
@@ -542,6 +564,8 @@ export default function WebinarsPage() {
     if (!formData.webinarTitle) newErrors.webinarTitle = true;
     if (!formData.eventDate) newErrors.eventDate = true;
     if (!formData.thumbnail) newErrors.thumbnail = true;
+    // Unchecking every page would hide the video from the whole portal.
+    if (formData.placements.length === 0) newErrors.placements = true;
     if (formData.sourceType === "upload" && !formData.videoFile)
       newErrors.videoFile = true;
     if (formData.sourceType === "url" && !formData.videoUrl)
@@ -597,6 +621,7 @@ export default function WebinarsPage() {
           description: formData.description,
           thumbnail: formData.thumbnail || null,
           benefitsCategory: formData.benefitsCategory || null,
+          placements: formData.placements,
           eventDate: formData.eventDate?.toISOString(),
           videoFile: videoFileBase64,
           videoUrl: formData.videoUrl,
@@ -645,6 +670,7 @@ export default function WebinarsPage() {
       description: webinar.description ?? "",
       thumbnail: webinar.thumbnail ?? "",
       benefitsCategory: webinar.benefitsCategory ?? "All",
+      placements: webinar.placements ?? [DEFAULT_WEBINAR_PLACEMENT],
       eventDate: new Date(webinar.eventDate),
       videoFile: null, // Don't reload file on edit
       videoUrl: webinar.videoUrl || "",
@@ -936,6 +962,45 @@ export default function WebinarsPage() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* Where this video will live */}
+              <div className="space-y-2">
+                <Label>Where this video will live</Label>
+                <p className="text-xs text-muted-foreground">
+                  A video can appear on more than one page.
+                </p>
+                {errors.placements && (
+                  <p className="text-sm text-red-500">
+                    Choose at least one page
+                  </p>
+                )}
+                <div className="space-y-2.5">
+                  {WEBINAR_PLACEMENTS.map(({ key, label, hint }) => (
+                    <label
+                      key={key}
+                      htmlFor={`placement-${key}`}
+                      className="flex cursor-pointer items-start gap-2.5"
+                    >
+                      <Checkbox
+                        id={`placement-${key}`}
+                        checked={formData.placements.includes(key)}
+                        onCheckedChange={(checked) =>
+                          togglePlacement(key, checked === true)
+                        }
+                        className="mt-0.5"
+                      />
+                      <span className="min-w-0">
+                        <span className="block text-sm font-medium">
+                          {label}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {hint}
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
               </div>
 
               {/* Event Date */}

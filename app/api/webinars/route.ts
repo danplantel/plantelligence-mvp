@@ -3,6 +3,11 @@ import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { resolvePortalAdvisorId } from "@/lib/portal-access";
+import {
+  hasWebinarPlacement,
+  isWebinarPlacementKey,
+  normalizeWebinarPlacements,
+} from "@/lib/webinar-placements";
 
 /** Row shape handed to the dashboard list and the portal Webinars section. */
 type WebinarRow = {
@@ -13,6 +18,8 @@ type WebinarRow = {
   description: string | null;
   thumbnail: string | null;
   benefitsCategory?: string | null;
+  /** Stored as JSON; normalised through `normalizeWebinarPlacements`. */
+  placements?: unknown;
   eventDate: Date;
   sourceType: unknown;
   /** Absent on list responses that omit the base64 payload. */
@@ -47,6 +54,7 @@ function serializeWebinar(
     description: webinar.description,
     thumbnail: webinar.thumbnail,
     benefitsCategory: webinar.benefitsCategory ?? null,
+    placements: normalizeWebinarPlacements(webinar.placements),
     eventDate: webinar.eventDate,
     sourceType: webinar.sourceType as { upload: boolean; url: boolean },
     videoFileUrl: options.includeVideoFiles ? videoFileUrl : null,
@@ -89,6 +97,14 @@ export async function GET(request: NextRequest) {
     const includeVideoFiles =
       request.nextUrl.searchParams.get("includeVideoFiles") !== "0";
 
+    // The benefit hub sections ask for just their own page's videos
+    // (`?placement=retirement`). Empty means "no placement filter".
+    const placementParam =
+      request.nextUrl.searchParams.get("placement")?.trim() ?? "";
+    const placement = isWebinarPlacementKey(placementParam)
+      ? placementParam
+      : null;
+
     // Two shapes on purpose. With videos included (portal) the full rows come
     // back. Without them (dashboard list) `videoFileUrl` is left out of the
     // projection entirely, so the multi-MB base64 never leaves MongoDB — reading
@@ -106,6 +122,7 @@ export async function GET(request: NextRequest) {
             description: true,
             thumbnail: true,
             benefitsCategory: true,
+            placements: true,
             eventDate: true,
             sourceType: true,
             videoUrl: true,
@@ -119,9 +136,17 @@ export async function GET(request: NextRequest) {
         new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime(),
     );
 
+    // Narrow to the requested page before serializing, so a hub section never
+    // receives — or downloads — the other pages' video payloads.
+    const visible = placement
+      ? webinars.filter((webinar) =>
+          hasWebinarPlacement(webinar.placements, placement),
+        )
+      : webinars;
+
     return NextResponse.json({
       success: true,
-      data: webinars.map((webinar) =>
+      data: visible.map((webinar) =>
         serializeWebinar(webinar, { includeVideoFiles }),
       ),
     });
@@ -150,6 +175,7 @@ export async function POST(request: NextRequest) {
       description,
       thumbnail,
       benefitsCategory,
+      placements,
       eventDate,
       videoFile,
       videoUrl,
@@ -246,6 +272,8 @@ export async function POST(request: NextRequest) {
           typeof benefitsCategory === "string" && benefitsCategory
             ? benefitsCategory
             : null,
+        // Defaults to News & Events when the caller sends nothing usable.
+        placements: normalizeWebinarPlacements(placements),
         eventDate: new Date(eventDate),
         sourceType,
         videoFileUrl,

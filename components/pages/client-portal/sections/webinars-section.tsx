@@ -35,7 +35,7 @@ export interface UpcomingWebinar {
 
 type WebinarLanguage = "EN" | "ES";
 
-interface WebinarReplay {
+export interface WebinarReplay {
   id: number | string;
   title: string;
   duration?: string;
@@ -387,7 +387,7 @@ export default function WebinarCardExample() {
   );
 }
 // Helper function to detect language from webinar title
-function guessLanguageFromWebinar(webinar: any): WebinarLanguage {
+export function guessLanguageFromWebinar(webinar: any): WebinarLanguage {
   const source = `${webinar.webinarTitle || ""} ${
     webinar.description || ""
   }`.toLowerCase();
@@ -460,7 +460,7 @@ function getEmbedUrl(url: string): string | null {
   return null;
 }
 
-function WebinarReplayCard({
+export function WebinarReplayCard({
   replay,
   secondaryColor = "#FBBF24",
 }: {
@@ -750,8 +750,12 @@ export function WebinarsSection({
 
       setIsLoadingReplays(true);
       try {
+        // News & Events shows only videos published to it: a video filed solely
+        // under a benefit hub page belongs to that page's section, not this one.
         const response = await fetch(
-          `/api/webinars?clientId=${encodeURIComponent(clientId)}`,
+          `/api/webinars?clientId=${encodeURIComponent(
+            clientId,
+          )}&placement=news-events`,
           { cache: "no-store" },
         );
         const result = await response.json();

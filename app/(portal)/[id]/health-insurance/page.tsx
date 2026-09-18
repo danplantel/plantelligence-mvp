@@ -11,6 +11,7 @@ import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/p
 import {
   RetirementJourneySection,
 } from "@/components/pages/client-portal/sections/retirement-journey-section";
+import { BenefitsHubWebinarsSection } from "@/components/pages/client-portal/sections/benefits-hub-webinars-section";
 import { HowCanWeHelpSection } from "@/components/pages/client-portal/sections/how-can-we-help-section";
 import { PortalMaterialsHero } from "@/components/pages/client-portal/sections/portal-materials-hero";
 import { CompletenessAutoTrigger } from "@/components/pages/client-portal/sections/completeness-auto-trigger";
@@ -189,6 +190,13 @@ export default function HealthInsurancePage() {
           description={(benefitData as any)?.journeyBodyText || "Your health and well-being are our priority. Explore our health insurance resources to understand your coverage options, maximize your benefits, and make informed decisions about your medical, dental, and vision care for you and your family."}
           planVideoUrl={benefitData?.planVideo as string | undefined}
           planVideoFallbackImage={HEALTH_INSURANCE_FALLBACK_IMAGE}
+        />
+
+        {/* Videos published to this page from Communications → Webinars. */}
+        <BenefitsHubWebinarsSection
+          placement="health-insurance"
+          brandColor={brandColor}
+          secondaryColor={secondaryColor}
         />
 
         <HowCanWeHelpSection
