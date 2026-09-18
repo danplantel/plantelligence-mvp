@@ -17,6 +17,7 @@ function serializeWebinar(webinar: {
   webinarTitle: string;
   description: string | null;
   thumbnail: string | null;
+  benefitsCategory?: string | null;
   eventDate: Date;
   sourceType: unknown;
   videoFileUrl: string | null;
@@ -30,6 +31,7 @@ function serializeWebinar(webinar: {
     webinarTitle: webinar.webinarTitle,
     description: webinar.description,
     thumbnail: webinar.thumbnail,
+    benefitsCategory: webinar.benefitsCategory ?? null,
     eventDate: webinar.eventDate,
     sourceType: webinar.sourceType as { upload: boolean; url: boolean },
     videoFileUrl: webinar.videoFileUrl,
@@ -107,6 +109,7 @@ export async function PUT(
       webinarTitle,
       description,
       thumbnail,
+      benefitsCategory,
       eventDate,
       videoFile,
       videoUrl,
@@ -172,6 +175,14 @@ export async function PUT(
         ? thumbnail
         : null;
 
+    // And for the benefit category.
+    const nextBenefitsCategory =
+      benefitsCategory === undefined
+        ? existingWebinar.benefitsCategory
+        : typeof benefitsCategory === "string" && benefitsCategory
+        ? benefitsCategory
+        : null;
+
     const updatedWebinar = await prisma.webinar.update({
       where: { id: existingWebinar.id },
       data: {
@@ -180,6 +191,7 @@ export async function PUT(
         webinarTitle: webinarTitle ?? existingWebinar.webinarTitle,
         description: nextDescription,
         thumbnail: nextThumbnail,
+        benefitsCategory: nextBenefitsCategory,
         eventDate: eventDate
           ? new Date(eventDate)
           : existingWebinar.eventDate,

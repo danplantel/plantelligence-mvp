@@ -12,6 +12,7 @@ type WebinarRow = {
   webinarTitle: string;
   description: string | null;
   thumbnail: string | null;
+  benefitsCategory?: string | null;
   eventDate: Date;
   sourceType: unknown;
   /** Absent on list responses that omit the base64 payload. */
@@ -45,6 +46,7 @@ function serializeWebinar(
     webinarTitle: webinar.webinarTitle,
     description: webinar.description,
     thumbnail: webinar.thumbnail,
+    benefitsCategory: webinar.benefitsCategory ?? null,
     eventDate: webinar.eventDate,
     sourceType: webinar.sourceType as { upload: boolean; url: boolean },
     videoFileUrl: options.includeVideoFiles ? videoFileUrl : null,
@@ -103,6 +105,7 @@ export async function GET(request: NextRequest) {
             webinarTitle: true,
             description: true,
             thumbnail: true,
+            benefitsCategory: true,
             eventDate: true,
             sourceType: true,
             videoUrl: true,
@@ -146,6 +149,7 @@ export async function POST(request: NextRequest) {
       webinarTitle,
       description,
       thumbnail,
+      benefitsCategory,
       eventDate,
       videoFile,
       videoUrl,
@@ -238,6 +242,10 @@ export async function POST(request: NextRequest) {
           ? description.trim()
           : null,
         thumbnail: typeof thumbnail === "string" && thumbnail ? thumbnail : null,
+        benefitsCategory:
+          typeof benefitsCategory === "string" && benefitsCategory
+            ? benefitsCategory
+            : null,
         eventDate: new Date(eventDate),
         sourceType,
         videoFileUrl,

@@ -68,6 +68,7 @@ interface WebinarFormData {
   webinarTitle: string;
   description: string;
   thumbnail: string;
+  benefitsCategory: string;
   eventDate: Date | undefined;
   videoFile: File | null;
   videoUrl: string;
@@ -84,6 +85,7 @@ interface Webinar {
   webinarTitle: string;
   description?: string | null;
   thumbnail?: string | null;
+  benefitsCategory?: string | null;
   eventDate: Date;
   videoFileUrl: string | null;
   /** Set when a video exists but its payload was omitted from the list request. */
@@ -138,6 +140,15 @@ const MAX_VIDEO_TITLE_LENGTH = 60;
 const MAX_DESCRIPTION_LENGTH = 200;
 // Longest edge, in px, for the stored thumbnail (uploaded image or video frame).
 const THUMBNAIL_MAX_EDGE = 640;
+// Benefit categories a video can be filed under. Kept as its own short list —
+// narrower than the contact/meeting taxonomies — so "All" is a real choice.
+const BENEFITS_CATEGORIES = [
+  "Retirement",
+  "Health",
+  "Life",
+  "Other",
+  "All",
+] as const;
 
 const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -156,6 +167,7 @@ export default function WebinarsPage() {
     webinarTitle: "",
     description: "",
     thumbnail: "",
+    benefitsCategory: "All",
     eventDate: undefined,
     videoFile: null,
     videoUrl: "",
@@ -334,6 +346,7 @@ export default function WebinarsPage() {
       webinarTitle: "",
       description: "",
       thumbnail: "",
+      benefitsCategory: "All",
       eventDate: undefined,
       videoFile: null,
       videoUrl: "",
@@ -489,6 +502,8 @@ export default function WebinarsPage() {
     webinarTitle: "",
     description: "",
     thumbnail: "",
+    // "All" is the catch-all choice, so a new video always has a category.
+    benefitsCategory: "All",
     eventDate: undefined,
     videoFile: null,
     videoUrl: "",
@@ -581,6 +596,7 @@ export default function WebinarsPage() {
           webinarTitle: formData.webinarTitle,
           description: formData.description,
           thumbnail: formData.thumbnail || null,
+          benefitsCategory: formData.benefitsCategory || null,
           eventDate: formData.eventDate?.toISOString(),
           videoFile: videoFileBase64,
           videoUrl: formData.videoUrl,
@@ -628,6 +644,7 @@ export default function WebinarsPage() {
       webinarTitle: webinar.webinarTitle,
       description: webinar.description ?? "",
       thumbnail: webinar.thumbnail ?? "",
+      benefitsCategory: webinar.benefitsCategory ?? "All",
       eventDate: new Date(webinar.eventDate),
       videoFile: null, // Don't reload file on edit
       videoUrl: webinar.videoUrl || "",
@@ -901,6 +918,26 @@ export default function WebinarsPage() {
                 </p>
               </div>
               
+              {/* Benefit Category */}
+              <div className="space-y-2">
+                <Label>Benefit Category</Label>
+                <Select
+                  value={formData.benefitsCategory || "All"}
+                  onValueChange={(v) => handleInputChange("benefitsCategory", v)}
+                >
+                  <SelectTrigger className="dark:bg-gray-800">
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BENEFITS_CATEGORIES.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               {/* Event Date */}
               <div className="space-y-2">
                 <Label>
@@ -1442,6 +1479,14 @@ export default function WebinarsPage() {
                                 >
                                   <LinkIcon className="w-2.5 h-2.5 mr-1" />
                                   URL
+                                </Badge>
+                              )}
+                              {webinar.benefitsCategory && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] px-1.5 py-0 h-4 border-border text-muted-foreground"
+                                >
+                                  {webinar.benefitsCategory}
                                 </Badge>
                               )}
                             </div>
