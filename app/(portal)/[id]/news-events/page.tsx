@@ -15,29 +15,23 @@ export default function NewsEventsPage() {
 
   // Background for the News & Events header.
   //
-  // The "Secondary Banner" Brand Images slot is documented as this page's header
-  // background, so it wins when set. Otherwise fall back to the plan's hero
-  // background (`backgroundImg`, the "Header Background" slot that every other
-  // portal hero uses) before letting the header show its static default — an
-  // advisor who only set the Header slot still gets a real banner here instead
-  // of a generic one.
+  // The "Secondary Banner" Brand Images slot — selected in the Create Plan wizard
+  // or in Edit Client — is this page's header background. When it was never
+  // selected we pass nothing through, so NewsEventsHeader renders its bundled
+  // default (`/news-events-default-bg.webp`).
   //
-  // Resolved through useBrandingImageUrl because the value can be an R2 key
-  // (`org/…`) as well as an absolute/data URL; a bare key would otherwise be
+  // Resolved through useBrandingImageUrl because the stored value can be an R2
+  // key (`org/…`) as well as an absolute/data URL; a bare key would otherwise be
   // requested as the relative path /org/… and 404.
-  const heroBackgroundSource =
-    (clientData?.secondaryBannerImg || "").trim() ||
-    (clientData?.backgroundImg || "").trim();
-
-  const { url: resolvedHeroBackgroundUrl } = useBrandingImageUrl(
-    heroBackgroundSource || null,
+  const { url: resolvedSecondaryBannerUrl } = useBrandingImageUrl(
+    (clientData?.secondaryBannerImg || "").trim() || null,
   );
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen pb-10 bg-white">
       <main>
         <NewsEventsHeader
-          backgroundImage={resolvedHeroBackgroundUrl ?? undefined}
+          backgroundImage={resolvedSecondaryBannerUrl ?? undefined}
         />
 
         {/* Published news posts from Marketing */}
@@ -53,10 +47,10 @@ export default function NewsEventsPage() {
           clientId={clientId}
         />
 
-        <NewsEventsResources
+        {/* <NewsEventsResources
           brandColor={brandColor}
           secondaryColor={secondaryColor}
-        />
+        /> */}
       </main>
     </div>
   );
