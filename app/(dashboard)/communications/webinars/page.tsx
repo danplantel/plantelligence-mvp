@@ -43,10 +43,9 @@ import {
   MoreHorizontal,
   Edit,
   Trash2,
-  RefreshCw,
   Clock,
-  Building2,
   Play,
+  Search,
   Plus,
 } from "lucide-react";
 import {
@@ -158,14 +157,15 @@ export default function WebinarsPage() {
 
   // Filter and search state
   const [searchTerm, setSearchTerm] = useState("");
-  const [clientFilter, setClientFilter] = useState("all");
   const [sortBy, setSortBy] = useState<"date" | "size">("date");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
   // Selected plan — the flow's entry point, mirroring the Meetings page. The
-  // search bar at the top sets it; the form targets it and the replays list is
-  // filtered to it (the list's own filter can still be widened to All Plans).
+  // search bar at the top sets it; the form targets it and the replays list
+  // shows only its webinars.
   const [selectedPlan, setSelectedPlan] = useState("");
+  const selectedPlanClientName =
+    clients.find((c) => c.id === selectedPlan)?.companyName || "";
 
   // Filter webinars by search and plan
   const filteredWebinars = webinars.filter((webinar) => {
@@ -175,9 +175,10 @@ export default function WebinarsPage() {
       webinar.webinarTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
       webinar.clientName.toLowerCase().includes(searchTerm.toLowerCase());
 
-    // Client filter
+    // Scoped to the plan chosen in the search bar. The list is hidden until a
+    // plan is selected, so every row shown belongs to it.
     const matchesClient =
-      clientFilter === "all" || webinar.clientName === clientFilter;
+      !selectedPlanClientName || webinar.clientName === selectedPlanClientName;
 
     return matchesSearch && matchesClient;
   });
@@ -270,7 +271,6 @@ export default function WebinarsPage() {
     setFormData((prev) =>
       prev.client ? prev : { ...prev, client: plan.companyName },
     );
-    setClientFilter(plan.companyName);
   }, [clients]);
 
   // Surface the selected plan next to the page title, as the Meetings page does,
@@ -284,7 +284,6 @@ export default function WebinarsPage() {
     if (planId === selectedPlan) return;
     const plan = clients.find((c) => c.id === planId);
     setSelectedPlan(planId);
-    setClientFilter(plan?.companyName || "all");
     // Reset any half-finished edit: it belonged to the previously selected plan,
     // so submitting it now would file that webinar under the new plan.
     setFormData({
@@ -347,10 +346,6 @@ export default function WebinarsPage() {
       handleInputChange("videoFile", file);
     }
   };
-
-  // The plan the form saves under — whatever the search bar selected.
-  const selectedPlanClientName =
-    clients.find((c) => c.id === selectedPlan)?.companyName || "";
 
   const blankWebinarForm = (): WebinarFormData => ({
     client: selectedPlanClientName,
@@ -822,56 +817,31 @@ export default function WebinarsPage() {
       <div
         className={cn("w-full max-w-4xl mx-auto", selectedPlan ? "" : "hidden")}
       >
-        <div className="flex items-center justify-end mb-4">
-          <Button
-            onClick={openAddWebinar}
-            className="gap-1.5 shrink-0 bg-accent-blue text-white hover:bg-accent-blue/90"
-          >
-            <Plus className="h-4 w-4" />
-            Add Webinar
-          </Button>
-        </div>
-
         <Card className="shadow-sm">
           <CardHeader className="pb-3">
-            <div className="flex items-center justify-between mb-3">
-              <CardTitle className="text-lg font-semibold">Replays</CardTitle>
-              <Button variant="outline" size="sm" onClick={fetchWebinars}>
-                <RefreshCw className="h-4 w-4" />
-              </Button>
-            </div>
+            <CardTitle className="text-lg font-semibold">Replays</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {/* Search, Filter and Sort */}
-              <div className="flex items-center space-x-2">
-                <div className="relative flex-1">
+              {/* Toolbar — search, sort and Add Webinar share one row. */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative flex-1 min-w-[180px]">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                   <Input
                     placeholder="Search webinars..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="h-8"
+                    className="h-9 pl-9 pr-3"
                   />
                 </div>
-                <Select value={clientFilter} onValueChange={setClientFilter}>
-                  <SelectTrigger className="w-40 h-8">
-                    <SelectValue placeholder="All Plans" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Plans</SelectItem>
-                    {clients.map((client) => (
-                      <SelectItem key={client.id} value={client.companyName}>
-                        {client.companyName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
-                  <SelectTrigger className="w-32 h-8">
+                <Select
+                  value={sortBy}
+                  onValueChange={(v: "date" | "size") => setSortBy(v)}
+                >
+                  <SelectTrigger className="w-32 h-9">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">none</SelectItem>
                     <SelectItem value="date">Date</SelectItem>
                     <SelectItem value="size">Size</SelectItem>
                   </SelectContent>
@@ -879,7 +849,7 @@ export default function WebinarsPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-8 w-8 p-0"
+                  className="h-9 w-9 p-0 shrink-0"
                   onClick={() =>
                     setSortDirection(sortDirection === "asc" ? "desc" : "asc")
                   }
@@ -890,6 +860,13 @@ export default function WebinarsPage() {
                   }
                 >
                   {sortDirection === "asc" ? "↑" : "↓"}
+                </Button>
+                <Button
+                  onClick={openAddWebinar}
+                  className="gap-1.5 shrink-0 h-9 bg-accent-blue text-white hover:bg-accent-blue/90"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Webinar
                 </Button>
               </div>
 
@@ -902,18 +879,16 @@ export default function WebinarsPage() {
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <Video className="w-16 h-16 text-gray-300 mb-4" />
                   <p className="text-lg font-medium text-gray-900 mb-2">
-                    {searchTerm || clientFilter !== "all"
-                      ? "No webinars found"
-                      : "No webinars added yet"}
+                    {searchTerm ? "No webinars found" : "No webinars added yet"}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {searchTerm || clientFilter !== "all"
-                      ? "Try adjusting your filters or search terms"
+                    {searchTerm
+                      ? "Try adjusting your search term"
                       : "Add your first webinar with the Add Webinar button above"}
                   </p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {sortedWebinars.map((webinar) => {
                     const webinarDate = format(
                       new Date(webinar.eventDate),
@@ -924,35 +899,33 @@ export default function WebinarsPage() {
                     return (
                       <div
                         key={webinar.id}
-                        className="p-4 border rounded-lg hover:shadow-md transition-all bg-card"
+                        className="p-4 border rounded-lg hover:shadow-md transition-all bg-card flex flex-col h-full"
                       >
                         {/* Header with Title and Source Badge */}
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center space-x-2 mb-2">
-                              <h4 className="font-semibold text-base truncate">
-                                {webinar.webinarTitle}
-                              </h4>
-                              <div className="flex gap-2">
-                                {webinar.sourceType.upload && (
-                                  <Badge
-                                    variant="outline"
-                                    className="text-xs border-blue-200 bg-blue-50 text-blue-700"
-                                  >
-                                    <Upload className="w-3 h-3 mr-1" />
-                                    Upload
-                                  </Badge>
-                                )}
-                                {webinar.sourceType.url && (
-                                  <Badge
-                                    variant="outline"
-                                    className="text-xs border-green-200 bg-green-50 text-green-700"
-                                  >
-                                    <LinkIcon className="w-3 h-3 mr-1" />
-                                    URL
-                                  </Badge>
-                                )}
-                              </div>
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <h4 className="font-semibold text-sm leading-tight truncate">
+                              {webinar.webinarTitle}
+                            </h4>
+                            <div className="flex gap-1.5 shrink-0">
+                              {webinar.sourceType.upload && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] px-1.5 py-0 h-4 border-blue-200 bg-blue-50 text-blue-700"
+                                >
+                                  <Upload className="w-2.5 h-2.5 mr-1" />
+                                  Upload
+                                </Badge>
+                              )}
+                              {webinar.sourceType.url && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] px-1.5 py-0 h-4 border-green-200 bg-green-50 text-green-700"
+                                >
+                                  <LinkIcon className="w-2.5 h-2.5 mr-1" />
+                                  URL
+                                </Badge>
+                              )}
                             </div>
                           </div>
                           <DropdownMenu>
@@ -960,7 +933,7 @@ export default function WebinarsPage() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-6 w-6 p-0"
+                                className="h-5 w-5 p-0 shrink-0"
                               >
                                 <MoreHorizontal className="h-3 w-3" />
                               </Button>
@@ -985,7 +958,7 @@ export default function WebinarsPage() {
 
                         {/* Video Preview */}
                         {hasVideo && (
-                          <div className="mb-3 rounded-lg overflow-hidden border bg-black/5">
+                          <div className="mb-2 rounded-lg overflow-hidden border bg-black/5">
                             <div className="relative w-full aspect-video">
                               {webinar.videoUrl ? (
                                 (() => {
@@ -1032,44 +1005,40 @@ export default function WebinarsPage() {
                           </div>
                         )}
 
-                        {/* Webinar Details Grid */}
-                        <div className="grid grid-cols-2 gap-3 mb-3">
+                        {/* Webinar Details — Event Date and Source are built from
+                            an identical tile so labels and values line up across
+                            both columns. `mt-auto` pins the row to the card
+                            bottom so cards without a video still align. */}
+                        <div className="mt-auto grid grid-cols-2 gap-2">
                           {/* Event Date */}
-                          <div className="space-y-1">
-                            <div className="flex items-center space-x-1.5 text-xs text-muted-foreground">
-                              <Calendar className="h-3.5 w-3.5" />
-                              <span className="font-medium">Event Date</span>
-                            </div>
-                            <div className="text-sm font-medium pl-5">
-                              {webinarDate}
+                          <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-2.5 py-2 min-w-0">
+                            <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-[10px] uppercase tracking-wide leading-none text-muted-foreground">
+                                Event Date
+                              </p>
+                              <p className="text-xs font-medium leading-tight mt-1 truncate">
+                                {webinarDate}
+                              </p>
                             </div>
                           </div>
 
                           {/* Source Type */}
-                          <div className="space-y-1">
-                            <div className="flex items-center space-x-1.5 text-xs text-muted-foreground">
-                              <Video className="h-3.5 w-3.5" />
-                              <span className="font-medium">Source</span>
-                            </div>
-                            <div className="text-sm font-medium pl-5">
-                              {webinar.sourceType.upload
-                                ? "Uploaded File"
-                                : webinar.sourceType.url
-                                ? "External URL"
-                                : "No source"}
+                          <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-2.5 py-2 min-w-0">
+                            <Video className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-[10px] uppercase tracking-wide leading-none text-muted-foreground">
+                                Source
+                              </p>
+                              <p className="text-xs font-medium leading-tight mt-1 truncate">
+                                {webinar.sourceType.upload
+                                  ? "Uploaded File"
+                                  : webinar.sourceType.url
+                                  ? "External URL"
+                                  : "No source"}
+                              </p>
                             </div>
                           </div>
-                        </div>
-
-                        {/* Client */}
-                        <div className="flex items-center space-x-2 pt-2 border-t">
-                          <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span className="text-sm font-medium text-muted-foreground">
-                            Plan:
-                          </span>
-                          <span className="text-sm font-semibold">
-                            {webinar.clientName}
-                          </span>
                         </div>
                       </div>
                     );
