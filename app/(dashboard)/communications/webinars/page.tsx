@@ -49,7 +49,6 @@ import {
   Loader2,
   Clock,
   Play,
-  Search,
   Plus,
 } from "lucide-react";
 import {
@@ -194,8 +193,7 @@ export default function WebinarsPage() {
     isLoading: boolean;
   } | null>(null);
 
-  // Filter and search state
-  const [searchTerm, setSearchTerm] = useState("");
+  // Sort state — the list is scoped by plan, so there is no search field.
   const [sortBy, setSortBy] = useState<"date" | "size">("date");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
@@ -206,21 +204,11 @@ export default function WebinarsPage() {
   const selectedPlanClientName =
     clients.find((c) => c.id === selectedPlan)?.companyName || "";
 
-  // Filter webinars by search and plan
-  const filteredWebinars = webinars.filter((webinar) => {
-    // Search filter
-    const matchesSearch =
-      !searchTerm ||
-      webinar.webinarTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      webinar.clientName.toLowerCase().includes(searchTerm.toLowerCase());
-
-    // Scoped to the plan chosen in the search bar. The list is hidden until a
-    // plan is selected, so every row shown belongs to it.
-    const matchesClient =
-      !selectedPlanClientName || webinar.clientName === selectedPlanClientName;
-
-    return matchesSearch && matchesClient;
-  });
+  // Scoped to the plan chosen in the search bar — the only filter the list has.
+  const filteredWebinars = webinars.filter(
+    (webinar) =>
+      !selectedPlanClientName || webinar.clientName === selectedPlanClientName,
+  );
 
   // Sort webinars
   const sortedWebinars = [...filteredWebinars].sort((a, b) => {
@@ -241,7 +229,7 @@ export default function WebinarsPage() {
   });
 
   // Only rows currently on screen can be acted on: a selection made before the
-  // search or the plan changed must never delete something the user cannot see.
+  // plan changed must never delete something the user cannot see.
   const selectedWebinars = sortedWebinars.filter((w) => selectedIds.has(w.id));
   const allVisibleSelected =
     sortedWebinars.length > 0 &&
@@ -839,7 +827,7 @@ export default function WebinarsPage() {
         )}
       </div>
 
-      {/* Add / Edit Webinar — the form that used to sit inline beside the list. */}
+      {/* Add / Edit Video */}
       <Dialog open={webinarModalOpen} onOpenChange={handleWebinarModalOpenChange}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto dark:bg-gray-800">
           <DialogHeader>
@@ -853,6 +841,115 @@ export default function WebinarsPage() {
             </DialogDescription>
           </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
+
+              {/* Webinar Title */}
+              <div className="space-y-2">
+                <Label htmlFor="webinarTitle">
+                  Video Title <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="webinarTitle"
+                  type="text"
+                  placeholder="Enter webinar title"
+                  value={formData.webinarTitle}
+                  maxLength={MAX_VIDEO_TITLE_LENGTH}
+                  onChange={(e) =>
+                    handleInputChange("webinarTitle", e.target.value)
+                  }
+                  className={errors.webinarTitle ? "border-red-500" : ""}
+                />
+                {errors.webinarTitle && (
+                  <p className="text-sm text-red-500">This field is required</p>
+                )}
+                <p
+                  className={cn(
+                    "text-xs text-right",
+                    (formData.webinarTitle?.length ?? 0) >
+                      MAX_VIDEO_TITLE_LENGTH
+                      ? "text-red-500"
+                      : "text-muted-foreground",
+                  )}
+                >
+                  {formData.webinarTitle?.length ?? 0}/{MAX_VIDEO_TITLE_LENGTH}
+                </p>
+              </div>
+
+              {/* Description */}
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  rows={3}
+                  placeholder="Add a short description of this video..."
+                  value={formData.description}
+                  maxLength={MAX_DESCRIPTION_LENGTH}
+                  onChange={(e) =>
+                    handleInputChange("description", e.target.value)
+                  }
+                />
+                <p
+                  className={cn(
+                    "text-xs text-right",
+                    (formData.description?.length ?? 0) >
+                      MAX_DESCRIPTION_LENGTH
+                      ? "text-red-500"
+                      : "text-muted-foreground",
+                  )}
+                >
+                  {formData.description?.length ?? 0}/{MAX_DESCRIPTION_LENGTH}
+                </p>
+              </div>
+              
+              {/* Event Date */}
+              <div className="space-y-2">
+                <Label>
+                  Event Date <span className="text-red-500">*</span>
+                </Label>
+                <Popover
+                  open={datePickerOpen && !!formData.client}
+                  onOpenChange={(open) => {
+                    if (formData.client) {
+                      setDatePickerOpen(open);
+                    }
+                  }}
+                >
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      disabled={!formData.client}
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !formData.eventDate && "text-muted-foreground",
+                        errors.eventDate && "border-red-500",
+                      )}
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {formData.eventDate ? (
+                        format(formData.eventDate, "MM/dd/yyyy")
+                      ) : (
+                        <span>Pick a date</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={formData.eventDate}
+                      onSelect={(date) => {
+                        if (formData.client) {
+                          handleInputChange("eventDate", date);
+                          setDatePickerOpen(false);
+                        }
+                      }}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                {errors.eventDate && (
+                  <p className="text-sm text-red-500">This field is required</p>
+                )}
+              </div>
+
               {/* Source Type */}
               <div className="space-y-2">
                 <Label>
@@ -1097,114 +1194,6 @@ export default function WebinarsPage() {
                 )}
               </div>
 
-              {/* Webinar Title */}
-              <div className="space-y-2">
-                <Label htmlFor="webinarTitle">
-                  Video Title <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="webinarTitle"
-                  type="text"
-                  placeholder="Enter webinar title"
-                  value={formData.webinarTitle}
-                  maxLength={MAX_VIDEO_TITLE_LENGTH}
-                  onChange={(e) =>
-                    handleInputChange("webinarTitle", e.target.value)
-                  }
-                  className={errors.webinarTitle ? "border-red-500" : ""}
-                />
-                {errors.webinarTitle && (
-                  <p className="text-sm text-red-500">This field is required</p>
-                )}
-                <p
-                  className={cn(
-                    "text-xs text-right",
-                    (formData.webinarTitle?.length ?? 0) >
-                      MAX_VIDEO_TITLE_LENGTH
-                      ? "text-red-500"
-                      : "text-muted-foreground",
-                  )}
-                >
-                  {formData.webinarTitle?.length ?? 0}/{MAX_VIDEO_TITLE_LENGTH}
-                </p>
-              </div>
-
-              {/* Description */}
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  rows={3}
-                  placeholder="Add a short description of this video..."
-                  value={formData.description}
-                  maxLength={MAX_DESCRIPTION_LENGTH}
-                  onChange={(e) =>
-                    handleInputChange("description", e.target.value)
-                  }
-                />
-                <p
-                  className={cn(
-                    "text-xs text-right",
-                    (formData.description?.length ?? 0) >
-                      MAX_DESCRIPTION_LENGTH
-                      ? "text-red-500"
-                      : "text-muted-foreground",
-                  )}
-                >
-                  {formData.description?.length ?? 0}/{MAX_DESCRIPTION_LENGTH}
-                </p>
-              </div>
-
-              {/* Event Date */}
-              <div className="space-y-2">
-                <Label>
-                  Event Date <span className="text-red-500">*</span>
-                </Label>
-                <Popover
-                  open={datePickerOpen && !!formData.client}
-                  onOpenChange={(open) => {
-                    if (formData.client) {
-                      setDatePickerOpen(open);
-                    }
-                  }}
-                >
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      disabled={!formData.client}
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !formData.eventDate && "text-muted-foreground",
-                        errors.eventDate && "border-red-500",
-                      )}
-                    >
-                      <Calendar className="mr-2 h-4 w-4" />
-                      {formData.eventDate ? (
-                        format(formData.eventDate, "MM/dd/yyyy")
-                      ) : (
-                        <span>Pick a date</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarComponent
-                      mode="single"
-                      selected={formData.eventDate}
-                      onSelect={(date) => {
-                        if (formData.client) {
-                          handleInputChange("eventDate", date);
-                          setDatePickerOpen(false);
-                        }
-                      }}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-                {errors.eventDate && (
-                  <p className="text-sm text-red-500">This field is required</p>
-                )}
-              </div>
-
               {/* Submit Button */}
               <div className="flex gap-2 pt-4">
                 {editingWebinarId && (
@@ -1244,28 +1233,21 @@ export default function WebinarsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Replays list. It keeps the page width; the form it used to share the row
+      {/* Videos list. It keeps the page width; the form it used to share the row
           with now lives in the dialog above. */}
       <div
         className={cn("w-full max-w-4xl mx-auto", selectedPlan ? "" : "hidden")}
       >
         <Card className="shadow-sm">
+          {/* Title and actions share the card header — the title on the left, the
+              controls pinned to the opposite end. */}
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg font-semibold">Replays</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {/* Toolbar — search, sort and Add Webinar share one row. */}
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="relative flex-1 min-w-[180px]">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                  <Input
-                    placeholder="Search webinars..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="h-9 pl-9 pr-3"
-                  />
-                </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <CardTitle className="text-lg font-semibold">Videos</CardTitle>
+              {/* Actions sit at the opposite end of the row from the title;
+                  `ml-auto` absorbs the free space so the group stays together
+                  even when the row wraps. */}
+              <div className="ml-auto flex flex-wrap items-center gap-2">
                 <Select
                   value={sortBy}
                   onValueChange={(v: "date" | "size") => setSortBy(v)}
@@ -1311,6 +1293,10 @@ export default function WebinarsPage() {
                   Add Video
                 </Button>
               </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
 
               {/* Bulk selection bar — only shown once the user opts into
                   selecting, so the default list stays uncluttered. */}
@@ -1359,12 +1345,10 @@ export default function WebinarsPage() {
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <Video className="w-16 h-16 text-gray-300 mb-4" />
                   <p className="text-lg font-medium text-gray-900 mb-2">
-                    {searchTerm ? "No webinars found" : "No webinars added yet"}
+                    No videos added yet
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {searchTerm
-                      ? "Try adjusting your search term"
-                      : "Add your first webinar with the Add Video button above"}
+                    Add your first video with the Add Video button above
                   </p>
                 </div>
               ) : (
