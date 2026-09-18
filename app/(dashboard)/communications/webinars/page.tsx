@@ -526,6 +526,7 @@ export default function WebinarsPage() {
     if (!formData.sourceType) newErrors.sourceType = true;
     if (!formData.webinarTitle) newErrors.webinarTitle = true;
     if (!formData.eventDate) newErrors.eventDate = true;
+    if (!formData.thumbnail) newErrors.thumbnail = true;
     if (formData.sourceType === "upload" && !formData.videoFile)
       newErrors.videoFile = true;
     if (formData.sourceType === "url" && !formData.videoUrl)
@@ -1095,30 +1096,52 @@ export default function WebinarsPage() {
               )}
 
               {/* Thumbnail — an uploaded image, or a frame captured from the
-                  selected video. Optional; the replay card falls back to its
-                  default treatment when it's empty. */}
+                  selected video. Required: it is what the video card displays. */}
               <div className="space-y-2">
-                <Label>Thumbnail</Label>
-                <div className="flex flex-wrap gap-2">
-                  <Button
+                <Label>
+                  Thumbnail <span className="text-red-500">*</span>
+                </Label>
+                {errors.thumbnail && (
+                  <p className="text-sm text-red-500">This field is required</p>
+                )}
+                <br />
+                {/* Segmented toggle: the two sources are alternatives, so the
+                    active one reads as pressed rather than as a second button. */}
+                <div className="inline-flex overflow-hidden rounded-md border">
+                  <button
                     type="button"
-                    size="sm"
-                    variant={thumbnailMode === "upload" ? "default" : "outline"}
+                    aria-pressed={thumbnailMode === "upload"}
                     onClick={() => setThumbnailMode("upload")}
+                    className={cn(
+                      "flex h-9 items-center gap-1.5 px-3 text-sm transition-colors",
+                      thumbnailMode === "upload"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-background hover:bg-muted",
+                    )}
                   >
-                    <Upload className="mr-1.5 h-3.5 w-3.5" />
-                    Upload image
-                  </Button>
-                  <Button
+                    <Upload className="h-3.5 w-3.5" />
+                    Upload Image
+                  </button>
+                  <button
                     type="button"
-                    size="sm"
-                    variant={thumbnailMode === "frame" ? "default" : "outline"}
+                    aria-pressed={thumbnailMode === "frame"}
                     disabled={!thumbnailVideoUrl}
+                    title={
+                      thumbnailVideoUrl ? undefined : "Select a video file first"
+                    }
                     onClick={() => setThumbnailMode("frame")}
+                    className={cn(
+                      "flex h-9 items-center gap-1.5 border-l px-3 text-sm transition-colors",
+                      thumbnailMode === "frame"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-background hover:bg-muted",
+                      !thumbnailVideoUrl &&
+                        "cursor-not-allowed opacity-50 hover:bg-background",
+                    )}
                   >
-                    <Video className="mr-1.5 h-3.5 w-3.5" />
-                    Use video frame
-                  </Button>
+                    <Video className="h-3.5 w-3.5" />
+                    Use Video Frame
+                  </button>
                 </div>
 
                 {thumbnailMode === "upload" ? (
