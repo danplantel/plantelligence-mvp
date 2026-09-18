@@ -101,6 +101,7 @@ import { WebinarsSection } from "@/components/pages/client-portal/sections/webin
 import { resolveRsvpUrl } from "@/lib/meetings/meeting-schedule-shared";
 import { getBenefitsHubOpenPortalUrl } from "@/lib/marketing/hub-url";
 import { PlanChangeLoadingDialog } from "@/components/ui/plan-change-loading-dialog";
+import { ScaledPreviewFrame } from "@/components/ui/scaled-preview-frame";
 
 interface Meeting {
   id: string;
@@ -486,6 +487,14 @@ const SORT_OPTIONS: { value: string; label: string; column: SortColumn; directio
   { value: "date-desc", label: "Furthest Meeting Date", column: "date", direction: "desc" },
   { value: "date-asc", label: "Closest Meeting Date", column: "date", direction: "asc" },
 ];
+
+/**
+ * Width `WebinarsSection` is designed for (its `max-w-7xl` container). The
+ * Preview tab lays the section out at this width and scales it down, so its
+ * cards keep the proportions they have in the portal instead of being squeezed
+ * by the narrower dashboard column.
+ */
+const PORTAL_PREVIEW_WIDTH = 1280;
 
 function PlanSearchBar({ plans, value, onChange, disabled }: { plans: Client[]; value: string; onChange: (planId: string) => void; disabled?: boolean; }) {
   const [open, setOpen] = useState(false);
@@ -1330,11 +1339,16 @@ export default function MeetingsPage() {
                       </div>
                     </div>
                     <div className="overflow-hidden rounded-xl border border-border/60">
-                      <WebinarsSection
-                        clientId={selectedPlan || undefined}
-                        brandColor={clients.find((c) => c.id === selectedPlan)?.brandColor || "#002B5B"}
-                        secondaryColor={clients.find((c) => c.id === selectedPlan)?.secondaryColor || "#C9A961"}
-                      />
+                      {/* Laid out at the section's portal width and scaled down, so the
+                          cards keep their portal proportions rather than being squeezed
+                          into a narrower column and reading as stretched-tall. */}
+                      <ScaledPreviewFrame designWidth={PORTAL_PREVIEW_WIDTH}>
+                        <WebinarsSection
+                          clientId={selectedPlan || undefined}
+                          brandColor={clients.find((c) => c.id === selectedPlan)?.brandColor || "#002B5B"}
+                          secondaryColor={clients.find((c) => c.id === selectedPlan)?.secondaryColor || "#C9A961"}
+                        />
+                      </ScaledPreviewFrame>
                     </div>
                   </div>
                 </div>
