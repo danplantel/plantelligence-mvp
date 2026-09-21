@@ -45,6 +45,50 @@ export const getCompanyBasicsSubStep = (
   return "branding";
 };
 
+/**
+ * Resume helper for `loadDraftById`.
+ *
+ * A draft's Step 1 Portal URL is not stored on the Client row — it lives on the
+ * wizard session's `companyBasics` (see `portalUrl` in `NewClientCompanyBasics`).
+ * Loading the draft straight from `/api/clients/[id]` therefore lost the slug and
+ * the field rendered empty, so a resumed draft published under an auto-derived
+ * URL instead of the one the advisor chose.
+ *
+ * The active session's company basics are fetched and merged in, guarded on the
+ * company name so an unrelated/stale session can never overwrite the draft's URL.
+ */
+async function mergeSessionCompanyBasicsIntoStepData(
+  stepData: any,
+  companyName?: string,
+): Promise<void> {
+  if (!stepData?.companyBasics) return;
+  const targetName = (companyName || "").trim().toLowerCase();
+  try {
+    const response = await fetch("/api/new-client-wizard/company-basics");
+    if (!response.ok) return;
+    const json = await response.json();
+    const sessionBasics = json?.data;
+    if (!sessionBasics) return;
+
+    // Only trust a session that describes the same company as the draft.
+    const sessionName = String(sessionBasics.companyName || "")
+      .trim()
+      .toLowerCase();
+    if (targetName && sessionName && sessionName !== targetName) return;
+
+    if (!stepData.companyBasics.portalUrl && sessionBasics.portalUrl) {
+      stepData.companyBasics.portalUrl = sessionBasics.portalUrl;
+    }
+    // Same reason for the plan type (Client vs. Prospect), which only the
+    // session record carries.
+    if (!stepData.companyBasics.planType && sessionBasics.planType) {
+      stepData.companyBasics.planType = sessionBasics.planType;
+    }
+  } catch {
+    // Non-blocking: the derived-slug placeholder still renders.
+  }
+}
+
 // Function to focus on first invalid field and scroll to it
 export const focusFirstInvalidField = (errorFields: string[]) => {
   if (!errorFields || errorFields.length === 0) return;
@@ -2410,6 +2454,13 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
               console.error("Error parsing disclaimers from draft:", error);
             }
           }
+
+          // Restore the Step 1 Portal URL (and plan type) from the wizard
+          // session — the Client row has no column for either.
+          await mergeSessionCompanyBasicsIntoStepData(
+            stepData,
+            client.companyName,
+          );
 
           // Load into store
           // Use currentStep from draft if available, otherwise default to step 1

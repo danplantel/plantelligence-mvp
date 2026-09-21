@@ -17,6 +17,7 @@ import { resolvePersistedDocumentCategory } from "@/lib/document-category";
 import { getOnboardingAdvisorBackgroundImage } from "@/lib/wizard-onboarding-background";
 import { generateUniquePlanSlug, ensureUniqueSlug } from "@/lib/slug";
 import { registerClientSlug } from "@/lib/slug-registry";
+import { deleteClientAndScopedData } from "@/lib/delete-client-scoped-data";
 
 function isR2Key(s: string | null | undefined): boolean {
   return typeof s === "string" && s.startsWith("org/");
@@ -867,49 +868,43 @@ export async function POST(request: NextRequest) {
         // Wait for the background branding (R2) task to finish before cleanup.
         await brandingTask;
 
-        // Clean up the wizard session and related data after successful client creation
-        // If draftClientId is provided, delete only that specific draft client
-        // Otherwise, find and delete the draft client that matches the current company name
-        // Draft cleanup is housekeeping and must never fail the publish. The
+        // Clean up the draft plan this publish is replacing.
+        //
+        // The draft row is resolved first — preferring the id the wizard carried,
+        // falling back to a same-name Draft for legacy sessions — and then removed
+        // together with ALL of its plan-scoped children.
+        //
+        // Draft cleanup is housekeeping and must never fail the publish: the
         // Client row was already created above (with its documents copied), so an
         // error here used to surface as "Cannot complete wizard" for a plan that
-        // was in fact created — and the user's retry then created a DUPLICATE
-        // plan.
-        //
-        // `delete` throws P2025 when the row is gone, which is a normal outcome:
-        // the draft may have been deleted from the drafts list, already consumed
-        // by an earlier publish, or the resumed session may carry a stale
-        // draftClientId. `deleteMany` is a no-op in that case and is what
-        // delete-draft/route.ts already uses for the same job.
-        if (draftClientId) {
-          // Delete only the specific draft client that was loaded.
-          try {
-            // Delete Documents + Benefits first — Benefit rows have a required
-            // BenefitToClient relation, so they must go before the client row or
-            // the delete throws P2014.
-            await Promise.all([
-              prisma.document.deleteMany({
-                where: { clientId: draftClientId },
-              }),
-              prisma.benefit.deleteMany({
-                where: { clientId: draftClientId },
-              }),
-            ]);
+        // was in fact created — and the user's retry then created a DUPLICATE.
+        // The old cleanup only removed Documents + Benefits, so it threw P2014
+        // (swallowed as "non-fatal") whenever the draft also owned a webinar,
+        // video, meeting, marketing asset/flyer or portal slug — which left the
+        // draft in place right next to the newly published plan.
+        try {
+          let draftClientRowId: string | null = null;
 
-            await prisma.client.deleteMany({
-              where: { id: draftClientId },
+          if (draftClientId) {
+            // Only ever delete a live Draft owned by this user: a stale
+            // draftClientId must not be able to remove an unrelated (or already
+            // published) plan. A missing row is a normal outcome — the draft may
+            // have been deleted from the drafts list or consumed by an earlier
+            // publish — and simply results in no cleanup.
+            const draftClient = await prisma.client.findFirst({
+              where: {
+                id: draftClientId,
+                userId: session.user.id,
+                status: "Draft",
+              },
+              select: { id: true },
             });
-          } catch (draftCleanupError) {
-            console.warn(
-              "⚠️ Draft client cleanup failed (non-fatal, publish succeeded):",
-              draftCleanupError,
-            );
-          }
-        } else {
-          // Fallback: Find and delete draft client by company name (for backward compatibility)
-          const companyName = companyBasics?.companyName;
-          if (companyName) {
-            try {
+            draftClientRowId = draftClient?.id ?? null;
+          } else {
+            // Fallback: find the draft client by company name (for backward
+            // compatibility with sessions that published without a draft id).
+            const companyName = companyBasics?.companyName;
+            if (companyName) {
               const draftClient = await prisma.client.findFirst({
                 where: {
                   userId: session.user.id,
@@ -918,30 +913,18 @@ export async function POST(request: NextRequest) {
                 },
                 select: { id: true },
               });
-
-              if (draftClient) {
-                // Delete Documents + Benefits first (required BenefitToClient
-                // relation on Benefit rows — see above).
-                await Promise.all([
-                  prisma.document.deleteMany({
-                    where: { clientId: draftClient.id },
-                  }),
-                  prisma.benefit.deleteMany({
-                    where: { clientId: draftClient.id },
-                  }),
-                ]);
-
-                await prisma.client.deleteMany({
-                  where: { id: draftClient.id },
-                });
-              }
-            } catch (draftCleanupError) {
-              console.warn(
-                "⚠️ Draft client cleanup by name failed (non-fatal, publish succeeded):",
-                draftCleanupError,
-              );
+              draftClientRowId = draftClient?.id ?? null;
             }
           }
+
+          if (draftClientRowId) {
+            await deleteClientAndScopedData(draftClientRowId, session.user.id);
+          }
+        } catch (draftCleanupError) {
+          console.warn(
+            "⚠️ Draft client cleanup failed (non-fatal, publish succeeded):",
+            draftCleanupError,
+          );
         }
 
         // Delete related records (independent of one another) in parallel to
