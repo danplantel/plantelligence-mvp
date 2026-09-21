@@ -18,6 +18,7 @@ import {
 } from "@/lib/webinar-placements";
 import { compressImage } from "@/lib/image-compression";
 import { PlanSearchBar } from "@/components/plan-selector/plan-search-bar";
+import { isActiveClientStatus } from "@/lib/active-client-status";
 import {
   getLastPlanId,
   resolveStickyPlanId,
@@ -280,8 +281,10 @@ export default function WebinarsPage() {
         const result = await response.json();
 
         if (result.success) {
-          const activeClients = (result.data || []).filter(
-            (client: Client) => client.status === "Active",
+          // Only active plans are selectable here. `isActiveClientStatus` accepts
+          // both the "Active" and legacy "active" spellings of the status.
+          const activeClients = (result.data || []).filter((client: Client) =>
+            isActiveClientStatus(client.status),
           );
           setClients(activeClients);
         }

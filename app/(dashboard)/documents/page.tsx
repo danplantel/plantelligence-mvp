@@ -1,12 +1,11 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { createPortal } from "react-dom";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import useSWR from "swr";
 import { useSearchParams, useRouter } from "next/navigation";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,7 +19,7 @@ import {
 } from "@/components/ui/select";
 import {
   AlertTriangle, CalendarDays, Clock, FileText, Download, Loader2, Pencil, Save, Trash2,
-  Eye, ArrowUpDown, ArrowUp, ArrowDown, LayoutGrid, List, Search, GripVertical, ExternalLink,
+  Eye, ArrowUpDown, ArrowUp, ArrowDown, LayoutGrid, List, GripVertical,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { DismissibleAlert } from "@/components/ui/dismissible-alert";
@@ -39,14 +38,13 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
   getLastPlanId,
-  getRecentPlanIds,
   persistPlanSelection,
   resolveStickyPlanId,
 } from "@/lib/plan-selector-storage";
+import { PlanSearchBar } from "@/components/plan-selector/plan-search-bar";
 import { useNavigateAwayGuard } from "@/hooks/use-navigate-away-guard";
 import { NavigateAwayWarningDialog } from "@/components/ui/navigate-away-warning-dialog";
 import { Button } from "@/components/ui/button";
-import { getBenefitsHubOpenPortalUrl } from "@/lib/marketing/hub-url";
 import {
   Dialog,
   DialogContent,
@@ -95,291 +93,6 @@ function SortableTh({
         )}
       </span>
     </th>
-  );
-}
-
-// Plan search bar (replaces StickyPlanCombobox)
-function PlanSearchBar({
-  plans,
-  value,
-  onChange,
-  disabled,
-}: {
-  plans: Client[];
-  value: string;
-  onChange: (planId: string) => void;
-  disabled?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const [highlight, setHighlight] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  const recentIds = getRecentPlanIds();
-  const planMap = useMemo(() => {
-    const m = new Map<string, Client>();
-    plans.forEach((p) => m.set(p.id, p));
-    return m;
-  }, [plans]);
-
-  // Resolve recent plan objects from localStorage recents list
-  const recentPlanObjects = useMemo(() => {
-    const result: Client[] = [];
-    const seen = new Set<string>();
-    for (const id of recentIds) {
-      const p = planMap.get(id);
-      if (p && !seen.has(id)) {
-        result.push(p);
-        seen.add(id);
-      }
-    }
-    return result;
-  }, [recentIds, planMap]);
-
-  const isCurrentPlan = useCallback(
-    (id: string) => value === id,
-    [value],
-  );
-
-  // Dropdown items: all plans sorted with recents first, filtered by query when typing
-  const allPlansSorted = useMemo(() => {
-    const recentSet = new Set(recentPlanObjects.map((p) => p.id));
-    const recents: Client[] = [];
-    const others: Client[] = [];
-    for (const p of plans) {
-      if (recentSet.has(p.id)) {
-        recents.push(p);
-      } else {
-        others.push(p);
-      }
-    }
-    others.sort((a, b) => a.companyName.localeCompare(b.companyName, undefined, { sensitivity: "base" }));
-    return [...recents, ...others];
-  }, [plans, recentPlanObjects]);
-
-  const dropdownItems = useMemo(() => {
-    if (!query.trim()) return allPlansSorted;
-    const q = query.toLowerCase();
-    return allPlansSorted.filter((p) => p.companyName.toLowerCase().includes(q));
-  }, [query, allPlansSorted]);
-
-  const selectedPlan = useMemo(
-    () => plans.find((p) => p.id === value),
-    [plans, value],
-  );
-
-  // Close on outside click
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      const t = e.target as Node;
-      if (containerRef.current?.contains(t)) return;
-      if (dropdownRef.current?.contains(t)) return;
-      setOpen(false);
-      setQuery("");
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
-  useEffect(() => {
-    setHighlight(0);
-  }, [dropdownItems.length, open]);
-
-  const selectPlan = (planId: string) => {
-    persistPlanSelection("documents", planId);
-    onChange(planId);
-    setOpen(false);
-    setQuery("");
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!open) return;
-    if (e.key === "Escape") {
-      setOpen(false);
-      setQuery("");
-      return;
-    }
-    if (dropdownItems.length === 0) return;
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setHighlight((h) => (h + 1) % dropdownItems.length);
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setHighlight((h) => (h - 1 + dropdownItems.length) % dropdownItems.length);
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      const item = dropdownItems[highlight];
-      if (item) selectPlan(item.id);
-    }
-  };
-
-  return (
-    <div className="space-y-2" ref={containerRef}>
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 min-w-0">
-          <CardTitle className="text-2xl font-bold shrink-0">View Documents</CardTitle>
-        </div>
-        {value && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              const slug =
-                (selectedPlan as any)?.slug;
-              const resolvedSlug = slug || value;
-              const url = getBenefitsHubOpenPortalUrl(resolvedSlug);
-              window.open(url, "_blank");
-            }}
-            className="gap-1.5 shrink-0 text-white bg-accent-blue hover:bg-accent-blue/80"
-          >
-            <ExternalLink className="h-4 w-4" />
-            Open Portal
-          </Button>
-        )}
-      </div>
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-        <Input
-          ref={inputRef}
-          type="text"
-          placeholder="Search for a plan"
-          value={query}
-          onChange={(e) => {
-            if (!open) setOpen(true);
-            setQuery(e.target.value);
-          }}
-          onFocus={() => setOpen(true)}
-          onKeyDown={handleKeyDown}
-          disabled={disabled}
-          className="h-9 pl-9 pr-3 bg-white dark:bg-gray-800"
-          aria-label="Search plans"
-          aria-expanded={open}
-          aria-haspopup="listbox"
-          autoComplete="off"
-        />
-      </div>
-
-      {/* Recent Plans chips (same style as benefits page) */}
-      {recentPlanObjects.length > 0 && (
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <Clock className="size-3 text-gray-400 shrink-0" />
-          {recentPlanObjects.slice(0, 5).map((plan) => (
-            <button
-              key={plan.id}
-              type="button"
-              onClick={() => selectPlan(plan.id)}
-              className={cn(
-                "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all border",
-                isCurrentPlan(plan.id)
-                  ? "bg-[#23919C]/10 text-[#23919C] border-[#23919C]/30"
-                  : "bg-gray-50 text-gray-600 border-gray-200 hover:border-[#23919C]/40 hover:text-[#23919C] dark:bg-gray-700 text-muted-foreground dark:border-gray-600 dark:hover:border-[#23919C]/50",
-              )}
-            >
-              {plan.companyName}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Dropdown */}
-      {open && typeof document !== "undefined"
-        ? createPortal(
-            <div
-              ref={dropdownRef}
-              role="listbox"
-              className="rounded-md border border-input bg-white dark:bg-gray-800 shadow-lg overflow-hidden z-50"
-              style={{
-                position: "fixed",
-                top: (containerRef.current?.getBoundingClientRect().bottom ?? 0) + 4,
-                left: containerRef.current?.getBoundingClientRect().left ?? 0,
-                width: containerRef.current?.getBoundingClientRect().width ?? 300,
-                maxHeight: 288,
-              }}
-            >
-              {query.trim() && (
-                <div className="px-3 py-1.5 border-b border-border/60">
-                  <p className="text-xs text-muted-foreground">
-                    {dropdownItems.length} plan{dropdownItems.length !== 1 ? "s" : ""} found
-                  </p>
-                </div>
-              )}
-              <div className="overflow-y-auto max-h-[256px] py-1">
-                {dropdownItems.length > 0 && (
-                  <>
-                    {/* Recent plans section */}
-                    {recentPlanObjects.length > 0 && (
-                      <div className="px-2 pb-1">
-                        <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground px-2 py-1.5">
-                          <Clock className="h-3 w-3" />
-                          Recent
-                        </div>
-                        {recentPlanObjects.map((plan, idx) => {
-                          const isHi = highlight === idx;
-                          return (
-                            <button
-                              key={`r-${plan.id}`}
-                              type="button"
-                              role="option"
-                              aria-selected={value === plan.id}
-                              className={cn(
-                                "w-full rounded-sm px-3 py-2 text-left text-sm transition-colors",
-                                isHi && "bg-accent-blue/10 text-accent-blue font-medium",
-                                !isHi && "hover:bg-muted",
-                              )}
-                              onClick={() => selectPlan(plan.id)}
-                              onMouseEnter={() => setHighlight(idx)}
-                            >
-                              {plan.companyName}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                    {/* All other plans */}
-                    {dropdownItems.length > recentPlanObjects.length && (
-                      <div className={cn("px-2", recentPlanObjects.length > 0 && "pt-1 border-t border-border/60")}>
-                        <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground px-2 py-1.5">
-                          {query.trim() ? "Matching plans" : "All plans"}
-                        </div>
-                        {dropdownItems.slice(recentPlanObjects.length).map((plan, idx) => {
-                          const globalIdx = recentPlanObjects.length + idx;
-                          const isHi = highlight === globalIdx;
-                          return (
-                            <button
-                              key={plan.id}
-                              type="button"
-                              role="option"
-                              aria-selected={value === plan.id}
-                              className={cn(
-                                "w-full rounded-sm px-3 py-2 text-left text-sm transition-colors",
-                                isHi && "bg-accent-blue/10 text-accent-blue font-medium",
-                                !isHi && "hover:bg-muted",
-                              )}
-                              onClick={() => selectPlan(plan.id)}
-                              onMouseEnter={() => setHighlight(globalIdx)}
-                            >
-                              {plan.companyName}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </>
-                )}
-                {dropdownItems.length === 0 && (
-                  <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-                    {query.trim() ? "No plans match your search." : "No plans available."}
-                  </div>
-                )}
-              </div>
-            </div>,
-            document.body,
-          )
-        : null}
-    </div>
   );
 }
 
@@ -990,7 +703,7 @@ export default function DocumentsPage() {
               </div>
             ) : (
               <>
-                <PlanSearchBar plans={clients} value={selectedPlan} onChange={handlePlanChange} disabled={clients.length === 0} />
+                <PlanSearchBar plans={clients} value={selectedPlan} onChange={handlePlanChange} title="View Documents" module="documents" disabled={clients.length === 0} />
               </>
             )}
           </CardContent>

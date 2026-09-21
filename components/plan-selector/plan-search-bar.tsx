@@ -10,14 +10,17 @@ import { cn } from "@/lib/utils";
 import {
   getRecentPlanIds,
   persistPlanSelection,
+  type PlanSelectorModule,
 } from "@/lib/plan-selector-storage";
 import { getBenefitsHubOpenPortalUrl } from "@/lib/marketing/hub-url";
+import { isActiveClientStatus } from "@/lib/active-client-status";
 
 /** Minimal plan shape the selector needs. */
 export interface PlanSearchBarPlan {
   id: string;
   companyName: string;
   slug?: string | null;
+  status?: string | null;
 }
 
 interface PlanSearchBarProps {
@@ -28,18 +31,23 @@ interface PlanSearchBarProps {
   /** Heading shown above the search field. */
   title: string;
   disabled?: boolean;
+  /** Sticky-selection scope the choice is remembered under. */
+  module?: PlanSelectorModule;
 }
 
 /**
  * Searchable plan picker that starts the Communications flows (Meetings,
- * Webinars).
+ * Webinars) and the other plan-scoped pages (Documents, Marketing, Edit Client).
  *
- * Extracted from the Meetings page so the two surfaces cannot drift: the same
+ * Extracted from the Meetings page so the surfaces cannot drift: the same
  * heading, recent-plan chips, keyboard navigation and dropdown are shared, and
  * only the heading differs per page.
  *
- * Selection is persisted under the shared `communications` module scope, so
- * picking a plan on one Communications page is restored on the other.
+ * Only Active plans are offered: Draft and Archived plans are filtered out
+ * before the list, the recent chips and the Open Portal link are built, so a
+ * plan that is not live can never be selected here. Selection is persisted
+ * under the caller's `module` scope (Communications by default), so picking a
+ * plan on one Communications page is restored on the other.
  */
 export function PlanSearchBar({
   plans,
@@ -47,6 +55,7 @@ export function PlanSearchBar({
   onChange,
   title,
   disabled,
+  module = "communications",
 }: PlanSearchBarProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -55,11 +64,17 @@ export function PlanSearchBar({
   const containerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const recentIds = getRecentPlanIds();
+  // Active plans only — everything below (dropdown, recents, selection) reads
+  // from this list, never from the raw `plans` prop.
+  const activePlans = useMemo(
+    () => plans.filter((p) => isActiveClientStatus(p.status)),
+    [plans],
+  );
   const planMap = useMemo(() => {
     const m = new Map<string, PlanSearchBarPlan>();
-    plans.forEach((p) => m.set(p.id, p));
+    activePlans.forEach((p) => m.set(p.id, p));
     return m;
-  }, [plans]);
+  }, [activePlans]);
   const recentPlanObjects = useMemo(() => {
     const result: PlanSearchBarPlan[] = [];
     const seen = new Set<string>();
@@ -76,7 +91,7 @@ export function PlanSearchBar({
     const recentSet = new Set(recentPlanObjects.map((p) => p.id));
     const recents: PlanSearchBarPlan[] = [];
     const others: PlanSearchBarPlan[] = [];
-    for (const p of plans) {
+    for (const p of activePlans) {
       if (recentSet.has(p.id)) recents.push(p);
       else others.push(p);
     }
@@ -86,7 +101,7 @@ export function PlanSearchBar({
       }),
     );
     return [...recents, ...others];
-  }, [plans, recentPlanObjects]);
+  }, [activePlans, recentPlanObjects]);
   const dropdownItems = useMemo(() => {
     if (!query.trim()) return allPlansSorted;
     const q = query.toLowerCase();
@@ -95,8 +110,8 @@ export function PlanSearchBar({
     );
   }, [query, allPlansSorted]);
   const selectedPlan = useMemo(
-    () => plans.find((p) => p.id === value),
-    [plans, value],
+    () => activePlans.find((p) => p.id === value),
+    [activePlans, value],
   );
   useEffect(() => {
     if (!open) return;
@@ -115,7 +130,7 @@ export function PlanSearchBar({
   }, [dropdownItems.length, open]);
   const isCurrentPlan = (id: string) => value === id;
   const selectPlan = (planId: string) => {
-    persistPlanSelection("communications", planId);
+    persistPlanSelection(module, planId);
     onChange(planId);
     setOpen(false);
     setQuery("");

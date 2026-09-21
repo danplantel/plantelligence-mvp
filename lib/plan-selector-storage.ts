@@ -11,7 +11,9 @@ export type PlanSelectorModule =
   | "communications"
   | "marketing"
   | "video"
-  | "benefits";
+  | "benefits"
+  /** Edit Client's plan switcher — a plan search that only navigates. */
+  | "plans";
 
 /** Show search inside plan dropdown when plan count >= this */
 export const PLAN_SELECTOR_SEARCH_THRESHOLD = 25;
@@ -114,6 +116,7 @@ export function clearAllPlanSelections(): void {
     "marketing",
     "video",
     "benefits",
+    "plans",
   ];
   for (const mod of modules) {
     try {
