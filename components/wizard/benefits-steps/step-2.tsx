@@ -30,8 +30,12 @@ type PreviewMode = "desktop" | "mobile";
  * Renders children into an iframe so that CSS viewport-based media queries
  * (Tailwind sm:, md:, lg:, etc.) evaluate against the iframe's actual width
  * rather than the parent browser window.
+ *
+ * Exported so the Edit Benefit Preview tab
+ * ([`EditBenefitPreviewSection`](components/pages/benefits/edit-benefit-preview-section.tsx))
+ * renders its mobile preview exactly like this step does.
  */
-function MobilePreviewFrame({
+export function MobilePreviewFrame({
     children,
     width,
     themeKey,

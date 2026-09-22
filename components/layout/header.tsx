@@ -204,7 +204,23 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
           {stepperFloats ? null : stepper ? (
             stepper
           ) : (
-            <div id="header-tabs-portal" className="w-full" />
+            <div
+              id="header-tabs-portal"
+              className={cn(
+                "w-full",
+                // With the Editing Panel open the page title is hidden and this
+                // column starts immediately right of the panel, so the portalled
+                // tabs must align to that edge instead of centring across the
+                // header. Edit Plan already swaps its own TabsList to
+                // `justify-start` when its panel opens; Edit Benefit's tabs are
+                // centred in the list itself, so force the alignment here rather
+                // than requiring every page to track the panel state. No-op for
+                // the wizards, which render a stepper instead of this portal.
+                editorOpen &&
+                  portalHasContent &&
+                  "[&>div]:!justify-start",
+              )}
+            />
           )}
         </div>
 

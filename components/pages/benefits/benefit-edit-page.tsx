@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
 import { saveBenefit } from "@/lib/save-benefit";
 import { persistPlanSelection } from "@/lib/plan-selector-storage";
@@ -16,16 +18,23 @@ import {
   BenefitsStep4,
   BenefitsStep5,
 } from "@/components/wizard/benefits-steps";
-import { BenefitsEditorPanel } from "@/components/wizard/benefits-steps/benefits-editor-panel";
-import { BenefitEditPreview } from "@/components/wizard/benefits-steps/benefit-edit-preview";
+import { EditBenefitPreviewSection } from "@/components/pages/benefits/edit-benefit-preview-section";
 
 /**
- * Tabs for the Edit Benefit page. Each surfaces sections that live in different
- * Create Benefit wizard steps, so a benefit can be edited without walking the
- * wizard.
+ * Edit Benefit tabs — mirrors the Edit Plan page (`/edit-client/[id]`): the tab
+ * bar renders inside the fixed header.
+ *
+ * - **Branding** renders Step 1's accordions exactly as the wizard does
+ *   (Benefit Logo, Messaging, Key Contact, Documents).
+ * - **Preview** renders [`EditBenefitPreviewSection`](components/pages/benefits/edit-benefit-preview-section.tsx)
+ *   — the live portal preview beside an inline Editing Panel (typography,
+ *   branding, messaging, plan video, help cards, insurance). Like Edit Plan's
+ *   Preview tab, the in-page header is hidden there (the section's toolbar owns
+ *   the Save button instead) and the preview shrinks while the panel is open.
  */
 const EDIT_TABS = [
   { id: "branding", label: "Branding" },
+  { id: "preview", label: "Preview" },
   { id: "contacts", label: "Contacts" },
   { id: "faqs", label: "FAQs" },
   { id: "documents", label: "Documents" },
@@ -33,6 +42,9 @@ const EDIT_TABS = [
 ] as const;
 
 type EditTabId = (typeof EDIT_TABS)[number]["id"];
+
+/** Tabs that mount their own instance of Step 1. */
+const STEP1_TABS: EditTabId[] = ["branding", "contacts"];
 
 interface BenefitEditPageProps {
   planId: string;
@@ -46,11 +58,20 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
+  // Portal target for the tab bar — the Header renders <div id="header-tabs-portal" />
+  // and we portal the TabsList into it so it appears inside the fixed header while
+  // staying within the <Tabs> React context (same pattern as Edit Plan).
+  const [headerPortalTarget, setHeaderPortalTarget] = useState<HTMLElement | null>(
+    null,
+  );
 
   const step1Data = useBenefitsWizardStore((s) => s.stepData.step1);
   const selectedPlan = step1Data?.selectedPlan as any;
   const companyName = selectedPlan?.companyName || "";
-  const companyWebsite = selectedPlan?.companyWebsite || "";
+
+  useEffect(() => {
+    setHeaderPortalTarget(document.getElementById("header-tabs-portal"));
+  }, []);
 
   // Load the persisted draft, then point Step 1 at this plan + category so its
   // pre-fill effects populate the store for every tab.
@@ -127,10 +148,37 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
     }
   };
 
+  const tabList = (
+    <TabsList
+      className={cn(
+        "w-full gap-1 rounded-none border-b bg-transparent p-0 flex-nowrap h-auto min-h-fit overflow-x-auto",
+        "justify-center [&::-webkit-scrollbar]:hidden [scrollbar-width:none]",
+      )}
+    >
+      {EDIT_TABS.map((tab) => (
+        <TabsTrigger
+          key={tab.id}
+          value={tab.id}
+          className="rounded-none px-4 py-3 text-sm font-medium whitespace-nowrap data-[state=active]:border-b-2 data-[state=active]:border-accent-blue data-[state=active]:font-bold data-[state=active]:text-accent-blue"
+        >
+          {tab.label}
+        </TabsTrigger>
+      ))}
+    </TabsList>
+  );
+
   return (
-    <div className="flex-1 py-4 pb-28">
-      <div className="mx-auto max-w-[1500px] px-4">
-        <div className="mb-4 flex items-center justify-between gap-4">
+    <div className="flex-1 pb-24 pt-4">
+      <div className="mx-auto max-w-4xl px-4">
+        {/* In-page header — hidden on the Preview tab, exactly like Edit Plan
+            hides its EditClientHeader there: the preview is a full-bleed fixed
+            layout and the section's toolbar carries the Save button. */}
+        <div
+          className={cn(
+            "mb-4 flex items-center justify-between gap-4",
+            activeTab === "preview" && "hidden",
+          )}
+        >
           <div className="flex min-w-0 items-center gap-3">
             <Button
               variant="ghost"
@@ -148,7 +196,11 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
               </p>
             </div>
           </div>
-          <Button onClick={handleSave} disabled={saving || !isHydrated} className="gap-2">
+          <Button
+            onClick={handleSave}
+            disabled={saving || !isHydrated}
+            className="gap-2"
+          >
             {saving ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
@@ -168,68 +220,54 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
             value={activeTab}
             onValueChange={(value) => setActiveTab(value as EditTabId)}
           >
-            <TabsList className="sticky top-16 z-30 mb-4 flex h-auto flex-nowrap justify-start gap-1 overflow-x-auto rounded-none border-b bg-background p-0 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
-              {EDIT_TABS.map((tab) => (
-                <TabsTrigger
-                  key={tab.id}
-                  value={tab.id}
-                  className="rounded-none px-4 py-3 text-sm font-medium whitespace-nowrap data-[state=active]:border-b-2 data-[state=active]:border-accent-blue data-[state=active]:font-bold data-[state=active]:text-accent-blue"
-                >
-                  {tab.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
+            {/* Tab bar renders inside the fixed header via portal; falls back to
+                an inline bar if the header portal isn't mounted. */}
+            {headerPortalTarget
+              ? createPortal(tabList, headerPortalTarget)
+              : tabList}
 
-            <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,560px)]">
-              {/* Left column: the active tab's editor */}
-              <div className="min-w-0">
-                {/* Step 1 owns the benefit pre-fill effects. Keep exactly one
-                    instance mounted: hidden while any other tab is active,
-                    visible on the Contacts tab. */}
-                {activeTab !== "contacts" && (
-                  <div className="hidden" aria-hidden="true">
-                    <BenefitsStep1 mode="edit" />
-                  </div>
-                )}
-
-                <TabsContent value="branding" className="mt-0">
-                  <div className="h-[calc(100vh-16rem)] min-h-[640px] overflow-hidden rounded-xl border dark:border-gray-700">
-                    <BenefitsEditorPanel
-                      isOpen
-                      isAnimating
-                      onClose={() => {}}
-                      variant="inline"
-                      planCompanyName={companyName}
-                      companyWebsite={companyWebsite}
-                    />
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="contacts" className="mt-0 space-y-6">
-                  <BenefitsStep1 mode="edit" />
-                  <BenefitsStep3 section="contacts" />
-                </TabsContent>
-
-                <TabsContent value="faqs" className="mt-0">
-                  <BenefitsStep3 section="faqs" />
-                </TabsContent>
-
-                <TabsContent value="documents" className="mt-0">
-                  <BenefitsStep4 />
-                </TabsContent>
-
-                <TabsContent value="disclaimers" className="mt-0">
-                  <BenefitsStep5 />
-                </TabsContent>
+            {/* Step 1 owns the benefit pre-fill effects. Tabs that don't render
+                it themselves keep one hidden instance mounted so every tab has
+                the same populated state (the Preview tab included — its preview
+                reads the same store data). */}
+            {!STEP1_TABS.includes(activeTab) && (
+              <div className="hidden" aria-hidden="true">
+                <BenefitsStep1 mode="edit" />
               </div>
+            )}
 
-              {/* Right column: persistent live preview */}
-              <aside className="hidden xl:block">
-                <div className="sticky top-20 h-[calc(100vh-9rem)]">
-                  <BenefitEditPreview />
-                </div>
-              </aside>
-            </div>
+            {/* Branding — the wizard's Step 1 accordions, unchanged. */}
+            <TabsContent value="branding" className="mt-0">
+              <BenefitsStep1 mode="edit" />
+            </TabsContent>
+
+            {/* Preview — live portal preview + inline Editing Panel, scaled down
+                while the panel is open (mirrors Edit Plan's Preview tab). */}
+            <TabsContent value="preview" className="mt-0">
+              <EditBenefitPreviewSection
+                onSave={handleSave}
+                saving={saving}
+                saved={saved}
+                saveDisabled={!isHydrated}
+              />
+            </TabsContent>
+
+            <TabsContent value="contacts" className="mt-0 space-y-6">
+              <BenefitsStep1 mode="edit" sections={["contacts"]} />
+              <BenefitsStep3 section="contacts" />
+            </TabsContent>
+
+            <TabsContent value="faqs" className="mt-0">
+              <BenefitsStep3 section="faqs" />
+            </TabsContent>
+
+            <TabsContent value="documents" className="mt-0">
+              <BenefitsStep4 />
+            </TabsContent>
+
+            <TabsContent value="disclaimers" className="mt-0">
+              <BenefitsStep5 />
+            </TabsContent>
           </Tabs>
         )}
       </div>

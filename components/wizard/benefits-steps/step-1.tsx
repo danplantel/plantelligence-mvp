@@ -164,13 +164,17 @@ const CATEGORY_CARDS = [
 
 export function BenefitsStep1({
   mode = "wizard",
+  sections,
 }: {
-  /** "edit" renders the Edit Benefit variant: the plan/category picker and every
-   *  accordion except Key Contact are hidden (documents move to their own tab and
-   *  branding/messaging are handled by the editor panel). */
+  /** "edit" hides the plan/category picker and the per-accordion CONTINUE
+   *  buttons — used by the Edit Benefit page, which has its own tab bar. */
   mode?: "wizard" | "edit";
+  /** Restrict which accordions render (e.g. ["contacts"]). Default: all four. */
+  sections?: string[];
 } = {}) {
   const isEditMode = mode === "edit";
+  /** Every section shows in the wizard; `sections` narrows them when provided. */
+  const showSection = (value: string) => !sections || sections.includes(value);
   const { stepData, saveStepData } = useBenefitsWizardStore();
   // Use fetchProfileOnce (single-flight + TTL) so this coalesces with the layout
   // header's profile fetch — one /api/profile request for the whole page.
@@ -194,9 +198,12 @@ export function BenefitsStep1({
   const [searchTerm, setSearchTerm] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [activeAccordions, setActiveAccordions] = useState<string[]>([]);
-  // Only the Key Contact accordion is rendered in edit mode, so open it by default.
+  // In edit mode open every rendered accordion so the sections are visible
+  // without an extra click.
   useEffect(() => {
-    if (isEditMode) setActiveAccordions(["contacts"]);
+    if (!isEditMode) return;
+    setActiveAccordions(["branding", "messaging", "contacts", "documents"]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditMode]);
   const router = useRouter();
 
@@ -3057,7 +3064,7 @@ export function BenefitsStep1({
             className="space-y-4"
           >
             {/* 1. Branding Section */}
-            {!isEditMode && (
+            {showSection("branding") && (
             <AccordionItem
               value="branding"
               className="border-none shadow-md overflow-hidden bg-card rounded-xl"
@@ -3162,6 +3169,7 @@ export function BenefitsStep1({
                   </div>
                 </div>
 
+                {!isEditMode && (
                 <div className="flex justify-end pt-4 border-t border-gray-100 dark:border-gray-700">
                   <Button
                     onClick={() => handleContinue("messaging")}
@@ -3170,12 +3178,13 @@ export function BenefitsStep1({
                     CONTINUE TO MESSAGING
                   </Button>
                 </div>
+                )}
               </AccordionContent>
             </AccordionItem>
             )}
 
             {/* 2. Messaging Section */}
-            {!isEditMode && (
+            {showSection("messaging") && (
             <AccordionItem
               value="messaging"
               className="border-none shadow-md overflow-hidden bg-card rounded-xl"
@@ -3382,6 +3391,7 @@ export function BenefitsStep1({
                   )}
                 </div>
 
+                {!isEditMode && (
                 <div className="flex justify-end pt-4 border-t border-gray-100 dark:border-gray-700">
                   <Button
                     onClick={() => handleContinue("contacts")}
@@ -3390,11 +3400,13 @@ export function BenefitsStep1({
                     CONTINUE TO KEY CONTACTS
                   </Button>
                 </div>
+                )}
               </AccordionContent>
             </AccordionItem>
             )}
 
             {/* 3. Key Contact Section */}
+            {showSection("contacts") && (
             <AccordionItem
               value="contacts"
               className="border-none shadow-md overflow-hidden bg-card rounded-xl"
@@ -3606,9 +3618,10 @@ export function BenefitsStep1({
                 )}
               </AccordionContent>
             </AccordionItem>
+            )}
 
             {/* 4. Documents Section */}
-            {!isEditMode && (
+            {showSection("documents") && (
             <AccordionItem
               value="documents"
               className="border-none shadow-md overflow-hidden bg-card rounded-xl"
