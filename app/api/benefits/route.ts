@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import prisma from "@/lib/prisma";
+import { getBenefitCompleteness } from "@/lib/benefit-completeness";
+
+// Reads the session (request headers), so it must never be statically prerendered.
+export const dynamic = "force-dynamic";
 
 /**
  * The four benefit pages every plan can have. `visibilityKey` matches the keys
@@ -37,14 +41,18 @@ export interface BenefitListRow {
   exists: boolean;
   /** The plan's raw `categoryPortalVisibility` map (all four keys). */
   planVisibility: Record<string, boolean>;
+  /** Setup completeness (Complete vs Incomplete), matching the wizard's check. */
+  isComplete: boolean;
+  /** What is still missing when `isComplete` is false. */
+  missingInfo: string[];
 }
 
 /**
  * GET /api/benefits
  *
  * Browse Benefits: one row per plan x category for the signed-in advisor's
- * plans, so the list can show logo, status, a visibility toggle, and an edit
- * action without loading each plan individually.
+ * plans, so the list can show logo, published state, completeness, a visibility
+ * toggle, and an edit action without loading each plan individually.
  */
 export async function GET() {
   try {
@@ -64,6 +72,9 @@ export async function GET() {
         slug: true,
         status: true,
         categoryPortalVisibility: true,
+        employeePortalPreview: true,
+        companyLogo: true,
+        keyContacts: true,
       },
     });
 
@@ -71,16 +82,40 @@ export async function GET() {
       return NextResponse.json({ success: true, benefits: [] as BenefitListRow[] });
     }
 
-    const benefits = await prisma.benefit.findMany({
-      where: { clientId: { in: clients.map((c) => c.id) } },
-      select: {
-        clientId: true,
-        category: true,
-        title: true,
-        partnerLogo: true,
-        isEnabled: true,
-      },
-    });
+    const clientIds = clients.map((c) => c.id);
+
+    const [benefits, documents] = await Promise.all([
+      prisma.benefit.findMany({
+        where: { clientId: { in: clientIds } },
+        select: {
+          clientId: true,
+          category: true,
+          title: true,
+          shortDescription: true,
+          partnerLogo: true,
+          backgroundImage: true,
+          isEnabled: true,
+        },
+      }),
+      // Only the fields the completeness check reads — never the base64 `file`.
+      prisma.document.findMany({
+        where: { clientId: { in: clientIds }, archivedAt: null },
+        select: {
+          clientId: true,
+          type: true,
+          category: true,
+          storageKey: true,
+          archivedAt: true,
+        },
+      }),
+    ]);
+
+    const documentsByClient = new Map<string, typeof documents>();
+    for (const doc of documents) {
+      const list = documentsByClient.get(doc.clientId) ?? [];
+      list.push(doc);
+      documentsByClient.set(doc.clientId, list);
+    }
 
     const normalize = (value: string | null | undefined) =>
       (value || "").toLowerCase().trim().replace(/\s+/g, " ");
@@ -94,12 +129,28 @@ export async function GET() {
     for (const client of clients) {
       const visibility =
         (client.categoryPortalVisibility as Record<string, boolean> | null) ?? {};
+      const clientDocuments = documentsByClient.get(client.id) ?? [];
+
       for (const cat of BENEFIT_CATEGORIES) {
         const row = byPlanCategory.get(`${client.id}::${normalize(cat.category)}`);
         // Visibility lives on the client; fall back to the benefit's own flag.
         const visible =
           visibility[cat.visibilityKey] !== false &&
           (row ? row.isEnabled !== false : true);
+
+        // Same completeness check the wizard uses, fed with this plan's contacts
+        // and documents plus the authoritative Benefit row for the category.
+        const completeness = getBenefitCompleteness(cat.category as any, {
+          ...client,
+          companyData: (client.employeePortalPreview as any)?.companyData,
+          employeePortalPreview: {
+            ...((client.employeePortalPreview as any) || {}),
+            benefits: row ? [row] : [],
+          },
+          keyContacts: client.keyContacts,
+          documents: clientDocuments,
+        });
+
         rows.push({
           planId: client.id,
           planName: client.companyName || "Untitled plan",
@@ -113,6 +164,8 @@ export async function GET() {
           isEnabled: visible,
           exists: !!row,
           planVisibility: visibility,
+          isComplete: completeness.isComplete,
+          missingInfo: completeness.missingInfo,
         });
       }
     }

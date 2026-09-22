@@ -6,8 +6,8 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BrandingImage } from "@/components/ui/branding-image";
 import {
@@ -35,6 +35,10 @@ interface BenefitRow {
   isEnabled: boolean;
   exists: boolean;
   planVisibility: Record<string, boolean>;
+  /** Setup completeness, matching the wizard's check. */
+  isComplete: boolean;
+  /** What is still missing when `isComplete` is false. */
+  missingInfo: string[];
 }
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
@@ -215,19 +219,6 @@ export function BenefitsListPage() {
                   Publish, hide, and edit this plan&rsquo;s benefit pages.
                 </p>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="shrink-0 gap-1.5"
-                onClick={() =>
-                  router.push(
-                    `/new-benefits?planId=${encodeURIComponent(selectedPlanId)}`,
-                  )
-                }
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Add benefit
-              </Button>
             </div>
 
             <div className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -251,53 +242,89 @@ export function BenefitsListPage() {
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {row.title}
-                      </p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {row.category}
-                      </p>
+                      <div className="flex min-w-0 items-center gap-2">
+                        <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                          {row.title}
+                        </p>
+                        {row.exists && (
+                          <span
+                            className={cn(
+                              "shrink-0 text-[11px] font-semibold",
+                              row.isComplete
+                                ? "text-green-600"
+                                : "text-amber-600",
+                            )}
+                          >
+                            {row.isComplete ? "Complete" : "Incomplete"}
+                          </span>
+                        )}
+                      </div>
+                      {/* Why the benefit is incomplete — the wizard's own
+                          missing-item list, shown inline instead of a tooltip. */}
+                      {row.exists &&
+                        !row.isComplete &&
+                        row.missingInfo.length > 0 && (
+                          <p className="mt-0.5 text-[11px] leading-snug text-amber-600 dark:text-amber-400">
+                            {row.missingInfo.join(" · ")}
+                          </p>
+                        )}
                     </div>
 
-                    <Badge
-                      variant={row.isEnabled ? "secondary" : "outline"}
-                      className="shrink-0"
-                    >
-                      {row.exists
-                        ? row.isEnabled
-                          ? "Published"
-                          : "Hidden"
-                        : "Not created"}
-                    </Badge>
-
                     <div className="flex shrink-0 items-center gap-2">
+                      {row.exists && (
+                        <span
+                          className={cn(
+                            "text-[11px] font-semibold",
+                            row.isEnabled ? "text-green-600" : "text-gray-400",
+                          )}
+                        >
+                          {row.isEnabled ? "Published" : "Hidden"}
+                        </span>
+                      )}
                       {isToggling ? (
                         <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                       ) : null}
                       <Switch
                         checked={row.isEnabled}
-                        disabled={isToggling}
+                        disabled={!row.exists || isToggling}
                         onCheckedChange={(checked) =>
                           handleToggle(row, checked === true)
                         }
                       />
                     </div>
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="shrink-0 gap-1.5"
-                      onClick={() =>
-                        router.push(
-                          `/edit-benefit/${encodeURIComponent(
-                            row.planId,
-                          )}/${categoryToSlug(row.category)}`,
-                        )
-                      }
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                      Edit
-                    </Button>
+                    {row.exists ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0 gap-1.5"
+                        onClick={() =>
+                          router.push(
+                            `/edit-benefit/${encodeURIComponent(
+                              row.planId,
+                            )}/${categoryToSlug(row.category)}`,
+                          )
+                        }
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        Edit
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        className="shrink-0 gap-1.5"
+                        onClick={() =>
+                          router.push(
+                            `/new-benefits?planId=${encodeURIComponent(
+                              row.planId,
+                            )}&category=${encodeURIComponent(row.category)}`,
+                          )
+                        }
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Add
+                      </Button>
+                    )}
                   </div>
                 );
               })}
