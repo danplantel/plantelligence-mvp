@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
 interface ClientData {
@@ -12,6 +12,8 @@ interface ClientData {
   logoFileName?: string;
   brandColor: string;
   secondaryColor: string;
+  /** Portal typography theme id (see lib/typography-themes.ts). */
+  typographyTheme?: string | null;
   insurancePlanId?: string;
   insuranceLoginUrl?: string;
   insuranceBackgroundImage?: string;
@@ -79,6 +81,8 @@ export function ClientPortalProvider({
 }) {
   const params = useParams();
   const clientId = params.id as string;
+  const pathname = usePathname();
+  const router = useRouter();
 
   const [clientData, setClientData] = useState<ClientData | null>(null);
   const [profile, setProfile] = useState<ClientPortalProfile | null>(null);
@@ -112,6 +116,19 @@ export function ClientPortalProvider({
           return;
         }
         setClientData(result.data);
+
+        // Old (retired) slug → redirect to the plan's canonical URL so refresh
+        // and bookmarks land on the current slug. Old QR/printed links keep
+        // working via this hop.
+        if (
+          result.isAlias &&
+          result.canonicalSlug &&
+          result.canonicalSlug !== clientId
+        ) {
+          const suffix = pathname.replace(/^\/[^/]+/, "");
+          router.replace(`/${result.canonicalSlug}${suffix}`);
+          return;
+        }
       } else {
         setError("Failed to load client data");
       }
@@ -119,16 +136,18 @@ export function ClientPortalProvider({
       console.error("Error fetching client:", err);
       setError("Failed to load client data");
     }
-  }, [clientId]);
+  }, [clientId, pathname, router]);
 
   const fetchProfile = useCallback(async () => {
     try {
-      // forPortal=1 returns a reduced public profile on an advisor subdomain so
-      // anonymous employees see the advisor's signature; on apex/localhost it
-      // falls back to the logged-in session profile.
-      const response = await fetch("/api/profile?forPortal=1", {
-        credentials: "same-origin",
-      });
+      // forPortal=1 returns a reduced public profile for the plan's advisor so
+      // anonymous employees see the advisor's signature. The plan slug scopes
+      // the lookup (the portal is served at /{slug}); with a session it falls
+      // back to the logged-in profile.
+      const response = await fetch(
+        `/api/profile?forPortal=1&clientSlug=${encodeURIComponent(clientId)}`,
+        { credentials: "same-origin" },
+      );
       if (!response.ok) return;
       const data = await response.json();
       setProfile({
@@ -143,7 +162,7 @@ export function ClientPortalProvider({
     } catch {
       // non-blocking — profile stays null and the banner falls back gracefully
     }
-  }, []);
+  }, [clientId]);
 
   // Initial load — fetch the client and the advisor profile together, and only
   // replace the skeleton once BOTH resolve so the welcome banner's signature
@@ -248,8 +267,8 @@ export function ClientPortalProvider({
           <div className="text-6xl">🔒</div>
           <h2 className="text-2xl font-bold text-gray-900">Page Not Found</h2>
           <p className="text-gray-600">
-            The client portal you're looking for doesn't exist or is no longer
-            available.
+            The client portal you are looking for does not exist or is no
+            longer available.
           </p>
         </div>
       </div>

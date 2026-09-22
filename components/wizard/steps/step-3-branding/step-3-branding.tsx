@@ -75,6 +75,7 @@ import {
    createRemoveHandlers,
  } from "./step-3-branding.funcs";
 import { formatUsDate } from "@/lib/date";
+import { useScrollToErrorField } from "@/hooks/use-scroll-to-error-field";
 
 const DEFAULT_WELCOME_STATEMENT = `Welcome to <Organization_Name>!
 We consider it a privilege to have been selected by <Client_Name> to represent your 401(k) Savings & Investment Plan. Whether you're just starting your employment journey or are a long-time participant, we share your company's commitment to educating you about the importance of this valuable retirement benefit.
@@ -101,6 +102,17 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
      clearErrorFields,
    } = useOnboardingWizardStore();
 
+   // Scroll to the top-most errored required field (document order) whenever
+   // validation errors appear — mirrors new-client step 1. Order matches the
+   // rendered layout: org name → website → logo → colors.
+   useScrollToErrorField(errorFields, [
+     "organizationName",
+     "website",
+     "logo",
+     "primaryColor",
+     "secondaryColor",
+   ]);
+
    // Initialize form with validation
    const methods = useForm({
      resolver: zodResolver(brandingSchema),
@@ -110,7 +122,6 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
        website: stepData.branding?.website || "",
        missionStatement: stepData.branding?.missionStatement || "",
        brandColor: stepData.branding?.brandColor || "#1F3A60",
-       subdomain: stepData.branding?.subdomain || "",
      },
      mode: "onSubmit",
    });
@@ -160,10 +171,6 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
   const [secondaryColor, setSecondaryColor] = useState(
     stepData.branding?.secondaryColor || "",
   );
-  const [subdomain, setSubdomain] = useState(
-    stepData.branding?.subdomain || "",
-  );
-
   // Refs to store the latest color values to avoid stale closures in saveData
   const primaryColorRef = useRef<string>(primaryColor);
   const secondaryColorRef = useRef<string>(secondaryColor);
@@ -245,17 +252,11 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
        secondaryColor: secondaryColorRef.current,
        aiAvatar,
        avatarFileName,
-       subdomain: currentFormData.subdomain || subdomain,
      };
 
     // Basic validation
     if (!brandingData.brandColor || brandingData.brandColor.trim() === "") {
       console.error("Brand color is required");
-      return;
-    }
-
-    if (!brandingData.subdomain || brandingData.subdomain.trim() === "") {
-      console.error("Subdomain is required");
       return;
     }
 
@@ -309,7 +310,6 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
       avatarFileName: avatarData.imageUrl
         ? `AI Generated Avatar - ${formatUsDate(new Date())}`
         : "AI Generated Avatar",
-      subdomain,
     };
 
     await saveStepDataLocally("branding", brandingData);
@@ -327,7 +327,6 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
       setValue("logo", stepData.branding.logo || "");
       setValue("missionStatement", stepData.branding.missionStatement || "");
       setValue("brandColor", stepData.branding.brandColor || "#1F3A60");
-      setValue("subdomain", stepData.branding.subdomain || "");
 
       // Keep the website state in sync with the store so the Brand Colors
       // extraction always receives the current Organization Website value,
@@ -397,7 +396,6 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
           : latestBranding.secondaryColor ?? secondaryColorRef.current,
       aiAvatar: latestBranding.aiAvatar ?? aiAvatar,
       avatarFileName: latestBranding.avatarFileName ?? avatarFileName,
-      subdomain: latestBranding.subdomain ?? subdomain,
     };
     saveStepDataLocally("branding", brandingData);
   };
@@ -435,7 +433,6 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
         latestBranding.secondaryColor ?? secondaryColorRef.current,
       aiAvatar: latestBranding.aiAvatar ?? aiAvatar,
       avatarFileName: latestBranding.avatarFileName ?? avatarFileName,
-      subdomain: latestBranding.subdomain ?? subdomain,
     };
     await saveStepDataLocally("branding", brandingData);
     await saveStepDataToServer("branding", brandingData);
@@ -485,7 +482,6 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
               brandColor,
               primaryColor,
               secondaryColor,
-              subdomain,
               aiAvatar,
               avatarFileName,
               isPrimaryColorPickerOpen,
@@ -519,7 +515,6 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
                 setBrandColor,
                 setPrimaryColor,
                 setSecondaryColor,
-                setSubdomain,
                 setAiAvatar,
                 setAvatarFileName,
                 setIsPrimaryColorPickerOpen,
@@ -580,7 +575,6 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
                secondaryColor: latestBranding.secondaryColor ?? secondaryColorRef.current,
                aiAvatar: latestBranding.aiAvatar ?? aiAvatar,
                avatarFileName: latestBranding.avatarFileName ?? avatarFileName,
-               subdomain: latestBranding.subdomain ?? subdomain,
              };
 
               // Only override non-preview fields
@@ -673,7 +667,6 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
                        secondaryColor: secondaryColorRef.current,
                        aiAvatar,
                        avatarFileName,
-                       subdomain: currentFormData.subdomain || subdomain,
                      };
 
                    await saveStepDataLocally("branding", brandingData);
@@ -723,7 +716,6 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
                 secondaryColor: secondaryColorRef.current,
                 aiAvatar,
                 avatarFileName,
-                subdomain,
               };
 
               await saveStepDataLocally("branding", brandingData);

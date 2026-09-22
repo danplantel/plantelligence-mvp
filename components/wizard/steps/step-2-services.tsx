@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
+import { useScrollToErrorField } from "@/hooks/use-scroll-to-error-field";
 import { ServiceType, License } from "@/types/wizard";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ServicesSection } from "./sections/services-section/services-section";
@@ -18,6 +19,10 @@ export function Step2Services({ errorFields = [] }: Step2ServicesProps) {
     loadStepData,
     validateCurrentStepFields,
   } = useOnboardingWizardStore();
+
+  // Scroll to the top-most errored required field (document order) whenever
+  // validation errors appear — mirrors new-client step 1.
+  useScrollToErrorField(errorFields, ["services", "customService"]);
 
   // Services state - now multi-selection
   const [selectedServices, setSelectedServices] = useState<ServiceType[]>(

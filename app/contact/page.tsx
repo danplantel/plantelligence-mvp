@@ -2,6 +2,13 @@ import type { Metadata } from "next";
 import { ContactFormPage } from "@/components/pages/contact-form-page";
 import { toR2BrandingKey } from "@/lib/branding-image-url";
 import { getPresignedReadUrl } from "@/lib/r2";
+import {
+  decodeContactFormTopics,
+  getActiveContactFormTopicLabels,
+  getDefaultContactFormTopics,
+  normalizeContactTopicCategory,
+} from "@/lib/contact-form-topics";
+import { resolvePlanContactFormTopics } from "@/lib/plan-contact-form-topics";
 
 export const metadata: Metadata = {
   title: "Contact Us | PlanTelligence",
@@ -21,13 +28,19 @@ interface ContactPageProps {
     title?: string;
     avatar?: string;
     logo?: string;
+    /** Benefits category this contact belongs to (drives the topic choices). */
+    category?: string;
+    /** Advisor-configured "Topic of Interest" labels, "|"-separated. */
+    topics?: string;
+    /** Plan (client) id — used to re-resolve the live topic list. */
+    plan?: string;
   }>;
 }
 
 /**
  * Resolve a contact image (headshot or company logo) for anonymous visitors.
  * Stored values are R2 keys (org/...) which the advisor-scoped /api/r2/object
- * proxy cannot serve on this public apex page (no session, no plan subdomain).
+ * proxy cannot serve on this public apex page (no session, no plan context).
  * Sign them into a fresh presigned GET URL so the <img> loads for anyone.
  * Non-R2 http(s) values pass through; base64 data URLs are not carried in links.
  */
@@ -60,9 +73,38 @@ export default async function ContactPage({ searchParams }: ContactPageProps) {
       ? await resolveContactImage(params.logo)
       : "";
 
+  const toEmail = typeof params.to === "string" ? params.to.slice(0, 254) : "";
+  const rawCategory =
+    typeof params.category === "string" ? params.category.slice(0, 80) : "";
+  // Canonicalize legacy/display category names ("Health Insurance" → "Group
+  // Health") so the topic defaults always resolve.
+  const category =
+    normalizeContactTopicCategory(rawCategory) || rawCategory;
+
+  // Prefer the plan's live configuration: the link carries the plan id and the
+  // recipient email, which is enough to read the contact's current topic list.
+  // This keeps links (and QR codes / saved URLs) correct even when they were
+  // generated before the topics were configured.
+  const planTopics = await resolvePlanContactFormTopics({
+    plan: typeof params.plan === "string" ? params.plan.slice(0, 120) : "",
+    email: toEmail,
+  });
+
+  // Otherwise fall back to the topics carried in the URL; links created before
+  // topic configuration existed have no `topics` param, so use the benefits
+  // category's suggested defaults. An explicitly empty param means "no topics".
+  const decodedTopics = decodeContactFormTopics(
+    typeof params.topics === "string" ? params.topics : undefined,
+  );
+  const topics = planTopics
+    ? planTopics.topics
+    : (decodedTopics ??
+      getActiveContactFormTopicLabels(getDefaultContactFormTopics(category)));
+  const effectiveCategory = planTopics?.category || category;
+
   return (
     <ContactFormPage
-      to={typeof params.to === "string" ? params.to.slice(0, 254) : ""}
+      to={toEmail}
       company={
         typeof params.company === "string" ? params.company.slice(0, 160) : ""
       }
@@ -74,6 +116,8 @@ export default async function ContactPage({ searchParams }: ContactPageProps) {
       }
       avatar={avatar}
       companyLogo={companyLogo}
+      topics={topics}
+      category={effectiveCategory}
     />
   );
 }

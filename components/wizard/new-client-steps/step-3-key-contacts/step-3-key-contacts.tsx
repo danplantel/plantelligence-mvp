@@ -92,7 +92,13 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
       targetSlide = computeInitialSlide(contacts);
     }
     setSlideIndexLocal(targetSlide);
+    // Keep the store in sync with the slide actually shown — the bottom bar
+    // reads step3SlideIndex to label its action (e.g. "Save Contact").
+    if (targetSlide !== step3SlideIndex) {
+      setStep3SlideIndex(targetSlide);
+    }
     setInitialSlideSynced(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contacts.length, step3SlideIndex, initialSlideSynced]);
   const prevSlideIndexRef = useRef(slideIndex);
   const [direction, setDirection] = useState<SlideDirection>(1);
@@ -212,6 +218,9 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
             title: profile.title,
             headshot: profile.headshot,
             organizationType: profile.organizationType,
+            // The advisor's Company / Organization on their own contact card is
+            // their Organization Name, not the organization type.
+            organizationName: profile.organizationName,
             advisorLogo: profile.advisorLogo,
             advisorLogoUrl: profile.advisorLogoUrl,
             advisorLink: profile.advisorLink,
@@ -276,7 +285,10 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
         headshot: existing.headshot || "",
         headshotFileName: existing.headshotFileName || "",
         companyName: existing.companyName || "",
-        isPrimaryOverall: existing.isPrimaryOverall ?? true,
+        // Honor both primary flags — seeded advisor contacts carry the legacy
+        // `isPrimary` flag while newer contacts use `isPrimaryOverall`.
+        isPrimaryOverall:
+          existing.isPrimaryOverall ?? existing.isPrimary ?? true,
         enableContactButton: existing.enableContactButton ?? existing.displayScheduleAppointment === true,
         ctaType: existing.contactButtonType === "calendar" ? "schedule" as const
           : existing.contactButtonType === "phone" ? "call" as const
@@ -333,7 +345,9 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
           headshot: existing.headshot || "",
           headshotFileName: existing.headshotFileName || "",
           companyName: existing.companyName || "",
-          isPrimaryOverall: existing.isPrimaryOverall ?? true,
+          // Honor both primary flags (see handleFirstContactContinue).
+          isPrimaryOverall:
+            existing.isPrimaryOverall ?? existing.isPrimary ?? true,
           enableContactButton: existing.enableContactButton ?? existing.displayScheduleAppointment === true,
           ctaType: existing.contactButtonType === "calendar" ? "schedule" as const
             : existing.contactButtonType === "phone" ? "call" as const
@@ -505,7 +519,11 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
                 headshot: contact?.headshot || "",
                 headshotFileName: contact?.headshotFileName || "",
                 companyName: contact?.companyName || "",
-                isPrimaryOverall: contact?.isPrimaryOverall ?? false,
+                // Reflect what the explorer shows: a contact is primary when
+                // EITHER flag is set (seeded advisor contacts use `isPrimary`).
+                isPrimaryOverall: contact
+                  ? Boolean(contact.isPrimaryOverall || contact.isPrimary)
+                  : false,
                 enableContactButton: contact?.enableContactButton ?? contact?.displayScheduleAppointment === true,
                 ctaType: contact?.contactButtonType === "calendar" ? "schedule" as const
                   : contact?.contactButtonType === "phone" ? "call" as const
@@ -546,7 +564,12 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
                 headshot: existingMainContact?.headshot || "",
                 headshotFileName: existingMainContact?.headshotFileName || "",
                 companyName: existingMainContact?.companyName || "",
-                isPrimaryOverall: existingMainContact?.isPrimaryOverall ?? true,
+                // Main contact defaults to primary; honor either saved flag.
+                isPrimaryOverall: existingMainContact
+                  ? (existingMainContact.isPrimaryOverall ??
+                    existingMainContact.isPrimary ??
+                    true)
+                  : true,
                 enableContactButton: existingMainContact?.enableContactButton ?? existingMainContact?.displayScheduleAppointment === true,
                 ctaType: existingMainContact?.contactButtonType === "calendar" ? "schedule" as const
                   : existingMainContact?.contactButtonType === "phone" ? "call" as const

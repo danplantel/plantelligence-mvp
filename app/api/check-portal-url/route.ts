@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
   const slug = searchParams.get('slug');
   // Optional: the current draft client ID to exclude from the "taken" check
   // (so editing a plan in progress doesn't flag its own URL as taken).
-  const currentClientId = searchParams.get('clientId');
+  const currentClientIdRaw = searchParams.get('clientId');
 
   if (!slug || typeof slug !== 'string' || slug.trim().length === 0) {
     return NextResponse.json({ error: 'Missing or invalid slug parameter' }, { status: 400 });
@@ -33,11 +33,23 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // Normalize the excluded client id: callers may pass a slug instead of the
+    // ObjectId. Resolving it keeps a plan's OWN retired aliases from being
+    // reported as "taken" when the advisor restores a previous URL.
+    let excludeClientId = currentClientIdRaw || undefined;
+    if (excludeClientId && !/^[a-f0-9]{24}$/i.test(excludeClientId)) {
+      const owner = await prisma.client.findFirst({
+        where: { OR: [{ slug: excludeClientId }, { id: excludeClientId }] },
+        select: { id: true },
+      });
+      excludeClientId = owner?.id;
+    }
+
     // Completed plans: Client.slug is globally unique, so check across all users.
     // Exclude the current draft client being edited (if provided).
-    const existingClient = currentClientId
+    const existingClient = excludeClientId
       ? await prisma.client.findFirst({
-          where: { slug: sanitized, id: { not: currentClientId } },
+          where: { slug: sanitized, id: { not: excludeClientId } },
           select: { id: true, userId: true },
         })
       : await prisma.client.findUnique({
@@ -79,7 +91,17 @@ export async function GET(request: NextRequest) {
           select: { id: true },
         });
 
-    const taken = Boolean(existingClient || existingDraft);
+    // Global slug registry — this includes RETIRED aliases, which stay
+    // permanently reserved to their original plan. So a slug that was merely
+    // renamed away is still reported as taken (protecting old QR/printed links).
+    const registered = await prisma.portalSlug.findUnique({
+      where: { slug: sanitized },
+      select: { clientId: true },
+    });
+    const registeredByOther =
+      !!registered && registered.clientId !== excludeClientId;
+
+    const taken = Boolean(existingClient || existingDraft || registeredByOther);
 
     return NextResponse.json({
       available: !taken,

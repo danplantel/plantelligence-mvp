@@ -8,6 +8,11 @@ import {
   isLocalDevLoopback,
 } from "@/lib/portal-access";
 import {
+  renameClientSlug,
+  isSlugTaken,
+  resolvePortalSlug,
+} from "@/lib/slug-registry";
+import {
   processBase64Image,
   processBase64ImageWithCrop,
   isBase64Image,
@@ -71,26 +76,32 @@ export async function GET(
     const forPortal = request.nextUrl.searchParams.get("forPortal") === "1";
 
     // Public portal: identify the advisor that owns this plan so anonymous
-    // employees can load it. Middleware attaches x-advisor-id only on the page
-    // document and /api/r2/object, so the browser's JSON fetch is resolved via
-    // the Host subdomain here. When no advisor can be resolved (e.g. apex or
-    // local dev with no session) the session check below still applies.
+    // employees can load it. The plan slug/ObjectId from the path resolves the
+    // owning advisor here. When none can be resolved (e.g. local dev with no
+    // session) the session check below still applies.
     const portalAdvisorId = forPortal
       ? await resolvePortalAdvisorId(request)
       : undefined;
 
     // Resolve the owner used to scope lookups:
-    //  - public portal (advisor subdomain) → the advisor from x-advisor-id/Host
-    //  - dashboard / logged-in portal      → the session user
+    //  - public portal (plan slug) → the advisor derived from the plan
+    //  - dashboard / logged-in portal → the session user
     //  - development-only localhost preview → no owner (id/slug lookup is open)
     const devPublic = forPortal && isLocalDevLoopback(request);
     let ownerId: string | undefined = portalAdvisorId;
     if (!ownerId) {
-      const session = await getServerSession(authOptions);
-      if (session?.user?.id) {
-        ownerId = session.user.id;
-      } else if (!devPublic) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      // Local loopback portal previews are intentionally open in development —
+      // skip the session lookup entirely so preview page loads don't pay for
+      // NextAuth JWT decoding / DB backfills.
+      if (devPublic) {
+        // ownerId stays undefined → unscoped (development-only) lookup below.
+      } else {
+        const session = await getServerSession(authOptions);
+        if (session?.user?.id) {
+          ownerId = session.user.id;
+        } else {
+          return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
       }
     }
 
@@ -113,14 +124,41 @@ export async function GET(
       client = await prisma.client.findFirst({ where: slugWhere });
     }
 
+    // Retired (alias) slug — a slug this plan previously used. Resolve the
+    // owning plan so old QR/printed links still load, and report the canonical
+    // slug so the portal can redirect to it.
+    let isAlias = false;
+    let canonicalSlug: string | null = null;
+    if (!client) {
+      const resolved = await resolvePortalSlug(clientId);
+      if (resolved) {
+        const found = ownerId
+          ? await prisma.client.findFirst({
+              where: { id: resolved.clientId, userId: ownerId },
+            })
+          : await prisma.client.findUnique({
+              where: { id: resolved.clientId },
+            });
+        if (found) {
+          client = found;
+          isAlias = !resolved.isCurrent;
+          canonicalSlug = resolved.currentSlug;
+        }
+      }
+    }
+
     if (!client) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
 
-    // Ownership check for session requests (subdomain-portal is pre-scoped and
+    // Ownership check for session requests (plan-portal is pre-scoped and
     // the dev-local preview is intentionally open in development).
     if (ownerId && client.userId !== ownerId) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    if (!canonicalSlug) {
+      canonicalSlug = ((client as any).slug as string) || null;
     }
 
     // After resolving by slug, use the actual MongoDB ObjectId for all subsequent
@@ -130,47 +168,51 @@ export async function GET(
     // Attach the advisor's (User's) disclaimer from their profile so the portal
     // footer renders the advisor's disclosures instead of the client's. Resolved
     // server-side so it works for both the logged-in dashboard flow (dev) and the
-    // public subdomain portal (production).
-    let advisorDisclaimer = "";
-    try {
-      const advisorUser = await prisma.user.findUnique({
-        where: { id: client.userId },
-        select: { disclaimer: true },
-      });
-      advisorDisclaimer = normalizeUserDisclaimerToText(
-        (advisorUser as any)?.disclaimer,
-      );
-    } catch (err) {
-      console.error("Error fetching advisor disclaimer:", err);
-    }
-
+    // public portal (production).
     // Portal requests must exclude soft-archived docs (`archivedAt` set). Do not use
     // `where: { archivedAt: null }` in Prisma MongoDB: it omits rows where the field is
     // missing on the BSON document (common for older rows), so `forPortal=1` returned [] while
     // the advisor GET (no filter) showed all documents. Filter active docs in JS instead.
-    const documentsRaw = await (prisma.document.findMany as any)({
-      where: {
-        clientId: clientId,
-      },
-      select: {
-        id: true,
-        title: true,
-        fileName: true,
-        fileUrl: true,
-        storageKey: true,
-        type: true,
-        shortDescription: true,
-        language: true,
-        category: true,
-        uploadedAt: true,
-        expirationDate: true,
-        showQrCode: true,
-        archivedAt: true,
-      },
-      orderBy: {
-        uploadedAt: "desc",
-      },
-    });
+    // The advisor disclaimer and document rows are independent — run them in parallel
+    // to avoid two serial MongoDB round trips on every portal load.
+    const [advisorUser, documentsRaw] = await Promise.all([
+      prisma.user
+        .findUnique({
+          where: { id: client.userId },
+          select: { disclaimer: true },
+        })
+        .catch((err) => {
+          console.error("Error fetching advisor disclaimer:", err);
+          return null;
+        }),
+      (prisma.document.findMany as any)({
+        where: {
+          clientId: clientId,
+        },
+        select: {
+          id: true,
+          title: true,
+          fileName: true,
+          fileUrl: true,
+          storageKey: true,
+          type: true,
+          shortDescription: true,
+          language: true,
+          category: true,
+          uploadedAt: true,
+          expirationDate: true,
+          showQrCode: true,
+          archivedAt: true,
+        },
+        orderBy: {
+          uploadedAt: "desc",
+        },
+      }),
+    ]);
+
+    const advisorDisclaimer = normalizeUserDisclaimerToText(
+      (advisorUser as any)?.disclaimer,
+    );
 
     const documents = forPortal
       ? documentsRaw.filter(
@@ -215,12 +257,12 @@ export async function GET(
         keyContacts: keyContactsToReturn,
         advisorDisclaimer,
       },
-      client.userId, // advisor ID (from session or subdomain-derived)
+      client.userId, // advisor ID (from session or plan-derived)
       clientId,
     );
 
     // Generate presigned URLs for R2-backed portal media (plan videos + branding
-    // images) so public portal viewers (subdomain, no session) can load them.
+    // images) so public portal viewers (no session) can load them.
     // Portal pages cannot use the authenticated /api/r2/object proxy or the
     // logged-in Benefit API directly, so we sign R2 keys here using the
     // dual-written employeePortalPreview.benefits data. This also fixes the
@@ -292,6 +334,10 @@ export async function GET(
     return NextResponse.json({
       success: true,
       data: dataPayload,
+      // Canonical (current) slug + whether the requested URL was a retired
+      // alias — lets the portal redirect old links to the current URL.
+      canonicalSlug,
+      isAlias,
     });
   } catch (error) {
     console.error("Error fetching client:", error);
@@ -355,6 +401,7 @@ export async function PUT(
       primaryColor,
       brandColor,
       secondaryColor,
+      typographyTheme,
       missionHeadline,
       missionBody,
       appointmentLink,
@@ -491,9 +538,11 @@ export async function PUT(
     }
 
     // ── Portal URL → slug ────────────────────────────────────────────────
-    // The client's `slug` is the unique portal URL. When the user edits the
-    // Portal URL field, sanitize it and ensure it's not already claimed by
-    // another client (excluding this one). Falls back to the existing slug.
+    // The plan's `slug` is its portal URL. When the user edits the Portal URL,
+    // sanitize it and pick a value free across the WHOLE namespace (current
+    // slugs + retired aliases), excluding this plan. The rename is applied via
+    // the registry so the OLD slug is retained as an alias (old links keep
+    // working); the old slug stays reserved to this plan.
     let newSlug: string | null = null;
     if (portalUrl && typeof portalUrl === "string" && portalUrl.trim()) {
       const sanitized = portalUrl
@@ -504,48 +553,52 @@ export async function PUT(
         .replace(/^-+|-+$/g, "")
         .slice(0, 30);
 
-      if (sanitized) {
-        const conflict = await prisma.client.findFirst({
-          where: {
-            slug: sanitized,
-            id: { not: existingClient.id },
-          },
-          select: { id: true },
-        });
-        if (!conflict) {
-          newSlug = sanitized;
-        } else {
-          // Collision — append a numeric suffix until unique
-          let suffix = 2;
-          let candidate = `${sanitized}-${suffix}`;
-          while (suffix <= 999) {
-            const exists = await prisma.client.findFirst({
-              where: { slug: candidate, id: { not: existingClient.id } },
-              select: { id: true },
-            });
-            if (!exists) {
-              newSlug = candidate;
-              break;
-            }
-            suffix++;
-            candidate = `${sanitized}-${suffix}`;
+      if (sanitized && sanitized !== existingClient.slug) {
+        let candidate = sanitized;
+        let suffix = 2;
+        while (await isSlugTaken(candidate, existingClient.id)) {
+          candidate = `${sanitized}-${suffix}`;
+          suffix++;
+          if (suffix > 999) {
+            candidate = `${sanitized}-${Date.now().toString(36)}`;
+            break;
           }
-          if (!newSlug) {
-            newSlug = `${sanitized}-${Date.now().toString(36)}`;
-          }
+        }
+        newSlug = candidate;
+
+        try {
+          await renameClientSlug(existingClient.id, newSlug);
+        } catch (renameError) {
+          console.error("Failed to rename portal slug:", renameError);
+          newSlug = null; // leave the existing slug unchanged
         }
       }
     }
 
     // Prepare update data
+    // Detect a real rename so the activity feed can report it. Every save writes
+    // `companyName` (falling back to the stored value), so equality here means unchanged.
+    const nextCompanyName = companyName || existingClient.companyName;
+    const isRename =
+      Boolean(nextCompanyName) && nextCompanyName !== existingClient.companyName;
+
     const updateData: any = {
-      companyName: companyName || existingClient.companyName,
+      companyName: nextCompanyName,
+      // Written only on an actual change — `updatedAt` cannot stand in, because every edit
+      // touches it. `previousName` lets the feed say what the plan was renamed from.
+      ...(isRename
+        ? { previousName: existingClient.companyName, nameUpdatedAt: new Date() }
+        : {}),
       companyWebsite: companyWebsite ?? existingClient.companyWebsite,
       ...(newSlug !== null && { slug: newSlug }),
       companyLogo: logoUrl ?? existingClient.companyLogo,
       logoFileName: logoFileName ?? existingClient.logoFileName,
       brandColor: brandColor || primaryColor || existingClient.brandColor,
       secondaryColor: secondaryColor || existingClient.secondaryColor,
+      typographyTheme:
+        typographyTheme !== undefined
+          ? typographyTheme
+          : (existingClient as any)?.typographyTheme,
       missionHeadline: missionHeadline ?? existingClient.missionHeadline,
       missionBody: missionBody ?? existingClient.missionBody,
       appointmentLink: appointmentLink ?? existingClient.appointmentLink,
@@ -1061,18 +1114,12 @@ export async function DELETE(
       ]),
     );
 
-    // Delete webinars outside the transaction (raw command + MongoDB transactions can conflict)
-    await prisma.$runCommandRaw({
-      delete: "Webinar",
-      deletes: [
-        {
-          q: {
-            clientId: new ObjectId(clientId),
-            userId: new ObjectId(session.user.id),
-          },
-          limit: 0,
-        },
-      ],
+    // Delete webinars outside the transaction (raw command + MongoDB transactions
+    // can conflict). Typed Prisma, not $runCommandRaw: the raw command serializes
+    // ObjectId filter values to strings, so it matched nothing once webinars were
+    // stored with real ObjectIds — the plan's webinars were silently left behind.
+    await prisma.webinar.deleteMany({
+      where: { clientId, userId: session.user.id },
     });
 
     // Delete related records individually (avoids MongoDB multi-document transaction write conflicts)

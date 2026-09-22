@@ -26,7 +26,12 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { formatUsDate } from "@/lib/date";
+import {
+  formatScheduleDayKey,
+  scheduleDayKeyToDate,
+  toScheduleDayKey,
+  todayScheduleDayKey,
+} from "@/lib/date";
 import {
   formatTime12h,
   getTimezoneAbbr,
@@ -144,7 +149,8 @@ export function MeetingDayDrawer({
   // Scheduling is allowed from tomorrow onward (today and past are read-only).
   const canAdd = useMemo(() => {
     if (!dateKey) return false;
-    const minSchedulable = addDays(startOfDay(new Date()), 1);
+    // Gated on the app's US scheduling day, not the viewer's clock.
+    const minSchedulable = addDays(scheduleDayKeyToDate(todayScheduleDayKey()), 1);
     return !isBefore(parseLocalDate(dateKey), minSchedulable);
   }, [dateKey]);
 
@@ -266,7 +272,7 @@ export function MeetingDayDrawer({
                       <div className="space-y-3 border-t border-border/60 px-3 py-3">
                         <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                           <DetailRow icon={Calendar} label="Date">
-                            {formatUsDate(m.date)}
+                            {formatScheduleDayKey(toScheduleDayKey(m.date))}
                           </DetailRow>
                           <DetailRow icon={Clock} label="Time">
                             {formatTime12h(m.time)}

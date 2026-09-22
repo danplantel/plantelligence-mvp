@@ -1184,11 +1184,11 @@ export const navItems: NavItem[] = [
         href: "/communications/meetings",
         label: "Meetings",
       },
-      // {
-      //   title: "Webinars & Replays",
-      //   href: "/communications/webinars",
-      //   label: "Webinars & Replays",
-      // },
+      {
+        title: "Webinars & Replays",
+        href: "/communications/webinars",
+        label: "Webinars & Replays",
+      },
       {
         title: "Marketing",
         href: "/communications/marketing",
@@ -1221,10 +1221,22 @@ export const navItems: NavItem[] = [
   //   ],
   // },
   {
-    title: "Create Benefits",
+    title: "Benefits",
     href: "/benefits",
     icon: "wand-sparkles",
-    label: "CreateBenefits",
+    label: "Benefits",
+    items: [
+      {
+        title: "View Benefits",
+        href: "/benefits",
+        label: "All Benefits",
+      },
+      {
+        title: "Create Benefit",
+        href: "/new-benefits",
+        label: "Create New Benefit",
+      },
+    ],
   },
   {
     title: "Settings",

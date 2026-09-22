@@ -75,7 +75,7 @@ function FAQAccordionGroup({
               onClick={() => onToggle(index)}
               className="w-full px-5 py-4 text-left flex items-center justify-between gap-4 bg-white hover:bg-gray-50/50 transition-colors duration-200"
               style={{
-                  backgroundColor: brandColor,
+                  backgroundColor: secondaryColor,
                 }}
             >
               <span

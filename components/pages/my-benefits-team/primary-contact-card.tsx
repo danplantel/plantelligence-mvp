@@ -2,7 +2,9 @@
 
 import { Button } from "@/components/ui/button";
 import { BrandingImage } from "@/components/ui/branding-image";
-import { Mail, Phone, Headset } from "lucide-react";
+import { HEADER_LOGO_MAX_WIDTH_PX } from "@/lib/header-logo-band";
+import { Mail, Phone } from "lucide-react";
+import { getSupportIcon } from "@/lib/support-icons";
 import { motion } from "framer-motion";
 import { PrimaryVisual } from "@/components/pages/my-benefits-team/primary-visual";
 import { readableColor, mix } from "polished";
@@ -50,6 +52,8 @@ interface Contact {
   cardSecondaryColor?: string;
   cardBackgroundColor?: string;
   logoScale?: number;
+  /** Advisor-selected badge icon for Team / Support Line contacts. */
+  supportIcon?: string;
 }
 
 interface PrimaryContactCardProps {
@@ -105,6 +109,7 @@ export function PrimaryContactCard({
   const buttons = [];
   let primaryIndex = -1;
   const isTeamSupport = contact.contactType === "team_support";
+  const SupportIcon = getSupportIcon(contact.supportIcon);
 
   // Check if a CTA button was explicitly configured via the wizard
   const hasEnabledCta = contact.enableContactButton === true;
@@ -221,7 +226,7 @@ export function PrimaryContactCard({
               circular slot on the left. */}
           {isTeamSupport ? (
             <div className="mb-1 flex items-center">
-              <Headset
+              <SupportIcon
                 className="w-8 h-8 sm:w-9 sm:h-9"
                 style={{ color: effectiveBrandColor }}
               />
@@ -233,16 +238,23 @@ export function PrimaryContactCard({
                   src={contact.companyLogo || contact.logo || ""}
                   alt="Company Logo"
                   className="object-contain w-auto"
-                  style={{ height: `${48 * (contact.logoScale || 1)}px`, maxHeight: "60px" }}
+                  style={{
+                    height: `${48 * (contact.logoScale || 1)}px`,
+                    maxHeight: "60px",
+                    // A tight logo crop renders wordmarks at their true width, so
+                    // bound the box. object-contain scales the mark down rather
+                    // than clipping it.
+                    maxWidth: HEADER_LOGO_MAX_WIDTH_PX,
+                  }}
                 />
               </div>
             )
           )}
 
-          {/* NAME */}
+          {/* NAME — brand (primary) color, matching SmallVerticalCard's card name. */}
           <h2
             className="text-xl sm:text-2xl lg:text-3xl font-semibold font-dm-serif leading-tight w-full max-w-full whitespace-nowrap overflow-hidden text-ellipsis"
-            style={{ color: textColor }}
+            style={{ color: effectiveBrandColor }}
           >
             {contact.contactType === "team_support"
               ? contact.displayName || contact.name
@@ -257,9 +269,9 @@ export function PrimaryContactCard({
             </p>
           )}
 
-          {/* COMPANY NAME */}
+          {/* COMPANY NAME — brand (primary) color, same as the name above. */}
           {(contact.companyName || companyName) && (
-            <p className="text-sm sm:text-base font-bold" style={{ color: textColor }}>
+            <p className="text-sm sm:text-base font-bold" style={{ color: effectiveBrandColor }}>
               {contact.companyName || companyName}
             </p>
           )}
@@ -304,8 +316,11 @@ export function PrimaryContactCard({
             {buttons.length > 0 ? (
               buttons.map((button, idx) => {
                 const isPrimaryButton = idx === primaryIndex;
+                // Primary CTA uses the SECONDARY color, matching
+                // SmallVerticalCard / LargeHorizontalCard so the portal page and
+                // every portal preview render the same button color.
                 const buttonBg = isPrimaryButton
-                  ? effectiveBrandColor
+                  ? effectiveSecondaryColor
                   : "#F3F4F6";
                 const buttonColor = isPrimaryButton ? "#ffffff" : readableColor(buttonBg);
 
@@ -340,7 +355,9 @@ export function PrimaryContactCard({
             ) : (
               <Button
                 className="w-full rounded-lg px-5 py-3 text-sm font-semibold uppercase tracking-wide text-white hover:opacity-90 font-red-hat transition-all duration-200 hover:scale-105"
-                style={{ backgroundColor: effectiveBrandColor }}
+                // Same secondary-color CTA as above — this is the button rendered
+                // when the contact has no configured action buttons.
+                style={{ backgroundColor: effectiveSecondaryColor }}
                 onClick={() => window.open(appointmentLink, "_blank")}
               >
                 Schedule Appointment

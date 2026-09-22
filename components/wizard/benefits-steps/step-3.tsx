@@ -60,7 +60,13 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
-export function BenefitsStep3() {
+export function BenefitsStep3({
+  section,
+}: {
+  /** When set, renders only the matching section (used by the Edit Benefit page,
+   *  where Contacts and FAQs are separate tabs). */
+  section?: "contacts" | "faqs";
+} = {}) {
   const { stepData, saveStepData } = useBenefitsWizardStore();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [savePending, setSavePending] = useState(false);
@@ -353,6 +359,7 @@ export function BenefitsStep3() {
     <>
       <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full mx-auto pb-20">
         {/* Support Contacts Section */}
+        {(!section || section === "contacts") && (
         <Card className="border-none shadow-md overflow-hidden bg-card">
           <CardHeader className="py-2 border-b bg-gray-50/50 dark:bg-gray-800 dark:border-gray-700">
             <CardTitle className="text-lg font-bold text-foreground flex items-center gap-2">
@@ -468,8 +475,10 @@ export function BenefitsStep3() {
             </div>
           </CardContent>
         </Card>
+        )}
 
         {/* FAQ Section */}
+        {(!section || section === "faqs") && (
         <Card className="border-none shadow-md overflow-hidden bg-card">
           <CardHeader className="py-2 border-b bg-gray-50/50 dark:bg-gray-800 dark:border-gray-700">
             <div className="flex justify-between items-center">
@@ -554,6 +563,7 @@ export function BenefitsStep3() {
             )}
           </CardContent>
         </Card>
+        )}
 
       </div>
 

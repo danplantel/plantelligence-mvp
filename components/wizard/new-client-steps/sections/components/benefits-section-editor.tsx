@@ -452,6 +452,8 @@ export function BenefitsSectionEditor({
             {editingLogoContactId && (
                 <UniversalImageEditorModal
                     type="normalizer"
+                    // Partner logo — header logo, so export the tight crop.
+                    normalizeLogoForHeader
                     value={
                         keyContacts.find((c) => c.id === editingLogoContactId)
                             ?.companyLogo || ""

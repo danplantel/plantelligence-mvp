@@ -16,6 +16,10 @@ interface PrimaryServiceCategoriesSelectProps {
   label?: React.ReactNode;
   /** Optional helper text below */
   helperText?: React.ReactNode;
+  /** Optional `data-field` attribute for wizard scroll-to-error targeting. */
+  dataField?: string;
+  /** Paint a red validation outline around the group. */
+  destructive?: boolean;
 }
 
 /**
@@ -32,6 +36,8 @@ export function PrimaryServiceCategoriesSelect({
   maxSelections = 4,
   label,
   helperText,
+  dataField,
+  destructive = false,
 }: PrimaryServiceCategoriesSelectProps) {
   const options = [...PRIMARY_SERVICE_CATEGORY_OPTIONS];
 
@@ -53,7 +59,12 @@ export function PrimaryServiceCategoriesSelect({
   }, [selectedValues, maxSelections, onSelectionChange]);
 
   return (
-    <div className={`space-y-3 ${className || ""}`}>
+    <div
+      data-field={dataField}
+      className={`space-y-3 ${
+        destructive ? "rounded-lg border border-red-500 p-3" : ""
+      } ${className || ""}`}
+    >
       {label != null && (
         <label className="block font-medium text-sm">{label}</label>
       )}

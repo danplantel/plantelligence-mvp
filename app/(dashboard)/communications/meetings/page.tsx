@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { flushSync, createPortal } from "react-dom";
+import { flushSync } from "react-dom";
 import useSWR from "swr";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
-import { Card, CardContent, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,14 +56,17 @@ import {
   Link,
   Hash,
   CheckCircle,
-  Search,
   Loader2,
-  ExternalLink,
   Eye,
   LayoutGrid,
 } from "lucide-react";
 import { format, addDays, startOfDay, isBefore } from "date-fns";
-import { formatUsDate } from "@/lib/date";
+import {
+  formatScheduleDayKey,
+  scheduleDayKeyToDate,
+  toScheduleDayKey,
+  todayScheduleDayKey,
+} from "@/lib/date";
 import { toast } from "sonner";
 import { AddressSearch } from "@/components/ui/address-search";
 import {
@@ -81,6 +84,7 @@ import {
   useSaveMeetingDebugStore,
 } from "@/lib/meetings";
 import { StickyPlanCombobox } from "@/components/plan-selector/sticky-plan-combobox";
+import { PlanSearchBar } from "@/components/plan-selector/plan-search-bar";
 import {
   getLastPlanId,
   getRecentPlanIds,
@@ -94,8 +98,8 @@ import { MeetingDayDrawer, type DayDrawerMeeting } from "@/components/meetings/m
 import { MeetingsCalendarView } from "@/components/meetings/meetings-calendar-view";
 import { WebinarsSection } from "@/components/pages/client-portal/sections/webinars-section";
 import { resolveRsvpUrl } from "@/lib/meetings/meeting-schedule-shared";
-import { getBenefitsHubOpenPortalUrl } from "@/lib/marketing/hub-url";
 import { PlanChangeLoadingDialog } from "@/components/ui/plan-change-loading-dialog";
+import { ScaledPreviewFrame } from "@/components/ui/scaled-preview-frame";
 
 interface Meeting {
   id: string;
@@ -221,6 +225,16 @@ function hasMeaningfulMeetingChanges(formData: MeetingFormData, editingMeetingId
   return keysToCheck.some((key) => formData[key] !== DEFAULT_MEETING_FORM_DATA[key]);
 }
 
+/**
+ * Meeting Type label for read-only summaries. A custom type is stored as the
+ * placeholder option ("Custom") plus the name the advisor typed, so a summary
+ * should show the name rather than the word "Custom" that selected it.
+ */
+function getMeetingTypeLabel(formData: Pick<MeetingFormData, "meetingType" | "customMeetingType">): string {
+  if (formData.meetingType === "Custom") return formData.customMeetingType.trim() || "Custom";
+  return formData.meetingType || "—";
+}
+
 const FORMATS = ["Virtual", "In-Person", "Virtual & In-Person"];
 
 const PLATFORMS = [
@@ -230,9 +244,6 @@ const PLATFORMS = [
   { value: "Other", label: "Other" },
 ];
 
-const HOURS = Array.from({ length: 12 }, (_, i) => i + 1);
-const MINUTES = Array.from({ length: 12 }, (_, i) => i * 5);
-const AMPM_OPTIONS = ["AM", "PM"];
 const TIME_OPTIONS = Array.from({ length: 96 }, (_, i) => {
   const minutes = i * 15;
   const h24 = Math.floor(minutes / 60) % 24;
@@ -475,111 +486,15 @@ const SORT_OPTIONS: { value: string; label: string; column: SortColumn; directio
   { value: "date-asc", label: "Closest Meeting Date", column: "date", direction: "asc" },
 ];
 
-function PlanSearchBar({ plans, value, onChange, disabled, userSubdomain }: { plans: Client[]; value: string; onChange: (planId: string) => void; disabled?: boolean; userSubdomain?: string; }) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const [highlight, setHighlight] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const recentIds = getRecentPlanIds();
-  const planMap = useMemo(() => { const m = new Map<string, Client>(); plans.forEach((p) => m.set(p.id, p)); return m; }, [plans]);
-  const recentPlanObjects = useMemo(() => { const result: Client[] = []; const seen = new Set<string>(); for (const id of recentIds) { const p = planMap.get(id); if (p && !seen.has(id)) { result.push(p); seen.add(id); } } return result; }, [recentIds, planMap]);
-  const allPlansSorted = useMemo(() => { const recentSet = new Set(recentPlanObjects.map((p) => p.id)); const recents: Client[] = []; const others: Client[] = []; for (const p of plans) { if (recentSet.has(p.id)) recents.push(p); else others.push(p); } others.sort((a, b) => a.companyName.localeCompare(b.companyName, undefined, { sensitivity: "base" })); return [...recents, ...others]; }, [plans, recentPlanObjects]);
-  const dropdownItems = useMemo(() => { if (!query.trim()) return allPlansSorted; const q = query.toLowerCase(); return allPlansSorted.filter((p) => p.companyName.toLowerCase().includes(q)); }, [query, allPlansSorted]);
-  const selectedPlan = useMemo(() => plans.find((p) => p.id === value), [plans, value]);
-  useEffect(() => { if (!open) return; const handler = (e: MouseEvent) => { const t = e.target as Node; if (containerRef.current?.contains(t)) return; if (dropdownRef.current?.contains(t)) return; setOpen(false); setQuery(""); }; document.addEventListener("mousedown", handler); return () => document.removeEventListener("mousedown", handler); }, [open]);
-  useEffect(() => { setHighlight(0); }, [dropdownItems.length, open]);
-  const isCurrentPlan = (id: string) => value === id;
-  const selectPlan = (planId: string) => { persistPlanSelection("communications", planId); onChange(planId); setOpen(false); setQuery(""); };
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!open) return;
-    if (e.key === "Escape") { setOpen(false); setQuery(""); return; }
-    if (dropdownItems.length === 0) return;
-    if (e.key === "ArrowDown") { e.preventDefault(); setHighlight((h) => (h + 1) % dropdownItems.length); }
-    else if (e.key === "ArrowUp") { e.preventDefault(); setHighlight((h) => (h - 1 + dropdownItems.length) % dropdownItems.length); }
-    else if (e.key === "Enter") { e.preventDefault(); const item = dropdownItems[highlight]; if (item) selectPlan(item.id); }
-  };
-  return (
-    <div className="space-y-2" ref={containerRef}>
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 min-w-0">
-          <CardTitle className="text-2xl font-bold shrink-0">Meeting Sessions</CardTitle>
-        </div>
-        {value && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              const slug =
-                (selectedPlan as any)?.slug;
-              const resolvedSlug = slug || value;
-              const url = getBenefitsHubOpenPortalUrl(
-                resolvedSlug,
-                userSubdomain,
-              );
-              window.open(url, "_blank");
-            }}
-            className="gap-1.5 shrink-0 bg-accent-blue text-white hover:bg-accent-blue/90"
-          >
-            <ExternalLink className="h-4 w-4" />
-            Open Portal
-          </Button>
-        )}
-      </div>
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-        <Input ref={inputRef} type="text" placeholder="Search for a plan" value={query} onChange={(e) => { if (!open) setOpen(true); setQuery(e.target.value); }} onFocus={() => setOpen(true)} onKeyDown={handleKeyDown} disabled={disabled} className="h-9 pl-9 pr-3 bg-white dark:bg-gray-800" aria-label="Search plans" aria-expanded={open} aria-haspopup="listbox" autoComplete="off" />
-      </div>
+/**
+ * Width `WebinarsSection` is designed for (its `max-w-7xl` container). The
+ * Preview tab lays the section out at this width and scales it down, so its
+ * cards keep the proportions they have in the portal instead of being squeezed
+ * by the narrower dashboard column.
+ */
+const PORTAL_PREVIEW_WIDTH = 1280;
 
-      {/* Recent Plans chips (same style as benefits page) */}
-      {recentPlanObjects.length > 0 && (
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <Clock className="size-3 text-gray-400 shrink-0" />
-          {recentPlanObjects.slice(0, 5).map((plan) => (
-            <button
-              key={plan.id}
-              type="button"
-              onClick={() => selectPlan(plan.id)}
-              className={cn(
-                "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all border",
-                isCurrentPlan(plan.id)
-                  ? "bg-[#23919C]/10 text-[#23919C] border-[#23919C]/30"
-                  : "bg-gray-50 text-gray-600 border-gray-200 hover:border-[#23919C]/40 hover:text-[#23919C] dark:bg-gray-700 text-muted-foreground dark:border-gray-600 dark:hover:border-[#23919C]/50",
-              )}
-            >
-              {plan.companyName}
-            </button>
-          ))}
-        </div>
-      )}
-      {open && typeof document !== "undefined" ? createPortal(
-        <div ref={dropdownRef} role="listbox" className="rounded-md border border-input bg-white dark:bg-gray-800 shadow-lg overflow-hidden z-50" style={{ position: "fixed", top: (containerRef.current?.getBoundingClientRect().bottom ?? 0) + 4, left: containerRef.current?.getBoundingClientRect().left ?? 0, width: containerRef.current?.getBoundingClientRect().width ?? 300, maxHeight: 288 }}>
-          {query.trim() && <div className="px-3 py-1.5 border-b border-border/60"><p className="text-xs text-muted-foreground">{dropdownItems.length} plan{dropdownItems.length !== 1 ? "s" : ""} found</p></div>}
-          <div className="overflow-y-auto max-h-[256px] py-1">
-            {dropdownItems.length > 0 && (
-              <>
-                {recentPlanObjects.length > 0 && (
-                  <div className="px-2 pb-1">
-                    <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground px-2 py-1.5"><Clock className="h-3 w-3" />Recent</div>
-                    {recentPlanObjects.map((plan, idx) => { const isHi = highlight === idx; return (<button key={`r-${plan.id}`} type="button" role="option" aria-selected={value === plan.id} className={cn("w-full rounded-sm px-3 py-2 text-left text-sm transition-colors", isHi && "bg-accent-blue/10 text-accent-blue font-medium", !isHi && "hover:bg-muted")} onClick={() => selectPlan(plan.id)} onMouseEnter={() => setHighlight(idx)}>{plan.companyName}</button>); })}
-                  </div>
-                )}
-                {dropdownItems.length > recentPlanObjects.length && (
-                  <div className={cn("px-2", recentPlanObjects.length > 0 && "pt-1 border-t border-border/60")}>
-                    <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground px-2 py-1.5">{query.trim() ? "Matching plans" : "All plans"}</div>
-                    {dropdownItems.slice(recentPlanObjects.length).map((plan, idx) => { const globalIdx = recentPlanObjects.length + idx; const isHi = highlight === globalIdx; return (<button key={plan.id} type="button" role="option" aria-selected={value === plan.id} className={cn("w-full rounded-sm px-3 py-2 text-left text-sm transition-colors", isHi && "bg-accent-blue/10 text-accent-blue font-medium", !isHi && "hover:bg-muted")} onClick={() => selectPlan(plan.id)} onMouseEnter={() => setHighlight(globalIdx)}>{plan.companyName}</button>); })}
-                  </div>
-                )}
-              </>
-            )}
-            {dropdownItems.length === 0 && <div className="px-3 py-6 text-center text-sm text-muted-foreground">{query.trim() ? "No plans match your search." : "No plans available."}</div>}
-          </div>
-        </div>, document.body
-      ) : null}
-    </div>
-  );
-}
+
 
 function RecentPlanLabels({ plans, onSelect }: { plans: Client[]; onSelect: (planId: string) => void }) {
   const recentIds = getRecentPlanIds();
@@ -612,12 +527,6 @@ export default function MeetingsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const meetingFormRef = useRef<HTMLFormElement | null>(null);
   const isSubmittingRef = useRef(false);
-  const { data: profileData } = useSWR("/api/profile", jsonFetcher, {
-    keepPreviousData: true,
-    dedupingInterval: 60_000,
-    revalidateOnFocus: false,
-  });
-  const userSubdomain: string | undefined = profileData?.subdomain || undefined;
   const { data: clientsData, isLoading: isLoadingClients } = useSWR("/api/clients", jsonFetcher, { keepPreviousData: true, dedupingInterval: 60_000, revalidateOnFocus: false });
   const clients: Client[] = useMemo(() => (clientsData?.data ?? []).filter((c: Client) => c.status !== "Archived"), [clientsData]);
   const meetingsKey = useMemo(() => { const params = new URLSearchParams(); if (statusFilter !== "all") params.append("status", statusFilter); return `/api/meetings?${params.toString()}`; }, [statusFilter]);
@@ -626,9 +535,6 @@ export default function MeetingsPage() {
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [tempDate, setTempDate] = useState("");
   const [timePickerOpen, setTimePickerOpen] = useState(false);
-  const [tempHour, setTempHour] = useState("");
-  const [tempMinute, setTempMinute] = useState("");
-  const [tempAmpm, setTempAmpm] = useState("");
   const [endTimePickerOpen, setEndTimePickerOpen] = useState(false);
   const [startTimeText, setStartTimeText] = useState("");
   const [endTimeText, setEndTimeText] = useState("");
@@ -734,7 +640,9 @@ export default function MeetingsPage() {
     setSubtitle(c?.companyName ?? "");
   }, [clients, selectedPlan, setSubtitle]);
 
-  const fetchMeetings = useCallback(async () => { refreshMeetings(); }, [refreshMeetings]);
+  // Awaited so callers can rely on fresh data landing before the modal closes —
+  // a date change can move a meeting to a different calendar day.
+  const fetchMeetings = useCallback(async () => { await refreshMeetings(); }, [refreshMeetings]);
   const handlePlanClientChange = (clientId: string) => {
     const c = clients.find((x) => x.id === clientId);
     setFormData((prev) => ({ ...prev, clientId, client: c?.companyName || "" }));
@@ -797,9 +705,10 @@ export default function MeetingsPage() {
   }, [errors.time]);
   const getOccupiedTimes = useCallback((date: string, address: string, format: string) => {
     if (!date) return [];
-    const normalizeDate = (dateStr: string) => parseLocalDate(dateStr).toISOString().split("T")[0];
-    const formDateNormalized = normalizeDate(date);
-    return meetings.filter((meeting) => { const mdn = normalizeDate(meeting.date); const dm = mdn === formDateNormalized; if (format === "In-Person" && meeting.format === "In-Person" && address) return dm && meeting.address === address; return dm; }).map((m) => m.time);
+    // Compare scheduling days, never instants: the viewer's timezone must not
+    // decide which day a meeting occupies.
+    const formDateNormalized = toScheduleDayKey(date);
+    return meetings.filter((meeting) => { const mdn = toScheduleDayKey(meeting.date); const dm = mdn === formDateNormalized; if (format === "In-Person" && meeting.format === "In-Person" && address) return dm && meeting.address === address; return dm; }).map((m) => m.time);
   }, [meetings]);
   const isTimeOccupied = useCallback((hour: string, minute: string, ampm: string) => {
     if (!formData.date) return false;
@@ -809,11 +718,10 @@ export default function MeetingsPage() {
   const checkTimeConflict = useCallback((date: string, time: string, address: string, format: string, excludeMeetingId?: string) => {
     if (!date || !time) { setTimeConflictWarning(""); return false; }
     if (meetings.length === 0) { setTimeConflictWarning(""); return false; }
-    const normalizeDate = (dateStr: string) => new Date(dateStr).toISOString().split("T")[0];
-    const fdn = normalizeDate(date);
+    const fdn = toScheduleDayKey(date);
     const conflict = meetings.filter((m) => {
       if (excludeMeetingId && m.id === excludeMeetingId) return false;
-      const mdn = normalizeDate(m.date);
+      const mdn = toScheduleDayKey(m.date);
       const dm = mdn === fdn;
       const tm = m.time === time;
       let ic = dm && tm;
@@ -999,6 +907,10 @@ export default function MeetingsPage() {
   const handleCreateDuplicate = async () => {
     if (!formData.clientId) { toast.error("You must select a plan before scheduling a meeting"); return; }
     if (!formData.date || !formData.time) { toast.error("Date and time are required to duplicate the meeting"); return; }
+    // The end time is required here — as it is for scheduling — because the
+    // duration is derived from the start/end pair. Duplicating with a start time
+    // alone would recompute the inherited duration to blank and submit it empty.
+    if (!formData.endTime) { toast.error("Please choose an end time for the duplicated meeting"); return; }
     setIsSubmitting(true);
     try {
       const response = await fetch("/api/meetings", {
@@ -1047,7 +959,9 @@ export default function MeetingsPage() {
       meetingType: isCustomType ? "Custom" : (meeting.meetingType || ""),
       customMeetingType: isCustomType ? (meeting.meetingType || "") : "",
       client: meeting.client || "", clientId: resolveClientIdForMeeting(meeting),
-      date: meeting.date || "", time: meeting.time || "",
+      // Normalize to a scheduling day key so the Date field, the picker and the
+      // submitted payload all agree for any viewer.
+      date: toScheduleDayKey(meeting.date), time: meeting.time || "",
       hour: (h24 === 0 ? 12 : h24 > 12 ? h24 - 12 : h24).toString(), minute: minute || "00", ampm: h24 >= 12 ? "PM" : "AM",
       endTime: end.endTime, endHour: end.endHour, endMinute: end.endMinute, endAmpm: end.endAmpm,
       timezone: meeting.timezone || "", duration: end.duration || meeting.duration || "", customDuration: "",
@@ -1071,7 +985,7 @@ export default function MeetingsPage() {
       meetingType: isCustomType ? "Custom" : (meeting.meetingType || ""),
       customMeetingType: isCustomType ? (meeting.meetingType || "") : "",
       client: meeting.client || "", clientId: resolveClientIdForMeeting(meeting),
-      date: meeting.date || "", time: meeting.time || "",
+      date: toScheduleDayKey(meeting.date), time: meeting.time || "",
       hour: (h24 === 0 ? 12 : h24 > 12 ? h24 - 12 : h24).toString(), minute: minute || "00", ampm: h24 >= 12 ? "PM" : "AM",
       endTime: end.endTime, endHour: end.endHour, endMinute: end.endMinute, endAmpm: end.endAmpm,
       timezone: meeting.timezone || "", duration: end.duration || meeting.duration || "", customDuration: "",
@@ -1153,8 +1067,10 @@ export default function MeetingsPage() {
     setSelectedDay(null);
     setDayDrawerOpen(false);
   }, [selectedPlan]);
-  // Earliest selectable meeting date: tomorrow (disable today and all past days).
-  const minSelectableDate = addDays(startOfDay(new Date()), 1);
+  // Earliest selectable meeting date: tomorrow in the app's US scheduling
+  // timezone (not the viewer's), so a meeting that is still upcoming in the US
+  // is never blocked just because the viewer's clock already rolled over.
+  const minSelectableDate = addDays(scheduleDayKeyToDate(todayScheduleDayKey()), 1);
   // Show all meetings (upcoming + past + drafts) — the Upcoming/Past toggle was removed.
   const currentMeetings = meetings;
   const filteredMeetings = currentMeetings.filter((m) => (statusFilter === "all" || m.status === statusFilter) && (clientFilter === "all" || m.client.toLowerCase() === clientFilter.toLowerCase()) && (benefitsCategoryFilter === "all" || m.benefitsCategory === benefitsCategoryFilter));
@@ -1187,7 +1103,9 @@ export default function MeetingsPage() {
       .map((m) => ({
         id: m.id,
         title: m.meeting,
-        date: m.date,
+        // Calendar consumes day keys (`YYYY-MM-DD`), so the grid resolves the
+        // same day for every viewer.
+        date: toScheduleDayKey(m.date),
         time: m.time,
         status: m.status,
       }));
@@ -1209,9 +1127,7 @@ export default function MeetingsPage() {
   // Meetings for the currently selected day, shown in the day drawer.
   const dayMeetings = useMemo(() => {
     if (!selectedDay) return [];
-    return planMeetings.filter(
-      (m) => format(parseLocalDate(m.date), "yyyy-MM-dd") === selectedDay,
-    );
+    return planMeetings.filter((m) => toScheduleDayKey(m.date) === selectedDay);
   }, [planMeetings, selectedDay]);
 
   return (
@@ -1225,7 +1141,7 @@ export default function MeetingsPage() {
                 <div className="relative"><Skeleton className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 rounded" /><Skeleton className="h-9 w-full rounded-md" /></div>
               </div>
             ) : (
-              <><PlanSearchBar plans={clients} value={selectedPlan} onChange={handlePlanChange} disabled={clients.length === 0} userSubdomain={userSubdomain} /></>
+              <><PlanSearchBar plans={clients} value={selectedPlan} onChange={handlePlanChange} title="Meeting Sessions" disabled={clients.length === 0} /></>
             )}
           </CardContent>
         </Card>
@@ -1270,7 +1186,7 @@ export default function MeetingsPage() {
                         <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">Get started by scheduling your first meeting session for a client.</p>
                         <Button onClick={() => { resetMeetingForm(); setMeetingModalOpen(true); }} className="gap-2 mt-5"><Plus className="h-4 w-4" />Add Meeting</Button>
                       </div>
-                    ) : sortedMeetings.map((meeting) => { const FormatIcon = formatIcons[meeting.format as keyof typeof formatIcons]; const meetingDate = formatUsDate(parseLocalDate(meeting.date)); const sc: Record<string, string> = { Upcoming: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200 border-blue-200 dark:border-blue-700/50", Past: "bg-gray-100 dark:bg-gray-800/50 text-gray-700 dark:text-gray-100 border-gray-200 dark:border-gray-700/50", Draft: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-200 border-amber-200 dark:border-amber-700/50" }; const ds = STATUS_LABEL_MAP[meeting.status] || meeting.status; return (
+                    ) : sortedMeetings.map((meeting) => { const FormatIcon = formatIcons[meeting.format as keyof typeof formatIcons]; const meetingDate = formatScheduleDayKey(toScheduleDayKey(meeting.date)); const sc: Record<string, string> = { Upcoming: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200 border-blue-200 dark:border-blue-700/50", Past: "bg-gray-100 dark:bg-gray-800/50 text-gray-700 dark:text-gray-100 border-gray-200 dark:border-gray-700/50", Draft: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-200 border-amber-200 dark:border-amber-700/50" }; const ds = STATUS_LABEL_MAP[meeting.status] || meeting.status; return (
                       <div key={meeting.id} className={`p-4 dark:bg-gray-800 border border-border/60 rounded-xl bg-card flex flex-col h-full relative ${deletingMeetingId === meeting.id ? "opacity-50 pointer-events-none" : ""}`}>
                         {deletingMeetingId === meeting.id && <div className="absolute inset-0 flex items-center justify-center bg-background/40 rounded-xl z-10"><div className="flex items-center gap-2 px-3 py-2 bg-card border border-border/60 rounded-lg shadow-sm"><RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" /><span className="text-xs text-muted-foreground font-medium">Deleting...</span></div></div>}
                         <div className="flex items-start justify-between mb-3 pl-1">
@@ -1320,11 +1236,16 @@ export default function MeetingsPage() {
                       </div>
                     </div>
                     <div className="overflow-hidden rounded-xl border border-border/60">
-                      <WebinarsSection
-                        clientId={selectedPlan || undefined}
-                        brandColor={clients.find((c) => c.id === selectedPlan)?.brandColor || "#002B5B"}
-                        secondaryColor={clients.find((c) => c.id === selectedPlan)?.secondaryColor || "#C9A961"}
-                      />
+                      {/* Laid out at the section's portal width and scaled down, so the
+                          cards keep their portal proportions rather than being squeezed
+                          into a narrower column and reading as stretched-tall. */}
+                      <ScaledPreviewFrame designWidth={PORTAL_PREVIEW_WIDTH}>
+                        <WebinarsSection
+                          clientId={selectedPlan || undefined}
+                          brandColor={clients.find((c) => c.id === selectedPlan)?.brandColor || "#002B5B"}
+                          secondaryColor={clients.find((c) => c.id === selectedPlan)?.secondaryColor || "#C9A961"}
+                        />
+                      </ScaledPreviewFrame>
                     </div>
                   </div>
                 </div>
@@ -1706,7 +1627,7 @@ export default function MeetingsPage() {
                 </div>
                 <DialogTitle>Duplicate Meeting</DialogTitle>
                 <DialogDescription>
-                  Adjust the language, date, time, and meeting link for the duplicated meeting.
+                  Adjust the description, language, date, and times for the duplicated meeting.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-2">
@@ -1714,7 +1635,9 @@ export default function MeetingsPage() {
                 <div className="bg-muted/50 rounded-lg p-3 border border-border/60">
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                     <span className="text-muted-foreground">Meeting Type:</span>
-                    <span className="font-medium truncate">{formData.meetingType || "—"}</span>
+                    <span className="font-medium truncate" title={getMeetingTypeLabel(formData)}>
+                      {getMeetingTypeLabel(formData)}
+                    </span>
                     <span className="text-muted-foreground">Duration:</span>
                     <span className="font-medium">{formData.duration || "—"}</span>
                     <span className="text-muted-foreground">Plan:</span>
@@ -1722,9 +1645,30 @@ export default function MeetingsPage() {
                     <span className="text-muted-foreground">Benefit Category:</span>
                     <span className="font-medium truncate">{formData.benefitsCategory || "—"}</span>
                   </div>
-                  <div className="mt-2 pt-2 border-t border-border/60">
-                    <span className="block text-xs text-muted-foreground mb-0.5">Description</span>
-                    <p className="text-xs font-medium text-foreground leading-relaxed">{formData.description || "—"}</p>
+                </div>
+
+                {/* Description — editable and pre-filled with the description of
+                    the meeting being duplicated. */}
+                <div className="space-y-2">
+                  <Label>Description</Label>
+                  <Textarea
+                    value={formData.description}
+                    onChange={(e) => handleInputChange("description", e.target.value)}
+                    rows={3}
+                    placeholder={DEFAULT_MEETING_DESCRIPTION}
+                    maxLength={MAX_DESCRIPTION_LENGTH}
+                  />
+                  <div className="flex justify-end">
+                    <span className={cn(
+                      "text-xs tabular-nums",
+                      formData.description.length >= MAX_DESCRIPTION_LENGTH
+                        ? "text-red-500 font-medium"
+                        : formData.description.length >= MAX_DESCRIPTION_LENGTH * 0.9
+                          ? "text-amber-500"
+                          : "text-muted-foreground"
+                    )}>
+                      {formData.description.length}/{MAX_DESCRIPTION_LENGTH}
+                    </span>
                   </div>
                 </div>
 
@@ -1764,50 +1708,109 @@ export default function MeetingsPage() {
                   </Popover>
                 </div>
 
-                {/* Time */}
+                {/* Start Time — same input as Schedule: type it, or pick from the
+                    scrollable list, which centres the closest slot. */}
                 <div className="space-y-2">
-                  <Label>Time</Label>
-                  <Popover open={timePickerOpen} onOpenChange={(open) => { setTimePickerOpen(open); if (open) { setTempHour(formData.hour); setTempMinute(formData.minute); setTempAmpm(formData.ampm); } }}>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className={`w-full justify-start text-left font-normal ${!formData.time && "text-muted-foreground"} dark:bg-gray-800`}>
-                        <Clock className="mr-2 h-4 w-4" />
-                        {formData.time ? formatTime12h(formData.time) : "Select time"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-72 p-4" align="start">
-                      <div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
-                        <div className="space-y-1">
-                          <Label className="text-xs">Hour</Label>
-                          <Select value={tempHour} onValueChange={setTempHour}>
-                            <SelectTrigger className="dark:bg-gray-800"><SelectValue placeholder="-" /></SelectTrigger>
-                            <SelectContent position="popper" side="bottom" align="start" avoidCollisions={false} className="max-h-[200px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-track]:bg-transparent" style={{ scrollbarWidth: "thin" }}>{HOURS.map((h) => <SelectItem key={h} value={h.toString()}>{h}</SelectItem>)}</SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Minute</Label>
-                          <Select value={tempMinute} onValueChange={setTempMinute}>
-                            <SelectTrigger className="dark:bg-gray-800"><SelectValue placeholder="-" /></SelectTrigger>
-                            <SelectContent className="max-h-[200px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-track]:bg-transparent" style={{ scrollbarWidth: "thin" }}>{MINUTES.map((m) => <SelectItem key={m} value={m.toString().padStart(2, "0")}>{m.toString().padStart(2, "0")}</SelectItem>)}</SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">AM/PM</Label>
-                          <Select value={tempAmpm} onValueChange={setTempAmpm}>
-                            <SelectTrigger className="dark:bg-gray-800"><SelectValue placeholder="-" /></SelectTrigger>
-                            <SelectContent>{AMPM_OPTIONS.map((ap) => <SelectItem key={ap} value={ap}>{ap}</SelectItem>)}</SelectContent>
-                          </Select>
-                        </div>
+                  <Label>Start Time <span className="text-red-500">*</span></Label>
+                  <Popover open={timePickerOpen} onOpenChange={setTimePickerOpen}>
+                    <div className="relative">
+                      <Input
+                        value={startTimeText}
+                        onChange={(e) => handleStartTimeTextChange(e.target.value)}
+                        onBlur={handleStartTimeBlur}
+                        onFocus={() => setTimePickerOpen(true)}
+                        onKeyDown={(e) => { if (e.key === "Enter") setTimePickerOpen(false); }}
+                        placeholder="e.g. 1:30pm"
+                        className={`pr-9 ${errors.time ? "border-red-500 focus:border-red-500 focus:ring-red-500/20" : ""} dark:bg-gray-800`}
+                      />
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label="Pick start time"
+                          onClick={(e) => { e.preventDefault(); setTimePickerOpen(true); }}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground"
+                        >
+                          <Clock className="h-4 w-4" />
+                        </button>
+                      </PopoverTrigger>
+                    </div>
+                    <PopoverContent className="w-56 p-1" align="end" side="bottom">
+                      <div
+                        ref={startTimeListRef}
+                        className="max-h-[160px] overflow-y-auto overscroll-contain pr-1 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-track]:bg-transparent"
+                        style={{ scrollbarWidth: "thin" }}
+                        onWheel={(e) => e.stopPropagation()}
+                      >
+                        {TIME_OPTIONS.map((opt, index) => {
+                          const isHighlighted = startTimeHighlightIndex === index;
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => { applyStartTime(opt.value); setStartTimeText(opt.label); setTimePickerOpen(false); }}
+                              className={`w-full rounded-md px-3 py-1.5 text-left text-sm transition-colors ${isHighlighted ? "bg-accent-blue/20 text-accent-blue font-medium" : "hover:bg-muted"}`}
+                            >
+                              {opt.label}
+                            </button>
+                          );
+                        })}
                       </div>
-                      <div className="flex items-center justify-end gap-2 pt-3 border-t border-border mt-3">
-                        <Button type="button" size="sm" variant="outline" onClick={() => setTimePickerOpen(false)}>Cancel</Button>
-                        <Button type="button" size="sm" onClick={() => {
-                          if (tempHour && tempMinute && tempAmpm) {
-                            const hour24 = tempAmpm === "AM" ? (tempHour === "12" ? "00" : tempHour.padStart(2, "0")) : tempHour === "12" ? "12" : (parseInt(tempHour) + 12).toString();
-                            handleInputChange("time", `${hour24}:${tempMinute.padStart(2, "0")}`);
-                            setFormData((prev) => ({ ...prev, hour: tempHour, minute: tempMinute, ampm: tempAmpm }));
-                          }
-                          setTimePickerOpen(false);
-                        }}>OK</Button>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                {/* End Time — pickable only once a start time exists, and limited
+                    to later slots, each showing the resulting duration. */}
+                <div className="space-y-2">
+                  <Label>End Time <span className="text-red-500">*</span></Label>
+                  <Popover open={endTimePickerOpen} onOpenChange={setEndTimePickerOpen}>
+                    <div className="relative">
+                      <Input
+                        value={endTimeText}
+                        onChange={(e) => handleEndTimeTextChange(e.target.value)}
+                        onBlur={handleEndTimeBlur}
+                        onFocus={() => { if (formData.time) setEndTimePickerOpen(true); }}
+                        onKeyDown={(e) => { if (e.key === "Enter") setEndTimePickerOpen(false); }}
+                        placeholder="e.g. 2:00pm"
+                        disabled={!formData.time}
+                        className={`pr-9 ${errors.endTime ? "border-red-500 focus:border-red-500 focus:ring-red-500/20" : ""} dark:bg-gray-800`}
+                      />
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label="Pick end time"
+                          disabled={!formData.time}
+                          onClick={(e) => { e.preventDefault(); if (formData.time) setEndTimePickerOpen(true); }}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Clock className="h-4 w-4" />
+                        </button>
+                      </PopoverTrigger>
+                    </div>
+                    <PopoverContent className="w-64 p-1" align="end" side="bottom">
+                      <div
+                        ref={endTimeListRef}
+                        className="max-h-[160px] overflow-y-auto overscroll-contain pr-1 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-track]:bg-transparent"
+                        style={{ scrollbarWidth: "thin" }}
+                        onWheel={(e) => e.stopPropagation()}
+                      >
+                        {endTimeOptions.map((opt, index) => {
+                          const isHighlighted = endTimeHighlightIndex === index;
+                          const durationLabel = formatMeetingDuration(minutesBetweenTimes(formData.time, opt.value));
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => { applyEndTime(opt.value); setEndTimeText(opt.label); setEndTimePickerOpen(false); }}
+                              className={`w-full flex items-center justify-between gap-2 rounded-md px-3 py-1.5 text-left text-sm transition-colors ${isHighlighted ? "bg-accent-blue/20 text-accent-blue font-medium" : "hover:bg-muted"}`}
+                            >
+                              <span>{opt.label}</span>
+                              {durationLabel && (
+                                <span className="text-xs text-muted-foreground shrink-0">({durationLabel})</span>
+                              )}
+                            </button>
+                          );
+                        })}
                       </div>
                     </PopoverContent>
                   </Popover>

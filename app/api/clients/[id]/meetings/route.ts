@@ -63,9 +63,9 @@ export async function GET(
     const includeArchived =
       request.nextUrl.searchParams.get("includeArchived") === "1";
 
-    // Public portal (News & Events on an advisor subdomain) resolves the owning
-    // advisor from x-advisor-id / the Host subdomain so anonymous employees can
-    // see meetings/webinars. Everything else (dashboard, apex/localhost) still
+    // Public portal (News & Events) resolves the owning advisor from the plan
+    // slug in the path so anonymous employees can see meetings/webinars.
+    // Everything else (dashboard, localhost) still
     // requires the session.
     const portalAdvisorId = forHub
       ? await resolvePortalAdvisorId(request, true)

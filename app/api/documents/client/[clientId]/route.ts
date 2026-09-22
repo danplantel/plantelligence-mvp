@@ -14,14 +14,14 @@ export async function GET(
 ) {
   try {
     // Portal requests (employees, no session) scope the lookup to the advisor
-    // derived from x-advisor-id / the Host subdomain. All other requests fall
-    // back to the session user, so the dashboard stays login-required.
+    // derived from the plan slug in the path. All other requests fall back to
+    // the session user, so the dashboard stays login-required.
     const forPortal = request.nextUrl.searchParams.get("forPortal") === "1";
     const portalAdvisorId = forPortal
       ? await resolvePortalAdvisorId(request)
       : undefined;
 
-    // Development-only localhost preview: no session and no subdomain, so the
+    // Development-only localhost preview: no session and no plan owner, so the
     // plan is resolved by id/slug alone (never enabled outside `next dev`).
     const devPublic = forPortal && isLocalDevLoopback(request);
 

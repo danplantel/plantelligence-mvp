@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
+import useSWR from "swr";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
@@ -50,6 +51,16 @@ import { UniversalImageEditorModal } from "@/components/ui/universal-image-edito
 import { ContactFormFields } from "@/components/ui/contact-form-fields";
 import { ContactFormPage } from "@/components/pages/contact-form-page";
 import { buildContactFormHref } from "@/lib/contact-form-link";
+import { ContactFormTopicBuilder } from "@/components/ui/contact-form-topic-builder";
+import { SupportIconPicker } from "@/components/ui/support-icon-picker";
+import {
+  getActiveContactFormTopicLabels,
+  normalizeContactTopicCategory,
+  resolveContactFormTopics,
+} from "@/lib/contact-form-topics";
+import type { ContactFormTopic } from "@/lib/contact-form-topics";
+import { normalizeSupportIconId } from "@/lib/support-icons";
+import type { SupportIconId } from "@/lib/support-icons";
 import { SmallVerticalCard } from "@/components/pages/my-benefits-team/small-vertical-card";
 import { BrandImagesSection } from "@/components/wizard/new-client-steps/sections/brand-images-section";
 import { ComplianceDocumentsUpload } from "@/components/pages/documents/components/compliance-documents-upload";
@@ -74,9 +85,12 @@ import { BrandingImage } from "@/components/ui/branding-image";
 import { Headshot } from "@/components/ui/headshot";
 import type { RetirementDocumentItem } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
 import { PlanMeetingsSection } from "@/components/pages/edit-client/plan-meetings-section";
+import { PlanSearchBar } from "@/components/plan-selector/plan-search-bar";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { isLoggedInUserContact } from "@/lib/resolve-contact-company-name";
+import { isOnboardingAdvisorContactId } from "@/lib/seed-onboarding-advisor-contacts";
 import { ContactCardLayoutPreviewModal } from "@/components/pages/edit-client/contact-card-layout-preview-modal";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -89,6 +103,7 @@ import {
   Check,
   CheckCircle2,
   XCircle,
+  AlertCircle,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { PRIMARY_SERVICE_CATEGORY_OPTIONS } from "@/lib/service-categories";
@@ -326,6 +341,8 @@ function EditContactDialog({
   brandColor = "#1F3A60",
   secondaryColor = "#6B7280",
   appointmentLink = "",
+  /** Plan (client) id — lets the /contact page resolve the live topic list. */
+  planId = "",
   mode = "edit",
   addCategory = null,
   addContactType = "individual",
@@ -341,6 +358,8 @@ function EditContactDialog({
   brandColor?: string;
   secondaryColor?: string;
   appointmentLink?: string;
+  /** Plan (client) id carried into the generated /contact link. */
+  planId?: string;
   /** "add" turns this into a create form; the new contact is appended on save. */
   mode?: "edit" | "add";
   /** Category pre-selected when the dialog opens in add mode. */
@@ -377,6 +396,10 @@ function EditContactDialog({
     websiteUrl: string;
     displayEmail: boolean;
     displayPhone: boolean;
+    /** "Topic of Interest" choices for the Plantelligence /contact form. */
+    contactFormTopics: ContactFormTopic[];
+    /** Badge icon for Team / Support Line cards. */
+    supportIcon: SupportIconId;
   }>({
     contactType: "individual",
     benefitsCategory: null,
@@ -403,6 +426,8 @@ function EditContactDialog({
     // auto-enable these toggles.
     displayEmail: false,
     displayPhone: false,
+    contactFormTopics: [],
+    supportIcon: normalizeSupportIconId(undefined),
   });
   const [errors, setErrors] = useState<string[]>([]);
   // Whether the live Plantelligence /contact page preview modal is open.
@@ -426,6 +451,12 @@ function EditContactDialog({
       ? `${form.firstName} ${form.lastName}`.trim()
       : form.displayName;
   const ctaCompany = isPlanSponsorContact ? companyName : form.companyName;
+  // Benefits category driving the contact-form CTA link and its topic choices.
+  // Canonicalized so legacy/display names ("Health Insurance") still map to a
+  // topic set and match what the /contact page shows.
+  const rawCtaCategory = form.benefitsCategory ?? contactCategories[0] ?? null;
+  const ctaCategory =
+    normalizeContactTopicCategory(rawCtaCategory) ?? rawCtaCategory;
   const ctaLogo = isPlanSponsorContact ? companyLogo : form.companyLogo;
   const ctaHeadshot =
     form.contactType === "individual" ? form.headshot || "" : "";
@@ -474,6 +505,9 @@ function EditContactDialog({
         // "Show on contact card" starts unchecked (no auto-enable on email/phone).
         displayEmail: false,
         displayPhone: false,
+        // Pre-load the suggested topics for the preset category.
+        contactFormTopics: resolveContactFormTopics(addCategory, undefined),
+        supportIcon: normalizeSupportIconId(undefined),
       });
       setErrors([]);
       return;
@@ -515,6 +549,12 @@ function EditContactDialog({
       // whether the contact has an email/phone.
       displayEmail: contact.displayEmail ?? false,
       displayPhone: contact.displayPhone ?? false,
+      // Saved configuration wins; otherwise seed the category's suggestions.
+      contactFormTopics: resolveContactFormTopics(
+        contact.benefitsCategory ?? contactCategories[0] ?? null,
+        (contact as any).contactFormTopics,
+      ),
+      supportIcon: normalizeSupportIconId((contact as any).supportIcon),
     });
     setErrors([]);
   }, [
@@ -718,8 +758,14 @@ function EditContactDialog({
               ctaHeadshot,
               ctaLogo,
               ctaTitle,
+              getActiveContactFormTopicLabels(form.contactFormTopics),
+              ctaCategory,
+              planId,
             )
           : undefined,
+      contactFormTopics: form.contactFormTopics,
+      supportIcon:
+        form.contactType === "team_support" ? form.supportIcon : undefined,
     };
 
     onSave(updated);
@@ -787,8 +833,15 @@ function EditContactDialog({
             ctaHeadshot,
             ctaLogo,
             ctaTitle,
+            getActiveContactFormTopicLabels(form.contactFormTopics),
+            ctaCategory,
+            planId,
           )
         : undefined,
+    // Carried so the card's Contact Form CTA can re-resolve the live topics.
+    planId,
+    // Badge icon for Team / Support Line cards.
+    supportIcon: form.supportIcon,
   };
 
   // Upload Contact Company Logo — non-Plan-Sponsor only. Hoisted into a variable
@@ -823,6 +876,7 @@ function EditContactDialog({
         modalDescription="Upload a logo for this contact's portal card."
         saveButtonText="Save Logo"
         type="logo"
+        allowBackgroundRemoval
       />
     </div>
   ) : null;
@@ -851,7 +905,15 @@ function EditContactDialog({
                       type="button"
                       onClick={() =>
                         updateForm(
-                          { benefitsCategory: opt.id },
+                          {
+                            benefitsCategory: opt.id,
+                            // Re-seed the topic suggestions for the newly
+                            // chosen category (fully editable afterwards).
+                            contactFormTopics: resolveContactFormTopics(
+                              opt.id,
+                              undefined,
+                            ),
+                          },
                           ["benefitsCategory"],
                         )
                       }
@@ -984,6 +1046,17 @@ function EditContactDialog({
             {/* Upload Contact Company Logo first for Team/Support Line contacts,
                 above the Company / Organization input. */}
             {form.contactType === "team_support" && contactCompanyLogoInput}
+
+            {/* Support Icon — Team/Support Line contacts only, directly under the
+                Contact Company Logo section. */}
+            {form.contactType === "team_support" && !isPlanSponsorContact && (
+              <div className="border-t border-gray-100 dark:border-gray-700 pt-3">
+                <SupportIconPicker
+                  value={form.supportIcon}
+                  onChange={(supportIcon) => updateForm({ supportIcon })}
+                />
+              </div>
+            )}
 
             {/* Company / Organization — required for non-Plan-Sponsor contacts */}
             {!isPlanSponsorContact && (
@@ -1191,6 +1264,19 @@ function EditContactDialog({
                           ? ` Incoming messages will be sent to ${form.email}.`
                           : " Enter this contact's email above to receive incoming messages."}
                       </p>
+
+                      {/* Participant-facing "Topic of Interest" choices. The
+                          category's suggestions are pre-loaded; the advisor
+                          decides which ones participants actually see. */}
+                      <div className="border-t border-gray-100 dark:border-gray-700 pt-3 mt-1">
+                        <ContactFormTopicBuilder
+                          category={ctaCategory}
+                          topics={form.contactFormTopics}
+                          onChange={(topics) =>
+                            updateForm({ contactFormTopics: topics })
+                          }
+                        />
+                      </div>
                     </div>
                   )}
 
@@ -1299,6 +1385,8 @@ function EditContactDialog({
               contactTitle={ctaTitle}
               avatar={ctaHeadshot}
               companyLogo={ctaLogo}
+              topics={getActiveContactFormTopicLabels(form.contactFormTopics)}
+              category={ctaCategory || ""}
               embedded
               preview
             />
@@ -1319,6 +1407,7 @@ function EditKeyContactsSection({
   onHeadshotRemove,
   validationErrors = {},
   onAddContact,
+  planId = "",
 }: {
   contacts: KeyContact[];
   companyData: CompanyBasicsData;
@@ -1335,6 +1424,8 @@ function EditKeyContactsSection({
       external?: boolean;
     },
   ) => void;
+  /** Plan (client) id passed to the contact editor so /contact links resolve. */
+  planId?: string;
 }) {
   const [editingContact, setEditingContact] = useState<KeyContact | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -1754,6 +1845,7 @@ function EditKeyContactsSection({
         brandColor={companyData.primaryColor || "#1F3A60"}
         secondaryColor={companyData.secondaryColor || "#6B7280"}
         appointmentLink={companyData.appointmentLink || ""}
+        planId={planId}
       />
 
       {/* Delete Contact confirmation dialog */}
@@ -2589,6 +2681,18 @@ export default function EditClientPage() {
   } = useEditClient();
 
   const [activeTab, setActiveTab] = useState<EditTabId>("company");
+  // Deep links may target a tab, e.g. "/edit-client/<id>?tab=disclaimers" from the
+  // dashboard's Needs Attention panel, or "?tab=contacts" from the client list. Read via
+  // window.location rather than useSearchParams so the page needs no Suspense boundary,
+  // matching how the Documents page reads its own `tab` param. Unknown values are ignored
+  // and leave the default "company" tab in place.
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get("tab");
+    if (!requested) return;
+    if (EDIT_TABS.some((tab) => tab.id === requested)) {
+      setActiveTab(requested as EditTabId);
+    }
+  }, []);
   // True while the Preview tab inline Editing Panel is open (dispatched as
   // step5EditorStateChange). Used to right-align the Edit Page tabs.
   const [planEditorOpen, setPlanEditorOpen] = useState(false);
@@ -2610,6 +2714,39 @@ export default function EditClientPage() {
   const [step1ScrollTarget, setStep1ScrollTarget] = useState<string | null>(null);
   // Tab 2 (Preview) field to scroll to after a failed Save.
   const [tab2ScrollField, setTab2ScrollField] = useState<string | null>(null);
+
+  // ── Plan switcher ──────────────────────────────────────────────────────────
+  // Search for another plan and jump straight to its edit page. The bar only
+  // lists Active plans (the shared component filters Draft / Archived out), so
+  // this can never land the advisor on a plan that isn't live.
+  const { data: planListData } = useSWR(
+    "/api/clients?status=all&limit=500&sortColumn=companyName&sortDirection=asc",
+    (url: string) => fetch(url).then((r) => r.json()),
+    {
+      keepPreviousData: true,
+      dedupingInterval: 60_000,
+      revalidateOnFocus: false,
+    },
+  );
+  const switchablePlans = useMemo(
+    () =>
+      (planListData?.data as
+        | {
+            id: string;
+            companyName: string;
+            slug?: string | null;
+            status?: string | null;
+          }[]
+        | undefined) ?? [],
+    [planListData],
+  );
+  const handlePlanSwitch = useCallback(
+    (planId: string) => {
+      if (!planId || planId === clientId) return;
+      router.push(`/edit-client/${planId}`);
+    },
+    [clientId, router],
+  );
 
   // Preset for the Add Contact dialog. Entry points just open the dialog with a
   // pre-seeded category/type — the contact is created only when the user saves.
@@ -2739,7 +2876,15 @@ export default function EditClientPage() {
   // the [Organization Name] placeholder in the disclaimer text.
   const [userEmail, setUserEmail] = useState<string>("");
   const [userOrgName, setUserOrgName] = useState<string>("");
-  const [userSubdomain, setUserSubdomain] = useState<string>("");
+  // Seeded advisor contacts store the *organization* email, so matching the
+  // logged-in user needs both the login and the organization email.
+  const [userOrgEmail, setUserOrgEmail] = useState<string>("");
+  /** Current Organization Logo (`User.advisorLogoUrl`) — the Company Logo the
+   *  logged-in user's own contact carries, so a Settings change reaches it. */
+  const [userOrgLogo, setUserOrgLogo] = useState<string>("");
+  const portalRootDomain = (
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN || "plantel.pro"
+  ).replace(/^\./, "");
 
   // Portal URL availability check
   type PortalUrlAvailability = "idle" | "checking" | "available" | "taken";
@@ -2753,6 +2898,87 @@ export default function EditClientPage() {
   // always excluded from the check), so querying it would be a pointless
   // network request.
   const portalUrlManuallyEditedRef = useRef(false);
+
+  // Previous portal URLs (retired aliases) for this plan — shown in the Portal
+  // URL card with a Release action. Loaded from the slug registry.
+  const [portalSlugs, setPortalSlugs] = useState<
+    {
+      slug: string;
+      isCurrent: boolean;
+      retiredAt: string | null;
+      replacedBy: string | null;
+    }[]
+  >([]);
+  const [releaseSlug, setReleaseSlug] = useState<string | null>(null);
+  const [isReleasingSlug, setIsReleasingSlug] = useState(false);
+  // "How portal URLs work" explainer — opened from the info button and
+  // automatically the first time the advisor focuses the URL field.
+  const [portalUrlInfoOpen, setPortalUrlInfoOpen] = useState(false);
+  // "info" = opened from the info icon / field focus; "confirmSave" = the URL
+  // changed and we're pausing the save to explain renaming first.
+  const [portalUrlInfoMode, setPortalUrlInfoMode] = useState<
+    "info" | "confirmSave"
+  >("info");
+  const portalUrlSaveAcknowledgedRef = useRef(false);
+  // The slug currently persisted for this plan (kept in sync after each save).
+  // Used to detect a pending rename for the Previous URLs list.
+  const [savedPortalSlug, setSavedPortalSlug] = useState<string>("");
+  useEffect(() => {
+    const s = ((client as any)?.slug as string) || "";
+    if (s && !savedPortalSlug) setSavedPortalSlug(s);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client]);
+
+  const loadPortalSlugs = useCallback(async () => {
+    if (!clientId) return;
+    try {
+      const res = await fetch(`/api/clients/${clientId}/slugs`);
+      if (!res.ok) return;
+      const json = await res.json();
+      if (Array.isArray(json?.slugs)) setPortalSlugs(json.slugs);
+    } catch {
+      /* non-blocking */
+    }
+  }, [clientId]);
+
+  useEffect(() => {
+    void loadPortalSlugs();
+  }, [loadPortalSlugs]);
+
+  const retiredSlugs = useMemo(
+    () => portalSlugs.filter((s) => !s.isCurrent),
+    [portalSlugs],
+  );
+
+  const handleReleaseSlug = useCallback(async () => {
+    if (!releaseSlug || !clientId) return;
+    setIsReleasingSlug(true);
+    try {
+      const res = await fetch(
+        `/api/clients/${clientId}/slugs?slug=${encodeURIComponent(releaseSlug)}`,
+        { method: "DELETE" },
+      );
+      if (res.ok) {
+        toast.success(`Released "${releaseSlug}"`);
+        setReleaseSlug(null);
+        await loadPortalSlugs();
+        // Freed a slug — reflect it in the availability check.
+        lastPortalUrlCheckedRef.current = "";
+        portalUrlManuallyEditedRef.current = true;
+      } else {
+        const body = await res.json().catch(() => ({}));
+        toast.error(body?.error || "Failed to release URL");
+      }
+    } finally {
+      setIsReleasingSlug(false);
+    }
+  }, [releaseSlug, clientId, loadPortalSlugs]);
+
+  /** Set the Portal URL field back to a previously used slug (restore). */
+  const handleRestoreSlug = (slug: string) => {
+    portalUrlManuallyEditedRef.current = true;
+    handleInputChange("portalUrl", slug);
+  };
 
   // Debounced Portal URL availability check
   useEffect(() => {
@@ -3119,11 +3345,17 @@ export default function EditClientPage() {
           "";
         const email =
           profile?.email || profile?.advisorEmail || "";
-        const subdomain = profile?.subdomain || "";
+        const orgEmail = profile?.organizationEmail || "";
+        const logo =
+          profile?.advisorLogoUrl ||
+          profile?.advisorLogo ||
+          profile?.wizardSessions?.[0]?.branding?.logo ||
+          "";
         if (!cancelled) {
           setUserOrgName(orgName);
           setUserEmail(email);
-          setUserSubdomain(subdomain);
+          setUserOrgEmail(orgEmail);
+          setUserOrgLogo(logo ? String(logo) : "");
         }
       } catch {
         // Silent — best-effort fetch for the organization name.
@@ -3135,7 +3367,80 @@ export default function EditClientPage() {
     };
   }, []);
 
+  // Keep the logged-in user's own contact in step with their Organization Logo.
+  //
+  // That contact's Company Logo was seeded from the profile
+  // (`seed-onboarding-advisor-contacts` writes `companyLogo: profile.advisorLogo ||
+  // profile.advisorLogoUrl`), so a logo changed in Settings would otherwise stay
+  // stale on the Key Contacts tab — the row avatar, the Edit Contact dialog and its
+  // live portal preview — and in whatever this page saves.
+  //
+  // Company / Plan Sponsor contacts are skipped on purpose: that card represents the
+  // plan's company and must keep that company's logo, matching the portal.
+  useEffect(() => {
+    if (!userOrgLogo) return;
+    const userEmails = [userEmail, userOrgEmail].filter(Boolean);
+
+    let matched = 0;
+    let changed = false;
+    const next = keyContacts.map((contact) => {
+      // Two signals, because either alone is unreliable:
+      //  - the stable id prefix on the rows seeded from the advisor's
+      //    `primaryServiceCategories`, which survives an edited email; and
+      //  - the email match, which covers contacts created/edited through the
+      //    wizard's own "same company" pre-fill.
+      // The seeded row's email is only a snapshot of `User.organizationEmail`, so
+      // changing that in Settings would break an email-only match.
+      const isOwnContact =
+        isOnboardingAdvisorContactId(contact.id) ||
+        (userEmails.length > 0 &&
+          isLoggedInUserContact(contact, userEmails));
+      if (!isOwnContact) return contact;
+
+      matched += 1;
+
+      const categories =
+        contact.benefitsCategories ??
+        (contact.benefitsCategory ? [contact.benefitsCategory] : []);
+      if (categories.includes("Company / Plan Sponsor")) return contact;
+      if ((contact.companyLogo || "") === userOrgLogo) return contact;
+
+      changed = true;
+      return { ...contact, companyLogo: userOrgLogo };
+    });
+
+    if (process.env.NODE_ENV !== "production") {
+      console.debug("[edit-client] organization logo → key contacts", {
+        orgLogo: userOrgLogo,
+        userEmails,
+        contacts: keyContacts.length,
+        matched,
+        updated: changed,
+      });
+    }
+
+    // Only write when something actually changed — `keyContacts` identity feeds the
+    // unsaved-changes detection behind the Save button.
+    if (changed) setKeyContacts(next);
+  }, [userOrgLogo, userEmail, userOrgEmail, keyContacts, setKeyContacts]);
+
   const handleSaveClick = async () => {
+    // When the Portal URL changed, explain renaming/releasing before we persist
+    // it. Acknowledging re-enters this handler so the normal guards still run.
+    const originalSlug = savedPortalSlug;
+    const currentSlug = (companyData.portalUrl || "").trim();
+    if (
+      !portalUrlSaveAcknowledgedRef.current &&
+      originalSlug &&
+      currentSlug &&
+      currentSlug !== originalSlug
+    ) {
+      setPortalUrlInfoMode("confirmSave");
+      setPortalUrlInfoOpen(true);
+      return;
+    }
+    portalUrlSaveAcknowledgedRef.current = false;
+
     // Block saving while newly-uploaded documents haven't been confirmed via
     // the "I confirm these documents are accurate..." checkbox in the
     // Documents tab.
@@ -3164,7 +3469,19 @@ export default function EditClientPage() {
       setActiveTab("preview");
       setTab2ScrollField(tab2ErrorFields[0]);
     }
-    await handleSave();
+    const ok = await handleSave();
+    // The rename creates a new alias — record the newly saved slug and refresh
+    // the Previous URLs list so the old slug shows as a saved alias (with a
+    // Release action) instead of "Pending save".
+    if (ok) {
+      setSavedPortalSlug((companyData.portalUrl || "").trim());
+      await loadPortalSlugs();
+      // The URL is now saved — clear the stale "<url> is available" indicator.
+      portalUrlManuallyEditedRef.current = false;
+      lastPortalUrlCheckedRef.current = "";
+      setCheckedPortalUrl("");
+      setPortalUrlAvailability("idle");
+    }
   };
 
   // The Save button is disabled for an invalid Active client, so the "Complete
@@ -3194,6 +3511,13 @@ export default function EditClientPage() {
       // shown by handleSave). On failure it stays open so the user can retry.
       if (ok) {
         setShowDisclaimerConfirmDialog(false);
+        setSavedPortalSlug((companyData.portalUrl || "").trim());
+        await loadPortalSlugs();
+        // The URL is now saved — clear the stale "<url> is available" indicator.
+        portalUrlManuallyEditedRef.current = false;
+        lastPortalUrlCheckedRef.current = "";
+        setCheckedPortalUrl("");
+        setPortalUrlAvailability("idle");
       }
     } finally {
       setIsSavingDisclaimer(false);
@@ -3296,7 +3620,24 @@ export default function EditClientPage() {
           />
         )}
 
+        {/* Tab Content */}
         <div className="mx-auto max-w-5xl px-4">
+          {/* Plan switcher — jump straight to another active plan's edit page
+              without going back to the client list. */}
+          {activeTab !== "preview" && (
+            <Card className="mb-6 shadow-sm dark:bg-gray-800">
+              <CardContent className="p-6">
+                <PlanSearchBar
+                  plans={switchablePlans}
+                  value={clientId || ""}
+                  onChange={handlePlanSwitch}
+                  title="Plans"
+                  module="plans"
+                  disabled={switchablePlans.length === 0}
+                />
+              </CardContent>
+            </Card>
+          )}
           <Tabs
             value={activeTab}
             onValueChange={(val) => setActiveTab(val as EditTabId)}
@@ -3457,6 +3798,18 @@ export default function EditClientPage() {
                   <CardTitle className="flex items-center gap-2 dark:text-gray-100">
                     <Globe className="w-5 h-5 text-accent-blue" />
                     Portal URL <span className="text-red-500">*</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPortalUrlInfoMode("info");
+                        setPortalUrlInfoOpen(true);
+                      }}
+                      className="inline-flex items-center justify-center text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+                      aria-label="How portal URLs work"
+                      title="How portal URLs work"
+                    >
+                      <Info className="h-4 w-4" />
+                    </button>
                   </CardTitle>
                   <p className="text-sm text-muted-foreground dark:text-gray-400">
                     Customize the URL where employees will access your
@@ -3466,10 +3819,7 @@ export default function EditClientPage() {
                 <CardContent className="space-y-3">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground dark:text-gray-400 bg-muted/50 dark:bg-gray-900/50 rounded-lg px-3 py-2">
                     <span className="shrink-0">https://</span>
-                    <span className="font-medium text-foreground dark:text-gray-200">
-                      {userSubdomain || "your-org"}
-                    </span>
-                    <span className="shrink-0">.plantel.pro/</span>
+                    <span className="shrink-0">{portalRootDomain}/</span>
                     <span className="font-medium text-foreground dark:text-gray-200">
                       {companyData.portalUrl ||
                         companyData.companyName
@@ -3533,9 +3883,39 @@ export default function EditClientPage() {
                       )}
                     </div>
                   </div>
-                  {/* Portal URL availability indicator */}
-                  {portalUrlAvailability !== "idle" &&
-                    (companyData.portalUrl || "").trim().length >= 2 && (
+                  {/* Restore hint / Portal URL availability indicator */}
+                  {(() => {
+                    const currentPortalUrlValue = (
+                      companyData.portalUrl || ""
+                    ).trim();
+                    const restoringPreviousUrl =
+                      !!currentPortalUrlValue &&
+                      currentPortalUrlValue !== savedPortalSlug &&
+                      retiredSlugs.some(
+                        (s) => s.slug === currentPortalUrlValue,
+                      );
+
+                    if (restoringPreviousUrl) {
+                      return (
+                        <div className="flex items-center gap-1.5 mt-1.5">
+                          <Info className="h-3.5 w-3.5 text-accent-blue shrink-0" />
+                          <span className="text-xs text-accent-blue">
+                            Restoring a previous URL - it becomes your active
+                            portal URL, and your current URL is kept as a
+                            redirect.
+                          </span>
+                        </div>
+                      );
+                    }
+
+                    if (
+                      portalUrlAvailability === "idle" ||
+                      currentPortalUrlValue.length < 2
+                    ) {
+                      return null;
+                    }
+
+                    return (
                       <div className="flex items-center gap-1.5 mt-1.5">
                         {portalUrlAvailability === "checking" ? (
                           <>
@@ -3560,12 +3940,235 @@ export default function EditClientPage() {
                           </>
                         ) : null}
                       </div>
-                    )}
+                    );
+                  })()}
                   <p className="text-xs text-muted-foreground dark:text-gray-400">
                     Only lowercase letters, numbers, and hyphens allowed. Max
                     30 characters.
                   </p>
+                  {(() => {
+                    // The saved current slug — if the field now differs, that old
+                    // slug will become a redirect alias as soon as the user saves,
+                    // so surface it here immediately.
+                    const originalSlug = savedPortalSlug;
+                    const currentSlug = (companyData.portalUrl || "").trim();
+                    const pendingOriginalSlug =
+                      originalSlug &&
+                      currentSlug &&
+                      currentSlug !== originalSlug &&
+                      !retiredSlugs.some((s) => s.slug === originalSlug)
+                        ? originalSlug
+                        : "";
+                    const rows = [
+                      ...(pendingOriginalSlug
+                        ? [{ slug: pendingOriginalSlug, pending: true }]
+                        : []),
+                      ...retiredSlugs.map((s) => ({
+                        slug: s.slug,
+                        pending: false,
+                      })),
+                    ];
+                    if (rows.length === 0) return null;
+                    return (
+                      <div className="mt-3 border-t border-gray-100 dark:border-gray-700 pt-3 space-y-2">
+                        <p className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                          Previous URLs
+                        </p>
+                        <p className="text-[11px] text-gray-400 dark:text-gray-500">
+                          These old links still redirect to this plan. Restore
+                          one to make it your active URL again, or Release it to
+                          free it for other plans - released links stop working.
+                        </p>
+                        {rows.map((row) => (
+                          <div
+                            key={row.slug}
+                            className="flex items-center justify-between gap-2 text-xs bg-muted/50 dark:bg-gray-900/50 rounded px-2.5 py-1.5"
+                          >
+                            <span className="truncate text-gray-700 dark:text-gray-200">
+                              https://{portalRootDomain}/{row.slug}
+                            </span>
+                            {row.pending ? (
+                              <span className="shrink-0 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                                Pending save
+                              </span>
+                            ) : row.slug === currentSlug ? (
+                              <span className="shrink-0 text-[10px] font-medium text-accent-blue">
+                                Restoring
+                              </span>
+                            ) : (
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 px-2 text-[11px] text-accent-blue hover:bg-accent-blue/10"
+                                  onClick={() => handleRestoreSlug(row.slug)}
+                                >
+                                  Restore
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 px-2 text-[11px]"
+                                  onClick={() => setReleaseSlug(row.slug)}
+                                >
+                                  Release
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </CardContent>
+                <ConfirmDialog
+                  open={!!releaseSlug}
+                  onOpenChange={(open) => {
+                    if (!open) setReleaseSlug(null);
+                  }}
+                  onConfirm={handleReleaseSlug}
+                  title="Release this old URL?"
+                  description={`Releasing "${releaseSlug ?? ""}" frees it so another plan can use it. Any printed, emailed, or shared links to this URL will stop working. This cannot be undone.`}
+                  confirmText={isReleasingSlug ? "Releasing..." : "Release"}
+                  variant="destructive"
+                />
+                <Dialog
+                  open={portalUrlInfoOpen}
+                  onOpenChange={setPortalUrlInfoOpen}
+                >
+                  <DialogContent className="sm:max-w-[520px] dark:bg-gray-800 dark:border-gray-700">
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2">
+                        {portalUrlInfoMode === "confirmSave" ? (
+                          <AlertCircle className="w-5 h-5 text-red-500 dark:text-red-400" />
+                        ) : (
+                          <Globe className="w-5 h-5 text-accent-blue" />
+                        )}
+                        {portalUrlInfoMode === "confirmSave"
+                          ? "Save with a new Portal URL?"
+                          : "About your Portal URL"}
+                      </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 text-sm text-gray-600 dark:text-gray-300">
+                      {portalUrlInfoMode === "confirmSave" && (
+                        <div className="rounded-lg border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700 text-xs">
+                          <div className="flex items-center justify-between gap-3 px-3 py-2">
+                            <span className="text-gray-500 dark:text-gray-400 shrink-0">
+                              Old URL
+                            </span>
+                            <span className="truncate font-medium text-gray-700 dark:text-gray-200">
+                              https://{portalRootDomain}/{savedPortalSlug}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3 px-3 py-2">
+                            <span className="text-gray-500 dark:text-gray-400 shrink-0">
+                              New URL
+                            </span>
+                            <span className="truncate font-medium text-accent-blue">
+                              https://{portalRootDomain}/
+                              {(companyData.portalUrl || "").trim()}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      <p>
+                        This URL is where employees open your benefits portal. It
+                        is unique across Plantelligence - no two plans can share
+                        one.
+                      </p>
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-gray-100">
+                          If you change it
+                        </p>
+                        <ul className="list-disc pl-5 space-y-1 mt-1">
+                          <li>The new URL becomes your portal right away.</li>
+                          <li>
+                            Your <strong>old URL keeps working</strong> - we
+                            automatically redirect it to the new one, so printed
+                            QR codes, emails, and shared links do not break.
+                          </li>
+                          <li>
+                            The old URL stays{" "}
+                            <strong>reserved to this plan</strong>, so no other
+                            plan can claim it.
+                          </li>
+                        </ul>
+                      </div>
+                      <div className="rounded-lg border border-red-200 bg-red-50/70 px-3 py-2.5 dark:border-red-900/60 dark:bg-red-950/30">
+                        <p className="font-medium text-red-900 dark:text-red-200">
+                          Releasing an old URL
+                        </p>
+                        <p className="mt-1 text-red-800/90 dark:text-red-200/80">
+                          If you need to free a previous URL (for example, it was
+                          never shared), use <strong>Release</strong> in the
+                          Previous URLs list. Released URLs become available to
+                          other plans, and any printed, emailed, or shared links
+                          to them <strong>will stop working</strong>. Releasing
+                          cannot be undone.
+                        </p>
+                      </div>
+                      {(() => {
+                        const currentPortalUrlValue = (
+                          companyData.portalUrl || ""
+                        ).trim();
+                        const restoringPreviousUrl =
+                          !!currentPortalUrlValue &&
+                          currentPortalUrlValue !== savedPortalSlug &&
+                          retiredSlugs.some(
+                            (s) => s.slug === currentPortalUrlValue,
+                          );
+                        if (!restoringPreviousUrl) return null;
+                        return (
+                          <p className="text-xs text-accent-blue bg-accent-blue/5 rounded px-2.5 py-2">
+                            You are restoring a previous URL. It becomes your
+                            active portal URL, and your current URL is kept as a
+                            redirect - so nothing that links to either one breaks.
+                          </p>
+                        );
+                      })()}
+                      <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-700/40 dark:text-gray-400">
+                        Renaming only changes the portal web address. It does not
+                        affect your plan, benefits, contacts, or documents.
+                      </div>
+                    </div>
+                    <DialogFooter className="gap-2">
+                      {portalUrlInfoMode === "confirmSave" ? (
+                        <>
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              setPortalUrlInfoOpen(false);
+                              setPortalUrlInfoMode("info");
+                            }}
+                          >
+                            Back
+                          </Button>
+                          <Button
+                            onClick={async () => {
+                              portalUrlSaveAcknowledgedRef.current = true;
+                              setPortalUrlInfoOpen(false);
+                              setPortalUrlInfoMode("info");
+                              await handleSaveClick();
+                            }}
+                          >
+                            Save changes
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          onClick={() => {
+                            setPortalUrlInfoOpen(false);
+                            setPortalUrlInfoMode("info");
+                          }}
+                        >
+                          Got it
+                        </Button>
+                      )}
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </Card>
 
               {/* Company Logo */}
@@ -3583,6 +4186,7 @@ export default function EditClientPage() {
                 <CardContent>
                   <UniversalImageEditorModal
                     type="logo"
+                    allowBackgroundRemoval
                     icon={<ImageIcon className="w-4 h-4" />}
                     value={companyData.companyLogo?.url || ""}
                     fileName={companyData.companyLogo?.fileName || ""}
@@ -3806,6 +4410,7 @@ export default function EditClientPage() {
                     onHeadshotRemove={handleHeadshotRemove}
                     validationErrors={getValidationErrors()}
                     onAddContact={openAddContact}
+                    planId={clientId || ""}
                   />
                 </CardContent>
               </Card>
@@ -4106,6 +4711,7 @@ export default function EditClientPage() {
             brandColor={companyData.primaryColor || "#1F3A60"}
             secondaryColor={companyData.secondaryColor || "#6B7280"}
             appointmentLink={companyData.appointmentLink || ""}
+            planId={clientId || ""}
           />
         )}
 

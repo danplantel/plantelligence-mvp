@@ -44,7 +44,6 @@ model User {
   primaryColor                String?
   secondaryColor              String?
   organizationName            String?
-  subdomain                   String?
   advisorName                 String?
   advisorEmail                String?
   advisorPhone                String?
@@ -80,6 +79,28 @@ model User {
 
   futureContacts    FutureContact[]   @relation("UserFutureContacts")
   meetingCustomTypes MeetingCustomType[]
+  tasks             Task[]
+}
+
+// Advisor-authored dashboard tasks. System-generated tasks are derived from plan state at
+// read time (see lib/dashboard-tasks.ts) and are deliberately not stored here — they have no
+// lifecycle of their own and would go stale the moment the underlying plan changed.
+model Task {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String    @db.ObjectId
+  title     String
+  done      Boolean   @default(false)
+  // Optional plan the task relates to. Tasks are per-advisor (they appear on one dashboard);
+  // the link adds plan context without splitting them into per-plan lists.
+  clientId  String?   @db.ObjectId
+  doneAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([userId, done])
 }
 
 // Plan model
@@ -464,14 +485,12 @@ model WizardBranding {
   secondaryColor     String? // Secondary HEX color (extracted from logo)
   aiAvatar           String? // URL
   avatarFileName     String? // Original filename
-  subdomain          String // custom subdomain
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
   session WizardSession @relation(fields: [sessionId], references: [id])
 
   @@index([brandColor])
-  @@index([subdomain])
 }
 
 // Wizard Step 6: Benefit Types
@@ -569,6 +588,9 @@ model NewClientCompanyBasics {
   logoFileName   String?
   primaryColor   String  @default("#1F3A60")
   secondaryColor String  @default("#6B7280")
+  // Portal typography theme: "classic" | "modern" | "editorial" | "contemporary"
+  // (see lib/typography-themes.ts). Null/unknown resolves to "classic".
+  typographyTheme String?
   brandImages    Json // Array of image URLs
   planType       String  @default("client") // "client" (active plan) or "prospect" (draft plan for demos)
   portalUrl      String? // User-customized portal URL slug (max 20 chars, alphanumeric + hyphens)
@@ -659,12 +681,20 @@ model Client {
 
   // Company Information
   companyName     String
+  // Name-change tracking for the dashboard activity feed. `null` until the plan is
+  // renamed; `updatedAt` cannot serve this purpose because every edit touches it.
+  previousName    String?
+  nameUpdatedAt   DateTime?
   companyWebsite  String?
   companyLogo     String? // Base64 or URL
   companyLogoCropData Json? // Crop metadata incl. originalImage for re-editing in modal
   logoFileName    String?
   brandColor      String  @default("#1F3A60")
   secondaryColor  String  @default("#6B7280")
+  // Portal typography theme: "classic" | "modern" | "editorial" | "contemporary"
+  // (see lib/typography-themes.ts). Null/unknown resolves to "classic", so
+  // existing plans render the default theme without a backfill.
+  typographyTheme String?
   missionHeadline String?
   missionBody     String?
   appointmentLink String?
@@ -877,6 +907,17 @@ model Webinar {
   clientId     String   @db.ObjectId // Reference to Client (Plan)
   clientName   String   // Client company name (denormalized for easier queries)
   webinarTitle String   // Webinar title
+  description  String?  // Optional description shown alongside the replay
+  thumbnail    String?  // Base64 data URL for the replay card image (uploaded or a captured video frame)
+  // Benefit category the video belongs to: Retirement, Health, Life, Other or All.
+  benefitsCategory String?
+  // Portal pages this video is published on: an array of placement keys
+  // ("news-events", "retirement", …). JSON rather than a scalar list so rows
+  // saved before this field existed read as null and can fall back to the default.
+  placements   Json?
+  // Length of videoFileUrl. Stored so list queries can sort by size without
+  // reading the multi-MB base64 payload (see the webinars list endpoint).
+  videoSize    Int?
   eventDate    DateTime // Event date
   sourceType   Json     // { upload: boolean, url: boolean }
   videoFileUrl String?  // URL/path if uploaded file
@@ -999,4 +1040,31 @@ model Headshot {
 
   @@index([userId])
   @@index([createdAt])
+}
+
+// Global portal-slug registry.
+//
+// Holds a plan's CURRENT slug and every historical (retired) slug so old
+// QR/printed/shared links keep resolving. `slug` is globally @unique across
+// BOTH current and retired rows — that single constraint is what makes a
+// retired slug permanently reserved (another advisor cannot claim it), which
+// prevents old links from silently pointing at a different company.
+//
+// Renaming demotes the old row (isCurrent = false → it becomes an "alias") and
+// inserts/promotes the new one. Aliases are never mutated or auto-deleted; a
+// slug leaves the namespace only via an explicit release (row deleted).
+model PortalSlug {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  slug       String    @unique
+  clientId   String    @db.ObjectId
+  isCurrent  Boolean   @default(true)
+  // When the row was demoted to an alias (null while it is the current slug).
+  retiredAt  DateTime?
+  // The slug that replaced this one (traceability; null when current).
+  replacedBy String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([clientId])
+  @@index([clientId, isCurrent])
 }

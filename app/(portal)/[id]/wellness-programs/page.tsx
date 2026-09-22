@@ -14,6 +14,7 @@ import { HowCanWeHelpSection } from "@/components/pages/client-portal/sections/h
 import {
   RetirementJourneySection,
 } from "@/components/pages/client-portal/sections/retirement-journey-section";
+import { BenefitsHubWebinarsSection } from "@/components/pages/client-portal/sections/benefits-hub-webinars-section";
 import {
   RetirementDocumentsAccordion,
   RetirementDocumentItem,
@@ -190,6 +191,13 @@ export default function WellnessProgramsPage() {
           description={(benefitData as any)?.journeyBodyText || "Your well-being goes beyond traditional benefits. Discover programs designed to support your physical, mental, and financial health—from fitness stipends and nutrition coaching to mental health resources and financial wellness tools. Thrive at work and at home."}
           planVideoUrl={benefitData?.planVideo as string | undefined}
           planVideoFallbackImage={WELLNESS_FALLBACK_IMAGE}
+        />
+
+        {/* Videos published to this page from Communications → Webinars. */}
+        <BenefitsHubWebinarsSection
+          placement="wellness-programs"
+          brandColor={brandColor}
+          secondaryColor={secondaryColor}
         />
 
         <HowCanWeHelpSection

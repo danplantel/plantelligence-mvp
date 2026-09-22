@@ -7,13 +7,26 @@ import {
   Settings,
   Upload,
   Megaphone,
+  type LucideIcon,
 } from "lucide-react";
 
-export interface DemoStat {
+/** A single KPI tile rendered by the `QuickInsights` component. */
+export interface QuickInsight {
+  /** Stable identity for keying/rendering. */
+  id: string;
   title: string;
-  value: number;
-  icon: any;
+  /** Placeholder shown before live data arrives. Omit for tiles driven by `statsKey`. */
+  value?: number;
+  /** Supporting line shown beneath the title. */
+  hint?: string;
+  icon: LucideIcon;
+  /** Tailwind text-colour class for the icon accent. */
   color: string;
+  /**
+   * Field on `/api/dashboard/stats` (`data[statsKey]`) that supplies `value`.
+   * Omit while a metric has no backing query yet — the tile then keeps its placeholder value.
+   */
+  statsKey?: "activePlans" | "meetingsThisWeek" | "needsAttention";
 }
 
 export interface QuickAction {
@@ -23,28 +36,37 @@ export interface QuickAction {
   description: string;
 }
 
-export const demoStats: DemoStat[] = [
+export const quickInsights: QuickInsight[] = [
   {
+    id: "active-plans",
     title: "Active Plans",
-    value: 24,
+    hint: "Currently published",
     icon: TrendingUp,
     color: "text-accent-blue",
+    statsKey: "activePlans",
   },
   {
-    title: "Upcoming Meetings",
-    value: 3,
-    icon: Calendar,
-    color: "text-[#155DFC]",
-  },
-  {
-    title: "Docs Expiring Soon",
-    value: 5,
+    id: "needs-attention",
+    title: "Needs Attention",
+    hint: "Incomplete or unclassified",
     icon: AlertTriangle,
     color: "text-[#FF6900]",
+    statsKey: "needsAttention",
   },
   {
-    title: "Notifications",
-    value: 2,
+    id: "meetings-this-week",
+    title: "Meetings this Week",
+    hint: "Sunday to Saturday",
+    icon: Calendar,
+    color: "text-[#155DFC]",
+    statsKey: "meetingsThisWeek",
+  },
+  {
+    // Metric not chosen yet — no statsKey means the tile shows this placeholder.
+    id: "kpi-4",
+    title: "KPI 4",
+    value: 0,
+    hint: "Metric to be defined",
     icon: Bell,
     color: "text-[#4A5565]",
   },

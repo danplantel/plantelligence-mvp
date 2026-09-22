@@ -1,9 +1,9 @@
 "use client";
 
-import { Headset } from "lucide-react";
 import { Headshot } from "@/components/ui/headshot";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { initials } from "@/components/pages/my-benefits-team/utils";
+import { getSupportIcon } from "@/lib/support-icons";
 
 interface Contact {
   name?: string;
@@ -11,6 +11,8 @@ interface Contact {
   contactType?: "individual" | "team_support";
   companyLogo?: string;
   logo?: string;
+  /** Advisor-selected badge icon for Team / Support Line contacts. */
+  supportIcon?: string;
 }
 
 interface PrimaryVisualProps {
@@ -19,8 +21,9 @@ interface PrimaryVisualProps {
 
 export function PrimaryVisual({ contact }: PrimaryVisualProps) {
   // Team/Support Line contacts have no person headshot — show the company logo
-  // inside the large circular slot instead (falling back to a support-line icon
-  // when no logo has been uploaded).
+  // inside the large circular slot instead (falling back to the advisor-selected
+  // support icon when no logo has been uploaded).
+  const SupportIcon = getSupportIcon(contact.supportIcon);
   if (contact.contactType === "team_support") {
     const logoSrc = contact.companyLogo || contact.logo;
     return (
@@ -32,7 +35,7 @@ export function PrimaryVisual({ contact }: PrimaryVisualProps) {
             className="w-full h-full object-contain p-6"
           />
         ) : (
-          <Headset className="w-1/3 h-1/3 text-gray-400" />
+          <SupportIcon className="w-1/3 h-1/3 text-gray-400" />
         )}
       </div>
     );

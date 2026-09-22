@@ -11,9 +11,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { signOut, useSession } from "next-auth/react";
-import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
-import { isR2BrandingKey } from "@/lib/branding-image-url";
-import { fetchProfileOnce } from "@/lib/fetch-profile";
+import {
+  fetchHeaderProfileOnce,
+  type HeaderProfile,
+} from "@/lib/fetch-header-profile";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Settings, LayoutDashboard, FileText, LogOut, Bell, AlertTriangle, Clock, Calendar } from "lucide-react";
@@ -58,48 +59,49 @@ export function UserNav({ compact = false }: { compact?: boolean }) {
     setShowLogoutConfirm(false);
   };
 
-  // Fetch fresh user profile on mount. /api/profile carries everything the
-  // header needs (name, email, title, avatar/headshot, branding aiAvatar) via
-  // wizardSessions[0], so no separate /api/onboarding-wizard/* calls are
-  // required. fetchProfileOnce also coalesces with any other /api/profile
-  // caller on the page (e.g. the settings page).
-  const [profile, setProfile] = useState<any>(null);
+  // The header needs a name, an email, a title and an avatar. It reads them from
+  // the slim /api/profile/header payload instead of GET /api/profile, which
+  // carries the wizard sessions and branding JSON and took seconds on every
+  // dashboard page. fetchHeaderProfileOnce caches the payload, so navigating
+  // between dashboard pages no longer re-requests it.
+  const [headerProfile, setHeaderProfile] = useState<HeaderProfile | null>(null);
   useEffect(() => {
+    let cancelled = false;
     const loadData = async () => {
       setIsLoading(true);
-      const profileData = await fetchProfileOnce();
-      if (profileData) setProfile(profileData);
-      setIsLoading(false);
+      const data = await fetchHeaderProfileOnce();
+      if (!cancelled) {
+        if (data) setHeaderProfile(data);
+        setIsLoading(false);
+      }
     };
-    loadData();
+    void loadData();
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only load once on mount
 
-  // R2 keys are stored as "org/…"; raw <img src> on app pages resolves to /org/… → 404.
-  const wizardUserSetup = profile?.wizardSessions?.[0]?.userSetup;
-  const rawUserImage =
-    profile?.wizardSessions?.[0]?.branding?.aiAvatar ||
-    wizardUserSetup?.headshot ||
-    (wizardUserSetup?.headshotData as any)?.previewDataUrl ||
-    profile?.headshot ||
-    session?.user?.image ||
-    "";
+  // Prefer the presigned URL; if it is missing or fails to render — presigned
+  // URLs are documented to fail in <img> for some bucket setups — drop to the
+  // same-origin proxy so the avatar never disappears.
+  const preferredAvatar =
+    headerProfile?.avatarUrl || headerProfile?.avatarFallbackUrl || "";
+  const [avatarSrc, setAvatarSrc] = useState("");
+  useEffect(() => {
+    setAvatarSrc(preferredAvatar);
+  }, [preferredAvatar]);
 
-  const { url: resolvedUserImage } = useBrandingImageUrl(
-    rawUserImage !== "" ? rawUserImage : null,
-  );
-  const userImage =
-    resolvedUserImage ??
-    (rawUserImage !== "" && !isR2BrandingKey(rawUserImage)
-      ? rawUserImage
-      : "");
+  const handleAvatarError = () => {
+    const fallback = headerProfile?.avatarFallbackUrl;
+    if (fallback && avatarSrc !== fallback) setAvatarSrc(fallback);
+  };
 
-  // Get user name/email/title from the profile payload with fallback to session
-  const userName =
-    wizardUserSetup?.name || profile?.name || session?.user?.name || "";
-  const userEmail =
-    wizardUserSetup?.email || profile?.email || session?.user?.email || "";
-  const userTitle = profile?.title || wizardUserSetup?.title || "";
+  // Session values keep the header rendering if the payload fails.
+  const userImage = avatarSrc || session?.user?.image || "";
+  const userName = headerProfile?.name || session?.user?.name || "";
+  const userEmail = headerProfile?.email || session?.user?.email || "";
+  const userTitle = headerProfile?.title || "";
 
   if (session) {
     // Show skeleton while loading
@@ -127,7 +129,11 @@ export function UserNav({ compact = false }: { compact?: boolean }) {
               )}
             >
               <Avatar className="w-10 h-10 shrink-0">
-                <AvatarImage src={userImage} alt={userName} />
+                <AvatarImage
+                  src={userImage}
+                  alt={userName}
+                  onError={handleAvatarError}
+                />
                 <AvatarFallback className="bg-muted text-muted-foreground text-sm font-semibold">
                   {getNameMonogram(userName)}
                 </AvatarFallback>

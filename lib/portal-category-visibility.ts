@@ -184,6 +184,20 @@ const CONTACT_CATEGORY_TO_VISIBILITY_KEY: Record<string, string> = {
 /** Visibility keys in Edit Panel (must match PRIMARY_SERVICE_CATEGORY_OPTIONS) */
 const VISIBILITY_KEYS = VISIBILITY_KEYS_READONLY;
 
+/**
+ * Contact categories that are NOT benefit hubs. A plan sponsor, recordkeeper,
+ * external HR contact (or a team/support line with no category at all) is not
+ * "Other Benefits" content, so hiding the Other hub must never remove those
+ * cards from the portal.
+ */
+const NON_HUB_CONTACT_CATEGORY =
+  /^(company\s*\/\s*plan\s*sponsor|recordkeeper\s*\/\s*vendor|external hr(\s*\/\s*administrator)?|third party contact|multiple|support team|hr)$/i;
+
+/** True when a contact category is not tied to one of the 4 benefit hubs. */
+export function isNonHubContactCategory(cat: string | null | undefined): boolean {
+  return NON_HUB_CONTACT_CATEGORY.test((cat || "").trim());
+}
+
 function categoryToVisibilityKey(cat: string): string {
   const trimmed = (cat || "").trim();
   const mapped = CONTACT_CATEGORY_TO_VISIBILITY_KEY[trimmed];
@@ -227,8 +241,11 @@ export function areAllCategoriesHiddenInPortal(
  *   still show every contact. Key contacts must display even when all benefit hubs
  *   are hidden; the category toggles only hide contacts for a specific category when
  *   at least one other category remains visible.
- * - If contact has no categories → show only when all 4 categories are visible; else hide.
- * - If contact has at least one category → show iff that category (or any of them) is visible.
+ * - Contacts with no category, or with a non-hub category (Company / Plan Sponsor,
+ *   Recordkeeper / Vendor, External HR / Administrator) → always show. They are not
+ *   "Other Benefits" content and must survive hiding the Other hub.
+ * - If contact has at least one hub category → show iff that category (or any of
+ *   them) is visible.
  * Visibility should come from getCategoryPortalVisibility so keys are always the 4 canonical ones.
  */
 export function isContactVisibleInPortal(
@@ -241,9 +258,10 @@ export function isContactVisibleInPortal(
   // least one other category is still visible.
   if (areAllCategoriesHiddenInPortal(visibility)) return true;
   const cats = Array.isArray(benefitsCategories) ? benefitsCategories : [];
-  if (cats.length === 0) {
-    return VISIBILITY_KEYS.every((key) => visibility[key] !== false);
-  }
+  // Uncategorised contacts (e.g. External HR / team support with no benefits
+  // category) and non-hub contacts always show on the portal.
+  if (cats.length === 0) return true;
+  if (cats.some((cat) => isNonHubContactCategory(String(cat)))) return true;
   return cats.some((cat) => {
     const key = categoryToVisibilityKey(String(cat));
     return visibility[key] !== false;
@@ -332,12 +350,10 @@ export function getContactCategories(contact: Record<string, unknown> | null | u
       return "Retirement";
     if (lower === "health insurance") return "Group Health";
     if (lower === "life insurance" || lower === "life") return "Group Life";
-    if (
-      lower === "other benefits" ||
-      lower === "company / plan sponsor" ||
-      lower === "wellness programs" ||
-      lower === "recordkeeper / vendor"
-    )
+    // Non-hub categories keep their own label so visibility can treat them as
+    // "always shown" instead of collapsing them into the Other hub.
+    if (isNonHubContactCategory(cat)) return cat;
+    if (lower === "other benefits" || lower === "wellness programs")
       return "Other";
     return cat;
   });

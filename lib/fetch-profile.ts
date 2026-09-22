@@ -16,6 +16,8 @@
 // It resolves to the parsed JSON profile, or null on failure/non-2xx (callers
 // treat that as "no data available").
 
+import { invalidateHeaderProfileCache } from "@/lib/fetch-header-profile";
+
 let profilePromise: Promise<any | null> | null = null;
 let cachedProfile: any | null = null;
 let cachedAt = 0;
@@ -58,5 +60,8 @@ export function fetchProfileOnce(): Promise<any | null> {
  */
 export function invalidateProfileCache(): void {
   cachedProfile = null;
+  // The header keeps its own slim cache; a profile save can change the name or
+  // avatar it shows, so both caches are dropped together.
+  invalidateHeaderProfileCache();
   cachedAt = 0;
 }

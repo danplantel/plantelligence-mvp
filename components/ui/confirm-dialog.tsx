@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Loader2 } from "lucide-react";
 import {
   AlertDialog,
@@ -25,6 +25,27 @@ interface ConfirmDialogProps {
   variant?: "default" | "destructive" | "warning" | "info";
   /** When true, confirm button shows a spinner and buttons are disabled */
   isLoading?: boolean;
+  /**
+   * Label shown on the confirm button while it is busy. Defaults to "Deleting..."
+   * for the delete confirmations this dialog was built for; callers whose action is
+   * not a deletion should name it, so the spinner never reports the wrong verb.
+   */
+  loadingText?: string;
+  /**
+   * Label for a second dismiss action, rendered beside `cancelText`.
+   *
+   * This dialog is built for the two-answer shape — do it, or don't — so `cancelText`
+   * is the only way out, and Radix's AlertDialog ignores Escape and outside clicks by
+   * design. A caller whose "no" carries two distinct readings can supply this one
+   * alongside it; it dismisses exactly like Cancel, so the difference is the label the
+   * user is answering with. Left out, the footer is unchanged.
+   */
+  extraCancelText?: string;
+  /**
+   * Extra content rendered between the description and the buttons — e.g. a
+   * before/after preview. Supplying it widens the dialog so a pair fits.
+   */
+  children?: ReactNode;
 }
 
 export function ConfirmDialog({
@@ -37,6 +58,9 @@ export function ConfirmDialog({
   cancelText = "Cancel",
   variant = "default",
   isLoading = false,
+  loadingText = "Deleting...",
+  extraCancelText,
+  children,
 }: ConfirmDialogProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   // Synchronous mirror of the busy state so we can block the dialog from
@@ -100,7 +124,9 @@ export function ConfirmDialog({
         onOpenChange(next);
       }}
     >
-      <AlertDialogContent className="max-w-md text-left">
+      <AlertDialogContent
+        className={`text-left ${children ? "max-w-lg" : "max-w-md"}`}
+      >
         <AlertDialogHeader className="text-left">
           <div className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2">
             <div
@@ -116,10 +142,23 @@ export function ConfirmDialog({
             </AlertDialogDescription>
           </div>
         </AlertDialogHeader>
+        {children}
         <AlertDialogFooter className="flex-row gap-2 sm:gap-2">
-          <AlertDialogCancel className="flex-1 m-0" disabled={busy}>
+          {/* With a third button the dismissives size to their labels and the
+              confirm button takes the rest, so the primary action is the one that
+              still fits on a line. Alone, Cancel keeps the even split it has always
+              had. */}
+          <AlertDialogCancel
+            className={`m-0 ${extraCancelText ? "" : "flex-1"}`}
+            disabled={busy}
+          >
             {cancelText}
           </AlertDialogCancel>
+          {extraCancelText && (
+            <AlertDialogCancel className="m-0" disabled={busy}>
+              {extraCancelText}
+            </AlertDialogCancel>
+          )}
           <AlertDialogAction
             onClick={handleConfirm}
             disabled={busy}
@@ -128,7 +167,7 @@ export function ConfirmDialog({
             {busy ? (
               <span className="flex items-center justify-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Deleting...
+                {loadingText}
               </span>
             ) : (
               confirmText

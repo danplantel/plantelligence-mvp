@@ -89,10 +89,6 @@ export async function completeWizardOnboarding({ userId, wizardSessionId }: Wiza
       if (wizardSession.branding.secondaryColor) {
         updateData.secondaryColor = wizardSession.branding.secondaryColor;
       }
-      // Subdomain
-      if (wizardSession.branding.subdomain) {
-        updateData.subdomain = wizardSession.branding.subdomain;
-      }
       // Background image
       if (wizardSession.branding.backgroundImage) {
         updateData.backgroundImage = wizardSession.branding.backgroundImage;
@@ -108,7 +104,6 @@ export async function completeWizardOnboarding({ userId, wizardSessionId }: Wiza
         hasBrandColor: !!wizardSession.branding.brandColor,
         hasPrimaryColor: !!wizardSession.branding.primaryColor,
         hasSecondaryColor: !!wizardSession.branding.secondaryColor,
-        hasSubdomain: !!wizardSession.branding.subdomain,
         hasBackgroundImage: !!wizardSession.branding.backgroundImage,
         hasAiAvatar: !!wizardSession.branding.aiAvatar,
       });

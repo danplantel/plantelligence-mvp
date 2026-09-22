@@ -11,7 +11,6 @@ export interface BrandingState {
     brandColor: string;
     primaryColor?: string;
     secondaryColor?: string;
-    subdomain: string;
     isPrimaryColorPickerOpen: boolean;
     isSecondaryColorPickerOpen: boolean;
     isAvatarGeneratorOpen: boolean;
@@ -69,7 +68,6 @@ export const createDataSetters = (setters: any) => ({
     brandColor: setters.setBrandColor,
     primaryColor: setters.setPrimaryColor,
     secondaryColor: setters.setSecondaryColor,
-    subdomain: setters.setSubdomain,
     aiAvatar: setters.setAiAvatar,
     avatarFileName: setters.setAvatarFileName,
     isPrimaryColorPickerOpen: setters.setIsPrimaryColorPickerOpen,

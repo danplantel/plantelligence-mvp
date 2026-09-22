@@ -45,7 +45,11 @@ export function normalizeBenefitsCategoryForCompleteness(
   return s as BenefitsCategory;
 }
 
-function getBenefitsArrayFromPortalPreview(clientData: any): any[] {
+/**
+ * Benefit cards for a plan. Nested `employeePortalPreview.previewData.benefits` wins
+ * over the legacy root-level `benefits` array.
+ */
+export function getBenefitsArrayFromPortalPreview(clientData: any): any[] {
   const ep = clientData?.employeePortalPreview;
   if (!ep || typeof ep !== "object") return [];
   const previewData =

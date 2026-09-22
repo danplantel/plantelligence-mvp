@@ -104,38 +104,51 @@ export function TeamSizeSection({
   }
 
   const content = (
-    <RadioGroup
-      value={selectedSize || ""}
-      className="grid gap-2"
-      data-field="teamSize"
-    >
-      {teamSizeOptions.map((option) => (
-        <div
-          key={option.value}
-          className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-            selectedSize === option.value
-              ? "border-primary bg-[#23919C]/10"
-              : "hover:bg-muted/50"
-          }`}
-          onClick={() => onSizeSelect(option.value)}
-        >
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value={option.value} id={`team-${option.value}`} />
-            <div>
-              <Label
-                htmlFor={`team-${option.value}`}
-                className="cursor-pointer font-medium"
-              >
-                <p className="text-sm font-medium">{option.label}</p>
-              </Label>
-              <div className="text-xs text-muted-foreground">
-                {option.description}
+    <>
+      <RadioGroup
+        value={selectedSize || ""}
+        className="grid gap-2"
+        data-field="teamSize"
+      >
+        {teamSizeOptions.map((option) => (
+          <div
+            key={option.value}
+            className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+              selectedSize === option.value
+                ? `border-primary bg-[#23919C]/10 ${
+                    errorFields.includes("teamSize")
+                      ? "ring-1 ring-red-500"
+                      : ""
+                  }`
+                : errorFields.includes("teamSize")
+                  ? "border-red-500 hover:bg-muted/50"
+                  : "hover:bg-muted/50"
+            }`}
+            onClick={() => onSizeSelect(option.value)}
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value={option.value} id={`team-${option.value}`} />
+              <div>
+                <Label
+                  htmlFor={`team-${option.value}`}
+                  className="cursor-pointer font-medium"
+                >
+                  <p className="text-sm font-medium">{option.label}</p>
+                </Label>
+                <div className="text-xs text-muted-foreground">
+                  {option.description}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      ))}
-    </RadioGroup>
+        ))}
+      </RadioGroup>
+      {errorFields.includes("teamSize") && (
+        <p className="text-xs text-red-500 dark:text-red-400 mt-1">
+          Please select a team size
+        </p>
+      )}
+    </>
   );
 
   if (hideCard) {

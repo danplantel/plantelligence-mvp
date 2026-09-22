@@ -12,6 +12,7 @@ import { PortalMaterialsHero } from "@/components/pages/client-portal/sections/p
 import {
   RetirementJourneySection,
 } from "@/components/pages/client-portal/sections/retirement-journey-section";
+import { BenefitsHubWebinarsSection } from "@/components/pages/client-portal/sections/benefits-hub-webinars-section";
 import { HowCanWeHelpSection } from "@/components/pages/client-portal/sections/how-can-we-help-section";
 import {
   RetirementDocumentsAccordion,
@@ -190,6 +191,13 @@ export default function LifeInsurancePage() {
           description={(benefitData as any)?.journeyBodyText || "Protect what matters most. Our life insurance resources help you understand your coverage options and ensure your loved ones are financially secure, no matter what life brings. Explore term life, whole life, and supplemental coverage tailored to your needs."}
           planVideoUrl={benefitData?.planVideo as string | undefined}
           planVideoFallbackImage={LIFE_INSURANCE_FALLBACK_IMAGE}
+        />
+
+        {/* Videos published to this page from Communications → Webinars. */}
+        <BenefitsHubWebinarsSection
+          placement="life-insurance"
+          brandColor={brandColor}
+          secondaryColor={secondaryColor}
         />
 
         <HowCanWeHelpSection

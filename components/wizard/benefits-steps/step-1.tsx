@@ -33,7 +33,6 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PlanChangeLoadingDialog } from "@/components/ui/plan-change-loading-dialog";
 import {
-  Loader2,
   Activity,
   Coins,
   ShieldCheck,
@@ -77,7 +76,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { SmallVerticalCard } from "@/components/pages/my-benefits-team/small-vertical-card";
@@ -103,6 +101,11 @@ import {
   getBenefitCompleteness,
   normalizeBenefitsCategoryForCompleteness,
 } from "@/lib/benefit-completeness";
+import {
+  BenefitCategoryCard,
+  type BenefitCategoryCardState,
+} from "./benefit-category-card";
+import { categoryToSlug } from "@/lib/benefit-category-slug";
 import { convertToDocumentFormat } from "@/lib/compliance-document-utils";
 import { mergeOnboardingAdvisorContactsIntoKeyContacts } from "@/lib/seed-onboarding-advisor-contacts";
 import { BenefitsDocumentsSection } from "./benefits-documents-section";
@@ -151,7 +154,23 @@ const toCategoryGalleryKey = (
   return null;
 };
 
-export function BenefitsStep1() {
+/** The four benefit categories offered on Step 1. */
+const CATEGORY_CARDS = [
+  { id: "Retirement", label: "Retirement", icon: Coins },
+  { id: "Group Health", label: "Group Health", icon: Activity },
+  { id: "Group Life", label: "Group Life", icon: ShieldCheck },
+  { id: "Custom", label: "Custom", icon: Plus },
+];
+
+export function BenefitsStep1({
+  mode = "wizard",
+}: {
+  /** "edit" renders the Edit Benefit variant: the plan/category picker and every
+   *  accordion except Key Contact are hidden (documents move to their own tab and
+   *  branding/messaging are handled by the editor panel). */
+  mode?: "wizard" | "edit";
+} = {}) {
+  const isEditMode = mode === "edit";
   const { stepData, saveStepData } = useBenefitsWizardStore();
   // Use fetchProfileOnce (single-flight + TTL) so this coalesces with the layout
   // header's profile fetch — one /api/profile request for the whole page.
@@ -160,7 +179,6 @@ export function BenefitsStep1() {
     dedupingInterval: 60_000,
     revalidateOnFocus: false,
   });
-  const userSubdomain: string | undefined = profileData?.subdomain || undefined;
   const accordionRef = useRef<HTMLDivElement>(null);
   const [plans, setPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -176,8 +194,21 @@ export function BenefitsStep1() {
   const [searchTerm, setSearchTerm] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [activeAccordions, setActiveAccordions] = useState<string[]>([]);
-  const [togglingCategories, setTogglingCategories] = useState<Record<string, boolean>>({});
+  // Only the Key Contact accordion is rendered in edit mode, so open it by default.
+  useEffect(() => {
+    if (isEditMode) setActiveAccordions(["contacts"]);
+  }, [isEditMode]);
   const router = useRouter();
+
+  /**
+   * Existing-category guard. Selecting a category that already has a Benefit row
+   * through the wizard would prefill-and-upsert it, so surface the choice instead.
+   */
+  const [overwritePrompt, setOverwritePrompt] = useState<{
+    categoryId: string;
+    label: string;
+  } | null>(null);
+  const deepLinkGuardRef = useRef(false);
   const [draftDialogOpen, setDraftDialogOpen] = useState(false);
   const [draftPlanName, setDraftPlanName] = useState("");
 
@@ -1363,15 +1394,36 @@ export function BenefitsStep1() {
           null)
       : null;
 
-    // Benefit-table row wins; the User profile is the fallback for logo/header only.
-    const savedLogo = benefit?.partnerLogo || userLogo;
+    // A changed Organization Logo (Settings → Branding) is authoritative for this
+    // benefit: it must replace the logo rather than be shadowed by the persisted
+    // Benefit row's `partnerLogo`, which is usually the previous org logo written back
+    // by the step-1 auto-save PUT. Compared against the snapshot stamped on the draft
+    // below, so an UNCHANGED org logo still leaves a deliberately chosen provider logo
+    // alone.
+    const orgLogoChanged =
+      !!userLogo &&
+      userLogo.trim() !== (currentStepData.orgLogoSnapshot ?? "").trim();
+    const applyOrgLogo = orgLogoChanged;
+    // Benefit-table row wins; the User profile is the fallback for logo/header only —
+    // except when the org logo just changed, where it takes precedence.
+    const savedLogo = orgLogoChanged ? userLogo : benefit?.partnerLogo || userLogo;
     const savedDescription = benefit?.shortDescription || "";
     const savedHeaderImage =
       (benefit?.backgroundImage || benefit?.image) || userHeader;
+    // A logo the advisor set or cleared for THIS category in this session wins over
+    // both sources above. Without this the pre-fill re-derived `companyLogo` from the
+    // advisor's profile logo (or nulled it for a category with no Benefit row), so a
+    // freshly saved logo reverted to the previous image mid-edit. An org-logo change
+    // still wins over such an edit — the advisor asked for it to propagate.
+    const logoEditedLocally = (
+      currentStepData.benefitLogoEditedCategories ?? []
+    ).includes(cat);
 
     const next: BenefitsStep1Data = {
       ...currentStepData,
       benefitFieldsLoadedCategories: [...loadedCats, cat],
+      // Record which org logo this draft now reflects, so the NEXT change propagates.
+      orgLogoSnapshot: userLogo ?? currentStepData.orgLogoSnapshot,
     };
 
     // When there is no Benefit row (deleted / never created), clear stale persisted content from
@@ -1384,7 +1436,9 @@ export function BenefitsStep1() {
       // NOTE: contactId (Key Contact selection) is deliberately NOT cleared here — it is
       // managed by the contact-prefill effect / prefillContact, so clearing it on a different
       // render would wipe the pre-selected Primary Contact for every category.
-      next.companyLogo = null;
+      // Keep a logo the advisor just set for this category — clearing it here is what
+      // made a new upload vanish until the category was re-entered.
+      if (!logoEditedLocally && !applyOrgLogo) next.companyLogo = null;
       next.innerHeaderImage = null;
       next.brandImages = {
         header: null,
@@ -1406,7 +1460,7 @@ export function BenefitsStep1() {
     if (savedDescription) {
       next.shortDescription = savedDescription;
     }
-    if (savedLogo) {
+    if (savedLogo && (!logoEditedLocally || applyOrgLogo)) {
       next.companyLogo = {
         url: savedLogo,
         fileName: "logo.png",
@@ -1711,8 +1765,48 @@ export function BenefitsStep1() {
       sections: completeness.sections,
       pendingSectionLabels,
       logo: logo,
+      /** Whether the existing Benefit row is published (defaults true). */
+      isEnabled: existingBenefit?.isEnabled !== false,
     };
   };
+
+  /** "Custom" is stored as "Company / Plan Sponsor" — compare both. */
+  const isCategoryActive = (id: string): boolean => {
+    const stored = (currentStepData.benefitCategory || "").trim();
+    if (id === "Custom") {
+      return stored === "Custom" || stored === "Company / Plan Sponsor";
+    }
+    return stored === id;
+  };
+
+  /** Open the inline editor for an existing benefit. */
+  const openEditBenefit = (dbCategory: string) => {
+    if (!resolvedPlanId) return;
+    router.push(
+      `/edit-benefit/${encodeURIComponent(resolvedPlanId)}/${categoryToSlug(
+        dbCategory,
+      )}`,
+    );
+  };
+
+  // Deep link / resume guard: when the benefits snapshot first loads, if the
+  // already-selected category has a Benefit row, offer Edit-or-Overwrite rather
+  // than silently continuing in the wizard.
+  useEffect(() => {
+    if (deepLinkGuardRef.current) return;
+    if (currentStepData.categoryBenefitByApi === undefined) return;
+    deepLinkGuardRef.current = true;
+    const cat = currentStepData.benefitCategory;
+    if (!cat) return;
+    const dbCat = cat === "Custom" ? "Company / Plan Sponsor" : cat;
+    const row = currentStepData.categoryBenefitByApi[normalizeApiCategory(dbCat)];
+    if (!row) return;
+    setOverwritePrompt({
+      categoryId: cat,
+      label: CATEGORY_CARDS.find((c) => c.id === cat)?.label ?? cat,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStepData.categoryBenefitByApi, currentStepData.benefitCategory]);
 
   const handleCreateContact = (category: BenefitsCategory) => {
     setModalCategory(category);
@@ -2265,6 +2359,16 @@ export function BenefitsStep1() {
           null)
       : null;
 
+    // A changed Organization Logo (Settings → Branding) replaces this benefit's logo
+    // rather than being shadowed by the persisted row's `partnerLogo`, which normally
+    // holds the PREVIOUS org logo written back by this page's auto-save.
+    const orgLogoChanged =
+      !!userLogo &&
+      userLogo.trim() !== (currentStepData.orgLogoSnapshot ?? "").trim();
+    const nextLogo = orgLogoChanged
+      ? userLogo
+      : existingBenefit?.partnerLogo || userLogo;
+
     // Build a clean per-category state: every benefit-scoped field comes from the selected
     // category's OWN Benefit row (or is reset), so switching categories never carries over
     // another category's title/copy/images/journey/insurance/signature/video/help cards/hero
@@ -2278,9 +2382,12 @@ export function BenefitsStep1() {
       planVideo: existingBenefit?.planVideo || undefined,
       planVideoFileName: existingBenefit?.planVideoFileName || undefined,
       planVideoRemoved: false,
-      companyLogo: (existingBenefit?.partnerLogo || userLogo)
+      // Remember the org logo this draft was built from so a later change in Settings
+      // is detected here instead of only on a fresh mount.
+      orgLogoSnapshot: userLogo ?? currentStepData.orgLogoSnapshot,
+      companyLogo: nextLogo
         ? ({
-            url: existingBenefit?.partnerLogo || userLogo,
+            url: nextLogo,
             fileName: "logo.png",
             fileSize: 0,
             width: 0,
@@ -2457,10 +2564,67 @@ export function BenefitsStep1() {
     }
   };
 
+  /**
+   * Merge a locally edited benefit-scoped field into the two derived sources the
+   * wizard reads back later:
+   *
+   * 1. `benefitLogoEditedCategories` — marks the logo of THIS category as locally
+   *    authoritative, so the Benefit-row pre-fill effect (see "Load persisted
+   *    Benefit Logo (partnerLogo)..." above) stops re-deriving `companyLogo` from
+   *    the persisted row / the advisor's profile logo. That effect also nulls the
+   *    logo outright for a category with no Benefit row yet, so without this the
+   *    preview kept showing the previous logo until the category was re-entered.
+   * 2. `categoryBenefitByApi` — the read-once Benefit-table snapshot that
+   *    `handleCategoryChange` rebuilds every benefit-scoped field from. It is
+   *    fetched once per plan and never invalidated after a save, so leaving the
+   *    category and coming back re-read the pre-save logo.
+   *
+   * Only EXISTING snapshot rows are touched: inventing a row here would flip
+   * `getCategoryStatus().exists` and the Completeness badges for a category that
+   * has no Benefit record yet.
+   */
+  const withLocalBenefitEdit = (
+    patch: Partial<BenefitsStep1Data>,
+  ): Partial<BenefitsStep1Data> => {
+    const cat = currentStepData.benefitCategory || "";
+    const apiCat = normalizeApiCategory(
+      cat === "Custom" ? "Company / Plan Sponsor" : cat,
+    );
+    const touchesLogo = "companyLogo" in patch;
+    const logoCats = currentStepData.benefitLogoEditedCategories ?? [];
+    const benefitLogoEditedCategories =
+      touchesLogo && cat.length > 0 && !logoCats.includes(cat)
+        ? [...logoCats, cat]
+        : logoCats;
+
+    const rowPatch: Record<string, unknown> = {};
+    if (touchesLogo) {
+      rowPatch.partnerLogo = patch.companyLogo?.url ?? null;
+    }
+    if ("brandImages" in patch) {
+      rowPatch.backgroundImage = patch.brandImages?.header?.url ?? null;
+    }
+
+    const existingRow = apiCat
+      ? currentStepData.categoryBenefitByApi?.[apiCat]
+      : undefined;
+    const categoryBenefitByApi =
+      existingRow && Object.keys(rowPatch).length > 0
+        ? {
+            ...currentStepData.categoryBenefitByApi,
+            [apiCat]: { ...existingRow, ...rowPatch },
+          }
+        : currentStepData.categoryBenefitByApi;
+
+    return { ...patch, benefitLogoEditedCategories, categoryBenefitByApi };
+  };
+
   const handleLogoChange = (imageData: BrandImageData) => {
     saveStepData(1, {
       ...currentStepData,
-      companyLogo: convertBrandImageToLogo(imageData),
+      ...withLocalBenefitEdit({
+        companyLogo: convertBrandImageToLogo(imageData),
+      }),
     });
   };
 
@@ -2469,10 +2633,12 @@ export function BenefitsStep1() {
   const handleBrandImagesChange = (brandImages: BrandImagesData) => {
     saveStepData(1, {
       ...currentStepData,
-      brandImages: {
-        ...brandImages,
-        header: brandImages.header ?? null,
-      },
+      ...withLocalBenefitEdit({
+        brandImages: {
+          ...brandImages,
+          header: brandImages.header ?? null,
+        },
+      }),
     });
   };
 
@@ -2549,6 +2715,7 @@ export function BenefitsStep1() {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full mx-auto pb-20">
       {/* 1. Plan & Benefit Selection */}
+      {!isEditMode && (
       <Card className="border border-gray-200 shadow-sm bg-card dark:bg-gray-800 dark:border-gray-700">
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
@@ -2570,10 +2737,7 @@ export function BenefitsStep1() {
                   const plan = plans.find((p: any) => p.id === resolvedPlanId);
                   const slug = (plan as any)?.slug;
                   const resolvedSlug = slug || resolvedPlanId;
-                  const url = getBenefitsHubOpenPortalUrl(
-                    resolvedSlug,
-                    userSubdomain,
-                  );
+                  const url = getBenefitsHubOpenPortalUrl(resolvedSlug);
                   window.open(url, "_blank");
                 }}
                 className="gap-1.5 shrink-0 bg-accent-blue text-white hover:bg-accent-blue/90"
@@ -2771,87 +2935,74 @@ export function BenefitsStep1() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {(() => {
-                    const categoryConfigs = [
-                      { id: "Retirement", label: "Retirement", icon: Coins },
-                      { id: "Group Health", label: "Group Health", icon: Activity },
-                      { id: "Group Life", label: "Group Life", icon: ShieldCheck },
-                      { id: "Custom", label: "Custom", icon: Plus },
-                    ];
+                  {CATEGORY_CARDS.map((cat) => {
+                    const status = getCategoryStatus(cat.id);
+                    const exists = !!status?.exists;
+                    const complete = !!status?.isComplete;
+                    const state: BenefitCategoryCardState = !exists
+                      ? "not-created"
+                      : complete
+                        ? status!.isEnabled
+                          ? "published"
+                          : "hidden"
+                        : "draft";
+                    // "Custom" is stored (and deep-linked) as "Company / Plan Sponsor".
+                    const dbCategory =
+                      cat.id === "Custom" ? "Company / Plan Sponsor" : cat.id;
 
-                    return categoryConfigs.map((cat) => {
-                      const status = getCategoryStatus(cat.id);
-                      // "Custom" is stored (and deep-linked) as
-                      // "Company / Plan Sponsor", so normalize before comparing
-                      // to keep the active state lit after the user selects it.
-                      const isCategoryActive = (id: string): boolean => {
-                        const stored = (
-                          currentStepData.benefitCategory || ""
-                        ).trim();
-                        if (id === "Custom") {
-                          return (
-                            stored === "Custom" ||
-                            stored === "Company / Plan Sponsor"
-                          );
+                    const editAction = () => openEditBenefit(dbCategory);
+                    const wizardAction = () => handleCategoryChange(cat.id);
+
+                    return (
+                      <BenefitCategoryCard
+                        key={cat.id}
+                        label={cat.label}
+                        icon={cat.icon}
+                        state={state}
+                        isSelected={isCategoryActive(cat.id)}
+                        missingCount={status?.missing?.length ?? 0}
+                        missingSections={status?.pendingSectionLabels ?? []}
+                        logo={status?.logo ?? null}
+                        primary={
+                          !exists
+                            ? {
+                                label: "Create benefit",
+                                icon: "create",
+                                onClick: wizardAction,
+                              }
+                            : complete
+                              ? {
+                                  label: "Edit benefit",
+                                  icon: "edit",
+                                  onClick: editAction,
+                                }
+                              : {
+                                  label: "Finish setup",
+                                  icon: "sparkles",
+                                  onClick: wizardAction,
+                                }
                         }
-                        return stored === id;
-                      };
-                      const isSelected = isCategoryActive(cat.id);
-
-                      return (
-                        <button
-                          key={cat.id}
-                          onClick={() => handleCategoryChange(cat.id)}
-                          className={cn(
-                            "relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-200 text-left",
-                            isSelected
-                              ? "border-[#23919C] bg-[#23919C]/5 shadow-sm"
-                              : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500",
-                          )}
-                        >
-                          {/* Checkmark badge when selected */}
-                          {isSelected && (
-                            <div className="absolute top-2 right-2 size-5 bg-[#23919C] rounded-full flex items-center justify-center">
-                              <CheckCircle2 className="size-3.5 text-white" />
-                            </div>
-                          )}
-
-                          {/* Icon */}
-                          <div
-                            className={cn(
-                              "size-12 rounded-full flex items-center justify-center transition-colors",
-                              isSelected
-                                ? "bg-[#23919C]/10 text-[#23919C]"
-                                : "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400",
-                            )}
-                          >
-                            <cat.icon className="size-6" />
-                          </div>
-
-                          {/* Label */}
-                          <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                            {cat.label}
-                          </span>
-
-                          {/* Status badge */}
-                          {status ? (
-                            status.isComplete ? (
-                              <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none text-[10px] font-medium">
-                                Complete
-                              </Badge>
-                            ) : (
-                              <Badge
-                                variant="outline"
-                                className="text-amber-600 border-amber-200 bg-amber-50 text-[10px] font-medium"
-                              >
-                                {status.missing?.length || 0} missing
-                              </Badge>
-                            )
-                          ) : null}
-                        </button>
-                      );
-                    });
-                  })()}
+                        secondary={
+                          !exists
+                            ? undefined
+                            : complete
+                              ? {
+                                  label: "Overwrite in wizard",
+                                  onClick: () =>
+                                    setOverwritePrompt({
+                                      categoryId: cat.id,
+                                      label: cat.label,
+                                    }),
+                                }
+                              : {
+                                  label: "Edit",
+                                  icon: "edit",
+                                  onClick: editAction,
+                                }
+                        }
+                      />
+                    );
+                  })}
                 </div>
               )}
 
@@ -2888,145 +3039,12 @@ export function BenefitsStep1() {
                 </div>
               )}
 
-              {/* Publish/Hide toggle for each benefit category */}
-              <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
-                <Label className="text-sm font-semibold text-gray-700 dark:text-gray-100 mb-3 block">
-                  Portal Visibility
-                </Label>
-                <p className="text-xs text-muted-foreground mb-4">
-                  Published benefits appear on the Benefits Hub. Hidden benefits remain editable as drafts.
-                </p>
-
-                {planLoading ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                    {["Retirement", "Group Health", "Group Life", "Custom"].map((cat) => (
-                      <div
-                        key={cat}
-                        className="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800"
-                      >
-                        <Skeleton className="h-4 w-24" />
-                        <div className="flex items-center gap-2">
-                          <Skeleton className="h-5 w-9 rounded-full" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                    {["Retirement", "Group Health", "Group Life", "Custom"].map((cat) => {
-                      const visibility = currentStepData.benefitVisibility ?? {};
-                      // Draft plans default every hub to Hidden; an explicitly persisted
-                      // `true` (from a publish toggle) is still honored so publishing works.
-                      const isPublished =
-                        isSelectedPlanDraft && visibility[cat] !== true
-                          ? false
-                          : visibility[cat] !== false;
-                      const isToggling = togglingCategories[cat] === true;
-                      return (
-                        <div
-                          key={cat}
-                          className="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800"
-                        >
-                          <span className="text-xs font-medium text-gray-700 dark:text-gray-100 shrink-0 whitespace-nowrap">{cat}</span>
-                          <div className="flex items-center gap-2 shrink-0">
-                            {isToggling ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-                            ) : (
-                              <span className={`text-[11px] font-semibold ${isPublished ? "text-green-600" : "text-gray-400"}`}>
-                                {isPublished ? "Published" : "Hidden"}
-                              </span>
-                            )}
-                            <Switch
-                              checked={isPublished}
-                              disabled={isToggling}
-                              onCheckedChange={async (checked) => {
-                                // Optimistic local update
-                                setTogglingCategories((prev) => ({ ...prev, [cat]: true }));
-                                saveStepData(1, {
-                                  ...currentStepData,
-                                  benefitVisibility: {
-                                    ...(currentStepData.benefitVisibility ?? {}),
-                                    [cat]: checked,
-                                  },
-                                });
-
-                                try {
-                                  // Persist to backend immediately — both client-level
-                                  // categoryPortalVisibility and the per-benefit isEnabled
-                                  // flag, so the portal reflects the toggle without delay.
-                                  const newVisibility = {
-                                    ...(currentStepData.benefitVisibility ?? {}),
-                                    [cat]: checked,
-                                  };
-                                  const categoryPortalVisibility: Record<string, boolean> = {
-                                    Retirement: newVisibility["Retirement"] !== false,
-                                    "Group Health": newVisibility["Group Health"] !== false,
-                                    "Group Life": newVisibility["Group Life"] !== false,
-                                    Other: newVisibility["Custom"] !== false,
-                                  };
-
-                                  const clientPromise = fetch(`/api/clients/${currentStepData.planId}`, {
-                                    method: "PUT",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ categoryPortalVisibility }),
-                                  });
-
-                                  const benefitCategory =
-                                    cat === "Custom" ? "Company / Plan Sponsor" : cat;
-                                  const benefitPromise = fetch(
-                                    `/api/clients/${currentStepData.planId}/benefits/${encodeURIComponent(benefitCategory)}`,
-                                    {
-                                      method: "PUT",
-                                      headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({ isEnabled: checked }),
-                                    },
-                                  );
-
-                                  const [clientRes, benefitRes] = await Promise.all([
-                                    clientPromise,
-                                    benefitPromise,
-                                  ]);
-
-                                  if (!clientRes.ok) throw new Error("Failed to save client visibility");
-                                  // isEnabled benefit write is non-blocking; log a warning if it fails
-                                  if (!benefitRes.ok) {
-                                    console.warn(
-                                      "Benefit isEnabled save returned",
-                                      benefitRes.status,
-                                    );
-                                  }
-
-                                  const label = cat === "Custom" ? "Custom benefit" : `${cat} benefit`;
-                                  if (checked) {
-                                    toast.success(`${label} published`, {
-                                      description: `The ${label} is now visible on the Benefits Hub.`,
-                                    });
-                                  } else {
-                                    toast.success(`${label} hidden`, {
-                                      description: `The ${label} is now hidden on the Benefits Hub.`,
-                                    });
-                                  }
-                                } catch (error) {
-                                  console.error("Error saving visibility:", error);
-                                  toast.error("Failed to save visibility", {
-                                    description: "Please try again.",
-                                  });
-                                } finally {
-                                  setTogglingCategories((prev) => ({ ...prev, [cat]: false }));
-                                }
-                              }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+              {/* Portal Visibility moved to the Browse Benefits page (/benefits). */}
             </div>
           )}
         </CardContent>
       </Card>
+      )}
       {resolvedPlanId && currentStepData.benefitCategory && (
         <div
           ref={accordionRef}
@@ -3039,6 +3057,7 @@ export function BenefitsStep1() {
             className="space-y-4"
           >
             {/* 1. Branding Section */}
+            {!isEditMode && (
             <AccordionItem
               value="branding"
               className="border-none shadow-md overflow-hidden bg-card rounded-xl"
@@ -3104,12 +3123,15 @@ export function BenefitsStep1() {
                         onImageRemove={() =>
                           saveStepData(1, {
                             ...currentStepData,
-                            companyLogo: null,
+                            ...withLocalBenefitEdit({ companyLogo: null }),
                           })
                         }
                         hideButtons={true}
                         useUniversalModal={true}
                         universalModalType="normalizer"
+                        // Benefit / provider logo — opt in explicitly.
+                        universalModalAllowBackgroundRemoval={true}
+                        universalModalNormalizeLogoForHeader={true}
                         maxFileSize={10}
                       />
                     </CardContent>
@@ -3150,8 +3172,10 @@ export function BenefitsStep1() {
                 </div>
               </AccordionContent>
             </AccordionItem>
+            )}
 
             {/* 2. Messaging Section */}
+            {!isEditMode && (
             <AccordionItem
               value="messaging"
               className="border-none shadow-md overflow-hidden bg-card rounded-xl"
@@ -3368,6 +3392,7 @@ export function BenefitsStep1() {
                 </div>
               </AccordionContent>
             </AccordionItem>
+            )}
 
             {/* 3. Key Contact Section */}
             <AccordionItem
@@ -3538,6 +3563,10 @@ export function BenefitsStep1() {
                         hideButtons={true}
                         useUniversalModal={true}
                         universalModalType="headshot"
+                        // Headshots must never offer background removal. The
+                        // `headshot` type already excludes it; this makes the
+                        // guarantee explicit at the call site.
+                        universalModalAllowBackgroundRemoval={false}
                         maxFileSize={5}
                       />
                     </div>
@@ -3565,6 +3594,7 @@ export function BenefitsStep1() {
                   )}
                 </div>
 
+                {!isEditMode && (
                 <div className="flex justify-end pt-4 border-t border-gray-100 dark:border-gray-700">
                   <Button
                     onClick={() => handleContinue("documents")}
@@ -3573,10 +3603,12 @@ export function BenefitsStep1() {
                     CONTINUE TO DOCUMENTS
                   </Button>
                 </div>
+                )}
               </AccordionContent>
             </AccordionItem>
 
             {/* 4. Documents Section */}
+            {!isEditMode && (
             <AccordionItem
               value="documents"
               className="border-none shadow-md overflow-hidden bg-card rounded-xl"
@@ -3628,9 +3660,66 @@ export function BenefitsStep1() {
                 />
               </AccordionContent>
             </AccordionItem>
+            )}
           </Accordion>
         </div>
       )}
+
+      {/* Existing-benefit guard: taking a category that already has a Benefit row
+          through the wizard would prefill-and-upsert it, so make the choice explicit. */}
+      <Dialog
+        open={overwritePrompt !== null}
+        onOpenChange={(open) => {
+          if (!open) setOverwritePrompt(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {overwritePrompt?.label} benefits already exist
+            </DialogTitle>
+            <DialogDescription>
+              This plan already has a {overwritePrompt?.label} benefit. Edit it
+              directly, or continue here to set it up again from scratch.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col gap-2 sm:flex-col">
+            <Button
+              className="w-full"
+              onClick={() => {
+                const target = overwritePrompt;
+                setOverwritePrompt(null);
+                if (!target) return;
+                openEditBenefit(
+                  target.categoryId === "Custom"
+                    ? "Company / Plan Sponsor"
+                    : target.categoryId,
+                );
+              }}
+            >
+              Edit existing benefit
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                const target = overwritePrompt;
+                setOverwritePrompt(null);
+                if (target) handleCategoryChange(target.categoryId);
+              }}
+            >
+              Overwrite in wizard
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full"
+              onClick={() => setOverwritePrompt(null)}
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isFormDialogOpen} onOpenChange={setIsFormDialogOpen}>
         <DialogContent className="sm:max-w-2xl lg:max-w-4xl max-h-[90vh] overflow-y-auto">

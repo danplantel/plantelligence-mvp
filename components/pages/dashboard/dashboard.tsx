@@ -1,17 +1,22 @@
 "use client";
 
 import { Card, CardContent } from "@/components/ui/card";
+import { QuickInsights } from "@/components/ui/quick-insights";
 import { QuickActions } from "@/components/ui/quick-actions";
-import { DashboardPanels } from "@/components/ui/dashboard-panels";
 import { ResetOnboardingButton } from "@/components/ui/reset-onboarding-button";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { useEffect, useMemo, useState } from "react";
 import { Headshot } from "@/components/ui/headshot";
 import { BrandingImage } from "@/components/ui/branding-image";
 import useSWR from "swr";
+import { ActivePlansPanel } from "./active-plans-panel";
+import { MeetingsThisWeekPanel } from "./meetings-this-week-panel";
+import { NeedsAttentionPanel } from "./needs-attention-panel";
+import { RecentActivity } from "./recent-activity";
+import { TasksAndMeetings } from "./tasks-and-meetings";
 import {
-  demoStats as defaultDemoStats,
   quickActions,
+  quickInsights as defaultQuickInsights,
   userInfo as defaultUserInfo,
 } from "./dashboard.funcs";
 import { resolveBrandingImageUrl } from "@/lib/branding-image-url";
@@ -74,115 +79,108 @@ export function Dashboard() {
     return () => { cancelled = true; };
   }, [userInfo.rawAvatar]);
 
-  const demoStats = useMemo(() => {
+  // Quick Insights — overlay live counts onto the tile definitions.
+  // Tiles with no `statsKey` have no backing query yet and keep their placeholder value.
+  // Live-backed tiles fall back to an em dash rather than a fabricated number, so a failed
+  // or partial stats response can never render a misleading count.
+  const quickInsightItems = useMemo(() => {
     const stats = statsData?.data;
-    if (!stats) return defaultDemoStats;
-    const filtered = defaultDemoStats.filter((stat) => {
-      switch (stat.title) {
-        case "Active Plans": return stats.activePlans > 0;
-        case "Upcoming Meetings": return stats.upcomingMeetings > 0;
-        default: return true;
-      }
-    });
-    return filtered.map((stat) => {
-      switch (stat.title) {
-        case "Active Plans": return { ...stat, value: stats.activePlans };
-        case "Upcoming Meetings": return { ...stat, value: stats.upcomingMeetings };
-        default: return stat;
-      }
+    return defaultQuickInsights.map((insight) => {
+      if (!insight.statsKey) return insight;
+      const liveValue = stats?.[insight.statsKey];
+      return {
+        ...insight,
+        value:
+          typeof liveValue === "number" ? liveValue : (insight.value ?? "—"),
+      };
     });
   }, [statsData]);
 
   return (
-    <div className="p-6">
-      <div className="w-full space-y-6 max-w-4xl mx-auto">
-      <Card className="px-6 py-[30px] dark:bg-gray-800 dark:border-gray-700">
-        <CardContent className="flex justify-between items-center gap-4 p-0">
-          <div className="flex items-center gap-4">
-            {isLoadingUserInfo ? (
-              <div className="flex items-center gap-4">
-                {/* Logo skeleton */}
-                <div className="animate-pulse">
-                  <div className="w-[120px] h-[80px] bg-gray-200 dark:bg-gray-700 rounded"></div>
-                </div>
+    <div className="px-6">
+      <div className="w-full space-y-6 max-w-7xl mx-auto">
 
-                {/* Avatar skeleton */}
-                <div className="animate-pulse">
-                  <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
-                </div>
-
-                {/* Text skeleton */}
-                <div className="animate-pulse space-y-2">
-                  <div className="w-48 h-6 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                  <div className="w-24 h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
+      {/* User Info */}
+      <Card className="px-5 mt-4 bg-transparent">
+        <CardContent className="flex items-center justify-between gap-4 p-0">
+          {isLoadingUserInfo ? (
+            <>
+              {/* Identity skeleton: avatar + greeting lines (left) */}
+              <div className="flex min-w-0 flex-1 items-center gap-4">
+                <div className="size-16 flex-shrink-0 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="h-6 w-48 max-w-full animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
+                  <div className="h-4 w-24 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
                 </div>
               </div>
-            ) : (
-              <>
-                {userInfo.logo && (
-                  <div className="w-[120px] h-[80px] flex items-center justify-center overflow-hidden rounded dark:bg-gray-800/50">
-                    <BrandingImage
-                      src={userInfo.logo}
-                      alt="Logo"
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-                )}
-                <section className="flex gap-4 items-center">
-                  <div className="size-16 rounded-full overflow-hidden flex-shrink-0 border border-border dark:border-gray-600">
-                    <Headshot
-                      src={resolvedAvatar || userInfo.rawAvatar || undefined}
-                      monogramName={userInfo.name}
-                      alt="Avatar"
-                    />
-                  </div>
-                  <section>
-                    <h4 className="text-xl font-semibold dark:text-gray-100">
-                      Welcome back, {userInfo.name}!
-                    </h4>
-                    <p className="text-sm text-muted-foreground font-regular">
-                      {userInfo.title || "Advisor"}
-                    </p>
-                  </section>
-                </section>
-              </>
-            )}
-          </div>
 
-          {/* <div className="flex gap-4">
-            {isLoadingStats ? (
-              <div className="flex gap-4">
-                {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="animate-pulse">
-                    <div className="flex gap-2">
-                      <div className="w-6 h-6 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                      <div className="w-8 h-6 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                    </div>
-                    <div className="w-20 h-4 bg-gray-200 dark:bg-gray-700 rounded mt-1"></div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              demoStats.map((stat) => (
-                <section key={stat.title}>
-                  <section
-                    className={`flex gap-2 font-semibold text-xl ${stat.color}`}
-                  >
-                    <stat.icon />
-                    {stat.value}
-                  </section>
-                  <p className="text-sm text-muted-foreground font-normal">
-                    {stat.title}
+              {/* Logo skeleton (right) */}
+              <div className="h-[104px] w-[156px] flex-shrink-0 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
+            </>
+          ) : (
+            <>
+              {/* Identity: avatar + greeting — flush left */}
+              <div className="flex min-w-0 flex-1 items-center gap-4 text-left">
+                <div className="size-16 flex-shrink-0 overflow-hidden rounded-full border border-border dark:border-gray-600">
+                  <Headshot
+                    src={resolvedAvatar || userInfo.rawAvatar || undefined}
+                    monogramName={userInfo.name}
+                    alt="Avatar"
+                  />
+                </div>
+                <div className="min-w-0 text-left">
+                  <h4 className="truncate text-xl font-semibold dark:text-gray-100">
+                    Welcome back, {userInfo.name}!
+                  </h4>
+                  <p className="truncate text-sm font-normal text-muted-foreground">
+                    {userInfo.title || "Advisor"}
                   </p>
-                </section>
-              ))
-            )}
-          </div> */}
+                </div>
+              </div>
+
+              {/* Advisor branding logo — flush right */}
+              {userInfo.logo && (
+                <div className="ml-auto flex h-[104px] w-[156px] flex-shrink-0 items-center justify-center overflow-hidden rounded">
+                  <BrandingImage
+                    src={userInfo.logo}
+                    alt="Logo"
+                    className="h-full w-full object-contain"
+                  />
+                </div>
+              )}
+            </>
+          )}
         </CardContent>
       </Card>
 
+      {/* Quick Actions */}
       <QuickActions actions={quickActions} />
-      <DashboardPanels />
+      
+      {/* Quick Insights */}
+      <QuickInsights
+        insights={quickInsightItems}
+        isLoading={isLoadingStats}
+        renderDetail={(insight) => {
+          switch (insight.id) {
+            case "active-plans":
+              return <ActivePlansPanel />;
+            case "meetings-this-week":
+              return <MeetingsThisWeekPanel />;
+            case "needs-attention":
+              return <NeedsAttentionPanel />;
+            default:
+              return null;
+          }
+        }}
+      />
+
+      {/* Tasks & Meetings */}
+      <TasksAndMeetings />
+
+      {/* Recent Activity */}
+      <RecentActivity />
+
+
       </div>
     </div>
   );

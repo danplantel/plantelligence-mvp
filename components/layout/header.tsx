@@ -1,8 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-// Notifications UI — hidden for now; will be re-added later.
-// import { DocumentExpirationNotifications } from "./document-expiration-notifications";
+import { NotificationsMenu } from "./notifications-menu";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { useEffect, useState, type ReactNode } from "react";
 import { useTheme } from "next-themes";
@@ -102,6 +101,15 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
       ? title.slice(companySeparatorIndex + TITLE_COMPANY_SEPARATOR.length)
       : "";
 
+  // While the editing panel is open the stepper is rendered in the
+  // absolutely-positioned overlay below, so it must NOT also occupy an in-flow
+  // column — a full-width placeholder in that column is what consumed the whole
+  // row and squeezed the right-hand actions.
+  const stepperFloats = !!stepper && editorOpen;
+  // The centre column only owns space when it actually renders something: the
+  // in-flow stepper (editor closed) or portaled page-level tabs.
+  const centerOwnsSpace = stepper ? !stepperFloats : portalHasContent;
+
   return (
     <div className="fixed top-0 left-0 right-0 z-50 bg-background border-b border-border">
       {/* When the Editing Panel is open, align the Stepper to the start of the
@@ -174,36 +182,50 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
             so it stays inside the <Tabs> React context while rendering in the header.
             A stepper is kept at its natural (compact) width so the left title area
             gets the leftover space; flex-[3] is only used for the tabs portal so
-            tabs stay on one line. */}
+            tabs stay on one line.
+
+            When the editing panel is open the stepper is rendered in the
+            absolutely-positioned overlay above, so this column holds nothing and
+            just passes slack through. */}
         <div
           className={cn(
             "flex min-w-0",
-            stepper
-              ? "justify-center flex-shrink-0"
-              : portalHasContent
-                ? editorOpen
-                  ? "flex-1 justify-start"
-                  : "flex-[3] justify-center"
-                : "justify-center flex-shrink-0",
+            stepperFloats
+              ? "flex-1"
+              : stepper
+                ? "justify-center flex-shrink-0"
+                : portalHasContent
+                  ? editorOpen
+                    ? "flex-1 justify-start"
+                    : "flex-[3] justify-center"
+                  : "justify-center flex-shrink-0",
           )}
         >
-          {stepper && !editorOpen ? stepper : <div id="header-tabs-portal" className="w-full" />}
+          {stepperFloats ? null : stepper ? (
+            stepper
+          ) : (
+            <div id="header-tabs-portal" className="w-full" />
+          )}
         </div>
 
-        {/* Right: Actions */}
+        {/* Right: Actions — always hard against the right edge and never
+            compressed narrower than its own content. Without `min-w-fit` a
+            squeezed right group overflows to the left (flex + justify-end spills
+            toward the start), which is what pushed the Light/Dark toggle and
+            UserNav over the stepper. */}
         <div
           className={cn(
             "flex items-center justify-end gap-2 min-w-0",
-            editorOpen && portalHasContent ? "flex-none" : "flex-[1]",
+            centerOwnsSpace
+              ? editorOpen && portalHasContent
+                ? "flex-none"
+                : "flex-[1] min-w-fit"
+              : "flex-none ml-auto shrink-0",
           )}
         >
-          {/* Notifications UI — hidden for now; will be re-added later. */}
-          {/* <DocumentExpirationNotifications /> */}
-          {/* Collapse the user menu to just the avatar while the Editing Panel is
-              open so its name can never overlap the Light/Dark toggle. */}
-          <div className="min-w-0">
-            <UserNav compact={editorOpen} />
-          </div>
+          <NotificationsMenu />
+          {/* Light/Dark toggle sits immediately beside the notifications bell — both
+              are compact icon buttons, so they read as a single control cluster. */}
           {mounted && (
             <Button
               variant="ghost"
@@ -219,6 +241,11 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
               )}
             </Button>
           )}
+          {/* Collapse the user menu to just the avatar while the Editing Panel is
+              open so its name can never overlap the Light/Dark toggle. */}
+          <div className="min-w-0">
+            <UserNav compact={editorOpen} />
+          </div>
         </div>
       </nav>
 

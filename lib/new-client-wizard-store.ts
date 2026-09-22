@@ -45,6 +45,50 @@ export const getCompanyBasicsSubStep = (
   return "branding";
 };
 
+/**
+ * Resume helper for `loadDraftById`.
+ *
+ * A draft's Step 1 Portal URL is not stored on the Client row — it lives on the
+ * wizard session's `companyBasics` (see `portalUrl` in `NewClientCompanyBasics`).
+ * Loading the draft straight from `/api/clients/[id]` therefore lost the slug and
+ * the field rendered empty, so a resumed draft published under an auto-derived
+ * URL instead of the one the advisor chose.
+ *
+ * The active session's company basics are fetched and merged in, guarded on the
+ * company name so an unrelated/stale session can never overwrite the draft's URL.
+ */
+async function mergeSessionCompanyBasicsIntoStepData(
+  stepData: any,
+  companyName?: string,
+): Promise<void> {
+  if (!stepData?.companyBasics) return;
+  const targetName = (companyName || "").trim().toLowerCase();
+  try {
+    const response = await fetch("/api/new-client-wizard/company-basics");
+    if (!response.ok) return;
+    const json = await response.json();
+    const sessionBasics = json?.data;
+    if (!sessionBasics) return;
+
+    // Only trust a session that describes the same company as the draft.
+    const sessionName = String(sessionBasics.companyName || "")
+      .trim()
+      .toLowerCase();
+    if (targetName && sessionName && sessionName !== targetName) return;
+
+    if (!stepData.companyBasics.portalUrl && sessionBasics.portalUrl) {
+      stepData.companyBasics.portalUrl = sessionBasics.portalUrl;
+    }
+    // Same reason for the plan type (Client vs. Prospect), which only the
+    // session record carries.
+    if (!stepData.companyBasics.planType && sessionBasics.planType) {
+      stepData.companyBasics.planType = sessionBasics.planType;
+    }
+  } catch {
+    // Non-blocking: the derived-slug placeholder still renders.
+  }
+}
+
 // Function to focus on first invalid field and scroll to it
 export const focusFirstInvalidField = (errorFields: string[]) => {
   if (!errorFields || errorFields.length === 0) return;
@@ -1426,8 +1470,17 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
           }
 
           if (!anySaveSucceeded) {
-            throw new Error(
-              "Failed to persist wizard data before publishing. Check network connectivity and try again.",
+            // Do NOT abort the publish here.
+            //
+            // These are session-scoped endpoints, so a 404 means "no open wizard
+            // session" (e.g. a previous attempt marked it completed), not a
+            // network problem. Throwing produced the misleading "check network
+            // connectivity and try again" message and hid the real server error.
+            // complete-v2 reads the session records already persisted as the user
+            // moved through the steps, so let it run and surface the true reason
+            // if the publish genuinely cannot proceed.
+            console.warn(
+              "⚠️ completeWizard: no pre-publish step save succeeded — attempting publish anyway so the server can report the real error",
             );
           }
 
@@ -1545,17 +1598,53 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
           });
 
           // Save all current step data to server as draft using the new API
-          const response = await fetch("/api/new-client-wizard/save-draft", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              stepData: cleanedStepData,
-              currentStep,
-              clientId: (get() as any).draftClientId,
-            }),
-          });
+          const postSaveDraft = () =>
+            fetch("/api/new-client-wizard/save-draft", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                stepData: cleanedStepData,
+                currentStep,
+                clientId: (get() as any).draftClientId,
+              }),
+            });
+
+          let response = await postSaveDraft();
+
+          // `/save-draft` needs an ACTIVE (completed: false) wizard session and 404s
+          // with "No active wizard session found" without one. Two flows leave the
+          // user without it: resuming a draft (the resume path loads data but never
+          // opens a session) and returning after a publish (the previous session was
+          // marked completed). The leave-guard's "Save and Exit" then showed that raw
+          // API message as an error toast, so open a session server-side and retry.
+          if (response.status === 404) {
+            const missingSession = await response
+              .clone()
+              .json()
+              .then((body: any) =>
+                /no active wizard session/i.test(String(body?.error || "")),
+              )
+              .catch(() => false);
+
+            if (missingSession) {
+              // Deliberately NOT `createNewSession()`: that helper also resets the
+              // store (stepData / draftClientId / currentStep), which would discard
+              // the very data this save is about to send. Only the server-side
+              // session is created here, then the same payload is retried.
+              const sessionResponse = await fetch(
+                "/api/new-client-wizard/session",
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                },
+              );
+              if (sessionResponse.ok) {
+                response = await postSaveDraft();
+              }
+            }
+          }
 
           const errorData = (await response.json().catch(() => ({}))) as {
             success?: boolean;
@@ -2170,6 +2259,7 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
               companyLogo,
               primaryColor: client.brandColor || "",
               secondaryColor: client.secondaryColor || "",
+              typographyTheme: (client as any).typographyTheme || undefined,
               brandImages: {
                 header: client.backgroundImg
                   ? {
@@ -2364,6 +2454,13 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
               console.error("Error parsing disclaimers from draft:", error);
             }
           }
+
+          // Restore the Step 1 Portal URL (and plan type) from the wizard
+          // session — the Client row has no column for either.
+          await mergeSessionCompanyBasicsIntoStepData(
+            stepData,
+            client.companyName,
+          );
 
           // Load into store
           // Use currentStep from draft if available, otherwise default to step 1

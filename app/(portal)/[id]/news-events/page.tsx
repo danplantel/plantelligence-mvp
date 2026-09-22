@@ -13,15 +13,22 @@ export default function NewsEventsPage() {
   const secondaryColor = clientData?.secondaryColor || "#6B7280";
   const clientId = clientData?.id;
 
-  // Resolve the Secondary Banner image (uploaded in wizard Step 1 → Brand Images)
-  // as the background image for the News & Events header. Falls back to the
-  // default static banner when no custom image has been uploaded.
+  // Background for the News & Events header.
+  //
+  // The "Secondary Banner" Brand Images slot — selected in the Create Plan wizard
+  // or in Edit Client — is this page's header background. When it was never
+  // selected we pass nothing through, so NewsEventsHeader renders its bundled
+  // default (`/news-events-default-bg.webp`).
+  //
+  // Resolved through useBrandingImageUrl because the stored value can be an R2
+  // key (`org/…`) as well as an absolute/data URL; a bare key would otherwise be
+  // requested as the relative path /org/… and 404.
   const { url: resolvedSecondaryBannerUrl } = useBrandingImageUrl(
-    clientData?.secondaryBannerImg ?? null,
+    (clientData?.secondaryBannerImg || "").trim() || null,
   );
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen pb-10 bg-white">
       <main>
         <NewsEventsHeader
           backgroundImage={resolvedSecondaryBannerUrl ?? undefined}
@@ -40,10 +47,10 @@ export default function NewsEventsPage() {
           clientId={clientId}
         />
 
-        <NewsEventsResources
+        {/* <NewsEventsResources
           brandColor={brandColor}
           secondaryColor={secondaryColor}
-        />
+        /> */}
       </main>
     </div>
   );

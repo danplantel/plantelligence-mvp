@@ -161,3 +161,69 @@ export function buildCropMetadata(input: CropMetadataInput): BuiltCropMetadata {
     cropped: true,
   };
 }
+
+export interface LogoExportRectInput {
+  /** Artwork bounding rect on the Fabric canvas, in logical (CSS) px. */
+  artworkBounds: { left: number; top: number; width: number; height: number };
+  canvasWidth: number;
+  canvasHeight: number;
+  /** Uniform padding as a fraction of the artwork's longer side. */
+  outlineRatio: number;
+}
+
+export interface LogoExportRect {
+  /** Source rect on the canvas, in logical px. */
+  sx: number;
+  sy: number;
+  sw: number;
+  sh: number;
+  /** Output size in px — 1:1 with the source rect. */
+  dw: number;
+  dh: number;
+}
+
+/**
+ * Window the exported logo on the artwork itself, with one uniform outline.
+ *
+ * Two properties matter downstream, and both are why this is shared between the
+ * save path and the header preview rather than duplicated:
+ *
+ * - **Tight.** The header fits the stored box into a fixed band with
+ *   `object-contain`, so whatever slack the box carries is paid for by shrinking
+ *   the artwork. A wide wordmark exported into the full safe-zone height used to
+ *   render at a few pixels tall.
+ * - **Artwork-centred.** The previous crop took its *size* from the artwork but
+ *   its *position* from the canvas, so a logo the user had moved sideways was
+ *   cut while still being reported as inside the safe zone.
+ *
+ * The window is clamped to the canvas, so artwork deliberately pushed off the
+ * edge is trimmed — which is the case the editor's outside-safe-zone confirm
+ * already warns about.
+ */
+export function computeLogoExportRect({
+  artworkBounds,
+  canvasWidth,
+  canvasHeight,
+  outlineRatio,
+}: LogoExportRectInput): LogoExportRect {
+  const artW = Math.max(1, artworkBounds.width);
+  const artH = Math.max(1, artworkBounds.height);
+  const outline = Math.max(0, outlineRatio) * Math.max(artW, artH);
+
+  let sw = Math.min(canvasWidth, Math.round(artW + outline * 2));
+  let sh = Math.min(canvasHeight, Math.round(artH + outline * 2));
+
+  const centreX = artworkBounds.left + artW / 2;
+  const centreY = artworkBounds.top + artH / 2;
+
+  let sx = Math.round(centreX - sw / 2);
+  let sy = Math.round(centreY - sh / 2);
+
+  // Clamp the window into the canvas, then re-round so it lands on whole pixels.
+  sx = Math.max(0, Math.min(sx, Math.round(canvasWidth - sw)));
+  sy = Math.max(0, Math.min(sy, Math.round(canvasHeight - sh)));
+  sw = Math.max(1, Math.round(sw));
+  sh = Math.max(1, Math.round(sh));
+
+  return { sx, sy, sw, sh, dw: sw, dh: sh };
+}

@@ -318,6 +318,8 @@ export function CompanyLogoSection({
       {pendingLogoData && (
         <UniversalImageEditorModal
           type="normalizer"
+          // Header logo: export a tight crop so the mark fills the header band.
+          normalizeLogoForHeader
           value={pendingLogoData.url || ""}
           fileName={pendingLogoData.fileName || ""}
           onChange={handleModalSave}

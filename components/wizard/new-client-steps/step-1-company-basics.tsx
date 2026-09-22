@@ -14,6 +14,7 @@ import { isValidDomain, normalizeCleanDomain } from "@/lib/url-utils";
 import { deleteFromR2 } from "@/lib/upload-to-r2";
 import { BrandImagesSection } from "./sections/brand-images-section";
 import { BrandColorsSection } from "./sections/brand-colors-section";
+import { DEFAULT_TYPOGRAPHY_THEME } from "@/lib/typography-themes";
 import {
   CompanyBasicsData,
   CompanyLogoData,
@@ -42,6 +43,7 @@ const normalizeCompanyBasicsData = (
   companyLogo: data?.companyLogo || null,
   primaryColor: data?.primaryColor || "",
   secondaryColor: data?.secondaryColor || "",
+  typographyTheme: data?.typographyTheme || DEFAULT_TYPOGRAPHY_THEME,
   brandImages: {
     header: data?.brandImages?.header || defaultBrandImages.header,
     thumbnail: data?.brandImages?.thumbnail || defaultBrandImages.thumbnail,
@@ -81,10 +83,6 @@ const areCompanyBasicsEqual = (
 
 interface NewClientStep1Props {
   errorFields?: string[];
-  /** Advisor's portal subdomain (User.subdomain) for the Portal URL preview.
-   *  Provided by the host page from its already-fetched profile — Step 1 must
-   *  NOT fire its own `/api/profile` request just to read this. */
-  userSubdomain?: string;
 }
 
 const normalizeWelcomeStatement = (
@@ -99,8 +97,10 @@ const normalizeWelcomeStatement = (
 
 export function NewClientStep1({
   errorFields = [],
-  userSubdomain = "",
 }: NewClientStep1Props) {
+  const portalRootDomain = (
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN || "plantel.pro"
+  ).replace(/^\./, "");
   const { stepData, saveStepDataLocally, loadDraftById, currentStep, draftClientId, saveAsDraft } =
     useNewClientWizardStore();
   const normalizedInitialCompanyData = normalizeCompanyBasicsData(
@@ -185,8 +185,6 @@ export function NewClientStep1({
   const [logoPreviewDataUrl, setLogoPreviewDataUrl] = useState<string | undefined>(undefined);
   const [isLogoModalOpen, setIsLogoModalOpen] = useState(false);
 
-  // Note: the advisor portal subdomain comes in via the `userSubdomain` prop
-  // (the host page already fetches /api/profile). No local profile fetch.
 
   // Track whether the user has manually edited the Portal URL, so we stop
   // auto-populating it from the company name once they take control.
@@ -891,10 +889,7 @@ export function NewClientStep1({
             <CardContent className="space-y-3">
               <div className="flex items-center gap-2 text-sm text-muted-foreground dark:text-gray-400 bg-muted/50 dark:bg-gray-900/50 rounded-lg px-3 py-2">
                 <span className="shrink-0">https://</span>
-                <span className="font-medium text-foreground dark:text-gray-200">
-                  {userSubdomain || "your-org"}
-                </span>
-                <span className="shrink-0">.plantel.pro/</span>
+                <span className="shrink-0">{portalRootDomain}/</span>
                 <span className="font-medium text-foreground dark:text-gray-200">
                   {companyData.portalUrl ||
                     companyData.companyName
@@ -905,6 +900,14 @@ export function NewClientStep1({
                     "your-plan"}
                 </span>
               </div>
+              <p className="text-[11px] text-muted-foreground dark:text-gray-400 bg-muted/50 dark:bg-gray-900/50 rounded px-2.5 py-2 leading-relaxed">
+                This is your plan&rsquo;s portal URL, and it can be changed later
+                in <span className="font-medium">Edit Plan</span>. If you change
+                it, the old URL keeps working &mdash; we automatically redirect it
+                to the new one &mdash; and the old URL stays reserved to this plan
+                so no one else can take it. Change it in Edit Plan if you ever
+                need to free an old URL (e.g. it was never shared).
+              </p>
               <div className="relative">
                 <Input
                   id="portalUrl"

@@ -1,5 +1,13 @@
 # Subdomain-Based Plan Portal URLs — Implementation Plan
 
+> **DEPRECATED / SUPERSEDED.** The advisor-subdomain feature described here has
+> been removed. Portal URLs are now slug-based at the environment root:
+> `https://plantel.pro/{plan-slug}` (production) and
+> `https://dev.plantel.pro/{plan-slug}` (development). The owning advisor is
+> resolved from the globally-unique `Client.slug` (see
+> [`lib/portal-access.ts`](../lib/portal-access.ts)), not from `User.subdomain`.
+> This document is kept for historical context only.
+
 ## Target URL Structure
 
 ```

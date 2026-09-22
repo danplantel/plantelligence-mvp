@@ -1513,17 +1513,8 @@ export function SimpleImageEditorModal({
 
               {/* Right: Info Panel */}
               <div className="w-1/3 p-2 sm:p-3 md:p-4 space-y-4 flex flex-col overflow-y-auto text-xs sm:text-sm bg-white dark:bg-gray-800 dark:text-gray-100">
-                {guidelinesContent && (
-                  <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 p-3 text-blue-900 dark:text-blue-200 text-[11px] sm:text-xs space-y-2">
-                    {guidelinesTitle && (
-                      <p className="font-semibold text-blue-900 dark:text-blue-300 text-xs sm:text-sm">
-                        {guidelinesTitle}
-                      </p>
-                    )}
-                    <div className="text-blue-800 dark:text-blue-200">{guidelinesContent}</div>
-                  </div>
-                )}
-
+                {/* Preview leads the panel — it is what the user came to check,
+                    and the guidance below explains it. */}
                 <div>
                   <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                     Preview
@@ -1531,8 +1522,8 @@ export function SimpleImageEditorModal({
                   <div className="mt-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700 flex items-center justify-center">
                     <div
                       style={{
-                        width: "200px",
-                        height: "150px",
+                        width: "100px",
+                        height: "75px",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
@@ -1636,6 +1627,18 @@ export function SimpleImageEditorModal({
                     </div>
                   )}
                 </div>
+
+                {guidelinesContent && (
+                  <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 p-3 text-blue-900 dark:text-blue-200 text-[11px] sm:text-xs space-y-2">
+                    {guidelinesTitle && (
+                      <p className="font-semibold text-blue-900 dark:text-blue-300 text-xs sm:text-sm">
+                        {guidelinesTitle}
+                      </p>
+                    )}
+                    <div className="text-blue-800 dark:text-blue-200">{guidelinesContent}</div>
+                  </div>
+                )}
+
               </div>
             </div>
 

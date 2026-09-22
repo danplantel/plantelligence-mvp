@@ -11,56 +11,74 @@ import { Card, CardContent } from "../ui/card";
 import { validateCurrentStep } from "@/lib/wizard-validation";
 import { toast } from "sonner";
 
-// Function to focus on first invalid field and scroll to it
+// Function to focus on the top-most invalid field and scroll to it.
+// Chooses the FIRST errored field in DOCUMENT ORDER (not validation order) so
+// the user always lands on the highest visible error — mirroring the
+// new-client wizard's step-1 behavior. Every required onboarding control
+// carries a `data-field` attribute for this lookup.
 const focusFirstInvalidField = (errorFields: string[]) => {
   if (!errorFields || errorFields.length === 0) return;
 
-  const firstErrorField = errorFields[0];
+  const errorSet = new Set(errorFields);
 
-  // Try different selectors for the field
-  const selectors = [
-    `[data-field="${firstErrorField}"]`,
-    `input[name="${firstErrorField}"]`,
-    `select[name="${firstErrorField}"]`,
-    `textarea[name="${firstErrorField}"]`,
-    `#${firstErrorField}`,
-    `[id*="${firstErrorField}"]`,
-  ];
-
+  // 1) Preferred: top-most errored element that exposes a `data-field`.
   let element: HTMLElement | null = null;
-
-  for (const selector of selectors) {
-    element = document.querySelector(selector) as HTMLElement;
-    if (element) {
+  const candidates = document.querySelectorAll<HTMLElement>("[data-field]");
+  for (const candidate of Array.from(candidates)) {
+    const field = candidate.getAttribute("data-field");
+    if (field && errorSet.has(field)) {
+      element = candidate;
       break;
     }
   }
 
-  if (element) {
-    // Scroll to element
-    element.scrollIntoView({
-      behavior: "smooth",
-      block: "center",
-      inline: "nearest",
-    });
+  // 2) Legacy fallback for error keys without a `data-field` element.
+  if (!element) {
+    const firstErrorField = errorFields[0];
+    const selectors = [
+      `input[name="${firstErrorField}"]`,
+      `select[name="${firstErrorField}"]`,
+      `textarea[name="${firstErrorField}"]`,
+      `#${firstErrorField}`,
+      `[id*="${firstErrorField}"]`,
+    ];
 
-    // Focus on element
-    setTimeout(() => {
-      if (element && typeof element.focus === "function") {
-        element.focus();
-      } else if (element && element.querySelector) {
-        // Try to find focusable element inside
-        const focusableElement = element.querySelector(
-          "input, select, textarea, button",
-        ) as HTMLElement;
-        if (focusableElement && typeof focusableElement.focus === "function") {
-          focusableElement.focus();
-        }
+    for (const selector of selectors) {
+      element = document.querySelector(selector) as HTMLElement | null;
+      if (element) {
+        break;
       }
-    }, 300);
-  } else {
-    console.warn("Could not find element for field:", firstErrorField);
+    }
   }
+
+  if (!element) {
+    console.warn("Could not find element for field:", errorFields[0]);
+    return;
+  }
+
+  const target = element;
+
+  // Scroll to element
+  target.scrollIntoView({
+    behavior: "smooth",
+    block: "center",
+    inline: "nearest",
+  });
+
+  // Focus on element
+  setTimeout(() => {
+    if (typeof target.focus === "function" && target.matches("input, select, textarea, button")) {
+      target.focus({ preventScroll: true });
+    } else if (target.querySelector) {
+      // Try to find focusable element inside
+      const focusableElement = target.querySelector(
+        "input, select, textarea, button",
+      ) as HTMLElement | null;
+      if (focusableElement && typeof focusableElement.focus === "function") {
+        focusableElement.focus({ preventScroll: true });
+      }
+    }
+  }, 300);
 };
 
 interface WizardStep {

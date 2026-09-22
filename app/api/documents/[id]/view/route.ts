@@ -13,9 +13,9 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Public portal: anonymous employees open documents directly on an advisor
-    // subdomain (browser navigation to /api/documents/{id}/view), so resolve the
-    // owning advisor from the Host subdomain. A session is preferred when one
+    // Public portal: anonymous employees open documents directly (browser
+    // navigation to /api/documents/{id}/view?clientSlug=…), so resolve the
+    // owning advisor from the plan slug. A session is preferred when one
     // exists; a development-only localhost preview is the only other anonymous
     // path (never enabled outside `next dev`).
     const portalAdvisorId = await resolvePortalAdvisorId(request, true);

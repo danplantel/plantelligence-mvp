@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { CompanyLogoData, BrandImagesData, Document } from "@/types/new-client-wizard";
+import type { TypographyThemeId } from "@/lib/typography-themes";
 
 export interface WizardStep {
     id: number;
@@ -21,6 +22,9 @@ export interface HelpCardData {
 export interface BenefitsStep1Data {
     planId: string;
     benefitCategory: string;
+    /** Portal typography theme for the plan (see lib/typography-themes.ts).
+     *  Edited on Step 2; persisted to the Client record on completion. */
+    typographyTheme?: TypographyThemeId;
     contactId: string;
     benefitTitle: string;
     shortDescription?: string;
@@ -87,6 +91,17 @@ export interface BenefitsStep1Data {
     /** Categories for which benefit fields (logo, short description) have been loaded from the
      *  persisted benefit on entry, so re-entry doesn't clobber in-session edits. */
     benefitFieldsLoadedCategories?: string[];
+    /** Categories whose logo was set or cleared locally in this session. The Benefit-row pre-fill
+     *  must not re-derive `companyLogo` for these — it re-reads the persisted partnerLogo / the
+     *  advisor's profile logo (and nulls the logo outright when no Benefit row exists), so without
+     *  this a just-saved logo snaps back to the previous image until the category is re-entered. */
+    benefitLogoEditedCategories?: string[];
+    /** The advisor's organization logo (`User.advisorLogoUrl`) as of the last time this benefit's
+     *  logo was pre-filled. When Settings → Branding saves a NEW org logo it no longer matches, so
+     *  the Benefit Logo (Step 1) and Provider Logo (Step 2) adopt the new image instead of the
+     *  persisted Benefit row's `partnerLogo` shadowing it (that column normally holds the previous
+     *  org logo, written back by this page's auto-save). */
+    orgLogoSnapshot?: string;
     /** Benefit-table rows for this client keyed by normalized category (source of truth), fetched
      *  from GET /api/clients/{planId}/benefits. A category missing from this map means no Benefit
      *  row exists (e.g. it was deleted) so the wizard must NOT pre-fill content from the stale

@@ -4,7 +4,34 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { prisma } from "@/lib/prisma";
+import {
+  DOCUMENT_EXPIRATION_LIMIT,
+  DOCUMENT_EXPIRATION_WINDOW_DAYS,
+  compareDocumentExpirations,
+  resolveDocumentExpirationStatus,
+} from "@/lib/notifications/document-expirations";
+import {
+  dateKeyToUtcDate,
+  daysBetweenDateKeys,
+  isDateKey,
+  toDateKey,
+  todayDateKey,
+} from "@/lib/notifications/date-keys";
 
+/**
+ * Expiring document reminders for the header Notifications menu.
+ *
+ * Mirrors `app/api/meetings/reminders/route.ts`: user-scoped, soft-archived
+ * documents excluded, and limited to the exact day-of / 2-day / 7-day marks.
+ *
+ * Review dates are date-only values, so every tier is resolved from the stored
+ * date's calendar day (see `toDateKey`). The viewer's timezone is deliberately
+ * not consulted: this is a US-based app and a reminder must fire on the day the
+ * document is due, matching the documents dashboard, wherever the viewer is.
+ *
+ * The client still passes `?today=yyyy-MM-dd`; it is used only as a fallback
+ * when the request arrives without a usable day key.
+ */
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -12,15 +39,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const { searchParams } = new URL(request.url);
+    const requestedToday = searchParams.get("today");
+    const today = isDateKey(requestedToday)
+      ? (requestedToday as string)
+      : todayDateKey();
 
-    // Calculate dates for notifications
-    const in7Days = new Date(today);
-    in7Days.setDate(today.getDate() + 7);
-    in7Days.setHours(23, 59, 59, 999);
 
-    // Fetch documents that expire within the next 7 days
+    // Pad the DB window by a day on each side so rows shifted by a timezone
+    // offset are still fetched; the exact day keys are filtered below.
+    const rangeStart = dateKeyToUtcDate(today, -1);
+    const rangeEnd = dateKeyToUtcDate(today, DOCUMENT_EXPIRATION_WINDOW_DAYS + 1);
+
     const documents = await prisma.document.findMany({
       where: {
         client: {
@@ -28,11 +58,21 @@ export async function GET(request: NextRequest) {
         },
         expirationDate: {
           not: null,
-          gte: today,
-          lte: in7Days,
+          gte: rangeStart,
+          lte: rangeEnd,
         },
       },
-      include: {
+      select: {
+        id: true,
+        title: true,
+        type: true,
+        category: true,
+        expirationDate: true,
+        // Selected for the archived filter below, NOT filtered in the query:
+        // `archivedAt: null` in a Prisma MongoDB where clause matches no rows
+        // (it omits documents where the field is missing or explicitly null).
+        // Same JS-filter convention as GET /api/documents.
+        archivedAt: true,
         client: {
           select: {
             id: true,
@@ -45,49 +85,35 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Filter and categorize documents
-    // Priority: today > 2 days > 7 days
     const expiringDocuments = documents
-      .map((doc) => {
-        if (!doc.expirationDate) return null;
+      .filter((document) => document.archivedAt == null)
+      .map((document) => {
+        const dateKey = toDateKey(document.expirationDate);
+        if (!dateKey) return null;
 
-        const expirationDate = new Date(doc.expirationDate);
-        expirationDate.setHours(0, 0, 0, 0);
+        const daysUntilExpiration = daysBetweenDateKeys(today, dateKey);
+        if (daysUntilExpiration === null) return null;
 
-        const daysUntilExpiration = Math.ceil(
-          (expirationDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
-        );
-
-        let status: "expiring_week" | "expiring_2days" | "expiring_today" | null =
-          null;
-
-        // Today (0 days) - highest priority
-        if (daysUntilExpiration === 0) {
-          status = "expiring_today";
-        }
-        // In 2 days - second priority
-        else if (daysUntilExpiration === 2) {
-          status = "expiring_2days";
-        }
-        // In 7 days - third priority
-        else if (daysUntilExpiration === 7) {
-          status = "expiring_week";
-        }
-
-        // Only return documents that match our notification criteria
+        const status = resolveDocumentExpirationStatus(daysUntilExpiration);
         if (!status) return null;
 
         return {
-          id: doc.id,
-          title: doc.title,
-          client: doc.client,
-          expirationDate: doc.expirationDate.toISOString(),
+          id: document.id,
+          title: document.title,
+          client: document.client,
+          dateKey,
+          category: document.category,
+          type: document.type,
           daysUntilExpiration,
           status,
         };
       })
-      .filter((doc): doc is NonNullable<typeof doc> => doc !== null)
-      .slice(0, 20); // Limit to 20 most urgent notifications
+      .filter(
+        (document): document is NonNullable<typeof document> =>
+          document !== null,
+      )
+      .sort(compareDocumentExpirations)
+      .slice(0, DOCUMENT_EXPIRATION_LIMIT);
 
     return NextResponse.json({
       success: true,
@@ -97,8 +123,7 @@ export async function GET(request: NextRequest) {
     console.error("Error fetching expiring documents:", error);
     return NextResponse.json(
       { error: "Failed to fetch expiring documents" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
-

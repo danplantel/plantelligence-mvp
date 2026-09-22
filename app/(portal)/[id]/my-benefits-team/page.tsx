@@ -1,10 +1,14 @@
 "use client";
 
-import { useMemo, useEffect } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useClientPortal } from "@/contexts/client-portal-context";
-import { resolveContactCompanyName } from "@/lib/resolve-contact-company-name";
+import {
+  resolveContactCompanyName,
+  isLoggedInUserContact,
+} from "@/lib/resolve-contact-company-name";
+import { fetchProfileOnce } from "@/lib/fetch-profile";
 import {
   isContactVisibleInPortal,
   getCategoryPortalVisibility,
@@ -21,6 +25,27 @@ function isContactHiddenByCategory(
     getContactCategoriesFromLib(contact),
     visibility
   );
+}
+
+/**
+ * Portal desktop layouts are stored as 0 (default) / 2 / 3 / 4. Coerce anything
+ * else (legacy 1-based values, numeric strings, null, garbage) so a stray value
+ * can never leave the desktop area empty.
+ */
+function normalizeDisplayStyle(value: unknown): 0 | 2 | 3 | 4 | null {
+  if (value === null || value === undefined || value === "") return null;
+  const n = typeof value === "string" ? Number(value) : value;
+  if (typeof n !== "number" || !Number.isFinite(n)) return null;
+  if (n === 2 || n === 3 || n === 4) return n;
+  // 0, 1 and anything unexpected fall back to the default layout.
+  return 0;
+}
+
+/** Mobile layouts are 0 (stacked) / 1 (2-col) / 2 (hero + grid). */
+function normalizeMobileDisplayStyle(value: unknown): 0 | 1 | 2 {
+  const n = typeof value === "string" ? Number(value) : value;
+  if (n === 1 || n === 2) return n;
+  return 0;
 }
 import { PrimaryContactCard } from "@/components/pages/my-benefits-team/primary-contact-card";
 import { SmallVerticalCard } from "@/components/pages/my-benefits-team/small-vertical-card";
@@ -59,7 +84,8 @@ interface Contact {
  *       3) Render only those contacts; layouts also filter again before render (defensive).
  */
 export default function MyBenefitsTeamPage() {
-  const { clientData, loading, refetch } = useClientPortal();
+  const { clientData, profile: advisorProfile, loading, refetch } =
+    useClientPortal();
 
   // Currently logged-in user — used to show the user's Organization Name on
   // their own contact card instead of the plan/contact company name.
@@ -73,9 +99,75 @@ export default function MyBenefitsTeamPage() {
     Boolean,
   ) as string[];
 
+  // The plan's ADVISOR profile, resolved server-side by the portal provider
+  // (`/api/profile?forPortal=1&clientSlug=…`). Unlike the session JWT it is read on
+  // every portal load, so it reflects a rename in Settings → Branding, and it is
+  // returned to anonymous viewers too — which is what the advisor's own contact card
+  // actually needs. It identifies the advisor's card by their real email rather than
+  // by whoever happens to be signed in.
+  const advisorOrgName = (advisorProfile?.organizationName || "").trim();
+  const advisorEmail = (advisorProfile?.email || "").trim();
+
   useEffect(() => {
     refetch();
   }, [refetch]);
+
+  /**
+   * The logged-in user's CURRENT Organization Logo.
+   *
+   * Contact cards are seeded with the advisor's Organization Logo
+   * (`seed-onboarding-advisor-contacts` writes `companyLogo: profile.advisorLogo ||
+   * profile.advisorLogoUrl`), so the stored copy goes stale as soon as Settings →
+   * Branding changes it. `/api/profile` is the authoritative source — and it is
+   * single-flight with a cache that `invalidateProfileCache()` clears on save, so this
+   * resolves to the new logo on the next visit. Only fetched when the viewer is signed
+   * in, and only applied to their own card below.
+   */
+  const [currentUserLogo, setCurrentUserLogo] = useState<string | null>(null);
+  /** CURRENT Organization Name from /api/profile — see the comment in the effect below. */
+  const [currentUserOrgNameLive, setCurrentUserOrgNameLive] = useState<string | null>(
+    null,
+  );
+  /** The login + organization email from /api/profile, used to match the advisor's
+   *  own contact row even when the stored copy still holds a previous address. */
+  const [profileEmails, setProfileEmails] = useState<string[]>([]);
+  useEffect(() => {
+    if (currentUserEmails.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      const profile: any = await fetchProfileOnce().catch(() => null);
+      if (cancelled || !profile) return;
+
+      const logo =
+        profile.advisorLogoUrl ||
+        profile.advisorLogo ||
+        profile.wizardSessions?.[0]?.branding?.logo ||
+        null;
+      setCurrentUserLogo(logo ? String(logo) : null);
+
+      // Same source, same reason: the current Organization Name for the user's own
+      // contact card, rather than the stale value baked into the session JWT.
+      const orgName =
+        profile.organizationName ||
+        profile.wizardSessions?.[0]?.branding?.organizationName ||
+        profile.organizationType ||
+        null;
+      setCurrentUserOrgNameLive(orgName ? String(orgName).trim() : null);
+
+      setProfileEmails(
+        [profile.email, profile.organizationEmail]
+          .filter((value: unknown) => typeof value === "string" && value.trim())
+          .map((value: string) => value.trim()),
+      );
+    })().catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+    // Keyed on the joined emails: the array itself is rebuilt on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUserEmails.join("|")]);
 
   const brandColor = clientData?.brandColor || "#0D315F";
   const secondaryColor = clientData?.secondaryColor || "#C89B5B";
@@ -85,30 +177,32 @@ export default function MyBenefitsTeamPage() {
 
   // Normalize keyContacts to handle both old format (array) and new format (object with contacts and displayStyle)
   let contacts: Contact[] = [];
-  let displayStyle: number | null = null;
-  let mobileDisplayStyle: number | null = null;
+  let displayStyle: 0 | 2 | 3 | 4 | null = null;
+  let mobileDisplayStyle: 0 | 1 | 2 = 0;
   let globalBackgroundColor: string | undefined = undefined;
   /** Wizard saves logoScale on keyContacts root (same as card colors), not per contact */
   let globalLogoScale: number | undefined = undefined;
 
   if (clientData?.keyContacts) {
-    if (Array.isArray(clientData.keyContacts)) {
+    const keyContactsData = clientData.keyContacts as any;
+    if (Array.isArray(keyContactsData)) {
       // Old format: just an array
-      contacts = clientData.keyContacts.filter(
+      contacts = keyContactsData.filter(
         (c: Contact) => c.showOnPortal !== false,
       );
-    } else if (
-      typeof clientData.keyContacts === "object" &&
-      clientData.keyContacts !== null
-    ) {
+    } else if (typeof keyContactsData === "object" && keyContactsData !== null) {
       // New format: { contacts: [...], displayStyle: ..., mobileDisplayStyle: ... }
-      const keyContactsData = clientData.keyContacts as any;
+      // Accept both `contacts` and legacy `Contacts` keys.
       const contactsArray = Array.isArray(keyContactsData.contacts)
         ? keyContactsData.contacts
-        : [];
+        : Array.isArray(keyContactsData.Contacts)
+          ? keyContactsData.Contacts
+          : [];
       contacts = contactsArray.filter((c: Contact) => c.showOnPortal !== false);
-      displayStyle = keyContactsData.displayStyle ?? null;
-      mobileDisplayStyle = keyContactsData.mobileDisplayStyle ?? null;
+      displayStyle = normalizeDisplayStyle(keyContactsData.displayStyle);
+      mobileDisplayStyle = normalizeMobileDisplayStyle(
+        keyContactsData.mobileDisplayStyle,
+      );
       globalBackgroundColor = keyContactsData.cardBackgroundColor;
       globalLogoScale =
         typeof keyContactsData.logoScale === "number"
@@ -136,6 +230,18 @@ export default function MyBenefitsTeamPage() {
   const planCompanyName = clientData?.companyName || "";
   const planCompanyLogo = (clientData as any)?.companyLogo || "";
 
+  /** Every email we can resolve for the plan's advisor, de-duplicated. Identifies which
+   *  contact row is theirs: the portal-resolved advisor profile (works for anonymous
+   *  viewers), the session, and the full profile. */
+  const matchEmails = Array.from(
+    new Set(
+      [advisorEmail, currentUserEmail, currentUserOrgEmail, ...profileEmails]
+        .filter(Boolean)
+        .map((value) => String(value).trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  );
+
   // 2) Only contacts that are NOT hidden by category — fetch → check isHidden → then we only render these
   const visibleContacts: Contact[] = useMemo(() => {
     const filtered = contacts.filter(
@@ -143,6 +249,12 @@ export default function MyBenefitsTeamPage() {
     );
     return filtered.map((contact: any) => {
       const normalized: Contact = { ...contact };
+      // Carry the plan id so the Contact Form CTA can resolve the plan's live
+      // "Topic of Interest" configuration at click time (see
+      // resolveContactFormUrl).
+      if (clientData?.id) {
+        (normalized as any).planId = clientData.id;
+      }
       if (!normalized.name && (normalized.firstName || normalized.lastName)) {
         normalized.name = `${normalized.firstName || ""} ${normalized.lastName || ""}`.trim();
       }
@@ -151,10 +263,25 @@ export default function MyBenefitsTeamPage() {
       const isPlanSponsor =
         categories.includes("Company / Plan Sponsor") ||
         contact.benefitsCategory === "Company / Plan Sponsor";
+      // Whether this row is the ADVISOR's own contact. Matching uses every email we can
+      // resolve for them (portal advisor profile + session + full profile) because the
+      // seeded row stores whichever address the user had at seed time — often the
+      // organization email, and possibly one that has since been changed.
+      const isOwnContact = isLoggedInUserContact(contact, matchEmails);
+      // The advisor's CURRENT Organization Name, preferring the portal-resolved advisor
+      // profile (read on every request) over the session JWT snapshot.
+      const ownOrgName = (
+        advisorOrgName ||
+        currentUserOrgNameLive ||
+        currentUserOrgName ||
+        ""
+      ).trim();
 
       if (isPlanSponsor) {
-        // Every Company / Plan Sponsor card shows the plan's company name and
-        // logo, matching the Main Contact card.
+        // Every Company / Plan Sponsor card keeps the PLAN's company name and logo,
+        // matching the Main Contact card — even when the row happens to belong to the
+        // advisor. A Company / Plan Sponsor card represents the plan sponsor, so it
+        // must never be relabelled with the advisor's organization.
         normalized.companyName = planCompanyName || normalized.companyName || "";
         normalized.companyLogo = contact.companyLogo || planCompanyLogo || undefined;
         normalized.logo = normalized.companyLogo;
@@ -162,13 +289,25 @@ export default function MyBenefitsTeamPage() {
         if (normalized.companyLogo && !normalized.logo) {
           normalized.logo = normalized.companyLogo;
         }
-        // If this contact is the logged-in user, show their Organization Name
-        // as the company name on the card.
+        // The advisor's own card shows their Organization Name; every other contact
+        // keeps their own company name (resolveContactCompanyName falls back to the
+        // contact's stored value).
         normalized.companyName = resolveContactCompanyName(
           contact,
-          currentUserEmails,
-          currentUserOrgName,
+          matchEmails,
+          ownOrgName || null,
         );
+        // The advisor's own card shows their CURRENT Organization Logo: its logo was
+        // pre-populated from that same value at seed time, so a later change in
+        // Settings must win over the stored copy.
+        //
+        // Scoped to this branch on purpose — a Company / Plan Sponsor contact goes
+        // through the branch above and represents the plan's company, so it must keep
+        // THAT company's logo even when the card belongs to the logged-in user.
+        if (currentUserLogo && isOwnContact) {
+          normalized.companyLogo = currentUserLogo;
+          normalized.logo = currentUserLogo;
+        }
       }
 
       normalized.cardBackgroundColor = contact.cardBackgroundColor;
@@ -179,10 +318,16 @@ export default function MyBenefitsTeamPage() {
   }, [
     contacts,
     visibility,
+    clientData?.id,
     globalLogoScale,
     currentUserEmail,
     currentUserOrgEmail,
     currentUserOrgName,
+    currentUserOrgNameLive,
+    currentUserLogo,
+    advisorOrgName,
+    advisorEmail,
+    profileEmails,
     planCompanyName,
     planCompanyLogo,
   ]);
@@ -215,7 +360,7 @@ export default function MyBenefitsTeamPage() {
           <h1
             className="text-4xl font-semibold mb-8"
             style={{
-              fontFamily: '"DM Serif Display", serif',
+              fontFamily: "var(--font-headline)",
               color: brandColor,
             }}
           >
@@ -292,7 +437,7 @@ export default function MyBenefitsTeamPage() {
         <div className="md:hidden">
           <MobileLayout
             contacts={visibleContacts}
-            mobileDisplayStyle={mobileDisplayStyle ?? 0}
+            mobileDisplayStyle={mobileDisplayStyle}
             brandColor={brandColor}
             secondaryColor={secondaryColor}
             appointmentLink={appointmentLink}

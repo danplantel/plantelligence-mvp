@@ -20,6 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Switch } from "@/components/ui/switch";
 import { v4 as uuidv4 } from "uuid";
 import { BannerOverlaySettingsCard } from "@/components/wizard/new-client-steps/sections/components/banner-overlay-settings-card";
+import { TypographySection } from "@/components/wizard/new-client-steps/sections/typography-section";
 import { HeroBackgroundCard, type HeroSegmentMode } from "@/components/wizard/new-client-steps/sections/components/hero-background-card";
 import { uploadFileToR2 } from "@/lib/upload-to-r2";
 import { toNextImageSrc } from "@/lib/branding-image-url";
@@ -73,6 +74,8 @@ interface BenefitsEditorPanelProps {
     variant?: 'fixed' | 'inline';
     /** Plan/company name shown next to the benefit category badge in the header */
     planCompanyName?: string;
+    /** The plan's company website — analysis target for the AI typography suggestion */
+    companyWebsite?: string;
     /** Fields flagged by the last failed step validation (renders red borders) */
     errorFields?: string[];
     /** Lenis-backed scroll for the editor panel (falls back to native scroll) */
@@ -86,6 +89,7 @@ export function BenefitsEditorPanel({
     activeSection,
     highlightedField,
     planCompanyName,
+    companyWebsite,
     errorFields = [],
     onScrollEditorTo,
     editorScrollContainerRef: externalScrollRef,
@@ -117,6 +121,7 @@ export function BenefitsEditorPanel({
 
     // Refs for scrolling
     const sectionsRef = {
+        typography: useRef<HTMLDivElement>(null),
         branding: useRef<HTMLDivElement>(null),
         messaging: useRef<HTMLDivElement>(null),
         planVideo: useRef<HTMLDivElement>(null),
@@ -420,6 +425,25 @@ export function BenefitsEditorPanel({
             }
         >
             <div className="flex flex-col gap-12 p-6 pb-20">
+                {/* Typography Section */}
+                <div ref={sectionsRef.typography} className="transition-all duration-500 rounded-xl">
+                    <SectionHeader number={1} title="Typography" />
+                    <TypographySection
+                        value={step1Data?.typographyTheme}
+                        onChange={(id) =>
+                            saveStepData(1, { ...step1Data, typographyTheme: id })
+                        }
+                        title="Typography"
+                        compact
+                        className="border-none shadow-none bg-transparent dark:bg-transparent"
+                        // Same AI suggestion as Create Plan, using the selected
+                        // plan's company website.
+                        enableAiSuggestion
+                        websiteUrl={companyWebsite}
+                        companyName={planCompanyName}
+                    />
+                </div>
+
                 {/* Branding Section */}
                 <div
                     ref={sectionsRef.branding}
@@ -428,7 +452,7 @@ export function BenefitsEditorPanel({
                         highlightedSection === "branding" ? "ring-2 ring-blue-500/50 scale-[1.01] shadow-lg p-4 -m-4 bg-white dark:bg-gray-800" : ""
                     )}
                 >
-                    <SectionHeader number={1} title="Branding" />
+                    <SectionHeader number={2} title="Branding" />
                     <div className="space-y-8">
                         <div
                             className={cn(
@@ -441,7 +465,7 @@ export function BenefitsEditorPanel({
                             onMouseDown={() => focusPreviewField("companyLogo")}
                         >
                             <Label className="text-xs font-bold text-foreground">
-                                Provider Logo <span className="text-red-500">*</span>
+                                Benefit Logo <span className="text-red-500">*</span>
                             </Label>
                             <BrandImageUpload
                                 slotKey="companyLogo"
@@ -469,6 +493,9 @@ export function BenefitsEditorPanel({
                                 hideButtons={true}
                                 useUniversalModal={true}
                                 universalModalType="normalizer"
+                                // Provider logo — a real logo, so opt in explicitly.
+                                universalModalAllowBackgroundRemoval={true}
+                                universalModalNormalizeLogoForHeader={true}
                             />
                         </div>
                         <div
@@ -550,6 +577,10 @@ export function BenefitsEditorPanel({
                                 hideButtons={true}
                                 useUniversalModal={true}
                                 universalModalType="normalizer"
+                                // Full-height hero photo, not a logo — background
+                                // removal would punch it full of holes. It borrows
+                                // the normalizer type only for the header-bar fit.
+                                universalModalAllowBackgroundRemoval={false}
                                 universalModalCustomConfig={{
                                     outlinePadding: 0,
                                 }}
@@ -579,7 +610,7 @@ export function BenefitsEditorPanel({
                         highlightedSection === "messaging" ? "ring-2 ring-blue-500/50 scale-[1.01] shadow-lg p-4 -m-4 bg-white dark:bg-gray-800" : ""
                     )}
                 >
-                    <SectionHeader number={2} title="Benefit Messaging" />
+                    <SectionHeader number={3} title="Benefit Messaging" />
                     <div className="space-y-6">
                         <div className="space-y-2" data-field="benefitTitle" ref={benefitTitleRef}>
                             <Label className="text-xs font-bold text-foreground">
@@ -811,7 +842,7 @@ export function BenefitsEditorPanel({
                         highlightedSection === "planVideo" ? "ring-2 ring-blue-500/50 scale-[1.01] shadow-lg p-4 -m-4 bg-white dark:bg-gray-800" : ""
                     )}
                 >
-                    <SectionHeader number={3} title="Plan Video" />
+                    <SectionHeader number={4} title="Plan Video" />
                     <p className="text-[13px] text-muted-foreground mb-6">
                         Upload a video to replace the image in the right column of the Retirement Journey section.
                         If no video is uploaded, the default category image will be shown instead.
@@ -938,7 +969,7 @@ export function BenefitsEditorPanel({
                         highlightedSection === "helpCards" ? "ring-2 ring-blue-500/50 scale-[1.01] shadow-lg p-4 -m-4 bg-white dark:bg-gray-800" : ""
                     )}
                 >
-                    <SectionHeader number={4} title="How Can We Help You Today?" />
+                    <SectionHeader number={5} title="How Can We Help You Today?" />
                     <p className="text-[13px] text-muted-foreground mb-6">
                         Customize the three cards that appear in the &ldquo;How Can We Help You Today?&rdquo; section.
                     </p>
@@ -1049,7 +1080,7 @@ export function BenefitsEditorPanel({
                         highlightedSection === "insurance" ? "ring-2 ring-blue-500/50 scale-[1.01] shadow-lg p-4 -m-4 bg-white dark:bg-gray-800" : ""
                     )}
                 >
-                    <SectionHeader number={5} title="Benefit Access & Materials" />
+                    <SectionHeader number={6} title="Benefit Access & Materials" />
                     <p className="text-[13px] text-muted-foreground mb-6">
                         Configure the plan ID and login button shown in the Insurance Benefits Access & Materials section.
                     </p>
@@ -1093,6 +1124,8 @@ export function BenefitsEditorPanel({
                                 hideButtons={true}
                                 useUniversalModal={true}
                                 universalModalType="normalizer"
+                                // 1920×1080 section background, not a logo.
+                                universalModalAllowBackgroundRemoval={false}
                             />
                         </div>
 

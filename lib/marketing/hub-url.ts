@@ -27,30 +27,29 @@ export function getBenefitsHubPathFromSlug(slug: string): string {
  * Absolute URL used in flyer QR codes, email links, and anywhere an
  * external-facing portal link is needed.
  *
- * When a subdomain is provided (the advisor's User.subdomain), the URL is built
- * as: https://{subdomain}.{rootDomain}/{slug}
+ * Portal links are slug-based at the environment root:
+ *   https://{rootDomain}/{slug}
+ *     • Production   (ROOT_DOMAIN=plantel.pro)     -> https://plantel.pro/acme-corp
+ *     • Development  (ROOT_DOMAIN=dev.plantel.pro) -> https://dev.plantel.pro/acme-corp
  *
- * Example: https://waypoint.plantel.pro/gloomis
- *
- * When no subdomain is provided (local dev or advisor hasn't set one), falls
- * back to NEXT_PUBLIC_APP_URL or NEXTAUTH_URL.
+ * The root domain comes from NEXT_PUBLIC_ROOT_DOMAIN / ROOT_DOMAIN. When no
+ * root domain is configured it falls back to NEXT_PUBLIC_APP_URL / NEXTAUTH_URL.
  */
-export function getBenefitsHubAbsoluteUrl(
-  clientIdOrSlug: string,
-  userSubdomain?: string,
-): string {
+export function getBenefitsHubAbsoluteUrl(clientIdOrSlug: string): string {
   const path = getBenefitsHubPath(clientIdOrSlug);
-  const rootDomain =
+  const rootDomain = (
     process.env.NEXT_PUBLIC_ROOT_DOMAIN ||
     process.env.ROOT_DOMAIN ||
-    "plantel.pro";
+    ""
+  )
+    .replace(/^\./, "")
+    .trim();
 
-  if (userSubdomain) {
-    // Production: https://waypoint.plantel.pro/gloomis
-    return `https://${userSubdomain}.${rootDomain}${path}`;
+  if (rootDomain) {
+    return `https://${rootDomain}${path}`;
   }
 
-  // Fallback for local dev or when no subdomain is configured
+  // Fallback for local dev or when no root domain is configured.
   const base =
     process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
     process.env.NEXTAUTH_URL?.replace(/\/$/, "") ||
@@ -58,7 +57,7 @@ export function getBenefitsHubAbsoluteUrl(
 
   if (!base) {
     throw new Error(
-      "Set NEXT_PUBLIC_APP_URL or NEXTAUTH_URL to build flyer Hub QR links",
+      "Set NEXT_PUBLIC_ROOT_DOMAIN, NEXT_PUBLIC_APP_URL or NEXTAUTH_URL to build flyer Hub QR links",
     );
   }
 
@@ -67,45 +66,24 @@ export function getBenefitsHubAbsoluteUrl(
 
 /**
  * Absolute Benefits Hub URL for the in-app "Open Portal" / "View Portal"
- * buttons. The portal subdomain is built against the ROOT_DOMAIN configured for
- * the current environment (NEXT_PUBLIC_ROOT_DOMAIN / ROOT_DOMAIN), so it opens
- * the portal that belongs to the deployment the advisor is using:
+ * buttons. The portal root is built against the ROOT_DOMAIN configured for the
+ * current environment (NEXT_PUBLIC_ROOT_DOMAIN / ROOT_DOMAIN), so it opens the
+ * portal that belongs to the deployment the advisor is using:
  *
- *   • local `next dev`                     -> {origin}/{slug}
- *   • Production project (ROOT_DOMAIN=plantel.pro)
- *                                          -> https://{subdomain}.plantel.pro/{slug}
- *   • Dev project (ROOT_DOMAIN=dev.plantel.pro)
- *                                          -> https://{subdomain}.dev.plantel.pro/{slug}
- *
- * (getBenefitsHubAbsoluteUrl is intentionally not used here — it is for
- * external-facing QR/email links and would not honor an env-specific root when
- * the dashboard is served from a non-root host like plantel-dev.vercel.app.)
+ *   • local `next dev`                              -> {origin}/{slug}
+ *   • Production project (ROOT_DOMAIN=plantel.pro)  -> https://plantel.pro/{slug}
+ *   • Dev project (ROOT_DOMAIN=dev.plantel.pro)     -> https://dev.plantel.pro/{slug}
  *
  * Requires the browser (window.location) — call from client event handlers only.
  */
-export function getBenefitsHubOpenPortalUrl(
-  clientIdOrSlug: string,
-  userSubdomain?: string,
-): string {
+export function getBenefitsHubOpenPortalUrl(clientIdOrSlug: string): string {
   const path = getBenefitsHubPath(clientIdOrSlug);
 
-  // Local development: no subdomain hosting, so open the current origin.
+  // Local development: open the current origin.
   if (process.env.NODE_ENV === "development") {
     return `${window.location.origin}${path}`;
   }
 
-  const subdomain = userSubdomain?.trim();
-  if (!subdomain) {
-    return `${window.location.origin}${path}`;
-  }
-
-  // Always build the portal subdomain against the root domain configured for
-  // this environment (ROOT_DOMAIN / NEXT_PUBLIC_ROOT_DOMAIN):
-  //   • Production project -> ROOT_DOMAIN=plantel.pro    -> testing.plantel.pro
-  //   • Dev project         -> ROOT_DOMAIN=dev.plantel.pro -> testing.dev.plantel.pro
-  // This works regardless of which host the dashboard happens to be served
-  // from (e.g. plantel-dev.vercel.app), since *.dev.plantel.pro is the
-  // reachable portal host for the dev deployment.
   const portalRoot = (
     process.env.NEXT_PUBLIC_ROOT_DOMAIN ||
     process.env.ROOT_DOMAIN ||
@@ -114,5 +92,5 @@ export function getBenefitsHubOpenPortalUrl(
     .replace(/^\./, "")
     .toLowerCase();
 
-  return `https://${subdomain}.${portalRoot}${path}`;
+  return `https://${portalRoot}${path}`;
 }

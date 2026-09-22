@@ -1,7 +1,14 @@
 "use client";
 
 import type { MouseEvent, ReactNode } from "react";
-import { formatUsDate, formatUsTime } from "@/lib/date";
+import {
+  daysBetweenScheduleDays,
+  formatScheduleDayKey,
+  formatUsDate,
+  formatUsTime,
+  toScheduleDayKey,
+  todayScheduleDayKey,
+} from "@/lib/date";
 import {
   Table,
   TableBody,
@@ -305,19 +312,15 @@ export function DocumentsTableView({
                       <div className="flex items-center gap-2">
                         <Calendar className="h-3 w-3 text-gray-400" />
                         <span className={`text-gray-900 dark:text-gray-100 ${compact ? "text-xs" : "text-sm"}`}>
-                          {formatUsDate(document.expirationDate)}
+                          {formatScheduleDayKey(toScheduleDayKey(document.expirationDate))}
                         </span>
                         {/* Notification bell — hidden for now; feature will be re-added later. */}
                         {(() => {
-                          const expirationDate = new Date(
-                            document.expirationDate,
-                          );
-                          const today = new Date();
-                          today.setHours(0, 0, 0, 0);
-                          expirationDate.setHours(0, 0, 0, 0);
-                          const daysUntilExpiration = Math.ceil(
-                            (expirationDate.getTime() - today.getTime()) /
-                            (1000 * 60 * 60 * 24),
+                          // Day-key math against the app's US scheduling day, so
+                          // the countdown never shifts with the viewer's timezone.
+                          const daysUntilExpiration = daysBetweenScheduleDays(
+                            todayScheduleDayKey(),
+                            toScheduleDayKey(document.expirationDate),
                           );
                           if (daysUntilExpiration < 0) {
                             return (

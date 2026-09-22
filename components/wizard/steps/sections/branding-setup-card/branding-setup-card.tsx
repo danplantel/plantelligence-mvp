@@ -2,32 +2,19 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { BackgroundImageField } from "@/components/wizard/steps/sections/background-image-field/background-image-field";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { Label } from "@/components/ui/label";
 import { InfoDialog } from "@/components/ui/info-dialog";
 import {
-   Sparkles,
    Building2,
    Globe,
-   Link,
    Palette,
    Image as ImageIcon,
    Info,
-   Loader2,
-   CheckCircle2,
-   XCircle,
  } from "lucide-react";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef } from "react";
 import { deleteFromR2 } from "@/lib/upload-to-r2";
 import { extractColorsFromImage } from "@/lib/extract-colors-from-image";
 
@@ -77,7 +64,6 @@ interface BrandingData {
      backgroundFileName?: string;
      aiAvatar?: string;
      avatarFileName?: string;
-     subdomain: string;
      useDefaultWelcomeStatement?: boolean;
      logoPreviewDataUrl?: string;
      backgroundPreviewDataUrl?: string;
@@ -100,13 +86,6 @@ interface BrandingSetupCardProps {
     * wizard behavior).
     */
    disableAutoColorExtraction?: boolean;
-   /**
-    * When true, the subdomain availability check is NOT run for the value that
-    * is present when the form loads (e.g. an existing saved subdomain in
-    * Settings > Branding). It only runs once the user manually edits the
-    * subdomain field.
-    */
-   skipInitialSubdomainCheck?: boolean;
  }
 
 export function BrandingSetupCard({
@@ -120,102 +99,26 @@ export function BrandingSetupCard({
   hideColors = false,
   hideBackgroundImage = false,
   disableAutoColorExtraction = false,
-  skipInitialSubdomainCheck = false,
 }: BrandingSetupCardProps) {
-   const [websiteError, setWebsiteError] = useState<string>("");
-   const fileInputRef = useRef<HTMLInputElement>(null);
-   const subdomainManuallyEditedRef = useRef(false);
-   const [infoDialogOpen, setInfoDialogOpen] = useState(false);
-   const [infoDialogConfig, setInfoDialogConfig] = useState({ title: "", description: "" });
+  const [websiteError, setWebsiteError] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [infoDialogOpen, setInfoDialogOpen] = useState(false);
+  const [infoDialogConfig, setInfoDialogConfig] = useState({ title: "", description: "" });
 
-   // Destructure data early so subdomain is available for the availability check
-   const {
-     organizationName,
-     logo,
-     logoFileName,
-     website,
-     missionStatement,
-     brandColor,
-     isPrimaryColorPickerOpen,
-     isSecondaryColorPickerOpen,
-     isGenerating,
-     useDefaultWelcomeStatement = true,
-     subdomain,
-   } = data;
+  const {
+    organizationName,
+    logo,
+    logoFileName,
+    website,
+    missionStatement,
+    brandColor,
+    isPrimaryColorPickerOpen,
+    isSecondaryColorPickerOpen,
+    isGenerating,
+    useDefaultWelcomeStatement = true,
+  } = data;
 
-   // Subdomain availability check state
-   type AvailabilityStatus = "idle" | "checking" | "available" | "taken";
-   const [availabilityStatus, setAvailabilityStatus] = useState<AvailabilityStatus>("idle");
-   const [checkedSubdomain, setCheckedSubdomain] = useState<string>("");
-   const availabilityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-   const lastCheckedRef = useRef<string>("");
-
-   const checkSubdomainAvailability = useCallback(async (slug: string) => {
-     if (!slug || slug.length < 2) {
-       setAvailabilityStatus("idle");
-       setCheckedSubdomain("");
-       return;
-     }
-
-     // Don't re-check the same value
-     if (slug === lastCheckedRef.current && availabilityStatus !== "idle") {
-       return;
-     }
-
-     lastCheckedRef.current = slug;
-     setAvailabilityStatus("checking");
-     setCheckedSubdomain(slug);
-
-     try {
-       const res = await fetch(`/api/check-subdomain?subdomain=${encodeURIComponent(slug)}`);
-       if (!res.ok) {
-         // If the API fails, default to "available" to not block the user
-         setAvailabilityStatus("available");
-         return;
-       }
-       const data = await res.json();
-       setAvailabilityStatus(data.available ? "available" : "taken");
-     } catch {
-       // Network error – assume available to not block the user
-       setAvailabilityStatus("available");
-     }
-   }, [availabilityStatus]);
-
-   // Debounced subdomain availability check
-   useEffect(() => {
-     if (availabilityTimerRef.current) {
-       clearTimeout(availabilityTimerRef.current);
-     }
-
-     // In pre-populated contexts (e.g. Settings > Branding), don't validate the
-     // subdomain that is already loaded — only check once the user edits it.
-     if (skipInitialSubdomainCheck && !subdomainManuallyEditedRef.current) {
-       setAvailabilityStatus("idle");
-       setCheckedSubdomain("");
-       lastCheckedRef.current = "";
-       return;
-     }
-
-     const slug = subdomain?.trim();
-     if (!slug || slug.length < 2) {
-       setAvailabilityStatus("idle");
-       setCheckedSubdomain("");
-       lastCheckedRef.current = "";
-       return;
-     }
-
-     availabilityTimerRef.current = setTimeout(() => {
-       checkSubdomainAvailability(slug);
-     }, 600);
-
-     return () => {
-       if (availabilityTimerRef.current) {
-         clearTimeout(availabilityTimerRef.current);
-       }
-     };
-   }, [subdomain, checkSubdomainAvailability, skipInitialSubdomainCheck]);
-
-   // Handle file input change to capture preview immediately
+  // Handle file input change to capture preview immediately
    const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
      const file = e.target.files?.[0];
      if (file && onLogoPreview) {
@@ -227,33 +130,6 @@ export function BrandingSetupCard({
        reader.readAsDataURL(file);
      }
    };
-
-  // Generate a URL-safe subdomain slug from a string (e.g., organization name)
-  const generateSubdomainSlug = (name: string) => {
-    return name
-      .toLowerCase()
-      .replace(/[^a-z0-9-]/g, "-")
-      .replace(/-+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 30);
-  };
-
-  // Sanitize subdomain input — only lowercase, numbers, hyphens
-  const handleSubdomainChange = (value: string) => {
-    subdomainManuallyEditedRef.current = true;
-    const sanitized = value
-      .toLowerCase()
-      .replace(/[^a-z0-9-]/g, "-")
-      .replace(/-+/g, "-")
-      .slice(0, 30);
-    onDataChange("subdomain", sanitized);
-  };
-
-  // Compute the preview subdomain slug: use the entered value, auto-generate from org name, or fallback
-  const previewSubdomainSlug =
-    subdomain ||
-    generateSubdomainSlug(organizationName || "") ||
-    "your-organization";
 
   // Validate website on change
    const handleWebsiteChange = (value: string) => {
@@ -297,118 +173,12 @@ export function BrandingSetupCard({
           maxLength={100}
           onChange={async (e) => {
             onDataChange("organizationName", e.target.value);
-            // Auto-fill subdomain from org name until the user manually edits the subdomain field
-            if (!subdomainManuallyEditedRef.current) {
-              const slug = generateSubdomainSlug(e.target.value);
-              if (slug) {
-                onDataChange("subdomain", slug);
-              }
-            }
           }}
           placeholder="Enter organization name"
           required
           destructive={errorFields.includes("organizationName")}
           data-field="organizationName"
         />
-      </div>
-
-      {/* Portal Subdomain */}
-      <div>
-        <label className="block text-sm font-medium mb-1 flex items-center gap-1">
-          Portal Subdomain <span className="text-red-500">*</span>
-          <Popover>
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                className="inline-flex items-center justify-center text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
-              >
-                <Info className="h-3.5 w-3.5" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent side="bottom" align="center" className="w-80 text-sm">
-              <p>
-                {'Customize the subdomain where employees will access your benefits portal. This will be the unique URL for your organization\u2019s portal (e.g., '}
-                <strong>your-organization.plantel.pro</strong>
-                {'). Only lowercase letters, numbers, and hyphens are allowed.'}
-              </p>
-            </PopoverContent>
-          </Popover>
-        </label>
-        <p className="text-sm text-muted-foreground dark:text-gray-400 mb-3">
-          Customize the subdomain where employees will access your benefits portal.
-        </p>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground dark:text-gray-400 bg-muted/50 dark:bg-gray-900/50 rounded-lg px-3 py-2 mb-3">
-          <span className="shrink-0 font-medium text-foreground dark:text-gray-200">
-            https://
-          </span>
-          <span className="font-medium text-foreground dark:text-gray-200">
-            {previewSubdomainSlug}
-          </span>
-          <span className="shrink-0">.plantel.pro</span>
-        </div>
-        <div className="relative">
-          <Input
-            icon={<Link className="h-4 w-4" />}
-            value={subdomain}
-            onChange={(e) => handleSubdomainChange(e.target.value)}
-            placeholder={generateSubdomainSlug(organizationName || "") || "your-organization"}
-            required
-            destructive={errorFields.includes("subdomain")}
-            data-field="subdomain"
-            maxLength={30}
-          />
-          <div
-            className={`absolute -top-8 right-0 flex items-center gap-2 transition-all duration-500 ease-out ${subdomain.length >= 15
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 translate-y-2 pointer-events-none"
-              }`}
-          >
-            <span
-              className={`text-xs transition-colors duration-300 ${subdomain.length >= 30
-                ? "text-red-500 dark:text-red-400"
-                : "text-muted-foreground dark:text-gray-400"
-                }`}
-            >
-              {subdomain.length}/30 characters
-            </span>
-            {subdomain.length >= 30 && (
-              <Badge
-                variant="destructive"
-                className="text-xs animate-in fade-in slide-in-from-right-2 duration-500"
-              >
-                Limit reached
-              </Badge>
-            )}
-          </div>
-        </div>
-        {/* Subdomain availability indicator */}
-        {availabilityStatus !== "idle" && subdomain?.trim() && subdomain.trim().length >= 2 && (
-          <div className="flex items-center gap-1.5 mt-1.5">
-            {availabilityStatus === "checking" ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">Checking availability...</span>
-              </>
-            ) : availabilityStatus === "available" ? (
-              <>
-                <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-                <span className="text-xs text-green-600 dark:text-green-400">
-                  &ldquo;{checkedSubdomain}&rdquo; is available
-                </span>
-              </>
-            ) : availabilityStatus === "taken" ? (
-              <>
-                <XCircle className="h-3.5 w-3.5 text-red-500" />
-                <span className="text-xs text-red-600 dark:text-red-400">
-                  &ldquo;{checkedSubdomain}&rdquo; is already taken
-                </span>
-              </>
-            ) : null}
-          </div>
-        )}
-        <p className="text-xs text-muted-foreground dark:text-gray-400 mt-2">
-          Only lowercase letters, numbers, and hyphens allowed. Max 20 characters.
-        </p>
       </div>
 
       {/* Organization Website */}
@@ -432,7 +202,7 @@ export function BrandingSetupCard({
       </div>
 
       {/* Organization Logo */}
-      <div>
+      <div data-field="logo">
         <label className="block text-sm font-medium mb-1 flex items-center gap-1">
           Organization Logo <span className="text-red-500">*</span>
           <button

@@ -24,11 +24,18 @@ import {
 
 const DEFAULT_SIGNED_URL_EXPIRY_S = 60 * 60; // 1 hour for read; 15 min for upload
 
+// Reuse a single S3Client for the process lifetime. The portal GET route signs
+// every R2-backed benefit/branding field on each load; constructing an S3Client
+// per field is wasteful (and the client is stateless for signing purposes).
+let cachedR2Client: S3Client | null | undefined;
+
 function getR2Client(): S3Client | null {
+  if (cachedR2Client !== undefined) return cachedR2Client;
   if (!R2_BUCKET || !R2_ENDPOINT || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) {
+    cachedR2Client = null;
     return null;
   }
-  return new S3Client({
+  cachedR2Client = new S3Client({
     region: "auto", // R2 requires "auto", not us-east-1 etc.
     endpoint: R2_ENDPOINT, // must be https://<account-id>.r2.cloudflarestorage.com
     credentials: {
@@ -37,6 +44,7 @@ function getR2Client(): S3Client | null {
     },
     forcePathStyle: true, // required for Cloudflare R2 (path-style requests)
   });
+  return cachedR2Client;
 }
 
 /**

@@ -14,9 +14,9 @@ export async function fetchPlanDocumentsForClient(
 
   const p = (async (): Promise<unknown[]> => {
     try {
-      // forPortal=1 lets anonymous subdomain visitors load documents (the API
-      // resolves the owning advisor from x-advisor-id / the Host subdomain). On
-      // the dashboard (apex/localhost) it falls back to the session, so wizard
+      // forPortal=1 lets anonymous portal visitors load documents (the API
+      // resolves the owning advisor from the plan slug in the path). On the
+      // dashboard (localhost) it falls back to the session, so wizard
       // and dashboard callers are unaffected.
       const res = await fetch(`/api/documents/client/${clientId}?forPortal=1`, {
         credentials: "include",

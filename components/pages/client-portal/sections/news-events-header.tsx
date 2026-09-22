@@ -1,39 +1,38 @@
-import Image from "next/image";
-
 interface NewsEventsHeaderProps {
   title?: string;
   backgroundImage?: string;
   backgroundImageAlt?: string;
 }
 
-/** R2 proxy URLs are already served at full resolution — letting Next.js
- *  Image Optimization re-process them degrades quality (double compression).
- *  Local public assets (e.g. /announcement-banner-3.webp) still benefit
- *  from Next.js optimization. */
-function isR2ProxyUrl(src: string): boolean {
-  return src.startsWith("/api/r2/object");
-}
-
+/**
+ * Hero for the News & Events page.
+ *
+ * The background is a plain <img>, like the other portal heroes (PortalHero,
+ * PortalWelcomeBanner), rather than next/image. The value arrives resolved by
+ * `useBrandingImageUrl`, so it is either the /api/r2/object proxy or a presigned
+ * R2 URL — and routing either through the Image Optimizer adds a server-side
+ * fetch that can fail in production, on top of the double compression the
+ * optimizer applies to already-optimized R2 bytes.
+ *
+ * When the plan has no Secondary Banner selected (Create Plan wizard / Edit
+ * Client), the caller passes nothing and the bundled default below is used.
+ */
 export function NewsEventsHeader({
   title = "News & Events",
-  backgroundImage = "/announcement-banner-3.webp",
+  backgroundImage = "/news-events-default-bg.webp",
   backgroundImageAlt = "Audience at event",
 }: NewsEventsHeaderProps) {
-  const unoptimized = isR2ProxyUrl(backgroundImage);
-
   return (
     <section className="relative h-[280px] sm:h-[350px] lg:h-[400px] w-full overflow-hidden">
       {/* Background Image */}
-      <Image
-        src={backgroundImage}
-        alt={backgroundImageAlt}
-        fill
-        className="object-cover"
-        priority
-        unoptimized={unoptimized}
-        quality={unoptimized ? undefined : 90}
-        sizes="100vw"
-      />
+      {backgroundImage && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={backgroundImage}
+          alt={backgroundImageAlt}
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      )}
 
       {/* Dark overlay */}
       <div className="absolute inset-0 bg-black/40 sm:bg-black/30" />

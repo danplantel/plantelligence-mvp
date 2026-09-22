@@ -40,7 +40,30 @@ async function uploadThroughAppServer(
     return null;
   }
   const data = (await res.json()) as { key?: string };
-  return data.key ?? null;
+  const key = data.key ?? null;
+  if (!key) return null;
+
+  // The relay writing through the server is not proof the object landed. The
+  // presigned path below verifies the key it hands back, but this path used to
+  // return it blind — so every `if (viaServer) return viaServer;` caller could
+  // persist a dangling key.
+  //
+  // That failure is invisible at first: callers store the cropped `previewDataUrl`
+  // alongside the key, so the trigger renders from the local data URL and looks
+  // correct. Once that local value is gone — navigating away and back, or a
+  // remount — the trigger falls back to the key and the image 404s. Verifying
+  // here covers every relay call site at once; a null result makes each caller
+  // fall through to the presigned path (or throw), so a dangling key is never
+  // returned.
+  if (!(await verifyR2ObjectReadableViaApp(key))) {
+    console.warn(
+      "[upload-to-r2] Server-relayed key is not readable, refusing to return it",
+      key,
+    );
+    return null;
+  }
+
+  return key;
 }
 
 /**
@@ -229,16 +252,23 @@ export async function uploadFileToR2(options: UploadToR2Options): Promise<string
     putOk = true;
   }
 
-  if (
-    purpose === "upload" &&
-    file.size <= MAX_SERVER_FALLBACK_BYTES
-  ) {
-    const readable = await verifyR2ObjectReadableViaApp(key);
-    if (!readable) {
-      console.warn(
-        "[upload-to-r2] Presigned PUT ok but object not readable; using server upload",
-        key,
-      );
+  // A returned key is not proof that the object landed — and a dangling key is
+  // worse than a failed upload: it is persisted as the branding value and then
+  // renders as a broken image everywhere (public portal header included).
+  //
+  // Branding uploads are the exposed case: logo background removal produces a
+  // large transparent PNG, which exceeds the same-origin relay cap below and
+  // therefore takes this cross-origin presigned path. Verify EVERY purpose, and
+  // only hand back a key the app can actually read.
+  const readable = await verifyR2ObjectReadableViaApp(key);
+  if (!readable) {
+    console.warn(
+      "[upload-to-r2] Upload returned a key but the object is not readable; retrying through the server",
+      key,
+    );
+    // Same-origin relay writes through the server and fails loudly, so it is the
+    // reliable retry whenever the file is within the platform body limit.
+    if (file.size <= MAX_SERVER_FALLBACK_BYTES) {
       const viaServer = await uploadThroughAppServer(file, {
         purpose,
         subPath,
@@ -251,6 +281,7 @@ export async function uploadFileToR2(options: UploadToR2Options): Promise<string
       });
       if (viaServer) return viaServer;
     }
+    throw new Error("Uploaded object is not readable from storage");
   }
 
   return key;

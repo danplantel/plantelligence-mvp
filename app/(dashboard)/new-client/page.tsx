@@ -22,20 +22,12 @@ import { hasUnsavedWizardWork } from "@/lib/new-client-wizard-dirty";
 import { useNavigateAwayGuard } from "@/hooks/use-navigate-away-guard";
 import { NavigateAwayWarningDialog } from "@/components/ui/navigate-away-warning-dialog";
 import { ResumeOrNewPlanDialog } from "@/components/ui/resume-or-new-plan-dialog";
-import useSWR from "swr";
 import { useRouter } from "next/navigation";
 import { getBenefitsHubOpenPortalUrl } from "@/lib/marketing/hub-url";
-import { fetchProfileOnce } from "@/lib/fetch-profile";
 
 export default function NewClientPage() {
   const router = useRouter();
   const { setTitle } = usePageTitleContext();
-  const { data: profileData } = useSWR("/api/profile", () => fetchProfileOnce(), {
-    keepPreviousData: true,
-    dedupingInterval: 60_000,
-    revalidateOnFocus: false,
-  });
-  const userSubdomain: string | undefined = profileData?.subdomain || undefined;
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [showSavingDialog, setShowSavingDialog] = useState(false);
@@ -559,10 +551,7 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
     switch (currentStep) {
       case 1:
         return (
-          <NewClientStep1
-            errorFields={errorFields}
-            userSubdomain={userSubdomain}
-          />
+          <NewClientStep1 errorFields={errorFields} />
         );
       case 2:
         return <NewClientStep2 errorFields={errorFields} />;
@@ -574,10 +563,7 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
         return <NewClientStep5 errorFields={errorFields} />;
       default:
         return (
-          <NewClientStep1
-            errorFields={errorFields}
-            userSubdomain={userSubdomain}
-          />
+          <NewClientStep1 errorFields={errorFields} />
         );
     }
   };
@@ -665,7 +651,6 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
                       const resolvedUrl = successPortalUrl.startsWith("/")
                         ? getBenefitsHubOpenPortalUrl(
                             successPortalUrl.replace(/^\//, ""),
-                            userSubdomain,
                           )
                         : successPortalUrl;
                       window.open(resolvedUrl, "_blank", "noopener,noreferrer");
@@ -679,16 +664,17 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
                   <button
                     type="button"
                     onClick={() => {
-                      // Jump straight into the Benefits wizard with this plan
-                      // already preselected so the advisor can create a benefit.
+                      // Jump straight into the Create Benefit wizard with this
+                      // plan already preselected so the advisor can create a
+                      // benefit.
                       const planId =
                         successPlanId ||
                         useNewClientWizardStore.getState().draftClientId;
                       setShowSuccessDialog(false);
                       router.push(
                         planId
-                          ? `/benefits?planId=${encodeURIComponent(planId)}`
-                          : "/benefits",
+                          ? `/new-benefits?planId=${encodeURIComponent(planId)}`
+                          : "/new-benefits",
                       );
                     }}
                     className="w-full py-3 px-4 rounded-xl border border-accent-blue text-accent-blue font-semibold hover:bg-accent-blue/10 transition-colors"

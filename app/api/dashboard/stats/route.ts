@@ -4,6 +4,9 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
+import { ACTIVE_CLIENT_STATUS_FILTER } from "@/lib/active-client-status";
+import { meetingsThisWeekWhere } from "@/lib/meetings-this-week";
+import { countPlansNeedingAttention } from "@/lib/plan-needs-attention.server";
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,73 +17,35 @@ export async function GET(request: NextRequest) {
 
     const userId = session.user.id;
 
-    // Get active plans count (from Plan table)
-    const activePlansCount = await prisma.plan.count({
-      where: {
-        userId
-      }
-    });
+    const [activePlansCount, meetingsThisWeekCount, needsAttentionCount] =
+      await Promise.all([
+        // "Plans" are Client rows (Benefits Hubs) — the same records served by /api/clients —
+        // so this counts the user's clients that are neither Draft nor Archived.
+        prisma.client.count({
+          where: {
+            userId,
+            status: ACTIVE_CLIENT_STATUS_FILTER,
+          },
+        }),
 
-    // Get upcoming meetings count (scheduled and in-progress meetings in the future)
-          const now = new Date();
-          const upcomingMeetingsCount = await prisma.meeting.count({
-            where: {
-              OR: [
-                {
-                  status: "In Progress"
-                },
-                {
-                  status: "Scheduled",
-                  date: {
-                    gte: now
-                  }
-                }
-              ]
-            }
-          });
+        // Counts the current scheduling week (Sunday–Saturday) using the same shared
+        // window as the "Meetings this Week" panel, so the number and the list agree.
+        prisma.meeting.count({
+          where: meetingsThisWeekWhere(userId),
+        }),
 
-    // Also get all meetings for debugging
-    const allMeetings = await prisma.meeting.findMany({
-      select: {
-        id: true,
-        meeting: true,
-        status: true,
-        date: true,
-        time: true
-      }
-    });
-    
-    // Log each meeting's date comparison
-    allMeetings.forEach((meeting, index) => {
-      const meetingDate = new Date(meeting.date);
-      const isUpcoming = meetingDate >= now;
-    });
-
-    // Get upcoming meetings for debugging
-    const upcomingMeetings = await prisma.meeting.findMany({
-      where: {
-        status: {
-          in: ["Scheduled", "In Progress"]
-        },
-        date: {
-          gte: now
-        }
-      },
-      select: {
-        id: true,
-        meeting: true,
-        status: true,
-        date: true,
-        time: true
-      }
-    });
+        // Active plans flagged for incomplete benefit content, uncategorized documents
+        // or absent disclaimers — the same evaluation the detail panel lists.
+        countPlansNeedingAttention(userId),
+      ]);
 
     return NextResponse.json({
       success: true,
       data: {
         activePlans: activePlansCount,
-        upcomingMeetings: upcomingMeetingsCount
-      }
+        meetingsThisWeek: meetingsThisWeekCount,
+        needsAttention: needsAttentionCount,
+      },
     });
   } catch (error) {
     console.error("Error fetching dashboard stats:", error);

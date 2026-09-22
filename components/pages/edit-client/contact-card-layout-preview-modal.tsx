@@ -207,6 +207,12 @@ function transformContactToPreview(
     websiteUrl: contact.websiteUrl,
     enableContactButton: contact.enableContactButton,
     contactButtonType: contact.contactButtonType,
+    // Carried through so the Contact Form CTA can resolve the contact's current
+    // "Topic of Interest" configuration when clicked (see resolveContactFormUrl).
+    contactFormTopics: (contact as any).contactFormTopics,
+    planId: (contact as any).planId,
+    // Badge icon choice for Team / Support Line cards.
+    supportIcon: (contact as any).supportIcon,
   };
 }
 
@@ -728,7 +734,7 @@ export function ContactCardLayoutPreviewModal({
                             previewMode === "mobile" ? "text-2xl" : "text-4xl",
                           )}
                           style={{
-                            fontFamily: '"DM Serif Display", serif',
+                            fontFamily: "var(--font-headline)",
                             color: brandColor || "#1F3A60",
                           }}
                         >

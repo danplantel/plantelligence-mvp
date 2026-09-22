@@ -45,12 +45,16 @@ function DocumentCard({
   secondaryColor,
   enableEditing = false,
   onUpdate,
+  portalClientId,
 }: {
   document: Document;
   brandColor?: string;
   secondaryColor?: string;
   enableEditing?: boolean;
   onUpdate?: (updatedDocument: Document) => void;
+  /** Plan slug/ObjectId — appended to the view URL so the API can scope the
+   *  document to the owning advisor on the anonymous portal. */
+  portalClientId?: string;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(
@@ -94,10 +98,16 @@ function DocumentCard({
     }
   };
 
+  const viewUrl = document.id
+    ? `/api/documents/${document.id}/view${
+        portalClientId
+          ? `?clientSlug=${encodeURIComponent(portalClientId)}`
+          : ""
+      }`
+    : (document.fileUrl && String(document.fileUrl).trim()) || "";
+
   const handleDownload = async () => {
-    const urlString = document.id
-      ? `/api/documents/${document.id}/view`
-      : (document.fileUrl && String(document.fileUrl).trim()) || "";
+    const urlString = viewUrl;
     if (!urlString) return;
 
     const doc = document; // Store document reference to avoid type conflict
@@ -268,9 +278,7 @@ function DocumentCard({
       <DocumentPreviewModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        documentUrl={
-          document.id ? `/api/documents/${document.id}/view` : document.fileUrl
-        }
+        documentUrl={viewUrl}
         documentName={document.title || document.fileName}
         documentType="application/pdf"
       />
@@ -817,6 +825,7 @@ export function DocumentsSection({
                           secondaryColor={secondaryColor}
                           enableEditing={enableEditing}
                           onUpdate={handleDocumentUpdate}
+                          portalClientId={clientId}
                         />
                       ))}
                     </div>

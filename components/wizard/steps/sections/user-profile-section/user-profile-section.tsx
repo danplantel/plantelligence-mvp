@@ -91,14 +91,24 @@ export function UserProfileSection({
 
   const content = (
     <>
-      <RadioGroup value={selectedType || ""} className="grid gap-2">
+      <RadioGroup
+        value={selectedType || ""}
+        className="grid gap-2"
+        data-field="organizationType"
+      >
         {organizationOptions.map((option) => (
           <div
             key={option.value}
             className={`p-3 border rounded-lg cursor-pointer transition-colors ${
               selectedType === option.value
-                ? "border-primary bg-[#23919C]/10"
-                : "hover:bg-muted/50"
+                ? `border-primary bg-[#23919C]/10 ${
+                    errorFields.includes("organizationType")
+                      ? "ring-1 ring-red-500"
+                      : ""
+                  }`
+                : errorFields.includes("organizationType")
+                  ? "border-red-500 hover:bg-muted/50"
+                  : "hover:bg-muted/50"
             }`}
             onClick={() => onTypeSelect(option.value)}
           >
@@ -119,6 +129,11 @@ export function UserProfileSection({
           </div>
         ))}
       </RadioGroup>
+      {errorFields.includes("organizationType") && (
+        <p className="text-xs text-red-500 dark:text-red-400 mt-1">
+          Please select an organization type
+        </p>
+      )}
 
       {selectedType === OrganizationType.OTHER && (
         <div className="mt-3">

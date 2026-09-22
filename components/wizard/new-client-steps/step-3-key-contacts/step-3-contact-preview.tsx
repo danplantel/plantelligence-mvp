@@ -832,6 +832,7 @@ export function NewClientStep3d({
         contactType: contact.contactType,
         displayName: contact.displayName,
         teamImage: contact.teamImage,
+        supportIcon: contact.supportIcon,
         isPrimary: contact.isPrimary || false,
         isPrimaryOverall: contact.isPrimaryOverall || false,
         cardPrimaryColor: contact.cardPrimaryColor,
@@ -1783,7 +1784,7 @@ export function NewClientStep3d({
                                   : "text-4xl",
                               )}
                               style={{
-                                fontFamily: '"DM Serif Display", serif',
+                                fontFamily: "var(--font-headline)",
                                 color: brandColor,
                               }}
                             >
@@ -1853,7 +1854,7 @@ export function NewClientStep3d({
                   {/* Skeleton: default layout — 1 primary + 4 small */}
                   <div className="bg-[#F8F8F3] rounded-lg p-8 border border-gray-200">
                     <div className="text-center mb-16">
-                      <Skeleton className="h-10 w-64 mx-auto" style={{ fontFamily: '"DM Serif Display", serif' }} />
+                      <Skeleton className="h-10 w-64 mx-auto" style={{ fontFamily: "var(--font-headline)" }} />
                     </div>
                     <div className="space-y-4">
                       <Skeleton className="h-44 w-full rounded-xl" />

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import useSWR from "swr";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -40,22 +39,10 @@ export function EditClientHeader({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
-  const { data: profileData } = useSWR("/api/profile", jsonFetcher, {
-    keepPreviousData: true,
-    dedupingInterval: 60_000,
-    revalidateOnFocus: false,
-  });
-  const userSubdomain: string | undefined =
-    profileData?.subdomain || undefined;
-
   const handleOpenPortal = () => {
     if (clientId) {
       const resolvedSlug = slug || clientId;
-      const url = getBenefitsHubOpenPortalUrl(
-        resolvedSlug,
-        userSubdomain,
-      );
+      const url = getBenefitsHubOpenPortalUrl(resolvedSlug);
       window.open(url, "_blank");
     }
   };

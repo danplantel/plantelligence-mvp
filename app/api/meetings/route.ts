@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
+import { computeStartAtUtc } from "@/lib/meeting-start-at";
+import { toScheduleDayKey } from "@/lib/date";
 
 export async function POST(request: NextRequest) {
   try {
@@ -91,6 +93,14 @@ export async function POST(request: NextRequest) {
         date: new Date(date),
         time,
         timezone: timezone || null,
+        // Derived instant, matching what the plan-scoped meetings API already stores. Without
+        // it, a meeting created here has no instant to compare against the clock, so any
+        // instant-based filter has to re-derive it on every read.
+        startAtUtc: computeStartAtUtc(
+          toScheduleDayKey(date),
+          time,
+          timezone || null,
+        ),
         duration,
         format,
         platform: platform || null,

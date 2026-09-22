@@ -17,14 +17,20 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await request.json();
-    const { 
-      companyName, 
-      companyWebsite, 
-      companyLogo, 
-      logoFileName, 
-      primaryColor, 
-      secondaryColor, 
+    const {
+      companyName,
+      companyWebsite,
+      companyLogo,
+      logoFileName,
+      primaryColor,
+      secondaryColor,
+      typographyTheme,
       brandImages,
+      // Step 1's plan type and custom Portal URL. These used to be dropped on
+      // the floor here, so a draft's chosen portal slug never reached the
+      // session record and resuming the draft showed an empty Portal URL.
+      planType,
+      portalUrl,
       missionHeadline,
       missionBody,
       heroTitle,
@@ -146,6 +152,10 @@ export async function POST(request: NextRequest) {
       logoFileName: fileName,
       primaryColor,
       secondaryColor,
+      ...(typographyTheme !== undefined && { typographyTheme }),
+      ...(planType !== undefined && { planType }),
+      // Same shape save-draft writes: an explicitly cleared URL is stored as null.
+      ...(portalUrl !== undefined && { portalUrl: portalUrl || null }),
       brandImages: brandImagesToSave,
     };
 

@@ -34,7 +34,15 @@ export function DismissibleAlert({
 
   return (
     <Alert className={cn("pr-10", className)} {...props}>
-      {children}
+      {/*
+        The close button is rendered BEFORE {children} on purpose.
+        `alertVariants` styles every direct child that follows a leading icon
+        (`[&>svg~*]:pl-7`). When children start with an icon, rendering this
+        button last made it a following sibling of that icon, so it inherited a
+        1.75rem padding-left inside its fixed 1.5rem box — collapsing the content
+        box and pushing the "X" out of the button. Coming first, it is never a
+        following sibling. Absolute positioning means DOM order is invisible.
+      */}
       <button
         type="button"
         onClick={dismiss}
@@ -46,6 +54,7 @@ export function DismissibleAlert({
       >
         <X className="h-4 w-4" />
       </button>
+      {children}
     </Alert>
   );
 }

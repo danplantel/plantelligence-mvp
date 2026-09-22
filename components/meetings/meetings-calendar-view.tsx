@@ -23,6 +23,7 @@ import {
   Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { scheduleDayKeyToDate, todayScheduleDayKey } from "@/lib/date";
 
 export interface CalendarMeeting {
   id: string;
@@ -76,7 +77,12 @@ export function MeetingsCalendarView({
   onSelectDay,
   onQuickAdd,
 }: MeetingsCalendarViewProps) {
-  const today = useMemo(() => startOfDay(new Date()), []);
+  // "Today" is the app's US scheduling day, not the viewer's — so the today ring
+  // and the one-day-ahead scheduling rule stay stable wherever the viewer sits.
+  const today = useMemo(
+    () => startOfDay(scheduleDayKeyToDate(todayScheduleDayKey())),
+    [],
+  );
   // Scheduling is only allowed at least one day ahead; today and past days are read-only.
   const minSchedulable = useMemo(() => addDays(today, 1), [today]);
 

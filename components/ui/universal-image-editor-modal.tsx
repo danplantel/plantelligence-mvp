@@ -13,13 +13,19 @@ import {
   Upload,
   X,
   AlertTriangle,
+  Eraser,
+  Info,
   Maximize2,
   Loader2,
+  Pencil,
   Plus,
+  RotateCcw,
+  Wand2,
 } from "lucide-react";
 import { CropMetadata } from "./simple-image-editor-modal";
 import {
   buildCropMetadata,
+  computeLogoExportRect,
   detectTransparency,
   drawCroppedImage,
   getBackingScale,
@@ -31,6 +37,12 @@ import {
 import { uploadFileToR2 } from "@/lib/upload-to-r2";
 import { isR2BrandingKey, toR2BrandingKey, toFabricImageLoadUrl } from "@/lib/branding-image-url";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
+import {
+  HEADER_LOGO_BAND_PX,
+  HEADER_LOGO_BAR_HEIGHT_PX,
+  HEADER_LOGO_MAX_WIDTH_PX,
+  HEADER_LOGO_OUTLINE_RATIO,
+} from "@/lib/header-logo-band";
 import { Headshot } from "@/components/ui/headshot";
 import {
   isZipFile,
@@ -40,6 +52,160 @@ import {
   type ExtractedImage,
 } from "@/lib/zip-image-extract";
 import { ZipFilePickerModal } from "@/components/ui/zip-file-picker-modal";
+import {
+  MEANINGFUL_REMOVAL_RATIO,
+  detectImageBackground,
+  removeImageBackground,
+  type BackgroundDetection,
+  type RemovalResult,
+} from "@/lib/image-background-removal";
+import {
+  isAiRemovalAvailable,
+  removeBackgroundWithAi,
+} from "@/lib/ai-background-removal";
+
+/**
+ * Checkerboard backdrop shown behind any transparent image. Shared between the
+ * editing canvas and the previews so a logo with a removed background is visible
+ * rather than blending into the surface — and so the two cannot drift apart.
+ */
+const TRANSPARENCY_CHECKERBOARD =
+  "repeating-conic-gradient(#f0f0f0 0% 25%, #ffffff 0% 50%) 50% / 20px 20px";
+
+/**
+ * Scale applied to the preview boxes in the info panel. A preview is a check on
+ * framing, not a working surface, so it renders well below full size and leaves
+ * the panel's vertical space to the guidance and the controls. The header mock's
+ * caption reads this value, so changing it cannot leave the wording behind.
+ */
+const PREVIEW_DISPLAY_SCALE = 0.3;
+
+/**
+ * Background-removal settings, fixed rather than offered.
+ *
+ * The editor is aimed at people who do not think in terms of colour distance, so the
+ * pipeline runs on one considered default instead of asking them to judge it:
+ *
+ * - Tolerance 12 maps to a ~13/255 RGB distance — enough to absorb the compression
+ *   noise around a nominally solid white or black backdrop, not enough to eat light
+ *   artwork.
+ * - Trimming the transparent margin is what makes the result usable at all: it is
+ *   what re-fits the logo to the artwork instead of to the backdrop frame.
+ *
+ * These are constants, not state, because nothing can change them — a control that
+ * cannot move is not state.
+ */
+const BACKGROUND_REMOVAL_TOLERANCE = 12;
+const BACKGROUND_REMOVAL_TRIM = true;
+
+/**
+ * Plain-language name for a backdrop colour — "white", "dark blue", "light gray".
+ *
+ * Used by the "Background Detected" offer, where the point is to confirm *which*
+ * part of the image we mean rather than to act as a colour picker.
+ *
+ * Naming by nearest reference colour (in RGB or in Lab) misfiles ordinary brand
+ * colours: pure blue is an outlier in Lab, so realistic navies such as #1F3A60 land
+ * nearer "teal" or "dark gray", and off-whites drift to "beige" on the strength of a
+ * single channel. Reading the hue family first and then the shade keeps the cases
+ * that actually occur exact — every near-white backdrop reads "white".
+ */
+
+/** Saturation (HSV) below which a colour carries no meaningful hue. */
+const NEUTRAL_MAX_SATURATION = 0.12;
+
+/** Hue-family boundaries, in degrees on the HSV wheel. */
+const HUE_RED_TO_ORANGE = 15;
+const HUE_ORANGE_TO_YELLOW = 45;
+const HUE_YELLOW_TO_GREEN = 70;
+const HUE_GREEN_TO_TEAL = 160;
+const HUE_TEAL_TO_BLUE = 190;
+const HUE_BLUE_TO_PURPLE = 255;
+const HUE_PURPLE_TO_PINK = 320;
+const HUE_PINK_TO_RED = 345;
+
+/** sRGB (0-255) → HSV, plus the HSL lightness used to pick a shade. */
+function toHsv(
+  rgb: [number, number, number],
+): { hue: number; saturation: number; value: number; lightness: number } {
+  const [r, g, b] = [rgb[0] / 255, rgb[1] / 255, rgb[2] / 255];
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const delta = max - min;
+
+  let hue = 0;
+  if (delta > 0) {
+    if (max === r) hue = 60 * (((g - b) / delta) % 6);
+    else if (max === g) hue = 60 * ((b - r) / delta + 2);
+    else hue = 60 * ((r - g) / delta + 4);
+  }
+  if (hue < 0) hue += 360;
+
+  return {
+    hue,
+    saturation: max === 0 ? 0 : delta / max,
+    value: max,
+    lightness: (max + min) / 2,
+  };
+}
+
+/** Greyscale shade from brightness — near-white backdrops all read "white". */
+function describeNeutralShade(brightness: number): string {
+  if (brightness >= 0.93) return "white";
+  if (brightness <= 0.08) return "black";
+  if (brightness >= 0.72) return "light gray";
+  if (brightness >= 0.35) return "gray";
+  return "dark gray";
+}
+
+function describeRgbColour(colour: [number, number, number]): string {
+  const rgb = colour.map((channel) =>
+    Math.max(0, Math.min(255, Math.round(channel))),
+  ) as [number, number, number];
+
+  const { hue, saturation, value, lightness } = toHsv(rgb);
+
+  // A near-grey has no meaningful hue, so naming it after one would be misleading.
+  if (saturation < NEUTRAL_MAX_SATURATION) {
+    return describeNeutralShade(value);
+  }
+
+  if (hue < HUE_RED_TO_ORANGE || hue >= HUE_PINK_TO_RED) {
+    if (lightness >= 0.8) return "pink";
+    if (lightness <= 0.32) return "dark red";
+    return "red";
+  }
+
+  if (hue < HUE_ORANGE_TO_YELLOW) {
+    if (lightness >= 0.85 && hue >= 30) return "beige";
+    if (lightness < 0.45) return "brown";
+    return "orange";
+  }
+
+  if (hue < HUE_YELLOW_TO_GREEN) {
+    return lightness >= 0.85 ? "beige" : "yellow";
+  }
+
+  if (hue < HUE_GREEN_TO_TEAL) {
+    if (lightness <= 0.2) return "dark green";
+    if (lightness >= 0.7) return "light green";
+    return "green";
+  }
+
+  if (hue < HUE_TEAL_TO_BLUE) {
+    return lightness >= 0.42 ? "cyan" : "teal";
+  }
+
+  if (hue < HUE_BLUE_TO_PURPLE) {
+    if (lightness <= 0.32) return "dark blue";
+    if (lightness >= 0.75) return "light blue";
+    return "blue";
+  }
+
+  if (hue < HUE_PURPLE_TO_PINK) return "purple";
+
+  return lightness <= 0.35 ? "purple" : "pink";
+}
 
 // Types for different use cases
 export type ImageEditorType = "headshot" | "logo" | "normalizer" | "custom";
@@ -89,6 +255,18 @@ export interface ImageEditorConfig {
   outlinePadding?: number; // Padding around the image in the crop output (default: 0.1 = 10%)
   // Separate recommended display size (e.g. for background images: 1920×1080)
   recommendedDisplaySize?: { width: number; height: number };
+  // Background removal (logo and normalizer only). Shows the Background card
+  // with the button-driven Remove Background action.
+  allowBackgroundRemoval?: boolean;
+  /**
+   * Export logo slots with a crop windowed tightly on the artwork, so the logo
+   * fills the header band instead of the header band being spent on an empty box.
+   *
+   * Opt-in per call site, because the `normalizer` type is also borrowed for
+   * full-bleed images (hero photos, 1920×1080 section backgrounds) that must keep
+   * their existing fit. The `logo` type opts in by default.
+   */
+  normalizeLogoForHeader?: boolean;
 }
 
 // Default configurations for different use cases
@@ -138,6 +316,8 @@ export const IMAGE_EDITOR_CONFIGS: Record<ImageEditorType, ImageEditorConfig> =
     showWarnings: false,
     showLayoutButtons: true,
     saveToAPI: false,
+    allowBackgroundRemoval: true,
+    normalizeLogoForHeader: true,
   },
 
   normalizer: {
@@ -162,6 +342,7 @@ export const IMAGE_EDITOR_CONFIGS: Record<ImageEditorType, ImageEditorConfig> =
     showWarnings: true,
     showLayoutButtons: true,
     saveToAPI: false,
+    allowBackgroundRemoval: true,
   },
 
   custom: {
@@ -224,6 +405,23 @@ interface UniversalImageEditorModalProps {
   // Hide "Perfect" message
   hidePerfectMessage?: boolean;
   forceCircularGuidelines?: boolean;
+
+  /**
+   * Explicit per-call-site opt-in / opt-out for logo background removal.
+   *
+   * Wins over `customConfig.allowBackgroundRemoval` and over the shared type
+   * default, so a slot that reuses the `normalizer` type for a non-logo image
+   * (a hero background, an inner header image) can switch it off, and a logo slot
+   * can assert it on, without inventing a new editor type.
+   */
+  allowBackgroundRemoval?: boolean;
+
+  /**
+   * Explicit per-call-site opt-in for the header-logo export crop. See
+   * `ImageEditorConfig.normalizeLogoForHeader`. Wins over
+   * `customConfig.normalizeLogoForHeader` and over the shared type default.
+   */
+  normalizeLogoForHeader?: boolean;
 
   /**
    * Immediate data URL for the trigger-area preview.
@@ -315,6 +513,8 @@ export function UniversalImageEditorModal({
   autoSizeOnOpen = false,
   hidePerfectMessage = false,
   forceCircularGuidelines = false,
+  allowBackgroundRemoval,
+  normalizeLogoForHeader: normalizeLogoForHeaderProp,
   previewDataUrl,
   onUploadStateChange,
 }: UniversalImageEditorModalProps) {
@@ -323,6 +523,11 @@ export function UniversalImageEditorModal({
   const fabricCanvasRef = useRef<Canvas | null>(null);
   const isInitializedRef = useRef(false);
   const autoSizeInitializedRef = useRef(false);
+  // Set when the user picks a file in this session. It makes the freshly chosen
+  // image win over the parent's `value`, which would otherwise overwrite it the
+  // moment the modal opens — see the value effect below. Reset on close so the
+  // next open loads `value` again.
+  const fileSelectionRef = useRef(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -343,6 +548,16 @@ export function UniversalImageEditorModal({
   // Update preview sizes based on canvas mode
   const config: ImageEditorConfig = {
     ...baseConfig,
+    // Precedence: this call site's prop > customConfig > the shared type default.
+    // `baseConfig` already folds in customConfig, so a single nullish coalesce
+    // gives the prop the final say while leaving every existing call site on the
+    // type-based behaviour.
+    allowBackgroundRemoval:
+      allowBackgroundRemoval ?? baseConfig.allowBackgroundRemoval,
+    // Same precedence: this call site's prop > customConfig > the shared type
+    // default (which opts the `logo` type in and leaves `normalizer` out).
+    normalizeLogoForHeader:
+      normalizeLogoForHeaderProp ?? baseConfig.normalizeLogoForHeader ?? false,
     previewSizes: {
       ...baseConfig.previewSizes,
       rectangular: { width: 300, height: 250 },
@@ -391,14 +606,75 @@ export function UniversalImageEditorModal({
   const [hasTooMuchBlankSpace, setHasTooMuchBlankSpace] = useState(false);
   const [isNotScaledEnough, setIsNotScaledEnough] = useState(false);
   const [baseScale, setBaseScale] = useState(1);
-  // Header-preview metrics (for normalizer)
-  const [headerMetrics, setHeaderMetrics] = useState<{
-    headerPx: number;
-    recommendedPx: number;
-    safePx: number;
-    renderedLogoHeightPx: number;
-    status: "perfect" | "ok" | "too_large";
+
+  // --- Logo background removal ---
+  // Button-driven: the removal runs from the Remove Background button and from the
+  // offer dialog's confirm, nowhere else. What used to be the user's two knobs —
+  // tolerance and trim — are now the locked BACKGROUND_REMOVAL_* constants, so this
+  // state holds only what the last run reported. The model itself is on the server, so
+  // there is no download to track here either. See plans/logo-background-removal.md.
+  const [bgRemoval, setBgRemoval] = useState<{
+    isProcessing: boolean;
+    isRemoved: boolean;
+    artworkRisk: boolean;
+    info: string | null;
+    error: string | null;
+  }>({
+    isProcessing: false,
+    isRemoved: false,
+    artworkRisk: false,
+    info: null,
+    error: null,
+  });
+
+  // True when the source file is an SVG. Vector logos already carry their own
+  // transparency, so the control is replaced by an explanatory note.
+  const [sourceIsSvg, setSourceIsSvg] = useState(false);
+
+  /**
+   * Set when an uploaded logo arrives with a detectable backdrop, so the offer
+   * dialog can name the colour it found. Null means nothing to ask about — it is
+   * never populated for an image that was not just picked.
+   */
+  const [bgPrompt, setBgPrompt] = useState<BackgroundDetection | null>(null);
+
+  /** Source string already offered the prompt. Records the upload as soon as the
+   *  question is asked, and each processed source in `applySourceImage`, so the
+   *  question is asked once per picked file and never for a re-seeded canvas. */
+  const bgPromptedForRef = useRef<string | null>(null);
+
+  /**
+   * Before/after pair shown inside the offer dialog. `before` is the untouched
+   * upload; `result` is the removal the dialog is offering, kept whole rather than
+   * as a bare data URL so confirming can apply precisely what was previewed.
+   *
+   * `status` describes the pair's own work. The removal takes long enough to see on
+   * a large logo, so the dialog is told the panes are pending from the first frame
+   * rather than rendering an empty slot that fills in late; and when the work fails
+   * the dialog can say so instead of showing nothing. A preview is an aid, not the
+   * feature — a failure is reported, never allowed to block the offer.
+   */
+  const [bgPromptPreview, setBgPromptPreview] = useState<{
+    before: string;
+    status: "loading" | "ready" | "failed";
+    result: RemovalResult | null;
+    /**
+     * Which engine produced `result`. The confirm only reuses it when it matches the
+     * engine the confirm itself will run, so a quick colour preview can never be
+     * passed off as the model's result.
+     */
+    engine: "ai" | "colour";
   } | null>(null);
+
+  // Gates the canvas-init effect while a re-seed is pending, so the canvas is not
+  // rebuilt with the previous bitmap's dimensions before the mode-detection
+  // effect has measured the new bitmap's aspect ratio.
+  const reseedPendingRef = useRef(false);
+
+  // Set when a re-seed should be followed by an auto-size. A re-seed rebuilds the
+  // Fabric canvas asynchronously, so the fit has to wait until the new object
+  // exists — see the effect next to `autoSizeImage`.
+  const pendingAutoSizeRef = useRef(false);
 
   // Responsive canvas dimensions
   const [responsiveCanvasWidth, setResponsiveCanvasWidth] = useState(
@@ -534,11 +810,18 @@ export function UniversalImageEditorModal({
   useEffect(() => {
     if (!modalOpen) {
       isInitializedRef.current = false;
+      fileSelectionRef.current = false;
       setOriginalImageSrc(null);
       setImageSrc(null);
       return;
     }
     if (!value) return;
+
+    // A file the user just selected must not be replaced by the value already
+    // saved against this slot. Opening the modal for that selection flips
+    // `modalOpen` (a dependency below), which used to re-apply `value` and show
+    // the current logo instead of the one just chosen.
+    if (fileSelectionRef.current) return;
 
     const loadable = toFabricImageLoadUrl(value);
     if (!loadable) return;
@@ -628,8 +911,14 @@ export function UniversalImageEditorModal({
     reader.onload = () => {
       const dataURL = reader.result as string;
 
+      // Claim the working image for this selection before the modal opens, so the
+      // value effect (triggered by `modalOpen`) cannot restore the old image.
+      fileSelectionRef.current = true;
       setImageSrc(dataURL);
       setOriginalImageSrc(dataURL);
+      setSourceIsSvg(
+        file.type === "image/svg+xml" || /\.svg$/i.test(file.name || ""),
+      );
       generateWarnings(dataURL);
       // Open the modal regardless of mode (standalone or controlled)
       setInternalModalOpen(true);
@@ -740,6 +1029,50 @@ export function UniversalImageEditorModal({
       config.previewFormats.forEach((format) => {
         const size = config.previewSizes[format];
         if (size) {
+          // Header logo: preview the exact image the save path will store, using
+          // the same helper and outline, so the preview and the stored logo cannot
+          // drift apart.
+          if (format === "custom" && config.normalizeLogoForHeader) {
+            const rect = computeLogoExportRect({
+              artworkBounds: activeObject.getBoundingRect(),
+              canvasWidth: canvas.getWidth(),
+              canvasHeight: canvas.getHeight(),
+              outlineRatio: HEADER_LOGO_OUTLINE_RATIO,
+            });
+            const headerMultiplier = 3;
+            const headerCanvas = document.createElement("canvas");
+            headerCanvas.width = Math.max(
+              1,
+              Math.round(rect.dw * headerMultiplier),
+            );
+            headerCanvas.height = Math.max(
+              1,
+              Math.round(rect.dh * headerMultiplier),
+            );
+            const headerCtx = headerCanvas.getContext("2d");
+            if (headerCtx) {
+              const headerImg = new Image();
+              headerImg.onload = () => {
+                headerCtx.imageSmoothingEnabled = true;
+                headerCtx.imageSmoothingQuality = "high";
+                headerCtx.drawImage(
+                  headerImg,
+                  rect.sx,
+                  rect.sy,
+                  rect.sw,
+                  rect.sh,
+                  0,
+                  0,
+                  headerCanvas.width,
+                  headerCanvas.height,
+                );
+                newPreviews[format] = headerCanvas.toDataURL("image/png", 0.9);
+                setPreviews({ ...newPreviews });
+              };
+              headerImg.src = dataURL;
+            }
+            return;
+          }
           // For rectangular, preserve existing preview in compact mode (but generate first time)
           if (
             format === "rectangular" &&
@@ -845,49 +1178,14 @@ export function UniversalImageEditorModal({
           }
         }
       });
-
-      // Compute header metrics for normalizer based on AR buckets
-      if (type === "normalizer" && fabricCanvasRef.current) {
-        const c = fabricCanvasRef.current;
-        const obj = c.getActiveObject();
-        if (obj) {
-          const originalW = obj.width || 1;
-          const originalH = obj.height || 1;
-          const ar = originalW / originalH; // uploaded art AR
-          let headerPx = 140;
-          if (ar >= 1.4) headerPx = 140; // Wide
-          else if (ar >= 1.0) headerPx = 150; // Near-square
-          else if (ar >= 0.85) headerPx = 160; // Square
-          else headerPx = 140; // Tall/stacked
-
-          const recommendedPx = Math.round(headerPx * 0.385);
-          const safePx = Math.round(headerPx * 0.457);
-
-          // Rendered height of the logo in final header = (current object height / canvas height) * headerPx
-          const objBounds = obj.getBoundingRect();
-          const canvasHeightLocal = fabricCanvasRef.current?.getHeight() || 1;
-          const renderedLogoHeightPx = Math.round(
-            (objBounds.height / canvasHeightLocal) * headerPx,
-          );
-
-          let status: "perfect" | "ok" | "too_large" = "perfect";
-          if (renderedLogoHeightPx <= recommendedPx) status = "perfect";
-          else if (renderedLogoHeightPx <= safePx) status = "ok";
-          else status = "too_large";
-
-          setHeaderMetrics({
-            headerPx,
-            recommendedPx,
-            safePx,
-            renderedLogoHeightPx,
-            status,
-          });
-        }
-      }
     } catch (error) {
       console.error("Error generating previews:", error);
     }
-  }, [config.previewFormats, config.previewSizes]);
+  }, [
+    config.previewFormats,
+    config.previewSizes,
+    config.normalizeLogoForHeader,
+  ]);
 
   // Draw safe zone and guidelines
   const drawSafeZoneAndGuidelines = useCallback(() => {
@@ -1201,9 +1499,12 @@ export function UniversalImageEditorModal({
           setResponsiveCanvasWidth(config.canvasWidth);
           setResponsiveCanvasHeight(config.canvasHeight);
         }
+        // Dimensions are now correct, so a pending re-seed may build the canvas.
+        reseedPendingRef.current = false;
         setIsDetectingMode(false);
       };
       img.onerror = () => {
+        reseedPendingRef.current = false;
         setIsDetectingMode(false);
       };
       img.src = imageSrc;
@@ -1217,7 +1518,8 @@ export function UniversalImageEditorModal({
       imageSrc &&
       canvasRef.current &&
       !fabricCanvasRef.current &&
-      !isDetectingMode
+      !isDetectingMode &&
+      !reseedPendingRef.current
     ) {
       const canvas = new Canvas(canvasRef.current, {
         width: responsiveCanvasWidth,
@@ -1436,6 +1738,15 @@ export function UniversalImageEditorModal({
       setCanvasMode("normal");
       setResponsiveCanvasWidth(config.canvasWidth);
       setResponsiveCanvasHeight(config.canvasHeight);
+      reseedPendingRef.current = false;
+      setSourceIsSvg(false);
+      setBgRemoval({
+        isProcessing: false,
+        isRemoved: false,
+        artworkRisk: false,
+        info: null,
+        error: null,
+      });
     }
   }, [modalOpen, config.canvasWidth, config.canvasHeight]);
 
@@ -1647,7 +1958,29 @@ export function UniversalImageEditorModal({
       cropWidth = 0,
       cropHeight = 0;
 
-    if (type === "logo" || type === "normalizer") {
+    if (
+      (type === "logo" || type === "normalizer") &&
+      config.normalizeLogoForHeader
+    ) {
+      // Header logo: window the export on the artwork itself with one uniform
+      // outline. The header fits this box into a fixed band with object-contain,
+      // so slack here would be paid for by shrinking the artwork.
+      const logoExportRect = computeLogoExportRect({
+        artworkBounds: {
+          left: currentRect.left,
+          top: currentRect.top,
+          width: currentRect.width,
+          height: currentRect.height,
+        },
+        canvasWidth: cw,
+        canvasHeight: ch,
+        outlineRatio: HEADER_LOGO_OUTLINE_RATIO,
+      });
+      cropX = logoExportRect.sx;
+      cropY = logoExportRect.sy;
+      cropWidth = logoExportRect.dw;
+      cropHeight = logoExportRect.dh;
+    } else if (type === "logo" || type === "normalizer") {
       if (ar > 2) {
         const solidHeight = Math.round(ch - safePad * 2);
         const solidWidth = Math.round(
@@ -1897,9 +2230,31 @@ export function UniversalImageEditorModal({
     }
   };
 
+  /**
+   * Clear the background-removal state: the toolbar toggle label and whatever the
+   * last run had to say about itself.
+   *
+   * Shared by the toolbar Undo and by Reset. Reset rebuilds the image from
+   * `originalImageSrc` — the untouched upload — so it undoes a removal by
+   * definition, and leaving this state behind would strand the toolbar button on
+   * "Undo Background Removal" with nothing left to undo.
+   */
+  const clearBgRemovalState = () => {
+    pendingAutoSizeRef.current = false;
+    setBgRemoval((prev) => ({
+      ...prev,
+      isRemoved: false,
+      artworkRisk: false,
+      info: null,
+      error: null,
+    }));
+  };
+
   const resetImage = () => {
     if (fabricCanvasRef.current && originalImageSrc) {
       const canvas = fabricCanvasRef.current;
+
+      clearBgRemovalState();
 
       const objects = canvas.getObjects();
       objects.forEach((obj) => {
@@ -2143,6 +2498,254 @@ export function UniversalImageEditorModal({
     }
   };
 
+  /**
+   * Hand a freshly processed bitmap back to the existing mode-detection and
+   * canvas-init effects by disposing the current Fabric canvas and swapping
+   * `imageSrc`.
+   *
+   * Re-seeding this way means the auto-fit scale, the safe-zone state, the
+   * aspect-ratio cap, the normalizer header metrics and the save crop rect are all
+   * recomputed against the new artwork bounds — without duplicating the ~170-line
+   * canvas-init block that `resetImage` above had to clone.
+   *
+   * `reseedPendingRef` holds the init effect back until the mode-detection effect
+   * has measured the new bitmap, otherwise the canvas would be rebuilt at the
+   * previous bitmap's dimensions.
+   */
+  const applySourceImage = (nextSrc: string) => {
+    if (fabricCanvasRef.current) {
+      fabricCanvasRef.current.dispose();
+      fabricCanvasRef.current = null;
+    }
+    reseedPendingRef.current = true;
+    setPreviews({});
+    setImageSrc(nextSrc);
+    // The re-seeded source must never re-open the "Background Detected" prompt:
+    // a removal result is not a new upload, and its backdrop was just removed.
+    bgPromptedForRef.current = nextSrc;
+  };
+
+  /**
+   * The single entry point into the removal pipeline — wired only to the
+   * Remove Background button and to the offer dialog's confirm.
+   *
+   * Always reads from `originalImageSrc` (the untouched upload) rather than the
+   * current `imageSrc`, so undoing and running again re-derives from a clean source
+   * instead of compounding one removal on top of another. Both options come from the
+   * locked BACKGROUND_REMOVAL_* constants — the user is never asked to judge a
+   * colour distance.
+   *
+   * `precomputed` carries the result the offer dialog already produced for its
+   * "After" pane, so the applied image is exactly the previewed one and the pixels
+   * are not processed a second time.
+   */
+  const handleRemoveBackground = async (precomputed?: RemovalResult) => {
+    if (!originalImageSrc || bgRemoval.isProcessing) return;
+
+    setBgRemoval((prev) => ({
+      ...prev,
+      isProcessing: true,
+      error: null,
+      info: null,
+    }));
+
+    // Set inside the AI branch when the model cannot run, and reported once the removal
+    // has finished either way.
+    let aiFailureReason: string | null = null;
+
+    try {
+      let result: RemovalResult;
+      let usedAi = false;
+
+      if (precomputed) {
+        result = precomputed;
+      } else if (isAiRemovalAvailable()) {
+        // The model first: it handles what a colour key cannot — a gradient, a shadow,
+        // a scene behind the mark. The colour pipeline is the fallback rather than the
+        // default, and when it takes over the card says so instead of quietly
+        // delivering a different result than the button promises.
+        try {
+          result = await removeBackgroundWithAi(originalImageSrc);
+          usedAi = true;
+        } catch (aiError) {
+          result = await removeImageBackground(originalImageSrc, {
+            tolerance: BACKGROUND_REMOVAL_TOLERANCE,
+            trim: BACKGROUND_REMOVAL_TRIM,
+          });
+          // The card reports this after the run; carrying it out of the catch keeps the
+          // "what actually happened" note in one place.
+          aiFailureReason =
+            aiError instanceof Error
+              ? aiError.message
+              : "The background model could not run.";
+        }
+      } else {
+        result = await removeImageBackground(originalImageSrc, {
+          tolerance: BACKGROUND_REMOVAL_TOLERANCE,
+          trim: BACKGROUND_REMOVAL_TRIM,
+        });
+      }
+
+      applySourceImage(result.dataUrl);
+      // The trimmed artwork has a different aspect ratio, so fit it back to the
+      // guide immediately rather than leaving it at the pre-removal scale.
+      pendingAutoSizeRef.current = true;
+
+      let info: string | null = null;
+      if (result.noChange) {
+        info = result.trimmed
+          ? "This logo already had a transparent background, so there were no background pixels to remove. The empty edges have been trimmed."
+          : "This logo already had a transparent background, so there were no background pixels to remove.";
+      } else if (result.removedRatio < MEANINGFUL_REMOVAL_RATIO) {
+        // There is no slider to point at any more, so this explains instead of
+        // instructing — and it has to explain the right engine: the colour pass looks
+        // for a flat backdrop, the model looks for a subject.
+        info = usedAi
+          ? "The model found nothing to remove — this image may already have a transparent background."
+          : "Nothing could be removed automatically. This logo's edges may not be one flat colour.";
+      }
+
+      if (aiFailureReason) {
+        info = `Used the quick colour method instead — ${aiFailureReason}`;
+      }
+
+      setBgRemoval((prev) => ({
+        ...prev,
+        isProcessing: false,
+        isRemoved: true,
+        artworkRisk: result.artworkRisk,
+        info,
+        error: null,
+      }));
+    } catch (err) {
+      setBgRemoval((prev) => ({
+        ...prev,
+        isProcessing: false,
+        error:
+          err instanceof Error
+            ? err.message
+            : "Could not remove the background from this image.",
+      }));
+    }
+  };
+
+  /** Restore the original upload, discarding the removal. */
+  const handleResetBackground = () => {
+    if (!originalImageSrc) return;
+    clearBgRemovalState();
+    applySourceImage(originalImageSrc);
+  };
+
+  /**
+   * Offer the removal feature when an upload arrives with a solid backdrop.
+   *
+   * `detectImageBackground()` is a dry run — pixels are read and reported, never
+   * written — so running it here does not alter the brand asset. The user still has
+   * to accept the offer, and the manual button remains available either way.
+   *
+   * Gated twice so it asks exactly once per uploaded file:
+   *  - `fileSelectionRef` is true only for a file the user just picked, so
+   *    re-opening the editor on an existing image never triggers it;
+   *  - `bgPromptedForRef` records the source string, so re-seeding the canvas
+   *    mid-edit, and undoing a removal back to the original, do not ask again.
+   */
+  useEffect(() => {
+    if (!config.allowBackgroundRemoval) return;
+    if (!imageSrc || sourceIsSvg) return;
+    if (!fileSelectionRef.current) return;
+    if (bgPromptedForRef.current === imageSrc) return;
+    bgPromptedForRef.current = imageSrc;
+
+    let cancelled = false;
+    void (async () => {
+      const detection = await detectImageBackground(imageSrc, {
+        tolerance: BACKGROUND_REMOVAL_TOLERANCE,
+      });
+      if (cancelled || !detection.hasBackground) return;
+      setBgPrompt(detection);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // Only a new source re-runs this. With the tolerance locked there is no control
+    // left that could invalidate a previous answer, so nothing else needs to re-run
+    // it — and re-asking about a file the user has already answered for would be
+    // exactly the nagging the gating above exists to prevent.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imageSrc, sourceIsSvg, config.allowBackgroundRemoval]);
+
+
+  /**
+   * Build the before/after pair while the offer is on screen: the untouched upload
+   * beside the removal being offered, so the user sees what changes rather than
+   * having to take the wording on trust.
+   *
+   * Runs the same call the confirm action would, and keeps the whole result so the
+   * preview and the applied image cannot diverge.
+   */
+  useEffect(() => {
+    if (!bgPrompt || !originalImageSrc) {
+      setBgPromptPreview(null);
+      return;
+    }
+
+    // Render the pair immediately with the "After" pane pending, so the dialog has
+    // its final shape while the pixels are processed rather than growing under the
+    // user's cursor when they land. The engine is filled in below; with no result on
+    // screen yet, the provisional value is invisible.
+    setBgPromptPreview({
+      before: originalImageSrc,
+      status: "loading",
+      result: null,
+      engine: isAiRemovalAvailable() ? "ai" : "colour",
+    });
+
+    let cancelled = false;
+    void (async () => {
+      // The model when the route is reachable — its result is exactly what the confirm
+      // will apply, so the pair shows the real thing — and the colour pass otherwise.
+      // Nothing here downloads anything: the weights live on the server, so this costs a
+      // request instead of 168 MB. The caption under the pair still names the engine, so
+      // a colour pass can never be read as the model's work.
+      const engine: "ai" | "colour" = isAiRemovalAvailable() ? "ai" : "colour";
+      const useModel = engine === "ai";
+      if (cancelled) return;
+
+      try {
+        const result = useModel
+          ? await removeBackgroundWithAi(originalImageSrc)
+          : await removeImageBackground(originalImageSrc, {
+              tolerance: BACKGROUND_REMOVAL_TOLERANCE,
+              trim: BACKGROUND_REMOVAL_TRIM,
+            });
+        if (cancelled) return;
+        setBgPromptPreview({
+          before: originalImageSrc,
+          status: "ready",
+          result,
+          engine,
+        });
+      } catch {
+        // The preview is an aid, not the feature — the offer still stands without it.
+        if (cancelled) return;
+        setBgPromptPreview({
+          before: originalImageSrc,
+          status: "failed",
+          result: null,
+          engine,
+        });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // Built once per offer. The engine choice is settled at that moment and the card's
+    // own controls are behind the dialog, so nothing can change what it refers to.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bgPrompt, originalImageSrc]);
+
   const autoSizeImage = () => {
     if (!fabricCanvasRef.current) return;
 
@@ -2271,6 +2874,21 @@ export function UniversalImageEditorModal({
     setIsNotScaledEnough(false);
   };
 
+  /**
+   * Fit the artwork to the guide once a re-seed has landed.
+   *
+   * Deliberately has no dependency array: the rebuilt canvas arrives a render or
+   * two after the re-seed (mode detection, then the Fabric image load) and no
+   * piece of state signals that readiness. The guards make repeat runs free.
+   */
+  useEffect(() => {
+    if (!pendingAutoSizeRef.current) return;
+    const canvas = fabricCanvasRef.current;
+    if (!canvas || !canvas.getActiveObject()) return;
+    pendingAutoSizeRef.current = false;
+    autoSizeImage();
+  });
+
   useEffect(() => {
     if (imageSrc) {
       autoSizeInitializedRef.current = false;
@@ -2382,6 +3000,106 @@ export function UniversalImageEditorModal({
     checkSafeZone();
   };
 
+  /**
+   * Preview panel body. Rendered first in the info column — the preview is what
+   * the advisor came to check — and at `PREVIEW_DISPLAY_SCALE` of its configured
+   * size so it does not dominate the panel.
+   */
+  const previewsPanel = (
+    <>
+      {config.previewFormats.map((format) => {
+        const size = config.previewSizes[format];
+        if (!size) return null;
+
+        // Special styling for Header Bar preview in normalizer
+        const isHeaderBarPreview = type === "normalizer" && format === "custom";
+
+        // Half-scale mock of the real header geometry.
+        const barHeight = HEADER_LOGO_BAR_HEIGHT_PX * PREVIEW_DISPLAY_SCALE;
+        const bandHeight = HEADER_LOGO_BAND_PX * PREVIEW_DISPLAY_SCALE;
+        const bandMaxWidth = HEADER_LOGO_MAX_WIDTH_PX * PREVIEW_DISPLAY_SCALE;
+
+        return (
+          <div key={format}>
+            <Label className="text-sm font-medium text-gray-400">
+              {type === "logo" && format === "rectangular"
+                ? "Logo Preview"
+                : previewText || previewTitle || modalTitle || config.modalTitle}
+            </Label>
+            <div className="mt-2">
+              {isHeaderBarPreview ? (
+                <div className="space-y-2">
+                  {/* Mirrors the real header at half scale: a fixed band the logo
+                      is contain-fitted into, showing the same tight crop the save
+                      path stores. */}
+                  <div
+                    className="border-[1px] border-gray-200 rounded-lg bg-white relative mx-auto overflow-hidden flex items-center px-2"
+                    style={{ width: `100%`, height: `${barHeight}px` }}
+                  >
+                    {previews[format] ? (
+                      <div
+                        className="relative inline-flex shrink-0 items-center justify-center overflow-hidden"
+                        style={{
+                          height: `${bandHeight}px`,
+                          minHeight: `${bandHeight}px`,
+                          maxWidth: `${bandMaxWidth}px`,
+                        }}
+                      >
+                        <img
+                          src={previews[format]}
+                          alt="Header Bar Preview"
+                          className="block h-auto w-auto max-h-full max-w-full object-contain object-center"
+                        />
+                      </div>
+                    ) : (
+                      <span className="text-gray-400 text-xs">Adjusting...</span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-gray-400 text-center">
+                    {Math.round(PREVIEW_DISPLAY_SCALE * 100)}% scale mock of the
+                    portal header.
+                  </p>
+                </div>
+              ) : (
+                // Standard preview for other formats
+                <div
+                  className={`overflow-hidden flex items-center justify-center border-2 border-gray-300 dark:border-gray-600 ${format === "circle"
+                    ? "rounded-full"
+                    : "rounded-lg"
+                    }`}
+                  style={{
+                    width: `${size.width * PREVIEW_DISPLAY_SCALE}px`,
+                    height: `${size.height * PREVIEW_DISPLAY_SCALE}px`,
+                    background: TRANSPARENCY_CHECKERBOARD,
+                  }}
+                >
+                  {previews[format] ? (
+                    <img
+                      src={previews[format]}
+                      alt={`${format} Preview`}
+                      className="w-full h-full object-contain"
+                    />
+                  ) : (
+                    <span className="text-gray-400 text-xs">Adjusting...</span>
+                  )}
+                </div>
+              )}
+            </div>
+            {previewTitle === "Thumbnail image" && (
+              <div className="flex items-start space-x-1.5 sm:space-x-2 p-2 sm:p-2.5 md:p-3 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-md mt-3">
+                <AlertTriangle className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
+                <p className="text-[9px] sm:text-[10px] md:text-xs text-orange-600 dark:text-orange-400">
+                  The preview is square (900×900). Make sure your image fits well
+                  within these dimensions for best results.
+                </p>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </>
+  );
+
   return (
     <div>
       <input
@@ -2420,7 +3138,7 @@ export function UniversalImageEditorModal({
               <div className="flex items-center justify-center flex-shrink-0">
                 <div
                   className={
-                    "relative overflow-hidden border border-gray-200 bg-white dark:bg-gray-700 " +
+                    "relative overflow-hidden border border-gray-200 " +
                     (type === "headshot"
                       ? "h-[140px] w-[140px] rounded-full"
                       : // Fixed width (capped to the available space) so the box
@@ -2428,6 +3146,9 @@ export function UniversalImageEditorModal({
                         // image is still decoding.
                         "flex items-center justify-center w-[300px] max-w-full h-[150px] rounded-xl")
                   }
+                  // Checkerboard rather than a flat surface so a logo with a
+                  // removed background stays visible in light and dark mode.
+                  style={{ background: TRANSPARENCY_CHECKERBOARD }}
                 >
                   <img
                     src={previewSrc}
@@ -2470,30 +3191,63 @@ export function UniversalImageEditorModal({
                       )}
                 </p>
 
-                <button
-                  type="button"
-                  disabled={isDeleting}
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    setIsDeleting(true);
-                    try {
-                      await onRemove();
-                    } finally {
-                      setIsDeleting(false);
-                    }
-                    if (inputRef.current) {
-                      inputRef.current.value = "";
-                    }
-                  }}
-                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-                >
-                  {isDeleting ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <X className="w-3.5 h-3.5" />
-                  )}
-                  {isDeleting ? "Deleting..." : "Delete"}
-                </button>
+                {/* Edit · New Image · Delete, in one row for every logo /
+                    headshot / background preview. Edit reopens the editor that
+                    already owns the crop, scale and background-removal controls;
+                    New Image picks a replacement file; Delete clears it. */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      // The surrounding trigger opens the file picker on click.
+                      e.stopPropagation();
+                      setInternalModalOpen(true);
+                    }}
+                    disabled={isLoading || isSaving}
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    Edit
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      inputRef.current?.click();
+                    }}
+                    disabled={isLoading || isSaving || isDeleting}
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-accent-blue dark:text-accent-blue bg-accent-blue-light dark:bg-accent-blue/15 border border-accent-blue/30 dark:border-accent-blue/50 rounded-full hover:bg-accent-blue/10 dark:hover:bg-accent-blue/25 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    New Image
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isDeleting}
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      setIsDeleting(true);
+                      try {
+                        await onRemove();
+                      } finally {
+                        setIsDeleting(false);
+                      }
+                      if (inputRef.current) {
+                        inputRef.current.value = "";
+                      }
+                    }}
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {isDeleting ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <X className="w-3.5 h-3.5" />
+                    )}
+                    {isDeleting ? "Deleting..." : "Delete"}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -2552,10 +3306,7 @@ export function UniversalImageEditorModal({
                     <div className="w-full h-full flex items-center justify-center">
                       <div
                         style={{
-                          background: `
-                          repeating-conic-gradient(#f0f0f0 0% 25%, #ffffff 0% 50%) 
-                          50% / 20px 20px
-                        `,
+                          background: TRANSPARENCY_CHECKERBOARD,
                           padding: "2px",
                           width: `${responsiveCanvasWidth}px`,
                           height: `${responsiveCanvasHeight}px`,
@@ -2575,6 +3326,82 @@ export function UniversalImageEditorModal({
                 {/* Right: Info Panel */}
                 <div className="w-1/3 p-2 sm:p-3 md:p-4 space-y-1.5 sm:space-y-2 md:space-y-3 flex flex-col overflow-y-auto text-xs sm:text-sm bg-white dark:bg-gray-800 dark:text-gray-100">
                   <div className="space-y-1.5 sm:space-y-2 md:space-y-3">
+                    {/* Preview leads the panel — it is what the advisor came to
+                        check, and everything below explains or refines it. */}
+                    {previewsPanel}
+
+                    {/* Logo Background Removal — button-driven, inert until pressed */}
+                    {config.allowBackgroundRemoval && (
+                      <div className="p-2 sm:p-2.5 md:p-3 bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 rounded-md space-y-2 sm:space-y-2.5">
+                        <div className="flex items-center gap-1.5">
+                          <Wand2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-accent-blue flex-shrink-0" />
+                          <h4 className="text-[10px] sm:text-xs md:text-sm font-semibold text-gray-900 dark:text-gray-100">
+                            Remove Background
+                          </h4>
+                        </div>
+
+                        {sourceIsSvg ? (
+                          <p className="text-[9px] sm:text-[10px] md:text-xs text-gray-600 dark:text-gray-400">
+                            This is a vector logo, so it already carries its own
+                            transparency and scales cleanly. Background removal
+                            does not apply.
+                          </p>
+                        ) : (
+                          <>
+                            <p className="text-[9px] sm:text-[10px] md:text-xs text-gray-600 dark:text-gray-400">
+                              Removes the background — a solid colour, a gradient
+                              or a photo behind the logo — trims the empty space
+                              around the artwork and fits the result to the guide,
+                              so the logo is sized by the artwork itself.
+                            </p>
+
+                            {/* The model runs on the server, so a removal is a request
+                                rather than a local computation. Saying so is the honest
+                                version of a spinner: it explains the wait on the first
+                                run of a cold instance, when the weights are still being
+                                loaded. Nothing is downloaded here — that was the point of
+                                moving it. */}
+                            {bgRemoval.isProcessing && (
+                              <p className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground">
+                                Removing the background on the server — this can take
+                                a few seconds the first time.
+                              </p>
+                            )}
+
+                            {bgRemoval.artworkRisk && (
+                              <div className="flex items-start space-x-1.5 sm:space-x-2 p-1.5 sm:p-2 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-md">
+                                <AlertTriangle className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
+                                <p className="text-[9px] sm:text-[10px] md:text-xs text-orange-600 dark:text-orange-400">
+                                  This logo&rsquo;s artwork may use the same
+                                  colour as the background. Check the preview, and
+                                  press Undo Background Removal if anything
+                                  disappeared.
+                                </p>
+                              </div>
+                            )}
+
+                            {bgRemoval.error && (
+                              <div className="flex items-start space-x-1.5 sm:space-x-2 p-1.5 sm:p-2 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-md">
+                                <AlertTriangle className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+                                <p className="text-[9px] sm:text-[10px] md:text-xs text-red-600 dark:text-red-400">
+                                  {bgRemoval.error}
+                                </p>
+                              </div>
+                            )}
+
+                            {bgRemoval.info && !bgRemoval.error && (
+                              <div className="flex items-start space-x-1.5 sm:space-x-2 p-1.5 sm:p-2 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md">
+                                <Info className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                                <p className="text-[9px] sm:text-[10px] md:text-xs text-blue-800 dark:text-blue-200">
+                                  {bgRemoval.info}
+                                </p>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+
                     {/* Logo Guidelines */}
                     {(type === "logo" || type === "normalizer") &&
                       (tip === "no-text" ? null : (
@@ -2811,99 +3638,6 @@ export function UniversalImageEditorModal({
                       </>
                     )}
 
-                    {/* Previews based on configuration */}
-                    {config.previewFormats.map((format) => {
-                      const size = config.previewSizes[format];
-                      if (!size) return null;
-
-                      // Special styling for Header Bar preview in normalizer
-                      const isHeaderBarPreview =
-                        type === "normalizer" && format === "custom";
-
-                      return (
-                        <div key={format}>
-                          <Label className="text-sm font-medium text-gray-400">
-                            {type === "logo" && format === "rectangular"
-                              ? "Logo Preview"
-                              : previewText ||
-                                previewTitle ||
-                                modalTitle ||
-                                config.modalTitle}
-                          </Label>
-                          <div className="mt-2">
-                            {isHeaderBarPreview ? (
-                              <div className="space-y-2">
-                                <div
-                                  className="border-[1px] border-white rounded-lg bg-white relative mx-auto overflow-hidden"
-                                  style={{
-                                    width: `100%`,
-                                    height:
-                                      canvasMode === "compact"
-                                        ? "92px"
-                                        : "122px",
-                                  }}
-                                >
-                                  {previews[format] ? (
-                                    <img
-                                      src={previews[format]}
-                                      alt="Header Bar Preview"
-                                      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 object-cover"
-                                      style={{
-                                        height:
-                                          canvasMode === "compact"
-                                            ? "100px"
-                                            : "150px",
-                                        imageRendering:
-                                          "-webkit-optimize-contrast",
-                                      }}
-                                    />
-                                  ) : (
-                                    <span className="text-gray-400 text-xs">
-                                      Adjusting...
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            ) : (
-                              // Standard preview for other formats
-                              <div
-                                className={`overflow-hidden bg-white flex items-center justify-center border-2 border-gray-300 dark:border-gray-600 ${format === "circle"
-                                  ? "rounded-full"
-                                  : "rounded-lg"
-                                  }`}
-                                style={{
-                                  width: `${size.width}px`,
-                                  height: `${size.height}px`,
-                                }}
-                              >
-                                {previews[format] ? (
-                                  <img
-                                    src={previews[format]}
-                                    alt={`${format} Preview`}
-                                    className="w-full h-full object-contain"
-                                  />
-                                ) : (
-                                  <span className="text-gray-400 text-xs">
-                                    Adjusting...
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                          {previewTitle === "Thumbnail image" && (
-                            <div className="flex items-start space-x-1.5 sm:space-x-2 p-2 sm:p-2.5 md:p-3 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-md mt-3">
-                              <AlertTriangle className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
-                              <p className="text-[9px] sm:text-[10px] md:text-xs text-orange-600 dark:text-orange-400">
-                                The preview is square (900×900). Make sure your
-                                image fits well within these dimensions for best
-                                results.
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-
                     {/* Headshot Crop Warning - Show under previews for headshot type */}
                     {type === "headshot" && isHeadshotCropped && (
                       <div className="flex items-start space-x-1.5 sm:space-x-2 p-2 sm:p-2.5 md:p-3 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-md mt-3">
@@ -2967,7 +3701,12 @@ export function UniversalImageEditorModal({
 
               {/* Controls */}
               <div className="p-4 border-t space-y-3">
-                <div className="flex items-center justify-between">
+                {/* flex-wrap: the action row now carries 4 buttons plus the scale
+                    slider and the guidelines checkbox. Without wrapping, the
+                    left group overflows the row and its last child is clipped by
+                    the modal's `overflow-hidden` wrapper — which silently hid the
+                    Remove Background button. */}
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <ImageEditorControls
                     scale={scale}
                     baseScale={baseScale}
@@ -2979,6 +3718,51 @@ export function UniversalImageEditorModal({
                     onAutoSize={autoSizeImage}
                     disabled={isLoading}
                     showScale={config.allowScaling}
+                    actions={
+                      config.allowBackgroundRemoval && !sourceIsSvg ? (
+                        // One button, two modes: remove, then undo. Undoing
+                        // restores the original upload, so a second press with a
+                        // different tolerance re-runs from a clean source.
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={
+                            bgRemoval.isRemoved
+                              ? handleResetBackground
+                              : // Wrapped so the click event is not read as the
+                                // optional precomputed result.
+                                () => void handleRemoveBackground()
+                          }
+                          disabled={
+                            isSaving || isLoading || bgRemoval.isProcessing
+                          }
+                          title={
+                            bgRemoval.isRemoved
+                              ? "Restore the original background"
+                              : "Remove a solid white or black backdrop, trim the empty space around the artwork, then fit it to the guide"
+                          }
+                          className="flex-1 text-[9px] sm:text-[10px] md:text-xs h-7 sm:h-8 md:h-9 whitespace-nowrap"
+                        >
+                          {bgRemoval.isProcessing ? (
+                            <span className="flex items-center gap-1">
+                              <Loader2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 animate-spin flex-shrink-0" />
+                              <span>Removing…</span>
+                            </span>
+                          ) : bgRemoval.isRemoved ? (
+                            <span className="flex items-center gap-1">
+                              <RotateCcw className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" />
+                              <span>Undo Background Removal</span>
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1">
+                              <Eraser className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" />
+                              <span>Remove Background</span>
+                            </span>
+                          )}
+                        </Button>
+                      ) : null
+                    }
                   >
                     {/* Show Guidelines Checkbox */}
                     <div className="flex items-center space-x-1.5 sm:space-x-2">
@@ -3074,6 +3858,115 @@ export function UniversalImageEditorModal({
         cancelText="Cancel"
         variant="warning"
       />
+
+      {/* Uploaded logo with a solid backdrop — ask before altering a brand asset.
+          Declining leaves the image exactly as uploaded; the Remove Background
+          button stays available for a manual press. Two ways to say no, because
+          "no" means two things here: Keep Original answers the offer ("don't touch
+          my logo") while Cancel just closes the question. Both are byte-for-byte
+          no-ops on the asset. */}
+      <ConfirmDialog
+        open={!!bgPrompt}
+        onOpenChange={(open) => {
+          if (!open) setBgPrompt(null);
+        }}
+        onConfirm={async () => {
+          // Apply the previewed pixels only when they came from the engine the confirm
+          // will itself use — otherwise the dialog would show the colour pass while
+          // promising the model's result. Awaited so the dialog's busy state covers real
+          // work rather than closing over a removal that has not finished.
+          const preview = bgPromptPreview;
+          const engineNow: "ai" | "colour" = isAiRemovalAvailable()
+            ? "ai"
+            : "colour";
+          const precomputed =
+            preview?.status === "ready" && preview.engine === engineNow
+              ? preview.result ?? undefined
+              : undefined;
+          setBgPrompt(null);
+          await handleRemoveBackground(precomputed);
+        }}
+        title="Background Detected"
+        description={
+          bgPrompt?.color
+            ? `This logo was uploaded with a solid ${describeRgbColour(
+                bgPrompt.color,
+              )} background covering about ${Math.max(
+                1,
+                Math.round(bgPrompt.coverage * 100),
+              )}% of the image. Remove it?`
+            : "This logo was uploaded with a solid background. Remove it?"
+        }
+        confirmText="Remove Background"
+        cancelText="Keep Original"
+        extraCancelText="Cancel"
+        loadingText="Removing…"
+        variant="info"
+      >
+        {/* Side-by-side pair, so the offer shows the change it is describing. The
+            "After" pane keeps the checkerboard used elsewhere in the editor, which
+            is what makes the removed backdrop legible. Both panes are rendered at
+            their final height from the first frame: the pair is what the dialog is
+            sized around, so the "After" pane holds a spinner until the removal lands
+            instead of leaving an empty slot that fills in late. */}
+        {bgPromptPreview && (
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-3">
+              <figure className="m-0 space-y-1.5">
+                <div className="flex h-28 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-white p-2 dark:border-gray-700 dark:bg-gray-800">
+                  <img
+                    src={bgPromptPreview.before}
+                    alt="Logo as uploaded"
+                    className="max-h-full max-w-full object-contain"
+                  />
+                </div>
+                <figcaption className="text-center text-xs font-medium text-gray-600 dark:text-gray-400">
+                  Before
+                </figcaption>
+              </figure>
+              <figure className="m-0 space-y-1.5">
+                <div
+                  className="flex h-28 items-center justify-center overflow-hidden rounded-lg border border-gray-200 p-2 dark:border-gray-700"
+                  style={{ background: TRANSPARENCY_CHECKERBOARD }}
+                >
+                  {bgPromptPreview.status === "ready" &&
+                  bgPromptPreview.result ? (
+                    <img
+                      src={bgPromptPreview.result.dataUrl}
+                      alt="Logo with the background removed"
+                      className="max-h-full max-w-full object-contain"
+                    />
+                  ) : bgPromptPreview.status === "failed" ? (
+                    <span className="px-2 text-center text-[11px] leading-tight text-gray-500 dark:text-gray-400">
+                      Preview unavailable
+                    </span>
+                  ) : (
+                    <Loader2 className="h-4 w-4 animate-spin text-accent-blue" />
+                  )}
+                </div>
+                <figcaption className="text-center text-xs font-medium text-gray-600 dark:text-gray-400">
+                  After
+                </figcaption>
+              </figure>
+            </div>
+            {bgPromptPreview.status === "failed" && (
+              <p className="text-center text-[11px] text-gray-500 dark:text-gray-400">
+                The preview could not be generated, but the background can still
+                be removed.
+              </p>
+            )}
+            {/* Says which engine the pair shows, because confirm runs the model: a
+                colour-key approximation must not read as the promise. */}
+            {bgPromptPreview.status === "ready" &&
+              bgPromptPreview.engine === "colour" &&
+              isAiRemovalAvailable() && (
+                <p className="text-center text-[11px] text-gray-500 dark:text-gray-400">
+                  Quick preview. The background model runs when you confirm.
+                </p>
+              )}
+          </div>
+        )}
+      </ConfirmDialog>
     </div>
   );
 }

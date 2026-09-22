@@ -60,6 +60,8 @@ export interface ContactFormSubmission {
   fromEmail: string;
   message: string;
   company?: string;
+  /** "Topic of Interest" choices the participant selected (already active/ordered). */
+  topics?: string[];
 }
 
 /** Email a `/contact` form submission to the recipient (the contact's email). */
@@ -69,6 +71,7 @@ export async function sendContactFormEmail({
   fromEmail,
   message,
   company,
+  topics,
 }: ContactFormSubmission) {
   // This is a person-to-person message, so it is intentionally minimal and
   // image-free. Branded HTML with logos/buttons makes Gmail file it under
@@ -77,6 +80,12 @@ export async function sendContactFormEmail({
   const safeName = sanitizeHeaderValue(fromName) || "A visitor";
   const safeEmail = sanitizeHeaderValue(fromEmail);
   const safeCompany = company ? sanitizeHeaderValue(company) : "";
+  // Participant-selected topics (labels only; the free-text "Other" detail is
+  // appended to the label client-side).
+  const safeTopics = (topics || [])
+    .map((topic) => (topic || "").replace(/[\r\n]+/g, " ").trim().slice(0, 160))
+    .filter((topic) => topic.length > 0)
+    .slice(0, 40);
 
   const html = `
     <div style="margin:0;padding:32px 16px;background-color:#f2f4f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
@@ -92,6 +101,19 @@ export async function sendContactFormEmail({
         </p>
 
         <div style="padding:16px 18px;background-color:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;font-size:15px;line-height:1.65;color:#333333;white-space:pre-wrap;">${escapeHtml(message.trim())}</div>
+
+        ${
+          safeTopics.length
+            ? `<div style="margin:20px 0 0;">
+          <p style="margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#6b7280;">Topic of Interest</p>
+          <ul style="margin:0;padding:0 0 0 18px;font-size:14px;line-height:1.7;color:#333333;">
+            ${safeTopics
+              .map((topic) => `<li>${escapeHtml(topic)}</li>`)
+              .join("")}
+          </ul>
+        </div>`
+            : ""
+        }
 
         <p style="margin:20px 0 0;font-size:13px;color:#6b7280;">
           Reply directly to this email to reach ${escapeHtml(safeName)}.
@@ -113,6 +135,9 @@ export async function sendContactFormEmail({
   const text = [
     `${safeName} sent you a message through the contact form.`,
     ...(safeCompany ? ["", `Company: ${safeCompany}`] : []),
+    ...(safeTopics.length
+      ? ["", "Topic of Interest:", ...safeTopics.map((topic) => `- ${topic}`)]
+      : []),
     "",
     textSafeMessage,
     "",

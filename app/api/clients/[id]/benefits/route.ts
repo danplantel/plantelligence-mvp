@@ -11,8 +11,8 @@ import {
 
 /**
  * Shared helper: resolve a client by ObjectId or slug.
- * Supports both portal (forPortal + x-advisor-id or Host subdomain) and
- * authenticated access.
+ * Supports both portal (forPortal + plan slug in the path) and authenticated
+ * access.
  */
 async function resolveClient(
   id: string,
@@ -23,7 +23,7 @@ async function resolveClient(
     ? await resolvePortalAdvisorId(request)
     : undefined;
 
-  // Development-only localhost preview: no session and no subdomain, so the
+  // Development-only localhost preview: no session and no plan owner, so the
   // plan is resolved by id/slug alone (never enabled outside `next dev`).
   const devPublic = forPortal && isLocalDevLoopback(request);
 
