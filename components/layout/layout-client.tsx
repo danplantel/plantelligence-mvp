@@ -33,7 +33,9 @@ export function NewLayoutClient({ children }: NewLayoutClientProps) {
 
   // Determine which wizard page we're on to show the correct stepper in header
   const isNewClientPage = pathname === "/new-client";
-  const isBenefitsPage = pathname === "/benefits";
+  // The Create Benefit wizard now lives at /new-benefits; /benefits is the
+  // Browse Benefits list (which shows no stepper).
+  const isBenefitsPage = pathname === "/new-benefits";
 
   // Read new-client wizard state for the step title shown next to the page title
   const newClientSteps = useNewClientWizardStore((s) => s.steps);

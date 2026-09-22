@@ -664,16 +664,17 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
                   <button
                     type="button"
                     onClick={() => {
-                      // Jump straight into the Benefits wizard with this plan
-                      // already preselected so the advisor can create a benefit.
+                      // Jump straight into the Create Benefit wizard with this
+                      // plan already preselected so the advisor can create a
+                      // benefit.
                       const planId =
                         successPlanId ||
                         useNewClientWizardStore.getState().draftClientId;
                       setShowSuccessDialog(false);
                       router.push(
                         planId
-                          ? `/benefits?planId=${encodeURIComponent(planId)}`
-                          : "/benefits",
+                          ? `/new-benefits?planId=${encodeURIComponent(planId)}`
+                          : "/new-benefits",
                       );
                     }}
                     className="w-full py-3 px-4 rounded-xl border border-accent-blue text-accent-blue font-semibold hover:bg-accent-blue/10 transition-colors"

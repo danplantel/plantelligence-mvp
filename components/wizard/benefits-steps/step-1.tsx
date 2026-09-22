@@ -151,7 +151,15 @@ const toCategoryGalleryKey = (
   return null;
 };
 
-export function BenefitsStep1() {
+export function BenefitsStep1({
+  mode = "wizard",
+}: {
+  /** "edit" renders the Edit Benefit variant: the plan/category picker and every
+   *  accordion except Key Contact are hidden (documents move to their own tab and
+   *  branding/messaging are handled by the editor panel). */
+  mode?: "wizard" | "edit";
+} = {}) {
+  const isEditMode = mode === "edit";
   const { stepData, saveStepData } = useBenefitsWizardStore();
   // Use fetchProfileOnce (single-flight + TTL) so this coalesces with the layout
   // header's profile fetch — one /api/profile request for the whole page.
@@ -175,6 +183,10 @@ export function BenefitsStep1() {
   const [searchTerm, setSearchTerm] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [activeAccordions, setActiveAccordions] = useState<string[]>([]);
+  // Only the Key Contact accordion is rendered in edit mode, so open it by default.
+  useEffect(() => {
+    if (isEditMode) setActiveAccordions(["contacts"]);
+  }, [isEditMode]);
   const [togglingCategories, setTogglingCategories] = useState<Record<string, boolean>>({});
   const router = useRouter();
   const [draftDialogOpen, setDraftDialogOpen] = useState(false);
@@ -2643,6 +2655,7 @@ export function BenefitsStep1() {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full mx-auto pb-20">
       {/* 1. Plan & Benefit Selection */}
+      {!isEditMode && (
       <Card className="border border-gray-200 shadow-sm bg-card dark:bg-gray-800 dark:border-gray-700">
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
@@ -3118,6 +3131,7 @@ export function BenefitsStep1() {
           )}
         </CardContent>
       </Card>
+      )}
       {resolvedPlanId && currentStepData.benefitCategory && (
         <div
           ref={accordionRef}
@@ -3130,6 +3144,7 @@ export function BenefitsStep1() {
             className="space-y-4"
           >
             {/* 1. Branding Section */}
+            {!isEditMode && (
             <AccordionItem
               value="branding"
               className="border-none shadow-md overflow-hidden bg-card rounded-xl"
@@ -3244,8 +3259,10 @@ export function BenefitsStep1() {
                 </div>
               </AccordionContent>
             </AccordionItem>
+            )}
 
             {/* 2. Messaging Section */}
+            {!isEditMode && (
             <AccordionItem
               value="messaging"
               className="border-none shadow-md overflow-hidden bg-card rounded-xl"
@@ -3462,6 +3479,7 @@ export function BenefitsStep1() {
                 </div>
               </AccordionContent>
             </AccordionItem>
+            )}
 
             {/* 3. Key Contact Section */}
             <AccordionItem
@@ -3663,6 +3681,7 @@ export function BenefitsStep1() {
                   )}
                 </div>
 
+                {!isEditMode && (
                 <div className="flex justify-end pt-4 border-t border-gray-100 dark:border-gray-700">
                   <Button
                     onClick={() => handleContinue("documents")}
@@ -3671,10 +3690,12 @@ export function BenefitsStep1() {
                     CONTINUE TO DOCUMENTS
                   </Button>
                 </div>
+                )}
               </AccordionContent>
             </AccordionItem>
 
             {/* 4. Documents Section */}
+            {!isEditMode && (
             <AccordionItem
               value="documents"
               className="border-none shadow-md overflow-hidden bg-card rounded-xl"
@@ -3726,6 +3747,7 @@ export function BenefitsStep1() {
                 />
               </AccordionContent>
             </AccordionItem>
+            )}
           </Accordion>
         </div>
       )}

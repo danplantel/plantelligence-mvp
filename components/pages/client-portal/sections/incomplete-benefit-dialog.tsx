@@ -33,7 +33,9 @@ export function IncompleteBenefitDialog({
     const handleGoToWizard = () => {
         // Encode the category to ensure it's safe for URL
         const encodedCategory = encodeURIComponent(category);
-        router.push(`/benefits?planId=${clientId}&category=${encodedCategory}`);
+        router.push(
+            `/new-benefits?planId=${clientId}&category=${encodedCategory}`,
+        );
         onOpenChange(false);
     };
 

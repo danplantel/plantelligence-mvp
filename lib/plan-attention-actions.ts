@@ -2,13 +2,15 @@ import type {
   PlanAttentionIssue,
   PlanAttentionIssueKind,
 } from "@/lib/plan-needs-attention";
+import { categoryToSlug } from "@/lib/benefit-category-slug";
 
 /**
  * Where a needs-attention issue sends the advisor.
  *
  * These are the app's supported deep links:
- *  - Create Benefits reads `?planId` and, optionally, `?category`
- *    (see `app/(dashboard)/benefits/page.tsx`), opening that benefit ready to fix.
+ *  - The Create Benefit wizard reads `?planId` and, optionally, `?category`
+ *    (see `app/(dashboard)/new-benefits/page.tsx`), opening that benefit ready to fix.
+ *  - The Edit Benefit page is `/edit-benefit/<planId>/<category>`.
  *  - The Documents page reads `?planId` to preselect the plan.
  *  - The plan editor reads `?tab` to open a specific tab.
  *
@@ -36,9 +38,9 @@ export function issueDestination(
       return issue.category
         ? {
             label: "View Benefit",
-            href: `/benefits?planId=${id}&category=${encodeURIComponent(issue.category)}`,
+            href: `/edit-benefit/${id}/${categoryToSlug(issue.category)}`,
           }
-        : { label: "View Benefit", href: `/benefits?planId=${id}` };
+        : { label: "View Benefit", href: `/benefits` };
     case "uncategorized-documents":
       return { label: "Categorize Documents", href: `/documents?planId=${id}` };
     case "missing-disclaimers":
@@ -80,9 +82,9 @@ export function issueDestinations(
       categories.length === 1
         ? {
             label: "View Benefit",
-            href: `/benefits?planId=${id}&category=${encodeURIComponent(categories[0])}`,
+            href: `/edit-benefit/${id}/${categoryToSlug(categories[0])}`,
           }
-        : { label: "View Benefits", href: `/benefits?planId=${id}` },
+        : { label: "View Benefits", href: `/benefits` },
     );
   }
 

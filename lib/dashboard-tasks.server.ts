@@ -77,9 +77,9 @@ export async function listSystemTasks(userId: string): Promise<SystemTask[]> {
         id: `system-ready-to-publish-${plan.id}`,
         title: "Ready to publish",
         planName: plan.companyName,
-        // Publishing runs through the Create Benefits flow, whose final step is the
-        // publish action with its attestation dialog.
-        href: `/benefits?planId=${encodeURIComponent(plan.id)}`,
+        // Publishing runs through the Create Benefit wizard, whose final step is
+        // the publish action with its attestation dialog.
+        href: `/new-benefits?planId=${encodeURIComponent(plan.id)}`,
         kind: "ready-to-publish",
       });
     }

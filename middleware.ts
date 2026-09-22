@@ -12,6 +12,8 @@ const APP_ROUTES = [
   "/dashboard",
   "/clients",
   "/benefits",
+  "/new-benefits",
+  "/edit-benefit",
   "/settings",
   "/documents",
   "/communications",
