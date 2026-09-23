@@ -14,6 +14,7 @@ import {
   PlanSearchBar,
   type PlanSearchBarPlan,
 } from "@/components/plan-selector/plan-search-bar";
+import { OrgServiceCategories } from "@/components/pages/benefits/org-service-categories";
 import {
   getRecentPlanIds,
   persistPlanSelection,
@@ -162,6 +163,7 @@ export function BenefitsListPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
+
       {/* Plan picker — decides which plan's benefits are shown below. */}
       <Card className="mb-6 shadow-sm dark:bg-gray-800">
         <CardContent className="p-6">
@@ -175,7 +177,11 @@ export function BenefitsListPage() {
           />
         </CardContent>
       </Card>
-
+      
+      {/* Organization-wide context: the benefits this advisor's organization
+          offers. Plan-independent, and permanent — see the component. */}
+      <OrgServiceCategories />
+      
       {isLoading ? (
         <Card>
           <CardContent className="space-y-3 p-6">
