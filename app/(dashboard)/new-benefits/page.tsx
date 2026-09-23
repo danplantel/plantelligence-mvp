@@ -87,6 +87,14 @@ function NewBenefitsPageInner() {
   // `enabled` below) and triggers the exit; together they are what makes those two
   // actions land on /benefits instead of asking again or staying put.
   const [isLeavingToBenefits, setIsLeavingToBenefits] = useState(false);
+  // "Leave this setup?" for Step 1's Previous. That button has no previous step to
+  // step back to, so it leaves the wizard altogether — which must warn about unsaved
+  // work first, the way a sidebar link already does through the leave guard.
+  const [isStep1LeavePromptOpen, setIsStep1LeavePromptOpen] = useState(false);
+  // Mirrors the leave guard's trick: Radix can report the dialog as closed on the
+  // Discard button's pointerdown, which would tear that button out from under the
+  // click. Noting the intent lets the close handler ignore that one signal.
+  const step1DiscardPointerRef = useRef(false);
   const searchParams = useSearchParams();
   const planIdParam = searchParams.get("planId");
   const categoryRaw = searchParams.get("category");
@@ -506,18 +514,24 @@ function NewBenefitsPageInner() {
   };
 
   /**
-   * Previous (footer): step back inside the wizard, or — on Step 1, which has no
-   * previous step — leave for the Benefits list. The draft is deliberately KEPT
-   * (it lives in the persisted store, not in component state), so re-opening Create
-   * Benefits resumes where the advisor left off. The exit itself is handled by the
+   * Previous (footer): step back inside the wizard. Step 1 has no previous step, so
+   * there it leaves for the Benefits list — and because that abandons the setup, it
+   * asks first when there is unsaved work (see the Step 1 leave prompt below). The
+   * draft is deliberately KEPT on the way out, so re-opening Create Benefits resumes
+   * where the advisor left off; the exit itself is handled by the
    * `isLeavingToBenefits` effect above.
    */
   const onPrevious = () => {
-    if (currentStep === 1) {
+    if (currentStep !== 1) {
+      previousStep();
+      return;
+    }
+    // Nothing at risk → leave without a prompt.
+    if (!hasUnsavedChanges) {
       setIsLeavingToBenefits(true);
       return;
     }
-    previousStep();
+    setIsStep1LeavePromptOpen(true);
   };
 
   /**
@@ -690,6 +704,40 @@ function NewBenefitsPageInner() {
         onDiscardWithoutSaving={leaveGuard.discardWithoutSaving}
         onDialogOpenChange={leaveGuard.dialogOnOpenChange}
         onDiscardPointerDownCapture={leaveGuard.suppressStayOnNextClose}
+      />
+      {/* Step 1's Previous asks the same question the leave guard asks for a sidebar
+          link. A dedicated instance (rather than the guard's) because this prompt has
+          exactly one destination, and the guard's exits are driven by whatever href a
+          click supplied — overriding them here would mis-route those sidebar links.
+
+          The draft is persisted locally on every edit, so "Save and exit" simply
+          leaves; "Discard without saving" also drops the persisted draft. Purging a
+          Benefit row this session created stays Cancel's job — Previous is a step
+          back, not an abandonment. */}
+      <NavigateAwayWarningDialog
+        open={isStep1LeavePromptOpen}
+        onStay={() => setIsStep1LeavePromptOpen(false)}
+        onSaveAndExit={() => {
+          setIsStep1LeavePromptOpen(false);
+          setIsLeavingToBenefits(true);
+        }}
+        onDiscardWithoutSaving={() => {
+          setIsStep1LeavePromptOpen(false);
+          // Persisted copy only — see `clearPersistedBenefitsDraft`.
+          clearPersistedBenefitsDraft();
+          setIsLeavingToBenefits(true);
+        }}
+        onDialogOpenChange={(open) => {
+          if (open) return;
+          if (step1DiscardPointerRef.current) {
+            step1DiscardPointerRef.current = false;
+            return;
+          }
+          setIsStep1LeavePromptOpen(false);
+        }}
+        onDiscardPointerDownCapture={() => {
+          step1DiscardPointerRef.current = true;
+        }}
       />
       <PublishingAttestationDialog
         open={isAttestationOpen}
