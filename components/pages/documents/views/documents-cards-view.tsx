@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react";
 import {
-  RetirementDocumentsAccordion,
+  BenefitDocumentSection,
   RetirementDocumentItem,
-} from "@/components/pages/client-portal/sections/retirement-documents-accordion";
+} from "@/components/pages/client-portal/sections/benefit-document-section";
 import { Document } from "../types";
 import { BenefitsCategory } from "@/types/new-client-wizard";
 import { toast } from "sonner";
@@ -117,7 +117,7 @@ export function DocumentsCardsView({
   }, [documents]);
 
   return (
-    <RetirementDocumentsAccordion
+    <BenefitDocumentSection
       brandColor={brandColor}
       accentColor={accentColor}
       retirementDocs={documents}

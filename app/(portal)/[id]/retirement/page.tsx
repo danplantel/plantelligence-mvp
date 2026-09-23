@@ -9,15 +9,15 @@ import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
 import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions-faq";
 import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
 import {
-  RetirementJourneySection,
-} from "@/components/pages/client-portal/sections/retirement-journey-section";
+  BenefitsVideoSection,
+} from "@/components/pages/client-portal/sections/benefits-video-section";
 import { BenefitsHubWebinarsSection } from "@/components/pages/client-portal/sections/benefits-hub-webinars-section";
 import { PortalMaterialsHero } from "@/components/pages/client-portal/sections/portal-materials-hero";
 import { HowCanWeHelpSection } from "@/components/pages/client-portal/sections/how-can-we-help-section";
 import {
-  RetirementDocumentsAccordion,
+  BenefitDocumentSection,
   RetirementDocumentItem,
-} from "@/components/pages/client-portal/sections/retirement-documents-accordion";
+} from "@/components/pages/client-portal/sections/benefit-document-section";
 import { CompletenessAutoTrigger } from "@/components/pages/client-portal/sections/completeness-auto-trigger";
 import { mergePlanDocumentRows } from "@/lib/plan-client-documents-merge";
 import { sortDocumentRowsByCustomOrder } from "@/lib/documents/document-sort";
@@ -216,7 +216,7 @@ export default function RetirementPage() {
 
         {/* The category's contacts — the same people listed on My Benefits Team,
             scoped to this benefit. */}
-        <BenefitTeamSection
+        {/* <BenefitTeamSection
           title="Your Retirement Team"
           primary={categoryTeam.primary}
           others={categoryTeam.others}
@@ -225,9 +225,9 @@ export default function RetirementPage() {
           appointmentLink={clientData?.appointmentLink ?? ""}
           companyName={clientData?.companyName ?? ""}
           className="w-full bg-white py-12 dark:bg-gray-900"
-        />
+        /> */}
 
-        <RetirementJourneySection
+        <BenefitsVideoSection
           brandColor={brandColor}
           mainTitle={(benefitData as any)?.journeyHeader || "Your Retirement Journey Starts Here"}
           subtitle={(benefitData as any)?.journeySubtitle || "Build your future with confidence."}
@@ -265,7 +265,7 @@ export default function RetirementPage() {
           providerLogo={benefitData?.partnerLogo ?? null}
         />
 
-        <RetirementDocumentsAccordion
+        <BenefitDocumentSection
           brandColor={brandColor}
           accentColor={secondaryColor}
           retirementDocs={retirementDocs}

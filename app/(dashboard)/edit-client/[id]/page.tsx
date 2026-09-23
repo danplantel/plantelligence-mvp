@@ -83,7 +83,7 @@ import type {
 } from "@/components/pages/documents/types";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { Headshot } from "@/components/ui/headshot";
-import type { RetirementDocumentItem } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
+import type { RetirementDocumentItem } from "@/components/pages/client-portal/sections/benefit-document-section";
 import { PlanMeetingsSection } from "@/components/pages/edit-client/plan-meetings-section";
 import { PlanSearchBar } from "@/components/plan-selector/plan-search-bar";
 import { Input } from "@/components/ui/input";

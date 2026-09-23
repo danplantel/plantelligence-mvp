@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { DismissibleAlert } from "@/components/ui/dismissible-alert";
 import { DocumentsCardsView } from "../views/documents-cards-view";
-import type { RetirementDocumentItem } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
+import type { RetirementDocumentItem } from "@/components/pages/client-portal/sections/benefit-document-section";
 import { BenefitsCategory } from "@/types/new-client-wizard";
 
 interface DocumentPreviewTabProps {

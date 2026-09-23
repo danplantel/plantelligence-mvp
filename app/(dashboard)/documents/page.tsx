@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { DismissibleAlert } from "@/components/ui/dismissible-alert";
-import { RetirementDocumentsAccordion, RetirementDocumentItem } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
+import { BenefitDocumentSection, RetirementDocumentItem } from "@/components/pages/client-portal/sections/benefit-document-section";
 import { DocumentPreviewModal } from "@/components/pages/documents/components/document-preview-modal";
 import { DocumentEditModal } from "@/components/pages/documents/components/document-edit-modal";
 import { DocumentUploadTab } from "@/components/pages/documents/tabs/document-upload-tab";
@@ -826,7 +826,7 @@ export default function DocumentsPage() {
                           </div>
                         ) : (
                           <div className="overflow-hidden rounded-xl border border-border/60">
-                            <RetirementDocumentsAccordion
+                            <BenefitDocumentSection
                               retirementDocs={previewOrderedDocs}
                               reorderable
                               onOrderChange={handlePreviewOrderChange}

@@ -4,9 +4,9 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { DocumentsUploadSection } from "@/components/wizard/new-client-steps/sections/documents-upload-section";
 import { FileText } from "lucide-react";
 import {
-  RetirementDocumentsAccordion,
+  BenefitDocumentSection,
   type RetirementDocumentItem,
-} from "@/components/pages/client-portal/sections/retirement-documents-accordion";
+} from "@/components/pages/client-portal/sections/benefit-document-section";
 import { DocumentsCardsView } from "../views/documents-cards-view";
 import {
   convertToDocumentFormat,

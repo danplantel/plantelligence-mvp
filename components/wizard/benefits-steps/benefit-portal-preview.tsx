@@ -30,11 +30,11 @@ const previewStyles = `
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
 import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
 import {
-    RetirementJourneySection,
-} from "@/components/pages/client-portal/sections/retirement-journey-section";
+    BenefitsVideoSection,
+} from "@/components/pages/client-portal/sections/benefits-video-section";
 import { HowCanWeHelpSection } from "@/components/pages/client-portal/sections/how-can-we-help-section";
 import { PortalMaterialsHero } from "@/components/pages/client-portal/sections/portal-materials-hero";
-import { RetirementDocumentsAccordion } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
+import { BenefitDocumentSection } from "@/components/pages/client-portal/sections/benefit-document-section";
 import { FAQSection, DynamicFAQItem, FAQContact } from "@/components/faq-section";
 import { Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -453,7 +453,7 @@ export function BenefitPortalPreview({ mobile, brandColor: brandColorOverride, s
                 </div>
 
                 <div className={mobile ? "force-visible relative" : "relative"}>
-                <RetirementJourneySection
+                <BenefitsVideoSection
                     brandColor={brandColor}
                     mainTitle={step1Data?.journeyHeader || (() => { const map: Record<string, string> = { Retirement: "Your Retirement Journey Starts Here", "Group Health": "Your Health Benefits Journey Starts Here", "Group Life": "Your Life Insurance Journey Starts Here", "Company / Plan Sponsor": "Whole-Person Wellness Programs" }; return map[category] || map["Retirement"]; })()}
                     subtitle={step1Data?.journeySubtitle || (() => { const map: Record<string, string> = { Retirement: "Build your future with confidence.", "Group Health": "Your health, your way.", "Group Life": "Protecting what matters most.", "Company / Plan Sponsor": "Thrive in every aspect of life." }; return map[category] || map["Retirement"]; })()}

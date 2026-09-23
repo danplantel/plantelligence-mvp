@@ -14,13 +14,13 @@ import { PortalMaterialsHero } from "@/components/pages/client-portal/sections/p
 import { CompletenessAutoTrigger } from "@/components/pages/client-portal/sections/completeness-auto-trigger";
 import { HowCanWeHelpSection } from "@/components/pages/client-portal/sections/how-can-we-help-section";
 import {
-  RetirementJourneySection,
-} from "@/components/pages/client-portal/sections/retirement-journey-section";
+  BenefitsVideoSection,
+} from "@/components/pages/client-portal/sections/benefits-video-section";
 import { BenefitsHubWebinarsSection } from "@/components/pages/client-portal/sections/benefits-hub-webinars-section";
 import {
-  RetirementDocumentsAccordion,
+  BenefitDocumentSection,
   RetirementDocumentItem,
-} from "@/components/pages/client-portal/sections/retirement-documents-accordion";
+} from "@/components/pages/client-portal/sections/benefit-document-section";
 import { mergePlanDocumentRows } from "@/lib/plan-client-documents-merge";
 import { sortDocumentRowsByCustomOrder } from "@/lib/documents/document-sort";
 import { fetchPlanDocumentsForClient } from "@/lib/fetch-plan-documents-client";
@@ -216,7 +216,7 @@ export default function WellnessProgramsPage() {
           className="w-full bg-white py-12 dark:bg-gray-900"
         />
 
-        <RetirementJourneySection
+        <BenefitsVideoSection
           brandColor={brandColor}
           mainTitle={(benefitData as any)?.journeyHeader || "Whole-Person Wellness Programs"}
           subtitle={(benefitData as any)?.journeySubtitle || "Supporting your health, mind, and financial well-being."}
@@ -249,7 +249,7 @@ export default function WellnessProgramsPage() {
           providerLogo={benefitData?.partnerLogo ?? null}
         />
 
-        <RetirementDocumentsAccordion
+        <BenefitDocumentSection
           brandColor={brandColor}
           accentColor={secondaryColor}
           retirementDocs={wellnessDocs}

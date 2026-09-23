@@ -21,7 +21,7 @@ import type {
   SortColumn,
   SortDirection,
 } from "@/components/pages/documents/types";
-import { RetirementDocumentItem } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
+import { RetirementDocumentItem } from "@/components/pages/client-portal/sections/benefit-document-section";
 import { DocumentPreviewModal } from "@/components/pages/documents/components/document-preview-modal";
 import { AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { DismissibleAlert } from "@/components/ui/dismissible-alert";

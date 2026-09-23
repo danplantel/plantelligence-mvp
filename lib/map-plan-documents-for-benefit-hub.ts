@@ -1,6 +1,6 @@
 import { resolvePersistedDocumentCategory } from "@/lib/document-category";
 import { normalizePortalDocumentLanguage } from "@/lib/portal-document-language";
-import type { RetirementDocumentItem } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
+import type { RetirementDocumentItem } from "@/components/pages/client-portal/sections/benefit-document-section";
 
 /**
  * Same hub resolution as Benefit Portal Preview + Step 4 `documentsForCategory`:

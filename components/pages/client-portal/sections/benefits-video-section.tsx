@@ -6,7 +6,7 @@ import { motion, useInView } from "framer-motion";
 import { Pencil, Play } from "lucide-react";
 import { toNextImageSrc } from "@/lib/branding-image-url";
 
-interface RetirementJourneySectionProps {
+interface BenefitsVideoSectionProps {
   brandColor?: string;
   mainTitle?: string;
   subtitle?: string;
@@ -27,7 +27,7 @@ interface RetirementJourneySectionProps {
   onVideoClick?: () => void;
 }
 
-export function RetirementJourneySection({
+export function BenefitsVideoSection({
   brandColor = "#0FB879",
   mainTitle = "Your Retirement Journey Starts Here",
   subtitle = "Build your future with confidence.",
@@ -38,7 +38,7 @@ export function RetirementJourneySection({
   onSubtitleClick,
   onDescriptionClick,
   onVideoClick,
-}: RetirementJourneySectionProps) {
+}: BenefitsVideoSectionProps) {
 
   const sectionRef = useRef(null);
   const isInView = useInView(sectionRef, { once: true, margin: "-80px" });

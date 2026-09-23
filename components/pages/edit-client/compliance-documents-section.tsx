@@ -23,9 +23,9 @@ import { DragDropUpload } from "@/components/ui/drag-drop-upload";
 import { toast } from "sonner";
 import { DocumentsUploadSection } from "@/components/wizard/new-client-steps/sections/documents-upload-section";
 import {
-  RetirementDocumentsAccordion,
+  BenefitDocumentSection,
   type RetirementDocumentItem,
-} from "@/components/pages/client-portal/sections/retirement-documents-accordion";
+} from "@/components/pages/client-portal/sections/benefit-document-section";
 import { recordKeepers } from "@/constants/data";
 import { ComplianceDocumentsData, Document } from "@/types/new-client-wizard";
 import {
@@ -632,7 +632,7 @@ export function ComplianceDocumentsSection({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <RetirementDocumentsAccordion
+                <BenefitDocumentSection
                   mode="editable"
                   retirementDocs={documentsPreview}
                   brandColor="#002B5B"

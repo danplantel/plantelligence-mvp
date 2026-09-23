@@ -123,7 +123,7 @@ export type RetirementDocumentItem = {
   onArchive?: () => void;
 };
 
-interface RetirementDocumentsAccordionProps {
+interface BenefitDocumentSectionProps {
   brandColor?: string;
   accentColor?: string;
   retirementDocs?: RetirementDocumentItem[];
@@ -223,7 +223,7 @@ const defaultRetirementDocs: RetirementDocumentItem[] = [
   },
 ];
 
-export function RetirementDocumentsAccordion({
+export function BenefitDocumentSection({
   brandColor = "#002B5B",
   accentColor = "#E6C47A",
   retirementDocs,
@@ -244,7 +244,7 @@ export function RetirementDocumentsAccordion({
   accordionHeaderTitle: explicitAccordionTitle,
   loading = false,
   reorderable = false,
-}: RetirementDocumentsAccordionProps) {
+}: BenefitDocumentSectionProps) {
   // Use provided retirementDocs or default, but prefer provided (even if empty)
   const actualRetirementDocs =
     retirementDocs !== undefined ? retirementDocs : defaultRetirementDocs;
