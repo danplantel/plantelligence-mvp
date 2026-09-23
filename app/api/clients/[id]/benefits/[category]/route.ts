@@ -345,7 +345,15 @@ export async function PUT(
 
 /**
  * DELETE /api/clients/[id]/benefits/[category]
- * Soft-disables a benefit (sets isEnabled = false).
+ *
+ * Default: soft-disables a benefit (sets isEnabled = false). "Hidden" is a real
+ * state the Portal Visibility toggle depends on, so it stays the default.
+ *
+ * `?purge=1`: HARD delete, used only by the Create Benefits Cancel flow, and only
+ * after the client has verified the row did not pre-exist (see
+ * lib/benefit-draft). It also drops the category from the legacy
+ * `employeePortalPreview` mirror — portal pages fall back to that JSON, so
+ * leaving the entry behind would keep a cancelled benefit visible.
  */
 export async function DELETE(
   request: NextRequest,
@@ -356,6 +364,40 @@ export async function DELETE(
     if (error) return error;
 
     const category = params.category;
+
+    const purge = request.nextUrl.searchParams.get("purge") === "1";
+    if (purge) {
+      const deleted = await prisma.benefit.deleteMany({
+        where: {
+          clientId: client!.id,
+          category,
+        },
+      });
+
+      try {
+        const existingEp: any = (client as any).employeePortalPreview;
+        if (existingEp && Array.isArray(existingEp.benefits)) {
+          const norm = (cat: unknown) =>
+            String(cat ?? "").toLowerCase().trim().replace(/\s+/g, " ");
+          const target = norm(category);
+          const benefits = existingEp.benefits.filter(
+            (b: any) => norm(b?.category) !== target,
+          );
+          if (benefits.length !== existingEp.benefits.length) {
+            await prisma.client.update({
+              where: { id: client!.id },
+              data: { employeePortalPreview: { ...existingEp, benefits } },
+            });
+          }
+        }
+      } catch (mirrorErr) {
+        // The row is already gone; a stale mirror entry is recoverable, so don't
+        // fail the purge over it.
+        console.error("Purge: legacy mirror cleanup failed (non-fatal):", mirrorErr);
+      }
+
+      return NextResponse.json({ success: true, purged: deleted.count });
+    }
 
     await prisma.benefit.updateMany({
       where: {

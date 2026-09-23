@@ -262,6 +262,14 @@ const benefitsWizardSteps: WizardStep[] = [
     },
 ];
 
+/**
+ * localStorage key holding the persisted wizard draft (the `persist({ name })`
+ * below). Exported so a flow that must clear the draft WITHOUT repainting the
+ * wizard can remove exactly this entry — see the Create Benefits Cancel flow,
+ * where `resetWizard()` would render the store as empty first.
+ */
+export const BENEFITS_WIZARD_STORAGE_KEY = "benefits-wizard";
+
 export const useBenefitsWizardStore = create<BenefitsWizardState>()(
     persist(
         (set, get) => ({
@@ -325,7 +333,7 @@ export const useBenefitsWizardStore = create<BenefitsWizardState>()(
             },
         }),
         {
-            name: "benefits-wizard",
+            name: BENEFITS_WIZARD_STORAGE_KEY,
             skipHydration: true,
             storage: createSafeStorage(),
             partialize: (state) => {
