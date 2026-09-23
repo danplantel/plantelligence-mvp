@@ -39,6 +39,12 @@ interface EditorPanelWrapperProps {
   variant?: 'fixed' | 'inline';
   /** Optional top offset for fixed variant (e.g. to clear page headers) */
   topOffset?: number;
+  /**
+   * Optional left offset for the fixed variant. Used by the Preview pages so the
+   * panel sits *beside* the sidebar instead of painting over it; omitted by the
+   * wizard usages, which keep the class-level `left-0`.
+   */
+  leftOffset?: string;
   /** Optional extra content rendered to the right of the "Editing Panel" title (e.g. the benefit category badge) */
   headerBadge?: React.ReactNode;
 }
@@ -53,6 +59,7 @@ export function EditorPanelWrapper({
   footer,
   variant = 'fixed',
   topOffset = 0,
+  leftOffset,
   headerBadge,
 }: EditorPanelWrapperProps) {
   if (!isOpen && !isAnimating) return null;
@@ -74,6 +81,7 @@ export function EditorPanelWrapper({
       }
       style={{
         marginTop: isInline ? undefined : `${topOffset}px`,
+        left: isInline ? undefined : leftOffset,
       }}
     >
       <CardHeader className="flex flex-row items-center justify-between px-4 py-4 border-b shadow-md dark:border-gray-700 dark:shadow-gray-950/60">

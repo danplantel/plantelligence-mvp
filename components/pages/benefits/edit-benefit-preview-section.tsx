@@ -9,6 +9,10 @@ import { BenefitsEditorPanel } from "@/components/wizard/benefits-steps/benefits
 import { MobilePreviewFrame } from "@/components/wizard/benefits-steps/step-2";
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
 import { applyTypographyToElement } from "@/lib/typography-themes";
+import {
+  usePreviewEditorLayout,
+  PREVIEW_EDITOR_PANEL_WIDTH,
+} from "@/lib/preview-editor-layout";
 
 /** Native width the portal content is laid out at before being scaled down. */
 const DESKTOP_WIDTH = 1400;
@@ -17,11 +21,11 @@ const MOBILE_WIDTH = 200;
 /** Mobile preview aspect ratio (18:9 phone). */
 const MOBILE_ASPECT_RATIO = 18 / 9;
 /**
- * Width of the inline Editing Panel column. The sidebar is widened to exactly
- * this while the panel is open, so the panel sits beside the preview (over the
- * sidebar) instead of covering it — the same trick `EditPlanPreviewSection` uses.
+ * Width of the inline Editing Panel column. The panel is reserved this much room
+ * beside the (rail-collapsed) sidebar while open — the same contract
+ * `EditPlanPreviewSection` uses. See lib/preview-editor-layout.ts.
  */
-const EDITOR_PANEL_WIDTH = "36rem";
+const EDITOR_PANEL_WIDTH = PREVIEW_EDITOR_PANEL_WIDTH;
 
 type PreviewMode = "desktop" | "mobile";
 
@@ -84,53 +88,11 @@ export function EditBenefitPreviewSection({
     return () => clearTimeout(timer);
   }, []);
 
-  // ── Sidebar widening ──
-  // The Editing Panel is a fixed 36rem column pinned to the left edge (over the
-  // sidebar). Widening `--sidebar-width` to the same 36rem is what moves the
-  // preview area, the page content and the app header's tab bar to the right of
-  // the panel, and is therefore also what makes the preview shrink while the
-  // panel is open. Restored on close / unmount.
-  const originalSidebarWidthRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    const shouldShift = isEditorOpen || isEditorAnimating;
-
-    if (shouldShift) {
-      if (originalSidebarWidthRef.current === null) {
-        originalSidebarWidthRef.current =
-          document.documentElement.style.getPropertyValue("--sidebar-width");
-      }
-      document.documentElement.style.setProperty(
-        "--sidebar-width",
-        EDITOR_PANEL_WIDTH,
-      );
-    } else if (originalSidebarWidthRef.current !== null) {
-      if (originalSidebarWidthRef.current) {
-        document.documentElement.style.setProperty(
-          "--sidebar-width",
-          originalSidebarWidthRef.current,
-        );
-      } else {
-        document.documentElement.style.removeProperty("--sidebar-width");
-      }
-      originalSidebarWidthRef.current = null;
-    }
-
-    return () => {
-      // Cleanup: restore the original sidebar width on unmount.
-      if (originalSidebarWidthRef.current !== null) {
-        if (originalSidebarWidthRef.current) {
-          document.documentElement.style.setProperty(
-            "--sidebar-width",
-            originalSidebarWidthRef.current,
-          );
-        } else {
-          document.documentElement.style.removeProperty("--sidebar-width");
-        }
-        originalSidebarWidthRef.current = null;
-      }
-    };
-  }, [isEditorOpen, isEditorAnimating]);
+  // ── Preview layout ──
+  // Reserve a column for the Editing Panel beside the (rail-collapsed) sidebar
+  // instead of pinning the panel to `left: 0` and widening `--sidebar-width` to
+  // 36rem, which painted it over the nav. See lib/preview-editor-layout.ts.
+  usePreviewEditorLayout(editorIsOpen);
 
   // Notify the app header when this inline Editing Panel opens/closes so it can
   // hide the page title and right-align the Edit Benefit tabs.
@@ -229,8 +191,9 @@ export function EditBenefitPreviewSection({
 
   // ── Scale state and calculations (desktop only) ──
   // The portal is laid out at DESKTOP_WIDTH and then scaled to fit whatever
-  // width the preview area has. Opening the Editing Panel takes 20rem off that
-  // width (16rem → 36rem of sidebar), so the scale drops and the preview shrinks.
+  // width the preview area has. Opening the Editing Panel reserves 36rem for it
+  // between the sidebar and the preview, so the scale drops and the preview
+  // shrinks.
   const [scale, setScale] = useState(1);
   const [scaledHeight, setScaledHeight] = useState<number | undefined>(
     undefined,
@@ -379,7 +342,8 @@ export function EditBenefitPreviewSection({
         className="fixed z-[45] flex items-center justify-between gap-3 px-4 py-3 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm"
         style={{
           top: `${topOffset}px`,
-          left: "var(--sidebar-width, 16rem)",
+          left:
+            "calc(var(--sidebar-width, 16rem) + var(--editor-inset, 0px))",
           right: 0,
           transition: "left 300ms ease-in-out",
         }}
@@ -460,7 +424,8 @@ export function EditBenefitPreviewSection({
         className="fixed z-20 flex flex-col"
         style={{
           top: `${topOffset + (barHeight > 0 ? barHeight : 50)}px`,
-          left: "var(--sidebar-width, 16rem)",
+          left:
+            "calc(var(--sidebar-width, 16rem) + var(--editor-inset, 0px))",
           right: 0,
           bottom: 0,
           transition: "left 300ms ease-in-out",
@@ -567,15 +532,18 @@ export function EditBenefitPreviewSection({
         </div>
       </div>
 
-      {/* ── Inline Editing Panel (fixed column over the sidebar) ──
+      {/* ── Inline Editing Panel (fixed column beside the sidebar) ──
           Rendered only while open/animating (the wrapper renders nothing once
-          closed) so no empty column is left on top of the sidebar. */}
+          closed) so no empty column is left beside the sidebar.
+          `top: 0` matches Edit Plan's EditorPanelWrapper (fixed variant uses
+          `top-0`) and `left` starts at the rail-collapsed sidebar, so the panel
+          sits flush to the top and beside the nav instead of covering it. */}
       {editorIsOpen && (
         <div
           className="fixed z-[51] flex flex-col"
           style={{
-            top: `${topOffset}px`,
-            left: 0,
+            top: 0,
+            left: "var(--sidebar-width, 16rem)",
             bottom: 0,
             width: EDITOR_PANEL_WIDTH,
             transition: "width 300ms ease-in-out",

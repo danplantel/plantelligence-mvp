@@ -120,7 +120,10 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
       {editorOpen && stepper && (
         <div
           className="absolute top-1/2 -translate-y-1/2 flex items-center"
-          style={{ left: "calc(var(--sidebar-width, 18rem) + 2.5rem)" }}
+          style={{
+            left:
+              "calc(var(--sidebar-width, 18rem) + var(--editor-inset, 0px) + 2.5rem)",
+          }}
         >
           {stepper}
         </div>
@@ -134,7 +137,9 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
             : "bg-transparent",
         )}
         style={{
-          marginLeft: "var(--sidebar-width, 18rem)",
+          // Clears the sidebar *and* any Preview inline Editing Panel.
+          marginLeft:
+            "calc(var(--sidebar-width, 18rem) + var(--editor-inset, 0px))",
         }}
       >
         {/* Left: Title + Company Name + Step Title (hidden while the Editing Panel is open) */}

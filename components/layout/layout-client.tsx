@@ -78,7 +78,10 @@ export function NewLayoutClient({ children }: NewLayoutClientProps) {
         <main
           className={`flex-1 ${isWizardPage ? "pt-[72px]" : "pt-16"} overflow-y-auto duration-200 ease-in-out bg-background`}
           style={{
-            marginLeft: "var(--sidebar-width, 16rem)",
+            // Clears the sidebar *and* any Preview inline Editing Panel
+            // (`--editor-inset` is only set by the Preview pages).
+            marginLeft:
+              "calc(var(--sidebar-width, 16rem) + var(--editor-inset, 0px))",
           }}
         >
           {children}

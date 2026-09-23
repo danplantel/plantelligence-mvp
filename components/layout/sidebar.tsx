@@ -9,6 +9,7 @@ import { Icons } from "@/components/icons";
 import { useTheme } from "next-themes";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import { usePathname } from "next/navigation";
+import { PREVIEW_EDITOR_LAYOUT_EVENT } from "@/lib/preview-editor-layout";
 
 const SIDEBAR_STATE_KEY = "sidebar-is-open";
 
@@ -35,6 +36,27 @@ const Sidebar = memo(function Sidebar() {
   const { theme = "system" } = useTheme();
   const [themeMode, setThemeMode] = useState("");
 
+  // Preview pages (Edit Plan / Edit Benefit) ask us to rail-collapse while their
+  // inline Editing Panel is open, so the nav stays visible beside the panel
+  // instead of being painted over. This is a *view* override only — `isOpen`
+  // (the user's own preference, persisted to localStorage) is left untouched and
+  // restored as soon as the panel closes.
+  const [forcedCollapsed, setForcedCollapsed] = useState(false);
+  useEffect(() => {
+    const handleLayoutChange = (event: Event) => {
+      const detail = (event as CustomEvent<{ isOpen?: boolean }>).detail;
+      setForcedCollapsed(!!detail?.isOpen);
+    };
+    window.addEventListener(PREVIEW_EDITOR_LAYOUT_EVENT, handleLayoutChange);
+    return () =>
+      window.removeEventListener(
+        PREVIEW_EDITOR_LAYOUT_EVENT,
+        handleLayoutChange,
+      );
+  }, []);
+
+  const effectiveOpen = isOpen && !forcedCollapsed;
+
   useEffect(() => {
     setThemeMode(theme);
   }, [theme]);
@@ -50,18 +72,22 @@ const Sidebar = memo(function Sidebar() {
     });
   }, []);
 
-  // Set the CSS variable when sidebar state changes
+  // Persist the user's own preference — never the temporary editor rail-collapse.
   useEffect(() => {
-    document.documentElement.style.setProperty(
-      "--sidebar-width",
-      isOpen ? "16rem" : "4rem",
-    );
-
-    // Also save to localStorage when state changes
     if (typeof window !== "undefined") {
       localStorage.setItem(SIDEBAR_STATE_KEY, String(isOpen));
     }
   }, [isOpen]);
+
+  // `--sidebar-width` is the real sidebar width that every other surface offsets
+  // by (header, main, previews). It follows the *effective* state so the editor's
+  // rail-collapse is reflected everywhere at once.
+  useEffect(() => {
+    document.documentElement.style.setProperty(
+      "--sidebar-width",
+      effectiveOpen ? "16rem" : "4rem",
+    );
+  }, [effectiveOpen]);
 
   // Restore sidebar width if not on step 2 (step 2 sets it to 36rem for modal)
   useEffect(() => {
@@ -74,14 +100,14 @@ const Sidebar = memo(function Sidebar() {
 
       // If sidebar-width is set to 36rem (step 2 modal width), restore it
       if (currentWidth === "36rem") {
-        // Restore to correct sidebar width based on isOpen state
+        // Restore to correct sidebar width based on the effective state
         document.documentElement.style.setProperty(
           "--sidebar-width",
-          isOpen ? "16rem" : "4rem",
+          effectiveOpen ? "16rem" : "4rem",
         );
       }
     }
-  }, [currentStep, isOpen, pathname]);
+  }, [currentStep, effectiveOpen, pathname]);
 
   const srcImage =
     themeMode === "dark"
@@ -97,24 +123,27 @@ const Sidebar = memo(function Sidebar() {
     <nav
       className={cn(
         `fixed left-0 top-0 h-screen z-50 bg-[#FDFDFD] dark:bg-background border-r border-[#efefef] dark:border-[#1c1c1c] transition-all duration-200 ease-in-out flex flex-col`,
-        isOpen ? "w-64" : "w-16",
+        effectiveOpen ? "w-64" : "w-16",
       )}
     >
-      {/* Toggle Button to Collapse/Expand Sidebar */}
-      <button
-        onClick={toggleSidebar}
-        className={cn(
-          "absolute p-2 bg-white dark:bg-background border-[#efefef] dark:border-[#1c1c1c] border rounded-full shadow-lg z-30",
-          "top-[76px] -right-4 transform -translate-y-1/2",
-        )}
-        type="button"
-      >
-        {isOpen ? (
-          <Icons.chevronLeft className="w-4 h-4" />
-        ) : (
-          <Icons.chevronRight className="w-4 h-4" />
-        )}
-      </button>
+      {/* Toggle Button to Collapse/Expand Sidebar. Hidden while the Preview
+          editing panel forces the rail, so it cannot overlap the panel's edge. */}
+      {!forcedCollapsed && (
+        <button
+          onClick={toggleSidebar}
+          className={cn(
+            "absolute p-2 bg-white dark:bg-background border-[#efefef] dark:border-[#1c1c1c] border rounded-full shadow-lg z-30",
+            "top-[76px] -right-4 transform -translate-y-1/2",
+          )}
+          type="button"
+        >
+          {effectiveOpen ? (
+            <Icons.chevronLeft className="w-4 h-4" />
+          ) : (
+            <Icons.chevronRight className="w-4 h-4" />
+          )}
+        </button>
+      )}
 
       {/* Logo */}
       <div className="flex items-center p-4 flex-shrink-0 overflow-hidden">
@@ -125,7 +154,7 @@ const Sidebar = memo(function Sidebar() {
             alt="PlanTelligence"
             className={cn(
               "absolute left-0 top-0 transition-all duration-200 ease-in-out",
-              isOpen
+              effectiveOpen
                 ? "w-[200px] opacity-100"
                 : "w-0 opacity-0 pointer-events-none",
             )}
@@ -136,7 +165,7 @@ const Sidebar = memo(function Sidebar() {
             alt="PlanTelligence Icon"
             className={cn(
               "absolute left-0 top-0 transition-all duration-200 ease-in-out",
-              isOpen
+              effectiveOpen
                 ? "w-0 opacity-0 pointer-events-none"
                 : "w-6 opacity-100",
             )}
@@ -146,7 +175,7 @@ const Sidebar = memo(function Sidebar() {
 
       {/* Navigation */}
       <div className="px-4 mt-6 flex-1 overflow-y-auto">
-        <DashboardNav items={navItems} isOpen={isOpen} />
+        <DashboardNav items={navItems} isOpen={effectiveOpen} />
       </div>
     </nav>
   );

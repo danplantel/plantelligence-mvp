@@ -3672,8 +3672,12 @@ export default function EditClientPage() {
             {headerPortalTarget &&
               createPortal(
                 <TabsList
+                  // `border-0` overrides the shared TabsList border (and drops
+                  // the local `border-b`) so the Edit Client nav has no outline
+                  // around it, matching the Edit Benefit nav. The bar stays
+                  // transparent, so the header background shows through.
                   className={cn(
-                    "w-full gap-1 bg-transparent dark:bg-transparent p-0 border-b rounded-none flex-nowrap h-auto min-h-fit overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]",
+                    "w-full gap-1 bg-transparent dark:bg-transparent p-0 border-0 rounded-none flex-nowrap h-auto min-h-fit overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]",
                     planEditorOpen ? "justify-start" : "justify-center",
                   )}
                 >
@@ -4783,13 +4787,16 @@ export default function EditClientPage() {
             "px-4 py-4 flex justify-end gap-3 transition-all duration-200",
             // Default: center the actions in the same max-width column the page
             // content uses. While the Editing Panel is open, the preview shifts
-            // right by the widened sidebar, so align the actions to the right of
-            // the bar (offset past the editor panel) instead of centering them.
+            // right past the rail-collapsed sidebar *and* the panel, so align the
+            // actions to the right of the bar instead of centering them.
             !planEditorOpen && "mx-auto max-w-5xl",
           )}
           style={
             planEditorOpen
-              ? { marginLeft: "var(--sidebar-width, 18rem)" }
+              ? {
+                  marginLeft:
+                    "calc(var(--sidebar-width, 18rem) + var(--editor-inset, 0px))",
+                }
               : undefined
           }
         >
