@@ -85,7 +85,6 @@ import { BrandingImage } from "@/components/ui/branding-image";
 import { Headshot } from "@/components/ui/headshot";
 import type { RetirementDocumentItem } from "@/components/pages/client-portal/sections/benefit-document-section";
 import { PlanMeetingsSection } from "@/components/pages/edit-client/plan-meetings-section";
-import { PlanSearchBar } from "@/components/plan-selector/plan-search-bar";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
@@ -2739,39 +2738,6 @@ export default function EditClientPage() {
   // Tab 2 (Preview) field to scroll to after a failed Save.
   const [tab2ScrollField, setTab2ScrollField] = useState<string | null>(null);
 
-  // ── Plan switcher ──────────────────────────────────────────────────────────
-  // Search for another plan and jump straight to its edit page. The bar only
-  // lists Active plans (the shared component filters Draft / Archived out), so
-  // this can never land the advisor on a plan that isn't live.
-  const { data: planListData } = useSWR(
-    "/api/clients?status=all&limit=500&sortColumn=companyName&sortDirection=asc",
-    (url: string) => fetch(url).then((r) => r.json()),
-    {
-      keepPreviousData: true,
-      dedupingInterval: 60_000,
-      revalidateOnFocus: false,
-    },
-  );
-  const switchablePlans = useMemo(
-    () =>
-      (planListData?.data as
-        | {
-            id: string;
-            companyName: string;
-            slug?: string | null;
-            status?: string | null;
-          }[]
-        | undefined) ?? [],
-    [planListData],
-  );
-  const handlePlanSwitch = useCallback(
-    (planId: string) => {
-      if (!planId || planId === clientId) return;
-      router.push(`/edit-client/${planId}`);
-    },
-    [clientId, router],
-  );
-
   // Preset for the Add Contact dialog. Entry points just open the dialog with a
   // pre-seeded category/type — the contact is created only when the user saves.
   const [addContactPreset, setAddContactPreset] = useState<{
@@ -3646,22 +3612,6 @@ export default function EditClientPage() {
 
         {/* Tab Content */}
         <div className="mx-auto max-w-5xl px-4">
-          {/* Plan switcher — jump straight to another active plan's edit page
-              without going back to the client list. */}
-          {activeTab !== "preview" && (
-            <Card className="mb-6 shadow-sm dark:bg-gray-800">
-              <CardContent className="p-6">
-                <PlanSearchBar
-                  plans={switchablePlans}
-                  value={clientId || ""}
-                  onChange={handlePlanSwitch}
-                  title="Plans"
-                  module="plans"
-                  disabled={switchablePlans.length === 0}
-                />
-              </CardContent>
-            </Card>
-          )}
           <Tabs
             value={activeTab}
             onValueChange={(val) => setActiveTab(val as EditTabId)}
