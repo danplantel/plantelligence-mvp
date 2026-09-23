@@ -215,7 +215,6 @@ export default function HealthInsurancePage() {
           cardHeading="Group Health Insurance Account Access"
           category="Group Health"
           provider={benefitData?.providerContact ?? null}
-          providerLogo={benefitData?.partnerLogo ?? null}
         />
 
         <BenefitDocumentSection

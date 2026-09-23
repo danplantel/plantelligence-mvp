@@ -4,10 +4,10 @@ import { Button } from "@/components/ui/button";
 import { ExternalLink } from "lucide-react";
 import Image from "next/image";
 import { useState } from "react";
-import { BrandingImage } from "@/components/ui/branding-image";
 import { useClientPortal } from "@/contexts/client-portal-context";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { isR2BrandingKey } from "@/lib/branding-image-url";
+import { formatPhoneWithExtension } from "@/lib/phone-utils";
 import type { ProviderContact } from "@/types/benefit";
 
 /** Per-category default background images for the Insurance Benefits Access & Materials section (distinct from welcome banner defaults). */
@@ -38,8 +38,6 @@ interface PortalMaterialsHeroProps {
    * advisor = who helps, provider = who administers, login = where to go.
    */
   provider?: ProviderContact | null;
-  /** Provider logo — the Benefit's `partnerLogo`. */
-  providerLogo?: string | null;
 }
 
 export function PortalMaterialsHero({
@@ -59,7 +57,6 @@ export function PortalMaterialsHero({
   onPlanIdClick,
   category,
   provider,
-  providerLogo,
 }: PortalMaterialsHeroProps) {
   // Resolve insurance fields from client portal context (persisted inside employeePortalPreview)
   const { clientData } = useClientPortal();
@@ -83,7 +80,14 @@ export function PortalMaterialsHero({
     (provider?.companyName || "").trim() ||
     (category === "Retirement" ? legacyRecordkeeper : "");
   const hasProvider = Boolean(providerName);
-  const providerDetailLine = [provider?.contactName, provider?.phone]
+  // The provider phone is stored as digits (the Benefits editor normalizes what the
+  // advisor types), so format it here — otherwise the portal would print a raw
+  // "8005551212". `formatPhoneWithExtension` also tolerates legacy values that were
+  // already saved with punctuation, and strips a leading US country code.
+  const providerDetailLine = [
+    provider?.contactName,
+    provider?.phone ? formatPhoneWithExtension(provider.phone) : "",
+  ]
     .map((value) => (value || "").trim())
     .filter(Boolean)
     .join(" · ");
@@ -151,20 +155,15 @@ export function PortalMaterialsHero({
               )}
 
               {/* Provider / recordkeeper — the company administering this benefit,
-                  shown with the logo (the Benefit Logo) beside the login button. */}
+                  shown beside the login button. Name only: the Benefit Logo used to
+                  render here as a "provider logo", but that is the advisor/company
+                  logo, so it read as the company logo sitting in the provider line. */}
               {hasProvider && (
                 <div className="my-4 flex flex-col items-center gap-2 text-center">
                   <span className="font-red-hat text-[12px] uppercase leading-tight tracking-wide text-white/70">
                     Administered by
                   </span>
                   <div className="flex items-center gap-3 rounded-lg bg-black/40 px-4 py-2 backdrop-blur-sm">
-                    {providerLogo ? (
-                      <BrandingImage
-                        src={providerLogo}
-                        alt={providerName}
-                        className="h-7 w-auto max-w-[120px] object-contain"
-                      />
-                    ) : null}
                     <span className="font-red-hat text-[16px] font-semibold leading-tight text-white">
                       {providerName}
                     </span>

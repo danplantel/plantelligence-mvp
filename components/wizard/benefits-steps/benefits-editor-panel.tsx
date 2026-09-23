@@ -25,6 +25,10 @@ import { HeroBackgroundCard, type HeroSegmentMode } from "@/components/wizard/ne
 import { uploadFileToR2 } from "@/lib/upload-to-r2";
 import { toNextImageSrc } from "@/lib/branding-image-url";
 import { toast } from "sonner";
+import {
+    formatPhoneNumber,
+    normalizePhoneNumber,
+} from "@/components/wizard/steps/sections/user-setup-section/user-setup-section.funcs";
 
 export const DEFAULT_HELP_CARDS: HelpCardData[] = [
     {
@@ -1225,8 +1229,11 @@ export function BenefitsEditorPanel({
                                 <Label className="text-[11px] text-muted-foreground">
                                     Provider name
                                 </Label>
+                                {/* Free text — the `list`/`<datalist>` pair that used to
+                                    be here rendered a suggestion dropdown, which read as
+                                    a fixed picker. Any recordkeeper or carrier name can
+                                    be typed; the examples live in the placeholder only. */}
                                 <Input
-                                    list="benefit-provider-suggestions"
                                     value={step1Data.providerContact?.companyName || ""}
                                     onChange={(e) =>
                                         saveStepData(1, {
@@ -1240,28 +1247,6 @@ export function BenefitsEditorPanel({
                                     placeholder="e.g. Voya, Empower, Principal, Fidelity"
                                     className="h-11 shadow-sm border-muted"
                                 />
-                                {/* Common retirement recordkeepers and group-benefit
-                                    carriers, offered as suggestions — the advisor can
-                                    always type a different one. */}
-                                <datalist id="benefit-provider-suggestions">
-                                    {[
-                                        "Voya",
-                                        "Empower",
-                                        "Principal",
-                                        "Fidelity",
-                                        "Charles Schwab",
-                                        "John Hancock",
-                                        "UnitedHealthcare",
-                                        "Kaiser Permanente",
-                                        "Blue Cross Blue Shield",
-                                        "Aetna",
-                                        "Cigna",
-                                        "MetLife",
-                                        "Guardian",
-                                    ].map((name) => (
-                                        <option key={name} value={name} />
-                                    ))}
-                                </datalist>
                             </div>
 
                             <div className="grid grid-cols-2 gap-3">
@@ -1289,16 +1274,33 @@ export function BenefitsEditorPanel({
                                         Provider phone (optional)
                                     </Label>
                                     <Input
-                                        value={step1Data.providerContact?.phone || ""}
-                                        onChange={(e) =>
+                                        type="tel"
+                                        // "(800) 555-1212" is exactly 14 characters, so
+                                        // this caps the field at a formatted 10-digit US
+                                        // number — the same limit the handler below stores.
+                                        maxLength={14}
+                                        // Digits are stored; the value is formatted on the
+                                        // way in so the advisor sees (800) 555-1212 rather
+                                        // than a raw 8005551212 (and existing saved values
+                                        // with punctuation render formatted too).
+                                        value={formatPhoneNumber(
+                                            step1Data.providerContact?.phone || "",
+                                        )}
+                                        onChange={(e) => {
+                                            const digits = normalizePhoneNumber(
+                                                e.target.value,
+                                            );
+                                            // Ignore an 11th digit instead of silently
+                                            // dropping it at display time.
+                                            if (digits.length > 10) return;
                                             saveStepData(1, {
                                                 ...step1Data,
                                                 providerContact: {
                                                     ...(step1Data.providerContact || {}),
-                                                    phone: e.target.value,
+                                                    phone: digits,
                                                 },
-                                            })
-                                        }
+                                            });
+                                        }}
                                         placeholder="e.g. (800) 555-1212"
                                         className="h-11 shadow-sm border-muted"
                                     />

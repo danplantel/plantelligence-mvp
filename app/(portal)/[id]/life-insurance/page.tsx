@@ -216,7 +216,6 @@ export default function LifeInsurancePage() {
           cardHeading="Group Life Insurance Account Access"
           category="Group Life"
           provider={benefitData?.providerContact ?? null}
-          providerLogo={benefitData?.partnerLogo ?? null}
         />
 
         <BenefitDocumentSection

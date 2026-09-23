@@ -488,6 +488,11 @@ export function BenefitPortalPreview({ mobile, brandColor: brandColorOverride, s
                     <PortalMaterialsHero
                         brandColor={brandColor}
                         category={category}
+                        // Live provider / recordkeeper straight from the editor. This prop
+                        // was previously omitted, so the "Administered by" block never
+                        // appeared in the preview even after the advisor filled the fields
+                        // — the portal rendered it, the preview did not.
+                        provider={step1Data?.providerContact ?? null}
                         cardHeading={
                             category === "Retirement" ? "Retirement Plan Account Access" :
                             category === "Group Health" ? "Group Health Insurance Account Access" :

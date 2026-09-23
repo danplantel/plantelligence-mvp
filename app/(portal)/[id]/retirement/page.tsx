@@ -231,7 +231,6 @@ export default function RetirementPage() {
           cardHeading="Retirement Plan Account Access"
           category="Retirement"
           provider={benefitData?.providerContact ?? null}
-          providerLogo={benefitData?.partnerLogo ?? null}
         />
 
         <BenefitDocumentSection

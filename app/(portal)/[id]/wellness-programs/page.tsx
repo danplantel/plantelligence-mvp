@@ -216,7 +216,6 @@ export default function WellnessProgramsPage() {
           cardHeading="Wellness Program Account Access"
           category="Company / Plan Sponsor"
           provider={benefitData?.providerContact ?? null}
-          providerLogo={benefitData?.partnerLogo ?? null}
         />
 
         <BenefitDocumentSection
