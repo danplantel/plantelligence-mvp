@@ -99,8 +99,16 @@ export async function GET() {
         },
       }),
       // Only the fields the completeness check reads — never the base64 `file`.
+      //
+      // IMPORTANT: do NOT add `archivedAt: null` to this `where`. Prisma's MongoDB
+      // connector treats a `null` filter as "field equals null" and does not match
+      // documents where the field is ABSENT — which is every document uploaded before
+      // soft-archiving existed. That filter therefore returned an empty list, so every
+      // category was reported "Plan documents missing" even when the plan had
+      // documents (same pitfall documented in app/api/clients/[id]/route.ts and
+      // app/api/documents/route.ts). Archived rows are skipped in JS below instead.
       prisma.document.findMany({
-        where: { clientId: { in: clientIds }, archivedAt: null },
+        where: { clientId: { in: clientIds } },
         select: {
           clientId: true,
           type: true,
@@ -113,6 +121,9 @@ export async function GET() {
 
     const documentsByClient = new Map<string, typeof documents>();
     for (const doc of documents) {
+      // Soft-archived documents don't count toward completeness. Filtered here rather
+      // than in the query — see the note on the findMany above.
+      if (doc.archivedAt) continue;
       const list = documentsByClient.get(doc.clientId) ?? [];
       list.push(doc);
       documentsByClient.set(doc.clientId, list);
