@@ -149,9 +149,12 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
   };
 
   const tabList = (
+    // `border-0` kills the shared TabsList border so the nav has no outline,
+    // and `bg-transparent dark:bg-transparent` overrides the base TabsList
+    // background so the nav element stays fully transparent.
     <TabsList
       className={cn(
-        "w-full gap-1 rounded-none border-b bg-transparent p-0 flex-nowrap h-auto min-h-fit overflow-x-auto",
+        "w-full gap-1 rounded-none border-0 bg-transparent dark:bg-transparent p-0 flex-nowrap h-auto min-h-fit overflow-x-auto",
         "justify-center [&::-webkit-scrollbar]:hidden [scrollbar-width:none]",
       )}
     >
