@@ -67,6 +67,11 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import {
+  useWebinarHoverPreview,
+  type HoverPreviewSubject,
+} from "@/hooks/useWebinarHoverPreview";
+import { WebinarHoverPreviewLayer } from "@/components/webinars/webinar-hover-preview";
 
 interface WebinarFormData {
   client: string;
@@ -161,6 +166,14 @@ const BENEFITS_CATEGORIES = [
 
 const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
 
+/**
+ * Endpoint returning one row's stored video. Defined at module scope so its identity
+ * is stable — the teaser's preloader is keyed on it, so a fresh function on every
+ * render would re-run the preload effect for nothing.
+ */
+const webinarVideoFileEndpoint = (subject: HoverPreviewSubject) =>
+  `/api/webinars/${subject.id}`;
+
 export default function WebinarsPage() {
   const router = useRouter();
   const { setTitle, setSubtitle } = usePageTitleContext();
@@ -230,6 +243,17 @@ export default function WebinarsPage() {
     isLoading: boolean;
   } | null>(null);
 
+  // Hover teaser — hovering a card plays the opening seconds of its video, the way
+  // YouTube previews a thumbnail. Suspended while a dialog or select mode owns the
+  // page, because the pointer may never leave the card it is resting on. The
+  // teaser's timing, caching and lazy fetch all live in the hook, shared with the
+  // portal's webinar grid.
+  const { previewFor, hoveredId, getHoverProps, preloadHoverPreviews } =
+    useWebinarHoverPreview({
+      videoFileEndpoint: webinarVideoFileEndpoint,
+      suspended: isSelectMode || Boolean(videoPreview) || webinarModalOpen,
+    });
+
   // Sort state — the list is scoped by plan, so there is no search field.
   const [sortBy, setSortBy] = useState<"date" | "size">("date");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
@@ -264,6 +288,28 @@ export default function WebinarsPage() {
     }
     return 0;
   });
+
+  // A teaser that has to download first is not really a teaser, so every card's
+  // video is warmed as soon as the list is in — that is what makes the first hover
+  // play immediately instead of waiting on a multi-MB fetch. The hook serialises the
+  // requests and caps how many it keeps, so this stays a background trickle rather
+  // than a burst. Re-running is free: anything already warm, in flight or queued is
+  // skipped.
+  const preloadKey = sortedWebinars.map((w) => w.id).join("|");
+  const preloadSubjects = useMemo(
+    () =>
+      sortedWebinars.map((w) => ({
+        id: w.id,
+        videoUrl: w.videoUrl,
+        videoFileUrl: w.videoFileUrl,
+        hasVideoFile: w.hasVideoFile,
+      })),
+    // Keyed on the row ids rather than the array, which is rebuilt on every render.
+    [preloadKey],
+  );
+  useEffect(() => {
+    preloadHoverPreviews(preloadSubjects);
+  }, [preloadSubjects, preloadHoverPreviews]);
 
   // Only rows currently on screen can be acted on: a selection made before the
   // plan changed must never delete something the user cannot see.
@@ -1647,10 +1693,20 @@ export default function WebinarsPage() {
                         webinar.videoFileUrl ||
                         webinar.hasVideoFile,
                     );
+                    // Drives the play badge's fade. It follows the pointer rather
+                    // than the teaser, so the badge is already on its way out as the
+                    // video arrives instead of vanishing in a flicker once it starts.
+                    const isPreviewing = hoveredId === webinar.id && hasVideo;
 
                     return (
                       <div
                         key={webinar.id}
+                        {...getHoverProps({
+                          id: webinar.id,
+                          videoUrl: webinar.videoUrl,
+                          videoFileUrl: webinar.videoFileUrl,
+                          hasVideoFile: webinar.hasVideoFile,
+                        })}
                         className={cn(
                           "p-4 border rounded-lg hover:shadow-md transition-all bg-card flex flex-col h-full",
                           isSelectMode &&
@@ -1753,12 +1809,25 @@ export default function WebinarsPage() {
                               <Video className="h-6 w-6 text-muted-foreground/50" />
                             </div>
                           )}
+                          {/* Hover teaser — a muted few seconds over the thumbnail,
+                              the way YouTube previews a card. It renders above the
+                              thumbnail but below the play button (`z-[2]`), so the
+                              button can fade out over the video and the card stays
+                              one click from the full video while it plays. */}
+                          <WebinarHoverPreviewLayer
+                            preview={previewFor(webinar.id)}
+                            title={webinar.webinarTitle}
+                            className="z-[1]"
+                          />
                           {hasVideo && (
                             <button
                               type="button"
                               onClick={() => openVideoPreview(webinar)}
                               aria-label={`Play ${webinar.webinarTitle}`}
-                              className="absolute inset-0 flex items-center justify-center bg-black/20 transition-colors hover:bg-black/35"
+                              className={cn(
+                                "absolute inset-0 z-[2] flex items-center justify-center bg-black/20 transition-all duration-300 hover:bg-black/35",
+                                isPreviewing && "opacity-0",
+                              )}
                             >
                               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 shadow">
                                 <Play className="h-4 w-4 translate-x-[1px] text-gray-900" />

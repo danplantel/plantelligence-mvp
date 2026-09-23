@@ -13,6 +13,12 @@ import {
   X,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
+import {
+  useWebinarHoverPreview,
+  type HoverPreviewSubject,
+} from "@/hooks/useWebinarHoverPreview";
+import { WebinarHoverPreviewLayer } from "@/components/webinars/webinar-hover-preview";
+import { cn } from "@/lib/utils";
 
 export interface UpcomingWebinar {
   id?: number | string;
@@ -491,6 +497,52 @@ export function WebinarReplayCard({
   const needsFileFetch =
     !replay.videoUrl && !fileUrl && Boolean(replay.hasVideoFile);
 
+  // Hover teaser — the same muted few seconds of video the dashboard grid plays
+  // over its cards. The endpoint names the plan, which is what lets the fetch
+  // through for an anonymous portal visitor: the route derives the owning advisor
+  // from that plan and then requires this webinar to belong to it. Memoised because
+  // the teaser's preloader is keyed on it.
+  const videoFileEndpoint = useCallback(
+    (subject: HoverPreviewSubject) =>
+      replay.clientId
+        ? `/api/webinars/${subject.id}?forPortal=1&clientId=${encodeURIComponent(
+            replay.clientId,
+          )}`
+        : `/api/webinars/${subject.id}`,
+    [replay.clientId],
+  );
+
+  const hoverSubject = {
+    id: String(replay.id),
+    videoUrl: replay.videoUrl,
+    videoFileUrl: fileUrl,
+    hasVideoFile: replay.hasVideoFile,
+  };
+  const { previewFor, hoveredId, getHoverProps, preloadHoverPreviews } =
+    useWebinarHoverPreview({
+      videoFileEndpoint,
+      // A dialog opening over the grid must silence the teaser: the pointer may
+      // never leave the card it is resting on.
+      suspended: isVideoModalOpen,
+      // Keeping the payload means a click that follows a hover opens the modal
+      // without downloading the same video a second time.
+      onFilePayload: (id, base64) => {
+        if (id === String(replay.id)) setFetchedFileUrl(base64);
+      },
+    });
+
+  // A teaser that has to download first is not really a teaser, so this card's
+  // video is fetched as soon as the card is on screen rather than on hover. The
+  // hook serialises the requests across cards and caps how much it keeps, so a long
+  // grid warms the videos nearest the top instead of firing them all at once.
+  useEffect(() => {
+    preloadHoverPreviews([hoverSubject]);
+  }, [hoverSubject.id, hasVideo, preloadHoverPreviews]);
+
+  // Drives the play badge's fade. It follows the pointer rather than the teaser:
+  // waiting for the video would make the badge vanish in a flicker once it starts.
+  const isPreviewing = hoveredId === hoverSubject.id && hasVideo;
+
   const resolveVideoFile = async () => {
     setIsLoadingVideo(true);
     setVideoError(false);
@@ -554,6 +606,7 @@ export function WebinarReplayCard({
         <div
           className="relative aspect-video bg-gray-900"
           onClick={handleVideoClick}
+          {...getHoverProps(hoverSubject)}
         >
           {replay.thumbnail ? (
             // The advisor's chosen image (uploaded, or a frame captured from the
@@ -567,7 +620,15 @@ export function WebinarReplayCard({
                 alt={replay.title}
                 className="w-full h-full object-cover opacity-70"
               />
-              <div className="absolute inset-0 flex items-center justify-center">
+              {/* z-[2] keeps the badge above the teaser (`z-[1]`) so it can fade
+                  out over it rather than being hidden the moment the video
+                  appears. */}
+              <div
+                className={cn(
+                  "absolute inset-0 z-[2] flex items-center justify-center transition-opacity duration-300",
+                  isPreviewing && "opacity-0",
+                )}
+              >
                 <div className="bg-red-600 rounded-full w-20 h-20 flex items-center justify-center hover:bg-red-700 transition-colors shadow-lg">
                   <div className="w-0 h-0 border-l-[24px] border-l-white border-t-[15px] border-t-transparent border-b-[15px] border-b-transparent ml-1"></div>
                 </div>
@@ -590,7 +651,12 @@ export function WebinarReplayCard({
                         (e.target as HTMLImageElement).style.display = "none";
                       }}
                     />
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                    <div
+                      className={cn(
+                        "absolute inset-0 z-[2] flex items-center justify-center bg-black/20 transition-opacity duration-300",
+                        isPreviewing && "opacity-0",
+                      )}
+                    >
                       <div className="bg-red-600 rounded-full w-20 h-20 flex items-center justify-center hover:bg-red-700 transition-colors shadow-lg">
                         <div className="w-0 h-0 border-l-[24px] border-l-white border-t-[15px] border-t-transparent border-b-[15px] border-b-transparent ml-1"></div>
                       </div>
@@ -627,12 +693,28 @@ export function WebinarReplayCard({
           ) : (
             // Placeholder — also the surface for an uploaded video whose file is
             // fetched only when play is pressed.
-            <div className="w-full h-full flex items-center justify-center bg-gray-800">
+            <div
+              className={cn(
+                "relative z-[2] w-full h-full flex items-center justify-center bg-gray-800 transition-opacity duration-300",
+                isPreviewing && "opacity-0",
+              )}
+            >
               <div className="bg-red-600 rounded-full w-20 h-20 flex items-center justify-center hover:bg-red-700 transition-colors shadow-lg">
                 <div className="w-0 h-0 border-l-[24px] border-l-white border-t-[15px] border-t-transparent border-b-[15px] border-b-transparent ml-1"></div>
               </div>
             </div>
           )}
+
+          {/* Hover teaser — rendered last so it paints over whichever of the media
+              branches above is showing, and stacked beneath the play badge
+              (`z-[2]`) so the badge fades out over it. It takes no pointer events
+              of its own (see `WebinarHoverPreviewLayer`), so a click still opens
+              the video. */}
+          <WebinarHoverPreviewLayer
+            preview={previewFor(hoverSubject.id)}
+            title={replay.title}
+            className="z-[1]"
+          />
         </div>
         <div className="p-6 space-y-4">
           <h3 className="text-2xl font-bold text-[#002B5B] leading-tight">
