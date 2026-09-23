@@ -28,8 +28,6 @@ import {
 } from "@/lib/map-plan-documents-for-benefit-hub";
 import { getBenefitFromPreview } from "@/lib/benefit-data-helpers";
 import type { BenefitData } from "@/types/benefit";
-import { BenefitTeamSection } from "@/components/pages/client-portal/sections/benefit-team-section";
-import { resolveCategoryContacts } from "@/lib/benefit-contacts";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -178,23 +176,6 @@ export default function RetirementPage() {
     };
   }, [clientId, documentsSig]);
 
-  /**
-   * "Your Retirement Team" — the contacts the advisor attached to THIS category
-   * in Create Benefits, resolved from this plan's own contact list only (see
-   * lib/benefit-contacts, which drops anything not owned by the plan). Renders
-   * nothing when the category has no contacts, so existing plans are unchanged.
-   */
-  const categoryTeam = useMemo(
-    () =>
-      resolveCategoryContacts({
-        keyContacts: Array.isArray(clientData?.keyContacts)
-          ? (clientData?.keyContacts as any)
-          : ((clientData?.keyContacts as any)?.contacts ?? []),
-        category: "Retirement",
-        supportContacts: (benefitData as any)?.supportContacts ?? null,
-      }),
-    [clientData?.keyContacts, benefitData],
-  );
 
   return (
     <div className="min-h-screen w-full">
@@ -214,18 +195,6 @@ export default function RetirementPage() {
           category="Retirement"
         />
 
-        {/* The category's contacts — the same people listed on My Benefits Team,
-            scoped to this benefit. */}
-        {/* <BenefitTeamSection
-          title="Your Retirement Team"
-          primary={categoryTeam.primary}
-          others={categoryTeam.others}
-          brandColor={brandColor}
-          secondaryColor={secondaryColor}
-          appointmentLink={clientData?.appointmentLink ?? ""}
-          companyName={clientData?.companyName ?? ""}
-          className="w-full bg-white py-12 dark:bg-gray-900"
-        /> */}
 
         <BenefitsVideoSection
           brandColor={brandColor}
@@ -274,7 +243,13 @@ export default function RetirementPage() {
           loading={loadingDocs}
         />
 
-        <HaveQuestions brandColor={brandColor} secondaryColor={secondaryColor} contacts={supportContactsForFAQ} />
+        {/* The category's contacts — the same people listed on My Benefits Team,
+            scoped to this benefit (see `supportContactsForFAQ`). */}
+        <HaveQuestions
+          brandColor={brandColor}
+          secondaryColor={secondaryColor}
+          contacts={supportContactsForFAQ}
+        />
 
       </main>
     </div>

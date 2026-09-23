@@ -188,7 +188,7 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
       <div className="mx-auto max-w-4xl px-4">
         {/* In-page header — hidden on the Preview tab, exactly like Edit Plan
             hides its EditClientHeader there: the preview is a full-bleed fixed
-            layout and the section's toolbar carries the Save button. */}
+            layout, and Save lives in the fixed bottom action bar on every tab. */}
         <div
           className={cn(
             "mb-4 flex items-center justify-between gap-4",
@@ -212,18 +212,8 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
               </p>
             </div>
           </div>
-          <Button
-            onClick={handleSave}
-            disabled={saving || !isHydrated}
-            className="gap-2"
-          >
-            {saving ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4" />
-            )}
-            {saving ? "Saving..." : saved ? "Saved" : "Save changes"}
-          </Button>
+          {/* No Save button here — the fixed bottom action bar owns Save on every
+              tab (see the bar at the end of this component). */}
         </div>
 
         {!isHydrated ? (
