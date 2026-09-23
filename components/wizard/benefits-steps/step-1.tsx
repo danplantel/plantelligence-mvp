@@ -775,11 +775,23 @@ export function BenefitsStep1({
         const isEnabled =
           (currentStepData.benefitVisibility ?? {})[visKey] !== false;
 
+        // The logo and header may only be written once this category's pre-fill has
+        // settled. Before that they are simply not LOADED yet, so `|| null` would
+        // translate "not loaded" into a destructive clear of the stored values — how a
+        // logo could vanish from the row (and from the portal) merely by opening this
+        // page and editing an unrelated field. Omitting the keys leaves those columns
+        // untouched, because the PUT treats `undefined` as "unchanged".
+        const assetsLoaded = (
+          currentStepData.benefitFieldsLoadedCategories ?? []
+        ).includes(currentStepData.benefitCategory);
+
         const payload = {
           isEnabled,
           // Persist brand logo + description so they survive page refreshes
           // and are available whenever the wizard is re-entered.
-          partnerLogo: currentStepData.companyLogo?.url || null,
+          ...(assetsLoaded
+            ? { partnerLogo: currentStepData.companyLogo?.url || null }
+            : {}),
           shortDescription: currentStepData.shortDescription || null,
           insurancePlanId: currentStepData.insurancePlanId || "",
           insuranceLoginUrl: currentStepData.insuranceLoginUrl || "",
@@ -787,7 +799,9 @@ export function BenefitsStep1({
           insuranceContainerBlockOpacity: currentStepData.insuranceContainerBlockOpacity ?? 0.8,
           // Header background image (uploaded in the Branding section) — the
           // Benefit row stores this as `backgroundImage` (legacy: `image`).
-          backgroundImage: currentStepData.brandImages?.header?.url || null,
+          ...(assetsLoaded
+            ? { backgroundImage: currentStepData.brandImages?.header?.url || null }
+            : {}),
           // Plan video (uploaded in Step 2 Editor Panel). Must be included
           // so the dual-write doesn't wipe the video from employeePortalPreview.
           planVideo: currentStepData.planVideo || null,
@@ -1163,12 +1177,23 @@ export function BenefitsStep1({
       saveStepData(1, { ...preFetchStep1, categoryBenefitByApi: undefined });
     }
 
-    let cancelled = false;
-    (async () => {
+    // NOTE: the write is deliberately NOT gated on an effect-cleanup flag. React
+    // StrictMode double-invokes this effect on mount: invoke #1 starts the fetch,
+    // the cleanup sets the flag, and invoke #2 returns immediately because the ref
+    // is already stamped — so a `cancelled`-gated write would throw away the only
+    // response that will ever arrive and leave `categoryBenefitByApi` undefined
+    // forever. Correctness is already guaranteed by the `latest.planId !== planId`
+    // check below (a stale response for another plan is dropped), and the ref is
+    // only stamped on SUCCESS so a failed/raced attempt can still retry.
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const load = async (attempt: number) => {
       try {
         const res = await fetch(`/api/clients/${planId}/benefits`);
         const data = await res.json();
-        if (cancelled || !data?.success) return;
+        if (!data?.success) {
+          throw new Error(`benefits fetch failed (${res.status})`);
+        }
         const rows: any[] = Array.isArray(data.benefits) ? data.benefits : [];
         const byCategory: Record<string, any | null> = {};
         for (const row of rows) {
@@ -1178,12 +1203,21 @@ export function BenefitsStep1({
         const latest = useBenefitsWizardStore.getState().stepData.step1;
         if (!latest || latest.planId !== planId) return;
         saveStepData(1, { ...latest, categoryBenefitByApi: byCategory });
+        // Mark this plan as loaded only once the snapshot is actually in the store.
+        benefitApiLoadedPlanRef.current = planId;
       } catch (err) {
         console.error("Failed to load Benefit rows:", err);
+        // One bounded retry: a transient failure must not leave the snapshot
+        // undefined for the rest of the session.
+        if (attempt < 2) {
+          retryTimer = setTimeout(() => void load(attempt + 1), 800);
+        }
       }
-    })();
+    };
+    void load(0);
+
     return () => {
-      cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
     };
   }, [currentStepData.planId, saveStepData]);
 
@@ -1294,8 +1328,36 @@ export function BenefitsStep1({
     const cat = currentStepData.benefitCategory;
     if (!cat) return;
 
+    // ── TEMPORARY DIAGNOSTIC (development only) ──
+    // The Branding previews only read `companyLogo` / `brandImages.header`, so a
+    // blank logo can be a missing snapshot, a missing profile, a key mismatch in the
+    // snapshot, or the one-shot guard. This prints every input the decision uses so a
+    // report can be traced to one branch instead of guessed at. Remove once resolved.
+    if (process.env.NODE_ENV === "development") {
+      const rows = currentStepData.categoryBenefitByApi;
+      const diagKey = normalizeApiCategory(
+        cat === "Custom" ? "Company / Plan Sponsor" : cat,
+      );
+      const diagRow = rows ? rows[diagKey] : undefined;
+      console.log("[Benefit Branding pre-fill]", {
+        category: cat,
+        apiKey: diagKey,
+        snapshotLoaded: rows !== undefined,
+        snapshotKeys: rows ? Object.keys(rows) : null,
+        rowFound: !!diagRow,
+        rowPartnerLogo: diagRow?.partnerLogo ?? null,
+        rowBackgroundImage:
+          diagRow?.backgroundImage ?? diagRow?.image ?? null,
+        profileLoaded: profileData !== undefined,
+        primaryCategories:
+          (profileData as any)?.primaryServiceCategories ?? null,
+        loadedCategories: currentStepData.benefitFieldsLoadedCategories ?? null,
+        draftLogo: currentStepData.companyLogo?.url ?? null,
+        draftHeader: currentStepData.brandImages?.header?.url ?? null,
+      });
+    }
+
     const loadedCats = currentStepData.benefitFieldsLoadedCategories ?? [];
-    if (loadedCats.includes(cat)) return;
     // Wait for the Benefit-table fetch AND the user profile to resolve so the pre-fill decision
     // (including the User-profile logo/header fallback) is final.
     if (currentStepData.categoryBenefitByApi === undefined) return;
@@ -1304,6 +1366,20 @@ export function BenefitsStep1({
     const apiCat = cat === "Custom" ? "Company / Plan Sponsor" : cat;
     const benefit =
       currentStepData.categoryBenefitByApi[normalizeApiCategory(apiCat)] ?? null;
+
+    // The row's own assets, and whether the draft is missing either of them. Adopting
+    // the row's value when the draft holds none is always safe — there is nothing to
+    // clobber — and it heals the case where this category was already marked as loaded
+    // by a pass (or a previous session) that ran before the row arrived. That is how
+    // Branding could sit blank beside a COMPLETED badge: the badge is read from the
+    // merged row, while these controls render `companyLogo` / `brandImages` only.
+    const rowLogo = benefit?.partnerLogo || null;
+    const rowHeader = benefit?.backgroundImage || benefit?.image || null;
+    const draftHasLogo = !!currentStepData.companyLogo?.url;
+    const draftHasHeader = !!currentStepData.brandImages?.header?.url;
+    const healingRowAssets =
+      (!draftHasLogo && !!rowLogo) || (!draftHasHeader && !!rowHeader);
+    if (loadedCats.includes(cat) && !healingRowAssets) return;
 
     // User-profile defaults for the advisor's primary service categories.
     const profile = (profileData as any) || {};
@@ -1357,9 +1433,14 @@ export function BenefitsStep1({
     // advisor's profile logo (or nulled it for a category with no Benefit row), so a
     // freshly saved logo reverted to the previous image mid-edit. An org-logo change
     // still wins over such an edit — the advisor asked for it to propagate.
-    const logoEditedLocally = (
-      currentStepData.benefitLogoEditedCategories ?? []
-    ).includes(cat);
+    //
+    // The flag lives in the persisted draft, so it can outlive the session that set
+    // it. It is therefore only honoured while the draft actually HOLDS a logo: with
+    // an empty draft there is nothing to protect, and suppressing the pre-fill is
+    // what left Branding blank for a row that has a logo.
+    const logoEditedLocally =
+      (currentStepData.benefitLogoEditedCategories ?? []).includes(cat) &&
+      draftHasLogo;
 
     const next: BenefitsStep1Data = {
       ...currentStepData,
@@ -1738,7 +1819,15 @@ export function BenefitsStep1({
   // Deep link / resume guard: when the benefits snapshot first loads, if the
   // already-selected category has a Benefit row, offer Edit-or-Overwrite rather
   // than silently continuing in the wizard.
+  //
+  // This is a CREATE-wizard guard only. It exists because the wizard would
+  // prefill-and-upsert a category that already has a row, which the advisor never
+  // asked for. On the Edit Benefit page the row's existence is the reason the page
+  // was opened, so prompting "… benefits already exist" with an "Edit existing
+  // benefit" button that navigates to the page you are already on is nonsense —
+  // skip it entirely in edit mode.
   useEffect(() => {
+    if (isEditMode) return;
     if (deepLinkGuardRef.current) return;
     if (currentStepData.categoryBenefitByApi === undefined) return;
     deepLinkGuardRef.current = true;
@@ -1752,7 +1841,7 @@ export function BenefitsStep1({
       label: CATEGORY_CARDS.find((c) => c.id === cat)?.label ?? cat,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStepData.categoryBenefitByApi, currentStepData.benefitCategory]);
+  }, [isEditMode, currentStepData.categoryBenefitByApi, currentStepData.benefitCategory]);
 
   const handleCreateContact = (category: BenefitsCategory) => {
     setModalCategory(category);
