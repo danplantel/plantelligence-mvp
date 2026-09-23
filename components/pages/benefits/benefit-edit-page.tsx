@@ -29,8 +29,9 @@ import { EditBenefitPreviewSection } from "@/components/pages/benefits/edit-bene
  * - **Preview** renders [`EditBenefitPreviewSection`](components/pages/benefits/edit-benefit-preview-section.tsx)
  *   — the live portal preview beside an inline Editing Panel (typography,
  *   branding, messaging, plan video, help cards, insurance). Like Edit Plan's
- *   Preview tab, the in-page header is hidden there (the section's toolbar owns
- *   the Save button instead) and the preview shrinks while the panel is open.
+ *   Preview tab, the in-page header is hidden there; Cancel + Save Changes live
+ *   in the fixed bottom action bar (which owns Save on every tab) and the preview
+ *   shrinks while the panel is open.
  */
 const EDIT_TABS = [
   { id: "branding", label: "Branding" },
@@ -117,6 +118,18 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
     if (requested && EDIT_TABS.some((t) => t.id === requested)) {
       setActiveTab(requested as EditTabId);
     }
+  }, []);
+
+  // True while the Preview tab's inline Editing Panel is open
+  // (`EditBenefitPreviewSection` dispatches `step5EditorStateChange`). Mirrors
+  // Edit Client's `planEditorOpen`: used to offset the fixed bottom action bar so
+  // its buttons clear the rail-collapsed sidebar *and* the panel.
+  const [previewEditorOpen, setPreviewEditorOpen] = useState(false);
+  useEffect(() => {
+    const handler = (e: any) => setPreviewEditorOpen(!!e?.detail?.isOpen);
+    window.addEventListener("step5EditorStateChange" as any, handler);
+    return () =>
+      window.removeEventListener("step5EditorStateChange" as any, handler);
   }, []);
 
   /**
@@ -247,12 +260,8 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
             {/* Preview — live portal preview + inline Editing Panel, scaled down
                 while the panel is open (mirrors Edit Plan's Preview tab). */}
             <TabsContent value="preview" className="mt-0">
-              <EditBenefitPreviewSection
-                onSave={handleSave}
-                saving={saving}
-                saved={saved}
-                saveDisabled={!isHydrated}
-              />
+              {/* Save lives in the fixed bottom action bar, not the toolbar. */}
+              <EditBenefitPreviewSection />
             </TabsContent>
 
             <TabsContent value="contacts" className="mt-0 space-y-6">
@@ -273,6 +282,50 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
             </TabsContent>
           </Tabs>
         )}
+      </div>
+
+      {/* Fixed bottom action bar — mirrors Edit Client's bar (`/edit-client/[id]`):
+          Cancel leaves the editor, Save Changes persists every section. With the
+          Preview tab's inline Editing Panel open the bar shifts right past the
+          rail-collapsed sidebar *and* the panel, exactly like Edit Client. */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background shadow-lg">
+        <div
+          className={cn(
+            "px-4 py-4 flex justify-end gap-3 transition-all duration-200",
+            // Default: center the actions in the same max-width column the page
+            // content uses (this page's column is `max-w-4xl`). While the Editing
+            // Panel is open, align them to the right of the bar instead.
+            !previewEditorOpen && "mx-auto max-w-4xl",
+          )}
+          style={
+            previewEditorOpen
+              ? {
+                  marginLeft:
+                    "calc(var(--sidebar-width, 16rem) + var(--editor-inset, 0px))",
+                }
+              : undefined
+          }
+        >
+          <Button
+            variant="outline"
+            onClick={() => router.push("/benefits")}
+            disabled={saving}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={saving || !isHydrated}
+            className="gap-2"
+          >
+            {saving ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            {saving ? "Saving..." : saved ? "Saved" : "Save changes"}
+          </Button>
+        </div>
       </div>
     </div>
   );

@@ -1,9 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, Monitor, Save, Smartphone, X } from "lucide-react";
+import { Monitor, Smartphone, X } from "lucide-react";
 import { PortalHeader } from "@/components/pages/client-portal/sections/portal-header";
-import { Button } from "@/components/ui/button";
 import { BenefitPortalPreview } from "@/components/wizard/benefits-steps/benefit-portal-preview";
 import { BenefitsEditorPanel } from "@/components/wizard/benefits-steps/benefits-editor-panel";
 import { MobilePreviewFrame } from "@/components/wizard/benefits-steps/step-2";
@@ -36,15 +35,6 @@ interface EditBenefitPreviewSectionProps {
    * Preview tab, so this is just the 64px app header height by default.
    */
   topOffset?: number;
-  /**
-   * Save handler rendered in the toolbar. The page header (which owns Save on
-   * every other tab) is hidden on the Preview tab, so the same action lives here
-   * — leaving `onSave` undefined simply omits the button.
-   */
-  onSave?: () => void;
-  saving?: boolean;
-  saved?: boolean;
-  saveDisabled?: boolean;
 }
 
 /**
@@ -63,10 +53,6 @@ interface EditBenefitPreviewSectionProps {
  */
 export function EditBenefitPreviewSection({
   topOffset = 64,
-  onSave,
-  saving = false,
-  saved = false,
-  saveDisabled = false,
 }: EditBenefitPreviewSectionProps) {
   const step1Data = useBenefitsWizardStore((s) => s.stepData.step1);
   const selectedPlan = step1Data?.selectedPlan as any;
@@ -379,23 +365,10 @@ export function EditBenefitPreviewSection({
           )}
         </button>
 
-        {/* Right: Save + preview mode toggle */}
+        {/* Right: preview mode toggle. Save is no longer rendered here — the
+            page's fixed bottom action bar owns Cancel + Save Changes on every
+            tab, matching Edit Client. */}
         <div className="flex items-center gap-2">
-          {onSave && (
-            <Button
-              onClick={onSave}
-              disabled={saving || saveDisabled}
-              className="gap-2"
-            >
-              {saving ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
-              {saving ? "Saving..." : saved ? "Saved" : "Save changes"}
-            </Button>
-          )}
-
           <button
             type="button"
             onClick={togglePreviewMode}
