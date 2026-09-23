@@ -504,7 +504,11 @@ function NewBenefitsPageInner() {
   const renderStep = () => {
     switch (currentStep) {
       case 1:
-        return <BenefitsStep1 />;
+        // The category is pinned by the deep link when the Browse Benefits page's
+        // per-row "+ Add" opens this wizard (`?planId&category`), so Step 1 hides
+        // its redundant "Benefit Category" picker. Plan-only entry points (sidebar
+        // "Create Benefit", right after a plan is created, dashboard tasks) keep it.
+        return <BenefitsStep1 hideCategoryPicker={!!categoryParam} />;
       case 2:
         return <BenefitsStep2 />;
       case 3:
@@ -514,7 +518,7 @@ function NewBenefitsPageInner() {
       case 5:
         return <BenefitsStep5 />;
       default:
-        return <BenefitsStep1 />;
+        return <BenefitsStep1 hideCategoryPicker={!!categoryParam} />;
     }
   };
 

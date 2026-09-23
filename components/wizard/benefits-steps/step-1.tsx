@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { fetchProfileOnce } from "@/lib/fetch-profile";
@@ -20,7 +19,7 @@ import {
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { persistPlanSelection, getRecentPlanIds } from "@/lib/plan-selector-storage";
+import { persistPlanSelection } from "@/lib/plan-selector-storage";
 import { storePendingDraftSelection } from "@/lib/draft-utils";
 import {
   Select,
@@ -40,7 +39,6 @@ import {
   Building2,
   Image as ImageIcon,
   CheckCircle2,
-  Clock,
   Plus,
   Pencil,
   Search,
@@ -165,12 +163,21 @@ const CATEGORY_CARDS = [
 export function BenefitsStep1({
   mode = "wizard",
   sections,
+  hideCategoryPicker = false,
 }: {
   /** "edit" hides the plan/category picker and the per-accordion CONTINUE
    *  buttons — used by the Edit Benefit page, which has its own tab bar. */
   mode?: "wizard" | "edit";
   /** Restrict which accordions render (e.g. ["contacts"]). Default: all four. */
   sections?: string[];
+  /**
+   * Hide just the "Benefit Category" card picker. The Browse Benefits page's
+   * per-row "+ Add" deep links with `?planId&category`, so the category is
+   * already implied and re-picking it is redundant. Entry points that arrive
+   * with only a plan (sidebar "Create Benefit", right after a plan is created,
+   * dashboard tasks) leave this false so a category can still be chosen.
+   */
+  hideCategoryPicker?: boolean;
 } = {}) {
   const isEditMode = mode === "edit";
   /** Every section shows in the wizard; `sections` narrows them when provided. */
@@ -218,14 +225,6 @@ export function BenefitsStep1({
   const deepLinkGuardRef = useRef(false);
   const [draftDialogOpen, setDraftDialogOpen] = useState(false);
   const [draftPlanName, setDraftPlanName] = useState("");
-
-  // Plan search bar state
-  const [planSearchOpen, setPlanSearchOpen] = useState(false);
-  const [planSearchQuery, setPlanSearchQuery] = useState("");
-  const [planSearchHighlight, setPlanSearchHighlight] = useState(0);
-  const planSearchInputRef = useRef<HTMLInputElement>(null);
-  const planSearchContainerRef = useRef<HTMLDivElement>(null);
-  const planSearchDropdownRef = useRef<HTMLDivElement>(null);
 
   // Contact form state — a mini version of the new-client ContactFormSlide
   // (individual/team contacts, phone+email with at-least-one, CTA, visibility).
@@ -386,113 +385,33 @@ export function BenefitsStep1({
     setDraftDialogOpen(true);
   }, [isSelectedPlanDraft, resolvedPlanId, currentStepData.selectedPlan, plans]);
 
-  /** Plans recently selected across any module (via plan-selector-storage). */
-  const recentPlans = useMemo(() => {
-    if (plans.length === 0) return [];
-    const recentIds = getRecentPlanIds();
-    if (recentIds.length === 0) return [];
-    const planById = new Map(plans.map((p) => [p.id, p]));
-    const seen = new Set<string>();
-    const result: { id: string; companyName: string; isCurrent: boolean }[] =
-      [];
-    for (const id of recentIds) {
-      const plan = planById.get(id);
-      if (plan && !seen.has(id)) {
-        seen.add(id);
-        result.push({
-          id,
-          companyName: plan.companyName,
-          isCurrent: id === resolvedPlanId,
-        });
-      }
-    }
-    return result;
-  }, [plans, resolvedPlanId]);
-
-  // ── Plan search bar logic ──
-
-  /** All plans sorted: recents first, then alphabetical. */
-  const allPlansSorted = useMemo(() => {
-    const recentIdsFromStorage = getRecentPlanIds();
-    const recentSet = new Set(recentIdsFromStorage);
-    const recents: typeof plans = [];
-    const others: typeof plans = [];
-    for (const p of plans) {
-      if (recentSet.has(p.id)) recents.push(p);
-      else others.push(p);
-    }
-    others.sort((a, b) =>
-      a.companyName.localeCompare(b.companyName, undefined, {
-        sensitivity: "base",
-      }),
-    );
-    return [...recents, ...others];
-  }, [plans]);
-
-  const planSearchDropdownItems = useMemo(() => {
-    if (!planSearchQuery.trim()) return allPlansSorted;
-    const q = planSearchQuery.toLowerCase();
-    return allPlansSorted.filter((p) =>
-      p.companyName.toLowerCase().includes(q),
-    );
-  }, [planSearchQuery, allPlansSorted]);
-
   const selectedPlanName = useMemo(
     () => plans.find((p) => p.id === resolvedPlanId)?.companyName ?? "",
     [plans, resolvedPlanId],
   );
 
-  const selectPlan = (planId: string) => {
-    handlePlanChange(planId);
-    setPlanSearchOpen(false);
-    setPlanSearchQuery("");
-  };
+  /**
+   * "Acme Corp - Retirement" for the Create Benefit banner. Mirrors the page
+   * header's subtitle mapping, where the store keeps the Custom hub under
+   * "Company / Plan Sponsor".
+   */
+  const benefitBannerTarget = useMemo(() => {
+    const planName =
+      selectedPlanName ||
+      ((currentStepData.selectedPlan as { companyName?: string } | null)
+        ?.companyName ??
+        "");
+    const category =
+      currentStepData.benefitCategory === "Custom"
+        ? "Company / Plan Sponsor"
+        : currentStepData.benefitCategory;
+    return [planName, category].filter(Boolean).join(" - ");
+  }, [
+    selectedPlanName,
+    currentStepData.selectedPlan,
+    currentStepData.benefitCategory,
+  ]);
 
-  const handlePlanSearchKeyDown = (e: React.KeyboardEvent) => {
-    if (!planSearchOpen) return;
-    if (e.key === "Escape") {
-      setPlanSearchOpen(false);
-      setPlanSearchQuery("");
-      return;
-    }
-    if (planSearchDropdownItems.length === 0) return;
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setPlanSearchHighlight(
-        (h) => (h + 1) % planSearchDropdownItems.length,
-      );
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setPlanSearchHighlight(
-        (h) =>
-          (h - 1 + planSearchDropdownItems.length) %
-          planSearchDropdownItems.length,
-      );
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      const item = planSearchDropdownItems[planSearchHighlight];
-      if (item) selectPlan(item.id);
-    }
-  };
-
-  // Close on outside click
-  useEffect(() => {
-    if (!planSearchOpen) return;
-    const handler = (e: MouseEvent) => {
-      const t = e.target as Node;
-      if (planSearchContainerRef.current?.contains(t)) return;
-      if (planSearchDropdownRef.current?.contains(t)) return;
-      setPlanSearchOpen(false);
-      setPlanSearchQuery("");
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [planSearchOpen]);
-
-  // Reset highlight when items change
-  useEffect(() => {
-    setPlanSearchHighlight(0);
-  }, [planSearchDropdownItems.length, planSearchOpen]);
 
   // ── Error Validation Scroll-to ──
   // The benefits page's Next handler dispatches `benefitsStep1ValidationError`
@@ -2708,11 +2627,8 @@ export function BenefitsStep1({
       <div className="space-y-6 w-full mx-auto pb-20">
         <div className="border border-gray-200 shadow-sm bg-card dark:bg-gray-800 dark:border-gray-700 rounded-xl p-6">
           <div className="space-y-3">
-            <Skeleton className="h-4 w-24" />
-            <div className="relative">
-              <Skeleton className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 rounded" />
-              <Skeleton className="h-9 w-full rounded-md" />
-            </div>
+            <Skeleton className="h-5 w-72" />
+            <Skeleton className="h-4 w-56" />
           </div>
         </div>
       </div>
@@ -2725,18 +2641,23 @@ export function BenefitsStep1({
       {!isEditMode && (
       <Card className="border border-gray-200 shadow-sm bg-card dark:bg-gray-800 dark:border-gray-700">
         <CardHeader className="pb-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <CardTitle className="text-lg text-gray-900 font-bold dark:text-gray-100">
-                  Plan & Benefit Selection
-                </CardTitle>
-              </div>
+          <div className="flex items-center justify-between gap-4">
+            {/* Banner — the plan + category are chosen on Browse Benefits and
+                arrive via `?planId&category`, so the wizard states the target
+                instead of offering plan/category pickers. */}
+            <div className="min-w-0">
+              <CardTitle className="text-lg text-gray-900 font-bold dark:text-gray-100 truncate">
+                {resolvedPlanId
+                  ? `Creating a new benefit for ${benefitBannerTarget}`
+                  : "No plan selected"}
+              </CardTitle>
               <CardDescription className="text-sm text-gray-600 text-muted-foreground">
-                Choose which plan and benefit category you want to configure.
+                {resolvedPlanId
+                  ? "The plan and benefit category come from the Benefits page — continue below to configure this benefit."
+                  : "Open Browse Benefits and use Add on a plan row to create a benefit for it."}
               </CardDescription>
             </div>
-            {resolvedPlanId && (
+            {resolvedPlanId ? (
               <Button
                 variant="outline"
                 size="sm"
@@ -2752,169 +2673,19 @@ export function BenefitsStep1({
                 <ExternalLink className="h-4 w-4" />
                 Open Portal
               </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push("/benefits")}
+                className="gap-1.5 shrink-0"
+              >
+                Choose a plan
+              </Button>
             )}
           </div>
         </CardHeader>
         <CardContent className="space-y-5">
-          {/* Plan Selector */}
-          <div className="space-y-2" data-field="planId">
-            {/* Plan search input */}
-            <div ref={planSearchContainerRef} className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-              <Input
-                ref={planSearchInputRef}
-                type="text"
-                placeholder="Search for a plan"
-                value={planSearchQuery}
-                onChange={(e) => {
-                  if (!planSearchOpen) setPlanSearchOpen(true);
-                  setPlanSearchQuery(e.target.value);
-                }}
-                onFocus={() => setPlanSearchOpen(true)}
-                onKeyDown={handlePlanSearchKeyDown}
-                destructive={isFieldInvalid("planId")}
-                className={cn(
-                  "h-10 pl-9 pr-3 bg-white dark:bg-gray-700 dark:border-gray-600",
-                  isFieldInvalid("planId") &&
-                    "border-red-500 dark:border-red-500",
-                )}
-                aria-label="Search plans"
-                aria-expanded={planSearchOpen}
-                aria-haspopup="listbox"
-                autoComplete="off"
-              />
-            </div>
-
-            {/* Recent Plans quick-select chips */}
-            {recentPlans.length > 0 && !loading && (
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <Clock className="size-3 text-gray-400 shrink-0" />
-                {recentPlans.map((rp) => (
-                  <button
-                    key={rp.id}
-                    type="button"
-                    onClick={() => handlePlanChange(rp.id)}
-                    className={cn(
-                      "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all border",
-                      rp.isCurrent
-                        ? "bg-[#23919C]/10 text-[#23919C] border-[#23919C]/30"
-                        : "bg-gray-50 text-gray-600 border-gray-200 hover:border-[#23919C]/40 hover:text-[#23919C] dark:bg-gray-700 text-muted-foreground dark:border-gray-600 dark:hover:border-[#23919C]/50",
-                    )}
-                  >
-                    {rp.companyName}
-                  </button>
-                ))}
-              </div>
-            )}
-            {plans.length === 0 && !loading ? (
-              <p className="text-sm text-muted-foreground pt-1">
-                No plans found for your account yet. Create a client plan first
-                from the dashboard, then refresh this page.
-              </p>
-            ) : null}
-
-            {/* Dropdown portal */}
-            {planSearchOpen && plans.length > 0 && typeof document !== "undefined"
-              ? createPortal(
-                  <div
-                    ref={planSearchDropdownRef}
-                    role="listbox"
-                    className="rounded-md border border-input bg-white dark:bg-gray-800 shadow-lg overflow-hidden z-50"
-                    style={{
-                      position: "fixed",
-                      top: (planSearchContainerRef.current?.getBoundingClientRect().bottom ?? 0) + 4,
-                      left: planSearchContainerRef.current?.getBoundingClientRect().left ?? 0,
-                      width: planSearchContainerRef.current?.getBoundingClientRect().width ?? 300,
-                      maxHeight: 288,
-                    }}
-                  >
-                    {planSearchQuery.trim() && (
-                      <div className="px-3 py-1.5 border-b border-border/60">
-                        <p className="text-xs text-muted-foreground">
-                          {planSearchDropdownItems.length} plan{planSearchDropdownItems.length !== 1 ? "s" : ""} found
-                        </p>
-                      </div>
-                    )}
-                    <div className="overflow-y-auto max-h-[256px] py-1">
-                      {planSearchDropdownItems.length > 0 && (
-                        <>
-                          {/* Recent plans section */}
-                          {recentPlans.length > 0 && (
-                            <div className="px-2 pb-1">
-                              <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground px-2 py-1.5">
-                                <Clock className="h-3 w-3" />
-                                Recent
-                              </div>
-                              {planSearchDropdownItems
-                                .filter((p) => recentPlans.some((rp) => rp.id === p.id))
-                                .map((plan, idx) => {
-                                  const isHi = planSearchHighlight === idx;
-                                  return (
-                                    <button
-                                      key={`r-${plan.id}`}
-                                      type="button"
-                                      role="option"
-                                      aria-selected={resolvedPlanId === plan.id}
-                                      className={cn(
-                                        "w-full rounded-sm px-3 py-2 text-left text-sm transition-colors",
-                                        isHi && "bg-accent-blue/10 text-accent-blue font-medium",
-                                        !isHi && "hover:bg-muted",
-                                      )}
-                                      onClick={() => selectPlan(plan.id)}
-                                      onMouseEnter={() => setPlanSearchHighlight(idx)}
-                                    >
-                                      {plan.companyName}
-                                    </button>
-                                  );
-                                })}
-                            </div>
-                          )}
-                          {/* All other plans */}
-                          {planSearchDropdownItems.length > (recentPlans.length > 0 ? recentPlans.length : 0) && (
-                            <div className={cn("px-2", recentPlans.length > 0 && "pt-1 border-t border-border/60")}>
-                              <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground px-2 py-1.5">
-                                {planSearchQuery.trim() ? "Matching plans" : "All plans"}
-                              </div>
-                              {planSearchDropdownItems
-                                .filter((p) => !recentPlans.some((rp) => rp.id === p.id))
-                                .map((plan, idx) => {
-                                  const globalIdx = (planSearchDropdownItems.filter((p) => recentPlans.some((rp) => rp.id === p.id))).length + idx;
-                                  const isHi = planSearchHighlight === globalIdx;
-                                  return (
-                                    <button
-                                      key={plan.id}
-                                      type="button"
-                                      role="option"
-                                      aria-selected={resolvedPlanId === plan.id}
-                                      className={cn(
-                                        "w-full rounded-sm px-3 py-2 text-left text-sm transition-colors",
-                                        isHi && "bg-accent-blue/10 text-accent-blue font-medium",
-                                        !isHi && "hover:bg-muted",
-                                      )}
-                                      onClick={() => selectPlan(plan.id)}
-                                      onMouseEnter={() => setPlanSearchHighlight(globalIdx)}
-                                    >
-                                      {plan.companyName}
-                                    </button>
-                                  );
-                                })}
-                            </div>
-                          )}
-                        </>
-                      )}
-                      {planSearchDropdownItems.length === 0 && (
-                        <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-                          {planSearchQuery.trim()
-                            ? "No plans match your search."
-                            : "No plans available."}
-                        </div>
-                      )}
-                    </div>
-                  </div>,
-                  document.body,
-                )
-              : null}
-          </div>
 
           {/* Benefit Category Cards */}
           {resolvedPlanId && (
@@ -2926,91 +2697,99 @@ export function BenefitsStep1({
               )}
               data-field="benefitCategory"
             >
-              <Label className="text-sm font-semibold text-gray-700 dark:text-gray-100">
-                Benefit Category <span className="text-red-500">*</span>
-              </Label>
+              {/* Hidden when the category is pinned by the deep link — the Browse
+                  Benefits per-row "+ Add" passes `?planId&category`, so re-picking
+                  it here would be redundant. Entry points that arrive with only a
+                  plan keep the picker so a category can still be chosen. */}
+              {!hideCategoryPicker && (
+                <>
+                  <Label className="text-sm font-semibold text-gray-700 dark:text-gray-100">
+                    Benefit Category <span className="text-red-500">*</span>
+                  </Label>
 
-              {planLoading ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-gray-200 dark:border-gray-600">
-                      <Skeleton className="size-12 rounded-full" />
-                      <Skeleton className="h-4 w-20" />
-                      <Skeleton className="h-4 w-16 rounded-full" />
+                  {planLoading ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      {[1, 2, 3, 4].map((i) => (
+                        <div key={i} className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-gray-200 dark:border-gray-600">
+                          <Skeleton className="size-12 rounded-full" />
+                          <Skeleton className="h-4 w-20" />
+                          <Skeleton className="h-4 w-16 rounded-full" />
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {CATEGORY_CARDS.map((cat) => {
-                    const status = getCategoryStatus(cat.id);
-                    const exists = !!status?.exists;
-                    const complete = !!status?.isComplete;
-                    const state: BenefitCategoryCardState = !exists
-                      ? "not-created"
-                      : complete
-                        ? status!.isEnabled
-                          ? "published"
-                          : "hidden"
-                        : "draft";
-                    // "Custom" is stored (and deep-linked) as "Company / Plan Sponsor".
-                    const dbCategory =
-                      cat.id === "Custom" ? "Company / Plan Sponsor" : cat.id;
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      {CATEGORY_CARDS.map((cat) => {
+                        const status = getCategoryStatus(cat.id);
+                        const exists = !!status?.exists;
+                        const complete = !!status?.isComplete;
+                        const state: BenefitCategoryCardState = !exists
+                          ? "not-created"
+                          : complete
+                            ? status!.isEnabled
+                              ? "published"
+                              : "hidden"
+                            : "draft";
+                        // "Custom" is stored (and deep-linked) as "Company / Plan Sponsor".
+                        const dbCategory =
+                          cat.id === "Custom" ? "Company / Plan Sponsor" : cat.id;
 
-                    const editAction = () => openEditBenefit(dbCategory);
-                    const wizardAction = () => handleCategoryChange(cat.id);
+                        const editAction = () => openEditBenefit(dbCategory);
+                        const wizardAction = () => handleCategoryChange(cat.id);
 
-                    return (
-                      <BenefitCategoryCard
-                        key={cat.id}
-                        label={cat.label}
-                        icon={cat.icon}
-                        state={state}
-                        isSelected={isCategoryActive(cat.id)}
-                        missingCount={status?.missing?.length ?? 0}
-                        missingSections={status?.pendingSectionLabels ?? []}
-                        logo={status?.logo ?? null}
-                        primary={
-                          !exists
-                            ? {
-                                label: "Create benefit",
-                                icon: "create",
-                                onClick: wizardAction,
-                              }
-                            : complete
-                              ? {
-                                  label: "Edit benefit",
-                                  icon: "edit",
-                                  onClick: editAction,
-                                }
-                              : {
-                                  label: "Finish setup",
-                                  icon: "sparkles",
-                                  onClick: wizardAction,
-                                }
-                        }
-                        secondary={
-                          !exists
-                            ? undefined
-                            : complete
-                              ? {
-                                  label: "Overwrite in wizard",
-                                  onClick: () =>
-                                    setOverwritePrompt({
-                                      categoryId: cat.id,
-                                      label: cat.label,
-                                    }),
-                                }
-                              : {
-                                  label: "Edit",
-                                  icon: "edit",
-                                  onClick: editAction,
-                                }
-                        }
-                      />
-                    );
-                  })}
-                </div>
+                        return (
+                          <BenefitCategoryCard
+                            key={cat.id}
+                            label={cat.label}
+                            icon={cat.icon}
+                            state={state}
+                            isSelected={isCategoryActive(cat.id)}
+                            missingCount={status?.missing?.length ?? 0}
+                            missingSections={status?.pendingSectionLabels ?? []}
+                            logo={status?.logo ?? null}
+                            primary={
+                              !exists
+                                ? {
+                                    label: "Create benefit",
+                                    icon: "create",
+                                    onClick: wizardAction,
+                                  }
+                                : complete
+                                  ? {
+                                      label: "Edit benefit",
+                                      icon: "edit",
+                                      onClick: editAction,
+                                    }
+                                  : {
+                                      label: "Finish setup",
+                                      icon: "sparkles",
+                                      onClick: wizardAction,
+                                    }
+                            }
+                            secondary={
+                              !exists
+                                ? undefined
+                                : complete
+                                  ? {
+                                      label: "Overwrite in wizard",
+                                      onClick: () =>
+                                        setOverwritePrompt({
+                                          categoryId: cat.id,
+                                          label: cat.label,
+                                        }),
+                                    }
+                                  : {
+                                      label: "Edit",
+                                      icon: "edit",
+                                      onClick: editAction,
+                                    }
+                            }
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
               )}
 
               {/* Custom Category Title Input — the store keeps Custom as
