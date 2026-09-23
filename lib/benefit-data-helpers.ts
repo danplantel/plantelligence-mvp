@@ -4,6 +4,8 @@
  * the Benefit table and the employeePortalPreview JSON blob.
  */
 
+import type { ProviderContact } from "@/types/benefit";
+
 export interface PortalBenefitData {
   id?: string;
   title?: string;
@@ -17,6 +19,10 @@ export interface PortalBenefitData {
   faqs?: any[];
   supportContacts?: any[];
   isEnabled?: boolean;
+  /** Provider logo mirrored from the Benefit row (`partnerLogo`). */
+  partnerLogo?: string | null;
+  /** Provider / recordkeeper mirrored from the Benefit row. */
+  providerContact?: ProviderContact | null;
 }
 
 /**

@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { CompanyLogoData, BrandImagesData, Document } from "@/types/new-client-wizard";
 import type { TypographyThemeId } from "@/lib/typography-themes";
+import type { ProviderContact } from "@/types/benefit";
 
 export interface WizardStep {
     id: number;
@@ -50,6 +51,12 @@ export interface BenefitsStep1Data {
     insuranceBackgroundImage?: string;
     /** Insurance section overlay darkness (0-1, higher = darker) */
     insuranceContainerBlockOpacity?: number;
+    /**
+     * Provider / recordkeeper that administers this benefit (e.g. Voya, Empower,
+     * UnitedHealthcare). Shown beside the account-access block on the portal; the
+     * provider's logo is the Benefit Logo (`partnerLogo`).
+     */
+    providerContact?: ProviderContact | null;
     /** Hero overlay opacity for the background image */
     heroOverlayOpacity?: number;
     /** Hero background image opacity */
@@ -118,11 +125,19 @@ export interface FAQItem {
     enabled: boolean;
 }
 
+/**
+ * One contact attached to a benefit category. Mirrors `SupportContact` in
+ * types/benefit.ts (the persisted shape) — keep the two in step.
+ */
 export interface SupportContact {
     contactId: string;
     title: string;
     description: string;
     enabled: boolean;
+    /** Render order within the category's team (lower first). */
+    order?: number;
+    /** Marks the category's primary contact. */
+    isPrimary?: boolean;
 }
 
 export interface BenefitsStep3Data {

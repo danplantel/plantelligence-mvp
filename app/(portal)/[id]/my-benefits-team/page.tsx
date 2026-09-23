@@ -47,9 +47,11 @@ function normalizeMobileDisplayStyle(value: unknown): 0 | 1 | 2 {
   if (n === 1 || n === 2) return n;
   return 0;
 }
-import { PrimaryContactCard } from "@/components/pages/my-benefits-team/primary-contact-card";
-import { SmallVerticalCard } from "@/components/pages/my-benefits-team/small-vertical-card";
-import { LargeHorizontalCard } from "@/components/pages/my-benefits-team/large-horizontal-card";
+// The one card shared with the benefit category pages (Retirement, Group Health,
+// …). `placement="team"` is this page; the category pages pass "category" and get
+// the compact variant. Routing both surfaces through it is what keeps them in
+// lockstep for the upcoming card design review.
+import { BenefitContactCard } from "@/components/pages/client-portal/sections/benefit-contact-card";
 
 interface Contact {
   id?: string | number;
@@ -485,7 +487,7 @@ function Layout4({
       {/* TOP ROW — 2 vertical cards */}
       <div className="grid w-full min-w-0 grid-cols-1 md:grid-cols-2 gap-4 [&>*]:min-w-0">
         {showPrimary && primaryContact && (
-          <SmallVerticalCard
+          <BenefitContactCard
             contact={{
               ...primaryContact,
               isPrimary: true,
@@ -496,10 +498,11 @@ function Layout4({
             companyName={companyName}
             index={0}
             baselineBackgroundColor={baselineBackgroundColor}
+            placement="team"
           />
         )}
         {first && (
-          <SmallVerticalCard
+          <BenefitContactCard
             contact={{
               ...first,
               isPrimary: false,
@@ -510,6 +513,7 @@ function Layout4({
             companyName={companyName}
             index={1}
             baselineBackgroundColor={baselineBackgroundColor}
+            placement="team"
           />
         )}
       </div>
@@ -518,7 +522,7 @@ function Layout4({
       {smallCards.length > 0 && (
         <div className="grid w-full min-w-0 grid-cols-2 sm:grid-cols-3 gap-4 [&>*]:min-w-0">
           {smallCards.map((contact, index) => (
-            <SmallVerticalCard
+            <BenefitContactCard
               key={contact.id || index}
               contact={{
                 ...contact,
@@ -530,6 +534,7 @@ function Layout4({
               companyName={companyName}
               index={index + 2}
               baselineBackgroundColor={baselineBackgroundColor}
+              placement="team"
             />
           ))}
         </div>
@@ -567,7 +572,7 @@ function Layout2({
   return (
     <div className="grid w-full min-w-0 grid-cols-1 md:grid-cols-2 gap-4 [&>*]:min-w-0">
       {contactsWithPrimary.map((contact, index) => (
-        <SmallVerticalCard
+        <BenefitContactCard
           key={contact.id || index}
           contact={contact}
           brandColor={brandColor}
@@ -576,6 +581,7 @@ function Layout2({
           companyName={companyName}
           index={index}
           baselineBackgroundColor={baselineBackgroundColor}
+          placement="team"
         />
       ))}
     </div>
@@ -610,7 +616,7 @@ function Layout3({
   return (
     <div className="grid w-full min-w-0 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 [&>*]:min-w-0">
       {contactsWithPrimary.map((contact, index) => (
-        <SmallVerticalCard
+        <BenefitContactCard
           key={contact.id || index}
           contact={contact}
           brandColor={brandColor}
@@ -619,6 +625,7 @@ function Layout3({
           companyName={companyName}
           index={index}
           baselineBackgroundColor={baselineBackgroundColor}
+          placement="team"
         />
       ))}
     </div>
@@ -653,13 +660,15 @@ function DefaultLayout({
     <div className="space-y-4">
       {/* ---------- PRIMARY CONTACT BLOCK ---------- */}
       {showPrimary && primaryContact && (
-        <PrimaryContactCard
+        <BenefitContactCard
+          asPrimary
           contact={{ ...primaryContact, cardBackgroundColor: "#ffffffea" }}
           brandColor={brandColor}
           secondaryColor={secondaryColor}
           appointmentLink={appointmentLink}
           companyName={companyName}
           baselineBackgroundColor={baselineBackgroundColor}
+          placement="team"
         />
       )}
 
@@ -667,7 +676,7 @@ function DefaultLayout({
       {restVisible.length > 0 && (
         <div className="grid w-full min-w-0 grid-cols-2 sm:grid-cols-4 gap-4 [&>*]:min-w-0">
           {restVisible.map((contact, index) => (
-            <SmallVerticalCard
+            <BenefitContactCard
               key={contact.id || index}
               contact={{
                 ...contact,
@@ -679,6 +688,7 @@ function DefaultLayout({
               companyName={companyName}
               index={index + 1}
               baselineBackgroundColor={baselineBackgroundColor}
+              placement="team"
             />
           ))}
         </div>
@@ -713,7 +723,7 @@ function MobileLayout({
 
   // All mobile cards render as compact vertical cards (matches step-3d mobile preview).
   const cards = toRender.map((contact, index) => (
-    <SmallVerticalCard
+    <BenefitContactCard
       key={contact.id || index}
       contact={contact}
       brandColor={brandColor}
@@ -723,6 +733,7 @@ function MobileLayout({
       index={index}
       compact={true}
       baselineBackgroundColor={baselineBackgroundColor}
+      placement="team"
     />
   ));
 

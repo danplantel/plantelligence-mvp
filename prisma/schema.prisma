@@ -801,6 +801,10 @@ model Benefit {
   // FAQs & Support Contacts
   faqs            Json?
   supportContacts Json?
+  // Provider / recordkeeper that administers this benefit for this category
+  // (e.g. Voya, Empower, UnitedHealthcare). See types/benefit.ts → ProviderContact.
+  // Rendered beside the account-access block; the provider's logo is `partnerLogo`.
+  providerContact Json?
 
   // Closing & Signature
   signatureMode           String?

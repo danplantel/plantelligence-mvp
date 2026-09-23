@@ -7,6 +7,8 @@ import useSWR from "swr";
 import { FAQSection, DynamicFAQItem, FAQContact } from "@/components/faq-section";
 import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
 import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions-faq";
+import { BenefitTeamSection } from "@/components/pages/client-portal/sections/benefit-team-section";
+import { resolveCategoryContacts } from "@/lib/benefit-contacts";
 import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
 import { PortalMaterialsHero } from "@/components/pages/client-portal/sections/portal-materials-hero";
 import { CompletenessAutoTrigger } from "@/components/pages/client-portal/sections/completeness-auto-trigger";
@@ -166,6 +168,23 @@ export default function WellnessProgramsPage() {
     });
   }, [benefitData, clientData?.keyContacts]);
 
+  /**
+   * The contacts attached to THIS category in Create Benefits, read through the
+   * shared resolver against this plan's own contact list only (nothing can bleed
+   * in from another plan or category). Empty → the section renders nothing.
+   */
+  const categoryTeam = useMemo(
+    () =>
+      resolveCategoryContacts({
+        keyContacts: Array.isArray(clientData?.keyContacts)
+          ? (clientData?.keyContacts as any)
+          : ((clientData?.keyContacts as any)?.contacts ?? []),
+        category: "Company / Plan Sponsor",
+        supportContacts: (benefitData as any)?.supportContacts ?? null,
+      }),
+    [clientData?.keyContacts, benefitData],
+  );
+
   return (
     <div className="min-h-screen w-full">
       <CompletenessAutoTrigger
@@ -182,6 +201,19 @@ export default function WellnessProgramsPage() {
           customHeadline={benefitData?.title}
           customDescription={benefitData?.shortDescription ?? undefined}
           category="Company / Plan Sponsor"
+        />
+
+        {/* The category's contacts — the same people listed on My Benefits Team,
+            scoped to this benefit. */}
+        <BenefitTeamSection
+          title="Your Wellness Team"
+          primary={categoryTeam.primary}
+          others={categoryTeam.others}
+          brandColor={brandColor}
+          secondaryColor={secondaryColor}
+          appointmentLink={clientData?.appointmentLink ?? ""}
+          companyName={clientData?.companyName ?? ""}
+          className="w-full bg-white py-12 dark:bg-gray-900"
         />
 
         <RetirementJourneySection
@@ -209,7 +241,13 @@ export default function WellnessProgramsPage() {
 
         <FAQSection brandColor={brandColor} secondaryColor={secondaryColor} faqs={faqsForCategory} contacts={supportContactsForFAQ} />
 
-        <PortalMaterialsHero brandColor={brandColor} cardHeading="Wellness Program Account Access" category="Company / Plan Sponsor" />
+        <PortalMaterialsHero
+          brandColor={brandColor}
+          cardHeading="Wellness Program Account Access"
+          category="Company / Plan Sponsor"
+          provider={benefitData?.providerContact ?? null}
+          providerLogo={benefitData?.partnerLogo ?? null}
+        />
 
         <RetirementDocumentsAccordion
           brandColor={brandColor}

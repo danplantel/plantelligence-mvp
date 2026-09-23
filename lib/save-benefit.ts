@@ -109,12 +109,36 @@ export async function saveBenefit(
     // Use the benefitVisibility toggle from Step 1 (default true = published)
     newBenefit.isEnabled = (step1Data?.benefitVisibility ?? {})[step1Data?.benefitCategory || ""] ?? true;
 
+    // Support contacts for this category, with the Step 1 primary always seeded in.
+    // Step 3 is where the advisor toggles contacts on/off, but when they never did,
+    // the category page would render nothing while My Benefits Team already showed
+    // that person. So the category's primary is persisted as a member here, and the
+    // same list is written to both the Benefit row and the legacy preview mirror so
+    // the two read paths can never disagree. Existing entries are left untouched.
+    const categorySupportContacts = (() => {
+      // Read through a local: TypeScript will not carry the optional-chain
+      // narrowing into the array spread.
+      const rawStep3Contacts = step3Data?.supportContacts;
+      const list = Array.isArray(rawStep3Contacts) ? [...rawStep3Contacts] : [];
+      const primaryId = (step1Data?.contactId || "").trim();
+      if (primaryId && !list.some((sc: any) => sc?.contactId === primaryId)) {
+        list.unshift({
+          contactId: primaryId,
+          title: "",
+          description: "",
+          enabled: true,
+          isPrimary: true,
+        });
+      }
+      return list;
+    })();
+
     // Include Step 3 FAQs and support contacts for this benefit category
     if (step3Data?.faqs) {
       newBenefit.faqs = step3Data.faqs;
     }
-    if (step3Data?.supportContacts) {
-      newBenefit.supportContacts = step3Data.supportContacts;
+    if (categorySupportContacts.length > 0) {
+      newBenefit.supportContacts = categorySupportContacts;
     }
 
     // Include Plan Video from Step 2 for this benefit category
@@ -334,6 +358,10 @@ export async function saveBenefit(
         insuranceLoginUrl: step1Data?.insuranceLoginUrl || "",
         insuranceBackgroundImage: step1Data?.insuranceBackgroundImage || "",
         insuranceContainerBlockOpacity: step1Data?.insuranceContainerBlockOpacity ?? 0.8,
+        // Provider / recordkeeper for this category (rendered beside the
+        // account-access block). Mirrored into the legacy preview too so both
+        // read paths agree during the dual-write transition.
+        providerContact: step1Data?.providerContact ?? null,
         // Explicitly persist help cards and hero overlay settings
         helpCards: step1Data?.helpCards,
         heroBackgroundOpacity: step1Data?.heroBackgroundOpacity ?? 1.0,
@@ -432,7 +460,12 @@ export async function saveBenefit(
             // employeePortalPreview JSON, so a fresh session couldn't restore
             // them and Step 3 required re-selecting the support contact.
             faqs: step3Data?.faqs ?? null,
-            supportContacts: step3Data?.supportContacts ?? null,
+            // Seeded above so the Benefit row and the legacy mirror agree.
+            supportContacts:
+              categorySupportContacts.length > 0
+                ? categorySupportContacts
+                : null,
+            providerContact: step1Data?.providerContact ?? null,
           }),
         },
       ).catch(() => {});

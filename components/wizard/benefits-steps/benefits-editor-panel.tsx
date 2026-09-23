@@ -1205,6 +1205,106 @@ export function BenefitsEditorPanel({
                                 Full URL for the &ldquo;REGISTER OR LOGIN HERE&rdquo; button.
                             </p>
                         </div>
+
+                        {/* Provider / Recordkeeper — the company that administers this
+                            benefit. Shown beside the REGISTER OR LOGIN button on the
+                            portal; its logo is the Benefit Logo above (`partnerLogo`). */}
+                        <div className="space-y-4 border-t pt-4">
+                            <div>
+                                <Label className="text-xs font-bold text-foreground">
+                                    Provider / Recordkeeper
+                                </Label>
+                                <p className="text-[11px] text-muted-foreground mt-1">
+                                    The company that administers this benefit — for example a
+                                    retirement recordkeeper or an insurance carrier. It is shown
+                                    next to the &ldquo;REGISTER OR LOGIN HERE&rdquo; button.
+                                </p>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label className="text-[11px] text-muted-foreground">
+                                    Provider name
+                                </Label>
+                                <Input
+                                    list="benefit-provider-suggestions"
+                                    value={step1Data.providerContact?.companyName || ""}
+                                    onChange={(e) =>
+                                        saveStepData(1, {
+                                            ...step1Data,
+                                            providerContact: {
+                                                ...(step1Data.providerContact || {}),
+                                                companyName: e.target.value,
+                                            },
+                                        })
+                                    }
+                                    placeholder="e.g. Voya, Empower, Principal, Fidelity"
+                                    className="h-11 shadow-sm border-muted"
+                                />
+                                {/* Common retirement recordkeepers and group-benefit
+                                    carriers, offered as suggestions — the advisor can
+                                    always type a different one. */}
+                                <datalist id="benefit-provider-suggestions">
+                                    {[
+                                        "Voya",
+                                        "Empower",
+                                        "Principal",
+                                        "Fidelity",
+                                        "Charles Schwab",
+                                        "John Hancock",
+                                        "UnitedHealthcare",
+                                        "Kaiser Permanente",
+                                        "Blue Cross Blue Shield",
+                                        "Aetna",
+                                        "Cigna",
+                                        "MetLife",
+                                        "Guardian",
+                                    ].map((name) => (
+                                        <option key={name} value={name} />
+                                    ))}
+                                </datalist>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-2">
+                                    <Label className="text-[11px] text-muted-foreground">
+                                        Provider contact (optional)
+                                    </Label>
+                                    <Input
+                                        value={step1Data.providerContact?.contactName || ""}
+                                        onChange={(e) =>
+                                            saveStepData(1, {
+                                                ...step1Data,
+                                                providerContact: {
+                                                    ...(step1Data.providerContact || {}),
+                                                    contactName: e.target.value,
+                                                },
+                                            })
+                                        }
+                                        placeholder="e.g. Jane Doe"
+                                        className="h-11 shadow-sm border-muted"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[11px] text-muted-foreground">
+                                        Provider phone (optional)
+                                    </Label>
+                                    <Input
+                                        value={step1Data.providerContact?.phone || ""}
+                                        onChange={(e) =>
+                                            saveStepData(1, {
+                                                ...step1Data,
+                                                providerContact: {
+                                                    ...(step1Data.providerContact || {}),
+                                                    phone: e.target.value,
+                                                },
+                                            })
+                                        }
+                                        placeholder="e.g. (800) 555-1212"
+                                        className="h-11 shadow-sm border-muted"
+                                    />
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

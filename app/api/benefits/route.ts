@@ -94,6 +94,7 @@ export async function GET() {
           shortDescription: true,
           partnerLogo: true,
           backgroundImage: true,
+          providerContact: true,
           isEnabled: true,
         },
       }),

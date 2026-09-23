@@ -4,9 +4,11 @@ import { Button } from "@/components/ui/button";
 import { ExternalLink } from "lucide-react";
 import Image from "next/image";
 import { useState } from "react";
+import { BrandingImage } from "@/components/ui/branding-image";
 import { useClientPortal } from "@/contexts/client-portal-context";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { isR2BrandingKey } from "@/lib/branding-image-url";
+import type { ProviderContact } from "@/types/benefit";
 
 /** Per-category default background images for the Insurance Benefits Access & Materials section (distinct from welcome banner defaults). */
 const INSURANCE_DEFAULT_BGS: Record<string, string> = {
@@ -30,6 +32,14 @@ interface PortalMaterialsHeroProps {
   onPlanIdClick?: () => void;
   /** Category for default background image fallback */
   category?: string;
+  /**
+   * Provider / recordkeeper for this category (`Benefit.providerContact`).
+   * Rendered beside the account-access button, per the agreed model:
+   * advisor = who helps, provider = who administers, login = where to go.
+   */
+  provider?: ProviderContact | null;
+  /** Provider logo — the Benefit's `partnerLogo`. */
+  providerLogo?: string | null;
 }
 
 export function PortalMaterialsHero({
@@ -48,6 +58,8 @@ export function PortalMaterialsHero({
   onButtonClick: onButtonClickProp,
   onPlanIdClick,
   category,
+  provider,
+  providerLogo,
 }: PortalMaterialsHeroProps) {
   // Resolve insurance fields from client portal context (persisted inside employeePortalPreview)
   const { clientData } = useClientPortal();
@@ -60,6 +72,21 @@ export function PortalMaterialsHero({
   const hasPlanId = Boolean(
     resolvedPlanIdLabel && !resolvedPlanIdLabel.includes("[Not Set]"),
   );
+
+  // Provider / recordkeeper: this category's own Benefit row first, then the
+  // legacy plan-level `Client.recordkeeper` for Retirement only (it predates
+  // per-category providers and only ever described retirement services).
+  const legacyRecordkeeper = String(
+    (clientData as any)?.recordkeeper || "",
+  ).trim();
+  const providerName =
+    (provider?.companyName || "").trim() ||
+    (category === "Retirement" ? legacyRecordkeeper : "");
+  const hasProvider = Boolean(providerName);
+  const providerDetailLine = [provider?.contactName, provider?.phone]
+    .map((value) => (value || "").trim())
+    .filter(Boolean)
+    .join(" · ");
 
   // Login URL: prop override → context → no button
   const insuranceLoginUrl = epp?.insuranceLoginUrl as string | undefined;
@@ -120,6 +147,33 @@ export function PortalMaterialsHero({
                       {resolvedPlanIdLabel}
                     </span>
                   </div>
+                </div>
+              )}
+
+              {/* Provider / recordkeeper — the company administering this benefit,
+                  shown with the logo (the Benefit Logo) beside the login button. */}
+              {hasProvider && (
+                <div className="my-4 flex flex-col items-center gap-2 text-center">
+                  <span className="font-red-hat text-[12px] uppercase leading-tight tracking-wide text-white/70">
+                    Administered by
+                  </span>
+                  <div className="flex items-center gap-3 rounded-lg bg-black/40 px-4 py-2 backdrop-blur-sm">
+                    {providerLogo ? (
+                      <BrandingImage
+                        src={providerLogo}
+                        alt={providerName}
+                        className="h-7 w-auto max-w-[120px] object-contain"
+                      />
+                    ) : null}
+                    <span className="font-red-hat text-[16px] font-semibold leading-tight text-white">
+                      {providerName}
+                    </span>
+                  </div>
+                  {providerDetailLine ? (
+                    <span className="font-red-hat text-[14px] leading-tight text-white/80">
+                      {providerDetailLine}
+                    </span>
+                  ) : null}
                 </div>
               )}
 

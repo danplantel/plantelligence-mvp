@@ -1154,6 +1154,15 @@ export function BenefitsStep1({
     if (benefitApiLoadedPlanRef.current === planId) return;
     benefitApiLoadedPlanRef.current = planId;
 
+    // Drop the PREVIOUS plan's Benefit-table snapshot before fetching this one.
+    // The category / support-contact pre-fill below treats any non-undefined
+    // snapshot as authoritative for the current planId, so a leftover snapshot
+    // would pre-fill another plan's contacts and stamp them as this plan's draft.
+    const preFetchStep1 = useBenefitsWizardStore.getState().stepData.step1;
+    if (preFetchStep1 && preFetchStep1.categoryBenefitByApi !== undefined) {
+      saveStepData(1, { ...preFetchStep1, categoryBenefitByApi: undefined });
+    }
+
     let cancelled = false;
     (async () => {
       try {
@@ -1203,7 +1212,14 @@ export function BenefitsStep1({
     }
 
     const loadedCats = latest?.supportContactsLoadedCategories ?? [];
-    if (loadedCats.includes(cat)) return;
+    // `loadedCats` alone is not enough: switching plans keeps the same category
+    // NAMES, so a category already loaded under a DIFFERENT plan must be
+    // re-resolved against this plan's own Benefit row. This is the cross-plan
+    // bleed guard — without it the previous plan's contacts would be saved onto
+    // this plan's benefit row.
+    if (latest?.supportContactsPlanId === planId && loadedCats.includes(cat)) {
+      return;
+    }
     // Wait for the Benefit-table fetch to settle before deciding what to pre-fill.
     if (currentStepData.categoryBenefitByApi === undefined) return;
 
@@ -1431,6 +1447,10 @@ export function BenefitsStep1({
         header: null,
       };
     }
+
+    // Provider / recordkeeper for THIS category — read from its own Benefit row so
+    // the editor shows the saved provider and a later save cannot clear it.
+    next.providerContact = benefit?.providerContact ?? null;
 
     saveStepData(1, next);
   }, [currentStepData.benefitCategory, currentStepData.categoryBenefitByApi, profileData, saveStepData]);
@@ -2308,6 +2328,9 @@ export function BenefitsStep1({
       planVideo: existingBenefit?.planVideo || undefined,
       planVideoFileName: existingBenefit?.planVideoFileName || undefined,
       planVideoRemoved: false,
+      // Provider / recordkeeper comes from THIS category's own Benefit row (or is
+      // cleared), so switching categories never carries another provider over.
+      providerContact: existingBenefit?.providerContact ?? null,
       // Remember the org logo this draft was built from so a later change in Settings
       // is detected here instead of only on a fresh mount.
       orgLogoSnapshot: userLogo ?? currentStepData.orgLogoSnapshot,
