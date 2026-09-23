@@ -443,9 +443,6 @@ export function EditBenefitPreviewSection({
               categoryPortalVisibility={step1Data?.benefitVisibility ?? null}
               benefits={selectedPlan?.employeePortalPreview?.benefits ?? null}
               enableNavigation={false}
-              // Advisor mock — the only place the stacked-mark tip is useful; the
-              // live portal never receives it.
-              showLogoShapeTip
               scale={scale}
               referenceWidth={contentWidth}
             />

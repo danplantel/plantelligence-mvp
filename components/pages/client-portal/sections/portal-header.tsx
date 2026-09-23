@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { X, ChevronDown, Calendar, Info, Pencil, Menu } from "lucide-react";
+import { X, ChevronDown, Calendar, Pencil, Menu } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
@@ -18,12 +18,9 @@ import {
   syncBenefitsWithCategoryVisibility,
 } from "@/lib/portal-category-visibility";
 import { BrandingImage } from "@/components/ui/branding-image";
-import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
-import { toR2BrandingKey } from "@/lib/branding-image-url";
 import {
   HEADER_LOGO_BAND_PX,
   HEADER_LOGO_MAX_WIDTH_PX,
-  TALL_ARTWORK_ASPECT_RATIO,
 } from "@/lib/header-logo-band";
 
 /** Nav label -> visibility key in categoryPortalVisibility */
@@ -53,12 +50,6 @@ interface PortalHeaderProps {
   showAlertBanner?: boolean;
   enableLogoHover?: boolean;
   onLogoClick?: () => void;
-  /**
-   * Shows the advisory "stacked mark" tip when the logo is tall. Advisor-facing
-   * preview surfaces opt in; the live portal leaves it off, so an editing hint is
-   * never shown to employees — and never inflates the header.
-   */
-  showLogoShapeTip?: boolean;
   /** Per-category show/hide in portal; keys: Retirement, Group Life, Group Health, Other */
   categoryPortalVisibility?: Record<string, boolean> | null;
   /** Benefits from Step 5 (employeePortalPreview.benefits); if a benefit has isEnabled: false, its nav item is hidden */
@@ -82,7 +73,6 @@ export function PortalHeader({
   showAlertBanner = true,
   enableLogoHover = false,
   onLogoClick,
-  showLogoShapeTip = false,
   categoryPortalVisibility: categoryPortalVisibilityRaw,
   benefits: benefitsFromStep5,
   scale = 1,
@@ -114,22 +104,13 @@ export function PortalHeader({
   });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showBanner, setShowBanner] = useState(showAlertBanner);
-  // The logo band is a fixed contract (see lib/header-logo-band), so the logo no
-  // longer sizes the header — the artwork's aspect ratio is only probed to decide
-  // the advisory tip in advisor previews.
-  const [artworkAspectRatio, setArtworkAspectRatio] = useState<number | null>(
-    null,
-  );
-  const showTallTip =
-    showLogoShapeTip &&
-    artworkAspectRatio != null &&
-    artworkAspectRatio < TALL_ARTWORK_ASPECT_RATIO;
+  // The logo band is a fixed contract (see lib/header-logo-band), so the logo
+  // never sizes the header.
   const [isBenefitsOpen, setIsBenefitsOpen] = useState(false);
   const [isTeamHovered, setIsTeamHovered] = useState(false);
   const [isNewsEventsHovered, setIsNewsEventsHovered] = useState(false);
   const [isLogoHovered, setIsLogoHovered] = useState(false);
   const pathname = usePathname();
-  const { url: resolvedLogoUrl } = useBrandingImageUrl(companyData?.companyLogo ?? null);
 
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const teamHoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -177,29 +158,6 @@ export function PortalHeader({
   useEffect(() => {
     setShowBanner(showAlertBanner);
   }, [showAlertBanner]);
-
-  // Nothing is probed unless the advisory tip is enabled: the band is a fixed
-  // contract, and the live portal must not fetch an extra image just to size a
-  // header whose height it already knows.
-  useEffect(() => {
-    if (!showLogoShapeTip) {
-      setArtworkAspectRatio(null);
-      return;
-    }
-    const raw = companyData?.companyLogo ?? null;
-    if (!raw) return;
-    // Never assign raw org/… keys to Image() — resolves as /org/… and 404s.
-    const isR2 = toR2BrandingKey(raw) != null;
-    const src = isR2 ? resolvedLogoUrl : (resolvedLogoUrl ?? raw);
-    if (!src) return;
-
-    const img = new Image();
-    img.src = src;
-
-    img.onload = () => {
-      if (img.height > 0) setArtworkAspectRatio(img.width / img.height);
-    };
-  }, [companyData?.companyLogo, resolvedLogoUrl, showLogoShapeTip]);
 
   const handleBenefitsMouseEnter = () => {
     if (hoverTimeoutRef.current) {
@@ -527,16 +485,6 @@ export function PortalHeader({
             </div>
           </nav>
         </div>
-
-        {/* Advisory tip for tall marks. Rendered only in advisor previews
-            (showLogoShapeTip), so the live portal never shows it. */}
-        {showTallTip && (
-          <div className="mt-2 flex items-center text-sm text-gray-500">
-            <Info className="mr-1 h-4 w-4" />
-            Stacked marks can appear cramped in headers. Consider a horizontal
-            version.
-          </div>
-        )}
         </div>
       </header>
 
