@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Check } from "lucide-react";
 import { ComplianceDocumentsUpload } from "@/components/pages/documents/components/compliance-documents-upload";
 import { convertToDocumentFormat } from "@/lib/compliance-document-utils";
@@ -59,8 +59,6 @@ export function BenefitsDocumentsSection({
   secondaryColor = "#E6C47A",
   companyName = "Plan",
 }: BenefitsDocumentsSectionProps) {
-  // Tabs state — "upload" is the first (default) tab
-  const [activeTab, setActiveTab] = useState("upload");
   const [sortColumn, setSortColumn] = useState<SortColumn>("uploadedAt");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
@@ -136,6 +134,28 @@ export function BenefitsDocumentsSection({
         ) === target,
     );
   }, [documents, benefitCategory]);
+
+  // Tabs state. "Upload" is the right landing tab for a category that has nothing
+  // in it — uploading is the only thing the advisor can do. Once the benefit/plan
+  // already HAS documents, the useful landing spot is "List" (review, download,
+  // delete what is there), so default to it instead of making every visit start on
+  // an empty Upload form.
+  //
+  // The lazy initializer covers documents that are already loaded on mount; the
+  // effect covers the usual case in the wizard, where the plan's documents arrive
+  // asynchronously after mount (Step 1 fetches the full plan and writes step4).
+  // `documentsTabDefaultedForRef` keys on the category so the default is applied
+  // once per category and a tab the advisor chose afterwards is never overridden.
+  const [activeTab, setActiveTab] = useState(() =>
+    categoryDocs.length > 0 ? "list" : "upload",
+  );
+  const documentsTabDefaultedForRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (categoryDocs.length === 0) return;
+    if (documentsTabDefaultedForRef.current === benefitCategory) return;
+    documentsTabDefaultedForRef.current = benefitCategory;
+    setActiveTab("list");
+  }, [categoryDocs.length, benefitCategory]);
 
   // Convert documents to RetirementDocumentItem format for DocumentPreviewTab
   const retirementDocs = useMemo<RetirementDocumentItem[]>(() => {
