@@ -278,7 +278,13 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
           Cancel leaves the editor, Save Changes persists every section. With the
           Preview tab's inline Editing Panel open the bar shifts right past the
           rail-collapsed sidebar *and* the panel, exactly like Edit Client. */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background shadow-lg">
+      {/* `data-bottom-action-bar` lets the Preview tab measure this bar and end its
+          fixed preview area above it, instead of the bar painting over the last
+          section of the portal preview (see EditBenefitPreviewSection). */}
+      <div
+        data-bottom-action-bar
+        className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background shadow-lg"
+      >
         <div
           className={cn(
             "px-4 py-4 flex justify-end gap-3 transition-all duration-200",

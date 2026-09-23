@@ -172,6 +172,13 @@ export function EditBenefitPreviewSection({
   // ── Refs ──
   const barRef = useRef<HTMLDivElement>(null);
   const [barHeight, setBarHeight] = useState(52);
+  // Height of the page's fixed bottom action bar (Cancel / Save changes). The
+  // preview area below is `position: fixed` with `bottom: 0`, so without this the
+  // bar painted over the last ~73px of the preview and the end of the portal
+  // content — the Account Access section — could not be scrolled clear of it.
+  // Measured rather than hard-coded so it survives button-height / wrapping
+  // changes; 0 when the host page has no such bar (e.g. the wizard's Step 2).
+  const [bottomBarHeight, setBottomBarHeight] = useState(0);
   const previewContentRef = useRef<HTMLDivElement>(null);
   const scrollableRef = useRef<HTMLDivElement>(null);
 
@@ -257,6 +264,18 @@ export function EditBenefitPreviewSection({
       if (barRef.current) setBarHeight(barRef.current.offsetHeight);
     });
     observer.observe(barRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  // ── Measure the host page's fixed bottom action bar so the preview ends above
+  //    it rather than underneath it ──
+  useEffect(() => {
+    const bar = document.querySelector<HTMLElement>("[data-bottom-action-bar]");
+    if (!bar) return;
+    const measure = () => setBottomBarHeight(bar.offsetHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(bar);
     return () => observer.disconnect();
   }, []);
 
@@ -400,7 +419,10 @@ export function EditBenefitPreviewSection({
           left:
             "calc(var(--sidebar-width, 16rem) + var(--editor-inset, 0px))",
           right: 0,
-          bottom: 0,
+          // Stop at the top of the page's action bar so the preview's own scroll
+          // area ends where the bar begins — the bottom of the portal content stays
+          // reachable instead of hiding behind it.
+          bottom: bottomBarHeight,
           transition: "left 300ms ease-in-out",
         }}
       >
