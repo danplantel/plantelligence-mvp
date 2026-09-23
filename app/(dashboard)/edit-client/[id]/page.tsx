@@ -433,6 +433,23 @@ function EditContactDialog({
   // Whether the live Plantelligence /contact page preview modal is open.
   const [contactPreviewOpen, setContactPreviewOpen] = useState(false);
 
+  // The plan's *custom* benefit — the "Custom" benefit from the benefits wizard,
+  // stored as a Benefit row under "Company / Plan Sponsor". The Company / Plan
+  // Sponsor topic list names that benefit, so its topic is shown with the benefit's
+  // real title. Read from the same row the participant's /contact page reads, so
+  // the builder, the preview and the live form always agree.
+  const { data: customBenefitResponse } = useSWR(
+    planId
+      ? `/api/clients/${planId}/benefits/${encodeURIComponent(
+          "Company / Plan Sponsor",
+        )}`
+      : null,
+    (url: string) => fetch(url).then((r) => r.json()),
+    { revalidateOnFocus: false },
+  );
+  const customBenefitTitle: string =
+    customBenefitResponse?.benefit?.title ?? "";
+
   // The category set is fixed by the contact in edit mode. In add mode the editor
   // chooses it here (seeded from `addCategory`).
   const contactCategories = useMemo(
@@ -758,7 +775,9 @@ function EditContactDialog({
               ctaHeadshot,
               ctaLogo,
               ctaTitle,
-              getActiveContactFormTopicLabels(form.contactFormTopics),
+              getActiveContactFormTopicLabels(form.contactFormTopics, {
+                customBenefitTitle,
+              }),
               ctaCategory,
               planId,
             )
@@ -833,7 +852,9 @@ function EditContactDialog({
             ctaHeadshot,
             ctaLogo,
             ctaTitle,
-            getActiveContactFormTopicLabels(form.contactFormTopics),
+            getActiveContactFormTopicLabels(form.contactFormTopics, {
+              customBenefitTitle,
+            }),
             ctaCategory,
             planId,
           )
@@ -1271,6 +1292,7 @@ function EditContactDialog({
                       <div className="border-t border-gray-100 dark:border-gray-700 pt-3 mt-1">
                         <ContactFormTopicBuilder
                           category={ctaCategory}
+                          customBenefitTitle={customBenefitTitle}
                           topics={form.contactFormTopics}
                           onChange={(topics) =>
                             updateForm({ contactFormTopics: topics })
@@ -1385,7 +1407,9 @@ function EditContactDialog({
               contactTitle={ctaTitle}
               avatar={ctaHeadshot}
               companyLogo={ctaLogo}
-              topics={getActiveContactFormTopicLabels(form.contactFormTopics)}
+              topics={getActiveContactFormTopicLabels(form.contactFormTopics, {
+                customBenefitTitle,
+              })}
               category={ctaCategory || ""}
               embedded
               preview
