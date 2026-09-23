@@ -82,10 +82,11 @@ function NewBenefitsPageInner() {
   // "Are you sure?" for the footer's Cancel — the discard only runs once the
   // advisor confirms, so a stray click can't throw the work away.
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
-  // Set once the advisor has confirmed the discard. It disarms the leave guard
-  // (see `enabled` below) and triggers the exit — the pair of them is what makes
-  // "Yes, discard" land on /benefits instead of asking again or staying put.
-  const [isLeavingAfterCancel, setIsLeavingAfterCancel] = useState(false);
+  // Set when this page is leaving on purpose — either the Cancel flow has been
+  // confirmed, or Previous was pressed on Step 1. It disarms the leave guard (see
+  // `enabled` below) and triggers the exit; together they are what makes those two
+  // actions land on /benefits instead of asking again or staying put.
+  const [isLeavingToBenefits, setIsLeavingToBenefits] = useState(false);
   const searchParams = useSearchParams();
   const planIdParam = searchParams.get("planId");
   const categoryRaw = searchParams.get("category");
@@ -127,11 +128,11 @@ function NewBenefitsPageInner() {
     ),
   );
   const leaveGuard = useNavigateAwayGuard({
-    // `isLeavingAfterCancel` stands the guard down while we exit on purpose: the
-    // advisor has already answered the "Discard this benefit?" dialog, so this
-    // guard must not ask a second time — or hold on to the page's history state
-    // while we try to leave.
-    enabled: !isInitialLoading && !isLoading && !isLeavingAfterCancel,
+    // `isLeavingToBenefits` stands the guard down while we exit on purpose: the
+    // advisor has either answered the "Discard this benefit?" dialog or pressed
+    // Previous on Step 1, so this guard must not ask a second time — or hold on to
+    // the page's history state while we try to leave.
+    enabled: !isInitialLoading && !isLoading && !isLeavingToBenefits,
     hasUnsavedChanges,
     onSaveAndExit: async () => {
       // Benefits wizard uses persisted zustand storage as its draft source.
@@ -147,19 +148,19 @@ function NewBenefitsPageInner() {
    * changed effects in declaration order before creating the new ones, so the
    * guard's `beforeunload` listener is already gone by the time this runs.
    * Without that ordering the real navigation below would raise the browser's
-   * own "Leave site?" prompt on top of the dialog the advisor just answered.
+   * own "Leave site?" prompt on top of the action the advisor just took.
    *
    * A document navigation rather than `router.push` is deliberate. While the
    * guard is armed it installs its own entry in the history state, and the
    * client-side push out of the wizard did not take effect from the handler —
    * the page stayed put after the draft was reset. A document navigation cannot
    * be vetoed, and it additionally guarantees the Benefits list is read fresh,
-   * which is exactly what we want straight after discarding a benefit.
+   * which is what we want after leaving a wizard that writes benefit rows.
    */
   useEffect(() => {
-    if (!isLeavingAfterCancel) return;
+    if (!isLeavingToBenefits) return;
     window.location.assign("/benefits");
-  }, [isLeavingAfterCancel]);
+  }, [isLeavingToBenefits]);
 
   /**
    * Keep the dirty baseline in step with the app's own writes.
@@ -504,7 +505,18 @@ function NewBenefitsPageInner() {
     nextStep();
   };
 
+  /**
+   * Previous (footer): step back inside the wizard, or — on Step 1, which has no
+   * previous step — leave for the Benefits list. The draft is deliberately KEPT
+   * (it lives in the persisted store, not in component state), so re-opening Create
+   * Benefits resumes where the advisor left off. The exit itself is handled by the
+   * `isLeavingToBenefits` effect above.
+   */
   const onPrevious = () => {
+    if (currentStep === 1) {
+      setIsLeavingToBenefits(true);
+      return;
+    }
     previousStep();
   };
 
@@ -534,9 +546,9 @@ function NewBenefitsPageInner() {
    *    already existed — this wizard is also opened to change one — is never
    *    touched, and an unloaded snapshot counts as "not ours".
    *
-   * The exit itself is left to the `isLeavingAfterCancel` effect above, which
-   * runs once the leave guard has been disarmed — see that effect for why leaving
-   * from here with a client-side push did not work.
+   * The exit itself is left to the `isLeavingToBenefits` effect above, which runs
+   * once the leave guard has been disarmed — see that effect for why leaving from
+   * here with a client-side push did not work.
    */
   const handleConfirmCancel = async () => {
     const step1 = useBenefitsWizardStore.getState().stepData.step1;
@@ -563,7 +575,7 @@ function NewBenefitsPageInner() {
       setIsCancelling(false);
       // Hand the exit to the effect above, which navigates once the leave guard
       // has been disarmed.
-      setIsLeavingAfterCancel(true);
+      setIsLeavingToBenefits(true);
     }
   };
 
@@ -591,9 +603,16 @@ function NewBenefitsPageInner() {
       completeStep(currentStep);
       toast.success(`${categoryName} benefits created successfully!`);
 
-      // Small delay for the toast to be seen, then navigate back to Step 1
+      // Small delay so the success toast is seen, then leave for the Benefits list —
+      // the category that was just published now shows there. This reuses the Cancel
+      // and Previous exit (`isLeavingToBenefits`): the leave guard is disarmed and
+      // then a real document navigation runs, because a client-side push out of a
+      // guarded wizard does not take effect.
       setTimeout(() => {
+        // Rewind the wizard first, so a later visit doesn't resume on the publish
+        // step of an already-published benefit.
         useBenefitsWizardStore.getState().goToStep(1);
+        setIsLeavingToBenefits(true);
       }, 1500);
     } catch (error: any) {
       console.error("Completion error:", error);

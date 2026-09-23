@@ -152,7 +152,10 @@ export function BenefitsWizard({
                                 onClick={handlePrevious}
                                 isLoading={isProcessing}
                                 loadingText="Previous"
-                                disabled={isFirstStep || busy}
+                                // Step 1 has no previous step, so the caller routes it
+                                // back to the Benefits list — hence it stays enabled.
+                                disabled={busy}
+                                title={isFirstStep ? "Back to Benefits" : undefined}
                                 size="lg"
                             >
                                 <ChevronLeft className="size-5" />
