@@ -54,9 +54,3 @@ export const HEADER_BAR_CHROME_PX = 32;
 
 /** Real rendered height of the header for a logo in the band. */
 export const HEADER_LOGO_BAR_HEIGHT_PX = HEADER_LOGO_BAND_PX + HEADER_BAR_CHROME_PX;
-
-/**
- * Aspect ratio below which a mark reads as stacked / tall in a header. Only used
- * to decide the advisory tip, never to size the band.
- */
-export const TALL_ARTWORK_ASPECT_RATIO = 0.85;

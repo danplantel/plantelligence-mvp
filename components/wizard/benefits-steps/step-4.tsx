@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Check, ChevronRight } from "lucide-react";
 import { DocumentListTab } from "@/components/pages/documents/tabs/document-list-tab";
-import { RetirementDocumentsAccordion, RetirementDocumentItem } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
+import { BenefitDocumentSection, RetirementDocumentItem } from "@/components/pages/client-portal/sections/benefit-document-section";
 import { deleteFromR2 } from "@/lib/upload-to-r2";
 import type {
     Document as DocumentsModuleDocument,
@@ -554,8 +554,8 @@ export function BenefitsStep4() {
                             </div>
                         )}
 
-                        {/* Preview using the same RetirementDocumentsAccordion as the portal pages */}
-                        <RetirementDocumentsAccordion
+                        {/* Preview using the same BenefitDocumentSection as the portal pages */}
+                        <BenefitDocumentSection
                             brandColor={primaryColor}
                             accentColor={secondaryColor}
                             retirementDocs={previewDocs}

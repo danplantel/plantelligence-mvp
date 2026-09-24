@@ -9,16 +9,16 @@ import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
 import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions-faq";
 import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
 import {
-  RetirementJourneySection,
-} from "@/components/pages/client-portal/sections/retirement-journey-section";
+  BenefitsVideoSection,
+} from "@/components/pages/client-portal/sections/benefits-video-section";
 import { BenefitsHubWebinarsSection } from "@/components/pages/client-portal/sections/benefits-hub-webinars-section";
 import { HowCanWeHelpSection } from "@/components/pages/client-portal/sections/how-can-we-help-section";
 import { PortalMaterialsHero } from "@/components/pages/client-portal/sections/portal-materials-hero";
 import { CompletenessAutoTrigger } from "@/components/pages/client-portal/sections/completeness-auto-trigger";
 import {
-  RetirementDocumentsAccordion,
+  BenefitDocumentSection,
   RetirementDocumentItem,
-} from "@/components/pages/client-portal/sections/retirement-documents-accordion";
+} from "@/components/pages/client-portal/sections/benefit-document-section";
 import { mergePlanDocumentRows } from "@/lib/plan-client-documents-merge";
 import { sortDocumentRowsByCustomOrder } from "@/lib/documents/document-sort";
 import { fetchPlanDocumentsForClient } from "@/lib/fetch-plan-documents-client";
@@ -166,6 +166,7 @@ export default function HealthInsurancePage() {
     });
   }, [benefitData, clientData?.keyContacts]);
 
+
   return (
     <div className="min-h-screen w-full">
       <CompletenessAutoTrigger
@@ -183,7 +184,8 @@ export default function HealthInsurancePage() {
           category="Group Health"
         />
 
-        <RetirementJourneySection
+
+        <BenefitsVideoSection
           brandColor={brandColor}
           mainTitle={(benefitData as any)?.journeyHeader || "Understanding Your Health Benefits"}
           subtitle={(benefitData as any)?.journeySubtitle || "Navigate your coverage with confidence."}
@@ -208,9 +210,14 @@ export default function HealthInsurancePage() {
 
         <FAQSection brandColor={brandColor} secondaryColor={secondaryColor} faqs={faqsForCategory} contacts={supportContactsForFAQ} />
 
-        <PortalMaterialsHero brandColor={brandColor} cardHeading="Group Health Insurance Account Access" category="Group Health" />
+        <PortalMaterialsHero
+          brandColor={brandColor}
+          cardHeading="Group Health Insurance Account Access"
+          category="Group Health"
+          provider={benefitData?.providerContact ?? null}
+        />
 
-        <RetirementDocumentsAccordion
+        <BenefitDocumentSection
           brandColor={brandColor}
           accentColor={secondaryColor}
           retirementDocs={healthDocs}
@@ -220,7 +227,13 @@ export default function HealthInsurancePage() {
           loading={loadingDocs}
         />
 
-        <HaveQuestions brandColor={brandColor} secondaryColor={secondaryColor} contacts={supportContactsForFAQ} />
+        {/* The category's contacts — the same people listed on My Benefits Team,
+            scoped to this benefit (see `supportContactsForFAQ`). */}
+        <HaveQuestions
+          brandColor={brandColor}
+          secondaryColor={secondaryColor}
+          contacts={supportContactsForFAQ}
+        />
       </main>
     </div>
   );

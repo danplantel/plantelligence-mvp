@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { CompanyLogoData, BrandImagesData, Document } from "@/types/new-client-wizard";
 import type { TypographyThemeId } from "@/lib/typography-themes";
+import type { ProviderContact } from "@/types/benefit";
 
 export interface WizardStep {
     id: number;
@@ -50,6 +51,12 @@ export interface BenefitsStep1Data {
     insuranceBackgroundImage?: string;
     /** Insurance section overlay darkness (0-1, higher = darker) */
     insuranceContainerBlockOpacity?: number;
+    /**
+     * Provider / recordkeeper that administers this benefit (e.g. Voya, Empower,
+     * UnitedHealthcare). Shown beside the account-access block on the portal; the
+     * provider's logo is the Benefit Logo (`partnerLogo`).
+     */
+    providerContact?: ProviderContact | null;
     /** Hero overlay opacity for the background image */
     heroOverlayOpacity?: number;
     /** Hero background image opacity */
@@ -76,7 +83,7 @@ export interface BenefitsStep1Data {
     customSignatureNameItalic?: boolean;
     customSignatureCompanyBold?: boolean;
     customSignatureCompanyItalic?: boolean;
-    /** Plan Video URL (uploaded in Step 2, Section 3 — replaces the right-column image in RetirementJourneySection) */
+    /** Plan Video URL (uploaded in Step 2, Section 3 — replaces the right-column image in BenefitsVideoSection) */
     planVideo?: string;
     /** Original file name of the uploaded plan video */
     planVideoFileName?: string;
@@ -118,11 +125,19 @@ export interface FAQItem {
     enabled: boolean;
 }
 
+/**
+ * One contact attached to a benefit category. Mirrors `SupportContact` in
+ * types/benefit.ts (the persisted shape) — keep the two in step.
+ */
 export interface SupportContact {
     contactId: string;
     title: string;
     description: string;
     enabled: boolean;
+    /** Render order within the category's team (lower first). */
+    order?: number;
+    /** Marks the category's primary contact. */
+    isPrimary?: boolean;
 }
 
 export interface BenefitsStep3Data {
@@ -247,6 +262,14 @@ const benefitsWizardSteps: WizardStep[] = [
     },
 ];
 
+/**
+ * localStorage key holding the persisted wizard draft (the `persist({ name })`
+ * below). Exported so a flow that must clear the draft WITHOUT repainting the
+ * wizard can remove exactly this entry — see the Create Benefits Cancel flow,
+ * where `resetWizard()` would render the store as empty first.
+ */
+export const BENEFITS_WIZARD_STORAGE_KEY = "benefits-wizard";
+
 export const useBenefitsWizardStore = create<BenefitsWizardState>()(
     persist(
         (set, get) => ({
@@ -310,7 +333,7 @@ export const useBenefitsWizardStore = create<BenefitsWizardState>()(
             },
         }),
         {
-            name: "benefits-wizard",
+            name: BENEFITS_WIZARD_STORAGE_KEY,
             skipHydration: true,
             storage: createSafeStorage(),
             partialize: (state) => {

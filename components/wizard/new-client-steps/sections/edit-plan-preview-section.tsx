@@ -18,6 +18,7 @@ import {
   applyTypographyToElement,
   type TypographyThemeId,
 } from "@/lib/typography-themes";
+import { usePreviewEditorLayout } from "@/lib/preview-editor-layout";
 import type {
   CompanyBasicsData,
   CompanyLogoData,
@@ -281,40 +282,12 @@ export function EditPlanPreviewSection({
     return () => clearTimeout(timer);
   }, []);
 
-  // ── Sidebar widening (matches Step 2's approach to push content right) ──
-  const originalSidebarWidthRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    const sidebarWidth = "36rem";
-    const shouldShift = isEditorOpen || isEditorAnimating;
-    if (shouldShift) {
-      if (originalSidebarWidthRef.current === null) {
-        originalSidebarWidthRef.current = document.documentElement.style.getPropertyValue("--sidebar-width");
-      }
-      document.documentElement.style.setProperty("--sidebar-width", sidebarWidth);
-    } else {
-      if (originalSidebarWidthRef.current !== null) {
-        if (originalSidebarWidthRef.current) {
-          document.documentElement.style.setProperty("--sidebar-width", originalSidebarWidthRef.current);
-        } else {
-          document.documentElement.style.removeProperty("--sidebar-width");
-        }
-        originalSidebarWidthRef.current = null;
-      }
-    }
-
-    return () => {
-      // Cleanup: restore original sidebar width on unmount
-      if (originalSidebarWidthRef.current !== null) {
-        if (originalSidebarWidthRef.current) {
-          document.documentElement.style.setProperty("--sidebar-width", originalSidebarWidthRef.current);
-        } else {
-          document.documentElement.style.removeProperty("--sidebar-width");
-        }
-        originalSidebarWidthRef.current = null;
-      }
-    };
-  }, [isEditorOpen, isEditorAnimating]);
+  // ── Preview layout ──
+  // Reserve a column for the Editing Panel *beside* the sidebar (via
+  // `--editor-inset`) and let the Sidebar rail-collapse, so the nav stays visible
+  // instead of being painted over by a panel widened to 36rem.
+  // See lib/preview-editor-layout.ts.
+  usePreviewEditorLayout(editorIsOpen);
 
   // ── Portal typography theme ──
   // Applied to the document root so both the desktop preview (inherited CSS
@@ -850,7 +823,8 @@ export function EditPlanPreviewSection({
         className="fixed z-[45] flex items-center justify-between px-4 py-3 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm"
         style={{
           top: `${topOffset}px`,
-          left: "var(--sidebar-width, 18rem)",
+          left:
+            "calc(var(--sidebar-width, 18rem) + var(--editor-inset, 0px))",
           right: 0,
           transition: "left 300ms ease-in-out",
         }}
@@ -899,7 +873,8 @@ export function EditPlanPreviewSection({
             barHeight > 0
               ? `${topOffset + barHeight}px`
               : `${topOffset + 50}px`,
-          left: "var(--sidebar-width, 18rem)",
+          left:
+            "calc(var(--sidebar-width, 18rem) + var(--editor-inset, 0px))",
           right: 0,
           bottom: 0,
           transition: "left 300ms ease-in-out",
@@ -916,9 +891,6 @@ export function EditPlanPreviewSection({
               categoryPortalVisibility={null}
               benefits={null}
               enableNavigation={false}
-              // Advisor mock — the only place the stacked-mark tip is useful;
-              // the live portal never receives it.
-              showLogoShapeTip
               scale={scale}
               referenceWidth={contentWidth}
             />
@@ -1042,6 +1014,8 @@ export function EditPlanPreviewSection({
         isAnimating={isEditorAnimating}
         editorScrollContainerRef={editorScrollContainerRef}
         onClose={handleCloseEditor}
+        // Sit beside the (rail-collapsed) sidebar rather than over it.
+        leftOffset="var(--sidebar-width, 16rem)"
         sections={editorSections}
         headerBadge={
           companyData?.companyName?.trim() ? (

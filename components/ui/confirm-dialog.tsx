@@ -32,6 +32,15 @@ interface ConfirmDialogProps {
    */
   loadingText?: string;
   /**
+   * Disables the confirm button independently of the busy state.
+   *
+   * For destructive actions that require a deliberate extra step — e.g. typing a phrase
+   * to unlock the button — the caller owns that precondition and reports it here, so this
+   * stays a presentation component. Cancel is deliberately left enabled, so the only way
+   * forward is the one the caller specified.
+   */
+  confirmDisabled?: boolean;
+  /**
    * Label for a second dismiss action, rendered beside `cancelText`.
    *
    * This dialog is built for the two-answer shape — do it, or don't — so `cancelText`
@@ -59,6 +68,7 @@ export function ConfirmDialog({
   variant = "default",
   isLoading = false,
   loadingText = "Deleting...",
+  confirmDisabled = false,
   extraCancelText,
   children,
 }: ConfirmDialogProps) {
@@ -161,7 +171,7 @@ export function ConfirmDialog({
           )}
           <AlertDialogAction
             onClick={handleConfirm}
-            disabled={busy}
+            disabled={busy || confirmDisabled}
             className={`flex-1 ${variantStyles.confirmButtonClass}`}
           >
             {busy ? (

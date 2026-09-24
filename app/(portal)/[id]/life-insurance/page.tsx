@@ -10,14 +10,14 @@ import { HaveQuestions } from "@/components/pages/client-portal/sections/have-qu
 import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
 import { PortalMaterialsHero } from "@/components/pages/client-portal/sections/portal-materials-hero";
 import {
-  RetirementJourneySection,
-} from "@/components/pages/client-portal/sections/retirement-journey-section";
+  BenefitsVideoSection,
+} from "@/components/pages/client-portal/sections/benefits-video-section";
 import { BenefitsHubWebinarsSection } from "@/components/pages/client-portal/sections/benefits-hub-webinars-section";
 import { HowCanWeHelpSection } from "@/components/pages/client-portal/sections/how-can-we-help-section";
 import {
-  RetirementDocumentsAccordion,
+  BenefitDocumentSection,
   RetirementDocumentItem,
-} from "@/components/pages/client-portal/sections/retirement-documents-accordion";
+} from "@/components/pages/client-portal/sections/benefit-document-section";
 import { CompletenessAutoTrigger } from "@/components/pages/client-portal/sections/completeness-auto-trigger";
 import { mergePlanDocumentRows } from "@/lib/plan-client-documents-merge";
 import { sortDocumentRowsByCustomOrder } from "@/lib/documents/document-sort";
@@ -166,6 +166,7 @@ export default function LifeInsurancePage() {
     });
   }, [benefitData, clientData?.keyContacts]);
 
+
   return (
     <div className="min-h-screen w-full">
       <CompletenessAutoTrigger
@@ -184,7 +185,8 @@ export default function LifeInsurancePage() {
           category="Group Life"
         />
 
-        <RetirementJourneySection
+
+        <BenefitsVideoSection
           brandColor={brandColor}
           mainTitle={(benefitData as any)?.journeyHeader || "Life Insurance: Protecting What Matters Most"}
           subtitle={(benefitData as any)?.journeySubtitle || "Secure your family's financial future with the right coverage."}
@@ -209,9 +211,14 @@ export default function LifeInsurancePage() {
 
         <FAQSection brandColor={brandColor} secondaryColor={secondaryColor} faqs={faqsForCategory} contacts={supportContactsForFAQ} />
 
-        <PortalMaterialsHero brandColor={brandColor} cardHeading="Group Life Insurance Account Access" category="Group Life" />
+        <PortalMaterialsHero
+          brandColor={brandColor}
+          cardHeading="Group Life Insurance Account Access"
+          category="Group Life"
+          provider={benefitData?.providerContact ?? null}
+        />
 
-        <RetirementDocumentsAccordion
+        <BenefitDocumentSection
           brandColor={brandColor}
           accentColor={secondaryColor}
           retirementDocs={lifeDocs}
@@ -221,7 +228,13 @@ export default function LifeInsurancePage() {
           loading={loadingDocs}
         />
 
-        <HaveQuestions brandColor={brandColor} secondaryColor={secondaryColor} contacts={supportContactsForFAQ} />
+        {/* The category's contacts — the same people listed on My Benefits Team,
+            scoped to this benefit (see `supportContactsForFAQ`). */}
+        <HaveQuestions
+          brandColor={brandColor}
+          secondaryColor={secondaryColor}
+          contacts={supportContactsForFAQ}
+        />
       </main>
     </div>
   );

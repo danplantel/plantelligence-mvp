@@ -120,7 +120,10 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
       {editorOpen && stepper && (
         <div
           className="absolute top-1/2 -translate-y-1/2 flex items-center"
-          style={{ left: "calc(var(--sidebar-width, 18rem) + 2.5rem)" }}
+          style={{
+            left:
+              "calc(var(--sidebar-width, 18rem) + var(--editor-inset, 0px) + 2.5rem)",
+          }}
         >
           {stepper}
         </div>
@@ -134,14 +137,31 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
             : "bg-transparent",
         )}
         style={{
-          marginLeft: "var(--sidebar-width, 18rem)",
+          // Clears the sidebar *and* any Preview inline Editing Panel.
+          marginLeft:
+            "calc(var(--sidebar-width, 18rem) + var(--editor-inset, 0px))",
         }}
       >
         {/* Left: Title + Company Name + Step Title (hidden while the Editing Panel is open) */}
         <div
           className={cn(
             "flex items-center gap-2 min-w-0",
-            editorOpen && portalHasContent ? "flex-none" : "flex-[1]",
+            editorOpen && portalHasContent
+              ? "flex-none"
+              : // A page that portals its tab bar into the header (Edit Plan / Edit
+                // Benefit) has to be able to show this text in full. `flex-[1]` alone
+                // pins the column to a fifth of the row — roughly 215px at 1440px
+                // wide — so "Edit Benefit / Quick Actions LLC - Retirement" (~340px)
+                // was ellipsised to "Edit Ben… / Quick Actions LLC - Retire…" even
+                // while the tab strip beside it sat in slack.
+                //
+                // `min-w-fit` keeps the symmetric flex-[1] share whenever the content
+                // fits it (so nothing shifts on pages with a short title, e.g. Edit
+                // Plan) and raises the floor to the content's own width when it does
+                // not. The centre column gives that space up: a portalled tab strip
+                // scrolls, and the pages centre it with safe auto-margins so an
+                // overflow can never hide its first tabs.
+                "flex-[1] min-w-fit",
           )}
         >
           {!editorOpen && title && (
@@ -204,7 +224,23 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
           {stepperFloats ? null : stepper ? (
             stepper
           ) : (
-            <div id="header-tabs-portal" className="w-full" />
+            <div
+              id="header-tabs-portal"
+              className={cn(
+                "w-full",
+                // With the Editing Panel open the page title is hidden and this
+                // column starts immediately right of the panel, so the portalled
+                // tabs must align to that edge instead of centring across the
+                // header. Edit Plan already swaps its own TabsList to
+                // `justify-start` when its panel opens; Edit Benefit's tabs are
+                // centred in the list itself, so force the alignment here rather
+                // than requiring every page to track the panel state. No-op for
+                // the wizards, which render a stepper instead of this portal.
+                editorOpen &&
+                  portalHasContent &&
+                  "[&>div]:!justify-start",
+              )}
+            />
           )}
         </div>
 

@@ -8,6 +8,11 @@ import {
 } from "@/lib/benefits-wizard-store";
 import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
 import {
+  MAX_SUPPORT_CONTACTS_PER_BENEFIT,
+  canAddSupportContact,
+} from "@/lib/benefit-contacts";
+import { fetchClientOnce } from "@/lib/fetch-client";
+import {
   Card,
   CardContent,
   CardHeader,
@@ -31,10 +36,16 @@ import {
   Save,
   Loader2,
   Eye,
+  Info,
+  AlertTriangle,
+  Pencil,
 } from "lucide-react";
 import { KeyContact } from "@/types/new-client-wizard";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { BenefitContactDialog } from "./benefit-contact-dialog";
+import { invalidateClientCache } from "@/lib/fetch-client";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Dialog,
@@ -42,6 +53,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { FAQSection, DynamicFAQItem, FAQContact } from "@/components/faq-section";
 import {
@@ -71,12 +83,27 @@ export function BenefitsStep3({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [savePending, setSavePending] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  // Plan-level delete: the contact the confirm dialog is asking about, and whether the
+  // request is in flight.
+  const [contactPendingDelete, setContactPendingDelete] =
+    useState<KeyContact | null>(null);
+  const [isDeletingContact, setIsDeletingContact] = useState(false);
+  // Edit contact (plan-level): the contact the shared editor is open for.
+  const [editingContact, setEditingContact] = useState<KeyContact | null>(null);
   const step1Data = stepData.step1;
   const currentStep3Data = stepData.step3 || {
     faqs: [],
     supportContacts: [],
     currentSubStep: "a",
   };
+
+  // Support contacts selected for THIS benefit, measured against the per-benefit cap
+  // (lib/benefit-contacts). Drives the notice and the row states below; `toggleContact`
+  // re-checks the cap against the live store so it cannot be raced by fast clicks.
+  const selectedSupportCount = currentStep3Data.supportContacts.length;
+  const atSupportContactLimit = !canAddSupportContact(selectedSupportCount);
+  const overSupportContactLimit =
+    selectedSupportCount > MAX_SUPPORT_CONTACTS_PER_BENEFIT;
 
   const selectedPlan = step1Data?.selectedPlan;
   const [localContacts, setLocalContacts] = useState<KeyContact[]>([]);
@@ -87,27 +114,47 @@ export function BenefitsStep3({
         ? selectedPlan.keyContacts
         : selectedPlan.keyContacts.contacts || [];
       setLocalContacts(contacts);
-    } else if (step1Data?.planId) {
-      // Fallback: Fetch plan data if it's missing from store
-      fetch(`/api/clients/${step1Data.planId}`)
-        .then(res => res.json())
-        .then(result => {
-          if (result.success && result.data) {
-            const contacts = Array.isArray(result.data.keyContacts)
-              ? result.data.keyContacts
-              : result.data.keyContacts?.contacts || [];
-            setLocalContacts(contacts);
-
-            // Also update the store for consistency
-            saveStepData(1, {
-              ...step1Data,
-              selectedPlan: result.data
-            });
-          }
-        })
-        .catch(err => console.error("Error fetching contacts in Step 3:", err));
+      return;
     }
-  }, [selectedPlan, step1Data?.planId]);
+    if (!step1Data?.planId) return;
+
+    const planId = step1Data.planId;
+    let cancelled = false;
+
+    // Fallback: the store rehydrated without `selectedPlan` (a reload that lands
+    // directly on Step 3, or a deep link into this step).
+    (async () => {
+      try {
+        // Shared single-flight cache (lib/fetch-client) — Step 1 already read this row.
+        const data = await fetchClientOnce(planId);
+        if (cancelled || !data) return;
+
+        const contacts = Array.isArray(data.keyContacts)
+          ? data.keyContacts
+          : data.keyContacts?.contacts || [];
+        setLocalContacts(contacts);
+
+        // Merge onto the LATEST step-1 data, never the closed-over `step1Data`.
+        // Spreading that snapshot wrote a stale copy of the whole step-1 record back
+        // over anything Step 1 had saved while this request was in flight — a logo
+        // upload, the profile prefill, or the full-plan fetch that sets
+        // `selectedPlan`. It also had no abort guard, so an unmounted/unrelated
+        // response could still land.
+        const latest = useBenefitsWizardStore.getState().stepData.step1;
+        if (!latest || latest.planId !== planId) return;
+        // Step 1 already loaded a plan for this category while we were fetching —
+        // its payload is the same endpoint, so there is nothing to add.
+        if (latest.selectedPlan?.keyContacts) return;
+        saveStepData(1, { ...latest, selectedPlan: data });
+      } catch (err) {
+        console.error("Error fetching contacts in Step 3:", err);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedPlan, step1Data?.planId, saveStepData]);
 
   // Deduplicate contacts by id to prevent duplicate rendering
   const planContacts = useMemo(() => {
@@ -289,6 +336,21 @@ export function BenefitsStep3({
         supportContacts: newContacts,
       });
     } else {
+      // The cap is enforced here as well as in the row styling: two fast clicks must
+      // not slip a fifth contact past a stale render.
+      const liveCount =
+        useBenefitsWizardStore.getState().stepData.step3?.supportContacts.length ??
+        0;
+      if (!canAddSupportContact(liveCount)) {
+        toast.error(
+          `Up to ${MAX_SUPPORT_CONTACTS_PER_BENEFIT} support contacts per benefit`,
+          {
+            description:
+              "Deselect one of the selected contacts first — these cards are what employees see on the benefit page.",
+          },
+        );
+        return;
+      }
       const contact = planContacts.find((c) => c.id === contactId);
       const newContact: SupportContact = {
         contactId,
@@ -332,6 +394,128 @@ export function BenefitsStep3({
     [resolvedFaqs],
   );
 
+  /**
+   * Delete a contact from the PLAN — removes it from `Client.keyContacts`, so it
+   * disappears for every benefit, not just this one. `toggleContact` above is the
+   * non-destructive alternative (include/exclude for this benefit only).
+   *
+   * Persisted immediately rather than deferred to the wizard's save. `saveBenefit`
+   * rebuilds `keyContacts` by starting FROM the stored rows and overlaying the
+   * wizard's edits, so a contact removed only from local state has no override and
+   * would come straight back on the next save.
+   */
+  const deleteContact = async (contact: KeyContact) => {
+    const planId = step1Data?.planId;
+    const contactId = String(contact?.id ?? "");
+    if (!planId || !contactId) return;
+
+    setIsDeletingContact(true);
+    try {
+      const remaining = localContacts.filter(
+        (c) => String(c?.id) !== contactId,
+      );
+
+      const res = await fetch(`/api/clients/${planId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keyContacts: remaining }),
+      });
+      const result = await res.json().catch(() => null);
+      if (!res.ok || !result?.success) {
+        throw new Error(
+          result?.error || `Failed to delete contact (${res.status})`,
+        );
+      }
+
+      // The plan row changed — the shared cache must not serve the old copy.
+      invalidateClientCache(planId);
+
+      setLocalContacts(remaining);
+
+      // Keep the store's copy of the plan in step, because `saveBenefit` merges FROM
+      // `selectedPlan.keyContacts`: leaving the deleted contact there would recreate it.
+      const latest = useBenefitsWizardStore.getState().stepData.step1;
+      if (latest && latest.planId === planId) {
+        const selectedPlan = latest.selectedPlan
+          ? { ...(latest.selectedPlan as any), keyContacts: remaining }
+          : latest.selectedPlan;
+        saveStepData(1, {
+          ...latest,
+          selectedPlan,
+          // The benefit's primary contact must not point at a contact that no longer
+          // exists. `saveBenefit` re-seeds that id into `supportContacts`, so a stale
+          // one would resurrect the deleted person as this benefit's support contact.
+          contactId: latest.contactId === contactId ? "" : latest.contactId,
+        });
+      }
+
+      // Drop it from this benefit's support contacts too.
+      const step3 = useBenefitsWizardStore.getState().stepData.step3;
+      if (step3?.supportContacts?.some((sc) => sc.contactId === contactId)) {
+        saveStepData(3, {
+          ...step3,
+          ...supportContactsContext,
+          supportContacts: step3.supportContacts.filter(
+            (sc) => sc.contactId !== contactId,
+          ),
+        });
+      }
+
+      toast.success("Contact removed from this plan");
+    } catch (error: any) {
+      toast.error("Could not delete the contact", {
+        description: error?.message,
+      });
+    } finally {
+      setIsDeletingContact(false);
+    }
+  };
+
+  /**
+   * Persist a contact the shared editor produced.
+   *
+   * Written straight away rather than left in local state, for the same reason
+   * `deleteContact` is: `saveBenefit` merges `keyContacts` by starting FROM the stored
+   * rows, so a change that never reached the server can be lost on the next save.
+   * Throwing hands the message back to the dialog, which toasts it and stays open.
+   */
+  const handleContactSubmitted = async (updated: KeyContact) => {
+    const planId = step1Data?.planId;
+    if (!planId) throw new Error("No plan selected");
+
+    const nextContacts = localContacts.map((c) =>
+      String(c?.id) === String(updated.id) ? updated : c,
+    );
+
+    const res = await fetch(`/api/clients/${planId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ keyContacts: nextContacts }),
+    });
+    const result = await res.json().catch(() => null);
+    if (!res.ok || !result?.success) {
+      throw new Error(
+        result?.error || `Failed to save the contact (${res.status})`,
+      );
+    }
+
+    // The plan row changed — the shared cache must not serve the old copy.
+    invalidateClientCache(planId);
+    setLocalContacts(nextContacts);
+
+    // Keep the store's copy of the plan in step: `saveBenefit` merges FROM
+    // `selectedPlan.keyContacts`, so the stored copy must already hold the change.
+    const latest = useBenefitsWizardStore.getState().stepData.step1;
+    if (latest && latest.planId === planId) {
+      const selectedPlan = latest.selectedPlan
+        ? { ...(latest.selectedPlan as any), keyContacts: nextContacts }
+        : latest.selectedPlan;
+      saveStepData(1, { ...latest, selectedPlan });
+    }
+
+    toast.success("Contact updated");
+  };
+
   const previewContacts: FAQContact[] | undefined = useMemo(() => {
     const enabled = currentStep3Data.supportContacts.filter(sc => sc.enabled);
     if (enabled.length === 0) return undefined;
@@ -367,10 +551,34 @@ export function BenefitsStep3({
               Support Contacts
             </CardTitle>
             <CardDescription className="text-xs text-muted-foreground">
-              Select one or more contacts for users to reach out to.
+              Select the contacts users should reach out to — up to{" "}
+              {MAX_SUPPORT_CONTACTS_PER_BENEFIT} per benefit.
             </CardDescription>
           </CardHeader>
           <CardContent className="p-3">
+            {/* The cap is a rule about the benefit page rather than a technical limit,
+                so it is stated here and enforced on the rows below. */}
+            <div
+              className={`mb-3 flex items-start gap-2 rounded-lg border px-3 py-2 ${
+                overSupportContactLimit
+                  ? "border-amber-200 bg-amber-50/70 dark:border-amber-800 dark:bg-amber-950/20"
+                  : "border-blue-100 bg-blue-50/60 dark:border-blue-900/40 dark:bg-blue-950/20"
+              }`}
+            >
+              {overSupportContactLimit ? (
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
+              ) : (
+                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-500" />
+              )}
+              <p className="text-[11px] leading-relaxed text-foreground/80">
+                A benefit shows{" "}
+                <b>up to {MAX_SUPPORT_CONTACTS_PER_BENEFIT} support contacts</b> —
+                these are the contact cards employees see on the benefit page.{" "}
+                {overSupportContactLimit
+                  ? `This benefit has ${selectedSupportCount} selected; keep no more than ${MAX_SUPPORT_CONTACTS_PER_BENEFIT}.`
+                  : `${selectedSupportCount} of ${MAX_SUPPORT_CONTACTS_PER_BENEFIT} selected.`}
+              </p>
+            </div>
             <div className="grid grid-cols-1 gap-2">
               {planContacts.length === 0 ? (
                 <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-200 dark:bg-gray-800/50 dark:border-gray-700">
@@ -393,14 +601,18 @@ export function BenefitsStep3({
                 const supportConfig = currentStep3Data.supportContacts.find(
                   (sc) => sc.contactId === contact.id,
                 );
+                // At the cap a contact that is not already selected cannot be added. Dim
+                // it so the rule is visible before the click — `toggleContact` still
+                // guards, and says why.
+                const isBlockedByLimit = !isSelected && atSupportContactLimit;
 
                 return (
                   <div key={contact.id} className="space-y-1.5">
                     <div
-                      className={`flex items-center p-2 rounded-lg border cursor-pointer transition-all ${isSelected
+                      className={`flex items-center p-2 rounded-lg border transition-all ${isSelected
                         ? "border-accent-blue bg-accent-blue/[0.02]"
                         : "border-gray-100 bg-white hover:border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-gray-600"
-                        }`}
+                        } ${isBlockedByLimit ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
                       onClick={() => toggleContact(contact.id)}
                     >
                       <div
@@ -433,6 +645,38 @@ export function BenefitsStep3({
                           {contact.phone}
                         </p>
                       </div>
+                      {/* Edit this contact's own details. `stopPropagation` keeps the
+                          row's toggle from firing as well — this is the person's data,
+                          not this benefit's inclusion of them. */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Edit this contact"
+                        aria-label="Edit this contact"
+                        className="ml-1 h-7 w-7 shrink-0 text-muted-foreground hover:bg-accent-blue/10 hover:text-accent-blue"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingContact(contact);
+                        }}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      {/* Plan-level delete. `stopPropagation` is essential: the row
+                          itself toggles this contact on/off for the benefit, which is
+                          a different (non-destructive) action. */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Delete this contact from the plan"
+                        aria-label="Delete this contact from the plan"
+                        className="ml-1 h-7 w-7 shrink-0 text-muted-foreground hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setContactPendingDelete(contact);
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
 
                     {isSelected && supportConfig && (
@@ -476,6 +720,65 @@ export function BenefitsStep3({
           </CardContent>
         </Card>
         )}
+
+        {/* Edit contact — the SAME editor Step 1 uses to create one (see
+            BenefitContactDialog), so the two can never drift. This page only persists
+            what it hands back. */}
+        <BenefitContactDialog
+          open={!!editingContact}
+          onOpenChange={(open) => {
+            if (!open) setEditingContact(null);
+          }}
+          mode="edit"
+          contact={editingContact}
+          planId={step1Data?.planId || ""}
+          category={String(step1Data?.benefitCategory || "")}
+          planCompanyName={step1Data?.selectedPlan?.companyName || ""}
+          planLogoUrl={
+            (step1Data?.selectedPlan as any)?.companyLogo?.url ||
+            (typeof (step1Data?.selectedPlan as any)?.companyLogo === "string"
+              ? (step1Data?.selectedPlan as any)?.companyLogo
+              : "") ||
+            ""
+          }
+          brandColor={brandColor}
+          secondaryColor={secondaryColor}
+          appointmentLink={
+            (step1Data?.selectedPlan as any)?.appointmentLink || ""
+          }
+          benefitTitle={step1Data?.benefitTitle || ""}
+          categoryBenefitByApi={step1Data?.categoryBenefitByApi ?? null}
+          onSubmit={handleContactSubmitted}
+        />
+
+
+
+        {/* Plan-level delete confirmation. Placed here for locality only — Radix's
+            AlertDialog portals to `document.body`, so tree position doesn't affect
+            stacking. */}
+        <ConfirmDialog
+          open={!!contactPendingDelete}
+          onOpenChange={(open) => {
+            if (!open && !isDeletingContact) setContactPendingDelete(null);
+          }}
+          onConfirm={async () => {
+            if (contactPendingDelete) await deleteContact(contactPendingDelete);
+            setContactPendingDelete(null);
+          }}
+          title="Delete this contact from the plan?"
+          description={`${
+            contactPendingDelete?.name ||
+            `${contactPendingDelete?.firstName ?? ""} ${
+              contactPendingDelete?.lastName ?? ""
+            }`.trim() ||
+            "This contact"
+          } will be removed from the plan's contact list, so it disappears from every benefit — not just this one. This cannot be undone.`}
+          confirmText="Yes, delete"
+          cancelText="No, keep"
+          variant="destructive"
+          isLoading={isDeletingContact}
+          loadingText="Deleting..."
+        />
 
         {/* FAQ Section */}
         {(!section || section === "faqs") && (

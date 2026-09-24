@@ -11,6 +11,7 @@ import {
   CATEGORY_DEFAULT_INNER_IMAGES,
 } from "@/lib/portal-category-hero-background";
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
+import { fetchProfileOnce } from "@/lib/fetch-profile";
 
 interface PortalWelcomeBannerProps {
   /** Click handler for the benefit portal title (headline). Opens the editor. */
@@ -126,10 +127,13 @@ export function PortalWelcomeBanner({
     // extra /api/profile request so the signature fields don't populate late.
     if (profile !== undefined) return;
     let cancelled = false;
-    fetch("/api/profile", { credentials: "same-origin" })
-      .then((r) => r.json())
+    // Single-flight + TTL (lib/fetch-profile) — the surrounding dashboard / preview
+    // already fetched the profile, so this reuses it. It resolves to null (never throws)
+    // when the viewer is anonymous, which is the same outcome the old `.catch(() => {})`
+    // produced on the public portal.
+    fetchProfileOnce()
       .then((data) => {
-        if (cancelled) return;
+        if (cancelled || !data) return;
         const arr = Array.isArray((data as any)?.designations)
           ? (data as any).designations
           : ((data as any)?.user?.designations || []);

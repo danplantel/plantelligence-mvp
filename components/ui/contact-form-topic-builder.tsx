@@ -20,6 +20,7 @@ import {
   createContactFormTopic,
   getDefaultContactFormTopics,
   normalizeContactFormTopics,
+  resolveContactTopicLabel,
 } from "@/lib/contact-form-topics";
 import type { ContactFormTopic } from "@/lib/contact-form-topics";
 
@@ -33,6 +34,13 @@ export interface ContactFormTopicBuilderProps {
   topics: ContactFormTopic[];
   /** Receives the next configuration whenever the advisor changes something. */
   onChange: (topics: ContactFormTopic[]) => void;
+  /**
+   * Title of the plan's custom benefit. A topic that stands in for that benefit is
+   * *displayed* with this title, so the advisor reads what participants will read —
+   * while the stored label keeps its placeholder, and the title keeps tracking the
+   * benefit if it is renamed later.
+   */
+  customBenefitTitle?: string | null;
   className?: string;
 }
 
@@ -49,6 +57,7 @@ export function ContactFormTopicBuilder({
   category,
   topics,
   onChange,
+  customBenefitTitle,
   className,
 }: ContactFormTopicBuilderProps) {
   const [newTopic, setNewTopic] = useState("");
@@ -58,6 +67,13 @@ export function ContactFormTopicBuilder({
   const safeTopics = useMemo(
     () => normalizeContactFormTopics(topics),
     [topics],
+  );
+
+  // Display-only context. Everything below still matches, keys and saves against
+  // the *stored* labels — only the text an advisor reads is resolved.
+  const labelContext = useMemo(
+    () => ({ customBenefitTitle }),
+    [customBenefitTitle],
   );
 
   // Suggested defaults for this category (labels only).
@@ -157,7 +173,7 @@ export function ContactFormTopicBuilder({
                       .replace(/[^a-z0-9]+/g, "-")}`}
                     className="text-[11px] leading-snug cursor-pointer dark:text-gray-300"
                   >
-                    {label}
+                    {resolveContactTopicLabel(label, labelContext)}
                   </Label>
                 </div>
               );
@@ -234,9 +250,9 @@ export function ContactFormTopicBuilder({
                         ? "text-gray-700 dark:text-gray-200"
                         : "text-gray-400 dark:text-gray-500 line-through",
                     )}
-                    title={topic.label}
+                    title={resolveContactTopicLabel(topic.label, labelContext)}
                   >
-                    {topic.label}
+                    {resolveContactTopicLabel(topic.label, labelContext)}
                   </Label>
                   {isCustomSuggestion && (
                     <span className="text-[9px] font-semibold uppercase tracking-wide text-teal-600 dark:text-teal-400 shrink-0">

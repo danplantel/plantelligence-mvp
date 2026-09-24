@@ -35,7 +35,12 @@ export interface BenefitListRow {
   /** Benefit row title when it exists, otherwise the category default. */
   title: string;
   partnerLogo: string | null;
-  /** Benefit row `isEnabled` (published). Defaults to true when no row exists. */
+  /**
+   * Whether the hub is published. Requires a Benefit row: a category with no row
+   * reports false, because there is nothing to publish (the previous "no row ⇒
+   * true" fallback made a non-existent "Custom" hub read as Published beside an
+   * "Add benefit" button).
+   */
   isEnabled: boolean;
   /** Whether a Benefit row has been created for this plan + category. */
   exists: boolean;
@@ -72,9 +77,13 @@ export async function GET() {
         slug: true,
         status: true,
         categoryPortalVisibility: true,
-        employeePortalPreview: true,
         companyLogo: true,
         keyContacts: true,
+        // `employeePortalPreview` is deliberately NOT selected. It is the legacy
+        // mirror and it holds base64 images — one plan's copy was 7.4 MB of the 8.3 MB
+        // this query transferred — for two things the completeness call below does not
+        // need: `benefits` is overridden with the authoritative Benefit row, and
+        // `companyData` is absent on every plan in the database (measured).
       },
     });
 
@@ -94,12 +103,21 @@ export async function GET() {
           shortDescription: true,
           partnerLogo: true,
           backgroundImage: true,
+          providerContact: true,
           isEnabled: true,
         },
       }),
       // Only the fields the completeness check reads — never the base64 `file`.
+      //
+      // IMPORTANT: do NOT add `archivedAt: null` to this `where`. Prisma's MongoDB
+      // connector treats a `null` filter as "field equals null" and does not match
+      // documents where the field is ABSENT — which is every document uploaded before
+      // soft-archiving existed. That filter therefore returned an empty list, so every
+      // category was reported "Plan documents missing" even when the plan had
+      // documents (same pitfall documented in app/api/clients/[id]/route.ts and
+      // app/api/documents/route.ts). Archived rows are skipped in JS below instead.
       prisma.document.findMany({
-        where: { clientId: { in: clientIds }, archivedAt: null },
+        where: { clientId: { in: clientIds } },
         select: {
           clientId: true,
           type: true,
@@ -112,6 +130,9 @@ export async function GET() {
 
     const documentsByClient = new Map<string, typeof documents>();
     for (const doc of documents) {
+      // Soft-archived documents don't count toward completeness. Filtered here rather
+      // than in the query — see the note on the findMany above.
+      if (doc.archivedAt) continue;
       const list = documentsByClient.get(doc.clientId) ?? [];
       list.push(doc);
       documentsByClient.set(doc.clientId, list);
@@ -133,20 +154,27 @@ export async function GET() {
 
       for (const cat of BENEFIT_CATEGORIES) {
         const row = byPlanCategory.get(`${client.id}::${normalize(cat.category)}`);
-        // Visibility lives on the client; fall back to the benefit's own flag.
+        // Published requires an actual benefit: no row ⇒ not published, at any
+        // visibility value. Visibility then lives on the client (explicit `false`
+        // hides), combined with the benefit's own flag. An ABSENT key still reads as
+        // visible for a row that exists, deliberately mirroring the canonical
+        // `readVisibilityValue()` in lib/portal-category-visibility.ts so the list
+        // and the portal never disagree about a hub that exists.
         const visible =
-          visibility[cat.visibilityKey] !== false &&
-          (row ? row.isEnabled !== false : true);
+          !!row &&
+          row.isEnabled !== false &&
+          visibility[cat.visibilityKey] !== false;
 
         // Same completeness check the wizard uses, fed with this plan's contacts
         // and documents plus the authoritative Benefit row for the category.
         const completeness = getBenefitCompleteness(cat.category as any, {
           ...client,
-          companyData: (client.employeePortalPreview as any)?.companyData,
-          employeePortalPreview: {
-            ...((client.employeePortalPreview as any) || {}),
-            benefits: row ? [row] : [],
-          },
+          // Only the authoritative Benefit row is passed. The legacy mirror used to be
+          // spread in first, and because `getBenefitsArrayFromPortalPreview` prefers a
+          // non-empty `previewData.benefits`, that stale array could win over the row.
+          // The plan logo still resolves from the selected top-level `companyLogo`
+          // (see planCompanyLogoFromClient), so no completeness input is lost.
+          employeePortalPreview: { benefits: row ? [row] : [] },
           keyContacts: client.keyContacts,
           documents: clientDocuments,
         });

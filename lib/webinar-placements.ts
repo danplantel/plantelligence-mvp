@@ -32,9 +32,14 @@ export const WEBINAR_PLACEMENTS = [
     hint: "The Life Insurance benefits page.",
   },
   {
+    // Shown to the advisor as "Custom": this hub page is where the Custom benefit
+    // category is published (`Custom: "Wellness Programs"` in the wizard), so the
+    // label follows the benefit's name. The key stays `wellness-programs` — it is
+    // the portal route segment and the value stored on every saved row, so renaming
+    // it would strand existing placements.
     key: "wellness-programs",
-    label: "Wellness Programs",
-    hint: "The Wellness Programs benefits page.",
+    label: "Custom",
+    hint: "The page for a Custom benefit.",
   },
 ] as const;
 

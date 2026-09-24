@@ -67,6 +67,12 @@ interface PrimaryContactCardProps {
   /** When true, reduces vertical spacing/padding between text/info elements
    *  so they sit closer together instead of being spaced out. */
   compact?: boolean;
+  /**
+   * Benefit category this contact speaks for, shown as a tag at the top of the card
+   * content. Supplied by `BenefitContactCard` on the My Benefits Team page; omitted
+   * on the benefit category pages and in the wizard previews.
+   */
+  categoryLabel?: string;
 }
 
 export function PrimaryContactCard({
@@ -77,6 +83,7 @@ export function PrimaryContactCard({
   companyName,
   baselineBackgroundColor,
   compact = false,
+  categoryLabel,
 }: PrimaryContactCardProps) {
   const effectiveBrandColor = contact.cardPrimaryColor || brandColor;
   const effectiveSecondaryColor = contact.cardSecondaryColor || secondaryColor;
@@ -221,6 +228,17 @@ export function PrimaryContactCard({
 
         {/* RIGHT: CONTENT — vertically centered to align with the left headshot */}
         <div className="flex flex-col font-red-hat gap-1 justify-center h-full min-w-0" style={{ color: textColor }}>
+          {/* BENEFIT CATEGORY TAG — the top of the card, above the logo/icon. The
+              chip carries its own background/text colour so it stays legible on
+              whatever card colour the advisor chose. */}
+          {categoryLabel && (
+            <span
+              className="mb-1 inline-flex max-w-full items-center self-start truncate rounded-full border border-black/5 bg-white/90 px-2.5 py-0.5 text-[11px] font-semibold text-gray-600 shadow-sm"
+              title={categoryLabel}
+            >
+              {categoryLabel}
+            </span>
+          )}
           {/* SUPPORT-LINE ICON OR COMPANY LOGO — Team/Support Line contacts show a
               support icon here because their company logo moves into the large
               circular slot on the left. */}

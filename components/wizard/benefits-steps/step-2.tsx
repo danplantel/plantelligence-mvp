@@ -8,6 +8,7 @@ import { useBenefitsEditorState } from "./hooks/use-benefits-editor-state";
 import { useBenefitsLenisScroll } from "./hooks/use-benefits-lenis-scroll";
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
 import { applyTypographyToElement } from "@/lib/typography-themes";
+import { fetchClientOnce } from "@/lib/fetch-client";
 import { PortalHeader } from "@/components/pages/client-portal/sections/portal-header";
 import { Smartphone, Monitor } from "lucide-react";
 
@@ -30,8 +31,12 @@ type PreviewMode = "desktop" | "mobile";
  * Renders children into an iframe so that CSS viewport-based media queries
  * (Tailwind sm:, md:, lg:, etc.) evaluate against the iframe's actual width
  * rather than the parent browser window.
+ *
+ * Exported so the Edit Benefit Preview tab
+ * ([`EditBenefitPreviewSection`](components/pages/benefits/edit-benefit-preview-section.tsx))
+ * renders its mobile preview exactly like this step does.
  */
-function MobilePreviewFrame({
+export function MobilePreviewFrame({
     children,
     width,
     themeKey,
@@ -301,24 +306,46 @@ export function BenefitsStep2() {
     // reload that lands directly on Step 2 leaves the store without a logo.
     // Fetch the plan here (authoritative) and fall back to the store's
     // selectedPlan set during Step 1.
-    const [planDetails, setPlanDetails] = useState<any>(null);
+    //
+    // The request is only needed on that reload path: `selectedPlan` is stripped
+    // when the store is persisted (see `companyWebsite` below), so a full page load
+    // genuinely has nothing. In the normal Step 1 -> Step 2 flow the store already
+    // holds the row, and re-fetching it was a duplicate GET /api/clients/<id>.
+    //
+    // The fetched row is keyed to the plan it came from rather than cleared before
+    // the request. Clearing it first blanked every plan-derived field — the company
+    // logo most visibly — and popped it back in once the response arrived, on every
+    // mount. Keying by planId still prevents a plan switch from showing the previous
+    // plan's logo, because a mismatched entry is simply ignored.
+    const [fetchedPlan, setFetchedPlan] = useState<{ planId: string; data: any } | null>(null);
+    const planDetails =
+        step1Data?.selectedPlan ??
+        (fetchedPlan && fetchedPlan.planId === step1Data?.planId
+            ? fetchedPlan.data
+            : null);
+
     useEffect(() => {
-        if (!step1Data?.planId) {
-            setPlanDetails(null);
-            return;
-        }
-        // Reset before fetching so switching plans never shows the previous logo
-        setPlanDetails(null);
+        const planId = step1Data?.planId;
+        if (!planId) return;
+        // Step 1 already loaded this plan — nothing to fetch.
+        if (step1Data.selectedPlan) return;
+        // This plan's row is already in hand.
+        if (fetchedPlan?.planId === planId) return;
+
         let cancelled = false;
-        fetch(`/api/clients/${step1Data.planId}`)
-            .then((r) => r.json())
-            .then((result) => {
-                if (cancelled || !result?.data) return;
-                setPlanDetails(result.data);
-            })
-            .catch(() => {});
+        (async () => {
+            try {
+                // Shared single-flight cache (lib/fetch-client) — Step 1 has almost
+                // always already read this row, so the reload path costs no request.
+                const data = await fetchClientOnce(planId);
+                if (cancelled || !data) return;
+                setFetchedPlan({ planId, data });
+            } catch {
+                /* keep whatever the store already provides */
+            }
+        })();
         return () => { cancelled = true; };
-    }, [step1Data?.planId]);
+    }, [step1Data?.planId, step1Data?.selectedPlan, fetchedPlan?.planId]);
 
     // Prefill the typography theme from the plan's saved value when this session
     // has none (e.g. resuming an existing plan to add another benefit), so the
@@ -586,9 +613,6 @@ export function BenefitsStep2() {
                             categoryPortalVisibility={step1Data?.benefitVisibility ?? null}
                             benefits={(step1Data?.selectedPlan as any)?.employeePortalPreview?.benefits ?? null}
                             enableNavigation={false}
-                            // Advisor mock — the only place the stacked-mark tip is
-                            // useful; the live portal never receives it.
-                            showLogoShapeTip
                             scale={scale}
                             referenceWidth={DESKTOP_WIDTH}
                         />

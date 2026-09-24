@@ -1,5 +1,10 @@
 import { mergeUserBenefitWithHubDefaults } from "@/lib/hub-benefit-defaults";
 import { resolvePersistedDocumentCategory } from "@/lib/document-category";
+import {
+  fetchClientOnce,
+  invalidateClientCache,
+  invalidateBenefitRowsCache,
+} from "@/lib/fetch-client";
 import type { BenefitsWizardState } from "@/lib/benefits-wizard-store";
 import type { BenefitsCategory } from "@/types/new-client-wizard";
 
@@ -72,12 +77,10 @@ export async function saveBenefit(
   }
 
   try {
-    // 1. Fetch current client data to merge
-    const response = await fetch(`/api/clients/${planId}`);
-    const result = await response.json();
-    if (!result.success) throw new Error(result.error || "Failed to fetch client data");
-
-    const client = result.data;
+    // 1. Load the current client data to merge. Shared single-flight cache — Steps 1-5
+    // have almost always just read this same row, so this no longer costs a request.
+    const client = await fetchClientOnce(planId);
+    if (!client) throw new Error("Failed to fetch client data");
 
     // 2. Edited category row: merge with hub defaults so image / copy / CTA match other cards
     // (saving only partial data was leaving the portal with empty description, image, and button text).
@@ -109,12 +112,36 @@ export async function saveBenefit(
     // Use the benefitVisibility toggle from Step 1 (default true = published)
     newBenefit.isEnabled = (step1Data?.benefitVisibility ?? {})[step1Data?.benefitCategory || ""] ?? true;
 
+    // Support contacts for this category, with the Step 1 primary always seeded in.
+    // Step 3 is where the advisor toggles contacts on/off, but when they never did,
+    // the category page would render nothing while My Benefits Team already showed
+    // that person. So the category's primary is persisted as a member here, and the
+    // same list is written to both the Benefit row and the legacy preview mirror so
+    // the two read paths can never disagree. Existing entries are left untouched.
+    const categorySupportContacts = (() => {
+      // Read through a local: TypeScript will not carry the optional-chain
+      // narrowing into the array spread.
+      const rawStep3Contacts = step3Data?.supportContacts;
+      const list = Array.isArray(rawStep3Contacts) ? [...rawStep3Contacts] : [];
+      const primaryId = (step1Data?.contactId || "").trim();
+      if (primaryId && !list.some((sc: any) => sc?.contactId === primaryId)) {
+        list.unshift({
+          contactId: primaryId,
+          title: "",
+          description: "",
+          enabled: true,
+          isPrimary: true,
+        });
+      }
+      return list;
+    })();
+
     // Include Step 3 FAQs and support contacts for this benefit category
     if (step3Data?.faqs) {
       newBenefit.faqs = step3Data.faqs;
     }
-    if (step3Data?.supportContacts) {
-      newBenefit.supportContacts = step3Data.supportContacts;
+    if (categorySupportContacts.length > 0) {
+      newBenefit.supportContacts = categorySupportContacts;
     }
 
     // Include Plan Video from Step 2 for this benefit category
@@ -334,6 +361,10 @@ export async function saveBenefit(
         insuranceLoginUrl: step1Data?.insuranceLoginUrl || "",
         insuranceBackgroundImage: step1Data?.insuranceBackgroundImage || "",
         insuranceContainerBlockOpacity: step1Data?.insuranceContainerBlockOpacity ?? 0.8,
+        // Provider / recordkeeper for this category (rendered beside the
+        // account-access block). Mirrored into the legacy preview too so both
+        // read paths agree during the dual-write transition.
+        providerContact: step1Data?.providerContact ?? null,
         // Explicitly persist help cards and hero overlay settings
         helpCards: step1Data?.helpCards,
         heroBackgroundOpacity: step1Data?.heroBackgroundOpacity ?? 1.0,
@@ -357,18 +388,32 @@ export async function saveBenefit(
     // docs on the server. If the user is just editing a benefit without touching
     // documents, skip documentsData to avoid any risk of duplication.
     const finalRetirementDocs = [...retirementPlanDocuments, ...newDocuments];
+
+    // Only a genuinely NEW document forces this payload.
+    //
+    // `documentsData` makes the server DELETE every Document-type row for the client
+    // and recreate it from this list, so sending it when nothing was added churns every
+    // document id and rewrites the whole set for no reason.
+    //
+    // `onlyOnServer.length > 0` used to force it, which fired on any plan where the DB
+    // simply held more rows than the store had rehydrated — and it protected nothing,
+    // because OMITTING `documentsData` leaves the documents completely untouched.
+    const hasWizardAddedDocs = step4ForCurrentCategory.some((d) => {
+      // Temp IDs (doc-, temp-, plan-doc-, optional-doc-) indicate wizard-added docs
+      const sid = String(d.id ?? "");
+      return (
+        sid.startsWith("temp-") ||
+        sid.startsWith("doc-") ||
+        sid.startsWith("plan-doc-") ||
+        sid.startsWith("optional-doc-")
+      );
+    });
+
+    // Never send an empty desired set — the take-it-or-leave-it replace would clear
+    // the plan's documents. Step 4 removes a document through its own DELETE
+    // immediately, so an empty list here never means "delete everything".
     const hasNewOrChangedDocs =
-      onlyOnServer.length > 0 ||
-      step4ForCurrentCategory.some((d) => {
-        // Temp IDs (doc-, temp-, plan-doc-, optional-doc-) indicate wizard-added docs
-        const sid = String(d.id ?? "");
-        return (
-          sid.startsWith("temp-") ||
-          sid.startsWith("doc-") ||
-          sid.startsWith("plan-doc-") ||
-          sid.startsWith("optional-doc-")
-        );
-      });
+      hasWizardAddedDocs && finalRetirementDocs.length > 0;
 
     if (hasNewOrChangedDocs) {
       (updatePayload as any).documentsData = {
@@ -394,6 +439,9 @@ export async function saveBenefit(
 
     const updateResult = await updateResponse.json();
     if (!updateResult.success) throw new Error(updateResult.error || "Failed to update client");
+    // The row just changed — drop the cached copy so any reader that follows (the
+    // benefits PUT's dual-write below, or a step that mounts right after) sees it.
+    invalidateClientCache(planId);
 
     // Persist the edited benefit (including "How Can We Help You Today?" help
     // cards) to the Benefit row so the live Benefits Hub pages show it. The
@@ -432,10 +480,19 @@ export async function saveBenefit(
             // employeePortalPreview JSON, so a fresh session couldn't restore
             // them and Step 3 required re-selecting the support contact.
             faqs: step3Data?.faqs ?? null,
-            supportContacts: step3Data?.supportContacts ?? null,
+            // Seeded above so the Benefit row and the legacy mirror agree.
+            supportContacts:
+              categorySupportContacts.length > 0
+                ? categorySupportContacts
+                : null,
+            providerContact: step1Data?.providerContact ?? null,
           }),
         },
       ).catch(() => {});
+      // The benefits PUT writes the Benefit row and dual-writes
+      // `employeePortalPreview.benefits`, so both cached reads are stale after it runs.
+      invalidateClientCache(planId);
+      invalidateBenefitRowsCache(planId);
     }
 
     // Notify any open portal views that benefits have changed (triggers re-fetch in ClientPortalProvider)

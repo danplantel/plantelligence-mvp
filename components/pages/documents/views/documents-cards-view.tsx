@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react";
 import {
-  RetirementDocumentsAccordion,
+  BenefitDocumentSection,
   RetirementDocumentItem,
-} from "@/components/pages/client-portal/sections/retirement-documents-accordion";
+} from "@/components/pages/client-portal/sections/benefit-document-section";
 import { Document } from "../types";
 import { BenefitsCategory } from "@/types/new-client-wizard";
 import { toast } from "sonner";
@@ -24,6 +24,10 @@ interface DocumentsCardsViewProps {
   ) => Promise<void>;
   brandColor?: string;
   accentColor?: string;
+  /** Hide the category badge on every card. The Create Benefits / Edit Benefit
+   *  Branding preview scopes its cards to a single benefit category, so the badge
+   *  only repeated the category the advisor is editing. */
+  hideCategoryBadge?: boolean;
 }
 
 export function DocumentsCardsView({
@@ -35,6 +39,7 @@ export function DocumentsCardsView({
   onSaveEdit: customOnSaveEdit,
   brandColor = "#002B5B",
   accentColor = "#6B7280",
+  hideCategoryBadge = false,
 }: DocumentsCardsViewProps) {
   const [editingDocId, setEditingDocId] = useState<string | null>(null);
 
@@ -117,13 +122,14 @@ export function DocumentsCardsView({
   }, [documents]);
 
   return (
-    <RetirementDocumentsAccordion
+    <BenefitDocumentSection
       brandColor={brandColor}
       accentColor={accentColor}
       retirementDocs={documents}
       mode="editable"
       showMetadata={false}
       hideHeader={true}
+      hideCategoryBadge={hideCategoryBadge}
       editingDocId={editingDocId}
       onStartEdit={handleStartEdit}
       onSaveEdit={handleSaveEdit}

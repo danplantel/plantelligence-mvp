@@ -1,10 +1,15 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { fetchProfileOnce } from "@/lib/fetch-profile";
+import {
+  fetchClientOnce,
+  fetchBenefitRowsOnce,
+  invalidateClientCache,
+  invalidateBenefitRowsCache,
+} from "@/lib/fetch-client";
 import { getBenefitsHubOpenPortalUrl } from "@/lib/marketing/hub-url";
 import {
   BenefitsStep1Data,
@@ -20,7 +25,7 @@ import {
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { persistPlanSelection, getRecentPlanIds } from "@/lib/plan-selector-storage";
+import { persistPlanSelection } from "@/lib/plan-selector-storage";
 import { storePendingDraftSelection } from "@/lib/draft-utils";
 import {
   Select,
@@ -40,7 +45,6 @@ import {
   Building2,
   Image as ImageIcon,
   CheckCircle2,
-  Clock,
   Plus,
   Pencil,
   Search,
@@ -76,10 +80,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
-import { SmallVerticalCard } from "@/components/pages/my-benefits-team/small-vertical-card";
-import { ContactFormFields } from "@/components/ui/contact-form-fields";
 import {
   BenefitsCategory,
   KeyContact,
@@ -90,11 +90,6 @@ import {
 import { BrandImageUpload } from "@/components/ui/brand-image-upload";
 import { BrandImagesSection } from "@/components/wizard/new-client-steps/sections/brand-images-section";
 import { BrandingImage } from "@/components/ui/branding-image";
-import {
-  formatPhoneNumber,
-  normalizePhoneNumber,
-} from "@/components/wizard/steps/sections/user-setup-section/user-setup-section.funcs";
-import { normalizeExtension } from "@/lib/phone-utils";
 import { toast } from "sonner";
 import { AddContactModal } from "@/components/ui/add-contact-modal";
 import {
@@ -110,6 +105,7 @@ import { convertToDocumentFormat } from "@/lib/compliance-document-utils";
 import { mergeOnboardingAdvisorContactsIntoKeyContacts } from "@/lib/seed-onboarding-advisor-contacts";
 import { BenefitsDocumentsSection } from "./benefits-documents-section";
 import benefitCategoryBackgrounds from "@/data/gallery-benefit-category-backgrounds.json";
+import { BenefitContactDialog } from "./benefit-contact-dialog";
 
 /** Wizard order — matches accordion below (Branding → Messaging → Contacts → Documents). */
 const BENEFIT_SETUP_SECTION_ORDER = [
@@ -164,13 +160,26 @@ const CATEGORY_CARDS = [
 
 export function BenefitsStep1({
   mode = "wizard",
+  sections,
+  hideCategoryPicker = false,
 }: {
-  /** "edit" renders the Edit Benefit variant: the plan/category picker and every
-   *  accordion except Key Contact are hidden (documents move to their own tab and
-   *  branding/messaging are handled by the editor panel). */
+  /** "edit" hides the plan/category picker and the per-accordion CONTINUE
+   *  buttons — used by the Edit Benefit page, which has its own tab bar. */
   mode?: "wizard" | "edit";
+  /** Restrict which accordions render (e.g. ["contacts"]). Default: all four. */
+  sections?: string[];
+  /**
+   * Hide just the "Benefit Category" card picker. The Browse Benefits page's
+   * per-row "+ Add" deep links with `?planId&category`, so the category is
+   * already implied and re-picking it is redundant. Entry points that arrive
+   * with only a plan (sidebar "Create Benefit", right after a plan is created,
+   * dashboard tasks) leave this false so a category can still be chosen.
+   */
+  hideCategoryPicker?: boolean;
 } = {}) {
   const isEditMode = mode === "edit";
+  /** Every section shows in the wizard; `sections` narrows them when provided. */
+  const showSection = (value: string) => !sections || sections.includes(value);
   const { stepData, saveStepData } = useBenefitsWizardStore();
   // Use fetchProfileOnce (single-flight + TTL) so this coalesces with the layout
   // header's profile fetch — one /api/profile request for the whole page.
@@ -194,9 +203,12 @@ export function BenefitsStep1({
   const [searchTerm, setSearchTerm] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [activeAccordions, setActiveAccordions] = useState<string[]>([]);
-  // Only the Key Contact accordion is rendered in edit mode, so open it by default.
+  // In edit mode open every rendered accordion so the sections are visible
+  // without an extra click.
   useEffect(() => {
-    if (isEditMode) setActiveAccordions(["contacts"]);
+    if (!isEditMode) return;
+    setActiveAccordions(["branding", "messaging", "contacts", "documents"]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditMode]);
   const router = useRouter();
 
@@ -211,96 +223,6 @@ export function BenefitsStep1({
   const deepLinkGuardRef = useRef(false);
   const [draftDialogOpen, setDraftDialogOpen] = useState(false);
   const [draftPlanName, setDraftPlanName] = useState("");
-
-  // Plan search bar state
-  const [planSearchOpen, setPlanSearchOpen] = useState(false);
-  const [planSearchQuery, setPlanSearchQuery] = useState("");
-  const [planSearchHighlight, setPlanSearchHighlight] = useState(0);
-  const planSearchInputRef = useRef<HTMLInputElement>(null);
-  const planSearchContainerRef = useRef<HTMLDivElement>(null);
-  const planSearchDropdownRef = useRef<HTMLDivElement>(null);
-
-  // Contact form state — a mini version of the new-client ContactFormSlide
-  // (individual/team contacts, phone+email with at-least-one, CTA, visibility).
-  const [contactForm, setContactForm] = useState<{
-    contactType: "individual" | "team_support";
-    firstName: string;
-    lastName: string;
-    title: string;
-    displayName: string;
-    email: string;
-    phone: string;
-    phoneExtension: string;
-    headshot: string;
-    headshotFileName: string;
-    teamImage: string;
-    teamImageFileName: string;
-    companyName: string;
-    companyLogo: string;
-    companyLogoFileName: string;
-    isPrimary: boolean;
-    enableContactButton: boolean;
-    ctaType: "schedule" | "call" | "email" | "contact";
-    schedulingUrl: string;
-    websiteUrl: string;
-    displayEmail: boolean;
-    displayPhone: boolean;
-  }>({
-    contactType: "individual",
-    firstName: "",
-    lastName: "",
-    title: "",
-    displayName: "",
-    email: "",
-    phone: "",
-    phoneExtension: "",
-    headshot: "",
-    headshotFileName: "",
-    teamImage: "",
-    teamImageFileName: "",
-    companyName: "",
-    companyLogo: "",
-    companyLogoFileName: "",
-    isPrimary: true,
-    enableContactButton: false,
-    ctaType: "schedule",
-    schedulingUrl: "",
-    websiteUrl: "",
-    // "Show on contact card" starts unchecked — adding an email/phone must not
-    // auto-enable these toggles.
-    displayEmail: false,
-    displayPhone: false,
-  });
-  // Validation errors for the Create New Contact modal (field names).
-  const [contactFormErrors, setContactFormErrors] = useState<string[]>([]);
-  // Refs for focusing the first invalid field on submit.
-  const firstNameRef = useRef<HTMLInputElement>(null);
-  const lastNameRef = useRef<HTMLInputElement>(null);
-  const titleRef = useRef<HTMLInputElement>(null);
-  const emailRef = useRef<HTMLInputElement>(null);
-  const phoneRef = useRef<HTMLInputElement>(null);
-  const companyNameRef = useRef<HTMLInputElement>(null);
-  const schedulingUrlRef = useRef<HTMLInputElement>(null);
-  const websiteUrlRef = useRef<HTMLInputElement>(null);
-
-  /** Update the contact form and optionally clear the given error fields. */
-  const updateContactForm = (
-    patch: Partial<typeof contactForm>,
-    clearErrors: string[] = [],
-  ) => {
-    setContactForm((prev) => ({ ...prev, ...patch }));
-    if (clearErrors.length > 0) {
-      setContactFormErrors((prev) =>
-        prev.filter((err) => !clearErrors.includes(err)),
-      );
-    }
-  };
-
-  /** The "Custom" benefit maps to the Company / Plan Sponsor hub — those contacts
-   *  are always primary and don't require a Company / Org or custom logo. */
-  const isPlanSponsorContact =
-    modalCategory === "Company / Plan Sponsor" ||
-    String(modalCategory) === "Custom";
 
   const currentStepData = stepData.step1 || {
     planId: "",
@@ -379,113 +301,39 @@ export function BenefitsStep1({
     setDraftDialogOpen(true);
   }, [isSelectedPlanDraft, resolvedPlanId, currentStepData.selectedPlan, plans]);
 
-  /** Plans recently selected across any module (via plan-selector-storage). */
-  const recentPlans = useMemo(() => {
-    if (plans.length === 0) return [];
-    const recentIds = getRecentPlanIds();
-    if (recentIds.length === 0) return [];
-    const planById = new Map(plans.map((p) => [p.id, p]));
-    const seen = new Set<string>();
-    const result: { id: string; companyName: string; isCurrent: boolean }[] =
-      [];
-    for (const id of recentIds) {
-      const plan = planById.get(id);
-      if (plan && !seen.has(id)) {
-        seen.add(id);
-        result.push({
-          id,
-          companyName: plan.companyName,
-          isCurrent: id === resolvedPlanId,
-        });
-      }
-    }
-    return result;
-  }, [plans, resolvedPlanId]);
-
-  // ── Plan search bar logic ──
-
-  /** All plans sorted: recents first, then alphabetical. */
-  const allPlansSorted = useMemo(() => {
-    const recentIdsFromStorage = getRecentPlanIds();
-    const recentSet = new Set(recentIdsFromStorage);
-    const recents: typeof plans = [];
-    const others: typeof plans = [];
-    for (const p of plans) {
-      if (recentSet.has(p.id)) recents.push(p);
-      else others.push(p);
-    }
-    others.sort((a, b) =>
-      a.companyName.localeCompare(b.companyName, undefined, {
-        sensitivity: "base",
-      }),
-    );
-    return [...recents, ...others];
-  }, [plans]);
-
-  const planSearchDropdownItems = useMemo(() => {
-    if (!planSearchQuery.trim()) return allPlansSorted;
-    const q = planSearchQuery.toLowerCase();
-    return allPlansSorted.filter((p) =>
-      p.companyName.toLowerCase().includes(q),
-    );
-  }, [planSearchQuery, allPlansSorted]);
-
   const selectedPlanName = useMemo(
     () => plans.find((p) => p.id === resolvedPlanId)?.companyName ?? "",
     [plans, resolvedPlanId],
   );
 
-  const selectPlan = (planId: string) => {
-    handlePlanChange(planId);
-    setPlanSearchOpen(false);
-    setPlanSearchQuery("");
-  };
+  /** Plan-Sponsor contacts show the plan's logo, not one uploaded per contact. */
+  const planCompanyLogo = useMemo(() => {
+    const raw = (currentStepData.selectedPlan as any)?.companyLogo;
+    return (raw?.url || (typeof raw === "string" ? raw : "")) || "";
+  }, [currentStepData.selectedPlan]);
 
-  const handlePlanSearchKeyDown = (e: React.KeyboardEvent) => {
-    if (!planSearchOpen) return;
-    if (e.key === "Escape") {
-      setPlanSearchOpen(false);
-      setPlanSearchQuery("");
-      return;
-    }
-    if (planSearchDropdownItems.length === 0) return;
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setPlanSearchHighlight(
-        (h) => (h + 1) % planSearchDropdownItems.length,
-      );
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setPlanSearchHighlight(
-        (h) =>
-          (h - 1 + planSearchDropdownItems.length) %
-          planSearchDropdownItems.length,
-      );
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      const item = planSearchDropdownItems[planSearchHighlight];
-      if (item) selectPlan(item.id);
-    }
-  };
+  /**
+   * "Acme Corp - Retirement" for the Create Benefit banner. Mirrors the page
+   * header's subtitle mapping, where the store keeps the Custom hub under
+   * "Company / Plan Sponsor".
+   */
+  const benefitBannerTarget = useMemo(() => {
+    const planName =
+      selectedPlanName ||
+      ((currentStepData.selectedPlan as { companyName?: string } | null)
+        ?.companyName ??
+        "");
+    const category =
+      currentStepData.benefitCategory === "Custom"
+        ? "Company / Plan Sponsor"
+        : currentStepData.benefitCategory;
+    return [planName, category].filter(Boolean).join(" - ");
+  }, [
+    selectedPlanName,
+    currentStepData.selectedPlan,
+    currentStepData.benefitCategory,
+  ]);
 
-  // Close on outside click
-  useEffect(() => {
-    if (!planSearchOpen) return;
-    const handler = (e: MouseEvent) => {
-      const t = e.target as Node;
-      if (planSearchContainerRef.current?.contains(t)) return;
-      if (planSearchDropdownRef.current?.contains(t)) return;
-      setPlanSearchOpen(false);
-      setPlanSearchQuery("");
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [planSearchOpen]);
-
-  // Reset highlight when items change
-  useEffect(() => {
-    setPlanSearchHighlight(0);
-  }, [planSearchDropdownItems.length, planSearchOpen]);
 
   // ── Error Validation Scroll-to ──
   // The benefits page's Next handler dispatches `benefitsStep1ValidationError`
@@ -704,7 +552,13 @@ export function BenefitsStep1({
 
     // Sync current wizard state to employeePortalPreview.benefits
     if (currentStepData.benefitCategory) {
-      const benefits = dbBenefits !== null ? dbBenefits : (merged.employeePortalPreview?.benefits || []);
+      // Always a copy: until the Benefit API responds this array belongs to `selectedPlan`
+      // (Zustand store / `/api/clients` picker data), and the push below used to mutate
+      // that shared array in place.
+      const benefits =
+        dbBenefits !== null
+          ? [...dbBenefits]
+          : [...(merged.employeePortalPreview?.benefits || [])];
       const canonicalCategory = normalizeBenefitsCategoryForCompleteness(
         currentStepData.benefitCategory,
       );
@@ -849,11 +703,23 @@ export function BenefitsStep1({
         const isEnabled =
           (currentStepData.benefitVisibility ?? {})[visKey] !== false;
 
+        // The logo and header may only be written once this category's pre-fill has
+        // settled. Before that they are simply not LOADED yet, so `|| null` would
+        // translate "not loaded" into a destructive clear of the stored values — how a
+        // logo could vanish from the row (and from the portal) merely by opening this
+        // page and editing an unrelated field. Omitting the keys leaves those columns
+        // untouched, because the PUT treats `undefined` as "unchanged".
+        const assetsLoaded = (
+          currentStepData.benefitFieldsLoadedCategories ?? []
+        ).includes(currentStepData.benefitCategory);
+
         const payload = {
           isEnabled,
           // Persist brand logo + description so they survive page refreshes
           // and are available whenever the wizard is re-entered.
-          partnerLogo: currentStepData.companyLogo?.url || null,
+          ...(assetsLoaded
+            ? { partnerLogo: currentStepData.companyLogo?.url || null }
+            : {}),
           shortDescription: currentStepData.shortDescription || null,
           insurancePlanId: currentStepData.insurancePlanId || "",
           insuranceLoginUrl: currentStepData.insuranceLoginUrl || "",
@@ -861,7 +727,9 @@ export function BenefitsStep1({
           insuranceContainerBlockOpacity: currentStepData.insuranceContainerBlockOpacity ?? 0.8,
           // Header background image (uploaded in the Branding section) — the
           // Benefit row stores this as `backgroundImage` (legacy: `image`).
-          backgroundImage: currentStepData.brandImages?.header?.url || null,
+          ...(assetsLoaded
+            ? { backgroundImage: currentStepData.brandImages?.header?.url || null }
+            : {}),
           // Plan video (uploaded in Step 2 Editor Panel). Must be included
           // so the dual-write doesn't wipe the video from employeePortalPreview.
           planVideo: currentStepData.planVideo || null,
@@ -898,6 +766,10 @@ export function BenefitsStep1({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
+        // This PUT writes the Benefit row and dual-writes
+        // `employeePortalPreview.benefits`, so both shared caches are stale from here.
+        invalidateClientCache(currentStepData.planId);
+        invalidateBenefitRowsCache(currentStepData.planId);
       } catch (error) {
         console.error("Auto-save error:", error);
       }
@@ -921,8 +793,13 @@ export function BenefitsStep1({
     async function fetchPlans() {
       try {
         // Include Draft — most in-progress setups are not Active yet; Archived stays out of the picker.
+        // `summary=1`: this picker needs only id/companyName/status (the full plan,
+        // including keyContacts, is fetched separately by the full-plan effect below).
+        // Without it the default response ships every plan's `keyContacts` + legacy
+        // `employeePortalPreview` mirror — measured at 8.3 MB / 6.6 s for a 7-plan
+        // account, because those fields carry base64 images.
         const response = await fetch(
-          "/api/clients?status=all&limit=500&sortColumn=companyName&sortDirection=asc",
+          "/api/clients?status=all&limit=500&sortColumn=companyName&sortDirection=asc&summary=1",
           { credentials: "same-origin", cache: "no-store" },
         );
         const result = await response.json().catch(() => ({}));
@@ -996,26 +873,32 @@ export function BenefitsStep1({
 
   // Portal deep link sets planId + benefitCategory before `selectedPlan` exists — fetch full client so
   // completeness, contacts, and merged preview data work without re-picking the plan in the dropdown.
-  // Guarded so React StrictMode (dev double-invoke) doesn't fetch the same client twice.
+  //
+  // Deliberately NOT gated on `plans.length`: that serialised this request behind the picker fetch, so
+  // the plan only started loading after the picker resolved (measured ~2.5 s each on a remote cluster).
+  //
+  // No cleanup/`cancelled` flag. React StrictMode's double-invoke flipped it to true while the single
+  // in-flight response was still arriving, discarding the result permanently — and the ref, already
+  // stamped, blocked any retry. Correctness comes from the store check below (drop the response when
+  // the store's planId has moved on) and the ref is cleared on failure so a retry can happen.
   const fullPlanFetchRef = useRef<string | null>(null);
   useEffect(() => {
     const planId = currentStepData.planId;
-    if (!planId?.trim() || plans.length === 0) return;
+    if (!planId?.trim()) return;
     if (currentStepData.selectedPlan?.id === planId) return;
     if (fullPlanFetchRef.current === planId) return;
+    // Stamped before the request so StrictMode's second invoke cannot start a duplicate.
     fullPlanFetchRef.current = planId;
 
-    let cancelled = false;
     (async () => {
       try {
-        const response = await fetch(`/api/clients/${planId}`);
-        const result = await response.json();
-        if (cancelled) return;
+        // Shared single-flight cache (lib/fetch-client): Steps 2/3/5 and the publish all
+        // read this same row, so none of them needs its own copy.
+        const fullPlan = await fetchClientOnce(planId);
         const latest = useBenefitsWizardStore.getState().stepData.step1;
         if (!latest?.planId || latest.planId !== planId) return;
 
-        if (result.success && result.data) {
-          const fullPlan = result.data;
+        if (fullPlan) {
           let convertedDocs: any[] = [];
           if (fullPlan.documents && Array.isArray(fullPlan.documents)) {
             convertedDocs = await Promise.all(
@@ -1125,24 +1008,23 @@ export function BenefitsStep1({
           });
         } else {
           const plan = plans.find((p: any) => p.id === planId);
-          if (plan && !cancelled) {
+          if (plan) {
             const latest2 = useBenefitsWizardStore.getState().stepData.step1;
+            if (latest2?.planId !== planId) return;
             saveStepData(1, { ...latest2, planId, selectedPlan: plan });
           }
         }
       } catch {
-        if (cancelled) return;
+        // Let a later run retry (e.g. once the picker list has arrived).
+        fullPlanFetchRef.current = null;
         const plan = plans.find((p: any) => p.id === planId);
         if (plan) {
           const latest3 = useBenefitsWizardStore.getState().stepData.step1;
+          if (latest3?.planId !== planId) return;
           saveStepData(1, { ...latest3, planId, selectedPlan: plan });
         }
       }
     })();
-
-    return () => {
-      cancelled = true;
-    };
   }, [
     currentStepData.planId,
     currentStepData.selectedPlan?.id,
@@ -1159,6 +1041,7 @@ export function BenefitsStep1({
   const benefitApiLoadedPlanRef = useRef<string | null>(null);
   const normalizeApiCategory = (raw: string) =>
     (raw || "").toLowerCase().trim().replace(/\s+/g, " ");
+
 
   /** Resolve the client/plan company name (Company / Plan Sponsor name) from the
    *  selected plan, falling back to the plans list by planId so it populates even
@@ -1228,13 +1111,33 @@ export function BenefitsStep1({
     if (benefitApiLoadedPlanRef.current === planId) return;
     benefitApiLoadedPlanRef.current = planId;
 
-    let cancelled = false;
-    (async () => {
+    // Drop the PREVIOUS plan's Benefit-table snapshot before fetching this one.
+    // The category / support-contact pre-fill below treats any non-undefined
+    // snapshot as authoritative for the current planId, so a leftover snapshot
+    // would pre-fill another plan's contacts and stamp them as this plan's draft.
+    const preFetchStep1 = useBenefitsWizardStore.getState().stepData.step1;
+    if (preFetchStep1 && preFetchStep1.categoryBenefitByApi !== undefined) {
+      saveStepData(1, { ...preFetchStep1, categoryBenefitByApi: undefined });
+    }
+
+    // NOTE: the write is deliberately NOT gated on an effect-cleanup flag. React
+    // StrictMode double-invokes this effect on mount: invoke #1 starts the fetch,
+    // the cleanup sets the flag, and invoke #2 returns immediately because the ref
+    // is already stamped — so a `cancelled`-gated write would throw away the only
+    // response that will ever arrive and leave `categoryBenefitByApi` undefined
+    // forever. Correctness is already guaranteed by the `latest.planId !== planId`
+    // check below (a stale response for another plan is dropped), and the ref is
+    // only stamped on SUCCESS so a failed/raced attempt can still retry.
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const load = async (attempt: number) => {
       try {
-        const res = await fetch(`/api/clients/${planId}/benefits`);
-        const data = await res.json();
-        if (cancelled || !data?.success) return;
-        const rows: any[] = Array.isArray(data.benefits) ? data.benefits : [];
+        // Shared single-flight cache (lib/fetch-client). This was the only UNCACHED
+        // read on the Edit Benefit page: Radix unmounts an inactive tab's content, so
+        // every tab switch destroyed and recreated Step 1 (and with it the per-mount
+        // `benefitApiLoadedPlanRef` guard) and re-issued this request.
+        const rows = await fetchBenefitRowsOnce(planId);
+        if (!rows) throw new Error("benefits fetch failed");
         const byCategory: Record<string, any | null> = {};
         for (const row of rows) {
           const key = normalizeApiCategory(String(row?.category ?? ""));
@@ -1243,12 +1146,21 @@ export function BenefitsStep1({
         const latest = useBenefitsWizardStore.getState().stepData.step1;
         if (!latest || latest.planId !== planId) return;
         saveStepData(1, { ...latest, categoryBenefitByApi: byCategory });
+        // Mark this plan as loaded only once the snapshot is actually in the store.
+        benefitApiLoadedPlanRef.current = planId;
       } catch (err) {
         console.error("Failed to load Benefit rows:", err);
+        // One bounded retry: a transient failure must not leave the snapshot
+        // undefined for the rest of the session.
+        if (attempt < 2) {
+          retryTimer = setTimeout(() => void load(attempt + 1), 800);
+        }
       }
-    })();
+    };
+    void load(0);
+
     return () => {
-      cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
     };
   }, [currentStepData.planId, saveStepData]);
 
@@ -1277,7 +1189,14 @@ export function BenefitsStep1({
     }
 
     const loadedCats = latest?.supportContactsLoadedCategories ?? [];
-    if (loadedCats.includes(cat)) return;
+    // `loadedCats` alone is not enough: switching plans keeps the same category
+    // NAMES, so a category already loaded under a DIFFERENT plan must be
+    // re-resolved against this plan's own Benefit row. This is the cross-plan
+    // bleed guard — without it the previous plan's contacts would be saved onto
+    // this plan's benefit row.
+    if (latest?.supportContactsPlanId === planId && loadedCats.includes(cat)) {
+      return;
+    }
     // Wait for the Benefit-table fetch to settle before deciding what to pre-fill.
     if (currentStepData.categoryBenefitByApi === undefined) return;
 
@@ -1353,7 +1272,6 @@ export function BenefitsStep1({
     if (!cat) return;
 
     const loadedCats = currentStepData.benefitFieldsLoadedCategories ?? [];
-    if (loadedCats.includes(cat)) return;
     // Wait for the Benefit-table fetch AND the user profile to resolve so the pre-fill decision
     // (including the User-profile logo/header fallback) is final.
     if (currentStepData.categoryBenefitByApi === undefined) return;
@@ -1362,6 +1280,20 @@ export function BenefitsStep1({
     const apiCat = cat === "Custom" ? "Company / Plan Sponsor" : cat;
     const benefit =
       currentStepData.categoryBenefitByApi[normalizeApiCategory(apiCat)] ?? null;
+
+    // The row's own assets, and whether the draft is missing either of them. Adopting
+    // the row's value when the draft holds none is always safe — there is nothing to
+    // clobber — and it heals the case where this category was already marked as loaded
+    // by a pass (or a previous session) that ran before the row arrived. That is how
+    // Branding could sit blank beside a COMPLETED badge: the badge is read from the
+    // merged row, while these controls render `companyLogo` / `brandImages` only.
+    const rowLogo = benefit?.partnerLogo || null;
+    const rowHeader = benefit?.backgroundImage || benefit?.image || null;
+    const draftHasLogo = !!currentStepData.companyLogo?.url;
+    const draftHasHeader = !!currentStepData.brandImages?.header?.url;
+    const healingRowAssets =
+      (!draftHasLogo && !!rowLogo) || (!draftHasHeader && !!rowHeader);
+    if (loadedCats.includes(cat) && !healingRowAssets) return;
 
     // User-profile defaults for the advisor's primary service categories.
     const profile = (profileData as any) || {};
@@ -1415,9 +1347,14 @@ export function BenefitsStep1({
     // advisor's profile logo (or nulled it for a category with no Benefit row), so a
     // freshly saved logo reverted to the previous image mid-edit. An org-logo change
     // still wins over such an edit — the advisor asked for it to propagate.
-    const logoEditedLocally = (
-      currentStepData.benefitLogoEditedCategories ?? []
-    ).includes(cat);
+    //
+    // The flag lives in the persisted draft, so it can outlive the session that set
+    // it. It is therefore only honoured while the draft actually HOLDS a logo: with
+    // an empty draft there is nothing to protect, and suppressing the pre-fill is
+    // what left Branding blank for a row that has a logo.
+    const logoEditedLocally =
+      (currentStepData.benefitLogoEditedCategories ?? []).includes(cat) &&
+      draftHasLogo;
 
     const next: BenefitsStep1Data = {
       ...currentStepData,
@@ -1506,6 +1443,10 @@ export function BenefitsStep1({
       };
     }
 
+    // Provider / recordkeeper for THIS category — read from its own Benefit row so
+    // the editor shows the saved provider and a later save cannot clear it.
+    next.providerContact = benefit?.providerContact ?? null;
+
     saveStepData(1, next);
   }, [currentStepData.benefitCategory, currentStepData.categoryBenefitByApi, profileData, saveStepData]);
 
@@ -1576,9 +1517,13 @@ export function BenefitsStep1({
 
   useEffect(() => {
     if (currentStepData.planId) {
-      // First, check if the store already has a selectedPlan with contacts (might be local unsaved ones)
+      // The store's `selectedPlan` is the only source of contacts. There used to be a
+      // fallback to `plans.find(...).keyContacts`, but that list is now requested with
+      // `summary=1` (it ships no keyContacts), and the authoritative full plan —
+      // including keyContacts — is written to `selectedPlan` by the full-plan effect
+      // above. `selectedPlan` is a dependency of this effect so it re-runs when that
+      // lands; without that dependency the contact list would have stayed empty.
       const storePlan = currentStepData.selectedPlan;
-      const apiPlan = plans.find((p) => p.id === currentStepData.planId);
 
       let contactsToSet: KeyContact[] = [];
 
@@ -1587,11 +1532,6 @@ export function BenefitsStep1({
         contactsToSet = Array.isArray(storePlan.keyContacts)
           ? storePlan.keyContacts
           : storePlan.keyContacts?.contacts || [];
-      } else if (apiPlan && apiPlan.keyContacts) {
-        // Fallback to API plan contacts
-        contactsToSet = Array.isArray(apiPlan.keyContacts)
-          ? apiPlan.keyContacts
-          : apiPlan.keyContacts.contacts || [];
       }
 
       // Ensure the advisor (User) is available as a Key Contact for EVERY primary service
@@ -1625,7 +1565,15 @@ export function BenefitsStep1({
     } else {
       setSelectedPlanContacts([]);
     }
-  }, [currentStepData.planId, plans, currentStepData.benefitCategory, profileData]);
+    // `selectedPlan` matters: the full-plan fetch writes it (with keyContacts) after
+    // this effect first runs, and without it here the contacts would never populate.
+  }, [
+    currentStepData.planId,
+    currentStepData.selectedPlan,
+    plans,
+    currentStepData.benefitCategory,
+    profileData,
+  ]);
 
   const prefillContact = (
     category: string,
@@ -1792,271 +1740,124 @@ export function BenefitsStep1({
   // Deep link / resume guard: when the benefits snapshot first loads, if the
   // already-selected category has a Benefit row, offer Edit-or-Overwrite rather
   // than silently continuing in the wizard.
+  //
+  // This is a CREATE-wizard guard only. It exists because the wizard would
+  // prefill-and-upsert a category that already has a row, which the advisor never
+  // asked for. On the Edit Benefit page the row's existence is the reason the page
+  // was opened, so prompting "… benefits already exist" with an "Edit existing
+  // benefit" button that navigates to the page you are already on is nonsense —
+  // skip it entirely in edit mode.
   useEffect(() => {
+    if (isEditMode) return;
     if (deepLinkGuardRef.current) return;
-    if (currentStepData.categoryBenefitByApi === undefined) return;
+    // Read the LIVE store rather than this render's `currentStepData`.
+    //
+    // The Benefit-rows effect above CLEARS `categoryBenefitByApi` in the same commit
+    // (before re-fetching it for the current plan), but a value captured in this
+    // effect's closure is the pre-clear one. The store is a module singleton, so it
+    // survives a client-side route change — after "Delete benefit → /benefits → Add"
+    // that stale snapshot still held the deleted row, which is how a benefit that no
+    // longer exists could raise "… benefits already exist" here. Reading through
+    // `getState()` means only a snapshot that survived the clear (i.e. one actually
+    // fetched for the current plan) can trigger the prompt.
+    const live = useBenefitsWizardStore.getState().stepData.step1;
+    if (!live?.planId) return;
+    if (live.categoryBenefitByApi === undefined) return;
     deepLinkGuardRef.current = true;
-    const cat = currentStepData.benefitCategory;
+    const cat = live.benefitCategory;
     if (!cat) return;
     const dbCat = cat === "Custom" ? "Company / Plan Sponsor" : cat;
-    const row = currentStepData.categoryBenefitByApi[normalizeApiCategory(dbCat)];
+    const row = live.categoryBenefitByApi[normalizeApiCategory(dbCat)];
     if (!row) return;
     setOverwritePrompt({
       categoryId: cat,
       label: CATEGORY_CARDS.find((c) => c.id === cat)?.label ?? cat,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStepData.categoryBenefitByApi, currentStepData.benefitCategory]);
+  }, [isEditMode, currentStepData.categoryBenefitByApi, currentStepData.benefitCategory]);
 
+  /**
+   * Open the shared contact editor (see `BenefitContactDialog`) for `category`.
+   *
+   * The dialog owns the form, its validation, the "Topic of Interest" builder and
+   * the Company / Organization prefill, so there is nothing to seed here - it is
+   * the very same component the Edit Benefit Contacts tab opens, which is what
+   * keeps the two from drifting apart.
+   */
   const handleCreateContact = (category: BenefitsCategory) => {
     setModalCategory(category);
-    setContactForm({
-      contactType: "individual",
-      firstName: "",
-      lastName: "",
-      title: "",
-      displayName: "",
-      email: "",
-      phone: "",
-      phoneExtension: "",
-      headshot: "",
-      headshotFileName: "",
-      teamImage: "",
-      teamImageFileName: "",
-      companyName: "",
-      companyLogo: "",
-      companyLogoFileName: "",
-      isPrimary: true,
-      enableContactButton: false,
-      ctaType: "schedule",
-      schedulingUrl: "",
-      websiteUrl: "",
-      // "Show on contact card" starts unchecked (no auto-enable on email/phone).
-      displayEmail: false,
-      displayPhone: false,
-    });
-    setContactFormErrors([]);
     setIsFormDialogOpen(true);
   };
 
-  const handleFormSubmit = () => {
-    const {
-      contactType,
-      firstName,
-      lastName,
-      title,
-      displayName,
-      email,
-      phone,
-      companyName,
-    } = contactForm;
-
-    // ── Validation (mirrors the new-client ContactFormSlide) ──
-    const errors: string[] = [];
-
-    if (contactType === "individual") {
-      if (!firstName.trim()) errors.push("firstName");
-      if (!lastName.trim()) errors.push("lastName");
-      if (!title.trim()) errors.push("title");
-    } else {
-      if (!displayName.trim()) errors.push("displayName");
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const phoneDigits = (phone || "").replace(/\D/g, "");
-    const emailValid = emailRegex.test((email || "").trim());
-    const phoneValid = phoneDigits.length >= 10;
-
-    // Validate format only when a value is provided
-    if ((phone || "").trim() && !phoneValid) errors.push("phone");
-    if ((email || "").trim() && !emailValid) errors.push("email");
-
-    // At least one of Phone or Email is required — the user can choose either
-    // contact method (or provide both), instead of one specific field.
-    if (!phoneValid && !emailValid) {
-      if (!phoneValid) errors.push("phone");
-      if (!emailValid) errors.push("email");
-    }
-
-    // Company / Organization is required for non-Plan-Sponsor contacts
-    if (!isPlanSponsorContact && !companyName.trim()) {
-      errors.push("companyName");
-    }
-
-    // CTA required URLs
-    if (
-      contactForm.enableContactButton &&
-      contactForm.ctaType === "schedule" &&
-      !contactForm.schedulingUrl.trim()
-    ) {
-      errors.push("schedulingUrl");
-    }
-    if (
-      contactForm.enableContactButton &&
-      contactForm.ctaType === "contact" &&
-      !contactForm.websiteUrl.trim()
-    ) {
-      errors.push("websiteUrl");
-    }
-
-    if (errors.length > 0) {
-      setContactFormErrors(errors);
-      const refMap: Record<
-        string,
-        React.RefObject<HTMLInputElement | null>
-      > = {
-        firstName: firstNameRef,
-        lastName: lastNameRef,
-        title: titleRef,
-        email: emailRef,
-        phone: phoneRef,
-        companyName: companyNameRef,
-        schedulingUrl: schedulingUrlRef,
-        websiteUrl: websiteUrlRef,
-      };
-      refMap[errors[0]]?.current?.focus();
-      toast.error("Please fill out all required fields");
-      return;
-    }
-    setContactFormErrors([]);
-
-    const shouldBePrimary =
-      isPlanSponsorContact || contactForm.isPrimary === true;
-
-    // ── Create the contact object ──
-    const newContact: KeyContact = {
-      id: `new-contact-${Date.now()}`,
-      contactType,
-      firstName: contactType === "individual" ? firstName : undefined,
-      lastName: contactType === "individual" ? lastName : undefined,
-      title: contactType === "individual" ? title : undefined,
-      displayName: contactType === "team_support" ? displayName : undefined,
-      email,
-      phone,
-      phoneExtension: contactForm.phoneExtension,
-      headshot:
-        contactType === "individual"
-          ? contactForm.headshot || undefined
-          : undefined,
-      headshotFileName:
-        contactType === "individual"
-          ? contactForm.headshotFileName || undefined
-          : undefined,
-      teamImage:
-        contactType === "team_support"
-          ? contactForm.teamImage || undefined
-          : undefined,
-      teamImageFileName:
-        contactType === "team_support"
-          ? contactForm.teamImageFileName || undefined
-          : undefined,
-      companyName: companyName || "",
-      companyLogo:
-        !isPlanSponsorContact && contactForm.companyLogo
-          ? contactForm.companyLogo
-          : undefined,
-      benefitsCategory: modalCategory as BenefitsCategory,
-      benefitsCategories: [modalCategory as BenefitsCategory],
-      showOnPortal: true,
-      isPrimary: shouldBePrimary,
-      isPrimaryOverall: shouldBePrimary,
-      isPrimaryByCategory: {
-        [modalCategory as string]: shouldBePrimary,
-      } as any,
-      name:
-        contactType === "individual"
-          ? `${firstName} ${lastName}`.trim()
-          : displayName,
-      displayEmail: contactForm.displayEmail,
-      displayPhone: contactForm.displayPhone,
-      displayUrl: contactForm.enableContactButton
-        ? contactForm.ctaType === "contact"
-        : false,
-      displayScheduleAppointment: contactForm.enableContactButton
-        ? contactForm.ctaType === "schedule"
-        : false,
-      enableContactButton: contactForm.enableContactButton,
-      contactButtonType: contactForm.enableContactButton
-        ? ((contactForm.ctaType === "schedule"
-            ? "calendar"
-            : contactForm.ctaType === "call"
-              ? "phone"
-              : contactForm.ctaType === "email"
-                ? "email"
-                : "url") as "calendar" | "phone" | "email" | "url")
-        : undefined,
-      schedulingUrl:
-        contactForm.enableContactButton &&
-        contactForm.ctaType === "schedule"
-          ? contactForm.schedulingUrl || undefined
-          : undefined,
-      websiteUrl:
-        contactForm.enableContactButton && contactForm.ctaType === "contact"
-          ? contactForm.websiteUrl || undefined
-          : undefined,
-    };
-
-    // Add to local state
-    const updatedContacts = [...selectedPlanContacts, newContact];
-    setSelectedPlanContacts(updatedContacts);
+  /**
+   * Persist a contact the shared editor produced.
+   *
+   * Unlike the Contacts tab - which writes straight to the plan, because
+   * `saveBenefit` merges `keyContacts` starting FROM the stored rows - the wizard
+   * defers to its own save, so all this needs to do is put the new contact where
+   * that save reads it: the local list, the `keyContacts` of the selected plan in
+   * step 1, and (when the contact brought a headshot) the step thumbnail.
+   */
+  const handleContactSubmitted = (newContact: KeyContact) => {
+    setSelectedPlanContacts((prev) => [...prev, newContact]);
 
     // Update selected plan in store to include this contact
     const currentPlan =
       currentStepData.selectedPlan ||
       plans.find((p) => p.id === currentStepData.planId);
 
-    if (currentPlan) {
-      const updatedPlan = {
-        ...currentPlan,
-        keyContacts: Array.isArray(currentPlan.keyContacts)
-          ? [...currentPlan.keyContacts, newContact]
-          : {
-              ...(currentPlan.keyContacts || {}),
-              contacts: [
-                ...((currentPlan.keyContacts as any)?.contacts || []),
-                newContact,
-              ],
-            },
-      };
-
-      const updatedData = {
-        ...currentStepData,
-        selectedPlan: updatedPlan,
-        contactId: newContact.id,
-      };
-
-      // If new contact has a headshot, set it as the thumbnail for the step
-      if (newContact.headshot) {
-        updatedData.brandImages = {
-          ...(updatedData.brandImages || {
-            header: null,
-            thumbnail: null,
-            secondaryBanner: null,
-            favicon: null,
-          }),
-          thumbnail: {
-            url: newContact.headshot,
-            fileName: contactForm.headshotFileName || "contact-photo.png",
-            fileSize: 0,
-            width: 0,
-            height: 0,
-            recommendedSize: "900 px—900 px",
-            status: "ok",
-            warnings: [],
-          },
-        };
-      }
-
-      saveStepData(1, updatedData);
-    } else {
+    if (!currentPlan) {
       // Fallback if no plan is selected/found
       saveStepData(1, {
         ...currentStepData,
         contactId: newContact.id,
       });
+      toast.success("Contact created");
+      return;
     }
 
-    setIsFormDialogOpen(false);
+    const updatedPlan = {
+      ...currentPlan,
+      keyContacts: Array.isArray(currentPlan.keyContacts)
+        ? [...currentPlan.keyContacts, newContact]
+        : {
+            ...(currentPlan.keyContacts || {}),
+            contacts: [
+              ...((currentPlan.keyContacts as any)?.contacts || []),
+              newContact,
+            ],
+          },
+    };
+
+    const updatedData = {
+      ...currentStepData,
+      selectedPlan: updatedPlan,
+      contactId: newContact.id,
+    };
+
+    // If new contact has a headshot, set it as the thumbnail for the step
+    if (newContact.headshot) {
+      updatedData.brandImages = {
+        ...(updatedData.brandImages || {
+          header: null,
+          thumbnail: null,
+          secondaryBanner: null,
+          favicon: null,
+        }),
+        thumbnail: {
+          url: newContact.headshot,
+          fileName: newContact.headshotFileName || "contact-photo.png",
+          fileSize: 0,
+          width: 0,
+          height: 0,
+          recommendedSize: "900 px-900 px",
+          status: "ok",
+          warnings: [],
+        },
+      };
+    }
+
+    saveStepData(1, updatedData);
     toast.success("Contact created");
   };
 
@@ -2382,6 +2183,9 @@ export function BenefitsStep1({
       planVideo: existingBenefit?.planVideo || undefined,
       planVideoFileName: existingBenefit?.planVideoFileName || undefined,
       planVideoRemoved: false,
+      // Provider / recordkeeper comes from THIS category's own Benefit row (or is
+      // cleared), so switching categories never carries another provider over.
+      providerContact: existingBenefit?.providerContact ?? null,
       // Remember the org logo this draft was built from so a later change in Settings
       // is detected here instead of only on a fresh mount.
       orgLogoSnapshot: userLogo ?? currentStepData.orgLogoSnapshot,
@@ -2701,11 +2505,8 @@ export function BenefitsStep1({
       <div className="space-y-6 w-full mx-auto pb-20">
         <div className="border border-gray-200 shadow-sm bg-card dark:bg-gray-800 dark:border-gray-700 rounded-xl p-6">
           <div className="space-y-3">
-            <Skeleton className="h-4 w-24" />
-            <div className="relative">
-              <Skeleton className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 rounded" />
-              <Skeleton className="h-9 w-full rounded-md" />
-            </div>
+            <Skeleton className="h-5 w-72" />
+            <Skeleton className="h-4 w-56" />
           </div>
         </div>
       </div>
@@ -2718,18 +2519,23 @@ export function BenefitsStep1({
       {!isEditMode && (
       <Card className="border border-gray-200 shadow-sm bg-card dark:bg-gray-800 dark:border-gray-700">
         <CardHeader className="pb-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <CardTitle className="text-lg text-gray-900 font-bold dark:text-gray-100">
-                  Plan & Benefit Selection
-                </CardTitle>
-              </div>
+          <div className="flex items-center justify-between gap-4">
+            {/* Banner — the plan + category are chosen on Browse Benefits and
+                arrive via `?planId&category`, so the wizard states the target
+                instead of offering plan/category pickers. */}
+            <div className="min-w-0">
+              <CardTitle className="text-lg text-gray-900 font-bold dark:text-gray-100 truncate">
+                {resolvedPlanId
+                  ? `Creating a new benefit for ${benefitBannerTarget}`
+                  : "No plan selected"}
+              </CardTitle>
               <CardDescription className="text-sm text-gray-600 text-muted-foreground">
-                Choose which plan and benefit category you want to configure.
+                {resolvedPlanId
+                  ? "The plan and benefit category come from the Benefits page — continue below to configure this benefit."
+                  : "Open Browse Benefits and use Add on a plan row to create a benefit for it."}
               </CardDescription>
             </div>
-            {resolvedPlanId && (
+            {resolvedPlanId ? (
               <Button
                 variant="outline"
                 size="sm"
@@ -2745,169 +2551,19 @@ export function BenefitsStep1({
                 <ExternalLink className="h-4 w-4" />
                 Open Portal
               </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push("/benefits")}
+                className="gap-1.5 shrink-0"
+              >
+                Choose a plan
+              </Button>
             )}
           </div>
         </CardHeader>
         <CardContent className="space-y-5">
-          {/* Plan Selector */}
-          <div className="space-y-2" data-field="planId">
-            {/* Plan search input */}
-            <div ref={planSearchContainerRef} className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-              <Input
-                ref={planSearchInputRef}
-                type="text"
-                placeholder="Search for a plan"
-                value={planSearchQuery}
-                onChange={(e) => {
-                  if (!planSearchOpen) setPlanSearchOpen(true);
-                  setPlanSearchQuery(e.target.value);
-                }}
-                onFocus={() => setPlanSearchOpen(true)}
-                onKeyDown={handlePlanSearchKeyDown}
-                destructive={isFieldInvalid("planId")}
-                className={cn(
-                  "h-10 pl-9 pr-3 bg-white dark:bg-gray-700 dark:border-gray-600",
-                  isFieldInvalid("planId") &&
-                    "border-red-500 dark:border-red-500",
-                )}
-                aria-label="Search plans"
-                aria-expanded={planSearchOpen}
-                aria-haspopup="listbox"
-                autoComplete="off"
-              />
-            </div>
-
-            {/* Recent Plans quick-select chips */}
-            {recentPlans.length > 0 && !loading && (
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <Clock className="size-3 text-gray-400 shrink-0" />
-                {recentPlans.map((rp) => (
-                  <button
-                    key={rp.id}
-                    type="button"
-                    onClick={() => handlePlanChange(rp.id)}
-                    className={cn(
-                      "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all border",
-                      rp.isCurrent
-                        ? "bg-[#23919C]/10 text-[#23919C] border-[#23919C]/30"
-                        : "bg-gray-50 text-gray-600 border-gray-200 hover:border-[#23919C]/40 hover:text-[#23919C] dark:bg-gray-700 text-muted-foreground dark:border-gray-600 dark:hover:border-[#23919C]/50",
-                    )}
-                  >
-                    {rp.companyName}
-                  </button>
-                ))}
-              </div>
-            )}
-            {plans.length === 0 && !loading ? (
-              <p className="text-sm text-muted-foreground pt-1">
-                No plans found for your account yet. Create a client plan first
-                from the dashboard, then refresh this page.
-              </p>
-            ) : null}
-
-            {/* Dropdown portal */}
-            {planSearchOpen && plans.length > 0 && typeof document !== "undefined"
-              ? createPortal(
-                  <div
-                    ref={planSearchDropdownRef}
-                    role="listbox"
-                    className="rounded-md border border-input bg-white dark:bg-gray-800 shadow-lg overflow-hidden z-50"
-                    style={{
-                      position: "fixed",
-                      top: (planSearchContainerRef.current?.getBoundingClientRect().bottom ?? 0) + 4,
-                      left: planSearchContainerRef.current?.getBoundingClientRect().left ?? 0,
-                      width: planSearchContainerRef.current?.getBoundingClientRect().width ?? 300,
-                      maxHeight: 288,
-                    }}
-                  >
-                    {planSearchQuery.trim() && (
-                      <div className="px-3 py-1.5 border-b border-border/60">
-                        <p className="text-xs text-muted-foreground">
-                          {planSearchDropdownItems.length} plan{planSearchDropdownItems.length !== 1 ? "s" : ""} found
-                        </p>
-                      </div>
-                    )}
-                    <div className="overflow-y-auto max-h-[256px] py-1">
-                      {planSearchDropdownItems.length > 0 && (
-                        <>
-                          {/* Recent plans section */}
-                          {recentPlans.length > 0 && (
-                            <div className="px-2 pb-1">
-                              <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground px-2 py-1.5">
-                                <Clock className="h-3 w-3" />
-                                Recent
-                              </div>
-                              {planSearchDropdownItems
-                                .filter((p) => recentPlans.some((rp) => rp.id === p.id))
-                                .map((plan, idx) => {
-                                  const isHi = planSearchHighlight === idx;
-                                  return (
-                                    <button
-                                      key={`r-${plan.id}`}
-                                      type="button"
-                                      role="option"
-                                      aria-selected={resolvedPlanId === plan.id}
-                                      className={cn(
-                                        "w-full rounded-sm px-3 py-2 text-left text-sm transition-colors",
-                                        isHi && "bg-accent-blue/10 text-accent-blue font-medium",
-                                        !isHi && "hover:bg-muted",
-                                      )}
-                                      onClick={() => selectPlan(plan.id)}
-                                      onMouseEnter={() => setPlanSearchHighlight(idx)}
-                                    >
-                                      {plan.companyName}
-                                    </button>
-                                  );
-                                })}
-                            </div>
-                          )}
-                          {/* All other plans */}
-                          {planSearchDropdownItems.length > (recentPlans.length > 0 ? recentPlans.length : 0) && (
-                            <div className={cn("px-2", recentPlans.length > 0 && "pt-1 border-t border-border/60")}>
-                              <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground px-2 py-1.5">
-                                {planSearchQuery.trim() ? "Matching plans" : "All plans"}
-                              </div>
-                              {planSearchDropdownItems
-                                .filter((p) => !recentPlans.some((rp) => rp.id === p.id))
-                                .map((plan, idx) => {
-                                  const globalIdx = (planSearchDropdownItems.filter((p) => recentPlans.some((rp) => rp.id === p.id))).length + idx;
-                                  const isHi = planSearchHighlight === globalIdx;
-                                  return (
-                                    <button
-                                      key={plan.id}
-                                      type="button"
-                                      role="option"
-                                      aria-selected={resolvedPlanId === plan.id}
-                                      className={cn(
-                                        "w-full rounded-sm px-3 py-2 text-left text-sm transition-colors",
-                                        isHi && "bg-accent-blue/10 text-accent-blue font-medium",
-                                        !isHi && "hover:bg-muted",
-                                      )}
-                                      onClick={() => selectPlan(plan.id)}
-                                      onMouseEnter={() => setPlanSearchHighlight(globalIdx)}
-                                    >
-                                      {plan.companyName}
-                                    </button>
-                                  );
-                                })}
-                            </div>
-                          )}
-                        </>
-                      )}
-                      {planSearchDropdownItems.length === 0 && (
-                        <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-                          {planSearchQuery.trim()
-                            ? "No plans match your search."
-                            : "No plans available."}
-                        </div>
-                      )}
-                    </div>
-                  </div>,
-                  document.body,
-                )
-              : null}
-          </div>
 
           {/* Benefit Category Cards */}
           {resolvedPlanId && (
@@ -2919,91 +2575,99 @@ export function BenefitsStep1({
               )}
               data-field="benefitCategory"
             >
-              <Label className="text-sm font-semibold text-gray-700 dark:text-gray-100">
-                Benefit Category <span className="text-red-500">*</span>
-              </Label>
+              {/* Hidden when the category is pinned by the deep link — the Browse
+                  Benefits per-row "+ Add" passes `?planId&category`, so re-picking
+                  it here would be redundant. Entry points that arrive with only a
+                  plan keep the picker so a category can still be chosen. */}
+              {!hideCategoryPicker && (
+                <>
+                  <Label className="text-sm font-semibold text-gray-700 dark:text-gray-100">
+                    Benefit Category <span className="text-red-500">*</span>
+                  </Label>
 
-              {planLoading ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-gray-200 dark:border-gray-600">
-                      <Skeleton className="size-12 rounded-full" />
-                      <Skeleton className="h-4 w-20" />
-                      <Skeleton className="h-4 w-16 rounded-full" />
+                  {planLoading ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      {[1, 2, 3, 4].map((i) => (
+                        <div key={i} className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-gray-200 dark:border-gray-600">
+                          <Skeleton className="size-12 rounded-full" />
+                          <Skeleton className="h-4 w-20" />
+                          <Skeleton className="h-4 w-16 rounded-full" />
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {CATEGORY_CARDS.map((cat) => {
-                    const status = getCategoryStatus(cat.id);
-                    const exists = !!status?.exists;
-                    const complete = !!status?.isComplete;
-                    const state: BenefitCategoryCardState = !exists
-                      ? "not-created"
-                      : complete
-                        ? status!.isEnabled
-                          ? "published"
-                          : "hidden"
-                        : "draft";
-                    // "Custom" is stored (and deep-linked) as "Company / Plan Sponsor".
-                    const dbCategory =
-                      cat.id === "Custom" ? "Company / Plan Sponsor" : cat.id;
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      {CATEGORY_CARDS.map((cat) => {
+                        const status = getCategoryStatus(cat.id);
+                        const exists = !!status?.exists;
+                        const complete = !!status?.isComplete;
+                        const state: BenefitCategoryCardState = !exists
+                          ? "not-created"
+                          : complete
+                            ? status!.isEnabled
+                              ? "published"
+                              : "hidden"
+                            : "draft";
+                        // "Custom" is stored (and deep-linked) as "Company / Plan Sponsor".
+                        const dbCategory =
+                          cat.id === "Custom" ? "Company / Plan Sponsor" : cat.id;
 
-                    const editAction = () => openEditBenefit(dbCategory);
-                    const wizardAction = () => handleCategoryChange(cat.id);
+                        const editAction = () => openEditBenefit(dbCategory);
+                        const wizardAction = () => handleCategoryChange(cat.id);
 
-                    return (
-                      <BenefitCategoryCard
-                        key={cat.id}
-                        label={cat.label}
-                        icon={cat.icon}
-                        state={state}
-                        isSelected={isCategoryActive(cat.id)}
-                        missingCount={status?.missing?.length ?? 0}
-                        missingSections={status?.pendingSectionLabels ?? []}
-                        logo={status?.logo ?? null}
-                        primary={
-                          !exists
-                            ? {
-                                label: "Create benefit",
-                                icon: "create",
-                                onClick: wizardAction,
-                              }
-                            : complete
-                              ? {
-                                  label: "Edit benefit",
-                                  icon: "edit",
-                                  onClick: editAction,
-                                }
-                              : {
-                                  label: "Finish setup",
-                                  icon: "sparkles",
-                                  onClick: wizardAction,
-                                }
-                        }
-                        secondary={
-                          !exists
-                            ? undefined
-                            : complete
-                              ? {
-                                  label: "Overwrite in wizard",
-                                  onClick: () =>
-                                    setOverwritePrompt({
-                                      categoryId: cat.id,
-                                      label: cat.label,
-                                    }),
-                                }
-                              : {
-                                  label: "Edit",
-                                  icon: "edit",
-                                  onClick: editAction,
-                                }
-                        }
-                      />
-                    );
-                  })}
-                </div>
+                        return (
+                          <BenefitCategoryCard
+                            key={cat.id}
+                            label={cat.label}
+                            icon={cat.icon}
+                            state={state}
+                            isSelected={isCategoryActive(cat.id)}
+                            missingCount={status?.missing?.length ?? 0}
+                            missingSections={status?.pendingSectionLabels ?? []}
+                            logo={status?.logo ?? null}
+                            primary={
+                              !exists
+                                ? {
+                                    label: "Create benefit",
+                                    icon: "create",
+                                    onClick: wizardAction,
+                                  }
+                                : complete
+                                  ? {
+                                      label: "Edit benefit",
+                                      icon: "edit",
+                                      onClick: editAction,
+                                    }
+                                  : {
+                                      label: "Finish setup",
+                                      icon: "sparkles",
+                                      onClick: wizardAction,
+                                    }
+                            }
+                            secondary={
+                              !exists
+                                ? undefined
+                                : complete
+                                  ? {
+                                      label: "Overwrite in wizard",
+                                      onClick: () =>
+                                        setOverwritePrompt({
+                                          categoryId: cat.id,
+                                          label: cat.label,
+                                        }),
+                                    }
+                                  : {
+                                      label: "Edit",
+                                      icon: "edit",
+                                      onClick: editAction,
+                                    }
+                            }
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
               )}
 
               {/* Custom Category Title Input — the store keeps Custom as
@@ -3057,7 +2721,7 @@ export function BenefitsStep1({
             className="space-y-4"
           >
             {/* 1. Branding Section */}
-            {!isEditMode && (
+            {showSection("branding") && (
             <AccordionItem
               value="branding"
               className="border-none shadow-md overflow-hidden bg-card rounded-xl"
@@ -3162,6 +2826,7 @@ export function BenefitsStep1({
                   </div>
                 </div>
 
+                {!isEditMode && (
                 <div className="flex justify-end pt-4 border-t border-gray-100 dark:border-gray-700">
                   <Button
                     onClick={() => handleContinue("messaging")}
@@ -3170,12 +2835,13 @@ export function BenefitsStep1({
                     CONTINUE TO MESSAGING
                   </Button>
                 </div>
+                )}
               </AccordionContent>
             </AccordionItem>
             )}
 
             {/* 2. Messaging Section */}
-            {!isEditMode && (
+            {showSection("messaging") && (
             <AccordionItem
               value="messaging"
               className="border-none shadow-md overflow-hidden bg-card rounded-xl"
@@ -3382,6 +3048,7 @@ export function BenefitsStep1({
                   )}
                 </div>
 
+                {!isEditMode && (
                 <div className="flex justify-end pt-4 border-t border-gray-100 dark:border-gray-700">
                   <Button
                     onClick={() => handleContinue("contacts")}
@@ -3390,11 +3057,13 @@ export function BenefitsStep1({
                     CONTINUE TO KEY CONTACTS
                   </Button>
                 </div>
+                )}
               </AccordionContent>
             </AccordionItem>
             )}
 
             {/* 3. Key Contact Section */}
+            {showSection("contacts") && (
             <AccordionItem
               value="contacts"
               className="border-none shadow-md overflow-hidden bg-card rounded-xl"
@@ -3606,9 +3275,10 @@ export function BenefitsStep1({
                 )}
               </AccordionContent>
             </AccordionItem>
+            )}
 
             {/* 4. Documents Section */}
-            {!isEditMode && (
+            {showSection("documents") && (
             <AccordionItem
               value="documents"
               className="border-none shadow-md overflow-hidden bg-card rounded-xl"
@@ -3721,551 +3391,24 @@ export function BenefitsStep1({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isFormDialogOpen} onOpenChange={setIsFormDialogOpen}>
-        <DialogContent className="sm:max-w-2xl lg:max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Create New Contact</DialogTitle>
-            <DialogDescription>
-              Add a contact for this benefit. Provide at least one way for
-              employees to reach them (phone or email).
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 py-2 items-start">
-            {/* Left column: Form Fields */}
-            <div className="space-y-4 min-w-0">
-            {/* Contact Type */}
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium dark:text-gray-300">
-                Contact Type
-              </Label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => updateContactForm({ contactType: "individual" })}
-                  className={cn(
-                    "flex flex-col p-2.5 rounded-lg border-2 text-left transition-all",
-                    contactForm.contactType === "individual"
-                      ? "border-[#23919C] bg-[#23919C]/5 shadow-sm"
-                      : "border-gray-200 bg-white hover:border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500",
-                  )}
-                >
-                  <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                    Individual
-                  </span>
-                  <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                    A specific person
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => updateContactForm({ contactType: "team_support" })}
-                  className={cn(
-                    "flex flex-col p-2.5 rounded-lg border-2 text-left transition-all",
-                    contactForm.contactType === "team_support"
-                      ? "border-[#23919C] bg-[#23919C]/5 shadow-sm"
-                      : "border-gray-200 bg-white hover:border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500",
-                  )}
-                >
-                  <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                    Team / Support Line
-                  </span>
-                  <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                    A department or group
-                  </span>
-                </button>
-              </div>
-            </div>
-
-            {/* Primary Contact Toggle — hidden for Company / Plan Sponsor (always primary) */}
-            {!isPlanSponsorContact && (
-              <div className="flex items-center space-x-2 pb-2 border-b border-gray-100 dark:border-gray-700">
-                <Checkbox
-                  id="new-contact-is-primary"
-                  checked={contactForm.isPrimary}
-                  onCheckedChange={(checked) =>
-                    updateContactForm({ isPrimary: checked === true })
-                  }
-                />
-                <Label
-                  htmlFor="new-contact-is-primary"
-                  className="text-xs font-medium cursor-pointer dark:text-gray-300"
-                >
-                  Mark as primary contact for{" "}
-                  <span className="font-semibold">{modalCategory}</span>
-                </Label>
-              </div>
-            )}
-
-            {/* Name / Title / Headshot (individual) or Team fields (team_support) */}
-            <ContactFormFields
-              contactType={contactForm.contactType}
-              firstName={contactForm.firstName}
-              lastName={contactForm.lastName}
-              title={contactForm.title}
-              onFirstNameChange={(val) =>
-                updateContactForm({ firstName: val }, ["firstName"])
-              }
-              onLastNameChange={(val) =>
-                updateContactForm({ lastName: val }, ["lastName"])
-              }
-              onTitleChange={(val) =>
-                updateContactForm({ title: val }, ["title"])
-              }
-              displayName={contactForm.displayName}
-              departmentLabel=""
-              supportHours=""
-              onDisplayNameChange={(val) =>
-                updateContactForm({ displayName: val }, ["displayName"])
-              }
-              onDepartmentLabelChange={() => {}}
-              onSupportHoursChange={() => {}}
-              headshot={contactForm.headshot}
-              headshotFileName={contactForm.headshotFileName}
-              onHeadshotChange={(val, name) =>
-                updateContactForm({ headshot: val, headshotFileName: name })
-              }
-              onHeadshotRemove={() =>
-                updateContactForm({ headshot: "", headshotFileName: "" })
-              }
-              teamImage={contactForm.teamImage}
-              teamImageFileName={contactForm.teamImageFileName}
-              onTeamImageChange={(val, name) =>
-                updateContactForm({ teamImage: val, teamImageFileName: name })
-              }
-              onTeamImageRemove={() =>
-                updateContactForm({ teamImage: "", teamImageFileName: "" })
-              }
-              firstNameRef={firstNameRef}
-              lastNameRef={lastNameRef}
-              titleRef={titleRef}
-              errorFields={contactFormErrors}
-            />
-
-            {/* Company / Organization — required for non-Plan-Sponsor contacts */}
-            {!isPlanSponsorContact && (
-              <div className="space-y-1.5">
-                <Label className="dark:text-gray-300 text-xs font-medium">
-                  Company / Organization <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  ref={companyNameRef}
-                  value={contactForm.companyName}
-                  onChange={(e) =>
-                    updateContactForm({ companyName: e.target.value }, [
-                      "companyName",
-                    ])
-                  }
-                  placeholder="e.g. Benefits Provider Inc."
-                  className={cn(
-                    "h-8 text-sm",
-                    contactFormErrors.includes("companyName") &&
-                      "border-red-500",
-                  )}
-                />
-                {contactFormErrors.includes("companyName") && (
-                  <p className="text-[10px] text-red-500">
-                    Company / Organization is required
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Phone / Email — at least one required */}
-            <div className="space-y-1.5">
-              <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                Provide at least one of the following so employees can reach
-                this contact: <b>Phone or Email.</b>
-              </p>
-              <div className="space-y-1">
-                <Label className="dark:text-gray-300 text-xs font-medium">
-                  Phone
-                </Label>
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <Input
-                      ref={phoneRef}
-                      type="tel"
-                      value={formatPhoneNumber(contactForm.phone)}
-                      onChange={(e) => {
-                        const digits = normalizePhoneNumber(e.target.value);
-                        if (digits.length <= 11) {
-                          updateContactForm({ phone: digits }, [
-                            "phone",
-                            "email",
-                          ]);
-                        }
-                      }}
-                      placeholder="(555) 123-4567"
-                      className={cn(
-                        "h-8 text-sm",
-                        contactFormErrors.includes("phone") && "border-red-500",
-                      )}
-                    />
-                  </div>
-                  <div className="w-20">
-                    <Input
-                      type="text"
-                      maxLength={6}
-                      value={contactForm.phoneExtension}
-                      onChange={(e) => {
-                        const val = normalizeExtension(e.target.value);
-                        updateContactForm({ phoneExtension: val });
-                      }}
-                      placeholder="Ext."
-                      className="h-8 text-sm text-center"
-                    />
-                  </div>
-                </div>
-                {contactFormErrors.includes("phone") && (
-                  <p className="text-[10px] text-red-500">
-                    Enter a valid phone number (or provide an email)
-                  </p>
-                )}
-              </div>
-              <div className="space-y-1">
-                <Label className="dark:text-gray-300 text-xs font-medium">
-                  Email
-                </Label>
-                <Input
-                  ref={emailRef}
-                  type="email"
-                  value={contactForm.email}
-                  onChange={(e) =>
-                    updateContactForm({ email: e.target.value }, [
-                      "email",
-                      "phone",
-                    ])
-                  }
-                  placeholder="e.g. john@company.com"
-                  className={cn(
-                    "h-8 text-sm",
-                    contactFormErrors.includes("email") && "border-red-500",
-                  )}
-                />
-                {contactFormErrors.includes("email") && (
-                  <p className="text-[10px] text-red-500">
-                    Please enter a valid email address (or provide a phone)
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Contact Company Logo — non-Plan-Sponsor only */}
-            {!isPlanSponsorContact && (
-              <div className="space-y-1.5 pt-1 border-t border-gray-100 dark:border-gray-700">
-                <Label className="dark:text-gray-300 text-xs font-medium">
-                  Upload Contact Company Logo
-                </Label>
-                <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                  Upload a logo to display on this contact&rsquo;s portal card
-                  instead of the plan&rsquo;s company logo.
-                </p>
-                <UniversalImageEditorModal
-                  value={contactForm.companyLogo || ""}
-                  fileName={contactForm.companyLogoFileName || ""}
-                  onChange={(value, fileName) =>
-                    updateContactForm({
-                      companyLogo: value,
-                      companyLogoFileName: fileName || "",
-                    })
-                  }
-                  onRemove={() =>
-                    updateContactForm({
-                      companyLogo: "",
-                      companyLogoFileName: "",
-                    })
-                  }
-                  placeholder="Upload Contact Company Logo"
-                  modalTitle="Edit Contact Company Logo"
-                  modalDescription="Upload a logo for this contact's portal card."
-                  saveButtonText="Save Logo"
-                  type="logo"
-                />
-              </div>
-            )}
-
-            {/* Call-to-Action Button */}
-            <div className="border-t border-gray-100 dark:border-gray-700 pt-3 space-y-2.5">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="enable-cta-button"
-                  checked={contactForm.enableContactButton}
-                  onCheckedChange={(checked) =>
-                    updateContactForm({ enableContactButton: checked === true })
-                  }
-                />
-                <Label
-                  htmlFor="enable-cta-button"
-                  className="text-xs font-medium cursor-pointer dark:text-gray-300"
-                >
-                  Add a call to action button
-                </Label>
-              </div>
-
-              {contactForm.enableContactButton && (
-                <>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {(
-                      [
-                        { value: "schedule", label: "Schedule Appt." },
-                        { value: "call", label: "Call" },
-                        { value: "email", label: "Email" },
-                        { value: "contact", label: "Contact Form" },
-                      ] as const
-                    ).map((opt) => {
-                      const isActive = contactForm.ctaType === opt.value;
-                      return (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() => updateContactForm({ ctaType: opt.value })}
-                          className={cn(
-                            "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-left transition-all",
-                            isActive
-                              ? "border-[#23919C] bg-[#23919C]/5 shadow-sm"
-                              : "border-gray-200 bg-white hover:border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500",
-                          )}
-                        >
-                          <span className="text-[11px] font-medium">
-                            {opt.label}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {contactForm.ctaType === "schedule" && (
-                    <div className="space-y-1">
-                      <Label className="dark:text-gray-300 text-xs font-medium">
-                        Scheduling URL <span className="text-red-500">*</span>
-                      </Label>
-                      <Input
-                        ref={schedulingUrlRef}
-                        value={contactForm.schedulingUrl}
-                        onChange={(e) =>
-                          updateContactForm(
-                            { schedulingUrl: e.target.value },
-                            ["schedulingUrl"],
-                          )
-                        }
-                        placeholder="https://calendly.com/..."
-                        className={cn(
-                          "h-8 text-sm",
-                          contactFormErrors.includes("schedulingUrl") &&
-                            "border-red-500",
-                        )}
-                      />
-                      {contactFormErrors.includes("schedulingUrl") && (
-                        <p className="text-[10px] text-red-500">
-                          Scheduling URL is required when &ldquo;Schedule
-                          Appt.&rdquo; is enabled
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {contactForm.ctaType === "contact" && (
-                    <div className="space-y-1">
-                      <Label className="dark:text-gray-300 text-xs font-medium">
-                        Contact Form URL <span className="text-red-500">*</span>
-                      </Label>
-                      <Input
-                        ref={websiteUrlRef}
-                        value={contactForm.websiteUrl}
-                        onChange={(e) =>
-                          updateContactForm(
-                            { websiteUrl: e.target.value },
-                            ["websiteUrl"],
-                          )
-                        }
-                        placeholder="https://forms.company.com/..."
-                        className={cn(
-                          "h-8 text-sm",
-                          contactFormErrors.includes("websiteUrl") &&
-                            "border-red-500",
-                        )}
-                      />
-                      {contactFormErrors.includes("websiteUrl") && (
-                        <p className="text-[10px] text-red-500">
-                          Contact Form URL is required when &ldquo;Contact
-                          Form&rdquo; is enabled
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {contactForm.ctaType === "call" && (
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 rounded px-2.5 py-1.5">
-                      {contactForm.phone
-                        ? `${formatPhoneNumber(contactForm.phone)}${
-                            contactForm.phoneExtension
-                              ? ` ext. ${contactForm.phoneExtension}`
-                              : ""
-                          }`
-                        : "Complete the Phone field above first"}
-                    </p>
-                  )}
-
-                  {contactForm.ctaType === "email" && (
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 rounded px-2.5 py-1.5">
-                      {contactForm.email ||
-                        "Complete the Email field above first"}
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
-
-            {/* Email / Phone Visibility Toggles */}
-            <div className="border-t border-gray-100 dark:border-gray-700 pt-3 space-y-2">
-              <Label className="dark:text-gray-300 text-xs font-medium">
-                Show on contact card
-              </Label>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="display-email"
-                  checked={contactForm.displayEmail}
-                  onCheckedChange={(checked) =>
-                    updateContactForm({ displayEmail: checked === true })
-                  }
-                />
-                <Label
-                  htmlFor="display-email"
-                  className="text-xs font-medium cursor-pointer dark:text-gray-300"
-                >
-                  Email
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="display-phone"
-                  checked={contactForm.displayPhone}
-                  onCheckedChange={(checked) =>
-                    updateContactForm({ displayPhone: checked === true })
-                  }
-                />
-                <Label
-                  htmlFor="display-phone"
-                  className="text-xs font-medium cursor-pointer dark:text-gray-300"
-                >
-                  Phone
-                </Label>
-              </div>
-            </div>
-            </div>
-
-            {/* Right column: Live Portal Preview of the contact card */}
-            <div className="flex flex-col items-center gap-2 lg:sticky lg:top-0 self-start w-full">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-accent-blue text-center">
-                Portal Preview
-              </span>
-              <SmallVerticalCard
-                contact={{
-                  id: "preview",
-                  contactType: contactForm.contactType,
-                  name:
-                    contactForm.contactType === "individual"
-                      ? `${contactForm.firstName} ${contactForm.lastName}`.trim()
-                      : contactForm.displayName,
-                  firstName: contactForm.firstName,
-                  lastName: contactForm.lastName,
-                  title:
-                    contactForm.contactType === "individual"
-                      ? contactForm.title
-                      : undefined,
-                  displayName:
-                    contactForm.contactType === "team_support"
-                      ? contactForm.displayName
-                      : undefined,
-                  email: contactForm.email,
-                  phone: contactForm.phone,
-                  phoneExtension: contactForm.phoneExtension,
-                  headshot:
-                    contactForm.contactType === "individual"
-                      ? contactForm.headshot || undefined
-                      : undefined,
-                  teamImage:
-                    contactForm.contactType === "team_support"
-                      ? contactForm.teamImage || undefined
-                      : undefined,
-                  companyName:
-                    contactForm.companyName ||
-                    (isPlanSponsorContact ? selectedPlanName || "" : ""),
-                  companyLogo:
-                    !isPlanSponsorContact && contactForm.companyLogo
-                      ? contactForm.companyLogo
-                      : (currentStepData.selectedPlan as any)?.companyLogo
-                            ?.url ||
-                        (typeof (currentStepData.selectedPlan as any)
-                          ?.companyLogo === "string"
-                          ? (currentStepData.selectedPlan as any)?.companyLogo
-                          : "") ||
-                        "",
-                  benefitsCategory:
-                    modalCategory === "Group Health"
-                      ? "Health Insurance"
-                      : modalCategory === "Group Life"
-                        ? "Life Insurance"
-                        : (modalCategory as any),
-                  isPrimary:
-                    isPlanSponsorContact || contactForm.isPrimary,
-                  displayEmail: contactForm.displayEmail,
-                  displayPhone: contactForm.displayPhone,
-                  enableContactButton: contactForm.enableContactButton,
-                  contactButtonType: contactForm.enableContactButton
-                    ? (contactForm.ctaType === "schedule"
-                        ? "calendar"
-                        : contactForm.ctaType === "call"
-                          ? "phone"
-                          : contactForm.ctaType === "email"
-                            ? "email"
-                            : "url")
-                    : undefined,
-                  schedulingUrl:
-                    contactForm.enableContactButton &&
-                    contactForm.ctaType === "schedule"
-                      ? contactForm.schedulingUrl
-                      : undefined,
-                  websiteUrl:
-                    contactForm.enableContactButton &&
-                    contactForm.ctaType === "contact"
-                      ? contactForm.websiteUrl
-                      : undefined,
-                }}
-                brandColor={
-                  currentStepData.selectedPlan?.brandColor || "#002B5B"
-                }
-                secondaryColor={
-                  currentStepData.selectedPlan?.secondaryColor || "#E6C47A"
-                }
-                appointmentLink={
-                  (currentStepData.selectedPlan as any)?.appointmentLink || ""
-                }
-                // Only Plan Sponsor contacts fall back to the plan's company name;
-                // for the other categories the preview shows a [Company / Organization]
-                // placeholder until the user types the provider's company.
-                companyName={isPlanSponsorContact ? selectedPlanName : ""}
-                index={0}
-                disableAnimation={true}
-                baselineBackgroundColor="#ffffff"
-                compact
-                previewPlaceholders
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsFormDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleFormSubmit}>Create Contact</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Create New Contact: the SAME editor the Contacts tab opens for a
+          contact row (see BenefitContactDialog). One form, one validation pass,
+          one CTA / "Topic of Interest" builder, so the two cannot drift apart. */}
+      <BenefitContactDialog
+        open={isFormDialogOpen}
+        onOpenChange={setIsFormDialogOpen}
+        mode="create"
+        planId={currentStepData.planId || ""}
+        category={String(modalCategory)}
+        planCompanyName={selectedPlanName}
+        planLogoUrl={planCompanyLogo}
+        brandColor={currentStepData.selectedPlan?.brandColor || "#002B5B"}
+        secondaryColor={currentStepData.selectedPlan?.secondaryColor || "#E6C47A"}
+        appointmentLink={(currentStepData.selectedPlan as any)?.appointmentLink || ""}
+        benefitTitle={currentStepData.benefitTitle || ""}
+        categoryBenefitByApi={currentStepData.categoryBenefitByApi ?? null}
+        onSubmit={handleContactSubmitted}
+      />
 
       {/* Draft plan guard — Benefits cannot be created for a plan still in Draft status. */}
       <Dialog

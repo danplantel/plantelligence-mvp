@@ -7,6 +7,7 @@ import {
   getActiveContactFormTopicLabels,
   getDefaultContactFormTopics,
   normalizeContactTopicCategory,
+  resolveContactTopicLabels,
 } from "@/lib/contact-form-topics";
 import { resolvePlanContactFormTopics } from "@/lib/plan-contact-form-topics";
 
@@ -96,10 +97,20 @@ export default async function ContactPage({ searchParams }: ContactPageProps) {
   const decodedTopics = decodeContactFormTopics(
     typeof params.topics === "string" ? params.topics : undefined,
   );
-  const topics = planTopics
-    ? planTopics.topics
-    : (decodedTopics ??
-      getActiveContactFormTopicLabels(getDefaultContactFormTopics(category)));
+  // The Company / Plan Sponsor topic list names the plan's *custom* benefit, so a
+  // label standing in for it is swapped for that benefit's own title — no matter
+  // whether the list came from the plan's live configuration, the URL, or the
+  // category defaults.
+  const topicContext = {
+    customBenefitTitle: planTopics?.customBenefitTitle ?? null,
+  };
+  const topics = resolveContactTopicLabels(
+    planTopics
+      ? planTopics.topics
+      : (decodedTopics ??
+        getActiveContactFormTopicLabels(getDefaultContactFormTopics(category))),
+    topicContext,
+  );
   const effectiveCategory = planTopics?.category || category;
 
   return (

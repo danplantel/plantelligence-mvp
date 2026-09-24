@@ -83,9 +83,8 @@ import type {
 } from "@/components/pages/documents/types";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { Headshot } from "@/components/ui/headshot";
-import type { RetirementDocumentItem } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
+import type { RetirementDocumentItem } from "@/components/pages/client-portal/sections/benefit-document-section";
 import { PlanMeetingsSection } from "@/components/pages/edit-client/plan-meetings-section";
-import { PlanSearchBar } from "@/components/plan-selector/plan-search-bar";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
@@ -133,6 +132,7 @@ import {
   ensurePlanTelligenceTrademark,
 } from "@/lib/disclaimer-constants";
 import { DisclaimerUpdateConfirmDialog } from "@/components/pages/settings/disclaimer-update-confirm-dialog";
+import { fetchProfileOnce } from "@/lib/fetch-profile";
 
 // ============================================================================
 // Helper Components
@@ -432,6 +432,23 @@ function EditContactDialog({
   const [errors, setErrors] = useState<string[]>([]);
   // Whether the live Plantelligence /contact page preview modal is open.
   const [contactPreviewOpen, setContactPreviewOpen] = useState(false);
+
+  // The plan's *custom* benefit — the "Custom" benefit from the benefits wizard,
+  // stored as a Benefit row under "Company / Plan Sponsor". The Company / Plan
+  // Sponsor topic list names that benefit, so its topic is shown with the benefit's
+  // real title. Read from the same row the participant's /contact page reads, so
+  // the builder, the preview and the live form always agree.
+  const { data: customBenefitResponse } = useSWR(
+    planId
+      ? `/api/clients/${planId}/benefits/${encodeURIComponent(
+          "Company / Plan Sponsor",
+        )}`
+      : null,
+    (url: string) => fetch(url).then((r) => r.json()),
+    { revalidateOnFocus: false },
+  );
+  const customBenefitTitle: string =
+    customBenefitResponse?.benefit?.title ?? "";
 
   // The category set is fixed by the contact in edit mode. In add mode the editor
   // chooses it here (seeded from `addCategory`).
@@ -758,7 +775,9 @@ function EditContactDialog({
               ctaHeadshot,
               ctaLogo,
               ctaTitle,
-              getActiveContactFormTopicLabels(form.contactFormTopics),
+              getActiveContactFormTopicLabels(form.contactFormTopics, {
+                customBenefitTitle,
+              }),
               ctaCategory,
               planId,
             )
@@ -833,7 +852,9 @@ function EditContactDialog({
             ctaHeadshot,
             ctaLogo,
             ctaTitle,
-            getActiveContactFormTopicLabels(form.contactFormTopics),
+            getActiveContactFormTopicLabels(form.contactFormTopics, {
+              customBenefitTitle,
+            }),
             ctaCategory,
             planId,
           )
@@ -1271,6 +1292,7 @@ function EditContactDialog({
                       <div className="border-t border-gray-100 dark:border-gray-700 pt-3 mt-1">
                         <ContactFormTopicBuilder
                           category={ctaCategory}
+                          customBenefitTitle={customBenefitTitle}
                           topics={form.contactFormTopics}
                           onChange={(topics) =>
                             updateForm({ contactFormTopics: topics })
@@ -1385,7 +1407,9 @@ function EditContactDialog({
               contactTitle={ctaTitle}
               avatar={ctaHeadshot}
               companyLogo={ctaLogo}
-              topics={getActiveContactFormTopicLabels(form.contactFormTopics)}
+              topics={getActiveContactFormTopicLabels(form.contactFormTopics, {
+                customBenefitTitle,
+              })}
               category={ctaCategory || ""}
               embedded
               preview
@@ -2715,39 +2739,6 @@ export default function EditClientPage() {
   // Tab 2 (Preview) field to scroll to after a failed Save.
   const [tab2ScrollField, setTab2ScrollField] = useState<string | null>(null);
 
-  // ── Plan switcher ──────────────────────────────────────────────────────────
-  // Search for another plan and jump straight to its edit page. The bar only
-  // lists Active plans (the shared component filters Draft / Archived out), so
-  // this can never land the advisor on a plan that isn't live.
-  const { data: planListData } = useSWR(
-    "/api/clients?status=all&limit=500&sortColumn=companyName&sortDirection=asc",
-    (url: string) => fetch(url).then((r) => r.json()),
-    {
-      keepPreviousData: true,
-      dedupingInterval: 60_000,
-      revalidateOnFocus: false,
-    },
-  );
-  const switchablePlans = useMemo(
-    () =>
-      (planListData?.data as
-        | {
-            id: string;
-            companyName: string;
-            slug?: string | null;
-            status?: string | null;
-          }[]
-        | undefined) ?? [],
-    [planListData],
-  );
-  const handlePlanSwitch = useCallback(
-    (planId: string) => {
-      if (!planId || planId === clientId) return;
-      router.push(`/edit-client/${planId}`);
-    },
-    [clientId, router],
-  );
-
   // Preset for the Add Contact dialog. Entry points just open the dialog with a
   // pre-seeded category/type — the contact is created only when the user saves.
   const [addContactPreset, setAddContactPreset] = useState<{
@@ -3335,9 +3326,10 @@ export default function EditClientPage() {
     let cancelled = false;
     const loadUserOrgName = async () => {
       try {
-        const res = await fetch("/api/profile");
-        if (!res.ok) return;
-        const profile = await res.json();
+        // Single-flight + TTL (lib/fetch-profile) — shares the layout header's request
+        // instead of issuing a second full GET /api/profile.
+        const profile = await fetchProfileOnce();
+        if (!profile) return;
         const orgName =
           profile?.organizationName ||
           profile?.wizardSessions?.[0]?.branding?.organizationName ||
@@ -3622,22 +3614,6 @@ export default function EditClientPage() {
 
         {/* Tab Content */}
         <div className="mx-auto max-w-5xl px-4">
-          {/* Plan switcher — jump straight to another active plan's edit page
-              without going back to the client list. */}
-          {activeTab !== "preview" && (
-            <Card className="mb-6 shadow-sm dark:bg-gray-800">
-              <CardContent className="p-6">
-                <PlanSearchBar
-                  plans={switchablePlans}
-                  value={clientId || ""}
-                  onChange={handlePlanSwitch}
-                  title="Plans"
-                  module="plans"
-                  disabled={switchablePlans.length === 0}
-                />
-              </CardContent>
-            </Card>
-          )}
           <Tabs
             value={activeTab}
             onValueChange={(val) => setActiveTab(val as EditTabId)}
@@ -3648,8 +3624,12 @@ export default function EditClientPage() {
             {headerPortalTarget &&
               createPortal(
                 <TabsList
+                  // `border-0` overrides the shared TabsList border (and drops
+                  // the local `border-b`) so the Edit Client nav has no outline
+                  // around it, matching the Edit Benefit nav. The bar stays
+                  // transparent, so the header background shows through.
                   className={cn(
-                    "w-full gap-1 bg-transparent dark:bg-transparent p-0 border-b rounded-none flex-nowrap h-auto min-h-fit overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]",
+                    "w-full gap-1 bg-transparent dark:bg-transparent p-0 border-0 rounded-none flex-nowrap h-auto min-h-fit overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]",
                     planEditorOpen ? "justify-start" : "justify-center",
                   )}
                 >
@@ -4759,13 +4739,16 @@ export default function EditClientPage() {
             "px-4 py-4 flex justify-end gap-3 transition-all duration-200",
             // Default: center the actions in the same max-width column the page
             // content uses. While the Editing Panel is open, the preview shifts
-            // right by the widened sidebar, so align the actions to the right of
-            // the bar (offset past the editor panel) instead of centering them.
+            // right past the rail-collapsed sidebar *and* the panel, so align the
+            // actions to the right of the bar instead of centering them.
             !planEditorOpen && "mx-auto max-w-5xl",
           )}
           style={
             planEditorOpen
-              ? { marginLeft: "var(--sidebar-width, 18rem)" }
+              ? {
+                  marginLeft:
+                    "calc(var(--sidebar-width, 18rem) + var(--editor-inset, 0px))",
+                }
               : undefined
           }
         >

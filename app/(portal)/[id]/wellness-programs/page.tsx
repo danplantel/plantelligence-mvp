@@ -12,13 +12,13 @@ import { PortalMaterialsHero } from "@/components/pages/client-portal/sections/p
 import { CompletenessAutoTrigger } from "@/components/pages/client-portal/sections/completeness-auto-trigger";
 import { HowCanWeHelpSection } from "@/components/pages/client-portal/sections/how-can-we-help-section";
 import {
-  RetirementJourneySection,
-} from "@/components/pages/client-portal/sections/retirement-journey-section";
+  BenefitsVideoSection,
+} from "@/components/pages/client-portal/sections/benefits-video-section";
 import { BenefitsHubWebinarsSection } from "@/components/pages/client-portal/sections/benefits-hub-webinars-section";
 import {
-  RetirementDocumentsAccordion,
+  BenefitDocumentSection,
   RetirementDocumentItem,
-} from "@/components/pages/client-portal/sections/retirement-documents-accordion";
+} from "@/components/pages/client-portal/sections/benefit-document-section";
 import { mergePlanDocumentRows } from "@/lib/plan-client-documents-merge";
 import { sortDocumentRowsByCustomOrder } from "@/lib/documents/document-sort";
 import { fetchPlanDocumentsForClient } from "@/lib/fetch-plan-documents-client";
@@ -166,6 +166,7 @@ export default function WellnessProgramsPage() {
     });
   }, [benefitData, clientData?.keyContacts]);
 
+
   return (
     <div className="min-h-screen w-full">
       <CompletenessAutoTrigger
@@ -184,7 +185,8 @@ export default function WellnessProgramsPage() {
           category="Company / Plan Sponsor"
         />
 
-        <RetirementJourneySection
+
+        <BenefitsVideoSection
           brandColor={brandColor}
           mainTitle={(benefitData as any)?.journeyHeader || "Whole-Person Wellness Programs"}
           subtitle={(benefitData as any)?.journeySubtitle || "Supporting your health, mind, and financial well-being."}
@@ -209,9 +211,14 @@ export default function WellnessProgramsPage() {
 
         <FAQSection brandColor={brandColor} secondaryColor={secondaryColor} faqs={faqsForCategory} contacts={supportContactsForFAQ} />
 
-        <PortalMaterialsHero brandColor={brandColor} cardHeading="Wellness Program Account Access" category="Company / Plan Sponsor" />
+        <PortalMaterialsHero
+          brandColor={brandColor}
+          cardHeading="Wellness Program Account Access"
+          category="Company / Plan Sponsor"
+          provider={benefitData?.providerContact ?? null}
+        />
 
-        <RetirementDocumentsAccordion
+        <BenefitDocumentSection
           brandColor={brandColor}
           accentColor={secondaryColor}
           retirementDocs={wellnessDocs}
@@ -221,7 +228,13 @@ export default function WellnessProgramsPage() {
           loading={loadingDocs}
         />
 
-        <HaveQuestions brandColor={brandColor} secondaryColor={secondaryColor} contacts={supportContactsForFAQ} />
+        {/* The category's contacts — the same people listed on My Benefits Team,
+            scoped to this benefit (see `supportContactsForFAQ`). */}
+        <HaveQuestions
+          brandColor={brandColor}
+          secondaryColor={secondaryColor}
+          contacts={supportContactsForFAQ}
+        />
       </main>
     </div>
   );

@@ -15,6 +15,13 @@ export interface PlanContactFormTopics {
   topics: string[];
   /** Canonical benefits category (Retirement, Group Health, …) or "". */
   category: string;
+  /**
+   * Title of the plan's *custom* benefit — the `Benefit` row filed under
+   * "Company / Plan Sponsor". The Company / Plan Sponsor topic list names that
+   * benefit, so participants read the plan's own wording instead of the generic
+   * "Custom Benefits" placeholder. Null when the plan has no custom benefit.
+   */
+  customBenefitTitle: string | null;
 }
 
 /** Extract the contacts array from either keyContacts storage shape. */
@@ -50,8 +57,18 @@ export async function resolvePlanContactFormTopics({
   if (!planKey) return null;
 
   try {
-    const select = { keyContacts: true } as const;
-    let record: { keyContacts: unknown } | null = null;
+    const select = {
+      keyContacts: true,
+      // The plan's custom benefit, read alongside the contacts so the topic
+      // labels can name it. `@@unique([clientId, category])` means at most one.
+      benefits: {
+        where: { category: "Company / Plan Sponsor" },
+        select: { title: true },
+        take: 1,
+      },
+    } as const;
+    let record: { keyContacts: unknown; benefits: { title: string }[] } | null =
+      null;
 
     // The `plan` param is normally the Mongo ObjectId, but accept a slug too so
     // hand-written links and slug-based URLs keep working.
@@ -84,11 +101,13 @@ export async function resolvePlanContactFormTopics({
     const rawCategory =
       contact.benefitsCategories?.[0] || contact.benefitsCategory || "";
     const category = normalizeContactTopicCategory(rawCategory);
+    const customBenefitTitle = record.benefits?.[0]?.title?.trim() || null;
     const topics = getActiveContactFormTopicLabels(
       resolveContactFormTopics(category ?? rawCategory, contact.contactFormTopics),
+      { customBenefitTitle },
     );
 
-    return { topics, category: category ?? "" };
+    return { topics, category: category ?? "", customBenefitTitle };
   } catch (error) {
     console.error("Error resolving plan contact-form topics:", error);
     return null;

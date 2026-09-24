@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
+import useSWR from "swr";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -403,8 +404,27 @@ export function ContactFormSlide({
   isFromSomeoneElse = false,
   errorFields: externalErrorFields = [],
 }: ContactFormSlideProps) {
-  const { stepData, saveStepDataLocally, advisorProfile } =
+  const { stepData, saveStepDataLocally, advisorProfile, draftClientId } =
     useNewClientWizardStore();
+
+  // The plan's *custom* benefit title — the Company / Plan Sponsor topic list names
+  // that benefit, so its topic is shown with the benefit's own wording.
+  //
+  // It is only knowable when this wizard is already working on a plan: a resumed
+  // draft whose benefits were configured. A brand-new plan has no benefit row yet,
+  // so the list keeps the generic "Custom Benefits" label — and the participant's
+  // /contact page resolves the real title live as soon as the benefit has one.
+  const { data: customBenefitResponse } = useSWR(
+    draftClientId
+      ? `/api/clients/${draftClientId}/benefits/${encodeURIComponent(
+          "Company / Plan Sponsor",
+        )}`
+      : null,
+    (url: string) => fetch(url).then((r) => r.json()),
+    { revalidateOnFocus: false },
+  );
+  const customBenefitTitle: string =
+    customBenefitResponse?.benefit?.title ?? "";
 
   // Match the card styling used in the Step 3 preview (step-3d.tsx).
   const { styles } = useContactStyles();
@@ -1055,7 +1075,9 @@ export function ContactFormSlide({
                     ? externalAdminLogo
                     : defaultCompanyLogo,
                   title,
-                  getActiveContactFormTopicLabels(contactFormTopics),
+                  getActiveContactFormTopicLabels(contactFormTopics, {
+                    customBenefitTitle,
+                  }),
                   category,
                 )
               : undefined,
@@ -1174,7 +1196,9 @@ export function ContactFormSlide({
                   ? externalAdminLogo
                   : defaultCompanyLogo,
                 title,
-                getActiveContactFormTopicLabels(contactFormTopics),
+                getActiveContactFormTopicLabels(contactFormTopics, {
+                  customBenefitTitle,
+                }),
                 category,
               )
             : undefined,
@@ -1222,6 +1246,7 @@ export function ContactFormSlide({
       schedulingUrl,
       websiteUrl,
       contactFormTopics,
+      customBenefitTitle,
       supportIcon,
       saveStepDataLocally,
     ],
@@ -2043,6 +2068,7 @@ export function ContactFormSlide({
                       <div className="border-t border-gray-100 dark:border-gray-700 pt-3 mt-1">
                         <ContactFormTopicBuilder
                           category={category}
+                          customBenefitTitle={customBenefitTitle}
                           topics={contactFormTopics}
                           onChange={setContactFormTopics}
                         />
@@ -2149,7 +2175,9 @@ export function ContactFormSlide({
                         ? externalAdminLogo
                         : defaultCompanyLogo,
                       title,
-                      getActiveContactFormTopicLabels(contactFormTopics),
+                      getActiveContactFormTopicLabels(contactFormTopics, {
+                        customBenefitTitle,
+                      }),
                       category,
                     )
                   : undefined,
@@ -2199,7 +2227,9 @@ export function ContactFormSlide({
                   ? externalAdminLogo
                   : defaultCompanyLogo
               }
-              topics={getActiveContactFormTopicLabels(contactFormTopics)}
+              topics={getActiveContactFormTopicLabels(contactFormTopics, {
+                customBenefitTitle,
+              })}
               category={category}
               embedded
               preview

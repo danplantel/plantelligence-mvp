@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { uploadBrandingToR2 } from "@/lib/branding-r2";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
@@ -167,6 +168,59 @@ export async function PUT(
       }
     }
 
+    // ── Persist branding as R2 KEYS, never data URLs ──
+    //
+    // These columns are read by list/portal routes that forward them to the browser, so
+    // an inline base64 image costs every reader megabytes — measured at 3.7 MB for six
+    // Benefit rows, and 7.4 MB once the same values were copied into the legacy
+    // `employeePortalPreview` mirror below. Uploading first means both the row and the
+    // mirror carry a short key, which `BrandingImage` / `useBrandingImageUrl` already
+    // resolve. Values that are already keys/URLs, `null`/`""` (explicit clears) and
+    // `undefined` (field omitted ⇒ leave the column untouched) pass through unchanged.
+    const toR2Key = async (
+      value: unknown,
+      slot: "logo" | "background",
+      fileName: string,
+    ): Promise<string | null | undefined> => {
+      if (value === undefined) return undefined;
+      if (value === null || value === "") return value;
+      if (typeof value !== "string" || !value.startsWith("data:")) {
+        return typeof value === "string" ? value : undefined;
+      }
+      const key = await uploadBrandingToR2({
+        dataUrlOrFile: value,
+        fileName,
+        clientId,
+        slot,
+      });
+      if (!key) {
+        // R2 not configured / upload failed: keep the inline value so the logo still
+        // saves, but say so — this is the path that reintroduces multi-MB rows.
+        console.warn(
+          "[benefits] R2 unavailable, storing inline image data:",
+          category,
+        );
+      }
+      return key ?? value;
+    };
+
+    const partnerLogo = await toR2Key(body.partnerLogo, "logo", "benefit-logo.png");
+    const backgroundImage = await toR2Key(
+      body.backgroundImage,
+      "background",
+      "benefit-background.png",
+    );
+    const innerHeaderImage = await toR2Key(
+      body.innerHeaderImage,
+      "background",
+      "benefit-inner-header.png",
+    );
+    const insuranceBackgroundImage = await toR2Key(
+      body.insuranceBackgroundImage,
+      "background",
+      "insurance-background.png",
+    );
+
     // Upsert the Benefit row
     const benefit = await prisma.benefit.upsert({
       where: {
@@ -182,16 +236,17 @@ export async function PUT(
         journeyBodyText: body.journeyBodyText ?? null,
         planVideo: body.planVideo ?? null,
         planVideoFileName: body.planVideoFileName ?? null,
-        partnerLogo: body.partnerLogo ?? null,
-        backgroundImage: body.backgroundImage ?? null,
-        innerHeaderImage: body.innerHeaderImage ?? null,
+        partnerLogo: partnerLogo ?? null,
+        backgroundImage: backgroundImage ?? null,
+        innerHeaderImage: innerHeaderImage ?? null,
         helpCards: body.helpCards ?? null,
         insurancePlanId: body.insurancePlanId ?? null,
         insuranceLoginUrl: body.insuranceLoginUrl ?? null,
-        insuranceBackgroundImage: body.insuranceBackgroundImage ?? null,
+        insuranceBackgroundImage: insuranceBackgroundImage ?? null,
         insuranceContainerBlockOpacity: body.insuranceContainerBlockOpacity ?? null,
         faqs: body.faqs ?? null,
         supportContacts: body.supportContacts ?? null,
+        providerContact: body.providerContact ?? null,
         signatureMode: body.signatureMode ?? null,
         customClosing: body.customClosing ?? null,
         customSignatureName: body.customSignatureName ?? null,
@@ -219,16 +274,17 @@ export async function PUT(
         journeyBodyText: body.journeyBodyText !== undefined ? body.journeyBodyText : undefined,
         planVideo: body.planVideo !== undefined ? body.planVideo : undefined,
         planVideoFileName: body.planVideoFileName !== undefined ? body.planVideoFileName : undefined,
-        partnerLogo: body.partnerLogo !== undefined ? body.partnerLogo : undefined,
-        backgroundImage: body.backgroundImage !== undefined ? body.backgroundImage : undefined,
-        innerHeaderImage: body.innerHeaderImage !== undefined ? body.innerHeaderImage : undefined,
+        partnerLogo: partnerLogo,
+        backgroundImage: backgroundImage,
+        innerHeaderImage: innerHeaderImage,
         helpCards: body.helpCards !== undefined ? body.helpCards : undefined,
         insurancePlanId: body.insurancePlanId !== undefined ? body.insurancePlanId : undefined,
         insuranceLoginUrl: body.insuranceLoginUrl !== undefined ? body.insuranceLoginUrl : undefined,
-        insuranceBackgroundImage: body.insuranceBackgroundImage !== undefined ? body.insuranceBackgroundImage : undefined,
+        insuranceBackgroundImage: insuranceBackgroundImage,
         insuranceContainerBlockOpacity: body.insuranceContainerBlockOpacity !== undefined ? body.insuranceContainerBlockOpacity : undefined,
         faqs: body.faqs !== undefined ? body.faqs : undefined,
         supportContacts: body.supportContacts !== undefined ? body.supportContacts : undefined,
+        providerContact: body.providerContact !== undefined ? body.providerContact : undefined,
         signatureMode: body.signatureMode !== undefined ? body.signatureMode : undefined,
         customClosing: body.customClosing !== undefined ? body.customClosing : undefined,
         customSignatureName: body.customSignatureName !== undefined ? body.customSignatureName : undefined,
@@ -298,6 +354,7 @@ export async function PUT(
         insuranceContainerBlockOpacity: b.insuranceContainerBlockOpacity,
         faqs: b.faqs,
         supportContacts: b.supportContacts,
+        providerContact: b.providerContact,
         signatureMode: b.signatureMode,
         customClosing: b.customClosing,
         customSignatureName: b.customSignatureName,
@@ -342,7 +399,15 @@ export async function PUT(
 
 /**
  * DELETE /api/clients/[id]/benefits/[category]
- * Soft-disables a benefit (sets isEnabled = false).
+ *
+ * Default: soft-disables a benefit (sets isEnabled = false). "Hidden" is a real
+ * state the Portal Visibility toggle depends on, so it stays the default.
+ *
+ * `?purge=1`: HARD delete, used only by the Create Benefits Cancel flow, and only
+ * after the client has verified the row did not pre-exist (see
+ * lib/benefit-draft). It also drops the category from the legacy
+ * `employeePortalPreview` mirror — portal pages fall back to that JSON, so
+ * leaving the entry behind would keep a cancelled benefit visible.
  */
 export async function DELETE(
   request: NextRequest,
@@ -353,6 +418,40 @@ export async function DELETE(
     if (error) return error;
 
     const category = params.category;
+
+    const purge = request.nextUrl.searchParams.get("purge") === "1";
+    if (purge) {
+      const deleted = await prisma.benefit.deleteMany({
+        where: {
+          clientId: client!.id,
+          category,
+        },
+      });
+
+      try {
+        const existingEp: any = (client as any).employeePortalPreview;
+        if (existingEp && Array.isArray(existingEp.benefits)) {
+          const norm = (cat: unknown) =>
+            String(cat ?? "").toLowerCase().trim().replace(/\s+/g, " ");
+          const target = norm(category);
+          const benefits = existingEp.benefits.filter(
+            (b: any) => norm(b?.category) !== target,
+          );
+          if (benefits.length !== existingEp.benefits.length) {
+            await prisma.client.update({
+              where: { id: client!.id },
+              data: { employeePortalPreview: { ...existingEp, benefits } },
+            });
+          }
+        }
+      } catch (mirrorErr) {
+        // The row is already gone; a stale mirror entry is recoverable, so don't
+        // fail the purge over it.
+        console.error("Purge: legacy mirror cleanup failed (non-fatal):", mirrorErr);
+      }
+
+      return NextResponse.json({ success: true, purged: deleted.count });
+    }
 
     await prisma.benefit.updateMany({
       where: {

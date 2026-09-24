@@ -59,6 +59,62 @@ export async function GET(request: NextRequest) {
       orderBy.createdAt = "desc"; // default
     }
 
+    // `summary=1` returns only the picker contract (id / name / slug / status).
+    //
+    // The default select below ships `keyContacts` and the legacy
+    // `employeePortalPreview` mirror for up to 500 plans, and both carry base64
+    // images: measured at 8.3 MB / 6.6 s for a 7-plan account, of which 7.4 MB was a
+    // single plan's `employeePortalPreview.benefits`. The pickers that call this route
+    // (Browse Benefits, Create Benefits step 1, Documents, Marketing) read only
+    // id/name/slug/status — all four map the response down to exactly those fields.
+    const summary = searchParams.get("summary") === "1";
+
+    const fullSelect = {
+      id: true,
+      slug: true,
+      companyName: true,
+      companyWebsite: true,
+      companyLogo: true,
+      logoFileName: true,
+      brandColor: true,
+      secondaryColor: true,
+      missionHeadline: true,
+      backgroundImg: true,
+      backgroundImgName: true,
+      thumbnailImg: true,
+      thumbnailImgName: true,
+      secondaryBannerImg: true,
+      secondaryBannerImgName: true,
+      faviconImg: true,
+      faviconImgName: true,
+      status: true,
+      type: true,
+      createdAt: true,
+      updatedAt: true,
+      currentStep: true,
+      keyContacts: true,
+      employeePortalPreview: true,
+      documents: {
+        select: {
+          id: true,
+          title: true,
+          fileName: true,
+          type: true,
+          category: true,
+        } as any,
+      },
+    };
+
+    const summarySelect = {
+      id: true,
+      slug: true,
+      companyName: true,
+      status: true,
+      type: true,
+      createdAt: true,
+      updatedAt: true,
+    };
+
     // Get clients with pagination and document count
     const [clients, total] = await Promise.all([
       prisma.client.findMany({
@@ -66,44 +122,25 @@ export async function GET(request: NextRequest) {
         orderBy,
         skip,
         take: limit,
-        select: {
-          id: true,
-          slug: true,
-          companyName: true,
-          companyWebsite: true,
-          companyLogo: true,
-          logoFileName: true,
-          brandColor: true,
-          secondaryColor: true,
-          missionHeadline: true,
-          backgroundImg: true,
-          backgroundImgName: true,
-          thumbnailImg: true,
-          thumbnailImgName: true,
-          secondaryBannerImg: true,
-          secondaryBannerImgName: true,
-          faviconImg: true,
-          faviconImgName: true,
-          status: true,
-          type: true,
-          createdAt: true,
-          updatedAt: true,
-          currentStep: true,
-          keyContacts: true,
-          employeePortalPreview: true,
-          documents: {
-            select: {
-              id: true,
-              title: true,
-              fileName: true,
-              type: true,
-              category: true,
-            } as any
-          }
-        }
+        // `as any`: Prisma cannot infer one payload type from a conditional select.
+        select: (summary ? summarySelect : fullSelect) as any,
       }),
-      prisma.client.count({ where })
+      prisma.client.count({ where }),
     ]);
+
+    // Summary rows carry no brandImages/documents, so there is nothing to normalise.
+    if (summary) {
+      return NextResponse.json({
+        success: true,
+        data: clients,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit),
+        },
+      });
+    }
 
     // Add document count and normalized brandImages (merge JSON with legacy fields)
     const clientsWithDocumentCount = clients.map((client) => {

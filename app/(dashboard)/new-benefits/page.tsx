@@ -1,7 +1,10 @@
 "use client";
 
 import { BenefitsWizard } from "@/components/wizard/benefits-wizard";
-import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
+import {
+  useBenefitsWizardStore,
+  BENEFITS_WIZARD_STORAGE_KEY,
+} from "@/lib/benefits-wizard-store";
 import { persistPlanSelection } from "@/lib/plan-selector-storage";
 import { fetchProfileOnce } from "@/lib/fetch-profile";
 import { useEffect, useRef, useState, Suspense } from "react";
@@ -18,12 +21,38 @@ import {
 import { BenefitsCategory } from "@/types/new-client-wizard";
 import { saveBenefit, normalizeCategory } from "@/lib/save-benefit";
 import {
+  purgeDraftBenefit,
+  sessionCreatedBenefitRow,
+} from "@/lib/benefit-draft";
+import {
   hasUnsavedBenefitsWork,
   serializeBenefitsSnapshot,
 } from "@/lib/benefits-wizard-dirty";
 import { useNavigateAwayGuard } from "@/hooks/use-navigate-away-guard";
 import { NavigateAwayWarningDialog } from "@/components/ui/navigate-away-warning-dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { PublishingAttestationDialog } from "@/components/wizard/benefits-steps/publishing-attestation-dialog";
+
+/**
+ * Drop the persisted Create Benefits draft from localStorage without touching the
+ * in-memory store.
+ *
+ * Used by the Cancel flow, where a document navigation follows immediately:
+ * calling `resetWizard()` empties the store, which repaints the wizard as an
+ * empty "No plan selected" step for the few hundred milliseconds before the
+ * browser unloads the page — and the advisor should never see the screen they
+ * just discarded. The in-memory copy dies with the document anyway, so only the
+ * persisted copy actually has to be cleared.
+ */
+function clearPersistedBenefitsDraft(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(BENEFITS_WIZARD_STORAGE_KEY);
+  } catch {
+    // Storage can be unavailable (private mode) — the draft is also dropped the
+    // next time the wizard is opened and finds the store empty.
+  }
+}
 
 /** Serialize the wizard's current state for comparison against the dirty baseline. */
 function snapshotBenefitsStore(): string {
@@ -47,6 +76,25 @@ function NewBenefitsPageInner() {
   const userInteractedRef = useRef(false);
   const [, bumpBaselineVersion] = useState(0);
   const [isAttestationOpen, setIsAttestationOpen] = useState(false);
+  // True while Cancel is discarding the draft and (when it owns the row) purging
+  // the Benefit row it created. Drives the footer's busy/loading state.
+  const [isCancelling, setIsCancelling] = useState(false);
+  // "Are you sure?" for the footer's Cancel — the discard only runs once the
+  // advisor confirms, so a stray click can't throw the work away.
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  // Set when this page is leaving on purpose — either the Cancel flow has been
+  // confirmed, or Previous was pressed on Step 1. It disarms the leave guard (see
+  // `enabled` below) and triggers the exit; together they are what makes those two
+  // actions land on /benefits instead of asking again or staying put.
+  const [isLeavingToBenefits, setIsLeavingToBenefits] = useState(false);
+  // "Leave this setup?" for Step 1's Previous. That button has no previous step to
+  // step back to, so it leaves the wizard altogether — which must warn about unsaved
+  // work first, the way a sidebar link already does through the leave guard.
+  const [isStep1LeavePromptOpen, setIsStep1LeavePromptOpen] = useState(false);
+  // Mirrors the leave guard's trick: Radix can report the dialog as closed on the
+  // Discard button's pointerdown, which would tear that button out from under the
+  // click. Noting the intent lets the close handler ignore that one signal.
+  const step1DiscardPointerRef = useRef(false);
   const searchParams = useSearchParams();
   const planIdParam = searchParams.get("planId");
   const categoryRaw = searchParams.get("category");
@@ -88,7 +136,11 @@ function NewBenefitsPageInner() {
     ),
   );
   const leaveGuard = useNavigateAwayGuard({
-    enabled: !isInitialLoading && !isLoading,
+    // `isLeavingToBenefits` stands the guard down while we exit on purpose: the
+    // advisor has either answered the "Discard this benefit?" dialog or pressed
+    // Previous on Step 1, so this guard must not ask a second time — or hold on to
+    // the page's history state while we try to leave.
+    enabled: !isInitialLoading && !isLoading && !isLeavingToBenefits,
     hasUnsavedChanges,
     onSaveAndExit: async () => {
       // Benefits wizard uses persisted zustand storage as its draft source.
@@ -96,6 +148,27 @@ function NewBenefitsPageInner() {
       return;
     },
   });
+
+  /**
+   * Leave for the Benefits list once the leave guard has stood down.
+   *
+   * Declared *after* `useNavigateAwayGuard` on purpose: React tears down the
+   * changed effects in declaration order before creating the new ones, so the
+   * guard's `beforeunload` listener is already gone by the time this runs.
+   * Without that ordering the real navigation below would raise the browser's
+   * own "Leave site?" prompt on top of the action the advisor just took.
+   *
+   * A document navigation rather than `router.push` is deliberate. While the
+   * guard is armed it installs its own entry in the history state, and the
+   * client-side push out of the wizard did not take effect from the handler —
+   * the page stayed put after the draft was reset. A document navigation cannot
+   * be vetoed, and it additionally guarantees the Benefits list is read fresh,
+   * which is what we want after leaving a wizard that writes benefit rows.
+   */
+  useEffect(() => {
+    if (!isLeavingToBenefits) return;
+    window.location.assign("/benefits");
+  }, [isLeavingToBenefits]);
 
   /**
    * Keep the dirty baseline in step with the app's own writes.
@@ -440,8 +513,84 @@ function NewBenefitsPageInner() {
     nextStep();
   };
 
+  /**
+   * Previous (footer): step back inside the wizard. Step 1 has no previous step, so
+   * there it leaves for the Benefits list — and because that abandons the setup, it
+   * asks first when there is unsaved work (see the Step 1 leave prompt below). The
+   * draft is deliberately KEPT on the way out, so re-opening Create Benefits resumes
+   * where the advisor left off; the exit itself is handled by the
+   * `isLeavingToBenefits` effect above.
+   */
   const onPrevious = () => {
-    previousStep();
+    if (currentStep !== 1) {
+      previousStep();
+      return;
+    }
+    // Nothing at risk → leave without a prompt.
+    if (!hasUnsavedChanges) {
+      setIsLeavingToBenefits(true);
+      return;
+    }
+    setIsStep1LeavePromptOpen(true);
+  };
+
+  /**
+   * Cancel (footer, left of Next) — step one: ask. The discard itself runs from
+   * `handleConfirmCancel` once the advisor answers, so a stray click can't throw
+   * the work away. That handler documents exactly what "discard" covers.
+   */
+  const onCancel = () => {
+    setIsCancelDialogOpen(true);
+  };
+
+  /**
+   * Confirmed cancel: discard the benefit being created and go straight to the
+   * Benefits list.
+   *
+   * Two things are discarded:
+   *
+   * 1. The local draft. `resetWizard()` empties `stepData`, and the persist
+   *    middleware writes that empty state straight to localStorage — so reopening
+   *    Create Benefits starts clean instead of resuming the abandoned draft.
+   * 2. The Benefit row — but ONLY when this session created it. The Step 1 and
+   *    Step 2 auto-saves send `?updateOnly=1` and can never insert, so a
+   *    mid-wizard row comes only from an explicit save (Step 3's "Save FAQs", the
+   *    editor save, the publish/hide toggle). `sessionCreatedBenefitRow` compares
+   *    the wizard's read-once snapshot against the category, so a benefit that
+   *    already existed — this wizard is also opened to change one — is never
+   *    touched, and an unloaded snapshot counts as "not ours".
+   *
+   * The exit itself is left to the `isLeavingToBenefits` effect above, which runs
+   * once the leave guard has been disarmed — see that effect for why leaving from
+   * here with a client-side push did not work.
+   */
+  const handleConfirmCancel = async () => {
+    const step1 = useBenefitsWizardStore.getState().stepData.step1;
+    const planId = step1?.planId;
+    const category = step1?.benefitCategory;
+
+    setIsCancelling(true);
+    try {
+      if (planId && category && sessionCreatedBenefitRow(step1, category)) {
+        await purgeDraftBenefit(planId, category);
+      }
+    } catch (error: any) {
+      // The advisor must still be able to leave — report the incomplete cleanup
+      // instead of trapping them on the page.
+      toast.error("Could not fully discard the benefit", {
+        description: error?.message,
+      });
+    } finally {
+      // Persisted draft only — deliberately NOT `resetWizard()`. Emptying the
+      // in-memory store re-renders the wizard as an empty "No plan selected"
+      // step, and that repaint stays visible until the document navigation below
+      // takes over. The in-memory copy is discarded with the document.
+      clearPersistedBenefitsDraft();
+      setIsCancelling(false);
+      // Hand the exit to the effect above, which navigates once the leave guard
+      // has been disarmed.
+      setIsLeavingToBenefits(true);
+    }
   };
 
   /**
@@ -468,9 +617,16 @@ function NewBenefitsPageInner() {
       completeStep(currentStep);
       toast.success(`${categoryName} benefits created successfully!`);
 
-      // Small delay for the toast to be seen, then navigate back to Step 1
+      // Small delay so the success toast is seen, then leave for the Benefits list —
+      // the category that was just published now shows there. This reuses the Cancel
+      // and Previous exit (`isLeavingToBenefits`): the leave guard is disarmed and
+      // then a real document navigation runs, because a client-side push out of a
+      // guarded wizard does not take effect.
       setTimeout(() => {
+        // Rewind the wizard first, so a later visit doesn't resume on the publish
+        // step of an already-published benefit.
         useBenefitsWizardStore.getState().goToStep(1);
+        setIsLeavingToBenefits(true);
       }, 1500);
     } catch (error: any) {
       console.error("Completion error:", error);
@@ -504,7 +660,11 @@ function NewBenefitsPageInner() {
   const renderStep = () => {
     switch (currentStep) {
       case 1:
-        return <BenefitsStep1 />;
+        // The category is pinned by the deep link when the Browse Benefits page's
+        // per-row "+ Add" opens this wizard (`?planId&category`), so Step 1 hides
+        // its redundant "Benefit Category" picker. Plan-only entry points (sidebar
+        // "Create Benefit", right after a plan is created, dashboard tasks) keep it.
+        return <BenefitsStep1 hideCategoryPicker={!!categoryParam} />;
       case 2:
         return <BenefitsStep2 />;
       case 3:
@@ -514,7 +674,7 @@ function NewBenefitsPageInner() {
       case 5:
         return <BenefitsStep5 />;
       default:
-        return <BenefitsStep1 />;
+        return <BenefitsStep1 hideCategoryPicker={!!categoryParam} />;
     }
   };
 
@@ -527,6 +687,8 @@ function NewBenefitsPageInner() {
         onNext={onNext}
         onPrevious={onPrevious}
         onComplete={onComplete}
+        onCancel={onCancel}
+        isCancelling={isCancelling}
         isFirstStep={isFirstStep}
         isLastStep={isLastStep}
         isLoading={isLoading}
@@ -543,11 +705,60 @@ function NewBenefitsPageInner() {
         onDialogOpenChange={leaveGuard.dialogOnOpenChange}
         onDiscardPointerDownCapture={leaveGuard.suppressStayOnNextClose}
       />
+      {/* Step 1's Previous asks the same question the leave guard asks for a sidebar
+          link. A dedicated instance (rather than the guard's) because this prompt has
+          exactly one destination, and the guard's exits are driven by whatever href a
+          click supplied — overriding them here would mis-route those sidebar links.
+
+          The draft is persisted locally on every edit, so "Save and exit" simply
+          leaves; "Discard without saving" also drops the persisted draft. Purging a
+          Benefit row this session created stays Cancel's job — Previous is a step
+          back, not an abandonment. */}
+      <NavigateAwayWarningDialog
+        open={isStep1LeavePromptOpen}
+        onStay={() => setIsStep1LeavePromptOpen(false)}
+        onSaveAndExit={() => {
+          setIsStep1LeavePromptOpen(false);
+          setIsLeavingToBenefits(true);
+        }}
+        onDiscardWithoutSaving={() => {
+          setIsStep1LeavePromptOpen(false);
+          // Persisted copy only — see `clearPersistedBenefitsDraft`.
+          clearPersistedBenefitsDraft();
+          setIsLeavingToBenefits(true);
+        }}
+        onDialogOpenChange={(open) => {
+          if (open) return;
+          if (step1DiscardPointerRef.current) {
+            step1DiscardPointerRef.current = false;
+            return;
+          }
+          setIsStep1LeavePromptOpen(false);
+        }}
+        onDiscardPointerDownCapture={() => {
+          step1DiscardPointerRef.current = true;
+        }}
+      />
       <PublishingAttestationDialog
         open={isAttestationOpen}
         onOpenChange={setIsAttestationOpen}
         onConfirm={handleConfirmPublish}
         submitting={isLoading}
+      />
+      {/* Cancel is destructive — it discards the draft and, when this session
+          created the benefit, removes the row — so it always asks first. Radix's
+          AlertDialog ignores Escape and outside clicks, so the answer is explicit. */}
+      <ConfirmDialog
+        open={isCancelDialogOpen}
+        onOpenChange={setIsCancelDialogOpen}
+        onConfirm={handleConfirmCancel}
+        title="Discard this benefit?"
+        description="Changes you haven't saved will be lost. If you created this benefit in this session, it will also be removed."
+        confirmText="Yes, discard"
+        cancelText="No, go back"
+        variant="destructive"
+        isLoading={isCancelling}
+        loadingText="Discarding..."
       />
     </>
   );

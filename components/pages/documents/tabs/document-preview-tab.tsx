@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { DismissibleAlert } from "@/components/ui/dismissible-alert";
 import { DocumentsCardsView } from "../views/documents-cards-view";
-import type { RetirementDocumentItem } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
+import type { RetirementDocumentItem } from "@/components/pages/client-portal/sections/benefit-document-section";
 import { BenefitsCategory } from "@/types/new-client-wizard";
 
 interface DocumentPreviewTabProps {
@@ -25,6 +25,9 @@ interface DocumentPreviewTabProps {
   ) => Promise<void>;
   brandColor?: string;
   accentColor?: string;
+  /** Hide the category badge on every card (Create Benefits / Edit Benefit Branding
+   *  preview, where the cards are already scoped to the benefit's category). */
+  hideCategoryBadge?: boolean;
 }
 
 export function DocumentPreviewTab({
@@ -38,6 +41,7 @@ export function DocumentPreviewTab({
   onSaveEdit,
   brandColor,
   accentColor,
+  hideCategoryBadge = false,
 }: DocumentPreviewTabProps) {
   if (!selectedPlan) {
     return (
@@ -91,6 +95,7 @@ export function DocumentPreviewTab({
           onSaveEdit={onSaveEdit}
           brandColor={brandColor}
           accentColor={accentColor}
+          hideCategoryBadge={hideCategoryBadge}
         />
       )}
     </div>

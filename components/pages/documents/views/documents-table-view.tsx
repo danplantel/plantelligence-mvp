@@ -75,9 +75,14 @@ interface DocumentsTableViewProps {
   /** Render Edit/Delete as direct buttons instead of the "..." menu. */
   showDirectEditDelete?: boolean;
   /** When true, the Category column renders static badges instead of the editable
-   *  Select dropdown, even when `onEdit` is provided. Used in the Create Benefits
-   *  flow where the category is already fixed by the benefit being configured. */
+   *  Select dropdown, even when `onEdit` is provided. */
   disableCategoryEdit?: boolean;
+  /** When true the Category column is dropped entirely — header AND cell together,
+   *  so the table's remaining columns stay aligned. Used by the Create Benefits /
+   *  Edit Benefit Branding section, whose document list is already scoped to the
+   *  benefit being configured, so the badge only repeated the category the advisor
+   *  is editing. */
+  hideCategoryColumn?: boolean;
 }
 
 interface ActionButtonProps {
@@ -138,6 +143,7 @@ export function DocumentsTableView({
   showActionTooltips = false,
   showDirectEditDelete = false,
   disableCategoryEdit = false,
+  hideCategoryColumn = false,
 }: DocumentsTableViewProps) {
   return (
     <TooltipProvider delayDuration={200}>
@@ -155,7 +161,13 @@ export function DocumentsTableView({
                   <ChevronsUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
-              <TableHead className="py-4">Category</TableHead>
+              {/* Hidden together with its body cell below — `display: none` takes
+                  both out of the table layout, so the columns stay aligned. */}
+              <TableHead
+                className={`py-4 ${hideCategoryColumn ? "hidden" : ""}`}
+              >
+                Category
+              </TableHead>
               {/* <TableHead className="py-4">
               <Button
                 variant="ghost"
@@ -227,7 +239,7 @@ export function DocumentsTableView({
                       )}
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className={hideCategoryColumn ? "hidden" : undefined}>
                     {onEdit && !disableCategoryEdit ? (
                       <div
                         onClick={(e) => e.stopPropagation()}

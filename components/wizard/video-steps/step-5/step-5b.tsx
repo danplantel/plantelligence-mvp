@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useVideoWizardStore } from "@/lib/video-wizard-store";
 import { QRCodeSVG } from "qrcode.react";
+import { fetchProfileOnce } from "@/lib/fetch-profile";
 
 interface VideoStep5bProps {}
 
@@ -26,32 +27,29 @@ export function VideoStep5b({}: VideoStep5bProps) {
   useEffect(() => {
     const fetchCompanyLogo = async () => {
       try {
-        const response = await fetch("/api/profile");
-        if (response.ok) {
-          const profile = await response.json();
-
-          // Try multiple paths to find company logo
-          const wizardSession = profile.wizardSessions?.[0];
-          const branding = wizardSession?.branding;
-
-          const logoUrl =
-            branding?.logo ||
-            profile.advisorLogoUrl ||
-            profile.companyLogo ||
-            profile.logo ||
-            (typeof profile.companyLogo === "object" && profile.companyLogo?.url
-              ? profile.companyLogo.url
-              : null) ||
-            "";
-
-          setCompanyLogo(logoUrl);
-        } else {
-          console.error(
-            "Failed to fetch profile:",
-            response.status,
-            response.statusText,
-          );
+        // Single-flight + TTL (lib/fetch-profile) — the layout header has almost always
+        // already fetched this profile, so no separate GET /api/profile is needed.
+        const profile = await fetchProfileOnce();
+        if (!profile) {
+          console.warn("[VideoStep5b] profile unavailable; company logo left empty");
+          return;
         }
+
+        // Try multiple paths to find company logo
+        const wizardSession = profile.wizardSessions?.[0];
+        const branding = wizardSession?.branding;
+
+        const logoUrl =
+          branding?.logo ||
+          profile.advisorLogoUrl ||
+          profile.companyLogo ||
+          profile.logo ||
+          (typeof profile.companyLogo === "object" && profile.companyLogo?.url
+            ? profile.companyLogo.url
+            : null) ||
+          "";
+
+        setCompanyLogo(logoUrl);
       } catch (error) {
         console.error("Error fetching company logo:", error);
       }

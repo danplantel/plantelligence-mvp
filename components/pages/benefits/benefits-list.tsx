@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BrandingImage } from "@/components/ui/branding-image";
@@ -14,6 +15,7 @@ import {
   PlanSearchBar,
   type PlanSearchBarPlan,
 } from "@/components/plan-selector/plan-search-bar";
+import { OrgServiceCategories } from "@/components/pages/benefits/org-service-categories";
 import {
   getRecentPlanIds,
   persistPlanSelection,
@@ -41,6 +43,27 @@ interface BenefitRow {
   missingInfo: string[];
 }
 
+/**
+ * The Create Benefits wizard stores the Messaging **Intro Headline** in `Benefit.title`
+ * — by default `Welcome to <org/company>!` — so a row headlined with `title` showed
+ * participant-facing welcome copy rather than the name of the benefit. Rows are now
+ * headlined with the benefit's own name (`row.label`); a title the advisor genuinely
+ * customised is still worth surfacing, so it is kept as a secondary note.
+ */
+function isCustomBenefitTitle(
+  title: string | null | undefined,
+  label: string,
+  category: string,
+): boolean {
+  const t = (title || "").trim();
+  if (!t) return false;
+  // Wizard default: "Welcome to <name>!" / "Welcome to Your Benefits Hub!".
+  if (/^welcome to\b/i.test(t)) return false;
+  // The wizard also defaults the title to the category name; that adds nothing.
+  if (t === label || t === category) return false;
+  return true;
+}
+
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 /**
@@ -51,8 +74,11 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json());
 export function BenefitsListPage() {
   const router = useRouter();
   const { data, isLoading, mutate } = useSWR("/api/benefits", fetcher);
+  // `summary=1`: this picker reads only id/companyName/slug/status, and the default
+  // response ships every plan's `keyContacts` + legacy `employeePortalPreview` mirror
+  // (base64 images) — measured at 8.3 MB / 6.6 s for a 7-plan account.
   const { data: planListData } = useSWR(
-    "/api/clients?status=all&limit=500&sortColumn=companyName&sortDirection=asc",
+    "/api/clients?status=all&limit=500&sortColumn=companyName&sortDirection=asc&summary=1",
     fetcher,
     { keepPreviousData: true, dedupingInterval: 60_000, revalidateOnFocus: false },
   );
@@ -162,6 +188,7 @@ export function BenefitsListPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
+
       {/* Plan picker — decides which plan's benefits are shown below. */}
       <Card className="mb-6 shadow-sm dark:bg-gray-800">
         <CardContent className="p-6">
@@ -175,7 +202,11 @@ export function BenefitsListPage() {
           />
         </CardContent>
       </Card>
-
+      
+      {/* Organization-wide context: the benefits this advisor's organization
+          offers. Plan-independent, and permanent — see the component. */}
+      <OrgServiceCategories />
+      
       {isLoading ? (
         <Card>
           <CardContent className="space-y-3 p-6">
@@ -225,13 +256,31 @@ export function BenefitsListPage() {
               {planRows.map((row) => {
                 const key = `${row.planId}::${row.category}`;
                 const isToggling = toggling[key] === true;
+                // Headline is the benefit's own name — see isCustomBenefitTitle().
+                const customTitle = isCustomBenefitTitle(
+                  row.title,
+                  row.label,
+                  row.category,
+                )
+                  ? row.title
+                  : null;
+                // The plan-sponsor hub is the wizard's "Custom" benefit. "Wellness
+                // Programs" is only its default label — the wizard asks the advisor for
+                // a "Custom Category Name" (persisted as `Benefit.title`), so show that
+                // saved name, or "Custom" while none has been saved.
+                const isCustomHub =
+                  row.category === "Company / Plan Sponsor" ||
+                  row.visibilityKey === "Other";
+                const displayName = isCustomHub
+                  ? customTitle ?? "Custom"
+                  : row.label;
                 return (
                   <div key={key} className="flex items-center gap-4 py-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-white dark:border-gray-700 dark:bg-gray-900">
                       {row.partnerLogo ? (
                         <BrandingImage
                           src={row.partnerLogo}
-                          alt={row.label}
+                          alt={displayName}
                           className="h-full w-full object-contain p-1"
                         />
                       ) : (
@@ -244,8 +293,15 @@ export function BenefitsListPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex min-w-0 items-center gap-2">
                         <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-                          {row.title}
+                          {displayName}
                         </p>
+                        {/* For the custom hub the saved name IS the headline, so only
+                            the standard categories need it repeated as a note. */}
+                        {customTitle && !isCustomHub && (
+                          <span className="truncate text-[11px] text-muted-foreground">
+                            {customTitle}
+                          </span>
+                        )}
                         {row.exists && (
                           <span
                             className={cn(
@@ -260,18 +316,41 @@ export function BenefitsListPage() {
                         )}
                       </div>
                       {/* Why the benefit is incomplete — the wizard's own
-                          missing-item list, shown inline instead of a tooltip. */}
+                          missing-item list, one chip per item rather than a
+                          "·"-joined sentence, so several gaps read as a set at a
+                          glance instead of a run-on line.
+                          `variant="outline"` + amber overrides: `Badge` merges
+                          className through `cn()`, so these win over the variant's
+                          own colours. Padding/size are tightened to keep the row
+                          height unchanged from the plain-text version. */}
                       {row.exists &&
                         !row.isComplete &&
                         row.missingInfo.length > 0 && (
-                          <p className="mt-0.5 text-[11px] leading-snug text-amber-600 dark:text-amber-400">
-                            {row.missingInfo.join(" · ")}
-                          </p>
+                          <div className="mt-1 flex flex-wrap items-center gap-1">
+                            {row.missingInfo.map((item, index) => (
+                              <Badge
+                                // Index-qualified: the list is stable per render, and
+                                // a bare `item` key would collide if two entries ever
+                                // shared a label.
+                                key={`${item}-${index}`}
+                                variant="outline"
+                                className="border-amber-300/70 bg-amber-50 px-1.5 py-0 text-[11px] font-medium leading-4 text-amber-700 dark:border-amber-700/70 dark:bg-amber-950/40 dark:text-amber-300"
+                              >
+                                {item}
+                              </Badge>
+                            ))}
+                          </div>
                         )}
                     </div>
 
-                    <div className="flex shrink-0 items-center gap-2">
-                      {row.exists && (
+                    {/* Portal visibility only means something once the benefit
+                        exists. `/api/benefits` derives `isEnabled` from the plan's
+                        `categoryPortalVisibility`, which defaults to visible for a
+                        category with no row — so rendering the switch regardless
+                        showed it ON (reading as "Published") beside an "Add benefit"
+                        button that cannot publish anything. */}
+                    {row.exists ? (
+                      <div className="flex shrink-0 items-center gap-2">
                         <span
                           className={cn(
                             "text-[11px] font-semibold",
@@ -280,18 +359,22 @@ export function BenefitsListPage() {
                         >
                           {row.isEnabled ? "Published" : "Hidden"}
                         </span>
-                      )}
-                      {isToggling ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                      ) : null}
-                      <Switch
-                        checked={row.isEnabled}
-                        disabled={!row.exists || isToggling}
-                        onCheckedChange={(checked) =>
-                          handleToggle(row, checked === true)
-                        }
-                      />
-                    </div>
+                        {isToggling ? (
+                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        ) : null}
+                        <Switch
+                          checked={row.isEnabled}
+                          disabled={isToggling}
+                          onCheckedChange={(checked) =>
+                            handleToggle(row, checked === true)
+                          }
+                        />
+                      </div>
+                    ) : (
+                      <span className="shrink-0 text-[11px] font-semibold text-muted-foreground">
+                        Not created
+                      </span>
+                    )}
 
                     {row.exists ? (
                       <Button

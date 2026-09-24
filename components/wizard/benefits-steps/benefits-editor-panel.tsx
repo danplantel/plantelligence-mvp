@@ -25,6 +25,10 @@ import { HeroBackgroundCard, type HeroSegmentMode } from "@/components/wizard/ne
 import { uploadFileToR2 } from "@/lib/upload-to-r2";
 import { toNextImageSrc } from "@/lib/branding-image-url";
 import { toast } from "sonner";
+import {
+    formatPhoneNumber,
+    normalizePhoneNumber,
+} from "@/components/wizard/steps/sections/user-setup-section/user-setup-section.funcs";
 
 export const DEFAULT_HELP_CARDS: HelpCardData[] = [
     {
@@ -1204,6 +1208,104 @@ export function BenefitsEditorPanel({
                             <p className="text-[11px] text-muted-foreground">
                                 Full URL for the &ldquo;REGISTER OR LOGIN HERE&rdquo; button.
                             </p>
+                        </div>
+
+                        {/* Provider / Recordkeeper — the company that administers this
+                            benefit. Shown beside the REGISTER OR LOGIN button on the
+                            portal; its logo is the Benefit Logo above (`partnerLogo`). */}
+                        <div className="space-y-4 border-t pt-4">
+                            <div>
+                                <Label className="text-xs font-bold text-foreground">
+                                    Provider / Recordkeeper
+                                </Label>
+                                <p className="text-[11px] text-muted-foreground mt-1">
+                                    The company that administers this benefit — for example a
+                                    retirement recordkeeper or an insurance carrier. It is shown
+                                    next to the &ldquo;REGISTER OR LOGIN HERE&rdquo; button.
+                                </p>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label className="text-[11px] text-muted-foreground">
+                                    Provider name
+                                </Label>
+                                {/* Free text — the `list`/`<datalist>` pair that used to
+                                    be here rendered a suggestion dropdown, which read as
+                                    a fixed picker. Any recordkeeper or carrier name can
+                                    be typed; the examples live in the placeholder only. */}
+                                <Input
+                                    value={step1Data.providerContact?.companyName || ""}
+                                    onChange={(e) =>
+                                        saveStepData(1, {
+                                            ...step1Data,
+                                            providerContact: {
+                                                ...(step1Data.providerContact || {}),
+                                                companyName: e.target.value,
+                                            },
+                                        })
+                                    }
+                                    placeholder="e.g. Voya, Empower, Principal, Fidelity"
+                                    className="h-11 shadow-sm border-muted"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-2">
+                                    <Label className="text-[11px] text-muted-foreground">
+                                        Provider contact (optional)
+                                    </Label>
+                                    <Input
+                                        value={step1Data.providerContact?.contactName || ""}
+                                        onChange={(e) =>
+                                            saveStepData(1, {
+                                                ...step1Data,
+                                                providerContact: {
+                                                    ...(step1Data.providerContact || {}),
+                                                    contactName: e.target.value,
+                                                },
+                                            })
+                                        }
+                                        placeholder="e.g. Jane Doe"
+                                        className="h-11 shadow-sm border-muted"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[11px] text-muted-foreground">
+                                        Provider phone (optional)
+                                    </Label>
+                                    <Input
+                                        type="tel"
+                                        // "(800) 555-1212" is exactly 14 characters, so
+                                        // this caps the field at a formatted 10-digit US
+                                        // number — the same limit the handler below stores.
+                                        maxLength={14}
+                                        // Digits are stored; the value is formatted on the
+                                        // way in so the advisor sees (800) 555-1212 rather
+                                        // than a raw 8005551212 (and existing saved values
+                                        // with punctuation render formatted too).
+                                        value={formatPhoneNumber(
+                                            step1Data.providerContact?.phone || "",
+                                        )}
+                                        onChange={(e) => {
+                                            const digits = normalizePhoneNumber(
+                                                e.target.value,
+                                            );
+                                            // Ignore an 11th digit instead of silently
+                                            // dropping it at display time.
+                                            if (digits.length > 10) return;
+                                            saveStepData(1, {
+                                                ...step1Data,
+                                                providerContact: {
+                                                    ...(step1Data.providerContact || {}),
+                                                    phone: digits,
+                                                },
+                                            });
+                                        }}
+                                        placeholder="e.g. (800) 555-1212"
+                                        className="h-11 shadow-sm border-muted"
+                                    />
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

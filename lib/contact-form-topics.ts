@@ -27,10 +27,23 @@ export type ContactTopicCategory =
   | "Retirement"
   | "Group Health"
   | "Group Life"
-  | "Other Benefits";
+  | "Other Benefits"
+  | "Company / Plan Sponsor";
 
 /** Label that always opens a free-text "tell us more" box for participants. */
 export const OTHER_TOPIC_LABEL = "Other";
+
+/**
+ * Placeholder topic for the plan's *custom* benefit.
+ *
+ * That benefit is the benefits wizard's "Custom" category, stored on the plan as a
+ * `Benefit` row with category "Company / Plan Sponsor" and whatever title the
+ * advisor gave it. The stored topic label stays this text — so the list is
+ * readable everywhere and a plan without a custom benefit still reads correctly —
+ * and `resolveContactTopicLabel` swaps in the benefit's real title wherever a
+ * person actually reads it (the participant form, the builder, the CTA link).
+ */
+export const CUSTOM_BENEFIT_TOPIC_LABEL = "Custom Benefits";
 
 /**
  * Maps the many category names used across older contact records onto the four
@@ -47,7 +60,12 @@ const CONTACT_TOPIC_CATEGORY_ALIASES: Record<string, ContactTopicCategory> = {
   "life insurance": "Group Life",
   "other benefits": "Other Benefits",
   other: "Other Benefits",
+  // Legacy contacts stored the custom-benefit category as "Custom"; they keep the
+  // free-form list rather than inheriting the plan-sponsor one.
   custom: "Other Benefits",
+  "company / plan sponsor": "Company / Plan Sponsor",
+  "company/plan sponsor": "Company / Plan Sponsor",
+  "plan sponsor": "Company / Plan Sponsor",
 };
 
 /**
@@ -106,6 +124,23 @@ export const DEFAULT_CONTACT_FORM_TOPICS: Record<
   // Custom / "Other Benefits" categories start empty apart from "Other" — the
   // advisor builds the list for whatever the custom benefit is.
   "Other Benefits": [OTHER_TOPIC_LABEL],
+  // Company / Plan Sponsor. This contact speaks for the whole plan rather than
+  // for one benefit, so its topics are the plan's benefits by name — including
+  // the plan's *custom* benefit, which shows its own title (see
+  // `CUSTOM_BENEFIT_TOPIC_LABEL`) — followed by the plan-wide requests.
+  "Company / Plan Sponsor": [
+    "Retirement Plan",
+    "Group Health",
+    "Group Life",
+    CUSTOM_BENEFIT_TOPIC_LABEL,
+    "Open Enrollment",
+    "Employee Communications / Education",
+    "Plan Documents / Resources",
+    "Meetings / Events",
+    "Plan Changes / Updates",
+    "General Benefits Support",
+    OTHER_TOPIC_LABEL,
+  ],
 };
 
 /** Max number of topics allowed per contact (guards the URL payload size). */
@@ -190,7 +225,21 @@ export function resolveContactFormTopics(
   category: string | null | undefined,
   saved?: unknown,
 ): ContactFormTopic[] {
-  if (Array.isArray(saved)) return normalizeContactFormTopics(saved);
+  if (Array.isArray(saved)) {
+    const list = normalizeContactFormTopics(saved);
+    // For a Company / Plan Sponsor contact an empty list means "never
+    // configured", not "no topics": this category had no suggestions until now, so
+    // every such contact carries the empty array the builder seeded by default.
+    // Seeding the new defaults is what makes them appear on contacts that already
+    // exist; a list the advisor actually built is returned untouched.
+    if (
+      list.length === 0 &&
+      normalizeContactTopicCategory(category) === "Company / Plan Sponsor"
+    ) {
+      return getDefaultContactFormTopics(category);
+    }
+    return list;
+  }
   return getDefaultContactFormTopics(category);
 }
 
@@ -199,13 +248,48 @@ export function hasContactFormTopics(topics: ContactFormTopic[]): boolean {
   return topics.some((t) => t.enabled && !!t.label.trim());
 }
 
+/** Plan facts a topic label may depend on. */
+export interface ContactTopicContext {
+  /**
+   * Title of the plan's custom benefit — the `Benefit` row with category
+   * "Company / Plan Sponsor". Absent for a plan that has no custom benefit yet.
+   */
+  customBenefitTitle?: string | null;
+}
+
+/**
+ * Replace the custom-benefit placeholder with that benefit's real title, so the
+ * participant reads the plan's own wording ("Wellness Programs") instead of the
+ * generic "Custom Benefits". Any other label passes through untouched.
+ */
+export function resolveContactTopicLabel(
+  label: string,
+  context?: ContactTopicContext,
+): string {
+  const title = (context?.customBenefitTitle || "").trim();
+  if (!title) return label;
+  if (label.trim().toLowerCase() !== CUSTOM_BENEFIT_TOPIC_LABEL.toLowerCase()) {
+    return label;
+  }
+  return title;
+}
+
+/** `resolveContactTopicLabel` applied across a list of labels. */
+export function resolveContactTopicLabels(
+  labels: string[],
+  context?: ContactTopicContext,
+): string[] {
+  return labels.map((label) => resolveContactTopicLabel(label, context));
+}
+
 /** Active (enabled) labels in the advisor-defined order. */
 export function getActiveContactFormTopicLabels(
   topics: ContactFormTopic[],
+  context?: ContactTopicContext,
 ): string[] {
   return topics
     .filter((t) => t.enabled && !!t.label.trim())
-    .map((t) => t.label.trim());
+    .map((t) => resolveContactTopicLabel(t.label.trim(), context));
 }
 
 /** Serialize labels for the `/contact` query string. */

@@ -189,17 +189,66 @@ export function useEditClient() {
 
   // Fetch client data
   useEffect(() => {
+    // Aborts this load when clientId changes or the page unmounts, so a slow — or
+    // retried — response for plan A can never be written onto plan B.
+    const controller = new AbortController();
+
+    // A plan load can fail transiently: the route being compiled on first hit, a
+    // dropped database connection, or a session cookie that has not been refreshed
+    // yet. Those used to dead-end on "Failed to load client data" behind a
+    // "Back to Clients" button, so retry the transient ones before giving up.
+    const TRANSIENT_RETRIES = 2;
+    const isTransientStatus = (status: number) =>
+      status === 401 || status === 408 || status === 429 || status >= 500;
+
     const fetchClient = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`/api/clients/${clientId}`);
+        let response: Response | null = null;
+        for (let attempt = 0; attempt <= TRANSIENT_RETRIES; attempt++) {
+          try {
+            response = await fetch(`/api/clients/${clientId}`, {
+              signal: controller.signal,
+            });
+          } catch (err) {
+            // Superseded / unmounted — not a failure worth reporting.
+            if ((err as { name?: string })?.name === "AbortError") return;
+            response = null;
+          }
+          if (
+            response &&
+            (!isTransientStatus(response.status) ||
+              attempt === TRANSIENT_RETRIES)
+          ) {
+            break;
+          }
+          if (attempt < TRANSIENT_RETRIES) {
+            await new Promise((resolve) =>
+              setTimeout(resolve, 400 * (attempt + 1)),
+            );
+            if (controller.signal.aborted) return;
+          }
+        }
+
+        if (!response) {
+          console.error("[Edit Client] client fetch failed: no response");
+          setError("Failed to load client data");
+          return;
+        }
 
         if (!response.ok) {
-          if (response.status === 404) {
-            setError("Client not found");
-          } else {
-            setError("Failed to load client data");
-          }
+          // Name the actual reason — a recurrence must be diagnosable from the UI
+          // rather than reporting the uniform "Failed to load client data".
+          console.error(
+            "[Edit Client] client fetch failed:",
+            response.status,
+            await response.text().catch(() => ""),
+          );
+          setError(
+            response.status === 404
+              ? "Client not found"
+              : `Failed to load client data (HTTP ${response.status})`,
+          );
           return;
         }
 
@@ -456,19 +505,27 @@ export function useEditClient() {
           // Set disclaimers
           setDisclaimers(result.data.disclaimers || "");
         } else {
+          console.error(
+            "[Edit Client] client fetch returned success:false",
+            result,
+          );
           setError("Failed to load client data");
         }
       } catch (err) {
+        // A superseded request (clientId changed / page unmounted) is not a
+        // failure the advisor needs to see.
+        if (controller.signal.aborted) return;
         console.error("Error fetching client:", err);
         setError("Failed to load client data");
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     };
 
     if (clientId) {
       fetchClient();
     }
+    return () => controller.abort();
   }, [clientId]);
 
   const handleInputChange = (field: keyof CompanyBasicsData, value: any) => {

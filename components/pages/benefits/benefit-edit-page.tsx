@@ -1,13 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, Save } from "lucide-react";
+import { ArrowLeft, Loader2, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
 import { saveBenefit } from "@/lib/save-benefit";
+import { forgetDraftBenefit, purgeDraftBenefit } from "@/lib/benefit-draft";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import {
+  invalidateClientCache,
+  invalidateBenefitRowsCache,
+} from "@/lib/fetch-client";
 import { persistPlanSelection } from "@/lib/plan-selector-storage";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import {
@@ -16,16 +26,24 @@ import {
   BenefitsStep4,
   BenefitsStep5,
 } from "@/components/wizard/benefits-steps";
-import { BenefitsEditorPanel } from "@/components/wizard/benefits-steps/benefits-editor-panel";
-import { BenefitEditPreview } from "@/components/wizard/benefits-steps/benefit-edit-preview";
+import { EditBenefitPreviewSection } from "@/components/pages/benefits/edit-benefit-preview-section";
 
 /**
- * Tabs for the Edit Benefit page. Each surfaces sections that live in different
- * Create Benefit wizard steps, so a benefit can be edited without walking the
- * wizard.
+ * Edit Benefit tabs — mirrors the Edit Plan page (`/edit-client/[id]`): the tab
+ * bar renders inside the fixed header.
+ *
+ * - **Branding** renders Step 1's accordions exactly as the wizard does
+ *   (Benefit Logo, Messaging, Key Contact, Documents).
+ * - **Preview** renders [`EditBenefitPreviewSection`](components/pages/benefits/edit-benefit-preview-section.tsx)
+ *   — the live portal preview beside an inline Editing Panel (typography,
+ *   branding, messaging, plan video, help cards, insurance). Like Edit Plan's
+ *   Preview tab, the in-page header is hidden there; Cancel + Save Changes live
+ *   in the fixed bottom action bar (which owns Save on every tab) and the preview
+ *   shrinks while the panel is open.
  */
 const EDIT_TABS = [
   { id: "branding", label: "Branding" },
+  { id: "preview", label: "Preview" },
   { id: "contacts", label: "Contacts" },
   { id: "faqs", label: "FAQs" },
   { id: "documents", label: "Documents" },
@@ -33,6 +51,21 @@ const EDIT_TABS = [
 ] as const;
 
 type EditTabId = (typeof EDIT_TABS)[number]["id"];
+
+/**
+ * Phrase the advisor must type to unlock Delete Benefit. Deleting removes the whole
+ * benefit page and cannot be undone, so a single click is too cheap a confirmation.
+ */
+const DELETE_BENEFIT_PHRASE = "delete benefit";
+
+/**
+ * Tabs that render Step 1 VISIBLY. Every other tab keeps a hidden instance mounted
+ * instead (see the render below), so the store stays populated everywhere without
+ * showing Step 1's accordions.
+ *
+ * Contacts is deliberately NOT here: it shows only the support team (Step 3).
+ */
+const STEP1_VISIBLE_TABS: EditTabId[] = ["branding"];
 
 interface BenefitEditPageProps {
   planId: string;
@@ -46,11 +79,28 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  // Type-to-confirm gate for the delete dialog.
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  // Trimmed + case-insensitive: forgiving about a pasted trailing space, but still
+  // requires the phrase to be typed rather than merely acknowledged.
+  const isDeleteConfirmed =
+    deleteConfirmText.trim().toLowerCase() === DELETE_BENEFIT_PHRASE;
+  // Portal target for the tab bar — the Header renders <div id="header-tabs-portal" />
+  // and we portal the TabsList into it so it appears inside the fixed header while
+  // staying within the <Tabs> React context (same pattern as Edit Plan).
+  const [headerPortalTarget, setHeaderPortalTarget] = useState<HTMLElement | null>(
+    null,
+  );
 
   const step1Data = useBenefitsWizardStore((s) => s.stepData.step1);
   const selectedPlan = step1Data?.selectedPlan as any;
   const companyName = selectedPlan?.companyName || "";
-  const companyWebsite = selectedPlan?.companyWebsite || "";
+
+  useEffect(() => {
+    setHeaderPortalTarget(document.getElementById("header-tabs-portal"));
+  }, []);
 
   // Load the persisted draft, then point Step 1 at this plan + category so its
   // pre-fill effects populate the store for every tab.
@@ -98,6 +148,18 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
     }
   }, []);
 
+  // True while the Preview tab's inline Editing Panel is open
+  // (`EditBenefitPreviewSection` dispatches `step5EditorStateChange`). Mirrors
+  // Edit Client's `planEditorOpen`: used to offset the fixed bottom action bar so
+  // its buttons clear the rail-collapsed sidebar *and* the panel.
+  const [previewEditorOpen, setPreviewEditorOpen] = useState(false);
+  useEffect(() => {
+    const handler = (e: any) => setPreviewEditorOpen(!!e?.detail?.isOpen);
+    window.addEventListener("step5EditorStateChange" as any, handler);
+    return () =>
+      window.removeEventListener("step5EditorStateChange" as any, handler);
+  }, []);
+
   /**
    * Persist every section using the shared `saveBenefit()` helper (identical
    * merge logic to the Create Benefit wizard). Per-field autosave from the step
@@ -127,10 +189,91 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
     }
   };
 
+  /**
+   * Delete this category's Benefit page, then forget it locally.
+   *
+   * Reuses the wizard's Cancel path ([`purgeDraftBenefit`](lib/benefit-draft.ts)) rather
+   * than inventing a second delete: that helper hard-deletes the `Benefit` row AND drops
+   * the category from the legacy `employeePortalPreview` mirror, which the portal falls
+   * back to — leaving the mirror entry behind would keep the deleted benefit visible.
+   *
+   * The wizard draft for this plan + category is discarded as well
+   * ([`forgetDraftBenefit`](lib/benefit-draft.ts)). That is required because the wizard
+   * store is a module singleton, so it outlives the client-side navigation back to
+   * /benefits and on into the "Add benefit" flow: otherwise the deleted row was still in
+   * the draft's read-once Benefit-row snapshot (raising "… benefits already exist" for a
+   * benefit that no longer exists) and Step 1's pre-fill skipped the category it had
+   * already loaded, so the old title / description / logo came back. Deleting is meant to
+   * give the advisor a genuinely fresh benefit, so only THIS category is forgotten — a
+   * draft for another category or plan is left untouched.
+   */
+  const handleDeleteBenefit = async () => {
+    if (!planId || !category) return;
+    setIsDeleting(true);
+    try {
+      await purgeDraftBenefit(planId, category);
+      // The row is gone: drop the local draft so re-entering create starts fresh.
+      forgetDraftBenefit(planId, category);
+      // Both the plan row and its Benefit rows changed.
+      invalidateClientCache(planId);
+      invalidateBenefitRowsCache(planId);
+      toast.success(`${category} benefit deleted`);
+      router.push("/benefits");
+    } catch (error: any) {
+      toast.error("Could not delete the benefit", {
+        description: error?.message,
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const tabList = (
+    // `border-0` kills the shared TabsList border so the nav has no outline,
+    // and `bg-transparent dark:bg-transparent` overrides the base TabsList
+    // background so the nav element stays fully transparent.
+    <TabsList
+      className={cn(
+        "w-full gap-1 rounded-none border-0 bg-transparent dark:bg-transparent p-0 flex-nowrap h-auto min-h-fit overflow-x-auto",
+        "[&::-webkit-scrollbar]:hidden [scrollbar-width:none]",
+        // Centring that survives an overflow. `justify-center` inside a scroll
+        // container clips the START of an overlong strip, leaving the first tabs
+        // off-screen and unreachable by scrolling — which the header can now produce,
+        // because it gives this page's "Edit Benefit / <company> - <category>" column
+        // the width its text actually needs. Auto margins centre the strip while it
+        // fits and collapse to 0 when it does not, so the strip stays flush with the
+        // start and scrolls normally. With the inline Editing Panel open the strip has
+        // to hug the panel edge instead, so it starts flush (the header also forces
+        // `justify-start` there for the tabs it portals).
+        previewEditorOpen
+          ? "justify-start"
+          : "[&>*:first-child]:ml-auto [&>*:last-child]:mr-auto",
+      )}
+    >
+      {EDIT_TABS.map((tab) => (
+        <TabsTrigger
+          key={tab.id}
+          value={tab.id}
+          className="rounded-none px-4 py-3 text-sm font-medium whitespace-nowrap data-[state=active]:border-b-2 data-[state=active]:border-accent-blue data-[state=active]:font-bold data-[state=active]:text-accent-blue"
+        >
+          {tab.label}
+        </TabsTrigger>
+      ))}
+    </TabsList>
+  );
+
   return (
-    <div className="flex-1 py-4 pb-28">
-      <div className="mx-auto max-w-[1500px] px-4">
-        <div className="mb-4 flex items-center justify-between gap-4">
+    <div className="flex-1 pb-24 pt-4">
+      <div className="mx-auto max-w-4xl px-4">
+        {/* In-page header — hidden on the Preview tab, exactly like Edit Plan
+            hides its EditClientHeader there: the preview is a full-bleed fixed
+            layout, and Save lives in the fixed bottom action bar on every tab. */}
+        <div
+          className={cn(
+            "mb-4 flex items-center justify-between gap-4",
+            activeTab === "preview" && "hidden",
+          )}
+        >
           <div className="flex min-w-0 items-center gap-3">
             <Button
               variant="ghost"
@@ -148,13 +291,19 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
               </p>
             </div>
           </div>
-          <Button onClick={handleSave} disabled={saving || !isHydrated} className="gap-2">
-            {saving ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4" />
-            )}
-            {saving ? "Saving..." : saved ? "Saved" : "Save changes"}
+          {/* Save is not here — the fixed bottom action bar owns it on every tab (see
+              the bar at the end of this component). This end of the row holds the
+              destructive action instead; the parent's `justify-between` is what puts it
+              hard against the end. */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="shrink-0 gap-1.5 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40"
+            onClick={() => setIsDeleteOpen(true)}
+            disabled={!isHydrated || isDeleting}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Delete Benefit
           </Button>
         </div>
 
@@ -168,71 +317,163 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
             value={activeTab}
             onValueChange={(value) => setActiveTab(value as EditTabId)}
           >
-            <TabsList className="sticky top-16 z-30 mb-4 flex h-auto flex-nowrap justify-start gap-1 overflow-x-auto rounded-none border-b bg-background p-0 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
-              {EDIT_TABS.map((tab) => (
-                <TabsTrigger
-                  key={tab.id}
-                  value={tab.id}
-                  className="rounded-none px-4 py-3 text-sm font-medium whitespace-nowrap data-[state=active]:border-b-2 data-[state=active]:border-accent-blue data-[state=active]:font-bold data-[state=active]:text-accent-blue"
-                >
-                  {tab.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
+            {/* Tab bar renders inside the fixed header via portal; falls back to
+                an inline bar if the header portal isn't mounted. */}
+            {headerPortalTarget
+              ? createPortal(tabList, headerPortalTarget)
+              : tabList}
 
-            <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,560px)]">
-              {/* Left column: the active tab's editor */}
-              <div className="min-w-0">
-                {/* Step 1 owns the benefit pre-fill effects. Keep exactly one
-                    instance mounted: hidden while any other tab is active,
-                    visible on the Contacts tab. */}
-                {activeTab !== "contacts" && (
-                  <div className="hidden" aria-hidden="true">
-                    <BenefitsStep1 mode="edit" />
-                  </div>
-                )}
-
-                <TabsContent value="branding" className="mt-0">
-                  <div className="h-[calc(100vh-16rem)] min-h-[640px] overflow-hidden rounded-xl border dark:border-gray-700">
-                    <BenefitsEditorPanel
-                      isOpen
-                      isAnimating
-                      onClose={() => {}}
-                      variant="inline"
-                      planCompanyName={companyName}
-                      companyWebsite={companyWebsite}
-                    />
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="contacts" className="mt-0 space-y-6">
-                  <BenefitsStep1 mode="edit" />
-                  <BenefitsStep3 section="contacts" />
-                </TabsContent>
-
-                <TabsContent value="faqs" className="mt-0">
-                  <BenefitsStep3 section="faqs" />
-                </TabsContent>
-
-                <TabsContent value="documents" className="mt-0">
-                  <BenefitsStep4 />
-                </TabsContent>
-
-                <TabsContent value="disclaimers" className="mt-0">
-                  <BenefitsStep5 />
-                </TabsContent>
+            {/* Step 1 owns the benefit pre-fill effects. Every tab that does not
+                render it visibly keeps one hidden instance mounted, so they all share
+                the same populated store (Preview reads it; Contacts' Step 3 resolves
+                the plan's contacts from it). */}
+            {!STEP1_VISIBLE_TABS.includes(activeTab) && (
+              <div className="hidden" aria-hidden="true">
+                <BenefitsStep1 mode="edit" />
               </div>
+            )}
 
-              {/* Right column: persistent live preview */}
-              <aside className="hidden xl:block">
-                <div className="sticky top-20 h-[calc(100vh-9rem)]">
-                  <BenefitEditPreview />
-                </div>
-              </aside>
-            </div>
+            {/* Branding — the wizard's Step 1 accordions, unchanged. */}
+            <TabsContent value="branding" className="mt-0">
+              <BenefitsStep1 mode="edit" />
+            </TabsContent>
+
+            {/* Preview — live portal preview + inline Editing Panel, scaled down
+                while the panel is open (mirrors Edit Plan's Preview tab). */}
+            <TabsContent value="preview" className="mt-0">
+              {/* Save lives in the fixed bottom action bar, not the toolbar. */}
+              <EditBenefitPreviewSection />
+            </TabsContent>
+
+            {/* Contacts shows ONLY the support team (Step 3). Step 1's "Key Contact"
+                accordion is deliberately not rendered here: everything it edits — the
+                benefit's primary contact, the designation list, the logo/header
+                uploads — also appears on the Branding tab, which renders Step 1 in
+                full. Showing it again here buried the support-team list the advisor
+                opened this tab for.
+
+                Step 1 still mounts hidden above, so its effects (contact + branding
+                prefill, debounced auto-save) keep running and Step 3 sees the same
+                state it did when both were rendered. */}
+            <TabsContent value="contacts" className="mt-0 space-y-6">
+              <BenefitsStep3 section="contacts" />
+            </TabsContent>
+
+            <TabsContent value="faqs" className="mt-0">
+              <BenefitsStep3 section="faqs" />
+            </TabsContent>
+
+            <TabsContent value="documents" className="mt-0">
+              <BenefitsStep4 />
+            </TabsContent>
+
+            <TabsContent value="disclaimers" className="mt-0">
+              <BenefitsStep5 />
+            </TabsContent>
           </Tabs>
         )}
       </div>
+
+      {/* Fixed bottom action bar — mirrors Edit Client's bar (`/edit-client/[id]`):
+          Cancel leaves the editor, Save Changes persists every section. With the
+          Preview tab's inline Editing Panel open the bar shifts right past the
+          rail-collapsed sidebar *and* the panel, exactly like Edit Client. */}
+      {/* `data-bottom-action-bar` lets the Preview tab measure this bar and end its
+          fixed preview area above it, instead of the bar painting over the last
+          section of the portal preview (see EditBenefitPreviewSection). */}
+      <div
+        data-bottom-action-bar
+        className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background shadow-lg"
+      >
+        <div
+          className={cn(
+            "px-4 py-4 flex justify-end gap-3 transition-all duration-200",
+            // Default: center the actions in the same max-width column the page
+            // content uses (this page's column is `max-w-4xl`). While the Editing
+            // Panel is open, align them to the right of the bar instead.
+            !previewEditorOpen && "mx-auto max-w-4xl",
+          )}
+          style={
+            previewEditorOpen
+              ? {
+                  marginLeft:
+                    "calc(var(--sidebar-width, 16rem) + var(--editor-inset, 0px))",
+                }
+              : undefined
+          }
+        >
+          <Button
+            variant="outline"
+            onClick={() => router.push("/benefits")}
+            disabled={saving}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={saving || !isHydrated}
+            className="gap-2"
+          >
+            {saving ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            {saving ? "Saving..." : saved ? "Saved" : "Save changes"}
+          </Button>
+        </div>
+      </div>
+
+      {/* Deleting a benefit is destructive and plan-visible, so it asks first.
+          Radix's AlertDialog ignores Escape and outside clicks, so the answer is
+          explicit. Rendered here purely for locality — it portals to document.body. */}
+      <ConfirmDialog
+        open={isDeleteOpen}
+        onOpenChange={(open) => {
+          setIsDeleteOpen(open);
+          // Clear the typed phrase on every close, so a reopen starts locked again
+          // instead of leaving the button already unlocked.
+          if (!open) setDeleteConfirmText("");
+        }}
+        onConfirm={handleDeleteBenefit}
+        title={`Delete the ${category || "benefit"} benefit?`}
+        description="This removes this benefit page — its content, contacts, FAQs and documents — for this plan. The plan's other benefit categories are not affected. This cannot be undone."
+        confirmText="Yes, delete"
+        cancelText="No, keep it"
+        variant="destructive"
+        isLoading={isDeleting}
+        loadingText="Deleting..."
+        confirmDisabled={!isDeleteConfirmed}
+      >
+        <div className="mt-1 space-y-1.5">
+          <Label
+            htmlFor="delete-benefit-confirm"
+            className="text-xs font-normal text-muted-foreground"
+          >
+            Type{" "}
+            <span className="font-mono font-semibold text-foreground">
+              {DELETE_BENEFIT_PHRASE}
+            </span>{" "}
+            to confirm
+          </Label>
+          <Input
+            id="delete-benefit-confirm"
+            value={deleteConfirmText}
+            onChange={(e) => setDeleteConfirmText(e.target.value)}
+            placeholder={DELETE_BENEFIT_PHRASE}
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            autoFocus
+            className="h-9 font-mono text-sm"
+            // Enter would otherwise reach the dialog's confirm action and bypass the
+            // gate, so swallow it while the phrase is still wrong.
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !isDeleteConfirmed) e.preventDefault();
+            }}
+          />
+        </div>
+      </ConfirmDialog>
     </div>
   );
 }

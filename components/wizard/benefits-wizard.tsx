@@ -19,6 +19,15 @@ interface BenefitsWizardProps {
     onNext: () => void;
     onPrevious: () => void;
     onComplete: () => void;
+    /**
+     * Optional. When provided, a Cancel button renders to the left of the
+     * Next / Complete button on every step. The wizard stays presentational: the
+     * caller decides what cancelling means (Create Benefits discards the draft
+     * and returns to the Benefits list).
+     */
+    onCancel?: () => void;
+    /** Disables the whole footer while the caller's cancel handler is in flight. */
+    isCancelling?: boolean;
     isFirstStep: boolean;
     isLastStep: boolean;
     children: React.ReactNode;
@@ -32,6 +41,8 @@ export function BenefitsWizard({
     onNext,
     onPrevious,
     onComplete,
+    onCancel,
+    isCancelling = false,
     isFirstStep,
     isLastStep,
     children,
@@ -85,8 +96,13 @@ export function BenefitsWizard({
         };
     }, [isEditorOpen]);
 
+    // One "busy" switch for the whole footer: while a step transition, a publish or
+    // the Cancel discard is in flight nothing in the footer may fire — otherwise a
+    // second click could race the purge that Cancel is performing.
+    const busy = isProcessing || isLoading || isCancelling;
+
     const handleComplete = async () => {
-        if (isProcessing || isLoading) return;
+        if (busy) return;
         setIsProcessing(true);
         try {
             await onComplete();
@@ -96,12 +112,17 @@ export function BenefitsWizard({
     };
 
     const handlePrevious = () => {
-        if (isProcessing || isLoading) return;
+        if (busy) return;
         onPrevious();
     };
 
+    const handleCancel = () => {
+        if (busy) return;
+        onCancel?.();
+    };
+
     const handleNext = async () => {
-        if (isProcessing || isLoading) return;
+        if (busy) return;
         setIsProcessing(true);
         try {
             await onNext();
@@ -131,7 +152,10 @@ export function BenefitsWizard({
                                 onClick={handlePrevious}
                                 isLoading={isProcessing}
                                 loadingText="Previous"
-                                disabled={isFirstStep || isLoading || isProcessing}
+                                // Step 1 has no previous step, so the caller routes it
+                                // back to the Benefits list — hence it stays enabled.
+                                disabled={busy}
+                                title={isFirstStep ? "Back to Benefits" : undefined}
                                 size="lg"
                             >
                                 <ChevronLeft className="size-5" />
@@ -139,12 +163,28 @@ export function BenefitsWizard({
                             </LoadingButton>
 
                             <div className="flex gap-3">
+                                {/* Hands off to the caller, which owns the meaning of
+                                    "cancel" — Create Benefits asks "Are you sure?"
+                                    before discarding, so no spinner belongs here. */}
+                                {onCancel && (
+                                    <LoadingButton
+                                        variant="outline"
+                                        size="lg"
+                                        onClick={handleCancel}
+                                        disabled={busy}
+                                        title="Discard this benefit draft and return to Benefits"
+                                        className="text-muted-foreground hover:border-destructive/50 hover:text-destructive"
+                                    >
+                                        Cancel
+                                    </LoadingButton>
+                                )}
                                 {isLastStep ? (
                                     <LoadingButton
                                         size="lg"
                                         onClick={handleComplete}
                                         isLoading={isLoading || isProcessing}
                                         loadingText="Completing..."
+                                        disabled={busy}
                                     >
                                         Complete
                                         <ChevronRight className="size-5" />
@@ -155,6 +195,7 @@ export function BenefitsWizard({
                                         onClick={handleNext}
                                         isLoading={isLoading || isProcessing}
                                         loadingText="Next..."
+                                        disabled={busy}
                                     >
                                         Next
                                         <ChevronRight className="size-5" />

@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { DismissibleAlert } from "@/components/ui/dismissible-alert";
-import { RetirementDocumentsAccordion, RetirementDocumentItem } from "@/components/pages/client-portal/sections/retirement-documents-accordion";
+import { BenefitDocumentSection, RetirementDocumentItem } from "@/components/pages/client-portal/sections/benefit-document-section";
 import { DocumentPreviewModal } from "@/components/pages/documents/components/document-preview-modal";
 import { DocumentEditModal } from "@/components/pages/documents/components/document-edit-modal";
 import { DocumentUploadTab } from "@/components/pages/documents/tabs/document-upload-tab";
@@ -182,8 +182,11 @@ export default function DocumentsPage() {
     },
   });
 
+  // `summary=1`: only id/companyName/slug/status are read from this response. The
+  // default select ships every plan's `keyContacts` + legacy `employeePortalPreview`
+  // mirror, which carry base64 images (measured at 8.3 MB / 6.6 s for 7 plans).
   const clientsKey =
-    "/api/clients?status=all&limit=500&sortColumn=companyName&sortDirection=asc";
+    "/api/clients?status=all&limit=500&sortColumn=companyName&sortDirection=asc&summary=1";
   const { data: clientsData } = useSWR(clientsKey, jsonFetcher, {
     keepPreviousData: true,
     dedupingInterval: 60_000,
@@ -826,7 +829,7 @@ export default function DocumentsPage() {
                           </div>
                         ) : (
                           <div className="overflow-hidden rounded-xl border border-border/60">
-                            <RetirementDocumentsAccordion
+                            <BenefitDocumentSection
                               retirementDocs={previewOrderedDocs}
                               reorderable
                               onOrderChange={handlePreviewOrderChange}

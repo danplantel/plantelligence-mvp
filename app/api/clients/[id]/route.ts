@@ -28,6 +28,7 @@ import {
   toR2BrandingKey,
 } from "@/lib/branding-image-url";
 import { getPresignedReadUrl, isR2Configured } from "@/lib/r2";
+import { normalizeContactImagesToR2 } from "@/lib/branding-r2";
 
 /**
  * Convert the advisor's User.disclaimer into a single display string for the
@@ -616,15 +617,34 @@ export async function PUT(
       heroUseGradient: heroUseGradient !== undefined ? heroUseGradient : (existingClient as any).heroUseGradient,
       desktopHeroBackgroundPosition: (body as any).desktopHeroBackgroundPosition !== undefined ? (body as any).desktopHeroBackgroundPosition : (existingClient as any)?.desktopHeroBackgroundPosition,
       mobileHeroBackgroundPosition: (body as any).mobileHeroBackgroundPosition !== undefined ? (body as any).mobileHeroBackgroundPosition : (existingClient as any)?.mobileHeroBackgroundPosition,
-      keyContacts: keyContacts
-        ? (keyContacts as any)
-        : existingClient.keyContacts,
+      // Contact images must be R2 keys, not inline data URLs: `keyContacts` is read by
+      // the benefits/portal routes and forwarded to the browser, so a base64 headshot
+      // here costs every reader hundreds of KB (measured: 447 KB on one plan). The
+      // helper returns the value unchanged when there is nothing inline to convert.
+      //
+      // Only touched when the caller actually sent `keyContacts`. Falling back to the
+      // stored value meant EVERY PUT — including Step 5's two disclaimer saves, which
+      // never send contacts — ran the R2 normaliser over the existing array and wrote
+      // it straight back.
+      ...(keyContacts != null
+        ? { keyContacts: await normalizeContactImagesToR2(keyContacts as any, params.id) }
+        : {}),
       // employeePortalPreview: merge patch with existing data.
       // Benefits are now managed via the dedicated Benefit API with dual-write
       // keeping this field in sync. Only merge top-level preview fields here.
-      employeePortalPreview: employeePortalPreview !== undefined
-        ? { ...((existingClient as any).employeePortalPreview || {}), ...(employeePortalPreview as any) }
-        : (existingClient as any).employeePortalPreview,
+      //
+      // Only written when the caller sent it. Writing the stored value back (the old
+      // behaviour) made every PUT rewrite this JSON column, and — worse — let a stale
+      // read from the start of this request clobber a concurrent writer, which is
+      // exactly the hazard the dual-write already creates on the publish path.
+      ...(employeePortalPreview !== undefined
+        ? {
+            employeePortalPreview: {
+              ...((existingClient as any).employeePortalPreview || {}),
+              ...(employeePortalPreview as any),
+            },
+          }
+        : {}),
       // Category Display (Show/Hide): always persist when sent by Edit Client so Hide state is not lost
       categoryPortalVisibility:
         (body as any).categoryPortalVisibility !== undefined
@@ -688,10 +708,16 @@ export async function PUT(
     //   updateData.brandImages = brandImagesToSave;
     // }
 
-    const updatedClient = await prisma.client.update({
-      where: { id: clientId },
-      data: updateData,
-    });
+    // Retried: on MongoDB a write can be aborted mid-flight by the server's
+    // transaction lifetime limit or a dropped socket, and both are reproducible as a
+    // bare P2028 on `prisma.client.update` (observed as a 221s request that ended in
+    // a 500). The operation never committed, so replaying it is safe.
+    const updatedClient = await withRetry(() =>
+      prisma.client.update({
+        where: { id: clientId },
+        data: updateData,
+      }),
+    );
 
     // Handle documents if provided
     if (documentsData) {
@@ -707,6 +733,16 @@ export async function PUT(
           existingDocsMap.set(d.id, d.fileUrl || "");
           const sk = d.storageKey && String(d.storageKey).trim();
           if (sk) storageKeyById.set(d.id, sk);
+        });
+
+        // Reverse index (R2 key -> _id) so a re-created row keeps its ORIGINAL id.
+        // Recreating with a fresh id on every save invalidated every
+        // `/api/documents/<id>` reference (the benefit documents section PATCHes by id)
+        // and reset uploadedAt / expirationDate for documents that never changed.
+        const idByStorageKey = new Map<string, string>();
+        allDbDocs.forEach((d) => {
+          const sk = d.storageKey && String(d.storageKey).trim();
+          if (sk && !idByStorageKey.has(sk)) idByStorageKey.set(sk, d.id);
         });
 
         // Create new documents
@@ -795,13 +831,33 @@ export async function PUT(
         }
 
         // Delete all existing Document type documents first
-        // We'll recreate all from retirementPlanDocuments
-        await prisma.document.deleteMany({
-          where: {
-            clientId,
-            type: "Document",
-          },
-        });
+        // We'll recreate all from retirementPlanDocuments.
+        //
+        // This is a BLANKET, CLIENT-WIDE replace driven by a list the client built for
+        // a single hub, so it must never run on a payload that failed to build: an
+        // empty/absent `retirementPlanDocuments` would previously delete every document
+        // on the plan and put nothing back. The client only sends `documentsData` when
+        // it genuinely added documents (see lib/save-benefit.ts), and step 4 removes a
+        // document through its own DELETE immediately, so "empty list" never means
+        // "delete everything" here.
+        const incomingDocs = documentsData.retirementPlanDocuments;
+        const canReplaceDocuments = Array.isArray(incomingDocs) && incomingDocs.length > 0;
+
+        if (!canReplaceDocuments) {
+          console.warn(
+            "[clients PUT] documentsData had no retirementPlanDocuments — skipping the document replace so existing documents are preserved",
+            { clientId },
+          );
+        } else {
+          await withRetry(() =>
+            prisma.document.deleteMany({
+              where: {
+                clientId,
+                type: "Document",
+              },
+            }),
+          );
+        }
 
         // Helper function to detect language (same as in complete-v2)
         const detectLanguage = (name: string, fileName: string, desc: string | null, storedLanguage?: string): string => {
@@ -836,10 +892,12 @@ export async function PUT(
           return "EN";
         };
 
-        // Process retirement plan documents - same logic as in complete-v2
-        if (documentsData.retirementPlanDocuments && Array.isArray(documentsData.retirementPlanDocuments)) {
-          for (let i = 0; i < documentsData.retirementPlanDocuments.length; i++) {
-            const doc = documentsData.retirementPlanDocuments[i] as any;
+        // Process retirement plan documents - same logic as in complete-v2.
+        // Gated on `canReplaceDocuments`: when the replace was skipped the rows still
+        // exist, so creating them again here would duplicate every document.
+        if (canReplaceDocuments) {
+          for (let i = 0; i < incomingDocs.length; i++) {
+            const doc = incomingDocs[i] as any;
 
             // Support both formats (same as in complete-v2):
             // 1. Document format: { id, name, file, type, size, status, shortDescription, originalFileName, language }
@@ -962,23 +1020,34 @@ export async function PUT(
             // Detect language
             const detectedLanguage = detectLanguage(documentName, originalFileName, shortDescription, storedLanguage);
 
-            // Create document
-            await prisma.document.create({
-              data: {
-                title: documentName,
-                fileName: originalFileName,
-                fileUrl: fileUrl,
-                shortDescription: shortDescription,
-                type: "Document",
-                category: resolvePersistedDocumentCategory(
-                  "Document",
-                  doc.category,
-                ),
-                language: detectedLanguage,
-                clientId: clientId,
-                uploadedAt: new Date(),
-              },
-            });
+            // Create document, reusing the original _id when this row already existed
+            // (matched by its R2 key) so ids stay stable across saves.
+            const reusedId = docStorageKey
+              ? idByStorageKey.get(docStorageKey)
+              : undefined;
+            // `fileUrl` is a `let` narrowed to `string` by the guard above; capture it
+            // so the narrowing survives into the retry closure (TS discards
+            // control-flow narrowing for captured `let` bindings).
+            const fileUrlToStore = fileUrl;
+            await withRetry(() =>
+              prisma.document.create({
+                data: {
+                  ...(reusedId ? { id: reusedId } : {}),
+                  title: documentName,
+                  fileName: originalFileName,
+                  fileUrl: fileUrlToStore,
+                  shortDescription: shortDescription,
+                  type: "Document",
+                  category: resolvePersistedDocumentCategory(
+                    "Document",
+                    doc.category,
+                  ),
+                  language: detectedLanguage,
+                  clientId: clientId,
+                  uploadedAt: new Date(),
+                },
+              }),
+            );
           }
         }
       } catch (docError) {
@@ -1017,21 +1086,45 @@ export async function PUT(
   }
 }
 
-/** Retry a Prisma operation up to `maxRetries` times when it fails with a write conflict (P2034). */
-async function withRetry(
-  fn: () => Promise<unknown>,
-  maxRetries = 3,
-): Promise<void> {
+/**
+ * Retry a Prisma operation when it fails TRANSIENTLY, and return its result.
+ *
+ * Retryable:
+ *  - **P2034** — write conflict / deadlock.
+ *  - **P2028** — `Transaction API error: Transaction with { txnNumber: N } has been
+ *    aborted`. On MongoDB this is what a transaction that exceeded the server's
+ *    `transactionLifetimeLimitSeconds` (default 60s) reports, and it is also what a
+ *    transient connection drop inside a write reports. Either way the operation did
+ *    NOT commit, so replaying it is safe — actually required, since the alternative
+ *    is a 500 on a save the advisor already confirmed.
+ *  - **P1017 / MongoNetworkError / MongoServerSelectionError** — the socket went away.
+ *
+ * Anything else (validation, a genuine constraint violation) is rethrown on the first
+ * attempt so a real bug is never hidden behind three slow retries.
+ *
+ * NOTE: this the *only* place writes to a Client are retried, so a transient abort no
+ * longer surfaces as "Failed to update client".
+ */
+async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
   let lastError: unknown;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      await fn();
-      return;
+      return await fn();
     } catch (error: any) {
       lastError = error;
-      if (error?.code !== "P2034" || attempt === maxRetries) throw error;
-      // Exponential back-off: 200ms, 400ms, 800ms ...
-      await new Promise((r) => setTimeout(r, 200 * Math.pow(2, attempt - 1)));
+      const retryable =
+        error?.code === "P2034" ||
+        error?.code === "P2028" ||
+        error?.code === "P1017" ||
+        error?.name === "MongoNetworkError" ||
+        error?.name === "MongoServerSelectionError";
+      if (!retryable || attempt === maxRetries) throw error;
+      console.warn(
+        `[clients PUT] transient Prisma failure (${error?.code ?? error?.name}), retry ${attempt} of ${maxRetries - 1}`,
+      );
+      // Short linear back-off (300/600ms). The aborted transaction is already gone, so
+      // there is nothing to wait for beyond letting a momentary blip pass.
+      await new Promise((r) => setTimeout(r, 300 * attempt));
     }
   }
   throw lastError;
@@ -1151,7 +1244,10 @@ export async function DELETE(
       () => prisma.client.delete({ where: { id: clientId } }),
     ];
 
-    for (const op of deleteOps) {
+    // `deleteOps` is intentionally heterogeneous (one factory per model), so annotate
+    // the iteration type — otherwise `withRetry`'s generic cannot be inferred and the
+    // union of PrismaPromise return types is rejected.
+    for (const op of deleteOps as Array<() => Promise<unknown>>) {
       await withRetry(op);
     }
 
