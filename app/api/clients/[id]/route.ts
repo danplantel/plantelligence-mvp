@@ -708,10 +708,16 @@ export async function PUT(
     //   updateData.brandImages = brandImagesToSave;
     // }
 
-    const updatedClient = await prisma.client.update({
-      where: { id: clientId },
-      data: updateData,
-    });
+    // Retried: on MongoDB a write can be aborted mid-flight by the server's
+    // transaction lifetime limit or a dropped socket, and both are reproducible as a
+    // bare P2028 on `prisma.client.update` (observed as a 221s request that ended in
+    // a 500). The operation never committed, so replaying it is safe.
+    const updatedClient = await withRetry(() =>
+      prisma.client.update({
+        where: { id: clientId },
+        data: updateData,
+      }),
+    );
 
     // Handle documents if provided
     if (documentsData) {
@@ -843,12 +849,14 @@ export async function PUT(
             { clientId },
           );
         } else {
-          await prisma.document.deleteMany({
-            where: {
-              clientId,
-              type: "Document",
-            },
-          });
+          await withRetry(() =>
+            prisma.document.deleteMany({
+              where: {
+                clientId,
+                type: "Document",
+              },
+            }),
+          );
         }
 
         // Helper function to detect language (same as in complete-v2)
@@ -1017,23 +1025,29 @@ export async function PUT(
             const reusedId = docStorageKey
               ? idByStorageKey.get(docStorageKey)
               : undefined;
-            await prisma.document.create({
-              data: {
-                ...(reusedId ? { id: reusedId } : {}),
-                title: documentName,
-                fileName: originalFileName,
-                fileUrl: fileUrl,
-                shortDescription: shortDescription,
-                type: "Document",
-                category: resolvePersistedDocumentCategory(
-                  "Document",
-                  doc.category,
-                ),
-                language: detectedLanguage,
-                clientId: clientId,
-                uploadedAt: new Date(),
-              },
-            });
+            // `fileUrl` is a `let` narrowed to `string` by the guard above; capture it
+            // so the narrowing survives into the retry closure (TS discards
+            // control-flow narrowing for captured `let` bindings).
+            const fileUrlToStore = fileUrl;
+            await withRetry(() =>
+              prisma.document.create({
+                data: {
+                  ...(reusedId ? { id: reusedId } : {}),
+                  title: documentName,
+                  fileName: originalFileName,
+                  fileUrl: fileUrlToStore,
+                  shortDescription: shortDescription,
+                  type: "Document",
+                  category: resolvePersistedDocumentCategory(
+                    "Document",
+                    doc.category,
+                  ),
+                  language: detectedLanguage,
+                  clientId: clientId,
+                  uploadedAt: new Date(),
+                },
+              }),
+            );
           }
         }
       } catch (docError) {
@@ -1072,21 +1086,45 @@ export async function PUT(
   }
 }
 
-/** Retry a Prisma operation up to `maxRetries` times when it fails with a write conflict (P2034). */
-async function withRetry(
-  fn: () => Promise<unknown>,
-  maxRetries = 3,
-): Promise<void> {
+/**
+ * Retry a Prisma operation when it fails TRANSIENTLY, and return its result.
+ *
+ * Retryable:
+ *  - **P2034** — write conflict / deadlock.
+ *  - **P2028** — `Transaction API error: Transaction with { txnNumber: N } has been
+ *    aborted`. On MongoDB this is what a transaction that exceeded the server's
+ *    `transactionLifetimeLimitSeconds` (default 60s) reports, and it is also what a
+ *    transient connection drop inside a write reports. Either way the operation did
+ *    NOT commit, so replaying it is safe — actually required, since the alternative
+ *    is a 500 on a save the advisor already confirmed.
+ *  - **P1017 / MongoNetworkError / MongoServerSelectionError** — the socket went away.
+ *
+ * Anything else (validation, a genuine constraint violation) is rethrown on the first
+ * attempt so a real bug is never hidden behind three slow retries.
+ *
+ * NOTE: this the *only* place writes to a Client are retried, so a transient abort no
+ * longer surfaces as "Failed to update client".
+ */
+async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
   let lastError: unknown;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      await fn();
-      return;
+      return await fn();
     } catch (error: any) {
       lastError = error;
-      if (error?.code !== "P2034" || attempt === maxRetries) throw error;
-      // Exponential back-off: 200ms, 400ms, 800ms ...
-      await new Promise((r) => setTimeout(r, 200 * Math.pow(2, attempt - 1)));
+      const retryable =
+        error?.code === "P2034" ||
+        error?.code === "P2028" ||
+        error?.code === "P1017" ||
+        error?.name === "MongoNetworkError" ||
+        error?.name === "MongoServerSelectionError";
+      if (!retryable || attempt === maxRetries) throw error;
+      console.warn(
+        `[clients PUT] transient Prisma failure (${error?.code ?? error?.name}), retry ${attempt} of ${maxRetries - 1}`,
+      );
+      // Short linear back-off (300/600ms). The aborted transaction is already gone, so
+      // there is nothing to wait for beyond letting a momentary blip pass.
+      await new Promise((r) => setTimeout(r, 300 * attempt));
     }
   }
   throw lastError;
@@ -1206,7 +1244,10 @@ export async function DELETE(
       () => prisma.client.delete({ where: { id: clientId } }),
     ];
 
-    for (const op of deleteOps) {
+    // `deleteOps` is intentionally heterogeneous (one factory per model), so annotate
+    // the iteration type — otherwise `withRetry`'s generic cannot be inferred and the
+    // union of PrismaPromise return types is rejected.
+    for (const op of deleteOps as Array<() => Promise<unknown>>) {
       await withRetry(op);
     }
 
