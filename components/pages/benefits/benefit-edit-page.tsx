@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
 import { saveBenefit } from "@/lib/save-benefit";
-import { purgeDraftBenefit } from "@/lib/benefit-draft";
+import { forgetDraftBenefit, purgeDraftBenefit } from "@/lib/benefit-draft";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   invalidateClientCache,
@@ -184,24 +184,30 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
   };
 
   /**
-   * Delete this category's Benefit page.
+   * Delete this category's Benefit page, then forget it locally.
    *
    * Reuses the wizard's Cancel path ([`purgeDraftBenefit`](lib/benefit-draft.ts)) rather
    * than inventing a second delete: that helper hard-deletes the `Benefit` row AND drops
    * the category from the legacy `employeePortalPreview` mirror, which the portal falls
    * back to — leaving the mirror entry behind would keep the deleted benefit visible.
    *
-   * The local draft is deliberately left alone. Step 1's auto-save sends `?updateOnly=1`
-   * and can never insert a row, so nothing on this page can recreate what was just
-   * deleted, and the retained planId + category is exactly what the "Add benefit" flow
-   * wants if the advisor reconsiders — the wizard already treats a category with no
-   * Benefit row as a fresh create.
+   * The wizard draft for this plan + category is discarded as well
+   * ([`forgetDraftBenefit`](lib/benefit-draft.ts)). That is required because the wizard
+   * store is a module singleton, so it outlives the client-side navigation back to
+   * /benefits and on into the "Add benefit" flow: otherwise the deleted row was still in
+   * the draft's read-once Benefit-row snapshot (raising "… benefits already exist" for a
+   * benefit that no longer exists) and Step 1's pre-fill skipped the category it had
+   * already loaded, so the old title / description / logo came back. Deleting is meant to
+   * give the advisor a genuinely fresh benefit, so only THIS category is forgotten — a
+   * draft for another category or plan is left untouched.
    */
   const handleDeleteBenefit = async () => {
     if (!planId || !category) return;
     setIsDeleting(true);
     try {
       await purgeDraftBenefit(planId, category);
+      // The row is gone: drop the local draft so re-entering create starts fresh.
+      forgetDraftBenefit(planId, category);
       // Both the plan row and its Benefit rows changed.
       invalidateClientCache(planId);
       invalidateBenefitRowsCache(planId);

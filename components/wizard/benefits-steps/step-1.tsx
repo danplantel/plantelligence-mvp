@@ -1833,12 +1833,24 @@ export function BenefitsStep1({
   useEffect(() => {
     if (isEditMode) return;
     if (deepLinkGuardRef.current) return;
-    if (currentStepData.categoryBenefitByApi === undefined) return;
+    // Read the LIVE store rather than this render's `currentStepData`.
+    //
+    // The Benefit-rows effect above CLEARS `categoryBenefitByApi` in the same commit
+    // (before re-fetching it for the current plan), but a value captured in this
+    // effect's closure is the pre-clear one. The store is a module singleton, so it
+    // survives a client-side route change — after "Delete benefit → /benefits → Add"
+    // that stale snapshot still held the deleted row, which is how a benefit that no
+    // longer exists could raise "… benefits already exist" here. Reading through
+    // `getState()` means only a snapshot that survived the clear (i.e. one actually
+    // fetched for the current plan) can trigger the prompt.
+    const live = useBenefitsWizardStore.getState().stepData.step1;
+    if (!live?.planId) return;
+    if (live.categoryBenefitByApi === undefined) return;
     deepLinkGuardRef.current = true;
-    const cat = currentStepData.benefitCategory;
+    const cat = live.benefitCategory;
     if (!cat) return;
     const dbCat = cat === "Custom" ? "Company / Plan Sponsor" : cat;
-    const row = currentStepData.categoryBenefitByApi[normalizeApiCategory(dbCat)];
+    const row = live.categoryBenefitByApi[normalizeApiCategory(dbCat)];
     if (!row) return;
     setOverwritePrompt({
       categoryId: cat,
