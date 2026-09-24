@@ -36,6 +36,8 @@ import {
 import { KeyContact } from "@/types/new-client-wizard";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { invalidateClientCache } from "@/lib/fetch-client";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Dialog,
@@ -72,6 +74,11 @@ export function BenefitsStep3({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [savePending, setSavePending] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  // Plan-level delete: the contact the confirm dialog is asking about, and whether the
+  // request is in flight.
+  const [contactPendingDelete, setContactPendingDelete] =
+    useState<KeyContact | null>(null);
+  const [isDeletingContact, setIsDeletingContact] = useState(false);
   const step1Data = stepData.step1;
   const currentStep3Data = stepData.step3 || {
     faqs: [],
@@ -353,6 +360,83 @@ export function BenefitsStep3({
     [resolvedFaqs],
   );
 
+  /**
+   * Delete a contact from the PLAN — removes it from `Client.keyContacts`, so it
+   * disappears for every benefit, not just this one. `toggleContact` above is the
+   * non-destructive alternative (include/exclude for this benefit only).
+   *
+   * Persisted immediately rather than deferred to the wizard's save. `saveBenefit`
+   * rebuilds `keyContacts` by starting FROM the stored rows and overlaying the
+   * wizard's edits, so a contact removed only from local state has no override and
+   * would come straight back on the next save.
+   */
+  const deleteContact = async (contact: KeyContact) => {
+    const planId = step1Data?.planId;
+    const contactId = String(contact?.id ?? "");
+    if (!planId || !contactId) return;
+
+    setIsDeletingContact(true);
+    try {
+      const remaining = localContacts.filter(
+        (c) => String(c?.id) !== contactId,
+      );
+
+      const res = await fetch(`/api/clients/${planId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keyContacts: remaining }),
+      });
+      const result = await res.json().catch(() => null);
+      if (!res.ok || !result?.success) {
+        throw new Error(
+          result?.error || `Failed to delete contact (${res.status})`,
+        );
+      }
+
+      // The plan row changed — the shared cache must not serve the old copy.
+      invalidateClientCache(planId);
+
+      setLocalContacts(remaining);
+
+      // Keep the store's copy of the plan in step, because `saveBenefit` merges FROM
+      // `selectedPlan.keyContacts`: leaving the deleted contact there would recreate it.
+      const latest = useBenefitsWizardStore.getState().stepData.step1;
+      if (latest && latest.planId === planId) {
+        const selectedPlan = latest.selectedPlan
+          ? { ...(latest.selectedPlan as any), keyContacts: remaining }
+          : latest.selectedPlan;
+        saveStepData(1, {
+          ...latest,
+          selectedPlan,
+          // The benefit's primary contact must not point at a contact that no longer
+          // exists. `saveBenefit` re-seeds that id into `supportContacts`, so a stale
+          // one would resurrect the deleted person as this benefit's support contact.
+          contactId: latest.contactId === contactId ? "" : latest.contactId,
+        });
+      }
+
+      // Drop it from this benefit's support contacts too.
+      const step3 = useBenefitsWizardStore.getState().stepData.step3;
+      if (step3?.supportContacts?.some((sc) => sc.contactId === contactId)) {
+        saveStepData(3, {
+          ...step3,
+          ...supportContactsContext,
+          supportContacts: step3.supportContacts.filter(
+            (sc) => sc.contactId !== contactId,
+          ),
+        });
+      }
+
+      toast.success("Contact removed from this plan");
+    } catch (error: any) {
+      toast.error("Could not delete the contact", {
+        description: error?.message,
+      });
+    } finally {
+      setIsDeletingContact(false);
+    }
+  };
+
   const previewContacts: FAQContact[] | undefined = useMemo(() => {
     const enabled = currentStep3Data.supportContacts.filter(sc => sc.enabled);
     if (enabled.length === 0) return undefined;
@@ -454,6 +538,22 @@ export function BenefitsStep3({
                           {contact.phone}
                         </p>
                       </div>
+                      {/* Plan-level delete. `stopPropagation` is essential: the row
+                          itself toggles this contact on/off for the benefit, which is
+                          a different (non-destructive) action. */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Delete this contact from the plan"
+                        aria-label="Delete this contact from the plan"
+                        className="ml-1 h-7 w-7 shrink-0 text-muted-foreground hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setContactPendingDelete(contact);
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
 
                     {isSelected && supportConfig && (
@@ -497,6 +597,33 @@ export function BenefitsStep3({
           </CardContent>
         </Card>
         )}
+
+        {/* Plan-level delete confirmation. Placed here for locality only — Radix's
+            AlertDialog portals to `document.body`, so tree position doesn't affect
+            stacking. */}
+        <ConfirmDialog
+          open={!!contactPendingDelete}
+          onOpenChange={(open) => {
+            if (!open && !isDeletingContact) setContactPendingDelete(null);
+          }}
+          onConfirm={async () => {
+            if (contactPendingDelete) await deleteContact(contactPendingDelete);
+            setContactPendingDelete(null);
+          }}
+          title="Delete this contact from the plan?"
+          description={`${
+            contactPendingDelete?.name ||
+            `${contactPendingDelete?.firstName ?? ""} ${
+              contactPendingDelete?.lastName ?? ""
+            }`.trim() ||
+            "This contact"
+          } will be removed from the plan's contact list, so it disappears from every benefit — not just this one. This cannot be undone.`}
+          confirmText="Yes, delete"
+          cancelText="No, keep"
+          variant="destructive"
+          isLoading={isDeletingContact}
+          loadingText="Deleting..."
+        />
 
         {/* FAQ Section */}
         {(!section || section === "faqs") && (
