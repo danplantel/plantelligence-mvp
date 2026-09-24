@@ -114,6 +114,15 @@ import { convertToDocumentFormat } from "@/lib/compliance-document-utils";
 import { mergeOnboardingAdvisorContactsIntoKeyContacts } from "@/lib/seed-onboarding-advisor-contacts";
 import { BenefitsDocumentsSection } from "./benefits-documents-section";
 import benefitCategoryBackgrounds from "@/data/gallery-benefit-category-backgrounds.json";
+import { buildContactFormHref } from "@/lib/contact-form-link";
+import {
+  getActiveContactFormTopicLabels,
+  normalizeContactTopicCategory,
+  resolveContactFormTopics,
+} from "@/lib/contact-form-topics";
+import type { ContactFormTopic } from "@/lib/contact-form-topics";
+import { ContactFormTopicBuilder } from "@/components/ui/contact-form-topic-builder";
+import { ContactFormPage } from "@/components/pages/contact-form-page";
 
 /** Wizard order — matches accordion below (Branding → Messaging → Contacts → Documents). */
 const BENEFIT_SETUP_SECTION_ORDER = [
@@ -254,9 +263,10 @@ export function BenefitsStep1({
     enableContactButton: boolean;
     ctaType: "schedule" | "call" | "email" | "contact";
     schedulingUrl: string;
-    websiteUrl: string;
     displayEmail: boolean;
     displayPhone: boolean;
+    /** "Topic of Interest" choices for the Plantelligence /contact form. */
+    contactFormTopics: ContactFormTopic[];
   }>({
     contactType: "individual",
     firstName: "",
@@ -277,14 +287,16 @@ export function BenefitsStep1({
     enableContactButton: false,
     ctaType: "schedule",
     schedulingUrl: "",
-    websiteUrl: "",
     // "Show on contact card" starts unchecked — adding an email/phone must not
     // auto-enable these toggles.
     displayEmail: false,
     displayPhone: false,
+    contactFormTopics: [],
   });
   // Validation errors for the Create New Contact modal (field names).
   const [contactFormErrors, setContactFormErrors] = useState<string[]>([]);
+  // Whether the live Plantelligence /contact page preview modal is open.
+  const [contactPreviewOpen, setContactPreviewOpen] = useState(false);
   // Refs for focusing the first invalid field on submit.
   const firstNameRef = useRef<HTMLInputElement>(null);
   const lastNameRef = useRef<HTMLInputElement>(null);
@@ -293,7 +305,6 @@ export function BenefitsStep1({
   const phoneRef = useRef<HTMLInputElement>(null);
   const companyNameRef = useRef<HTMLInputElement>(null);
   const schedulingUrlRef = useRef<HTMLInputElement>(null);
-  const websiteUrlRef = useRef<HTMLInputElement>(null);
 
   /** Update the contact form and optionally clear the given error fields. */
   const updateContactForm = (
@@ -395,6 +406,87 @@ export function BenefitsStep1({
     () => plans.find((p) => p.id === resolvedPlanId)?.companyName ?? "",
     [plans, resolvedPlanId],
   );
+
+  /**
+   * ── Contact Form CTA (parity with the Create/Edit Plan contact editor) ──
+   *
+   * The "Contact Form" CTA opens the first-party Plantelligence `/contact` page, so
+   * its link is DERIVED from the contact (name, company, headshot, logo, title) plus
+   * the advisor's "Topic of Interest" choices rather than typed in — exactly what the
+   * Plan contact editor does. The contact's email is the recipient, so it becomes
+   * required whenever this CTA is selected (see `handleFormSubmit`).
+   *
+   * `normalizeContactTopicCategory` canonicalizes legacy/display names (the wizard's
+   * "Custom" category, "Health Insurance", …) onto the topic sets, matching what both
+   * the builder's suggestions and the live /contact page resolve.
+   */
+  const contactTopicCategory =
+    normalizeContactTopicCategory(modalCategory) ?? modalCategory;
+
+  // Title of the plan's custom benefit: the Company / Plan Sponsor topic list names
+  // that benefit, so its topic reads as the advisor's own title instead of the
+  // "Custom Benefits" placeholder. Read from what this wizard already holds — the
+  // live draft title while the Custom benefit itself is being edited, otherwise the
+  // read-once Benefit-row snapshot — instead of re-fetching the row the Plan editor
+  // has to request.
+  const customBenefitTitle =
+    (String(modalCategory) === "Custom"
+      ? (currentStepData.benefitTitle || "").trim()
+      : "") ||
+    (currentStepData.categoryBenefitByApi?.["company / plan sponsor"]?.title || "").trim();
+
+  /** Plan-Sponsor contacts show the plan's logo, not one uploaded per contact. */
+  const planCompanyLogo = useMemo(() => {
+    const raw = (currentStepData.selectedPlan as any)?.companyLogo;
+    return (raw?.url || (typeof raw === "string" ? raw : "")) || "";
+  }, [currentStepData.selectedPlan]);
+
+  /** Everything the Contact Form CTA renders/previews, derived from form + plan. */
+  const contactFormCta = useMemo(() => {
+    const isTeam = contactForm.contactType === "team_support";
+    const name = isTeam
+      ? contactForm.displayName
+      : `${contactForm.firstName} ${contactForm.lastName}`.trim();
+    const company = isPlanSponsorContact
+      ? selectedPlanName
+      : contactForm.companyName;
+    const title = isTeam ? "" : contactForm.title;
+    const avatar = isTeam ? "" : contactForm.headshot;
+    const logo = isPlanSponsorContact ? planCompanyLogo : contactForm.companyLogo;
+    const active =
+      contactForm.enableContactButton && contactForm.ctaType === "contact";
+    return {
+      active,
+      name,
+      company,
+      title,
+      avatar,
+      logo,
+      url: active
+        ? buildContactFormHref(
+            contactForm.email,
+            company,
+            name,
+            avatar,
+            logo,
+            title,
+            getActiveContactFormTopicLabels(contactForm.contactFormTopics, {
+              customBenefitTitle,
+            }),
+            contactTopicCategory,
+            currentStepData.planId,
+          )
+        : "",
+    };
+  }, [
+    contactForm,
+    isPlanSponsorContact,
+    selectedPlanName,
+    planCompanyLogo,
+    customBenefitTitle,
+    contactTopicCategory,
+    currentStepData.planId,
+  ]);
 
   /**
    * "Acme Corp - Retirement" for the Create Benefit banner. Mirrors the page
@@ -1881,10 +1973,12 @@ export function BenefitsStep1({
       enableContactButton: false,
       ctaType: "schedule",
       schedulingUrl: "",
-      websiteUrl: "",
       // "Show on contact card" starts unchecked (no auto-enable on email/phone).
       displayEmail: false,
       displayPhone: false,
+      // Pre-load the suggested topics for the category being created — the same
+      // seeding the Plan contact editor applies to a newly added contact.
+      contactFormTopics: resolveContactFormTopics(category, undefined),
     });
     setContactFormErrors([]);
     setIsFormDialogOpen(true);
@@ -1934,7 +2028,10 @@ export function BenefitsStep1({
       errors.push("companyName");
     }
 
-    // CTA required URLs
+    // CTA requirements. "Schedule Appt." needs its URL; "Contact Form" needs a
+    // valid email instead, because that CTA opens the Plantelligence-branded
+    // /contact page and the link is derived from the contact while the submission
+    // is delivered to that address (same rule as the Plan contact editor).
     if (
       contactForm.enableContactButton &&
       contactForm.ctaType === "schedule" &&
@@ -1945,9 +2042,9 @@ export function BenefitsStep1({
     if (
       contactForm.enableContactButton &&
       contactForm.ctaType === "contact" &&
-      !contactForm.websiteUrl.trim()
+      !emailValid
     ) {
-      errors.push("websiteUrl");
+      if (!errors.includes("email")) errors.push("email");
     }
 
     if (errors.length > 0) {
@@ -1963,10 +2060,15 @@ export function BenefitsStep1({
         phone: phoneRef,
         companyName: companyNameRef,
         schedulingUrl: schedulingUrlRef,
-        websiteUrl: websiteUrlRef,
       };
       refMap[errors[0]]?.current?.focus();
-      toast.error("Please fill out all required fields");
+      toast.error(
+        contactForm.enableContactButton &&
+          contactForm.ctaType === "contact" &&
+          !emailValid
+          ? "Selecting the Contact Form CTA requires this contact's email, since form submissions are delivered to it."
+          : "Please fill out all required fields",
+      );
       return;
     }
     setContactFormErrors([]);
@@ -2041,10 +2143,15 @@ export function BenefitsStep1({
         contactForm.ctaType === "schedule"
           ? contactForm.schedulingUrl || undefined
           : undefined,
-      websiteUrl:
-        contactForm.enableContactButton && contactForm.ctaType === "contact"
-          ? contactForm.websiteUrl || undefined
-          : undefined,
+      // Derived first-party /contact link (carrying the advisor's topic choices),
+      // not a typed URL — see `contactFormCta`.
+      websiteUrl: contactFormCta.active
+        ? contactFormCta.url || undefined
+        : undefined,
+      // The participant-facing "Topic of Interest" configuration is saved WITH the
+      // contact so the /contact page (and the plan-side topic lookup that keeps
+      // older links correct) resolves it.
+      contactFormTopics: contactForm.contactFormTopics,
     };
 
     // Add to local state
@@ -3987,31 +4094,42 @@ export function BenefitsStep1({
 
                   {contactForm.ctaType === "contact" && (
                     <div className="space-y-1">
-                      <Label className="dark:text-gray-300 text-xs font-medium">
-                        Contact Form URL <span className="text-red-500">*</span>
-                      </Label>
-                      <Input
-                        ref={websiteUrlRef}
-                        value={contactForm.websiteUrl}
-                        onChange={(e) =>
-                          updateContactForm(
-                            { websiteUrl: e.target.value },
-                            ["websiteUrl"],
-                          )
-                        }
-                        placeholder="https://forms.company.com/..."
-                        className={cn(
-                          "h-8 text-sm",
-                          contactFormErrors.includes("websiteUrl") &&
-                            "border-red-500",
-                        )}
-                      />
-                      {contactFormErrors.includes("websiteUrl") && (
-                        <p className="text-[10px] text-red-500">
-                          Contact Form URL is required when &ldquo;Contact
-                          Form&rdquo; is enabled
-                        </p>
-                      )}
+                      <div className="flex items-center gap-2">
+                        <Label className="dark:text-gray-300 text-xs font-medium">
+                          Plantelligence Contact Form
+                        </Label>
+                        <button
+                          type="button"
+                          onClick={() => setContactPreviewOpen(true)}
+                          className="flex-shrink-0 w-5 h-5 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          aria-label="Preview the Contact Form page"
+                          title="Preview the Contact Form page"
+                        >
+                          <Info className="w-3 h-3 text-gray-400" />
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 rounded px-2.5 py-1.5 leading-relaxed">
+                        This CTA opens a Plantelligence-branded contact form on
+                        the /contact page. Submissions are delivered to this
+                        contact&rsquo;s email.
+                        {contactForm.email
+                          ? ` Incoming messages will be sent to ${contactForm.email}.`
+                          : " Enter this contact's email above to receive incoming messages."}
+                      </p>
+
+                      {/* Participant-facing "Topic of Interest" choices — the same
+                          builder (and the same stored shape) the Plan contact
+                          editor uses, pre-seeded with this category's suggestions. */}
+                      <div className="border-t border-gray-100 dark:border-gray-700 pt-3 mt-1">
+                        <ContactFormTopicBuilder
+                          category={contactTopicCategory}
+                          customBenefitTitle={customBenefitTitle}
+                          topics={contactForm.contactFormTopics}
+                          onChange={(topics) =>
+                            updateContactForm({ contactFormTopics: topics })
+                          }
+                        />
+                      </div>
                     </div>
                   )}
 
@@ -4147,11 +4265,7 @@ export function BenefitsStep1({
                     contactForm.ctaType === "schedule"
                       ? contactForm.schedulingUrl
                       : undefined,
-                  websiteUrl:
-                    contactForm.enableContactButton &&
-                    contactForm.ctaType === "contact"
-                      ? contactForm.websiteUrl
-                      : undefined,
+                  websiteUrl: contactFormCta.url || undefined,
                 }}
                 brandColor={
                   currentStepData.selectedPlan?.brandColor || "#002B5B"
@@ -4184,6 +4298,34 @@ export function BenefitsStep1({
             </Button>
             <Button onClick={handleFormSubmit}>Create Contact</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Contact Form preview — renders the live Plantelligence-branded /contact
+          page (with this contact's details and the topics below) so the advisor
+          sees exactly what employees will get, matching the Plan contact editor. */}
+      <Dialog open={contactPreviewOpen} onOpenChange={setContactPreviewOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto dark:bg-gray-800 dark:border-gray-700">
+          <DialogHeader>
+            <DialogTitle>Contact Form Preview</DialogTitle>
+          </DialogHeader>
+          <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
+            <ContactFormPage
+              to={contactForm.email}
+              company={contactFormCta.company}
+              contactName={contactFormCta.name}
+              contactTitle={contactFormCta.title}
+              avatar={contactFormCta.avatar}
+              companyLogo={contactFormCta.logo}
+              topics={getActiveContactFormTopicLabels(
+                contactForm.contactFormTopics,
+                { customBenefitTitle },
+              )}
+              category={contactTopicCategory || ""}
+              embedded
+              preview
+            />
+          </div>
         </DialogContent>
       </Dialog>
 
