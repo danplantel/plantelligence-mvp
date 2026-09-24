@@ -3,13 +3,21 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, Save } from "lucide-react";
+import { ArrowLeft, Loader2, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
 import { saveBenefit } from "@/lib/save-benefit";
+import { purgeDraftBenefit } from "@/lib/benefit-draft";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import {
+  invalidateClientCache,
+  invalidateBenefitRowsCache,
+} from "@/lib/fetch-client";
 import { persistPlanSelection } from "@/lib/plan-selector-storage";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import {
@@ -44,6 +52,12 @@ const EDIT_TABS = [
 
 type EditTabId = (typeof EDIT_TABS)[number]["id"];
 
+/**
+ * Phrase the advisor must type to unlock Delete Benefit. Deleting removes the whole
+ * benefit page and cannot be undone, so a single click is too cheap a confirmation.
+ */
+const DELETE_BENEFIT_PHRASE = "delete benefit";
+
 /** Tabs that mount their own instance of Step 1. */
 const STEP1_TABS: EditTabId[] = ["branding", "contacts"];
 
@@ -59,6 +73,14 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  // Type-to-confirm gate for the delete dialog.
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  // Trimmed + case-insensitive: forgiving about a pasted trailing space, but still
+  // requires the phrase to be typed rather than merely acknowledged.
+  const isDeleteConfirmed =
+    deleteConfirmText.trim().toLowerCase() === DELETE_BENEFIT_PHRASE;
   // Portal target for the tab bar — the Header renders <div id="header-tabs-portal" />
   // and we portal the TabsList into it so it appears inside the fixed header while
   // staying within the <Tabs> React context (same pattern as Edit Plan).
@@ -161,6 +183,39 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
     }
   };
 
+  /**
+   * Delete this category's Benefit page.
+   *
+   * Reuses the wizard's Cancel path ([`purgeDraftBenefit`](lib/benefit-draft.ts)) rather
+   * than inventing a second delete: that helper hard-deletes the `Benefit` row AND drops
+   * the category from the legacy `employeePortalPreview` mirror, which the portal falls
+   * back to — leaving the mirror entry behind would keep the deleted benefit visible.
+   *
+   * The local draft is deliberately left alone. Step 1's auto-save sends `?updateOnly=1`
+   * and can never insert a row, so nothing on this page can recreate what was just
+   * deleted, and the retained planId + category is exactly what the "Add benefit" flow
+   * wants if the advisor reconsiders — the wizard already treats a category with no
+   * Benefit row as a fresh create.
+   */
+  const handleDeleteBenefit = async () => {
+    if (!planId || !category) return;
+    setIsDeleting(true);
+    try {
+      await purgeDraftBenefit(planId, category);
+      // Both the plan row and its Benefit rows changed.
+      invalidateClientCache(planId);
+      invalidateBenefitRowsCache(planId);
+      toast.success(`${category} benefit deleted`);
+      router.push("/benefits");
+    } catch (error: any) {
+      toast.error("Could not delete the benefit", {
+        description: error?.message,
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const tabList = (
     // `border-0` kills the shared TabsList border so the nav has no outline,
     // and `bg-transparent dark:bg-transparent` overrides the base TabsList
@@ -212,8 +267,20 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
               </p>
             </div>
           </div>
-          {/* No Save button here — the fixed bottom action bar owns Save on every
-              tab (see the bar at the end of this component). */}
+          {/* Save is not here — the fixed bottom action bar owns it on every tab (see
+              the bar at the end of this component). This end of the row holds the
+              destructive action instead; the parent's `justify-between` is what puts it
+              hard against the end. */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="shrink-0 gap-1.5 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40"
+            onClick={() => setIsDeleteOpen(true)}
+            disabled={!isHydrated || isDeleting}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Delete Benefit
+          </Button>
         </div>
 
         {!isHydrated ? (
@@ -329,6 +396,57 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
           </Button>
         </div>
       </div>
+
+      {/* Deleting a benefit is destructive and plan-visible, so it asks first.
+          Radix's AlertDialog ignores Escape and outside clicks, so the answer is
+          explicit. Rendered here purely for locality — it portals to document.body. */}
+      <ConfirmDialog
+        open={isDeleteOpen}
+        onOpenChange={(open) => {
+          setIsDeleteOpen(open);
+          // Clear the typed phrase on every close, so a reopen starts locked again
+          // instead of leaving the button already unlocked.
+          if (!open) setDeleteConfirmText("");
+        }}
+        onConfirm={handleDeleteBenefit}
+        title={`Delete the ${category || "benefit"} benefit?`}
+        description="This removes this benefit page — its content, contacts, FAQs and documents — for this plan. The plan's other benefit categories are not affected. This cannot be undone."
+        confirmText="Yes, delete"
+        cancelText="No, keep it"
+        variant="destructive"
+        isLoading={isDeleting}
+        loadingText="Deleting..."
+        confirmDisabled={!isDeleteConfirmed}
+      >
+        <div className="mt-1 space-y-1.5">
+          <Label
+            htmlFor="delete-benefit-confirm"
+            className="text-xs font-normal text-muted-foreground"
+          >
+            Type{" "}
+            <span className="font-mono font-semibold text-foreground">
+              {DELETE_BENEFIT_PHRASE}
+            </span>{" "}
+            to confirm
+          </Label>
+          <Input
+            id="delete-benefit-confirm"
+            value={deleteConfirmText}
+            onChange={(e) => setDeleteConfirmText(e.target.value)}
+            placeholder={DELETE_BENEFIT_PHRASE}
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            autoFocus
+            className="h-9 font-mono text-sm"
+            // Enter would otherwise reach the dialog's confirm action and bypass the
+            // gate, so swallow it while the phrase is still wrong.
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !isDeleteConfirmed) e.preventDefault();
+            }}
+          />
+        </div>
+      </ConfirmDialog>
     </div>
   );
 }
