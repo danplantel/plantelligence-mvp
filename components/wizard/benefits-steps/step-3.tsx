@@ -38,11 +38,13 @@ import {
   Eye,
   Info,
   AlertTriangle,
+  Pencil,
 } from "lucide-react";
 import { KeyContact } from "@/types/new-client-wizard";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { BenefitContactDialog } from "./benefit-contact-dialog";
 import { invalidateClientCache } from "@/lib/fetch-client";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -51,6 +53,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { FAQSection, DynamicFAQItem, FAQContact } from "@/components/faq-section";
 import {
@@ -85,6 +88,8 @@ export function BenefitsStep3({
   const [contactPendingDelete, setContactPendingDelete] =
     useState<KeyContact | null>(null);
   const [isDeletingContact, setIsDeletingContact] = useState(false);
+  // Edit contact (plan-level): the contact the shared editor is open for.
+  const [editingContact, setEditingContact] = useState<KeyContact | null>(null);
   const step1Data = stepData.step1;
   const currentStep3Data = stepData.step3 || {
     faqs: [],
@@ -466,6 +471,51 @@ export function BenefitsStep3({
     }
   };
 
+  /**
+   * Persist a contact the shared editor produced.
+   *
+   * Written straight away rather than left in local state, for the same reason
+   * `deleteContact` is: `saveBenefit` merges `keyContacts` by starting FROM the stored
+   * rows, so a change that never reached the server can be lost on the next save.
+   * Throwing hands the message back to the dialog, which toasts it and stays open.
+   */
+  const handleContactSubmitted = async (updated: KeyContact) => {
+    const planId = step1Data?.planId;
+    if (!planId) throw new Error("No plan selected");
+
+    const nextContacts = localContacts.map((c) =>
+      String(c?.id) === String(updated.id) ? updated : c,
+    );
+
+    const res = await fetch(`/api/clients/${planId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ keyContacts: nextContacts }),
+    });
+    const result = await res.json().catch(() => null);
+    if (!res.ok || !result?.success) {
+      throw new Error(
+        result?.error || `Failed to save the contact (${res.status})`,
+      );
+    }
+
+    // The plan row changed — the shared cache must not serve the old copy.
+    invalidateClientCache(planId);
+    setLocalContacts(nextContacts);
+
+    // Keep the store's copy of the plan in step: `saveBenefit` merges FROM
+    // `selectedPlan.keyContacts`, so the stored copy must already hold the change.
+    const latest = useBenefitsWizardStore.getState().stepData.step1;
+    if (latest && latest.planId === planId) {
+      const selectedPlan = latest.selectedPlan
+        ? { ...(latest.selectedPlan as any), keyContacts: nextContacts }
+        : latest.selectedPlan;
+      saveStepData(1, { ...latest, selectedPlan });
+    }
+
+    toast.success("Contact updated");
+  };
+
   const previewContacts: FAQContact[] | undefined = useMemo(() => {
     const enabled = currentStep3Data.supportContacts.filter(sc => sc.enabled);
     if (enabled.length === 0) return undefined;
@@ -595,6 +645,22 @@ export function BenefitsStep3({
                           {contact.phone}
                         </p>
                       </div>
+                      {/* Edit this contact's own details. `stopPropagation` keeps the
+                          row's toggle from firing as well — this is the person's data,
+                          not this benefit's inclusion of them. */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Edit this contact"
+                        aria-label="Edit this contact"
+                        className="ml-1 h-7 w-7 shrink-0 text-muted-foreground hover:bg-accent-blue/10 hover:text-accent-blue"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingContact(contact);
+                        }}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
                       {/* Plan-level delete. `stopPropagation` is essential: the row
                           itself toggles this contact on/off for the benefit, which is
                           a different (non-destructive) action. */}
@@ -654,6 +720,38 @@ export function BenefitsStep3({
           </CardContent>
         </Card>
         )}
+
+        {/* Edit contact — the SAME editor Step 1 uses to create one (see
+            BenefitContactDialog), so the two can never drift. This page only persists
+            what it hands back. */}
+        <BenefitContactDialog
+          open={!!editingContact}
+          onOpenChange={(open) => {
+            if (!open) setEditingContact(null);
+          }}
+          mode="edit"
+          contact={editingContact}
+          planId={step1Data?.planId || ""}
+          category={String(step1Data?.benefitCategory || "")}
+          planCompanyName={step1Data?.selectedPlan?.companyName || ""}
+          planLogoUrl={
+            (step1Data?.selectedPlan as any)?.companyLogo?.url ||
+            (typeof (step1Data?.selectedPlan as any)?.companyLogo === "string"
+              ? (step1Data?.selectedPlan as any)?.companyLogo
+              : "") ||
+            ""
+          }
+          brandColor={brandColor}
+          secondaryColor={secondaryColor}
+          appointmentLink={
+            (step1Data?.selectedPlan as any)?.appointmentLink || ""
+          }
+          benefitTitle={step1Data?.benefitTitle || ""}
+          categoryBenefitByApi={step1Data?.categoryBenefitByApi ?? null}
+          onSubmit={handleContactSubmitted}
+        />
+
+
 
         {/* Plan-level delete confirmation. Placed here for locality only — Radix's
             AlertDialog portals to `document.body`, so tree position doesn't affect

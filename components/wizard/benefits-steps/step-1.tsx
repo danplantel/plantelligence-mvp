@@ -80,10 +80,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
-import { SmallVerticalCard } from "@/components/pages/my-benefits-team/small-vertical-card";
-import { ContactFormFields } from "@/components/ui/contact-form-fields";
 import {
   BenefitsCategory,
   KeyContact,
@@ -94,11 +90,6 @@ import {
 import { BrandImageUpload } from "@/components/ui/brand-image-upload";
 import { BrandImagesSection } from "@/components/wizard/new-client-steps/sections/brand-images-section";
 import { BrandingImage } from "@/components/ui/branding-image";
-import {
-  formatPhoneNumber,
-  normalizePhoneNumber,
-} from "@/components/wizard/steps/sections/user-setup-section/user-setup-section.funcs";
-import { normalizeExtension } from "@/lib/phone-utils";
 import { toast } from "sonner";
 import { AddContactModal } from "@/components/ui/add-contact-modal";
 import {
@@ -111,21 +102,10 @@ import {
 } from "./benefit-category-card";
 import { categoryToSlug } from "@/lib/benefit-category-slug";
 import { convertToDocumentFormat } from "@/lib/compliance-document-utils";
-import {
-  mergeOnboardingAdvisorContactsIntoKeyContacts,
-  primaryServiceLabelToBenefitsCategory,
-} from "@/lib/seed-onboarding-advisor-contacts";
+import { mergeOnboardingAdvisorContactsIntoKeyContacts } from "@/lib/seed-onboarding-advisor-contacts";
 import { BenefitsDocumentsSection } from "./benefits-documents-section";
 import benefitCategoryBackgrounds from "@/data/gallery-benefit-category-backgrounds.json";
-import { buildContactFormHref } from "@/lib/contact-form-link";
-import {
-  getActiveContactFormTopicLabels,
-  normalizeContactTopicCategory,
-  resolveContactFormTopics,
-} from "@/lib/contact-form-topics";
-import type { ContactFormTopic } from "@/lib/contact-form-topics";
-import { ContactFormTopicBuilder } from "@/components/ui/contact-form-topic-builder";
-import { ContactFormPage } from "@/components/pages/contact-form-page";
+import { BenefitContactDialog } from "./benefit-contact-dialog";
 
 /** Wizard order — matches accordion below (Branding → Messaging → Contacts → Documents). */
 const BENEFIT_SETUP_SECTION_ORDER = [
@@ -244,90 +224,6 @@ export function BenefitsStep1({
   const [draftDialogOpen, setDraftDialogOpen] = useState(false);
   const [draftPlanName, setDraftPlanName] = useState("");
 
-  // Contact form state — a mini version of the new-client ContactFormSlide
-  // (individual/team contacts, phone+email with at-least-one, CTA, visibility).
-  const [contactForm, setContactForm] = useState<{
-    contactType: "individual" | "team_support";
-    firstName: string;
-    lastName: string;
-    title: string;
-    displayName: string;
-    email: string;
-    phone: string;
-    phoneExtension: string;
-    headshot: string;
-    headshotFileName: string;
-    teamImage: string;
-    teamImageFileName: string;
-    companyName: string;
-    companyLogo: string;
-    companyLogoFileName: string;
-    isPrimary: boolean;
-    enableContactButton: boolean;
-    ctaType: "schedule" | "call" | "email" | "contact";
-    schedulingUrl: string;
-    displayEmail: boolean;
-    displayPhone: boolean;
-    /** "Topic of Interest" choices for the Plantelligence /contact form. */
-    contactFormTopics: ContactFormTopic[];
-  }>({
-    contactType: "individual",
-    firstName: "",
-    lastName: "",
-    title: "",
-    displayName: "",
-    email: "",
-    phone: "",
-    phoneExtension: "",
-    headshot: "",
-    headshotFileName: "",
-    teamImage: "",
-    teamImageFileName: "",
-    companyName: "",
-    companyLogo: "",
-    companyLogoFileName: "",
-    isPrimary: true,
-    enableContactButton: false,
-    ctaType: "schedule",
-    schedulingUrl: "",
-    // "Show on contact card" starts unchecked — adding an email/phone must not
-    // auto-enable these toggles.
-    displayEmail: false,
-    displayPhone: false,
-    contactFormTopics: [],
-  });
-  // Validation errors for the Create New Contact modal (field names).
-  const [contactFormErrors, setContactFormErrors] = useState<string[]>([]);
-  // Whether the live Plantelligence /contact page preview modal is open.
-  const [contactPreviewOpen, setContactPreviewOpen] = useState(false);
-  // Refs for focusing the first invalid field on submit.
-  const firstNameRef = useRef<HTMLInputElement>(null);
-  const lastNameRef = useRef<HTMLInputElement>(null);
-  const titleRef = useRef<HTMLInputElement>(null);
-  const emailRef = useRef<HTMLInputElement>(null);
-  const phoneRef = useRef<HTMLInputElement>(null);
-  const companyNameRef = useRef<HTMLInputElement>(null);
-  const schedulingUrlRef = useRef<HTMLInputElement>(null);
-
-  /** Update the contact form and optionally clear the given error fields. */
-  const updateContactForm = (
-    patch: Partial<typeof contactForm>,
-    clearErrors: string[] = [],
-  ) => {
-    setContactForm((prev) => ({ ...prev, ...patch }));
-    if (clearErrors.length > 0) {
-      setContactFormErrors((prev) =>
-        prev.filter((err) => !clearErrors.includes(err)),
-      );
-    }
-  };
-
-  /** The "Custom" benefit maps to the Company / Plan Sponsor hub — those contacts
-   *  are always primary and don't require a Company / Org or custom logo. */
-  const isPlanSponsorContact =
-    modalCategory === "Company / Plan Sponsor" ||
-    String(modalCategory) === "Custom";
-
   const currentStepData = stepData.step1 || {
     planId: "",
     benefitCategory: "",
@@ -410,86 +306,11 @@ export function BenefitsStep1({
     [plans, resolvedPlanId],
   );
 
-  /**
-   * ── Contact Form CTA (parity with the Create/Edit Plan contact editor) ──
-   *
-   * The "Contact Form" CTA opens the first-party Plantelligence `/contact` page, so
-   * its link is DERIVED from the contact (name, company, headshot, logo, title) plus
-   * the advisor's "Topic of Interest" choices rather than typed in — exactly what the
-   * Plan contact editor does. The contact's email is the recipient, so it becomes
-   * required whenever this CTA is selected (see `handleFormSubmit`).
-   *
-   * `normalizeContactTopicCategory` canonicalizes legacy/display names (the wizard's
-   * "Custom" category, "Health Insurance", …) onto the topic sets, matching what both
-   * the builder's suggestions and the live /contact page resolve.
-   */
-  const contactTopicCategory =
-    normalizeContactTopicCategory(modalCategory) ?? modalCategory;
-
-  // Title of the plan's custom benefit: the Company / Plan Sponsor topic list names
-  // that benefit, so its topic reads as the advisor's own title instead of the
-  // "Custom Benefits" placeholder. Read from what this wizard already holds — the
-  // live draft title while the Custom benefit itself is being edited, otherwise the
-  // read-once Benefit-row snapshot — instead of re-fetching the row the Plan editor
-  // has to request.
-  const customBenefitTitle =
-    (String(modalCategory) === "Custom"
-      ? (currentStepData.benefitTitle || "").trim()
-      : "") ||
-    (currentStepData.categoryBenefitByApi?.["company / plan sponsor"]?.title || "").trim();
-
   /** Plan-Sponsor contacts show the plan's logo, not one uploaded per contact. */
   const planCompanyLogo = useMemo(() => {
     const raw = (currentStepData.selectedPlan as any)?.companyLogo;
     return (raw?.url || (typeof raw === "string" ? raw : "")) || "";
   }, [currentStepData.selectedPlan]);
-
-  /** Everything the Contact Form CTA renders/previews, derived from form + plan. */
-  const contactFormCta = useMemo(() => {
-    const isTeam = contactForm.contactType === "team_support";
-    const name = isTeam
-      ? contactForm.displayName
-      : `${contactForm.firstName} ${contactForm.lastName}`.trim();
-    const company = isPlanSponsorContact
-      ? selectedPlanName
-      : contactForm.companyName;
-    const title = isTeam ? "" : contactForm.title;
-    const avatar = isTeam ? "" : contactForm.headshot;
-    const logo = isPlanSponsorContact ? planCompanyLogo : contactForm.companyLogo;
-    const active =
-      contactForm.enableContactButton && contactForm.ctaType === "contact";
-    return {
-      active,
-      name,
-      company,
-      title,
-      avatar,
-      logo,
-      url: active
-        ? buildContactFormHref(
-            contactForm.email,
-            company,
-            name,
-            avatar,
-            logo,
-            title,
-            getActiveContactFormTopicLabels(contactForm.contactFormTopics, {
-              customBenefitTitle,
-            }),
-            contactTopicCategory,
-            currentStepData.planId,
-          )
-        : "",
-    };
-  }, [
-    contactForm,
-    isPlanSponsorContact,
-    selectedPlanName,
-    planCompanyLogo,
-    customBenefitTitle,
-    contactTopicCategory,
-    currentStepData.planId,
-  ]);
 
   /**
    * "Acme Corp - Retirement" for the Create Benefit banner. Mirrors the page
@@ -1221,49 +1042,6 @@ export function BenefitsStep1({
   const normalizeApiCategory = (raw: string) =>
     (raw || "").toLowerCase().trim().replace(/\s+/g, " ");
 
-  /**
-   * Company / Organization default for a NEW contact.
-   *
-   * A category on the advisor's own primary-service list is serviced by the
-   * advisor's firm, so that contact's Company / Organization is
-   * `User.organizationName`. Every other category belongs to a vendor / provider /
-   * carrier, whose name has to be typed.
-   *
-   * `User.primaryServiceCategories` holds the canonical service labels
-   * (Retirement / Group Health / Group Life / Other), which are not all spelled like
-   * the benefits categories, so each label is mapped through
-   * `primaryServiceLabelToBenefitsCategory` ("Other" → "Other Benefits") rather than
-   * compared as a string; a direct normalized match is still accepted for a profile
-   * that already stores the benefits label.
-   *
-   * Company / Plan Sponsor contacts are skipped: their form has no Company field
-   * (their card shows the plan's company name), and the wizard keeps "Custom" filed
-   * under that hub.
-   */
-  const getPrimaryOrgCompanyName = (category: string): string => {
-    if (String(category) === "Company / Plan Sponsor") return "";
-    const primaryCats: string[] = Array.isArray(
-      (profileData as any)?.primaryServiceCategories,
-    )
-      ? (profileData as any).primaryServiceCategories
-      : [];
-    if (primaryCats.length === 0) return "";
-    const target = normalizeApiCategory(category);
-    const isPrimary = primaryCats.some((label) => {
-      const raw = String(label);
-      const mapped = primaryServiceLabelToBenefitsCategory(raw);
-      return (
-        normalizeApiCategory(raw) === target ||
-        (!!mapped && normalizeApiCategory(mapped) === target)
-      );
-    });
-    if (!isPrimary) return "";
-    return (
-      (profileData as any)?.organizationName ||
-      (profileData as any)?.user?.organizationName ||
-      ""
-    ).trim();
-  };
 
   /** Resolve the client/plan company name (Company / Plan Sponsor name) from the
    *  selected plan, falling back to the plans list by planId so it populates even
@@ -1998,273 +1776,88 @@ export function BenefitsStep1({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditMode, currentStepData.categoryBenefitByApi, currentStepData.benefitCategory]);
 
+  /**
+   * Open the shared contact editor (see `BenefitContactDialog`) for `category`.
+   *
+   * The dialog owns the form, its validation, the "Topic of Interest" builder and
+   * the Company / Organization prefill, so there is nothing to seed here - it is
+   * the very same component the Edit Benefit Contacts tab opens, which is what
+   * keeps the two from drifting apart.
+   */
   const handleCreateContact = (category: BenefitsCategory) => {
     setModalCategory(category);
-    setContactForm({
-      contactType: "individual",
-      firstName: "",
-      lastName: "",
-      title: "",
-      displayName: "",
-      email: "",
-      phone: "",
-      phoneExtension: "",
-      headshot: "",
-      headshotFileName: "",
-      teamImage: "",
-      teamImageFileName: "",
-      // Pre-fill the advisor's own organization for a primary service category —
-      // see `getPrimaryOrgCompanyName`. Left editable, and still required: the
-      // submit handler re-validates it for every non-Plan-Sponsor contact.
-      companyName: getPrimaryOrgCompanyName(category),
-      companyLogo: "",
-      companyLogoFileName: "",
-      isPrimary: true,
-      enableContactButton: false,
-      ctaType: "schedule",
-      schedulingUrl: "",
-      // "Show on contact card" starts unchecked (no auto-enable on email/phone).
-      displayEmail: false,
-      displayPhone: false,
-      // Pre-load the suggested topics for the category being created — the same
-      // seeding the Plan contact editor applies to a newly added contact.
-      contactFormTopics: resolveContactFormTopics(category, undefined),
-    });
-    setContactFormErrors([]);
     setIsFormDialogOpen(true);
   };
 
-  const handleFormSubmit = () => {
-    const {
-      contactType,
-      firstName,
-      lastName,
-      title,
-      displayName,
-      email,
-      phone,
-      companyName,
-    } = contactForm;
-
-    // ── Validation (mirrors the new-client ContactFormSlide) ──
-    const errors: string[] = [];
-
-    if (contactType === "individual") {
-      if (!firstName.trim()) errors.push("firstName");
-      if (!lastName.trim()) errors.push("lastName");
-      if (!title.trim()) errors.push("title");
-    } else {
-      if (!displayName.trim()) errors.push("displayName");
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const phoneDigits = (phone || "").replace(/\D/g, "");
-    const emailValid = emailRegex.test((email || "").trim());
-    const phoneValid = phoneDigits.length >= 10;
-
-    // Validate format only when a value is provided
-    if ((phone || "").trim() && !phoneValid) errors.push("phone");
-    if ((email || "").trim() && !emailValid) errors.push("email");
-
-    // At least one of Phone or Email is required — the user can choose either
-    // contact method (or provide both), instead of one specific field.
-    if (!phoneValid && !emailValid) {
-      if (!phoneValid) errors.push("phone");
-      if (!emailValid) errors.push("email");
-    }
-
-    // Company / Organization is required for non-Plan-Sponsor contacts
-    if (!isPlanSponsorContact && !companyName.trim()) {
-      errors.push("companyName");
-    }
-
-    // CTA requirements. "Schedule Appt." needs its URL; "Contact Form" needs a
-    // valid email instead, because that CTA opens the Plantelligence-branded
-    // /contact page and the link is derived from the contact while the submission
-    // is delivered to that address (same rule as the Plan contact editor).
-    if (
-      contactForm.enableContactButton &&
-      contactForm.ctaType === "schedule" &&
-      !contactForm.schedulingUrl.trim()
-    ) {
-      errors.push("schedulingUrl");
-    }
-    if (
-      contactForm.enableContactButton &&
-      contactForm.ctaType === "contact" &&
-      !emailValid
-    ) {
-      if (!errors.includes("email")) errors.push("email");
-    }
-
-    if (errors.length > 0) {
-      setContactFormErrors(errors);
-      const refMap: Record<
-        string,
-        React.RefObject<HTMLInputElement | null>
-      > = {
-        firstName: firstNameRef,
-        lastName: lastNameRef,
-        title: titleRef,
-        email: emailRef,
-        phone: phoneRef,
-        companyName: companyNameRef,
-        schedulingUrl: schedulingUrlRef,
-      };
-      refMap[errors[0]]?.current?.focus();
-      toast.error(
-        contactForm.enableContactButton &&
-          contactForm.ctaType === "contact" &&
-          !emailValid
-          ? "Selecting the Contact Form CTA requires this contact's email, since form submissions are delivered to it."
-          : "Please fill out all required fields",
-      );
-      return;
-    }
-    setContactFormErrors([]);
-
-    const shouldBePrimary =
-      isPlanSponsorContact || contactForm.isPrimary === true;
-
-    // ── Create the contact object ──
-    const newContact: KeyContact = {
-      id: `new-contact-${Date.now()}`,
-      contactType,
-      firstName: contactType === "individual" ? firstName : undefined,
-      lastName: contactType === "individual" ? lastName : undefined,
-      title: contactType === "individual" ? title : undefined,
-      displayName: contactType === "team_support" ? displayName : undefined,
-      email,
-      phone,
-      phoneExtension: contactForm.phoneExtension,
-      headshot:
-        contactType === "individual"
-          ? contactForm.headshot || undefined
-          : undefined,
-      headshotFileName:
-        contactType === "individual"
-          ? contactForm.headshotFileName || undefined
-          : undefined,
-      teamImage:
-        contactType === "team_support"
-          ? contactForm.teamImage || undefined
-          : undefined,
-      teamImageFileName:
-        contactType === "team_support"
-          ? contactForm.teamImageFileName || undefined
-          : undefined,
-      companyName: companyName || "",
-      companyLogo:
-        !isPlanSponsorContact && contactForm.companyLogo
-          ? contactForm.companyLogo
-          : undefined,
-      benefitsCategory: modalCategory as BenefitsCategory,
-      benefitsCategories: [modalCategory as BenefitsCategory],
-      showOnPortal: true,
-      isPrimary: shouldBePrimary,
-      isPrimaryOverall: shouldBePrimary,
-      isPrimaryByCategory: {
-        [modalCategory as string]: shouldBePrimary,
-      } as any,
-      name:
-        contactType === "individual"
-          ? `${firstName} ${lastName}`.trim()
-          : displayName,
-      displayEmail: contactForm.displayEmail,
-      displayPhone: contactForm.displayPhone,
-      displayUrl: contactForm.enableContactButton
-        ? contactForm.ctaType === "contact"
-        : false,
-      displayScheduleAppointment: contactForm.enableContactButton
-        ? contactForm.ctaType === "schedule"
-        : false,
-      enableContactButton: contactForm.enableContactButton,
-      contactButtonType: contactForm.enableContactButton
-        ? ((contactForm.ctaType === "schedule"
-            ? "calendar"
-            : contactForm.ctaType === "call"
-              ? "phone"
-              : contactForm.ctaType === "email"
-                ? "email"
-                : "url") as "calendar" | "phone" | "email" | "url")
-        : undefined,
-      schedulingUrl:
-        contactForm.enableContactButton &&
-        contactForm.ctaType === "schedule"
-          ? contactForm.schedulingUrl || undefined
-          : undefined,
-      // Derived first-party /contact link (carrying the advisor's topic choices),
-      // not a typed URL — see `contactFormCta`.
-      websiteUrl: contactFormCta.active
-        ? contactFormCta.url || undefined
-        : undefined,
-      // The participant-facing "Topic of Interest" configuration is saved WITH the
-      // contact so the /contact page (and the plan-side topic lookup that keeps
-      // older links correct) resolves it.
-      contactFormTopics: contactForm.contactFormTopics,
-    };
-
-    // Add to local state
-    const updatedContacts = [...selectedPlanContacts, newContact];
-    setSelectedPlanContacts(updatedContacts);
+  /**
+   * Persist a contact the shared editor produced.
+   *
+   * Unlike the Contacts tab - which writes straight to the plan, because
+   * `saveBenefit` merges `keyContacts` starting FROM the stored rows - the wizard
+   * defers to its own save, so all this needs to do is put the new contact where
+   * that save reads it: the local list, the `keyContacts` of the selected plan in
+   * step 1, and (when the contact brought a headshot) the step thumbnail.
+   */
+  const handleContactSubmitted = (newContact: KeyContact) => {
+    setSelectedPlanContacts((prev) => [...prev, newContact]);
 
     // Update selected plan in store to include this contact
     const currentPlan =
       currentStepData.selectedPlan ||
       plans.find((p) => p.id === currentStepData.planId);
 
-    if (currentPlan) {
-      const updatedPlan = {
-        ...currentPlan,
-        keyContacts: Array.isArray(currentPlan.keyContacts)
-          ? [...currentPlan.keyContacts, newContact]
-          : {
-              ...(currentPlan.keyContacts || {}),
-              contacts: [
-                ...((currentPlan.keyContacts as any)?.contacts || []),
-                newContact,
-              ],
-            },
-      };
-
-      const updatedData = {
-        ...currentStepData,
-        selectedPlan: updatedPlan,
-        contactId: newContact.id,
-      };
-
-      // If new contact has a headshot, set it as the thumbnail for the step
-      if (newContact.headshot) {
-        updatedData.brandImages = {
-          ...(updatedData.brandImages || {
-            header: null,
-            thumbnail: null,
-            secondaryBanner: null,
-            favicon: null,
-          }),
-          thumbnail: {
-            url: newContact.headshot,
-            fileName: contactForm.headshotFileName || "contact-photo.png",
-            fileSize: 0,
-            width: 0,
-            height: 0,
-            recommendedSize: "900 px—900 px",
-            status: "ok",
-            warnings: [],
-          },
-        };
-      }
-
-      saveStepData(1, updatedData);
-    } else {
+    if (!currentPlan) {
       // Fallback if no plan is selected/found
       saveStepData(1, {
         ...currentStepData,
         contactId: newContact.id,
       });
+      toast.success("Contact created");
+      return;
     }
 
-    setIsFormDialogOpen(false);
+    const updatedPlan = {
+      ...currentPlan,
+      keyContacts: Array.isArray(currentPlan.keyContacts)
+        ? [...currentPlan.keyContacts, newContact]
+        : {
+            ...(currentPlan.keyContacts || {}),
+            contacts: [
+              ...((currentPlan.keyContacts as any)?.contacts || []),
+              newContact,
+            ],
+          },
+    };
+
+    const updatedData = {
+      ...currentStepData,
+      selectedPlan: updatedPlan,
+      contactId: newContact.id,
+    };
+
+    // If new contact has a headshot, set it as the thumbnail for the step
+    if (newContact.headshot) {
+      updatedData.brandImages = {
+        ...(updatedData.brandImages || {
+          header: null,
+          thumbnail: null,
+          secondaryBanner: null,
+          favicon: null,
+        }),
+        thumbnail: {
+          url: newContact.headshot,
+          fileName: newContact.headshotFileName || "contact-photo.png",
+          fileSize: 0,
+          width: 0,
+          height: 0,
+          recommendedSize: "900 px-900 px",
+          status: "ok",
+          warnings: [],
+        },
+      };
+    }
+
+    saveStepData(1, updatedData);
     toast.success("Contact created");
   };
 
@@ -3798,586 +3391,24 @@ export function BenefitsStep1({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isFormDialogOpen} onOpenChange={setIsFormDialogOpen}>
-        <DialogContent className="sm:max-w-2xl lg:max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Create New Contact</DialogTitle>
-            <DialogDescription>
-              Add a contact for this benefit. Provide at least one way for
-              employees to reach them (phone or email).
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 py-2 items-start">
-            {/* Left column: Form Fields */}
-            <div className="space-y-4 min-w-0">
-            {/* Contact Type */}
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium dark:text-gray-300">
-                Contact Type
-              </Label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => updateContactForm({ contactType: "individual" })}
-                  className={cn(
-                    "flex flex-col p-2.5 rounded-lg border-2 text-left transition-all",
-                    contactForm.contactType === "individual"
-                      ? "border-[#23919C] bg-[#23919C]/5 shadow-sm"
-                      : "border-gray-200 bg-white hover:border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500",
-                  )}
-                >
-                  <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                    Individual
-                  </span>
-                  <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                    A specific person
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => updateContactForm({ contactType: "team_support" })}
-                  className={cn(
-                    "flex flex-col p-2.5 rounded-lg border-2 text-left transition-all",
-                    contactForm.contactType === "team_support"
-                      ? "border-[#23919C] bg-[#23919C]/5 shadow-sm"
-                      : "border-gray-200 bg-white hover:border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500",
-                  )}
-                >
-                  <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                    Team / Support Line
-                  </span>
-                  <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                    A department or group
-                  </span>
-                </button>
-              </div>
-            </div>
-
-            {/* Primary Contact Toggle — hidden for Company / Plan Sponsor (always primary) */}
-            {!isPlanSponsorContact && (
-              <div className="flex items-center space-x-2 pb-2 border-b border-gray-100 dark:border-gray-700">
-                <Checkbox
-                  id="new-contact-is-primary"
-                  checked={contactForm.isPrimary}
-                  onCheckedChange={(checked) =>
-                    updateContactForm({ isPrimary: checked === true })
-                  }
-                />
-                <Label
-                  htmlFor="new-contact-is-primary"
-                  className="text-xs font-medium cursor-pointer dark:text-gray-300"
-                >
-                  Mark as primary contact for{" "}
-                  <span className="font-semibold">{modalCategory}</span>
-                </Label>
-              </div>
-            )}
-
-            {/* Name / Title / Headshot (individual) or Team fields (team_support) */}
-            <ContactFormFields
-              contactType={contactForm.contactType}
-              firstName={contactForm.firstName}
-              lastName={contactForm.lastName}
-              title={contactForm.title}
-              onFirstNameChange={(val) =>
-                updateContactForm({ firstName: val }, ["firstName"])
-              }
-              onLastNameChange={(val) =>
-                updateContactForm({ lastName: val }, ["lastName"])
-              }
-              onTitleChange={(val) =>
-                updateContactForm({ title: val }, ["title"])
-              }
-              displayName={contactForm.displayName}
-              departmentLabel=""
-              supportHours=""
-              onDisplayNameChange={(val) =>
-                updateContactForm({ displayName: val }, ["displayName"])
-              }
-              onDepartmentLabelChange={() => {}}
-              onSupportHoursChange={() => {}}
-              headshot={contactForm.headshot}
-              headshotFileName={contactForm.headshotFileName}
-              onHeadshotChange={(val, name) =>
-                updateContactForm({ headshot: val, headshotFileName: name })
-              }
-              onHeadshotRemove={() =>
-                updateContactForm({ headshot: "", headshotFileName: "" })
-              }
-              teamImage={contactForm.teamImage}
-              teamImageFileName={contactForm.teamImageFileName}
-              onTeamImageChange={(val, name) =>
-                updateContactForm({ teamImage: val, teamImageFileName: name })
-              }
-              onTeamImageRemove={() =>
-                updateContactForm({ teamImage: "", teamImageFileName: "" })
-              }
-              firstNameRef={firstNameRef}
-              lastNameRef={lastNameRef}
-              titleRef={titleRef}
-              errorFields={contactFormErrors}
-            />
-
-            {/* Company / Organization — required for non-Plan-Sponsor contacts */}
-            {!isPlanSponsorContact && (
-              <div className="space-y-1.5">
-                <Label className="dark:text-gray-300 text-xs font-medium">
-                  Company / Organization <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  ref={companyNameRef}
-                  value={contactForm.companyName}
-                  onChange={(e) =>
-                    updateContactForm({ companyName: e.target.value }, [
-                      "companyName",
-                    ])
-                  }
-                  placeholder="e.g. Benefits Provider Inc."
-                  className={cn(
-                    "h-8 text-sm",
-                    contactFormErrors.includes("companyName") &&
-                      "border-red-500",
-                  )}
-                />
-                {contactFormErrors.includes("companyName") && (
-                  <p className="text-[10px] text-red-500">
-                    Company / Organization is required
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Phone / Email — at least one required */}
-            <div className="space-y-1.5">
-              <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                Provide at least one of the following so employees can reach
-                this contact: <b>Phone or Email.</b>
-              </p>
-              <div className="space-y-1">
-                <Label className="dark:text-gray-300 text-xs font-medium">
-                  Phone
-                </Label>
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <Input
-                      ref={phoneRef}
-                      type="tel"
-                      value={formatPhoneNumber(contactForm.phone)}
-                      onChange={(e) => {
-                        const digits = normalizePhoneNumber(e.target.value);
-                        if (digits.length <= 11) {
-                          updateContactForm({ phone: digits }, [
-                            "phone",
-                            "email",
-                          ]);
-                        }
-                      }}
-                      placeholder="(555) 123-4567"
-                      className={cn(
-                        "h-8 text-sm",
-                        contactFormErrors.includes("phone") && "border-red-500",
-                      )}
-                    />
-                  </div>
-                  <div className="w-20">
-                    <Input
-                      type="text"
-                      maxLength={6}
-                      value={contactForm.phoneExtension}
-                      onChange={(e) => {
-                        const val = normalizeExtension(e.target.value);
-                        updateContactForm({ phoneExtension: val });
-                      }}
-                      placeholder="Ext."
-                      className="h-8 text-sm text-center"
-                    />
-                  </div>
-                </div>
-                {contactFormErrors.includes("phone") && (
-                  <p className="text-[10px] text-red-500">
-                    Enter a valid phone number (or provide an email)
-                  </p>
-                )}
-              </div>
-              <div className="space-y-1">
-                <Label className="dark:text-gray-300 text-xs font-medium">
-                  Email
-                </Label>
-                <Input
-                  ref={emailRef}
-                  type="email"
-                  value={contactForm.email}
-                  onChange={(e) =>
-                    updateContactForm({ email: e.target.value }, [
-                      "email",
-                      "phone",
-                    ])
-                  }
-                  placeholder="e.g. john@company.com"
-                  className={cn(
-                    "h-8 text-sm",
-                    contactFormErrors.includes("email") && "border-red-500",
-                  )}
-                />
-                {contactFormErrors.includes("email") && (
-                  <p className="text-[10px] text-red-500">
-                    Please enter a valid email address (or provide a phone)
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Contact Company Logo — non-Plan-Sponsor only */}
-            {!isPlanSponsorContact && (
-              <div className="space-y-1.5 pt-1 border-t border-gray-100 dark:border-gray-700">
-                <Label className="dark:text-gray-300 text-xs font-medium">
-                  Upload Contact Company Logo
-                </Label>
-                <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                  Upload a logo to display on this contact&rsquo;s portal card
-                  instead of the plan&rsquo;s company logo.
-                </p>
-                <UniversalImageEditorModal
-                  value={contactForm.companyLogo || ""}
-                  fileName={contactForm.companyLogoFileName || ""}
-                  onChange={(value, fileName) =>
-                    updateContactForm({
-                      companyLogo: value,
-                      companyLogoFileName: fileName || "",
-                    })
-                  }
-                  onRemove={() =>
-                    updateContactForm({
-                      companyLogo: "",
-                      companyLogoFileName: "",
-                    })
-                  }
-                  placeholder="Upload Contact Company Logo"
-                  modalTitle="Edit Contact Company Logo"
-                  modalDescription="Upload a logo for this contact's portal card."
-                  saveButtonText="Save Logo"
-                  type="logo"
-                />
-              </div>
-            )}
-
-            {/* Call-to-Action Button */}
-            <div className="border-t border-gray-100 dark:border-gray-700 pt-3 space-y-2.5">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="enable-cta-button"
-                  checked={contactForm.enableContactButton}
-                  onCheckedChange={(checked) =>
-                    updateContactForm({ enableContactButton: checked === true })
-                  }
-                />
-                <Label
-                  htmlFor="enable-cta-button"
-                  className="text-xs font-medium cursor-pointer dark:text-gray-300"
-                >
-                  Add a call to action button
-                </Label>
-              </div>
-
-              {contactForm.enableContactButton && (
-                <>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {(
-                      [
-                        { value: "schedule", label: "Schedule Appt." },
-                        { value: "call", label: "Call" },
-                        { value: "email", label: "Email" },
-                        { value: "contact", label: "Contact Form" },
-                      ] as const
-                    ).map((opt) => {
-                      const isActive = contactForm.ctaType === opt.value;
-                      return (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() => updateContactForm({ ctaType: opt.value })}
-                          className={cn(
-                            "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-left transition-all",
-                            isActive
-                              ? "border-[#23919C] bg-[#23919C]/5 shadow-sm"
-                              : "border-gray-200 bg-white hover:border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500",
-                          )}
-                        >
-                          <span className="text-[11px] font-medium">
-                            {opt.label}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {contactForm.ctaType === "schedule" && (
-                    <div className="space-y-1">
-                      <Label className="dark:text-gray-300 text-xs font-medium">
-                        Scheduling URL <span className="text-red-500">*</span>
-                      </Label>
-                      <Input
-                        ref={schedulingUrlRef}
-                        value={contactForm.schedulingUrl}
-                        onChange={(e) =>
-                          updateContactForm(
-                            { schedulingUrl: e.target.value },
-                            ["schedulingUrl"],
-                          )
-                        }
-                        placeholder="https://calendly.com/..."
-                        className={cn(
-                          "h-8 text-sm",
-                          contactFormErrors.includes("schedulingUrl") &&
-                            "border-red-500",
-                        )}
-                      />
-                      {contactFormErrors.includes("schedulingUrl") && (
-                        <p className="text-[10px] text-red-500">
-                          Scheduling URL is required when &ldquo;Schedule
-                          Appt.&rdquo; is enabled
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {contactForm.ctaType === "contact" && (
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Label className="dark:text-gray-300 text-xs font-medium">
-                          Plantelligence Contact Form
-                        </Label>
-                        <button
-                          type="button"
-                          onClick={() => setContactPreviewOpen(true)}
-                          className="flex-shrink-0 w-5 h-5 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                          aria-label="Preview the Contact Form page"
-                          title="Preview the Contact Form page"
-                        >
-                          <Info className="w-3 h-3 text-gray-400" />
-                        </button>
-                      </div>
-                      <p className="text-[11px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 rounded px-2.5 py-1.5 leading-relaxed">
-                        This CTA opens a Plantelligence-branded contact form on
-                        the /contact page. Submissions are delivered to this
-                        contact&rsquo;s email.
-                        {contactForm.email
-                          ? ` Incoming messages will be sent to ${contactForm.email}.`
-                          : " Enter this contact's email above to receive incoming messages."}
-                      </p>
-
-                      {/* Participant-facing "Topic of Interest" choices — the same
-                          builder (and the same stored shape) the Plan contact
-                          editor uses, pre-seeded with this category's suggestions. */}
-                      <div className="border-t border-gray-100 dark:border-gray-700 pt-3 mt-1">
-                        <ContactFormTopicBuilder
-                          category={contactTopicCategory}
-                          customBenefitTitle={customBenefitTitle}
-                          topics={contactForm.contactFormTopics}
-                          onChange={(topics) =>
-                            updateContactForm({ contactFormTopics: topics })
-                          }
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {contactForm.ctaType === "call" && (
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 rounded px-2.5 py-1.5">
-                      {contactForm.phone
-                        ? `${formatPhoneNumber(contactForm.phone)}${
-                            contactForm.phoneExtension
-                              ? ` ext. ${contactForm.phoneExtension}`
-                              : ""
-                          }`
-                        : "Complete the Phone field above first"}
-                    </p>
-                  )}
-
-                  {contactForm.ctaType === "email" && (
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 rounded px-2.5 py-1.5">
-                      {contactForm.email ||
-                        "Complete the Email field above first"}
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
-
-            {/* Email / Phone Visibility Toggles */}
-            <div className="border-t border-gray-100 dark:border-gray-700 pt-3 space-y-2">
-              <Label className="dark:text-gray-300 text-xs font-medium">
-                Show on contact card
-              </Label>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="display-email"
-                  checked={contactForm.displayEmail}
-                  onCheckedChange={(checked) =>
-                    updateContactForm({ displayEmail: checked === true })
-                  }
-                />
-                <Label
-                  htmlFor="display-email"
-                  className="text-xs font-medium cursor-pointer dark:text-gray-300"
-                >
-                  Email
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="display-phone"
-                  checked={contactForm.displayPhone}
-                  onCheckedChange={(checked) =>
-                    updateContactForm({ displayPhone: checked === true })
-                  }
-                />
-                <Label
-                  htmlFor="display-phone"
-                  className="text-xs font-medium cursor-pointer dark:text-gray-300"
-                >
-                  Phone
-                </Label>
-              </div>
-            </div>
-            </div>
-
-            {/* Right column: Live Portal Preview of the contact card */}
-            <div className="flex flex-col items-center gap-2 lg:sticky lg:top-0 self-start w-full">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-accent-blue text-center">
-                Portal Preview
-              </span>
-              <SmallVerticalCard
-                contact={{
-                  id: "preview",
-                  contactType: contactForm.contactType,
-                  name:
-                    contactForm.contactType === "individual"
-                      ? `${contactForm.firstName} ${contactForm.lastName}`.trim()
-                      : contactForm.displayName,
-                  firstName: contactForm.firstName,
-                  lastName: contactForm.lastName,
-                  title:
-                    contactForm.contactType === "individual"
-                      ? contactForm.title
-                      : undefined,
-                  displayName:
-                    contactForm.contactType === "team_support"
-                      ? contactForm.displayName
-                      : undefined,
-                  email: contactForm.email,
-                  phone: contactForm.phone,
-                  phoneExtension: contactForm.phoneExtension,
-                  headshot:
-                    contactForm.contactType === "individual"
-                      ? contactForm.headshot || undefined
-                      : undefined,
-                  teamImage:
-                    contactForm.contactType === "team_support"
-                      ? contactForm.teamImage || undefined
-                      : undefined,
-                  companyName:
-                    contactForm.companyName ||
-                    (isPlanSponsorContact ? selectedPlanName || "" : ""),
-                  companyLogo:
-                    !isPlanSponsorContact && contactForm.companyLogo
-                      ? contactForm.companyLogo
-                      : (currentStepData.selectedPlan as any)?.companyLogo
-                            ?.url ||
-                        (typeof (currentStepData.selectedPlan as any)
-                          ?.companyLogo === "string"
-                          ? (currentStepData.selectedPlan as any)?.companyLogo
-                          : "") ||
-                        "",
-                  benefitsCategory:
-                    modalCategory === "Group Health"
-                      ? "Health Insurance"
-                      : modalCategory === "Group Life"
-                        ? "Life Insurance"
-                        : (modalCategory as any),
-                  isPrimary:
-                    isPlanSponsorContact || contactForm.isPrimary,
-                  displayEmail: contactForm.displayEmail,
-                  displayPhone: contactForm.displayPhone,
-                  enableContactButton: contactForm.enableContactButton,
-                  contactButtonType: contactForm.enableContactButton
-                    ? (contactForm.ctaType === "schedule"
-                        ? "calendar"
-                        : contactForm.ctaType === "call"
-                          ? "phone"
-                          : contactForm.ctaType === "email"
-                            ? "email"
-                            : "url")
-                    : undefined,
-                  schedulingUrl:
-                    contactForm.enableContactButton &&
-                    contactForm.ctaType === "schedule"
-                      ? contactForm.schedulingUrl
-                      : undefined,
-                  websiteUrl: contactFormCta.url || undefined,
-                }}
-                brandColor={
-                  currentStepData.selectedPlan?.brandColor || "#002B5B"
-                }
-                secondaryColor={
-                  currentStepData.selectedPlan?.secondaryColor || "#E6C47A"
-                }
-                appointmentLink={
-                  (currentStepData.selectedPlan as any)?.appointmentLink || ""
-                }
-                // Only Plan Sponsor contacts fall back to the plan's company name;
-                // for the other categories the preview shows a [Company / Organization]
-                // placeholder until the user types the provider's company.
-                companyName={isPlanSponsorContact ? selectedPlanName : ""}
-                index={0}
-                disableAnimation={true}
-                baselineBackgroundColor="#ffffff"
-                compact
-                previewPlaceholders
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsFormDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleFormSubmit}>Create Contact</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Contact Form preview — renders the live Plantelligence-branded /contact
-          page (with this contact's details and the topics below) so the advisor
-          sees exactly what employees will get, matching the Plan contact editor. */}
-      <Dialog open={contactPreviewOpen} onOpenChange={setContactPreviewOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto dark:bg-gray-800 dark:border-gray-700">
-          <DialogHeader>
-            <DialogTitle>Contact Form Preview</DialogTitle>
-          </DialogHeader>
-          <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
-            <ContactFormPage
-              to={contactForm.email}
-              company={contactFormCta.company}
-              contactName={contactFormCta.name}
-              contactTitle={contactFormCta.title}
-              avatar={contactFormCta.avatar}
-              companyLogo={contactFormCta.logo}
-              topics={getActiveContactFormTopicLabels(
-                contactForm.contactFormTopics,
-                { customBenefitTitle },
-              )}
-              category={contactTopicCategory || ""}
-              embedded
-              preview
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Create New Contact: the SAME editor the Contacts tab opens for a
+          contact row (see BenefitContactDialog). One form, one validation pass,
+          one CTA / "Topic of Interest" builder, so the two cannot drift apart. */}
+      <BenefitContactDialog
+        open={isFormDialogOpen}
+        onOpenChange={setIsFormDialogOpen}
+        mode="create"
+        planId={currentStepData.planId || ""}
+        category={String(modalCategory)}
+        planCompanyName={selectedPlanName}
+        planLogoUrl={planCompanyLogo}
+        brandColor={currentStepData.selectedPlan?.brandColor || "#002B5B"}
+        secondaryColor={currentStepData.selectedPlan?.secondaryColor || "#E6C47A"}
+        appointmentLink={(currentStepData.selectedPlan as any)?.appointmentLink || ""}
+        benefitTitle={currentStepData.benefitTitle || ""}
+        categoryBenefitByApi={currentStepData.categoryBenefitByApi ?? null}
+        onSubmit={handleContactSubmitted}
+      />
 
       {/* Draft plan guard — Benefits cannot be created for a plan still in Draft status. */}
       <Dialog
