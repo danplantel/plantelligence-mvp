@@ -35,11 +35,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
 
+    // `archivedAt: null` must not be sent to Prisma+MongoDB — it omits every row where the
+    // field is absent, so the filter never matched and archived flyers stayed in the list.
+    // The select below includes `archivedAt`, so filter in JS after the ordered fetch.
     const flyers = await prisma.marketingFlyer.findMany({
-      where: {
-        clientId,
-        ...(includeArchived ? {} : { archivedAt: null }),
-      },
+      where: { clientId },
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
@@ -64,7 +64,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: flyers.map((f) => ({
+      data: (includeArchived
+        ? flyers
+        : flyers.filter((f) => f.archivedAt == null)
+      ).map((f) => ({
         ...f,
         generatedCopyAt: f.generatedCopyAt?.toISOString() ?? null,
         archivedAt: f.archivedAt?.toISOString() ?? null,

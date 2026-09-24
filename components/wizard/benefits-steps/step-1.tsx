@@ -630,7 +630,13 @@ export function BenefitsStep1({
 
     // Sync current wizard state to employeePortalPreview.benefits
     if (currentStepData.benefitCategory) {
-      const benefits = dbBenefits !== null ? dbBenefits : (merged.employeePortalPreview?.benefits || []);
+      // Always a copy: until the Benefit API responds this array belongs to `selectedPlan`
+      // (Zustand store / `/api/clients` picker data), and the push below used to mutate
+      // that shared array in place.
+      const benefits =
+        dbBenefits !== null
+          ? [...dbBenefits]
+          : [...(merged.employeePortalPreview?.benefits || [])];
       const canonicalCategory = normalizeBenefitsCategoryForCompleteness(
         currentStepData.benefitCategory,
       );
@@ -941,21 +947,27 @@ export function BenefitsStep1({
 
   // Portal deep link sets planId + benefitCategory before `selectedPlan` exists — fetch full client so
   // completeness, contacts, and merged preview data work without re-picking the plan in the dropdown.
-  // Guarded so React StrictMode (dev double-invoke) doesn't fetch the same client twice.
+  //
+  // Deliberately NOT gated on `plans.length`: that serialised this request behind the picker fetch, so
+  // the plan only started loading after the picker resolved (measured ~2.5 s each on a remote cluster).
+  //
+  // No cleanup/`cancelled` flag. React StrictMode's double-invoke flipped it to true while the single
+  // in-flight response was still arriving, discarding the result permanently — and the ref, already
+  // stamped, blocked any retry. Correctness comes from the store check below (drop the response when
+  // the store's planId has moved on) and the ref is cleared on failure so a retry can happen.
   const fullPlanFetchRef = useRef<string | null>(null);
   useEffect(() => {
     const planId = currentStepData.planId;
-    if (!planId?.trim() || plans.length === 0) return;
+    if (!planId?.trim()) return;
     if (currentStepData.selectedPlan?.id === planId) return;
     if (fullPlanFetchRef.current === planId) return;
+    // Stamped before the request so StrictMode's second invoke cannot start a duplicate.
     fullPlanFetchRef.current = planId;
 
-    let cancelled = false;
     (async () => {
       try {
         const response = await fetch(`/api/clients/${planId}`);
         const result = await response.json();
-        if (cancelled) return;
         const latest = useBenefitsWizardStore.getState().stepData.step1;
         if (!latest?.planId || latest.planId !== planId) return;
 
@@ -1070,24 +1082,23 @@ export function BenefitsStep1({
           });
         } else {
           const plan = plans.find((p: any) => p.id === planId);
-          if (plan && !cancelled) {
+          if (plan) {
             const latest2 = useBenefitsWizardStore.getState().stepData.step1;
+            if (latest2?.planId !== planId) return;
             saveStepData(1, { ...latest2, planId, selectedPlan: plan });
           }
         }
       } catch {
-        if (cancelled) return;
+        // Let a later run retry (e.g. once the picker list has arrived).
+        fullPlanFetchRef.current = null;
         const plan = plans.find((p: any) => p.id === planId);
         if (plan) {
           const latest3 = useBenefitsWizardStore.getState().stepData.step1;
+          if (latest3?.planId !== planId) return;
           saveStepData(1, { ...latest3, planId, selectedPlan: plan });
         }
       }
     })();
-
-    return () => {
-      cancelled = true;
-    };
   }, [
     currentStepData.planId,
     currentStepData.selectedPlan?.id,
@@ -1332,35 +1343,6 @@ export function BenefitsStep1({
   useEffect(() => {
     const cat = currentStepData.benefitCategory;
     if (!cat) return;
-
-    // ── TEMPORARY DIAGNOSTIC (development only) ──
-    // The Branding previews only read `companyLogo` / `brandImages.header`, so a
-    // blank logo can be a missing snapshot, a missing profile, a key mismatch in the
-    // snapshot, or the one-shot guard. This prints every input the decision uses so a
-    // report can be traced to one branch instead of guessed at. Remove once resolved.
-    if (process.env.NODE_ENV === "development") {
-      const rows = currentStepData.categoryBenefitByApi;
-      const diagKey = normalizeApiCategory(
-        cat === "Custom" ? "Company / Plan Sponsor" : cat,
-      );
-      const diagRow = rows ? rows[diagKey] : undefined;
-      console.log("[Benefit Branding pre-fill]", {
-        category: cat,
-        apiKey: diagKey,
-        snapshotLoaded: rows !== undefined,
-        snapshotKeys: rows ? Object.keys(rows) : null,
-        rowFound: !!diagRow,
-        rowPartnerLogo: diagRow?.partnerLogo ?? null,
-        rowBackgroundImage:
-          diagRow?.backgroundImage ?? diagRow?.image ?? null,
-        profileLoaded: profileData !== undefined,
-        primaryCategories:
-          (profileData as any)?.primaryServiceCategories ?? null,
-        loadedCategories: currentStepData.benefitFieldsLoadedCategories ?? null,
-        draftLogo: currentStepData.companyLogo?.url ?? null,
-        draftHeader: currentStepData.brandImages?.header?.url ?? null,
-      });
-    }
 
     const loadedCats = currentStepData.benefitFieldsLoadedCategories ?? [];
     // Wait for the Benefit-table fetch AND the user profile to resolve so the pre-fill decision

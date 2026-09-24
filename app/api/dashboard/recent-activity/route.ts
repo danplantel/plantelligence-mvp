@@ -80,12 +80,24 @@ export async function GET(request: NextRequest) {
         : Promise.resolve([]),
 
       clientIds.length
-        ? prisma.document.findMany({
-            where: { clientId: { in: clientIds }, archivedAt: null },
-            orderBy: { uploadedAt: "desc" },
-            take: PER_SOURCE_LIMIT,
-            select: { id: true, title: true, clientId: true, uploadedAt: true },
-          })
+        ? prisma.document
+            .findMany({
+              // Do NOT filter on `archivedAt: null` in Prisma+MongoDB: it omits every
+              // document where the field is absent (the common case for older rows), so
+              // the feed silently lost uploads it was meant to show. Fetch the newest
+              // rows and drop archived ones in JS instead.
+              where: { clientId: { in: clientIds } },
+              orderBy: { uploadedAt: "desc" },
+              take: PER_SOURCE_LIMIT,
+              select: {
+                id: true,
+                title: true,
+                clientId: true,
+                uploadedAt: true,
+                archivedAt: true,
+              },
+            })
+            .then((docs) => docs.filter((doc) => doc.archivedAt == null))
         : Promise.resolve([]),
 
       prisma.meeting.findMany({

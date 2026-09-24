@@ -30,8 +30,56 @@ const BRANDING_SLOTS = ["logo", "background", "thumbnail", "secondaryBanner", "f
 export type BrandingSlot = (typeof BRANDING_SLOTS)[number];
 
 /**
+ * Server-side branding upload: PutObject straight to the bucket.
+ *
+ * `uploadFileToR2` cannot run here — it posts to the RELATIVE `/api/r2/upload-direct`
+ * and falls back to `XMLHttpRequest`, neither of which exists in Node. It threw
+ * `TypeError: Failed to parse URL from /api/r2/upload-direct`, so every server caller
+ * kept the inline base64 instead of moving it to R2.
+ *
+ * The key must match what that route builds for `purpose: "branding"`, i.e.
+ * `buildBrandingKey({ orgId })` where orgId is the plan's owner. The owner is read
+ * from the DB (not the session) so a session-less caller such as the branding
+ * migration produces exactly the same keys as the browser path.
+ */
+async function uploadBrandingToR2Direct(params: {
+  file: File;
+  fileName: string;
+  clientId: string;
+  slot: BrandingSlot;
+}): Promise<string | null> {
+  const [{ buildBrandingKey, isR2Configured, putObjectBuffer }, { prisma }] =
+    await Promise.all([import("@/lib/r2"), import("@/lib/prisma")]);
+  if (!isR2Configured()) return null;
+
+  const owner = await prisma.client.findUnique({
+    where: { id: params.clientId },
+    select: { userId: true },
+  });
+  if (!owner?.userId) return null;
+
+  const key = buildBrandingKey({
+    orgId: owner.userId,
+    planId: params.clientId,
+    slot: params.slot,
+    fileName: params.fileName,
+  });
+  const buffer = Buffer.from(await params.file.arrayBuffer());
+  const ok = await putObjectBuffer({
+    key,
+    body: buffer,
+    contentType: params.file.type || "image/png",
+  });
+  return ok ? key : null;
+}
+
+/**
  * Upload a single branding image (data URL or File) to R2 and return the storage key.
  * Returns null if R2 not configured or upload fails.
+ *
+ * Dispatches on the runtime: the browser keeps using the relay/presigned flow in
+ * `uploadFileToR2` (it is CORS-safe there), while the server goes straight to
+ * PutObject. Callers do not need to know which one they are.
  */
 export async function uploadBrandingToR2(params: {
   dataUrlOrFile: string | File;
@@ -39,11 +87,21 @@ export async function uploadBrandingToR2(params: {
   clientId: string;
   slot: BrandingSlot;
 }): Promise<string | null> {
-  const { uploadFileToR2 } = await import("@/lib/upload-to-r2");
   const file =
     typeof params.dataUrlOrFile === "string"
       ? dataUrlToFile(params.dataUrlOrFile, params.fileName)
       : params.dataUrlOrFile;
+
+  if (typeof window === "undefined") {
+    return uploadBrandingToR2Direct({
+      file,
+      fileName: params.fileName,
+      clientId: params.clientId,
+      slot: params.slot,
+    });
+  }
+
+  const { uploadFileToR2 } = await import("@/lib/upload-to-r2");
   return uploadFileToR2({
     file,
     purpose: "branding",
