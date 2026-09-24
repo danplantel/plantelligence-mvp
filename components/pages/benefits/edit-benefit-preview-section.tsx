@@ -7,6 +7,7 @@ import { BenefitPortalPreview } from "@/components/wizard/benefits-steps/benefit
 import { BenefitsEditorPanel } from "@/components/wizard/benefits-steps/benefits-editor-panel";
 import { MobilePreviewFrame } from "@/components/wizard/benefits-steps/step-2";
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
+import { fetchClientOnce } from "@/lib/fetch-client";
 import { applyTypographyToElement } from "@/lib/typography-themes";
 import {
   usePreviewEditorLayout,
@@ -108,29 +109,50 @@ export function EditBenefitPreviewSection({
   }, [typographyTheme]);
 
   // ── Plan details ──
-  // The store deliberately does not persist `selectedPlan`, so a reload that
-  // lands directly on the Preview tab would otherwise render a logo-less header.
-  // Fetch the plan (authoritative) and fall back to the store's selection.
-  const [planDetails, setPlanDetails] = useState<any>(null);
+  // The fetched row is authoritative and falls back to the store's selection.
+  //
+  // Two things this must NOT do:
+  //
+  //  1. Clear before fetching. Doing so dropped every plan-derived value — the
+  //     company logo most visibly — and popped it back in when the response
+  //     arrived. `planDetails` is the first choice in the logo / brand colour /
+  //     website chains below, so the `selectedPlan` fallback could not cover the
+  //     gap. The result is keyed to the plan it came from instead, which still
+  //     prevents a plan switch from showing the previous plan's logo.
+  //  2. Fetch it itself. The Edit Benefit page mounts a hidden `BenefitsStep1` on
+  //     this tab (preview is not in `STEP1_TABS`), and that instance already reads
+  //     this same row. Sharing via `fetchClientOnce` coalesces the two.
+  //
+  // Note this deliberately does NOT skip the request when `selectedPlan` exists,
+  // unlike Step 2: the store's copy can be the thin picker row (Step 1 falls back
+  // to `plans.find(...)` when its own read fails), and the consumers below need
+  // `brandColor` / `secondaryColor` / `companyWebsite`, none of which the picker
+  // projection carries. The request is cache-served, so asking is cheap.
+  const [fetchedPlan, setFetchedPlan] = useState<{ planId: string; data: any } | null>(null);
+  const planDetails =
+    (fetchedPlan && fetchedPlan.planId === planId ? fetchedPlan.data : null) ??
+    selectedPlan ??
+    null;
+
   useEffect(() => {
-    if (!planId) {
-      setPlanDetails(null);
-      return;
-    }
-    // Reset before fetching so switching plans never shows the previous logo.
-    setPlanDetails(null);
+    if (!planId) return;
+    // This plan's row is already in hand.
+    if (fetchedPlan && fetchedPlan.planId === planId) return;
+
     let cancelled = false;
-    fetch(`/api/clients/${planId}`)
-      .then((r) => r.json())
-      .then((result) => {
-        if (cancelled || !result?.data) return;
-        setPlanDetails(result.data);
-      })
-      .catch(() => {});
+    (async () => {
+      try {
+        const data = await fetchClientOnce(planId);
+        if (cancelled || !data) return;
+        setFetchedPlan({ planId, data });
+      } catch {
+        /* keep whatever the store already provides */
+      }
+    })();
     return () => {
       cancelled = true;
     };
-  }, [planId]);
+  }, [planId, fetchedPlan]);
 
   // Prefill the typography theme from the plan's saved value when this session
   // has none, so the theme shown here matches what the live portal already uses.
