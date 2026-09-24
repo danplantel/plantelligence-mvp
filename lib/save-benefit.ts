@@ -1,6 +1,10 @@
 import { mergeUserBenefitWithHubDefaults } from "@/lib/hub-benefit-defaults";
 import { resolvePersistedDocumentCategory } from "@/lib/document-category";
-import { fetchClientOnce, invalidateClientCache } from "@/lib/fetch-client";
+import {
+  fetchClientOnce,
+  invalidateClientCache,
+  invalidateBenefitRowsCache,
+} from "@/lib/fetch-client";
 import type { BenefitsWizardState } from "@/lib/benefits-wizard-store";
 import type { BenefitsCategory } from "@/types/new-client-wizard";
 
@@ -485,9 +489,10 @@ export async function saveBenefit(
           }),
         },
       ).catch(() => {});
-      // The benefits PUT dual-writes `employeePortalPreview.benefits`, so the cached
-      // client row is stale again after it runs.
+      // The benefits PUT writes the Benefit row and dual-writes
+      // `employeePortalPreview.benefits`, so both cached reads are stale after it runs.
       invalidateClientCache(planId);
+      invalidateBenefitRowsCache(planId);
     }
 
     // Notify any open portal views that benefits have changed (triggers re-fetch in ClientPortalProvider)

@@ -82,3 +82,80 @@ export function invalidateClientCache(planId?: string): void {
   }
   cache.clear();
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Benefit rows — GET /api/clients/<id>/benefits
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// This is the only uncached read on the Edit Benefit page. Step 1 loads it on every
+// mount, and Radix unmounts each inactive tab's content (nothing here sets
+// `forceMount`), so switching tabs destroys and recreates Step 1 — and with it the
+// per-mount `benefitApiLoadedPlanRef` guard. Six tabs therefore meant roughly six
+// identical reads of the same handful of rows.
+//
+// Same contract as the client cache above: coalesce concurrent callers, reuse a
+// recent result for a short window, cache only successes, and invalidate from every
+// writer (step 1's debounced auto-save and the publish both write Benefit rows).
+
+const BENEFIT_ROWS_TTL = 5_000;
+
+interface BenefitRowsEntry {
+  rows: any[];
+  at: number;
+}
+
+const benefitRowsCache = new Map<string, BenefitRowsEntry>();
+const benefitRowsInFlight = new Map<string, Promise<any[] | null>>();
+
+/**
+ * Resolves the `benefits` ARRAY from the route's `{ success, benefits }` envelope, or
+ * null on failure/non-2xx so callers keep their existing error handling.
+ */
+export function fetchBenefitRowsOnce(planId: string): Promise<any[] | null> {
+  if (!planId) return Promise.resolve(null);
+
+  const cached = benefitRowsCache.get(planId);
+  if (cached && Date.now() - cached.at < BENEFIT_ROWS_TTL) {
+    return Promise.resolve(cached.rows);
+  }
+
+  const existing = benefitRowsInFlight.get(planId);
+  if (existing) return existing;
+
+  const request = fetch(`/api/clients/${planId}/benefits`, {
+    credentials: "same-origin",
+  })
+    .then(async (res) => {
+      if (!res.ok) return null;
+      const result = await res.json().catch(() => null);
+      if (!result?.success || !Array.isArray(result.benefits)) return null;
+      return result.benefits as any[];
+    })
+    .catch(() => null)
+    .then((rows) => {
+      benefitRowsInFlight.delete(planId);
+      // Only successful reads are cached; a failure stays retryable immediately.
+      if (rows !== null) benefitRowsCache.set(planId, { rows, at: Date.now() });
+      return rows;
+    })
+    .catch(() => {
+      benefitRowsInFlight.delete(planId);
+      return null;
+    });
+
+  benefitRowsInFlight.set(planId, request);
+  return request;
+}
+
+/**
+ * Drop the cached Benefit rows for one plan (or all). Call after ANY write that
+ * changes Benefit rows — step 1's `?updateOnly=1` auto-save and the publish's
+ * benefits PUT both do.
+ */
+export function invalidateBenefitRowsCache(planId?: string): void {
+  if (planId) {
+    benefitRowsCache.delete(planId);
+    return;
+  }
+  benefitRowsCache.clear();
+}

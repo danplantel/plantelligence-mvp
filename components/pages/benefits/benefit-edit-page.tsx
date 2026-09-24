@@ -254,6 +254,12 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
               <EditBenefitPreviewSection />
             </TabsContent>
 
+            {/* NB: `sections` scopes what Step 1 RENDERS, not what it DOES. Its effects
+                (plans picker, full-plan read, Benefit-rows read, contact + branding
+                prefill, debounced auto-save) are unconditional and still run on this
+                tab, so Contacts is no cheaper than Branding. That is intentional — the
+                auto-save needs the whole record — so don't read the prop as a
+                performance guard when reasoning about tab cost. */}
             <TabsContent value="contacts" className="mt-0 space-y-6">
               <BenefitsStep1 mode="edit" sections={["contacts"]} />
               <BenefitsStep3 section="contacts" />

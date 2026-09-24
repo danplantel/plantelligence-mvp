@@ -134,9 +134,24 @@ export function EditBenefitPreviewSection({
     selectedPlan ??
     null;
 
+  // Is the store's copy already the FULL client row? Step 1 reads this same endpoint and
+  // writes it to `selectedPlan`, and Step 1 is always mounted on this tab (see
+  // `STEP1_TABS` in benefit-edit-page.tsx) — so the store is the single population
+  // mechanism here, and the request below exists only as a fallback.
+  //
+  // That fallback still matters: when Step 1's own read FAILS it falls back to the thin
+  // picker row (`/api/clients?summary=1` → id/slug/companyName/status/type/timestamps),
+  // which carries no `brandColor`, `secondaryColor` or `companyWebsite`, and nothing
+  // would ever correct it. `brandColor` has a schema default, so its presence reliably
+  // distinguishes the full row from the picker projection.
+  const storePlanIsFullRow =
+    !!selectedPlan && (selectedPlan as any).brandColor !== undefined;
+
   useEffect(() => {
     if (!planId) return;
-    // This plan's row is already in hand.
+    // Single source of truth already satisfied — no request needed.
+    if (storePlanIsFullRow) return;
+    // This plan's row is already in hand from a previous fallback read.
     if (fetchedPlan && fetchedPlan.planId === planId) return;
 
     let cancelled = false;
@@ -152,7 +167,7 @@ export function EditBenefitPreviewSection({
     return () => {
       cancelled = true;
     };
-  }, [planId, fetchedPlan]);
+  }, [planId, fetchedPlan, storePlanIsFullRow]);
 
   // Prefill the typography theme from the plan's saved value when this session
   // has none, so the theme shown here matches what the live portal already uses.
@@ -235,6 +250,14 @@ export function EditBenefitPreviewSection({
     }
   }, [previewMode]);
 
+  // Scale is recomputed from several triggers on mount — this rAF, the ResizeObserver on
+  // the scaled content below, the observer on the scrollable container, and a 100ms
+  // timeout — so `updateScale` can run up to three times before the layout settles.
+  //
+  // That is intentional and cheap: each trigger catches a different source of size
+  // change (layout settling, images finishing, the Editing Panel animating open), and a
+  // pass only measures and sets state. Documented so a future reader doesn't remove one
+  // as apparent duplication and reintroduce a stale scale.
   useEffect(() => {
     if (previewMode === "mobile") return;
     const raf = requestAnimationFrame(() => updateScale());

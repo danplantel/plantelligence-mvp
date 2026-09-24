@@ -4,7 +4,12 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { fetchProfileOnce } from "@/lib/fetch-profile";
-import { fetchClientOnce, invalidateClientCache } from "@/lib/fetch-client";
+import {
+  fetchClientOnce,
+  fetchBenefitRowsOnce,
+  invalidateClientCache,
+  invalidateBenefitRowsCache,
+} from "@/lib/fetch-client";
 import { getBenefitsHubOpenPortalUrl } from "@/lib/marketing/hub-url";
 import {
   BenefitsStep1Data,
@@ -845,9 +850,10 @@ export function BenefitsStep1({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        // This PUT dual-writes `employeePortalPreview.benefits`, so the client row in
-        // the shared cache is stale from here on.
+        // This PUT writes the Benefit row and dual-writes
+        // `employeePortalPreview.benefits`, so both shared caches are stale from here.
         invalidateClientCache(currentStepData.planId);
+        invalidateBenefitRowsCache(currentStepData.planId);
       } catch (error) {
         console.error("Auto-save error:", error);
       }
@@ -1209,12 +1215,12 @@ export function BenefitsStep1({
 
     const load = async (attempt: number) => {
       try {
-        const res = await fetch(`/api/clients/${planId}/benefits`);
-        const data = await res.json();
-        if (!data?.success) {
-          throw new Error(`benefits fetch failed (${res.status})`);
-        }
-        const rows: any[] = Array.isArray(data.benefits) ? data.benefits : [];
+        // Shared single-flight cache (lib/fetch-client). This was the only UNCACHED
+        // read on the Edit Benefit page: Radix unmounts an inactive tab's content, so
+        // every tab switch destroyed and recreated Step 1 (and with it the per-mount
+        // `benefitApiLoadedPlanRef` guard) and re-issued this request.
+        const rows = await fetchBenefitRowsOnce(planId);
+        if (!rows) throw new Error("benefits fetch failed");
         const byCategory: Record<string, any | null> = {};
         for (const row of rows) {
           const key = normalizeApiCategory(String(row?.category ?? ""));
