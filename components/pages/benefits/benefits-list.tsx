@@ -42,6 +42,27 @@ interface BenefitRow {
   missingInfo: string[];
 }
 
+/**
+ * The Create Benefits wizard stores the Messaging **Intro Headline** in `Benefit.title`
+ * — by default `Welcome to <org/company>!` — so a row headlined with `title` showed
+ * participant-facing welcome copy rather than the name of the benefit. Rows are now
+ * headlined with the benefit's own name (`row.label`); a title the advisor genuinely
+ * customised is still worth surfacing, so it is kept as a secondary note.
+ */
+function isCustomBenefitTitle(
+  title: string | null | undefined,
+  label: string,
+  category: string,
+): boolean {
+  const t = (title || "").trim();
+  if (!t) return false;
+  // Wizard default: "Welcome to <name>!" / "Welcome to Your Benefits Hub!".
+  if (/^welcome to\b/i.test(t)) return false;
+  // The wizard also defaults the title to the category name; that adds nothing.
+  if (t === label || t === category) return false;
+  return true;
+}
+
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 /**
@@ -231,13 +252,31 @@ export function BenefitsListPage() {
               {planRows.map((row) => {
                 const key = `${row.planId}::${row.category}`;
                 const isToggling = toggling[key] === true;
+                // Headline is the benefit's own name — see isCustomBenefitTitle().
+                const customTitle = isCustomBenefitTitle(
+                  row.title,
+                  row.label,
+                  row.category,
+                )
+                  ? row.title
+                  : null;
+                // The plan-sponsor hub is the wizard's "Custom" benefit. "Wellness
+                // Programs" is only its default label — the wizard asks the advisor for
+                // a "Custom Category Name" (persisted as `Benefit.title`), so show that
+                // saved name, or "Custom" while none has been saved.
+                const isCustomHub =
+                  row.category === "Company / Plan Sponsor" ||
+                  row.visibilityKey === "Other";
+                const displayName = isCustomHub
+                  ? customTitle ?? "Custom"
+                  : row.label;
                 return (
                   <div key={key} className="flex items-center gap-4 py-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-white dark:border-gray-700 dark:bg-gray-900">
                       {row.partnerLogo ? (
                         <BrandingImage
                           src={row.partnerLogo}
-                          alt={row.label}
+                          alt={displayName}
                           className="h-full w-full object-contain p-1"
                         />
                       ) : (
@@ -250,8 +289,15 @@ export function BenefitsListPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex min-w-0 items-center gap-2">
                         <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-                          {row.title}
+                          {displayName}
                         </p>
+                        {/* For the custom hub the saved name IS the headline, so only
+                            the standard categories need it repeated as a note. */}
+                        {customTitle && !isCustomHub && (
+                          <span className="truncate text-[11px] text-muted-foreground">
+                            {customTitle}
+                          </span>
+                        )}
                         {row.exists && (
                           <span
                             className={cn(

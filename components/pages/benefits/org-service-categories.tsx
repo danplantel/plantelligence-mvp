@@ -81,7 +81,16 @@ export function OrgServiceCategories() {
         ) : hasCategories ? (
           <div className="flex flex-wrap items-center gap-1.5">
             {categories.map((category) => (
-              <Badge key={category} variant="secondary">
+              <Badge
+                key={category}
+                variant="secondary"
+                // `accent-blue-light` is a mode-aware token — pale teal (#d4eef0) in
+                // light mode, deep teal (#1a3f43) in dark — so one class covers both.
+                // The hover tint is pinned to the same colour: the `secondary`
+                // variant's `hover:bg-secondary/80` would otherwise snap the chip back
+                // to grey on hover, and `/80` can't be applied to a raw `var()` hex.
+                className="bg-accent-blue-light hover:bg-accent-blue-light"
+              >
                 {category}
               </Badge>
             ))}
